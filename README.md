@@ -1,8 +1,8 @@
-# Quasar Core
+# Quasar
 
 Quasar is the State-Space Computing Infrastructure: a compiler infrastructure that compiles isolated execution units for state-transition functions and their execution environments, rather than manipulating the state(data) itself. These runtimes execute prior to the data layer to compute state-space trajectories, projecting the results onto the data layer like shadows. Ultimately, developers do not define data structures; they compile the operational logic of a mesh network composed of independent, sovereign computational units.
 
-## Core Philosophy
+## Philosophy
 
 The von Neumann paradigm is explicitly rejected. Execution occurs through discrete computational units ("bubbles as state-space group") that transition state through topological jumps. State-space is the sole first-class entity; all primitives(e.g. integers, strings, and datetime) are one-dimensional projections of constrained state-space manifolds. There is no virtual machine layer; computation occurs directly through physically self-contained runtime units.
 
