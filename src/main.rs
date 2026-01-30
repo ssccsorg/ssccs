@@ -39,8 +39,8 @@ fn main() {
     
     println!(" PoC verification completed!");
     println!("Key concepts:");
-    println!("• .qs = 100% Rust code (marking logical boundaries)");
-    println!("• Observation = Find a set of states that satisfy a condition (not a single value)");
-    println!("• Single collapse → multiple projection");
+    println!("- .qs = 100% Rust code (marking logical boundaries)");
+    println!("- Observation = Find a set of states that satisfy a condition (not a single value)");
+    println!("- Single collapse → multiple projection");
 }
 
