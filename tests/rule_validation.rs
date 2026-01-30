@@ -1,3 +1,4 @@
+use quasar::projectors::IntegerProjector;
 use quasar::*;
 use std::collections::HashSet;
 
@@ -7,9 +8,10 @@ fn rule_observation_is_not_input() {
     let space = ArithmeticSpace::create_in_range(3, 0, 20);
     let tree = space.generate_tree(50);
 
-    // 동일한 트리에서 여러 번 관측
-    let result1 = observe(&tree, 3);
-    let result2 = observe(&tree, 3);
+    // 투영자를 사용하여 관측
+    let projector = IntegerProjector::default();
+    let result1 = observe(&tree, &projector);
+    let result2 = observe(&tree, &projector);
 
     // 관측은 계산이 아니라 찾기 → 항상 동일한 결과
     assert_eq!(result1, result2, "관측은 결정론적이어야 함");
@@ -24,7 +26,8 @@ fn rule_result_is_always_set() {
     for start in 0..5 {
         let space = ArithmeticSpace::create_in_range(start, 0, 30);
         let tree = space.generate_tree(30);
-        let result = observe(&tree, start);
+        let projector = IntegerProjector::default();
+        let result = observe(&tree, &projector);
 
         // 결과는 항상 집합 (최소 1개 이상)
         assert!(result.len() >= 1, "결과는 최소 1개 이상의 요소를 가져야 함");
@@ -44,24 +47,27 @@ fn rule_single_collapse_multiple_projections() {
     // 규칙: 단일 collapse에서 다중 projection 가능
     let space = ArithmeticSpace::create_in_range(5, 0, 20);
     let tree = space.generate_tree(40);
-    let collapsed = observe(&tree, 5);
+
+    // 정수 투영자로 관측
+    let projector = IntegerProjector::default();
+    let collapsed = observe(&tree, &projector);
 
     assert!(!collapsed.is_empty(), "collapse 결과는 비어있지 않아야 함");
     println!("collapse 결과: {:?} (크기: {})", collapsed, collapsed.len());
 
-    let projections: Vec<(&str, Box<dyn Projection<i64>>)> = vec![
+    let representations: Vec<(&str, Box<dyn Representation<i64>>)> = vec![
         ("수치적", Box::new(NextValues)),
         ("분류적", Box::new(OperationType)),
         ("크기적", Box::new(Magnitude)),
     ];
 
-    for (name, proj) in projections {
-        let result = proj.project(&collapsed);
+    for (name, rep) in representations {
+        let result = rep.represent(&collapsed);
 
-        // 각 프로젝션이 유효한 결과를 반환하는지 확인
-        assert!(!result.is_empty(), "프로젝션 결과는 비어있지 않아야 함");
+        // 각 표현이 유효한 결과를 반환하는지 확인
+        assert!(!result.is_empty(), "표현 결과는 비어있지 않아야 함");
 
-        // 프로젝션별 특성 검증
+        // 표현별 특성 검증
         match name {
             "수치적" => {
                 // NextValues: 각 값에 대해 "Next: 값+1"형식
@@ -93,10 +99,10 @@ fn rule_single_collapse_multiple_projections() {
             _ => {}
         }
 
-        println!(" {} 프로젝션: {:?} (크기: {})", name, result, result.len());
+        println!(" {} 표현: {:?} (크기: {})", name, result, result.len());
     }
 
-    println!("단일 collapse에서 다중 projection 가능");
+    println!("단일 collapse에서 다중 representation 가능");
 }
 
 #[test]

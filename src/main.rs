@@ -1,3 +1,4 @@
+use quasar::projectors::IntegerProjector;
 use quasar::*;
 use std::collections::HashSet;
 
@@ -38,9 +39,14 @@ fn demonstrate_state_space_composition() {
     for (name, cons) in constraints {
         let space = ArithmeticSpace::create_with_constraints(5, cons);
         let tree = space.generate_tree(15);
-        let observed = observe(&tree, 5);
+
+        // 정수 투영자를 사용하여 관측
+        let projector = IntegerProjector::default();
+        let observer = Observer::new(projector, 5);
+        let observed = observe_transitions(&tree, &observer);
+
         println!(
-            "   {}: observe(5) → {:?} (크기: {})",
+            "   {}: observe_transitions(5) → {:?} (크기: {})",
             name,
             observed,
             observed.len()
@@ -50,7 +56,7 @@ fn demonstrate_state_space_composition() {
     // 3. Mapper vs Quasar 최종 비교
     println!("\n3. 최종 개념 비교:");
     println!("   Mapper 모델: f(x) = 계산(x) → 단일 값");
-    println!("   Quasar 모델: observe(x) = 트리에서_찾기(x) → 집합");
+    println!("   Quasar 모델: observe(x) = 투영자(공간) → 집합");
     println!("   → 근본적으로 다른 패러다임");
 }
 

@@ -1,6 +1,6 @@
 // boolean.qs - 논리 상태 공간
 
-use crate::{ConstrainableStateSpace, StateSpace};
+use crate::{ConstrainableStateSpace, SpaceCoordinates, StateSpace};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum BooleanConstraint {
@@ -8,25 +8,30 @@ pub enum BooleanConstraint {
     MustBeFalse,
 }
 
-pub type BooleanSpace = ConstrainableStateSpace<bool, BooleanConstraint>;
+pub type BooleanSpace = ConstrainableStateSpace<BooleanConstraint>;
 
 impl StateSpace for BooleanSpace {
-    type Value = bool;
-
-    fn value(&self) -> bool {
-        self.value
+    fn coordinates(&self) -> SpaceCoordinates {
+        self.coordinates.clone()
     }
 
     fn constraint(&self) -> bool {
+        // 좌표를 불리언으로 해석 (첫 번째 원소: 0 -> false, 1 -> true)
+        let value = if let Some(first) = self.coordinates.raw.first() {
+            *first != 0
+        } else {
+            return false;
+        };
+
         for constraint in &self.constraints {
             match constraint {
                 BooleanConstraint::MustBeTrue => {
-                    if !self.value {
+                    if !value {
                         return false;
                     }
                 }
                 BooleanConstraint::MustBeFalse => {
-                    if self.value {
+                    if value {
                         return false;
                     }
                 }
@@ -40,20 +45,35 @@ impl StateSpace for BooleanSpace {
             return Vec::new();
         }
 
-        // 논리 연산 전이: NOT, AND(true), OR(false)
+        // 좌표를 불리언으로 해석
+        let value = if let Some(first) = self.coordinates.raw.first() {
+            *first != 0
+        } else {
+            return Vec::new();
+        };
+
         let mut transitions = Vec::new();
 
         // NOT 연산
-        transitions.push(BooleanSpace::new(!self.value).with_constraints(self.constraints.clone()));
+        transitions.push(
+            BooleanSpace::new(SpaceCoordinates::new(vec![if value { 0 } else { 1 }]))
+                .with_constraints(self.constraints.clone()),
+        );
 
         // AND true (값이 true일 때만)
-        if self.value {
-            transitions.push(BooleanSpace::new(true).with_constraints(self.constraints.clone()));
+        if value {
+            transitions.push(
+                BooleanSpace::new(SpaceCoordinates::new(vec![1]))
+                    .with_constraints(self.constraints.clone()),
+            );
         }
 
         // OR false (값이 false일 때만)
-        if !self.value {
-            transitions.push(BooleanSpace::new(false).with_constraints(self.constraints.clone()));
+        if !value {
+            transitions.push(
+                BooleanSpace::new(SpaceCoordinates::new(vec![0]))
+                    .with_constraints(self.constraints.clone()),
+            );
         }
 
         transitions
@@ -62,14 +82,14 @@ impl StateSpace for BooleanSpace {
 
 impl BooleanSpace {
     pub fn create(value: bool) -> Self {
-        Self::new(value)
+        Self::new(SpaceCoordinates::new(vec![if value { 1 } else { 0 }]))
     }
 
     pub fn create_true() -> Self {
-        Self::new(true).with_constraint(BooleanConstraint::MustBeTrue)
+        Self::new(SpaceCoordinates::new(vec![1])).with_constraint(BooleanConstraint::MustBeTrue)
     }
 
     pub fn create_false() -> Self {
-        Self::new(false).with_constraint(BooleanConstraint::MustBeFalse)
+        Self::new(SpaceCoordinates::new(vec![0])).with_constraint(BooleanConstraint::MustBeFalse)
     }
 }
