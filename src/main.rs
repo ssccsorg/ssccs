@@ -5,7 +5,7 @@ use quasar::{
 use std::collections::HashSet;
 
 fn main() {
-    println!(" Quasar PoC -Constraint-Relaxed Verification");
+    println!("Quasar PoC");
     println!("===============================\n");
 
     // Relax Constraints: Expand Scope + Start with a Single Constraint
