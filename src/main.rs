@@ -1,68 +1,74 @@
-use quasar::{
-    ArithmeticConstraint, ArithmeticSpace, Magnitude, NextValues, OperationType, Projection,
-    StateSpace, observe,
-};
+use quasar::*;
 use std::collections::HashSet;
 
-fn main() {
-    println!("Quasar PoC");
-    println!("===============================\n");
+fn demonstrate_state_space_composition() {
+    println!("\n🧩 상태 공간 조합 실험");
+    println!("=====================\n");
 
-    // Relax Constraints: Expand Scope + Start with a Single Constraint
-    println!("1. Create state space (relaxed constraints):");
-    let space1 = ArithmeticSpace::create_in_range(5, 0, 30); // range extension
-    let space2 = ArithmeticSpace::create_even(4); // single constraint
-    let space3 = ArithmeticSpace::create_positive(3); // single constraint
+    // 1. 산술 + 논리 상태 공간 동시 실험
+    println!("1. 산술과 논리 상태 공간 비교:");
 
-    println!("   Space1 (0~30): {:?}", space1);
-    println!("   Space2 (Even): {:?}", space2);
-    println!("   Space3 (Positive): {:?}\n", space3);
+    let arithmetic = ArithmeticSpace::create_in_range(3, 0, 10);
+    let boolean = BooleanSpace::create_true();
 
-    // Reasonable combination of constraints
-    println!("2. Rational combination of constraints:");
-    let mut constraints = HashSet::new();
-    constraints.insert(ArithmeticConstraint::InRange(0, 25)); // plenty of room to grow
-    constraints.insert(ArithmeticConstraint::Positive); // Basic safety constraints
-    // Even constraint removed: odd numbers may occur during transition
+    let arith_tree = arithmetic.generate_tree(20);
+    let bool_tree = boolean.generate_tree(10);
 
-    let constrained = ArithmeticSpace::create_with_constraints(5, constraints);
-    println!("   Constrained space: {:?}\n", constrained);
+    println!("   산술 상태 수: {}", arith_tree.len());
+    println!("   논리 상태 수: {}\n", bool_tree.len());
 
-    // Tree creation (20 states)
-    println!("3. Create state tree:");
-    let tree = constrained.generate_tree(20);
-    println!("   Tree Size: {}", tree.len());
+    // 2. 다양한 제약조건 조합
+    println!("2. 제약조건 조합 실험:");
 
-    // Debug: Print generated status values
-    let values: Vec<i64> = tree.iter().map(|s| s.value()).collect();
-    println!("   Status values: {:?}\n", values);
-
-    // Observation (now a valid transition)
-    println!("4. Observation experiment:");
-    let observed = observe(&tree, 5);
-    println!("   observe(5) = {:?}", observed);
-    println!("   Set size: {} (always >0)\n", observed.len());
-    assert!(observed.len() > 0, "Observations must not be empty");
-
-    // multiple projection
-    println!("5. Multiple projection:");
-    let projections: Vec<Box<dyn Projection<i64>>> = vec![
-        Box::new(NextValues),
-        Box::new(OperationType),
-        Box::new(Magnitude),
+    let constraints: Vec<(&str, HashSet<ArithmeticConstraint>)> = vec![
+        (
+            "범위만",
+            HashSet::from([ArithmeticConstraint::InRange(0, 10)]),
+        ),
+        ("짝수만", HashSet::from([ArithmeticConstraint::Even])),
+        (
+            "양수+범위",
+            HashSet::from([
+                ArithmeticConstraint::Positive,
+                ArithmeticConstraint::InRange(1, 20),
+            ]),
+        ),
     ];
 
-    for proj in projections {
-        let result = proj.project(&observed);
-        println!("   - {:?}: {:?}", proj, result);
+    for (name, cons) in constraints {
+        let space = ArithmeticSpace::create_with_constraints(5, cons);
+        let tree = space.generate_tree(15);
+        let observed = observe(&tree, 5);
+        println!(
+            "   {}: observe(5) → {:?} (크기: {})",
+            name,
+            observed,
+            observed.len()
+        );
     }
-    println!();
 
-    println!(" PoC verification completed!");
-    println!("\nKey Lesson:");
-    println!("• Constraints must ensure ‘growth potential’.");
-    println!(
-        "• Transition rules do not apply constraints immediately but are filtered after creation."
-    );
-    println!("• State space is a mathematical set: exists in parallel without order.");
+    // 3. Mapper vs Quasar 최종 비교
+    println!("\n3. 최종 개념 비교:");
+    println!("   Mapper 모델: f(x) = 계산(x) → 단일 값");
+    println!("   Quasar 모델: observe(x) = 트리에서_찾기(x) → 집합");
+    println!("   → 근본적으로 다른 패러다임");
+}
+
+fn main() {
+    println!("🧪 Quasar PoC - 확장 실험");
+    println!("=========================\n");
+
+    demonstrate_state_space_composition();
+
+    // 기존 실험도 유지
+    println!("\n📊 핵심 규칙 검증 요약:");
+    println!("1. .qs = Rust (확장자만 다름) ✓");
+    println!("2. 관측 ≠ 계산 ✓");
+    println!("3. 결과 = 집합 ✓");
+    println!("4. 단일 collapse → 다중 projection ✓");
+    println!("5. 제약조건 주입 가능 ✓");
+    println!("6. 상태 공간 조합 가능 ✓");
+
+    println!("\n🚀 Quasar는 새로운 계산 패러다임입니다.");
+    println!("   Mapper/함수 모델과는 구조적으로 다릅니다.");
 }

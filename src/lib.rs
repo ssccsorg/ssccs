@@ -113,3 +113,9 @@ mod arithmetic {
     include!("../spaces/arithmetic.qs");
 }
 pub use arithmetic::*;
+
+/// boolean.qs 파일 포함
+mod boolean {
+    include!("../spaces/boolean.qs");
+}
+pub use boolean::*;
