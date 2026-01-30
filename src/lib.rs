@@ -4,7 +4,7 @@ use std::collections::HashSet;
 use std::fmt::Debug;
 
 /// State space: structure with all possible paths
-pub trait StateSpace: Clone + Debug {
+pub trait StateSpace: Clone {
     type Value: Eq + std::hash::Hash + Copy;
 
     fn value(&self) -> Self::Value;
