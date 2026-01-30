@@ -31,6 +31,11 @@ impl SpaceCoordinates {
     pub fn is_projectable(&self) -> bool {
         !self.raw.is_empty()
     }
+
+    /// 좌표 벡터 참조
+    pub fn as_slice(&self) -> &[i64] {
+        &self.raw
+    }
 }
 
 /// 상태 공간: 가능성의 공간 (값을 가지지 않음)
@@ -72,71 +77,55 @@ pub trait StateSpace: Clone + PartialEq + Eq + std::hash::Hash {
     }
 }
 
-/// 투영자: StateSpace를 특정 값으로 투영
-pub trait SpaceProjector: Debug {
+/// 좌표 투영자: SpaceCoordinates를 특정 값으로 투영하는 순수한 해석 도구
+/// StateSpace 타입에 의존하지 않음
+pub trait CoordinateProjector: Debug {
     type Output: Eq + std::hash::Hash + Clone + Debug;
 
-    /// 상태 공간을 특정 차원의 값으로 투영
-    /// 실패 시 None 반환 (투영 불가능한 좌표)
-    fn project<S: StateSpace>(&self, space: &S) -> Option<Self::Output>;
+    /// 좌표를 특정 값으로 투영
+    fn project_coordinates(&self, coordinates: &SpaceCoordinates) -> Option<Self::Output>;
 
-    /// 투영 대상 차원
-    fn target_dimension(&self) -> ProjectionAxis;
-
-    /// 좌표를 투영 가능한지 확인
+    /// 투영 가능 여부
     fn can_project(&self, coordinates: &SpaceCoordinates) -> bool;
 }
 
-/// 투영 축
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum ProjectionAxis {
-    /// 정수 차원
-    Integer,
-    /// 불리언 차원
-    Boolean,
-    /// 문자열 차원
-    String,
-    /// 투영자 정의 차원
-    Custom(String),
-}
-
-/// 관측자: 특정 투영 결과를 기대하는 투영자
+/// 관측자: 특정 투영 결과를 기대하는 투영자 래퍼
 #[derive(Debug)]
-pub struct Observer<P: SpaceProjector> {
+pub struct Observer<P: CoordinateProjector> {
     projector: P,
     expected: P::Output,
 }
 
-impl<P: SpaceProjector> Observer<P> {
+impl<P: CoordinateProjector> Observer<P> {
     pub fn new(projector: P, expected: P::Output) -> Self {
         Self {
             projector,
             expected,
         }
     }
-}
 
-impl<P: SpaceProjector> SpaceProjector for Observer<P> {
-    type Output = bool;
-
-    fn project<S: StateSpace>(&self, space: &S) -> Option<bool> {
-        match self.projector.project(space) {
-            Some(value) => Some(value == self.expected),
-            None => None,
-        }
-    }
-
-    fn target_dimension(&self) -> ProjectionAxis {
-        self.projector.target_dimension()
-    }
-
-    fn can_project(&self, coordinates: &SpaceCoordinates) -> bool {
-        self.projector.can_project(coordinates)
+    /// 관측: 좌표가 기대값으로 투영되는지 확인
+    pub fn observe(&self, coordinates: &SpaceCoordinates) -> Option<bool> {
+        self.projector
+            .project_coordinates(coordinates)
+            .map(|value| value == self.expected)
     }
 }
 
-/// 관측 함수: 투영자를 사용하여 상태 공간 관측
-pub fn observe<S: StateSpace, P: SpaceProjector>(
+/// 상태 공간 투영 도우미 함수
+pub fn project_space<P: CoordinateProjector, S: StateSpace>(
+    projector: &P,
+    space: &S,
+) -> Option<P::Output> {
+    if space.constraint() {
+        projector.project_coordinates(&space.coordinates())
+    } else {
+        None
+    }
+}
+
+/// 상태 집합 관측 함수
+pub fn observe_space<P: CoordinateProjector, S: StateSpace>(
     states: &HashSet<S>,
     projector: &P,
 ) -> HashSet<P::Output>
@@ -146,23 +135,21 @@ where
     let mut results = HashSet::new();
 
     for state in states {
-        if state.constraint() {
-            if let Some(value) = projector.project(state) {
-                results.insert(value);
-            }
+        if let Some(value) = project_space(projector, state) {
+            results.insert(value);
         }
     }
 
     results
 }
 
-/// 조건부 관측 함수: 특정 조건을 만족하는 상태의 전이들을 관측
-pub fn observe_transitions<S: StateSpace, P: SpaceProjector>(
+/// 조건부 전이 관측 함수
+pub fn observe_transitions<P: CoordinateProjector, S: StateSpace>(
     states: &HashSet<S>,
-    condition: &Observer<P>,
-) -> HashSet<<P as SpaceProjector>::Output>
+    observer: &Observer<P>,
+) -> HashSet<P::Output>
 where
-    P: SpaceProjector,
+    P: CoordinateProjector,
     P::Output: Eq + std::hash::Hash + Clone + Debug,
 {
     let mut results = HashSet::new();
@@ -172,12 +159,13 @@ where
             continue;
         }
 
-        // 조건 관측자가 이 상태를 관측함
-        if let Some(true) = condition.project(state) {
-            // 이 상태의 전이들을 원래 투영자로 투영
+        // 좌표 관측
+        if let Some(true) = observer.observe(&state.coordinates()) {
+            // 전이 상태들의 좌표 투영
             for next in state.transitions() {
                 if next.constraint() {
-                    if let Some(value) = condition.projector.project(&next) {
+                    if let Some(value) = observer.projector.project_coordinates(&next.coordinates())
+                    {
                         results.insert(value);
                     }
                 }
@@ -236,23 +224,14 @@ impl Representation<i64> for Magnitude {
     }
 }
 
-/// 상태 공간 계층 구조
-pub trait StateSpaceHierarchy {
-    /// 포함 관계: 다른 상태 공간을 포함하는가?
-    fn contains<S: StateSpace>(&self, other: &S) -> bool;
-
-    /// 교차 관계: 다른 상태 공간과 교차하는가?
-    fn intersects<S: StateSpace>(&self, other: &S) -> bool;
-}
-
-/// 투영자 예시들
+/// 좌표 투영자 예시들
 pub mod projectors {
     use super::*;
 
-    /// 정수 투영자: 좌표의 첫 번째 원소를 정수로 해석
+    /// 정수 투영자: 좌표의 특정 인덱스를 정수로 해석
     #[derive(Debug)]
     pub struct IntegerProjector {
-        axis_index: usize, // 좌표 벡터 내 인덱스
+        axis_index: usize,
     }
 
     impl IntegerProjector {
@@ -265,28 +244,19 @@ pub mod projectors {
         }
     }
 
-    impl SpaceProjector for IntegerProjector {
+    impl CoordinateProjector for IntegerProjector {
         type Output = i64;
 
-        fn project<S: StateSpace>(&self, space: &S) -> Option<i64> {
-            let coords = space.coordinates();
-            if coords.raw.len() > self.axis_index {
-                Some(coords.raw[self.axis_index])
-            } else {
-                None
-            }
-        }
-
-        fn target_dimension(&self) -> ProjectionAxis {
-            ProjectionAxis::Integer
+        fn project_coordinates(&self, coordinates: &SpaceCoordinates) -> Option<i64> {
+            coordinates.as_slice().get(self.axis_index).copied()
         }
 
         fn can_project(&self, coordinates: &SpaceCoordinates) -> bool {
-            coordinates.raw.len() > self.axis_index
+            coordinates.as_slice().len() > self.axis_index
         }
     }
 
-    /// 불리언 투영자: 좌표의 첫 번째 원소를 0/1으로 해석
+    /// 불리언 투영자: 좌표의 특정 인덱스를 불리언으로 해석
     #[derive(Debug)]
     pub struct BooleanProjector {
         axis_index: usize,
@@ -303,55 +273,137 @@ pub mod projectors {
             }
         }
 
-        pub fn default() -> Self {
+        pub fn standard() -> Self {
             Self {
                 axis_index: 0,
                 true_value: 1,
                 false_value: 0,
             }
         }
-    }
 
-    impl SpaceProjector for BooleanProjector {
-        type Output = bool;
-
-        fn project<S: StateSpace>(&self, space: &S) -> Option<bool> {
-            let coords = space.coordinates();
-            if coords.raw.len() > self.axis_index {
-                let value = coords.raw[self.axis_index];
-                Some(value == self.true_value)
+        fn interpret(&self, value: i64) -> Option<bool> {
+            if value == self.true_value {
+                Some(true)
+            } else if value == self.false_value {
+                Some(false)
             } else {
                 None
             }
         }
+    }
 
-        fn target_dimension(&self) -> ProjectionAxis {
-            ProjectionAxis::Boolean
+    impl CoordinateProjector for BooleanProjector {
+        type Output = bool;
+
+        fn project_coordinates(&self, coordinates: &SpaceCoordinates) -> Option<bool> {
+            coordinates
+                .as_slice()
+                .get(self.axis_index)
+                .and_then(|&value| self.interpret(value))
         }
 
         fn can_project(&self, coordinates: &SpaceCoordinates) -> bool {
-            coordinates.raw.len() > self.axis_index
+            coordinates
+                .as_slice()
+                .get(self.axis_index)
+                .map_or(false, |&value| {
+                    value == self.true_value || value == self.false_value
+                })
+        }
+    }
+
+    /// 범위 투영자: 좌표가 특정 범위에 있는지 확인
+    #[derive(Debug)]
+    pub struct RangeProjector {
+        axis_index: usize,
+        min: i64,
+        max: i64,
+    }
+
+    impl RangeProjector {
+        pub fn new(axis_index: usize, min: i64, max: i64) -> Self {
+            Self {
+                axis_index,
+                min,
+                max,
+            }
+        }
+    }
+
+    impl CoordinateProjector for RangeProjector {
+        type Output = bool;
+
+        fn project_coordinates(&self, coordinates: &SpaceCoordinates) -> Option<bool> {
+            coordinates
+                .as_slice()
+                .get(self.axis_index)
+                .map(|&value| value >= self.min && value <= self.max)
+        }
+
+        fn can_project(&self, coordinates: &SpaceCoordinates) -> bool {
+            coordinates.as_slice().len() > self.axis_index
+        }
+    }
+
+    /// 다차원 투영자: 여러 축을 조합한 투영
+    #[derive(Debug)]
+    pub struct MultiAxisProjector {
+        axis_indices: Vec<usize>,
+        separator: String,
+    }
+
+    impl MultiAxisProjector {
+        pub fn new(axis_indices: Vec<usize>, separator: &str) -> Self {
+            Self {
+                axis_indices,
+                separator: separator.to_string(),
+            }
+        }
+    }
+
+    impl CoordinateProjector for MultiAxisProjector {
+        type Output = String;
+
+        fn project_coordinates(&self, coordinates: &SpaceCoordinates) -> Option<String> {
+            let values: Vec<String> = self
+                .axis_indices
+                .iter()
+                .filter_map(|&idx| coordinates.as_slice().get(idx))
+                .map(|v| v.to_string())
+                .collect();
+
+            if values.is_empty() {
+                None
+            } else {
+                Some(values.join(&self.separator))
+            }
+        }
+
+        fn can_project(&self, coordinates: &SpaceCoordinates) -> bool {
+            self.axis_indices
+                .iter()
+                .all(|&idx| coordinates.as_slice().len() > idx)
         }
     }
 }
 
-/// 제약조건 투영자: constraint()를 불리언으로 투영
+/// 제약조건 투영자: constraint()를 투영하는 특수한 경우
+/// 이 투영자는 StateSpace에 의존하지만, 개념적으로는 상태의 "제약 만족 여부"를 투영
 #[derive(Debug)]
-pub struct ConstraintProjector;
+pub struct ConstraintSatisfactionProjector;
 
-impl SpaceProjector for ConstraintProjector {
+impl CoordinateProjector for ConstraintSatisfactionProjector {
     type Output = bool;
 
-    fn project<S: StateSpace>(&self, space: &S) -> Option<bool> {
-        Some(space.constraint())
-    }
-
-    fn target_dimension(&self) -> ProjectionAxis {
-        ProjectionAxis::Boolean
+    fn project_coordinates(&self, _coordinates: &SpaceCoordinates) -> Option<bool> {
+        // 이 투영자는 좌표만으로는 constraint를 알 수 없음
+        // StateSpace의 constraint() 메서드가 필요
+        // 따라서 이 투영자는 특별한 경우임
+        None
     }
 
     fn can_project(&self, _coordinates: &SpaceCoordinates) -> bool {
-        true // constraint()는 항상 존재
+        false // 좌표만으로는 constraint를 알 수 없음
     }
 }
 
@@ -359,12 +411,10 @@ impl SpaceProjector for ConstraintProjector {
 pub mod arithmetic {
     include!("../spaces/arithmetic.qs");
 }
+pub use arithmetic::{ArithmeticConstraint, ArithmeticSpace};
 
 // boolean.qs 파일 직접 포함
 pub mod boolean {
     include!("../spaces/boolean.qs");
 }
-
-// 공용 타입들을 루트에 재내보내기
-pub use arithmetic::{ArithmeticConstraint, ArithmeticSpace};
 pub use boolean::{BooleanConstraint, BooleanSpace};

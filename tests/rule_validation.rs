@@ -10,8 +10,8 @@ fn rule_observation_is_not_input() {
 
     // 투영자를 사용하여 관측
     let projector = IntegerProjector::default();
-    let result1 = observe(&tree, &projector);
-    let result2 = observe(&tree, &projector);
+    let result1 = observe_space(&tree, &projector);
+    let result2 = observe_space(&tree, &projector);
 
     // 관측은 계산이 아니라 찾기 → 항상 동일한 결과
     assert_eq!(result1, result2, "관측은 결정론적이어야 함");
@@ -27,13 +27,13 @@ fn rule_result_is_always_set() {
         let space = ArithmeticSpace::create_in_range(start, 0, 30);
         let tree = space.generate_tree(30);
         let projector = IntegerProjector::default();
-        let result = observe(&tree, &projector);
+        let result = observe_space(&tree, &projector);
 
         // 결과는 항상 집합 (최소 1개 이상)
         assert!(result.len() >= 1, "결과는 최소 1개 이상의 요소를 가져야 함");
 
         println!(
-            " observe({}) → {:?} (크기: {})",
+            " observe_spaces({}) → {:?} (크기: {})",
             start,
             result,
             result.len()
@@ -50,7 +50,7 @@ fn rule_single_collapse_multiple_projections() {
 
     // 정수 투영자로 관측
     let projector = IntegerProjector::default();
-    let collapsed = observe(&tree, &projector);
+    let collapsed = observe_space(&tree, &projector);
 
     assert!(!collapsed.is_empty(), "collapse 결과는 비어있지 않아야 함");
     println!("collapse 결과: {:?} (크기: {})", collapsed, collapsed.len());
