@@ -13,7 +13,7 @@ fn rule_observation_is_not_input() {
     let result1 = observe_space(&tree, &projector);
     let result2 = observe_space(&tree, &projector);
 
-    // 관측은 계산이 아니라 찾기 → 항상 동일한 결과
+    // 관측은 결정론적이어야 함
     assert_eq!(result1, result2, "관측은 결정론적이어야 함");
     assert!(!result1.is_empty(), "결과는 비어있지 않아야 함");
 
@@ -33,7 +33,7 @@ fn rule_result_is_always_set() {
         assert!(result.len() >= 1, "결과는 최소 1개 이상의 요소를 가져야 함");
 
         println!(
-            " observe_spaces({}) → {:?} (크기: {})",
+            " observe_space({}) → {:?} (크기: {})",
             start,
             result,
             result.len()

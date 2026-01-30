@@ -1,6 +1,7 @@
 // boolean.qs - 논리 상태 공간
 
-use crate::{ConstrainableStateSpace, SpaceCoordinates, StateSpace};
+use crate::{ConstrainableStateSpace, ConstraintSet, SpaceCoordinates, StateSpace};
+use std::collections::HashSet;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum BooleanConstraint {
@@ -10,19 +11,9 @@ pub enum BooleanConstraint {
 
 pub type BooleanSpace = ConstrainableStateSpace<BooleanConstraint>;
 
-impl StateSpace for BooleanSpace {
-    fn coordinates(&self) -> SpaceCoordinates {
-        self.coordinates.clone()
-    }
-
-    fn constraint(&self) -> bool {
-        // 좌표를 불리언으로 해석 (첫 번째 원소: 0 -> false, 1 -> true)
-        let value = if let Some(first) = self.coordinates.raw.first() {
-            *first != 0
-        } else {
-            return false;
-        };
-
+impl BooleanSpace {
+    /// 특정 불리언 값이 모든 제약조건을 만족하는지 확인
+    fn satisfies_constraints(&self, value: bool) -> bool {
         for constraint in &self.constraints {
             match constraint {
                 BooleanConstraint::MustBeTrue => {
@@ -39,13 +30,43 @@ impl StateSpace for BooleanSpace {
         }
         true
     }
+}
 
-    fn transitions(&self) -> Vec<Self> {
-        if !self.constraint() {
-            return Vec::new();
+impl StateSpace for BooleanSpace {
+    fn coordinates(&self) -> SpaceCoordinates {
+        self.coordinates.clone()
+    }
+
+    fn constraint_set(&self) -> ConstraintSet {
+        // 좌표를 불리언으로 해석
+        let value = if let Some(first) = self.coordinates.raw.first() {
+            *first != 0
+        } else {
+            return ConstraintSet::empty();
+        };
+
+        let mut allowed = HashSet::new();
+
+        // 현재 값이 제약조건을 만족하면 추가
+        if self.satisfies_constraints(value) {
+            allowed.insert(SpaceCoordinates::new(vec![if value { 1 } else { 0 }]));
         }
 
-        // 좌표를 불리언으로 해석
+        // 반대 값도 검토
+        let opposite_value = !value;
+        if self.satisfies_constraints(opposite_value) {
+            allowed.insert(SpaceCoordinates::new(vec![if opposite_value {
+                1
+            } else {
+                0
+            }]));
+        }
+
+        ConstraintSet::new(allowed)
+    }
+
+    fn possible_transitions(&self) -> Vec<Self> {
+        // 현재 좌표를 불리언으로 해석
         let value = if let Some(first) = self.coordinates.raw.first() {
             *first != 0
         } else {
@@ -60,21 +81,11 @@ impl StateSpace for BooleanSpace {
                 .with_constraints(self.constraints.clone()),
         );
 
-        // AND true (값이 true일 때만)
-        if value {
-            transitions.push(
-                BooleanSpace::new(SpaceCoordinates::new(vec![1]))
-                    .with_constraints(self.constraints.clone()),
-            );
-        }
-
-        // OR false (값이 false일 때만)
-        if !value {
-            transitions.push(
-                BooleanSpace::new(SpaceCoordinates::new(vec![0]))
-                    .with_constraints(self.constraints.clone()),
-            );
-        }
+        // 현재 값 복사
+        transitions.push(
+            BooleanSpace::new(SpaceCoordinates::new(vec![if value { 1 } else { 0 }]))
+                .with_constraints(self.constraints.clone()),
+        );
 
         transitions
     }
