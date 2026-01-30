@@ -3,7 +3,7 @@ use quasar::*;
 use std::collections::HashSet;
 
 fn demonstrate_state_space_composition() {
-    println!("\n🧩 상태 공간 조합 실험");
+    println!("\n 상태 공간 조합 실험");
     println!("=====================\n");
 
     // 1. 산술 + 논리 상태 공간 동시 실험
@@ -61,20 +61,20 @@ fn demonstrate_state_space_composition() {
 }
 
 fn main() {
-    println!("🧪 Quasar PoC - 확장 실험");
+    println!(" Quasar PoC - 확장 실험");
     println!("=========================\n");
 
     demonstrate_state_space_composition();
 
     // 기존 실험도 유지
-    println!("\n📊 핵심 규칙 검증 요약:");
-    println!("1. .qs = Rust (확장자만 다름) ✓");
-    println!("2. 관측 ≠ 계산 ✓");
-    println!("3. 결과 = 집합 ✓");
-    println!("4. 단일 collapse → 다중 projection ✓");
-    println!("5. 제약조건 주입 가능 ✓");
-    println!("6. 상태 공간 조합 가능 ✓");
+    println!("\n 핵심 규칙 검증 요약:");
+    println!("1. .qs = Rust (확장자만 다름) ");
+    println!("2. 관측 ≠ 계산 ");
+    println!("3. 결과 = 집합 ");
+    println!("4. 단일 collapse → 다중 projection ");
+    println!("5. 제약조건 주입 가능 ");
+    println!("6. 상태 공간 조합 가능 ");
 
-    println!("\n🚀 Quasar는 새로운 계산 패러다임입니다.");
+    println!("\n Quasar는 새로운 계산 패러다임입니다.");
     println!("   Mapper/함수 모델과는 구조적으로 다릅니다.");
 }
