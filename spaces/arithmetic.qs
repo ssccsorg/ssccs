@@ -1,6 +1,6 @@
 // arithmetic.qs - 개선된 산술 상태 공간
 
-use crate::{ConstrainableStateSpace, SpaceCoordinates, StateSpace};
+use crate::{ConstrainableStateSpace, ConstraintSet, SpaceCoordinates, StateSpace};
 use std::collections::HashSet;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -13,19 +13,9 @@ pub enum ArithmeticConstraint {
 
 pub type ArithmeticSpace = ConstrainableStateSpace<ArithmeticConstraint>;
 
-impl StateSpace for ArithmeticSpace {
-    fn coordinates(&self) -> SpaceCoordinates {
-        self.coordinates.clone()
-    }
-
-    fn constraint(&self) -> bool {
-        // 좌표를 정수로 해석 (첫 번째 원소)
-        let value = if let Some(first) = self.coordinates.raw.first() {
-            *first
-        } else {
-            return false;
-        };
-
+impl ArithmeticSpace {
+    /// 특정 값이 모든 제약조건을 만족하는지 확인
+    fn satisfies_constraints(&self, value: i64) -> bool {
         for constraint in &self.constraints {
             match constraint {
                 ArithmeticConstraint::InRange(min, max) => {
@@ -53,13 +43,69 @@ impl StateSpace for ArithmeticSpace {
         true
     }
 
-    fn transitions(&self) -> Vec<Self> {
-        if !self.constraint() {
-            return Vec::new();
+    /// 제약조건을 고려한 가능한 다음 값들 생성
+    fn possible_next_values(&self, current_value: i64) -> Vec<i64> {
+        let mut values = Vec::new();
+
+        // 덧셈 (+1, +2)
+        values.push(current_value + 1);
+        values.push(current_value + 2);
+
+        // 곱셈 (*2)
+        values.push(current_value * 2);
+
+        // 뺄셈 (-1)
+        if current_value > 0 {
+            values.push(current_value - 1);
         }
 
-        // 좌표를 정수로 해석 (첫 번째 원소)
-        let x = if let Some(first) = self.coordinates.raw.first() {
+        // 나눗셈 (/2) - 정수 나눗셈만
+        if current_value != 0 && current_value.abs() >= 2 {
+            let div = if current_value > 0 {
+                current_value / 2
+            } else {
+                current_value / 2 - 1
+            };
+            values.push(div);
+        }
+
+        values
+    }
+}
+
+impl StateSpace for ArithmeticSpace {
+    fn coordinates(&self) -> SpaceCoordinates {
+        self.coordinates.clone()
+    }
+
+    fn constraint_set(&self) -> ConstraintSet {
+        // 현재 좌표 값 추출
+        let current_value = if let Some(first) = self.coordinates.raw.first() {
+            *first
+        } else {
+            return ConstraintSet::empty();
+        };
+
+        let mut allowed = HashSet::new();
+
+        // 현재 값이 제약조건을 만족하면 추가
+        if self.satisfies_constraints(current_value) {
+            allowed.insert(SpaceCoordinates::new(vec![current_value]));
+        }
+
+        // 간단한 PoC: 가능한 다음 값들 중 제약조건을 만족하는 것들만 추가
+        for next_value in self.possible_next_values(current_value) {
+            if self.satisfies_constraints(next_value) {
+                allowed.insert(SpaceCoordinates::new(vec![next_value]));
+            }
+        }
+
+        ConstraintSet::new(allowed)
+    }
+
+    fn possible_transitions(&self) -> Vec<Self> {
+        // 현재 좌표 값 추출
+        let current_value = if let Some(first) = self.coordinates.raw.first() {
             *first
         } else {
             return Vec::new();
@@ -67,35 +113,10 @@ impl StateSpace for ArithmeticSpace {
 
         let mut transitions = Vec::new();
 
-        // 덧셈 (+1, +2)
-        transitions.push(
-            ArithmeticSpace::new(SpaceCoordinates::new(vec![x + 1]))
-                .with_constraints(self.constraints.clone()),
-        );
-        transitions.push(
-            ArithmeticSpace::new(SpaceCoordinates::new(vec![x + 2]))
-                .with_constraints(self.constraints.clone()),
-        );
-
-        // 곱셈 (*2)
-        transitions.push(
-            ArithmeticSpace::new(SpaceCoordinates::new(vec![x * 2]))
-                .with_constraints(self.constraints.clone()),
-        );
-
-        // 뺄셈 (-1)
-        if x > 0 {
+        // 가능한 모든 다음 값들에 대해 상태 생성
+        for next_value in self.possible_next_values(current_value) {
             transitions.push(
-                ArithmeticSpace::new(SpaceCoordinates::new(vec![x - 1]))
-                    .with_constraints(self.constraints.clone()),
-            );
-        }
-
-        // 나눗셈 (/2) - 정수 나눗셈만
-        if x != 0 && x.abs() >= 2 {
-            let div = if x > 0 { x / 2 } else { x / 2 - 1 };
-            transitions.push(
-                ArithmeticSpace::new(SpaceCoordinates::new(vec![div]))
+                ArithmeticSpace::new(SpaceCoordinates::new(vec![next_value]))
                     .with_constraints(self.constraints.clone()),
             );
         }

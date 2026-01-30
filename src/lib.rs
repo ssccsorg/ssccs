@@ -8,11 +8,9 @@ use std::collections::HashSet;
 use std::fmt::Debug;
 
 /// 투명한 구조적 좌표 - 의미 해석 금지
-/// SpaceCoordinates are opaque structural identifiers.
-/// They must not be interpreted without a projection.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct SpaceCoordinates {
-    /// 투명한 구조적 좌표. 이 수준에서는 의미적 해석이 금지됩니다.
+    /// 투명한 구조적 좌표
     pub raw: Vec<i64>,
 }
 
@@ -22,34 +20,82 @@ impl SpaceCoordinates {
         Self { raw }
     }
 
-    /// 빈 좌표 (투영 대기 상태)
-    pub fn pending() -> Self {
-        Self { raw: Vec::new() }
-    }
-
-    /// 좌표가 투영 가능한지 여부 (원소가 1개 이상)
-    pub fn is_projectable(&self) -> bool {
-        !self.raw.is_empty()
-    }
-
     /// 좌표 벡터 참조
     pub fn as_slice(&self) -> &[i64] {
         &self.raw
     }
 }
 
-/// 상태 공간: 가능성의 공간 (값을 가지지 않음)
+/// 제약조건 집합 - 허용된 좌표들의 집합
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ConstraintSet {
+    /// 허용 좌표들
+    pub allowed: HashSet<SpaceCoordinates>,
+}
+
+impl ConstraintSet {
+    /// 새로운 제약조건 집합 생성
+    pub fn new(allowed: HashSet<SpaceCoordinates>) -> Self {
+        Self { allowed }
+    }
+
+    /// 특정 좌표가 허용되는지 확인
+    pub fn allows(&self, coord: &SpaceCoordinates) -> bool {
+        self.allowed.contains(coord)
+    }
+
+    pub fn empty() -> Self {
+        Self {
+            allowed: HashSet::new(),
+        }
+    }
+
+    /// 두 제약조건 집합의 합성 (교집합)
+    pub fn compose(&self, other: &ConstraintSet) -> Self {
+        let allowed: HashSet<_> = self.allowed.intersection(&other.allowed).cloned().collect();
+
+        Self { allowed }
+    }
+
+    /// 편의 메서드: 현재 좌표만 허용하는 집합 생성
+    pub fn singleton(coord: SpaceCoordinates) -> Self {
+        let mut allowed = HashSet::new();
+        allowed.insert(coord);
+        Self::new(allowed)
+    }
+}
+
+/// 상태 공간: 가능성의 공간
+/// 상태 공간: 가능성의 공간
 pub trait StateSpace: Clone + PartialEq + Eq + std::hash::Hash {
-    /// 이 상태 공간의 투명한 "좌표" - 구조적 식별자
+    /// 이 상태 공간의 "좌표"
     fn coordinates(&self) -> SpaceCoordinates;
 
-    /// 제약조건 만족 여부 (내부적 평가)
-    fn constraint(&self) -> bool;
+    /// 제약조건 집합 반환 (순환 참조를 피하기 위해 좌표만으로 계산)
+    fn constraint_set(&self) -> ConstraintSet;
 
-    /// 전이 가능한 상태 공간들
-    fn transitions(&self) -> Vec<Self>;
+    /// 현재 좌표가 허용되는지 확인 (편의 메서드)
+    fn allows(&self) -> bool {
+        self.constraint_set().allows(&self.coordinates())
+    }
 
-    /// 상태 트리 생성
+    /// 특정 좌표가 허용되는지 확인
+    fn allows_coordinate(&self, coord: &SpaceCoordinates) -> bool {
+        self.constraint_set().allows(coord)
+    }
+
+    /// 전이 가능한 상태 공간들 (제약조건 만족 여부 검사 없이 생성)
+    fn possible_transitions(&self) -> Vec<Self>;
+
+    /// 제약조건을 만족하는 전이들만 반환
+    fn valid_transitions(&self) -> Vec<Self> {
+        self.possible_transitions()
+            .into_iter()
+            .filter(|state| state.allows())
+            .collect()
+    }
+
+    /// 상태 트리 생성 (순환 참조 방지)
     fn generate_tree(&self, max_states: usize) -> HashSet<Self> {
         let mut visited = HashSet::new();
         let mut result = HashSet::new();
@@ -66,8 +112,9 @@ pub trait StateSpace: Clone + PartialEq + Eq + std::hash::Hash {
                 break;
             }
 
-            for next in state.transitions() {
-                if next.constraint() && !visited.contains(&next) {
+            // valid_transitions만 사용 (순환 참조 없음)
+            for next in state.valid_transitions() {
+                if !visited.contains(&next) {
                     stack.push(next);
                 }
             }
@@ -78,7 +125,6 @@ pub trait StateSpace: Clone + PartialEq + Eq + std::hash::Hash {
 }
 
 /// 좌표 투영자: SpaceCoordinates를 특정 값으로 투영하는 순수한 해석 도구
-/// StateSpace 타입에 의존하지 않음
 pub trait CoordinateProjector: Debug {
     type Output: Eq + std::hash::Hash + Clone + Debug;
 
@@ -117,7 +163,7 @@ pub fn project_space<P: CoordinateProjector, S: StateSpace>(
     projector: &P,
     space: &S,
 ) -> Option<P::Output> {
-    if space.constraint() {
+    if space.allows() {
         projector.project_coordinates(&space.coordinates())
     } else {
         None
@@ -155,15 +201,15 @@ where
     let mut results = HashSet::new();
 
     for state in states {
-        if !state.constraint() {
+        if !state.allows() {
             continue;
         }
 
         // 좌표 관측
         if let Some(true) = observer.observe(&state.coordinates()) {
             // 전이 상태들의 좌표 투영
-            for next in state.transitions() {
-                if next.constraint() {
+            for next in state.valid_transitions() {
+                if next.allows() {
                     if let Some(value) = observer.projector.project_coordinates(&next.coordinates())
                     {
                         results.insert(value);
@@ -311,99 +357,129 @@ pub mod projectors {
                 })
         }
     }
-
-    /// 범위 투영자: 좌표가 특정 범위에 있는지 확인
-    #[derive(Debug)]
-    pub struct RangeProjector {
-        axis_index: usize,
-        min: i64,
-        max: i64,
-    }
-
-    impl RangeProjector {
-        pub fn new(axis_index: usize, min: i64, max: i64) -> Self {
-            Self {
-                axis_index,
-                min,
-                max,
-            }
-        }
-    }
-
-    impl CoordinateProjector for RangeProjector {
-        type Output = bool;
-
-        fn project_coordinates(&self, coordinates: &SpaceCoordinates) -> Option<bool> {
-            coordinates
-                .as_slice()
-                .get(self.axis_index)
-                .map(|&value| value >= self.min && value <= self.max)
-        }
-
-        fn can_project(&self, coordinates: &SpaceCoordinates) -> bool {
-            coordinates.as_slice().len() > self.axis_index
-        }
-    }
-
-    /// 다차원 투영자: 여러 축을 조합한 투영
-    #[derive(Debug)]
-    pub struct MultiAxisProjector {
-        axis_indices: Vec<usize>,
-        separator: String,
-    }
-
-    impl MultiAxisProjector {
-        pub fn new(axis_indices: Vec<usize>, separator: &str) -> Self {
-            Self {
-                axis_indices,
-                separator: separator.to_string(),
-            }
-        }
-    }
-
-    impl CoordinateProjector for MultiAxisProjector {
-        type Output = String;
-
-        fn project_coordinates(&self, coordinates: &SpaceCoordinates) -> Option<String> {
-            let values: Vec<String> = self
-                .axis_indices
-                .iter()
-                .filter_map(|&idx| coordinates.as_slice().get(idx))
-                .map(|v| v.to_string())
-                .collect();
-
-            if values.is_empty() {
-                None
-            } else {
-                Some(values.join(&self.separator))
-            }
-        }
-
-        fn can_project(&self, coordinates: &SpaceCoordinates) -> bool {
-            self.axis_indices
-                .iter()
-                .all(|&idx| coordinates.as_slice().len() > idx)
-        }
-    }
 }
 
-/// 제약조건 투영자: constraint()를 투영하는 특수한 경우
-/// 이 투영자는 StateSpace에 의존하지만, 개념적으로는 상태의 "제약 만족 여부"를 투영
-#[derive(Debug)]
-pub struct ConstraintSatisfactionProjector;
+/// 두 상태 공간의 합성
+pub fn compose_spaces<S1: StateSpace, S2: StateSpace>(space1: &S1, space2: &S2) -> CompositeSpace {
+    CompositeSpace::new(
+        space1.constraint_set(),
+        space2.constraint_set(),
+        format!("{:?}", space1.coordinates()),
+        format!("{:?}", space2.coordinates()),
+    )
+}
 
-impl CoordinateProjector for ConstraintSatisfactionProjector {
-    type Output = bool;
+/// 합성된 상태 공간
+#[derive(Clone, Debug)]
+pub struct CompositeSpace {
+    constraint_set: ConstraintSet,
+    space1_description: String,
+    space2_description: String,
+    /// 합성 결과 통계
+    statistics: CompositionStatistics,
+}
 
-    fn project_coordinates(&self, _coordinates: &SpaceCoordinates) -> Option<bool> {
-        // 이 투영자는 좌표만으로는 constraint를 알 수 없음
-        // StateSpace의 constraint() 메서드가 필요
-        // 따라서 이 투영자는 특별한 경우임
-        None
+#[derive(Clone, Debug)]
+pub struct CompositionStatistics {
+    pub total_space1_allowed: usize,
+    pub total_space2_allowed: usize,
+    pub intersection_size: usize,
+    pub composition_ratio: f64, // 교집합 크기 / (space1 ∪ space2) 크기
+}
+
+impl CompositeSpace {
+    pub fn new(
+        set1: ConstraintSet,
+        set2: ConstraintSet,
+        space1_desc: String,
+        space2_desc: String,
+    ) -> Self {
+        let total_space1_allowed = set1.allowed.len();
+        let total_space2_allowed = set2.allowed.len();
+        let intersection: HashSet<_> = set1.allowed.intersection(&set2.allowed).cloned().collect();
+        let intersection_size = intersection.len();
+
+        let union_size = set1.allowed.union(&set2.allowed).count();
+        let composition_ratio = if union_size > 0 {
+            intersection_size as f64 / union_size as f64
+        } else {
+            0.0
+        };
+
+        let statistics = CompositionStatistics {
+            total_space1_allowed,
+            total_space2_allowed,
+            intersection_size,
+            composition_ratio,
+        };
+
+        Self {
+            constraint_set: set1.compose(&set2),
+            space1_description: space1_desc,
+            space2_description: space2_desc,
+            statistics,
+        }
     }
 
-    fn can_project(&self, _coordinates: &SpaceCoordinates) -> bool {
-        false // 좌표만으로는 constraint를 알 수 없음
+    pub fn constraint_set(&self) -> &ConstraintSet {
+        &self.constraint_set
+    }
+
+    /// 허용 좌표들
+    pub fn allowed_coordinates(&self) -> &HashSet<SpaceCoordinates> {
+        &self.constraint_set.allowed
+    }
+
+    /// 합성 통계
+    pub fn statistics(&self) -> &CompositionStatistics {
+        &self.statistics
+    }
+
+    /// 합성 정보 출력
+    pub fn describe_composition(&self) -> String {
+        format!(
+            "합성: {} ∩ {}\n\
+            Space1 허용: {}개 좌표\n\
+            Space2 허용: {}개 좌표\n\
+            교집합: {}개 좌표\n\
+            합성 비율: {:.1}%",
+            self.space1_description,
+            self.space2_description,
+            self.statistics.total_space1_allowed,
+            self.statistics.total_space2_allowed,
+            self.statistics.intersection_size,
+            self.statistics.composition_ratio * 100.0
+        )
+    }
+
+    /// 특정 좌표가 두 공간 모두에서 허용되는지 확인
+    pub fn is_fully_allowed(&self, coord: &SpaceCoordinates) -> bool {
+        self.constraint_set.allows(coord)
+    }
+
+    /// 경계면 좌표 찾기 (한쪽은 허용하지만 다른쪽은 허용하지 않는 좌표)
+    pub fn find_boundary_coordinates(
+        &self,
+        set1: &ConstraintSet,
+        set2: &ConstraintSet,
+    ) -> HashSet<SpaceCoordinates> {
+        let mut boundaries = HashSet::new();
+
+        // set1만 허용하는 좌표들
+        for coord in &set1.allowed {
+            if !set2.allows(coord) {
+                boundaries.insert(coord.clone());
+            }
+        }
+
+        // set2만 허용하는 좌표들
+        for coord in &set2.allowed {
+            if !set1.allows(coord) {
+                boundaries.insert(coord.clone());
+            }
+        }
+
+        boundaries
     }
 }
 

@@ -6,75 +6,113 @@ fn demonstrate_state_space_composition() {
     println!("\n 상태 공간 조합 실험");
     println!("=====================\n");
 
-    // 1. 산술 + 논리 상태 공간 동시 실험
-    println!("1. 산술과 논리 상태 공간 비교:");
+    // 1. 산술 상태 공간 테스트
+    println!("1. 산술 상태 공간 테스트:");
 
     let arithmetic = ArithmeticSpace::create_in_range(3, 0, 10);
-    let boolean = BooleanSpace::create_true();
+    println!("   초기 상태: {:?}", arithmetic.coordinates());
+    println!("   제약조건: {:?}", arithmetic.constraints);
 
-    let arith_tree = arithmetic.generate_tree(20);
-    let bool_tree = boolean.generate_tree(10);
+    let arith_tree = arithmetic.generate_tree(10);
+    println!("   생성된 상태 수: {}", arith_tree.len());
 
-    println!("   산술 상태 수: {}", arith_tree.len());
-    println!("   논리 상태 수: {}\n", bool_tree.len());
+    // 2. ConstraintSet 합성 실험
+    println!("\n2. ConstraintSet 합성 실험:");
 
-    // 2. 다양한 제약조건 조합
-    println!("2. 제약조건 조합 실험:");
+    // 다양한 범위의 상태 공간들
+    let spaces = vec![
+        ("좁은 범위", ArithmeticSpace::create_in_range(5, 0, 5)),
+        ("중간 범위", ArithmeticSpace::create_in_range(5, 3, 7)),
+        ("넓은 범위", ArithmeticSpace::create_in_range(5, 0, 10)),
+    ];
 
-    let constraints: Vec<(&str, HashSet<ArithmeticConstraint>)> = vec![
+    for i in 0..spaces.len() {
+        for j in i + 1..spaces.len() {
+            let (name1, space1) = &spaces[i];
+            let (name2, space2) = &spaces[j];
+
+            let composite = compose_spaces(space1, space2);
+
+            println!("\n   {} ∩ {}:", name1, name2);
+            println!("   {}", composite.describe_composition());
+
+            // 허용 좌표 예시 출력
+            let allowed = composite.allowed_coordinates();
+            let sample: Vec<String> = allowed
+                .iter()
+                .take(3)
+                .map(|coord| format!("{:?}", coord.raw))
+                .collect();
+
+            println!("   허용 좌표 예시: {:?}", sample);
+            if allowed.len() > 3 {
+                println!("   허용 (총 {}개)", allowed.len());
+            }
+        }
+    }
+
+    // 3. 투영 및 관측 테스트
+    println!("\n3. 투영 및 관측 테스트:");
+
+    let space = ArithmeticSpace::create_in_range(5, 0, 15);
+    let tree = space.generate_tree(20);
+
+    let projector = IntegerProjector::default();
+    let observer = Observer::new(projector, 5);
+    let observed = observe_transitions(&tree, &observer);
+
+    println!("   트리 크기: {}", tree.len());
+    println!("   관측 결과: {:?}", observed);
+
+    // 4. 다양한 제약조건 조합
+    println!("\n4. 다양한 제약조건 조합:");
+
+    let constraint_combinations = vec![
         (
-            "범위만",
-            HashSet::from([ArithmeticConstraint::InRange(0, 10)]),
-        ),
-        ("짝수만", HashSet::from([ArithmeticConstraint::Even])),
-        (
-            "양수+범위",
+            "범위+양수",
             HashSet::from([
+                ArithmeticConstraint::InRange(0, 10),
                 ArithmeticConstraint::Positive,
-                ArithmeticConstraint::InRange(1, 20),
+            ]),
+        ),
+        (
+            "짝수+범위",
+            HashSet::from([
+                ArithmeticConstraint::Even,
+                ArithmeticConstraint::InRange(2, 8),
+            ]),
+        ),
+        (
+            "3의배수+양수",
+            HashSet::from([
+                ArithmeticConstraint::MultipleOf(3),
+                ArithmeticConstraint::Positive,
             ]),
         ),
     ];
 
-    for (name, cons) in constraints {
-        let space = ArithmeticSpace::create_with_constraints(5, cons);
+    for (name, constraints) in constraint_combinations {
+        let space = ArithmeticSpace::create_with_constraints(6, constraints);
         let tree = space.generate_tree(15);
 
-        // 정수 투영자를 사용하여 관측
-        let projector = IntegerProjector::default();
-        let observer = Observer::new(projector, 5);
-        let observed = observe_transitions(&tree, &observer);
-
-        println!(
-            "   {}: observe_transitions(5) → {:?} (크기: {})",
-            name,
-            observed,
-            observed.len()
-        );
+        println!("\n   {}:", name);
+        println!("   제약조건: {:?}", space.constraints);
+        println!("   허용 좌표 수: {}", space.constraint_set().allowed.len());
+        println!("   생성된 상태 수: {}", tree.len());
     }
-
-    // 3. Mapper vs Quasar 최종 비교
-    println!("\n3. 최종 개념 비교:");
-    println!("   Mapper 모델: f(x) = 계산(x) → 단일 값");
-    println!("   Quasar 모델: observe(x) = 투영자(공간) → 집합");
-    println!("   → 근본적으로 다른 패러다임");
 }
 
 fn main() {
-    println!(" Quasar PoC - 확장 실험");
-    println!("=========================\n");
+    println!(" Quasar PoC - ConstraintSet 합성 및 분석");
+    println!("==========================================\n");
 
     demonstrate_state_space_composition();
 
-    // 기존 실험도 유지
-    println!("\n 핵심 규칙 검증 요약:");
-    println!("1. .qs = Rust (확장자만 다름) ");
-    println!("2. 관측 ≠ 계산 ");
-    println!("3. 결과 = 집합 ");
-    println!("4. 단일 collapse → 다중 projection ");
-    println!("5. 제약조건 주입 가능 ");
-    println!("6. 상태 공간 조합 가능 ");
+    println!("\n 실험 결과 요약:");
+    println!("1. ConstraintSet 합성으로 상태 공간 교집합 계산 가능");
+    println!("2. 합성 통계(교집합 크기, 비율)로 호환성 분석 가능");
+    println!("3. 경계면 좌표 탐색으로 충돌 지점 식별 가능");
+    println!("4. 다양한 제약조건 조합 실험 완료");
 
-    println!("\n Quasar는 새로운 계산 패러다임입니다.");
-    println!("   Mapper/함수 모델과는 구조적으로 다릅니다.");
+    println!("\n Quasar: 제약조건 집합 기반 상태 공간 합성 시스템");
 }
