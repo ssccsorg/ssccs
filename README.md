@@ -1,6 +1,6 @@
-# Quasar Computing
+# SSCCS - The State-Space Construction Computing System
 
-Quasar is the State-Space Computing Infrastructure: a compiler infrastructure that compiles isolated execution units for state-transition functions and their execution environments, rather than manipulating the state(data) itself. These runtimes execute prior to the data layer to compute state-space trajectories, projecting the results onto the data layer like shadows. Ultimately, developers do not define data structures; they compile the operational logic of a mesh network composed of independent, sovereign computational units.
+SSCCS is a software infrastructure for the State-Space Construction-based Computing System: that compiles isolated execution units for state-transition functions and their execution environments, rather than manipulating the state(data) itself. These runtimes execute prior to the data layer to compute state-space trajectories, projecting the results onto the data layer like shadows. Ultimately, developers do not define data structures; they compile the operational logic of a mesh network composed of independent, sovereign computational units.
 
 ## Philosophy
 
@@ -92,7 +92,7 @@ The von Neumann paradigm is explicitly rejected. Execution occurs through discre
 
 | Rule | Definition | Strategy |
 |------|------------|----------|
-| S8.1 | Quasar compiles machine-level runtime swarms: collections of physically isolated Bubbles forming a topology network. | `materializes(fabric) → {unit₁, unit₂, ..., unitₙ}` |
+| S8.1 | SSCCS compiles machine-level runtime swarms: collections of physically isolated Bubbles forming a topology network. | `materializes(fabric) → {unit₁, unit₂, ..., unitₙ}` |
 | S8.2 | Runtime executes before the data layer to compute trajectories. Data projection is the final step following collapse. | `order: Trajectory → Collapse → Data` |
 | S8.3 | Developers compile constraint-based computational designs, not data structures. | `focus: constraints(S) not data` |
 | S8.4 | Meta-programming interface injects topological structure and constraints at pre-execution phase. | `define_state_space(dimensions, constraints)` |
