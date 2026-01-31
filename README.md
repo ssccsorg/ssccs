@@ -1,4 +1,6 @@
-# SSCCS - The State-Space Construction Computing System
+# SSCCS 
+
+## The State-Space Construction Computing System
 
 SSCCS is a software infrastructure for the State-Space Construction-based Computing System: that compiles isolated execution units for state-transition functions and their execution environments, rather than manipulating the state(data) itself. These runtimes execute prior to the data layer to compute state-space trajectories, projecting the results onto the data layer like shadows. Ultimately, developers do not define data structures; they compile the operational logic of a mesh network composed of independent, sovereign computational units.
 
