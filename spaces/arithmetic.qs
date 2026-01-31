@@ -103,19 +103,21 @@ impl StateSpace for ArithmeticSpace {
         ConstraintSet::new(allowed)
     }
 
-    fn possible_transitions(&self) -> Vec<Self> {
+    fn possible_transitions(&self) -> HashSet<Self> {
+        // Vec → HashSet
         // 현재 좌표 값 추출
         let current_value = if let Some(first) = self.coordinates.raw.first() {
             *first
         } else {
-            return Vec::new();
+            return HashSet::new();
         };
 
-        let mut transitions = Vec::new();
+        let mut transitions = HashSet::new();
 
         // 가능한 모든 다음 값들에 대해 상태 생성
         for next_value in self.possible_next_values(current_value) {
-            transitions.push(
+            transitions.insert(
+                // push → insert
                 ArithmeticSpace::new(SpaceCoordinates::new(vec![next_value]))
                     .with_constraints(self.constraints.clone()),
             );

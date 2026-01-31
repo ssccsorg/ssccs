@@ -85,10 +85,11 @@ pub trait StateSpace: Clone + PartialEq + Eq + std::hash::Hash {
     }
 
     /// 전이 가능한 상태 공간들 (제약조건 만족 여부 검사 없이 생성)
-    fn possible_transitions(&self) -> Vec<Self>;
+    fn possible_transitions(&self) -> HashSet<Self>; // Vec → HashSet
 
     /// 제약조건을 만족하는 전이들만 반환
-    fn valid_transitions(&self) -> Vec<Self> {
+    fn valid_transitions(&self) -> HashSet<Self> {
+        // Vec → HashSet
         self.possible_transitions()
             .into_iter()
             .filter(|state| state.allows())
