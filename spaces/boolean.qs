@@ -65,24 +65,27 @@ impl StateSpace for BooleanSpace {
         ConstraintSet::new(allowed)
     }
 
-    fn possible_transitions(&self) -> Vec<Self> {
+    fn possible_transitions(&self) -> HashSet<Self> {
+        // Vec → HashSet
         // 현재 좌표를 불리언으로 해석
         let value = if let Some(first) = self.coordinates.raw.first() {
             *first != 0
         } else {
-            return Vec::new();
+            return HashSet::new();
         };
 
-        let mut transitions = Vec::new();
+        let mut transitions = HashSet::new();
 
         // NOT 연산
-        transitions.push(
+        transitions.insert(
+            // push → insert
             BooleanSpace::new(SpaceCoordinates::new(vec![if value { 0 } else { 1 }]))
                 .with_constraints(self.constraints.clone()),
         );
 
         // 현재 값 복사
-        transitions.push(
+        transitions.insert(
+            // push → insert
             BooleanSpace::new(SpaceCoordinates::new(vec![if value { 1 } else { 0 }]))
                 .with_constraints(self.constraints.clone()),
         );
