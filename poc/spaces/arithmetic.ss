@@ -1,4 +1,4 @@
-// arithmetic.qs - 개선된 산술 상태 공간
+// arithmetic.ss - 개선된 산술 상태 공간
 
 use crate::{ConstrainableStateSpace, ConstraintSet, SpaceCoordinates, StateSpace};
 use std::collections::HashSet;

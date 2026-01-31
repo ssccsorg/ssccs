@@ -1,4 +1,4 @@
-//! Quasar State-Space Computing Core
+//! SSCCS State-Space Computing Core
 //! 철학: StateSpace는 값을 "가지지" 않음, 값은 투영의 결과물
 
 mod constrainable;
@@ -484,14 +484,14 @@ impl CompositeSpace {
     }
 }
 
-// arithmetic.qs 파일 직접 포함
+// arithmetic.ss 파일 직접 포함
 pub mod arithmetic {
-    include!("../spaces/arithmetic.qs");
+    include!("../spaces/arithmetic.ss");
 }
 pub use arithmetic::{ArithmeticConstraint, ArithmeticSpace};
 
-// boolean.qs 파일 직접 포함
+// boolean.ss 파일 직접 포함
 pub mod boolean {
-    include!("../spaces/boolean.qs");
+    include!("../spaces/boolean.ss");
 }
 pub use boolean::{BooleanConstraint, BooleanSpace};

@@ -1,4 +1,4 @@
-// boolean.qs - 논리 상태 공간
+// boolean.ss - 논리 상태 공간
 
 use crate::{ConstrainableStateSpace, ConstraintSet, SpaceCoordinates, StateSpace};
 use std::collections::HashSet;

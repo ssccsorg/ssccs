@@ -1,5 +1,5 @@
-use quasar::projectors::IntegerProjector;
-use quasar::*;
+use ssccs_poc::projectors::IntegerProjector;
+use ssccs_poc::*;
 use std::collections::HashSet;
 
 fn demonstrate_state_space_composition() {
@@ -103,7 +103,7 @@ fn demonstrate_state_space_composition() {
 }
 
 fn main() {
-    println!(" Quasar PoC - ConstraintSet 합성 및 분석");
+    println!(" SSCCS PoC - ConstraintSet 합성 및 분석");
     println!("==========================================\n");
 
     demonstrate_state_space_composition();
@@ -114,5 +114,5 @@ fn main() {
     println!("3. 경계면 좌표 탐색으로 충돌 지점 식별 가능");
     println!("4. 다양한 제약조건 조합 실험 완료");
 
-    println!("\n Quasar: 제약조건 집합 기반 상태 공간 합성 시스템");
+    println!("\n SSCCS: 제약조건 집합 기반 상태 공간 합성 시스템");
 }
