@@ -1,118 +1,176 @@
-use ssccs_poc::projectors::IntegerProjector;
+use ssccs_poc::arithmetic::ArithmeticSpace;
+use ssccs_poc::basic::BasicSpace;
+use ssccs_poc::fields::FieldBuilder;
+use ssccs_poc::spaces::*;
 use ssccs_poc::*;
-use std::collections::HashSet;
-
-fn demonstrate_state_space_composition() {
-    println!("\n 상태 공간 조합 실험");
-    println!("=====================\n");
-
-    // 1. 산술 상태 공간 테스트
-    println!("1. 산술 상태 공간 테스트:");
-
-    let arithmetic = ArithmeticSpace::create_in_range(3, 0, 10);
-    println!("   초기 상태: {:?}", arithmetic.coordinates());
-    println!("   제약조건: {:?}", arithmetic.constraints);
-
-    let arith_tree = arithmetic.generate_tree(10);
-    println!("   생성된 상태 수: {}", arith_tree.len());
-
-    // 2. ConstraintSet 합성 실험
-    println!("\n2. ConstraintSet 합성 실험:");
-
-    // 다양한 범위의 상태 공간들
-    let spaces = vec![
-        ("좁은 범위", ArithmeticSpace::create_in_range(5, 0, 5)),
-        ("중간 범위", ArithmeticSpace::create_in_range(5, 3, 7)),
-        ("넓은 범위", ArithmeticSpace::create_in_range(5, 0, 10)),
-    ];
-
-    for i in 0..spaces.len() {
-        for j in i + 1..spaces.len() {
-            let (name1, space1) = &spaces[i];
-            let (name2, space2) = &spaces[j];
-
-            let composite = compose_spaces(space1, space2);
-
-            println!("\n   {} ∩ {}:", name1, name2);
-            println!("   {}", composite.describe_composition());
-
-            // 허용 좌표 예시 출력
-            let allowed = composite.allowed_coordinates();
-            let sample: Vec<String> = allowed
-                .iter()
-                .take(3)
-                .map(|coord| format!("{:?}", coord.raw))
-                .collect();
-
-            println!("   허용 좌표 예시: {:?}", sample);
-            if allowed.len() > 3 {
-                println!("   허용 (총 {}개)", allowed.len());
-            }
-        }
-    }
-
-    // 3. 투영 및 관측 테스트
-    println!("\n3. 투영 및 관측 테스트:");
-
-    let space = ArithmeticSpace::create_in_range(5, 0, 15);
-    let tree = space.generate_tree(20);
-
-    let projector = IntegerProjector::default();
-    let observer = Observer::new(projector, 5);
-    let observed = observe_transitions(&tree, &observer);
-
-    println!("   트리 크기: {}", tree.len());
-    println!("   관측 결과: {:?}", observed);
-
-    // 4. 다양한 제약조건 조합
-    println!("\n4. 다양한 제약조건 조합:");
-
-    let constraint_combinations = vec![
-        (
-            "범위+양수",
-            HashSet::from([
-                ArithmeticConstraint::InRange(0, 10),
-                ArithmeticConstraint::Positive,
-            ]),
-        ),
-        (
-            "짝수+범위",
-            HashSet::from([
-                ArithmeticConstraint::Even,
-                ArithmeticConstraint::InRange(2, 8),
-            ]),
-        ),
-        (
-            "3의배수+양수",
-            HashSet::from([
-                ArithmeticConstraint::MultipleOf(3),
-                ArithmeticConstraint::Positive,
-            ]),
-        ),
-    ];
-
-    for (name, constraints) in constraint_combinations {
-        let space = ArithmeticSpace::create_with_constraints(6, constraints);
-        let tree = space.generate_tree(15);
-
-        println!("\n   {}:", name);
-        println!("   제약조건: {:?}", space.constraints);
-        println!("   허용 좌표 수: {}", space.constraint_set().allowed.len());
-        println!("   생성된 상태 수: {}", tree.len());
-    }
-}
 
 fn main() {
-    println!(" SSCCS PoC - ConstraintSet 합성 및 분석");
-    println!("==========================================\n");
+    println!(" Quasar: State-Space Computing (StateField 버전)");
+    println!("==================================================\n");
 
-    demonstrate_state_space_composition();
+    // 1. 기본 구조 실험
+    println!(" 1. 기본 구조 실험:");
+    let coords = SpaceCoordinates::new(vec![1, 2, 3]);
+    println!("   순수 좌표: {:?}", coords.raw);
+    println!("   좌표는 의미 없음: 단지 숫자 배열");
+    println!();
 
-    println!("\n 실험 결과 요약:");
-    println!("1. ConstraintSet 합성으로 상태 공간 교집합 계산 가능");
-    println!("2. 합성 통계(교집합 크기, 비율)로 호환성 분석 가능");
-    println!("3. 경계면 좌표 탐색으로 충돌 지점 식별 가능");
-    println!("4. 다양한 제약조건 조합 실험 완료");
+    // 2. 상태 공간 생성
+    println!(" 2. 상태 공간 생성:");
+    let basic_space = basic::BasicSpace::new(coords.clone());
+    println!("   BasicSpace 좌표: {:?}", basic_space.coordinates().raw);
 
-    println!("\n SSCCS: 제약조건 집합 기반 상태 공간 합성 시스템");
+    // StateField로 감싸기
+    let basic_field: StateField<BasicSpace, i64, i64> =
+        fields::FieldBuilder::<BasicSpace, i64, i64>::new(basic_space.clone())
+            .add_constraint(RangeConstraint::new(0, 0, 10))
+            .add_constraint(RangeConstraint::new(1, 0, 5))
+            .build();
+
+    println!(
+        "   StateField 제약조건: {}",
+        basic_field.constraints.describe()
+    );
+    println!("   허용 여부: {}", basic_field.is_allowed());
+    println!();
+
+    // 3. 제약조건 추가
+    println!(" 3. 제약조건 추가:");
+    let constrained_field: StateField<BasicSpace, i64, i64> =
+        FieldBuilder::new(basic::BasicSpace::new(coords.clone()))
+            .add_constraint(RangeConstraint::new(0, 0, 10))
+            .add_constraint(RangeConstraint::new(1, 0, 5))
+            .build();
+
+    println!("   제약조건: {}", constrained_field.constraints.describe());
+    println!(
+        "   좌표 [1,2,3] 허용 여부: {}",
+        constrained_field.is_allowed()
+    );
+    println!("   제약조건은 공간의 구조적 제한");
+    println!();
+
+    // 4. 투영 실험
+    println!(" 4. 투영 실험:");
+    let projector = IntegerProjector::new(0);
+    let projection = projector.project(&coords);
+    println!("   투영자: 첫 번째 축 값 추출");
+    println!("   투영 결과: {:?}", projection);
+    println!("   동일 좌표 → 다른 투영자 → 다른 의미");
+    println!();
+
+    // 5. 산술 공간 실험
+    println!(" 5. 산술 공간 실험:");
+    let arithmetic_space = arithmetic::ArithmeticSpace::new(5);
+    println!(
+        "   산술 공간 좌표: {:?}",
+        arithmetic_space.coordinates().raw
+    );
+    println!("   산술 인접성: +1, -1, ×2, ×² 등");
+
+    let arithmetic_field: StateField<ArithmeticSpace, i64, i64> =
+        FieldBuilder::new(arithmetic_space.clone())
+            .add_constraint(RangeConstraint::new(0, 0, 50))
+            .build();
+
+    let direct = observe_field(&arithmetic_field, &projector);
+    println!("   직접 관측: {:?}", direct);
+
+    // 인접 관측 (가능한 전이들)
+    let possible_transitions = arithmetic_field.possible_transitions();
+    println!("   가능한 전이들: {}개", possible_transitions.len());
+    println!(
+        "   전이 예시: {:?}",
+        possible_transitions
+            .iter()
+            .take(3)
+            .map(|s| s.coordinates().raw[0])
+            .collect::<Vec<_>>()
+    );
+    println!();
+
+    // 6. 트리 탐색
+    println!(" 6. 트리 탐색:");
+    let tree_results = observe_tree(&arithmetic_field, &projector, 2);
+    println!("   깊이 2 탐색 결과: {:?}", tree_results);
+    println!("   탐색된 값들: {}개", tree_results.len());
+    println!();
+
+    // 7. 관측자 패턴
+    println!(" 7. 관측자 패턴:");
+    let observer = ValueObserver::new(5, "값이 5인지 확인");
+
+    // 현재 값 관측
+    let current_value = projector.project(&arithmetic_field.space.coordinates());
+    if let Some(value) = current_value {
+        println!("   현재 값: {}", value);
+        println!("   관측 결과: {}", observer.observe(&value));
+        println!("   관측 설명: {}", observer.describe());
+    }
+
+    // 전이된 값 관측
+    if let Some(first_transition) = possible_transitions.first() {
+        let transition_value = projector.project(&first_transition.coordinates());
+        if let Some(value) = transition_value {
+            println!("   전이 값: {}", value);
+            println!("   관측 결과: {}", observer.observe(&value));
+        }
+    }
+    println!("   관측 = 투영 + 기대값 비교");
+    println!();
+
+    // 8. 합성 실험
+    println!(" 8. 공간 합성:");
+    let space1_field: StateField<BasicSpace, i64, i64> =
+        FieldBuilder::new(basic::BasicSpace::new(SpaceCoordinates::new(vec![1, 2])))
+            .add_constraint(RangeConstraint::new(0, 0, 5))
+            .build();
+
+    let space2_field: StateField<BasicSpace, i64, i64> =
+        FieldBuilder::new(basic::BasicSpace::new(SpaceCoordinates::new(vec![1, 2])))
+            .add_constraint(RangeConstraint::new(0, 0, 3))
+            .build();
+
+    let composition = compose_fields(&space1_field, &space2_field);
+    println!("   합성 결과: {:?}", composition);
+    println!("   합성 = 공간 간 관계 분석");
+    println!();
+
+    // 9. 짝수 제약조건 테스트
+    println!(" 9. 짝수 제약조건 테스트:");
+    let even_space = arithmetic::ArithmeticSpace::new(6);
+    let even_field: StateField<ArithmeticSpace, i64, i64> = FieldBuilder::new(even_space)
+        .add_constraint(EvenConstraint::new(0))
+        .add_constraint(RangeConstraint::new(0, 0, 20))
+        .build();
+
+    println!("   좌표: {:?}", even_field.space.coordinates().raw);
+    println!("   제약조건: {}", even_field.constraints.describe());
+    println!("   허용 여부: {}", even_field.is_allowed());
+
+    let even_transitions = even_field.possible_transitions();
+    println!(
+        "   짝수 제약하의 가능한 전이들: {}개",
+        even_transitions.len()
+    );
+    println!(
+        "   전이 값들: {:?}",
+        even_transitions
+            .iter()
+            .map(|s| s.coordinates().raw[0])
+            .collect::<Vec<_>>()
+    );
+    println!();
+
+    // 철학적 요약
+    println!(" 철학적 계층 구조:");
+    println!("• 좌표는 구조: SpaceCoordinates([x, y, z])");
+    println!("• StateSpace = 구조 + 기본 인접성");
+    println!("• StateField = StateSpace + 동적 Field (제약, 전이, 관측)");
+    println!("• 제약은 허용 영역: Constraint.allows(coords)");
+    println!("• 투영은 의미 창발: Projector.project(coords)");
+    println!("• 관측은 의미 검증: Observer.observe(value)");
+    println!();
+
+    println!(" Quasar: 상태는 불변, 조건은 가변, 의미는 창발!");
 }
