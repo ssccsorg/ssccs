@@ -60,7 +60,6 @@ impl SpaceCoordinates {
 }
 
 // ==================== CONSTRAINT SYSTEM ====================
-
 pub trait Constraint: Debug + Send + Sync {
     fn allows(&self, coords: &SpaceCoordinates) -> bool;
     fn describe(&self) -> String;
@@ -182,7 +181,7 @@ where
     /// 상태 트리 생성 (제약조건 만족하는 전이만)
     pub fn generate_tree(&self, max_depth: usize) -> HashSet<S>
     where
-        S: From<SpaceCoordinates> + std::hash::Hash + Eq,
+        S: From<SpaceCoordinates> + Hash + Eq,
     {
         let mut visited = HashSet::new();
         let mut result = HashSet::new();
@@ -376,11 +375,11 @@ pub fn observe_tree<S, O, V, P>(
     max_depth: usize,
 ) -> HashSet<P::Output>
 where
-    S: StateSpace + From<SpaceCoordinates> + std::hash::Hash + Eq,
+    S: StateSpace + From<SpaceCoordinates> + Hash + Eq,
     O: Eq + Hash + Clone + Debug + 'static,
     V: Eq + Hash + Clone + Debug + 'static,
     P: Projector<Output = O>,
-    P::Output: Eq + std::hash::Hash + Clone,
+    P::Output: Eq + Hash + Clone,
 {
     let mut results = HashSet::new();
 
