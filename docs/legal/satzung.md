@@ -16,7 +16,7 @@ fontsize: 10pt
 
 1. Zweck der Gesellschaft ist die Förderung von Wissenschaft und Forschung sowie des Umweltschutzes **im Sinne der §§ 51 bis 68 der Abgabenordnung (AO)**. Konkret dient die Gesellschaft folgenden gemeinnützigen Zwecken gemäß § 52 Abs. 2 AO:
 
-   a) **Förderung von Wissenschaft und Forschung** (§ 52 Abs. 2 Nr. 1 AO) durch die Erforschung, Entwicklung und Verbreitung des **State-Space Composition Computing System (SSCCS)**, eines neuen energieeffizienten Berechnungsparadigmas.
+   a) **Förderung von Wissenschaft und Forschung** (§ 52 Abs. 2 Nr. 1 AO) durch die Erforschung, Entwicklung und Verbreitung des **Scheme-Segment Composition Computing System (SSCCS)**, eines neuen energieeffizienten Berechnungsparadigmas.
    
    b) **Förderung von Bildung** (§ 52 Abs. 2 Nr. 7 AO) durch die Erstellung von Lehrmaterialien, die Durchführung von Workshops sowie die Ausbildung von Entwicklern im Bereich nachhaltiger Informatik.
    

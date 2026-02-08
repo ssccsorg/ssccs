@@ -1,5 +1,5 @@
 //! 산술 상태 공간
-use crate::{SpaceCoordinates, StateSpace};
+use crate::{SchemeSegment, SpaceCoordinates};
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct ArithmeticSpace {
@@ -14,7 +14,7 @@ impl ArithmeticSpace {
     }
 }
 
-impl StateSpace for ArithmeticSpace {
+impl SchemeSegment for ArithmeticSpace {
     fn coordinates(&self) -> SpaceCoordinates {
         self.coords.clone()
     }

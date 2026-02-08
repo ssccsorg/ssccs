@@ -5,7 +5,7 @@ use ssccs_poc::spaces::*;
 use ssccs_poc::*;
 
 fn main() {
-    println!(" Quasar: State-Space Computing (StateField 버전)");
+    println!(" Quasar: Scheme-Segment Computing (StateField 버전)");
     println!("==================================================\n");
 
     // 1. 기본 구조 실험
@@ -165,8 +165,8 @@ fn main() {
     // 철학적 요약
     println!(" 철학적 계층 구조:");
     println!("• 좌표는 구조: SpaceCoordinates([x, y, z])");
-    println!("• StateSpace = 구조 + 기본 인접성");
-    println!("• StateField = StateSpace + 동적 Field (제약, 전이, 관측)");
+    println!("• SchemeSegment = 구조 + 기본 인접성");
+    println!("• StateField = SchemeSegment + 동적 Field (제약, 전이, 관측)");
     println!("• 제약은 허용 영역: Constraint.allows(coords)");
     println!("• 투영은 의미 창발: Projector.project(coords)");
     println!("• 관측은 의미 검증: Observer.observe(value)");
