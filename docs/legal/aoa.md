@@ -16,7 +16,7 @@ fontsize: 10pt
 
 1. The purpose of the company is the promotion of science and research as well as environmental protection **within the meaning of §§ 51 to 68 of the German Fiscal Code (Abgabenordnung - AO)**. Specifically, the company serves the following charitable purposes pursuant to § 52 para. 2 AO:
 
-   a) **Promotion of science and research** (§ 52 para. 2 no. 1 AO) through the research, development and dissemination of the **State-Space Composition Computing System (SSCCS)**, a new energy-efficient computing paradigm.
+   a) **Promotion of science and research** (§ 52 para. 2 no. 1 AO) through the research, development and dissemination of the **Scheme-Segment Composition Computing System (SSCCS)**, a new energy-efficient computing paradigm.
    
    b) **Promotion of education** (§ 52 para. 2 no. 7 AO) through the creation of teaching materials, the conducting of workshops and the training of developers in the field of sustainable computer science.
    
@@ -26,7 +26,7 @@ fontsize: 10pt
 3. The company acts selflessly; it does not primarily pursue its own economic interests.
 
 **SSCCS Note**
-SSCCS is a computing system that treats state spaces as basic units and performs calculations through their composition. It implements a new computing paradigm through dynamic metaprogramming and can be executed on existing hardware and software, while potentially being expandable to research on optimized hardware, thereby creating foundations for industrial development and employment. A primary goal is to achieve maximum accuracy in big data analyses for purposes serving the public interest while simultaneously minimizing energy consumption. It is provided as open-source and can be used for research, education and global cooperation.
+SSCCS is a computing system that treats scheme segments as basic units and performs calculations through their composition. It implements a new computing paradigm through dynamic metaprogramming and can be executed on existing hardware and software, while potentially being expandable to research on optimized hardware, thereby creating foundations for industrial development and employment. A primary goal is to achieve maximum accuracy in big data analyses for purposes serving the public interest while simultaneously minimizing energy consumption. It is provided as open-source and can be used for research, education and global cooperation.
 
 4. The company shall in particular pursue the following activities:
    a) Development and publication of open-source software

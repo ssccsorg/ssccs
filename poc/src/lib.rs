@@ -1,7 +1,7 @@
-//! Quasar: State-Space Driven Non-Deterministic Computing
+//! Quasar: Scheme-Segment Driven Non-Deterministic Computing
 //!
 //! 핵심 철학:
-//! 1. StateSpace는 불변 구조적 식별자
+//! 1. SchemeSegment는 불변 구조적 식별자
 //! 2. 좌표(SpaceCoordinates)는 의미 없는 구조적 위치
 //! 3. 의미는 투영자(Projector)에 의해 창발
 //! 4. 제약조건은 허용 영역 정의
@@ -12,26 +12,26 @@
 //! - 제약조건 네트워크: 상호작용하는 제약조건들
 //! - 전이 네트워크: 상태 간 동적 연결
 
-//! Quasar: State-Space Driven Non-Deterministic Computing
+//! Quasar: Scheme-Segment Driven Non-Deterministic Computing
 //!
 //! 핵심 철학:
-//! 1. StateSpace = 좌표 + 제약조건 (구조적 제한)
+//! 1. SchemeSegment = 좌표 + 제약조건 (구조적 제한)
 //! 2. Projector = 좌표 → 값 변환 (의미적 해석)
 //! 3. Observer = 투영 결과 검증 (기대값 비교)
 
-//! Quasar: State-Space Driven Non-Deterministic Computing
+//! Quasar: Scheme-Segment Driven Non-Deterministic Computing
 //!
 //! 핵심 철학:
-//! 1. StateSpace = 불변 구조 (좌표 + 제약조건)
+//! 1. SchemeSegment = 불변 구조 (좌표 + 제약조건)
 //! 2. Constraint = 구조적 제한 (허용 영역)
 //! 3. Projector = 구조 → 의미 변환
 //! 4. Observer = 의미 검증
 
-//! Quasar: State-Space Driven Non-Deterministic Computing
+//! Quasar: Scheme-Segment Driven Non-Deterministic Computing
 //!
 //! 핵심 계층:
-//! 1. StateSpace: 불변 구조 (좌표 + 기본 인접성)
-//! 2. StateField: StateSpace + 동적 Field 요소 (전이, 제약, 관측)
+//! 1. SchemeSegment: 불변 구조 (좌표 + 기본 인접성)
+//! 2. StateField: SchemeSegment + 동적 Field 요소 (전이, 제약, 관측)
 //! 3. Projector/Observer: 의미 창발 시스템
 
 use std::collections::HashSet;
@@ -98,29 +98,29 @@ impl ConstraintSet {
 // ==================== STATE SPACE TRAIT ====================
 
 /// 불변 상태 공간: 좌표 + 기본 인접성
-pub trait StateSpace: Debug + Clone {
+pub trait SchemeSegment: Debug + Clone {
     fn coordinates(&self) -> SpaceCoordinates;
     fn basic_adjacency(&self) -> Vec<SpaceCoordinates>; // 구조적 인접성만 정의
 }
 
 // ==================== STATE FIELD ====================
 
-/// StateField: StateSpace + 동적 Field 요소들
-/// - StateSpace는 불변, Field 요소들은 가변/재구성 가능
+/// StateField: SchemeSegment + 동적 Field 요소들
+/// - SchemeSegment는 불변, Field 요소들은 가변/재구성 가능
 #[derive(Debug, Clone)]
 pub struct StateField<S, O, V>
 where
-    S: StateSpace,
+    S: SchemeSegment,
     O: Eq + Hash + Clone + Debug + 'static,
     V: Eq + Hash + Clone + Debug + 'static,
 {
-    pub space: S,                                    // 불변 StateSpace
+    pub space: S,                                    // 불변 SchemeSegment
     pub transition_matrix: TransitionMatrix,         // 전이 규칙
     pub constraints: ConstraintSet,                  // 동적 제약조건
     pub observation_config: ObservationConfig<O, V>, // 관측 설정
 }
 
-impl<S: StateSpace, O, V> StateField<S, O, V>
+impl<S: SchemeSegment, O, V> StateField<S, O, V>
 where
     O: Eq + Hash + Clone + Debug + 'static,
     V: Eq + Hash + Clone + Debug + 'static,
@@ -357,7 +357,7 @@ where
 /// StateField에서 관측 수행
 pub fn observe_field<S, O, V, P>(field: &StateField<S, O, V>, projector: &P) -> Option<P::Output>
 where
-    S: StateSpace,
+    S: SchemeSegment,
     O: Eq + Hash + Clone + Debug + 'static,
     V: Eq + Hash + Clone + Debug + 'static,
     P: Projector<Output = O>,
@@ -375,7 +375,7 @@ pub fn observe_tree<S, O, V, P>(
     max_depth: usize,
 ) -> HashSet<P::Output>
 where
-    S: StateSpace + From<SpaceCoordinates> + Hash + Eq,
+    S: SchemeSegment + From<SpaceCoordinates> + Hash + Eq,
     O: Eq + Hash + Clone + Debug + 'static,
     V: Eq + Hash + Clone + Debug + 'static,
     P: Projector<Output = O>,
@@ -405,8 +405,8 @@ pub fn compose_fields<S1, S2, O1, V1, O2, V2>(
     field2: &StateField<S2, O2, V2>,
 ) -> CompositionResult
 where
-    S1: StateSpace,
-    S2: StateSpace,
+    S1: SchemeSegment,
+    S2: SchemeSegment,
     O1: Eq + Hash + Clone + Debug + 'static,
     V1: Eq + Hash + Clone + Debug + 'static,
     ObservationConfig<O1, V1>: Default,
@@ -511,7 +511,7 @@ pub mod fields {
     /// StateField 빌더 패턴
     pub struct FieldBuilder<S, O, V>
     where
-        S: StateSpace,
+        S: SchemeSegment,
         O: Eq + Hash + Clone + Debug + 'static,
         V: Eq + Hash + Clone + Debug + 'static,
     {
@@ -523,7 +523,7 @@ pub mod fields {
 
     impl<S, O, V> FieldBuilder<S, O, V>
     where
-        S: StateSpace,
+        S: SchemeSegment,
         O: Eq + Hash + Clone + Debug + 'static,
         V: Eq + Hash + Clone + Debug + 'static,
         ObservationConfig<O, V>: Default,

@@ -1,37 +1,37 @@
-# State-Space Composition Computing System (SSCCS)
+# Scheme-Segment Composition Computing System (SSCCS)
 
 ## A New Computational Model Based on Immutable State Structures and Dynamic Field Composition
 
 ### 1. Abstract
 
-SSCCS (State-Space Composition Computing System) presents a fundamental departure from the von Neumann architecture by eliminating the stored-program concept and mutable global state. Instead, SSCCS establishes computation as the composition of immutable state spaces observed through dynamic field configurations. This paradigm achieves non-deterministic outcomes without randomness, enables inherent parallelism, and provides formal guarantees for energy efficiency and fault isolation.
+SSCCS (Scheme-Segment Composition Computing System) presents a fundamental departure from the von Neumann architecture by eliminating the stored-program concept and mutable global state. Instead, SSCCS establishes computation as the composition of immutable scheme segments observed through dynamic field configurations. This paradigm achieves non-deterministic outcomes without randomness, enables inherent parallelism, and provides formal guarantees for energy efficiency and fault isolation.
 
 ### 2. Core Definitions
 
-#### 2.1 StateSpace
-An **StateSpace** is an immutable structural entity representing a possibility domain. It is defined solely by:
+#### 2.1 SchemeSegment
+An **SchemeSegment** is an immutable structural entity representing a possibility domain. It is defined solely by:
 - **Coordinates**: Structural identifiers (non-semantic, non-value)
-- **Adjacency**: Possible transitions as unordered sets (HashSet<StateSpace>)
+- **Adjacency**: Possible transitions as unordered sets (HashSet<SchemeSegment>)
 - **Identity**: Cryptographic hash derived from structural properties
 
-Mathematically: StateSpace S = (C, A) where C ∈ CoordinateSpace, A ⊆ P(S) with adjacency constraints.
+Mathematically: SchemeSegment S = (C, A) where C ∈ CoordinateSpace, A ⊆ P(S) with adjacency constraints.
 
 #### 2.2 Field
-A **Field** is a mutable execution layer that operates upon StateSpaces, comprising:
+A **Field** is a mutable execution layer that operates upon SchemeSegments, comprising:
 - **Constraints**: Boundary conditions and validity rules
 - **Projectors**: Interpretation functions mapping structures to values
 - **Observers**: Measurement configurations that induce collapse
 - **Transition Rules**: Adjacency modifications within constraint boundaries
 
-Fields transform StateSpaces through application, not mutation.
+Fields transform SchemeSegments through application, not mutation.
 
 #### 2.3 Observation
-**Observation** is the process where a Field projects a composed StateSpace into a specific dimensional subspace, resulting in collapse to observable values. This process simultaneously performs projection and transition realization.
+**Observation** is the process where a Field projects a composed SchemeSegment into a specific dimensional subspace, resulting in collapse to observable values. This process simultaneously performs projection and transition realization.
 
 ### 3. Computational Model
 
 #### 3.1 SSCCS Execution Cycle
-1. **Composition**: Multiple StateSpaces are composed through field-mediated intersection: S₁ ⨂ᶠ S₂ → Sₑ
+1. **Composition**: Multiple SchemeSegments are composed through field-mediated intersection: S₁ ⨂ᶠ S₂ → Sₑ
 2. **Field Application**: Dynamic fields apply constraints and projectors: F(Sₑ) → Sₑ'
 3. **Observation**: Observer configuration selects dimensional projection: O(Sₑ') → P
 4. **Collapse**: Projection induces state collapse to classical values: P → V ∈ ValueSpace
@@ -39,11 +39,11 @@ Fields transform StateSpaces through application, not mutation.
 
 #### 3.2 Von Neumann Contrast
 Where von Neumann architecture processes: Input → Processing Unit → Memory Update → Output,  
-SSCCS processes: StateSpaces → Field Composition → Observational Projection → Collapsed Values.
+SSCCS processes: SchemeSegments → Field Composition → Observational Projection → Collapsed Values.
 
 ### 4. Axiomatic Foundation
 
-1. **StateSpace Immutability**: StateSpaces are invariant under transformation; apparent change generates new StateSpaces.
+1. **SchemeSegment Immutability**: SchemeSegments are invariant under transformation; apparent change generates new SchemeSegments.
 2. **Field Mutability**: All dynamic aspects reside exclusively in Fields.
 3. **Execution as Observation**: Computation is observational projection, not state mutation.
 4. **Primitive as Projection**: All data types are 1-dimensional projections of composed spaces.
@@ -72,10 +72,10 @@ SSCCS processes: StateSpaces → Field Composition → Observational Projection 
 ### 6. Applications and Validation
 
 #### 6.1 Validation Use Cases
-- **Climate Modeling**: Composition of atmospheric StateSpaces with physics fields, targeting 80% energy reduction.
+- **Climate Modeling**: Composition of atmospheric SchemeSegments with physics fields, targeting 80% energy reduction.
 - **Autonomous Systems**: Immutable mission spaces with adaptive navigation fields for fault-tolerant operation.
 - **Cryptographic Protocols**: Constraint fields over key spaces for quantum-resistant security.
-- **Biomedical Simulation**: Molecular StateSpaces with simultaneous pathway observation.
+- **Biomedical Simulation**: Molecular SchemeSegments with simultaneous pathway observation.
 
 #### 6.2 Performance Metrics
 - **Energy Efficiency**: Measured as precision-per-watt ratio.
@@ -87,7 +87,7 @@ SSCCS processes: StateSpaces → Field Composition → Observational Projection 
 
 #### 7.1 Current Implementation
 - **Language**: Rust (safe concurrency, zero-cost abstractions)
-- **Components**: StateSpace trait, ConstraintSet, CompositeSpace, Field compositions
+- **Components**: SchemeSegment trait, ConstraintSet, CompositeSpace, Field compositions
 - **Validation**: Unit tests for composition properties and rule adherence
 
 #### 7.2 Research Roadmap

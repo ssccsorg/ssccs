@@ -1,5 +1,5 @@
 //! 기본 상태 공간
-use crate::{SpaceCoordinates, StateSpace};
+use crate::{SchemeSegment, SpaceCoordinates};
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct BasicSpace {
@@ -12,7 +12,7 @@ impl BasicSpace {
     }
 }
 
-impl StateSpace for BasicSpace {
+impl SchemeSegment for BasicSpace {
     fn coordinates(&self) -> SpaceCoordinates {
         self.coords.clone()
     }
