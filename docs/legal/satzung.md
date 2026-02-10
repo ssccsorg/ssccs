@@ -1,79 +1,54 @@
-# Satzung der SSCCS gUG (haftungsbeschränkt)
+# **Satzung der SSCCS gUG (haftungsbeschränkt)**
 
-## §1 Name, Sitz und Stammkapital
+## **§1 Name, Sitz, Rechtsform und Stammkapital**
+1.  Die Gesellschaft führt den Namen **SSCCS gUG (haftungsbeschränkt)**.
+2.  Sie hat ihren Sitz in Berlin.
+3.  Die Gesellschaft ist eine gemeinnützige Unternehmergesellschaft (haftungsbeschränkt).
+4.  Das Stammkapital der Gesellschaft beträgt 1.000 Euro.
 
-1. Die Gesellschaft trägt den Namen **SSCCS gUG (haftungsbeschränkt)**.
-2. Der Sitz der Gesellschaft ist Berlin.
-3. Das Stammkapital der Gesellschaft beträgt 1.000 Euro.
+## **§2 Gemeinnütziger Zweck**
+1.  Die Gesellschaft verfolgt ausschließlich und unmittelbar gemeinnützige Zwecke im Sinne des Abschnitts "Steuerbegünstigte Zwecke" der Abgabenordnung (AO).
+2.  Zweck der Gesellschaft ist die Förderung von Wissenschaft und Forschung, Bildung sowie des Umweltschutzes (§§ 52 ff. AO).
+3.  Der Satzungszweck wird insbesondere verwirklicht durch:
+    a) die Grundlagenforschung im Bereich neuartiger, energieeffizienter Berechnungsmodelle und -architekturen,
+    b) die konzeptionelle Entwicklung und Bereitstellung entsprechender quelloffener Software (Open-Source-Software),
+    c) die Erstellung und Verbreitung von Lehr- und Lernmaterialien zu diesen Themen,
+    d) **die Stärkung internationaler Forschungskooperation und des Wissenstransfers, unter besonderer Nutzung der fachlichen Expertise und Netzwerke der Gründerpersonen,**
+    e) **die Erforschung und Umsetzung struktureller Prinzipien der Datenverarbeitung zur Steigerung von Effizienz, Skalierbarkeit und Zuverlässigkeit rechenintensiver Systeme.**
+4.  Die Gesellschaft ist selbstlos tätig; sie verfolgt nicht in erster Linie eigenwirtschaftliche Zwecke.
 
-## §2 Gemeinnütziger Zweck
+## **§3 Mittelverwendung und Vermögensbindung**
+1.  Die Mittel der Gesellschaft dürfen nur für die satzungsmäßigen Zwecke verwendet werden.
+2.  Es darf keine Person durch Ausgaben, die dem Zweck der Gesellschaft fremd sind, oder durch unverhältnismäßig hohe Vergütungen begünstigt werden.
+3.  **§3.3 Vergütung der Organmitglieder**
+    Den Mitgliedern der Organe kann für ihre Tätigkeit eine angemessene Vergütung gewährt werden. Die Höhe der Vergütung orientiert sich an der Bedeutung, dem Umfang, der Schwierigkeit der Aufgabe sowie der dafür erforderlichen besonderen fachlichen Expertise und der wirtschaftlichen Leistungsfähigkeit der Gesellschaft.
+4.  **§3.4 Verbot der Gewinnausschüttung**
+    Die Gesellschaft darf keine Gewinne ausschütten. Die Gesellschafter erhalten weder Gewinnanteile noch sonstige Zuwendungen aus Gesellschaftsmitteln, die nicht den Charakter einer angemessenen Vergütung für geleistete Arbeit oder eines Ersatzes von Auslagen haben.
+5.  **§3.5 Bildung von Rücklagen (Rücklagenbildung)**
+    Die Gesellschaft ist verpflichtet, mindestens 25 % ihres jährlichen Überschusses als Rücklage zu bilden. Diese Rücklagen dienen ausschließlich der Erhöhung des Stammkapitals, bis dieses den Betrag von 25.000 Euro erreicht hat. Der verbleibende Teil des Jahresüberschusses ist unmittelbar und ausschließlich für die satzungsmäßigen Zwecke nach §2 zu verwenden.
+6.  Bei Auflösung der Gesellschaft oder bei Wegfall steuerbegünstigter Zwecke fällt das Vermögen der Gesellschaft an eine andere steuerbegünstigte Körperschaft oder eine Körperschaft des öffentlichen Rechts, die es unmittelbar und ausschließlich für gemeinnützige Zwecke im Bereich der Wissenschaft und Forschung zu verwenden hat.
 
-1. Die Gesellschaft verfolgt ausschließlich und unmittelbar gemeinnützige Zwecke im Sinne des Abschnitts "Steuerbegünstigte Zwecke" der Abgabenordnung (AO).
-2. Der Zweck der Gesellschaft ist die Förderung:
-   a) der Wissenschaft und Forschung (§ 52 Abs. 2 Nr. 1 AO),
-   b) der Volks- und Berufsbildung (§ 52 Abs. 2 Nr. 7 AO),
-   c) des Umweltschutzes (§ 52 Abs. 2 Nr. 8 AO).
-3. Dieser Satzungszweck wird verwirklicht insbesondere durch:
-   a) wissenschaftliche Grundlagenforschung auf dem Gebiet der Informatik und verwandter Disziplinen,
-   b) Entwicklung und Bereitstellung freier Software für Forschungs- und Bildungszwecke,
-   c) Erstellung und Verbreitung von Lehr- und Lernmaterialien,
-   d) Durchführung von Veranstaltungen zur Wissensvermittlung,
-   e) Forschung zu energieeffizienten Rechenverfahren und deren Anwendung.
-4. Die Gesellschaft ist selbstlos tätig; sie verfolgt nicht in erster Linie eigenwirtschaftliche Zwecke.
+## **§4 Organe der Gesellschaft**
+1.  Organe der Gesellschaft sind die Gesellschafterversammlung und die Geschäftsführung.
+2.  Die Gesellschaft wird durch einen oder mehrere Geschäftsführer gerichtlich und außergerichtlich vertreten.
 
-## §3 Mittelverwendung
+## **§5 Gesellschafterversammlung**
+1.  Die Gesellschafterversammlung besteht aus allen Gesellschaftern.
+2.  Sie ist insbesondere zuständig für:
+    a) die Bestellung, Abberufung und Entlastung der Geschäftsführung,
+    b) die Festsetzung der Vergütung der Geschäftsführung,
+    c) die Entgegennahme und Prüfung des Jahresabschlusses sowie des Tätigkeitsberichts,
+    d) Beschlüsse über Satzungsänderungen und die Auflösung der Gesellschaft.
+3.  Beschlüsse der Gesellschafterversammlung werden mit einfacher Mehrheit der abgegebenen Stimmen gefasst, soweit gesetzlich oder durch diese Satzung nichts anderes bestimmt ist.
 
-1. Die Mittel der Gesellschaft dürfen nur für die satzungsmäßigen Zwecke verwendet werden.
-2. Es darf keine Person durch Ausgaben, die dem Zweck der Gesellschaft fremd sind, oder durch unverhältnismäßig hohe Vergütungen begünstigt werden.
-3. Die Geschäftsführung erfolgt ehrenamtlich. Eine angemessene Vergütung im Rahmen der steuerrechtlichen Vorgaben bleibt zulässig.
+## **§6 Geschäftsführung**
+1.  Die Geschäftsführer werden durch die Gesellschafterversammlung für die Dauer von drei Jahren bestellt. Wiederbestellung ist zulässig.
+2.  Die Geschäftsführung führt die Geschäfte der Gesellschaft ordnungsgemäß und im Einklang mit dieser Satzung, den Gesetzen und den Beschlüssen der Gesellschafterversammlung.
 
-## §4 Vermögensbindung
+## **§7 Rechnungslegung und Geschäftsjahr**
+1.  Das Geschäftsjahr ist das Kalenderjahr.
+2.  Die Geschäftsführung hat für jedes Geschäftsjahr eine ordnungsgemäße Buchführung zu führen sowie einen Jahresabschluss (Bilanz und Gewinn- und Verlustrechnung) und einen Lagebericht zu erstellen.
 
-Bei Auflösung der Gesellschaft oder bei Wegfall steuerbegünstigter Zwecke fällt das Vermögen der Gesellschaft an eine juristische Person des öffentlichen Rechts oder eine andere steuerbegünstigte Körperschaft, die es unmittelbar und ausschließlich für gemeinnützige Zwecke zu verwenden hat.
-
-## §5 Organe der Gesellschaft
-
-1. Organe der Gesellschaft sind die Gesellschafterversammlung und der Geschäftsführer.
-2. Die Gesellschafterversammlung besteht aus allen Gesellschaftern.
-3. Die Gesellschafterversammlung ist zuständig für:
-   a) Bestellung und Abberufung des Geschäftsführers,
-   b) Entgegennahme des Jahresabschlusses und Tätigkeitsberichts,
-   c) Entlastung des Geschäftsführers,
-   d) Satzungsänderungen,
-   e) Entscheidung über die Auflösung der Gesellschaft,
-   f) Bestimmung der begünstigten Körperschaft bei Auflösung.
-4. Die Gesellschaft hat mindestens einen Geschäftsführer.
-5. Der Geschäftsführer ist ehrenamtlich tätig; notwendige Auslagen werden erstattet.
-6. Die Amtszeit des Geschäftsführers beträgt drei Jahre. Wiederbestellung ist zulässig.
-
-## §6 Vertretung und Beschlussfassung
-
-1. Der Geschäftsführer vertritt die Gesellschaft gerichtlich und außergerichtlich.
-2. Für wichtige Entscheidungen kann der Geschäftsführer ein beratendes Gremium einbeziehen.
-3. Beschlüsse der Gesellschafterversammlung werden mit einfacher Mehrheit gefasst.
-
-## §7 Rechnungslegung und Berichtspflicht
-
-1. Das Geschäftsjahr entspricht dem Kalenderjahr.
-2. Der Geschäftsführer erstellt jährlich einen Jahresabschluss sowie einen Tätigkeitsbericht.
-3. Diese Unterlagen sind der Gesellschafterversammlung vorzulegen.
-
-## §8 Gründer und Gesellschafter
-
-1. Die Gründer werden im Handelsregister eingetragen.
-2. Die Gründer ernennen den ersten Geschäftsführer.
-3. Die Gesellschaft kann weitere Gesellschafter aufnehmen.
-
-## §9 Auflösung der Gesellschaft
-
-1. Die Auflösung erfolgt durch Beschluss der Gesellschafterversammlung mit einer Mehrheit von drei Vierteln der Stimmen.
-2. Im Falle der Auflösung ist der Geschäftsführer der Liquidator.
-3. Bei Auflösung ist das Vermögen gemäß § 4 zu übertragen.
-
-## §10 Bekanntmachungen
-
-Bekanntmachungen der Gesellschaft erfolgen im elektronischen Bundesanzeiger.
-
-## §11 Salvatorische Klausel
-
-Sollte eine Bestimmung dieser Satzung unwirksam sein oder werden, so bleibt die Wirksamkeit der übrigen Bestimmungen unberührt. An die Stelle der unwirksamen Bestimmung tritt eine wirksame, die dem wirtschaftlichen Zweck der unwirksamen Bestimmung möglichst nahekommt.
+## **§8 Schlussbestimmungen**
+1.  Bekanntmachungen der Gesellschaft erfolgen im elektronischen Bundesanzeiger.
+2.  Sollte eine Bestimmung dieser Satzung unwirksam sein oder werden, so bleibt die Wirksamkeit der übrigen Bestimmungen unberührt. Die unwirksame Bestimmung ist durch eine wirksame zu ersetzen, die dem wirtschaftlichen Zweck der unwirksamen Bestimmung möglichst nahekommt. 
