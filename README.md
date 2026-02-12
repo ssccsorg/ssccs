@@ -309,10 +309,8 @@ Phase 3: Native Execution
 
 ---
 
-Research Entity: SSCCS gUG, German non‑profit research initiative
+Research Entity: SSCCS gUG (i.G.), German non‑profit research initiative
 
----
-
-This README was developed in collaboration with LLMs (Gemini and ChatGPT-Free) to guarantee the structural integrity and logical alignment of the project's philosophical foundations and technical implementation details in real-time.
+Human Oversight Statement: This README was developed in collaboration with LLMs (Gemini and ChatGPT-Free) to guarantee the structural integrity and logical alignment of the project's philosophical foundations and technical implementation details in real-time.
 
 ---
