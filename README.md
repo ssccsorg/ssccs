@@ -5,14 +5,9 @@ Schema Segment Composition Computing System
 
 ## 1. Project Declaration & Purpose
 
-Conventional computing operates by inputting values and awaiting results.  
-For over half a century, this model—exchanging instructions and data, mutating state—has been the foundation of all computation.
+Conventional computing operates by inputting values and awaiting results.  For over half a century, this model—exchanging instructions and data, mutating state—has been the foundation of all computation.
 
-SSCCS departs from this fundamental premise.  
-There are no values, no data, and no predefined algorithms.  
-Computation arises solely from the observation of structured constraints, and its outcome is not a value but a projection: a collapsed state of the constraint possibility space.
-
-> SSCCS is a paradigm shift from algorithm‑centric computing to observation‑driven computing.
+SSCCS departs from this fundamental premise. There are no values, no data, and no predefined algorithms. Computation arises solely from the observation of structured constraints, and its outcome is not a value but a projection: a collapsed state of the constraint possibility space. 
 
 SSCCS is a German non-profit research initiative (gUG) pursuing a dual-purpose vision:
 
