@@ -5,22 +5,25 @@ use ssccs_poc::spaces::*;
 use ssccs_poc::*;
 
 fn main() {
-    println!(" Quasar: Scheme-Segment Computing (StateField 버전)");
+    println!(" Scheme SegmentScheme-Segment Computing (StateField 버전)");
     println!("==================================================\n");
 
-    // 1. 기본 구조 실험
-    println!(" 1. 기본 구조 실험:");
+    // 1. Basic structural experiment
+    println!(" 1. Basic structural experiment:");
     let coords = SpaceCoordinates::new(vec![1, 2, 3]);
-    println!("   순수 좌표: {:?}", coords.raw);
-    println!("   좌표는 의미 없음: 단지 숫자 배열");
+    println!("   Pure coordinates: {:?}", coords.raw);
+    println!("   Coordinates are meaningless: just an array of numbers");
     println!();
 
-    // 2. 상태 공간 생성
-    println!(" 2. 상태 공간 생성:");
+    // 2. Create state space
+    println!(" 2. Create state space:");
     let basic_space = basic::BasicSpace::new(coords.clone());
-    println!("   BasicSpace 좌표: {:?}", basic_space.coordinates().raw);
+    println!(
+        "   BasicSpace coordinates: {:?}",
+        basic_space.coordinates().raw
+    );
 
-    // StateField로 감싸기
+    // Wrap it with StateField
     let basic_field: StateField<BasicSpace, i64, i64> =
         fields::FieldBuilder::<BasicSpace, i64, i64>::new(basic_space.clone())
             .add_constraint(RangeConstraint::new(0, 0, 10))
@@ -28,45 +31,48 @@ fn main() {
             .build();
 
     println!(
-        "   StateField 제약조건: {}",
+        "   StateField constraints: {}",
         basic_field.constraints.describe()
     );
-    println!("   허용 여부: {}", basic_field.is_allowed());
+    println!("   Allowed: {}", basic_field.is_allowed());
     println!();
 
-    // 3. 제약조건 추가
-    println!(" 3. 제약조건 추가:");
+    // 3. Add constraints
+    println!(" 3. Add constraints:");
     let constrained_field: StateField<BasicSpace, i64, i64> =
         FieldBuilder::new(basic::BasicSpace::new(coords.clone()))
             .add_constraint(RangeConstraint::new(0, 0, 10))
             .add_constraint(RangeConstraint::new(1, 0, 5))
             .build();
 
-    println!("   제약조건: {}", constrained_field.constraints.describe());
     println!(
-        "   좌표 [1,2,3] 허용 여부: {}",
+        "   Constraints: {}",
+        constrained_field.constraints.describe()
+    );
+    println!(
+        "   Coordinates [1,2,3] allowed: {}",
         constrained_field.is_allowed()
     );
-    println!("   제약조건은 공간의 구조적 제한");
+    println!("   Constraints are structural limitations of space");
     println!();
 
-    // 4. 투영 실험
-    println!(" 4. 투영 실험:");
+    // 4. Projection experiment
+    println!(" 4. Projection experiment:");
     let projector = IntegerProjector::new(0);
     let projection = projector.project(&coords);
-    println!("   투영자: 첫 번째 축 값 추출");
-    println!("   투영 결과: {:?}", projection);
-    println!("   동일 좌표 → 다른 투영자 → 다른 의미");
+    println!("   Projector: Extract first axis values");
+    println!("   Projection result: {:?}", projection);
+    println!("   Same coordinates → different projectors → different meanings");
     println!();
 
-    // 5. 산술 공간 실험
-    println!(" 5. 산술 공간 실험:");
+    // 5. Arithmetic space experiment
+    println!(" 5. Arithmetic space experiment:");
     let arithmetic_space = arithmetic::ArithmeticSpace::new(5);
     println!(
-        "   산술 공간 좌표: {:?}",
+        "   Arithmetic space coordinates: {:?}",
         arithmetic_space.coordinates().raw
     );
-    println!("   산술 인접성: +1, -1, ×2, ×² 등");
+    println!("   Arithmetic adjacency: +1, -1, ×2, ×², etc.");
 
     let arithmetic_field: StateField<ArithmeticSpace, i64, i64> =
         FieldBuilder::new(arithmetic_space.clone())
@@ -74,13 +80,13 @@ fn main() {
             .build();
 
     let direct = observe_field(&arithmetic_field, &projector);
-    println!("   직접 관측: {:?}", direct);
+    println!("   Direct observation: {:?}", direct);
 
-    // 인접 관측 (가능한 전이들)
+    // Adjacent observations (possible transitions)
     let possible_transitions = arithmetic_field.possible_transitions();
-    println!("   가능한 전이들: {}개", possible_transitions.len());
+    println!("   Possible transitions: {}dog", possible_transitions.len());
     println!(
-        "   전이 예시: {:?}",
+        "   Transition example: {:?}",
         possible_transitions
             .iter()
             .take(3)
@@ -89,38 +95,38 @@ fn main() {
     );
     println!();
 
-    // 6. 트리 탐색
-    println!(" 6. 트리 탐색:");
+    // 6. Tree navigation
+    println!(" 6. Tree navigation:");
     let tree_results = observe_tree(&arithmetic_field, &projector, 2);
-    println!("   깊이 2 탐색 결과: {:?}", tree_results);
-    println!("   탐색된 값들: {}개", tree_results.len());
+    println!("   Depth 2 search results: {:?}", tree_results);
+    println!("   Searched values: {}dog", tree_results.len());
     println!();
 
-    // 7. 관측자 패턴
-    println!(" 7. 관측자 패턴:");
-    let observer = ValueObserver::new(5, "값이 5인지 확인");
+    // 7. Observer pattern
+    println!(" 7. Observer pattern:");
+    let observer = ValueObserver::new(5, "Check if value is 5");
 
-    // 현재 값 관측
+    // Current value observation
     let current_value = projector.project(&arithmetic_field.space.coordinates());
     if let Some(value) = current_value {
-        println!("   현재 값: {}", value);
-        println!("   관측 결과: {}", observer.observe(&value));
-        println!("   관측 설명: {}", observer.describe());
+        println!("   Current value: {}", value);
+        println!("   Observations: {}", observer.observe(&value));
+        println!("   Observation Description: {}", observer.describe());
     }
 
-    // 전이된 값 관측
+    // Transposed value observation
     if let Some(first_transition) = possible_transitions.first() {
         let transition_value = projector.project(&first_transition.coordinates());
         if let Some(value) = transition_value {
-            println!("   전이 값: {}", value);
-            println!("   관측 결과: {}", observer.observe(&value));
+            println!("   Transition value: {}", value);
+            println!("   Observations: {}", observer.observe(&value));
         }
     }
-    println!("   관측 = 투영 + 기대값 비교");
+    println!("   Observation = Projection + Expected Value Comparison");
     println!();
 
-    // 8. 합성 실험
-    println!(" 8. 공간 합성:");
+    // 8. Synthesis experiments
+    println!(" 8. Spatial compositing:");
     let space1_field: StateField<BasicSpace, i64, i64> =
         FieldBuilder::new(basic::BasicSpace::new(SpaceCoordinates::new(vec![1, 2])))
             .add_constraint(RangeConstraint::new(0, 0, 5))
@@ -132,29 +138,29 @@ fn main() {
             .build();
 
     let composition = compose_fields(&space1_field, &space2_field);
-    println!("   합성 결과: {:?}", composition);
-    println!("   합성 = 공간 간 관계 분석");
+    println!("   Synthetic results: {:?}", composition);
+    println!("   Synthesis = Analysis of relationships between spaces");
     println!();
 
-    // 9. 짝수 제약조건 테스트
-    println!(" 9. 짝수 제약조건 테스트:");
+    // 9. Even Constraint Testing
+    println!(" 9. Testing even constraints:");
     let even_space = arithmetic::ArithmeticSpace::new(6);
     let even_field: StateField<ArithmeticSpace, i64, i64> = FieldBuilder::new(even_space)
         .add_constraint(EvenConstraint::new(0))
         .add_constraint(RangeConstraint::new(0, 0, 20))
         .build();
 
-    println!("   좌표: {:?}", even_field.space.coordinates().raw);
-    println!("   제약조건: {}", even_field.constraints.describe());
-    println!("   허용 여부: {}", even_field.is_allowed());
+    println!("   coordinate: {:?}", even_field.space.coordinates().raw);
+    println!("   Constraints: {}", even_field.constraints.describe());
+    println!("   Allowed: {}", even_field.is_allowed());
 
     let even_transitions = even_field.possible_transitions();
     println!(
-        "   짝수 제약하의 가능한 전이들: {}개",
+        "   Possible transitions under the even constraint: {}dog",
         even_transitions.len()
     );
     println!(
-        "   전이 값들: {:?}",
+        "   Transition values: {:?}",
         even_transitions
             .iter()
             .map(|s| s.coordinates().raw[0])
@@ -162,15 +168,15 @@ fn main() {
     );
     println!();
 
-    // 철학적 요약
-    println!(" 철학적 계층 구조:");
-    println!("• 좌표는 구조: SpaceCoordinates([x, y, z])");
-    println!("• SchemeSegment = 구조 + 기본 인접성");
-    println!("• StateField = SchemeSegment + 동적 Field (제약, 전이, 관측)");
-    println!("• 제약은 허용 영역: Constraint.allows(coords)");
-    println!("• 투영은 의미 창발: Projector.project(coords)");
-    println!("• 관측은 의미 검증: Observer.observe(value)");
+    // philosophical summary
+    println!(" Philosophical Hierarchy:");
+    println!("• Coordinates have the structure: SpaceCoordinates([x, y, z])");
+    println!("• SchemeSegment = Structure + Basic Adjacency");
+    println!("• StateField = SchemeSegment + Dynamic Field (constraint, transition, observation)");
+    println!("• Constraints are allowed: Constraint.allows(coords)");
+    println!("• Projection is semantic emergence: Projector.project(coords)");
+    println!("• Observation verifies meaning: Observer.observe(value)");
     println!();
 
-    println!(" Quasar: 상태는 불변, 조건은 가변, 의미는 창발!");
+    println!(" Scheme SegmentState is immutable, conditions are variable, meaning is emergent!");
 }

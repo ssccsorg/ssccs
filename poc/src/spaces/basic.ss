@@ -1,4 +1,4 @@
-//! 기본 상태 공간
+//! basic state space
 use crate::{SchemeSegment, SpaceCoordinates};
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -23,12 +23,12 @@ impl SchemeSegment for BasicSpace {
 
         for i in 0..dim {
             if let Some(val) = self.coords.get_axis(i) {
-                // +1 방향
+                // +1 direction
                 let mut plus = self.coords.raw.clone();
                 plus[i] = val + 1;
                 adjacent.push(SpaceCoordinates::new(plus));
 
-                // -1 방향
+                // -1 direction
                 let mut minus = self.coords.raw.clone();
                 minus[i] = val - 1;
                 adjacent.push(SpaceCoordinates::new(minus));

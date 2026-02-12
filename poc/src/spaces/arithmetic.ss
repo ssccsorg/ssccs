@@ -1,4 +1,4 @@
-//! 산술 상태 공간
+//! Arithmetic state space
 use crate::{SchemeSegment, SpaceCoordinates};
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -24,9 +24,9 @@ impl SchemeSegment for ArithmeticSpace {
 
         vec![
             SpaceCoordinates::new(vec![current + 1]), // +1
-            SpaceCoordinates::new(vec![current - 1]), // -1
+            SpaceCoordinates::new(vec![current - 1]), // 1
             SpaceCoordinates::new(vec![current * 2]), // ×2
-            SpaceCoordinates::new(vec![current / 2]), // ÷2 (정수)
+            SpaceCoordinates::new(vec![current / 2]), // ÷2 (integer)
         ]
     }
 }
