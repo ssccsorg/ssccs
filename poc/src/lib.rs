@@ -1,38 +1,38 @@
-//! Quasar: Scheme-Segment Driven Non-Deterministic Computing
+//! Scheme SegmentScheme-Segment Driven Non-Deterministic Computing
 //!
-//! 핵심 철학:
-//! 1. SchemeSegment는 불변 구조적 식별자
-//! 2. 좌표(SpaceCoordinates)는 의미 없는 구조적 위치
-//! 3. 의미는 투영자(Projector)에 의해 창발
-//! 4. 제약조건은 허용 영역 정의
-//! 5. 관측자는 기대값과 비교
+//! Core Philosophy:
+//! 1. SchemeSegment is an immutable structural identifier
+//! 2. Coordinates (SpaceCoordinates) are meaningless structural positions
+//! 3. Meaning emerges from the projector
+//! 4. Constraints define the allowable area
+//! 5. Observer compares with expected value
 //!
 //! Future Work:
-//! - Field 시스템: 동적 연산 계층
-//! - 제약조건 네트워크: 상호작용하는 제약조건들
-//! - 전이 네트워크: 상태 간 동적 연결
+//! -Field system: dynamic operation layer
+//! -Constraint network: interacting constraints
+//! -Transition network: dynamic connections between states
 
-//! Quasar: Scheme-Segment Driven Non-Deterministic Computing
+//! Scheme SegmentScheme-Segment Driven Non-Deterministic Computing
 //!
-//! 핵심 철학:
-//! 1. SchemeSegment = 좌표 + 제약조건 (구조적 제한)
-//! 2. Projector = 좌표 → 값 변환 (의미적 해석)
-//! 3. Observer = 투영 결과 검증 (기대값 비교)
+//! Core Philosophy:
+//! 1. SchemeSegment = Coordinates + Constraints (structural restrictions)
+//! 2. Projector = coordinate → value conversion (semantic interpretation)
+//! 3. Observer = Verification of projection results (comparison with expected values)
 
-//! Quasar: Scheme-Segment Driven Non-Deterministic Computing
+//! Scheme SegmentScheme-Segment Driven Non-Deterministic Computing
 //!
-//! 핵심 철학:
-//! 1. SchemeSegment = 불변 구조 (좌표 + 제약조건)
-//! 2. Constraint = 구조적 제한 (허용 영역)
-//! 3. Projector = 구조 → 의미 변환
-//! 4. Observer = 의미 검증
+//! Core Philosophy:
+//! 1. SchemeSegment = immutable structure (coordinates + constraints)
+//! 2. Constraint = structural limit (permissible area)
+//! 3. Projector = structure → meaning conversion
+//! 4. Observer = Verification of meaning
 
-//! Quasar: Scheme-Segment Driven Non-Deterministic Computing
+//! Scheme SegmentScheme-Segment Driven Non-Deterministic Computing
 //!
-//! 핵심 계층:
-//! 1. SchemeSegment: 불변 구조 (좌표 + 기본 인접성)
-//! 2. StateField: SchemeSegment + 동적 Field 요소 (전이, 제약, 관측)
-//! 3. Projector/Observer: 의미 창발 시스템
+//! Core layer:
+//! 1. SchemeSegment: immutable structure (coordinates + default adjacency)
+//! 2. StateField: SchemeSegment + dynamic Field elements (transitions, constraints, observations)
+//! 3. Projector/Observer: Meaning emergence system
 
 use std::collections::HashSet;
 use std::fmt::Debug;
@@ -41,7 +41,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 // ==================== CORE TYPES ====================
 
-/// 불변 구조적 좌표
+/// Invariant structural coordinates
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct SpaceCoordinates {
     pub raw: Vec<i64>,
@@ -97,16 +97,16 @@ impl ConstraintSet {
 
 // ==================== STATE SPACE TRAIT ====================
 
-/// 불변 상태 공간: 좌표 + 기본 인접성
+/// Invariant state space: coordinates + primitive adjacencies
 pub trait SchemeSegment: Debug + Clone {
     fn coordinates(&self) -> SpaceCoordinates;
-    fn basic_adjacency(&self) -> Vec<SpaceCoordinates>; // 구조적 인접성만 정의
+    fn basic_adjacency(&self) -> Vec<SpaceCoordinates>; // Define only structural adjacencies
 }
 
 // ==================== STATE FIELD ====================
 
-/// StateField: SchemeSegment + 동적 Field 요소들
-/// - SchemeSegment는 불변, Field 요소들은 가변/재구성 가능
+/// StateField: SchemeSegment + dynamic Field elements
+/// -SchemeSegment is immutable, Field elements are mutable/reconfigurable
 #[derive(Debug, Clone)]
 pub struct StateField<S, O, V>
 where
@@ -114,10 +114,10 @@ where
     O: Eq + Hash + Clone + Debug + 'static,
     V: Eq + Hash + Clone + Debug + 'static,
 {
-    pub space: S,                                    // 불변 SchemeSegment
-    pub transition_matrix: TransitionMatrix,         // 전이 규칙
-    pub constraints: ConstraintSet,                  // 동적 제약조건
-    pub observation_config: ObservationConfig<O, V>, // 관측 설정
+    pub space: S,                                    // immutable SchemeSegment
+    pub transition_matrix: TransitionMatrix,         // transition rule
+    pub constraints: ConstraintSet,                  // Dynamic Constraints
+    pub observation_config: ObservationConfig<O, V>, // Observation settings
 }
 
 impl<S: SchemeSegment, O, V> StateField<S, O, V>
@@ -134,13 +134,13 @@ where
         }
     }
 
-    /// 제약조건 추가 (새 StateField 반환)
+    /// Add constraints (return a new StateField)
     pub fn with_constraint(mut self, constraint: impl Constraint + 'static) -> Self {
         self.constraints.add(constraint);
         self
     }
 
-    /// 전이 규칙 설정
+    /// Transition rule settings
     pub fn with_transition(
         mut self,
         from: SpaceCoordinates,
@@ -151,25 +151,25 @@ where
         self
     }
 
-    /// 현재 좌표가 모든 제약조건을 만족하는지
+    /// Check whether the current coordinates satisfy all constraints
     pub fn is_allowed(&self) -> bool {
         self.constraints.allows(&self.space.coordinates())
     }
 
-    /// 가능한 다음 상태들 (제약조건 고려)
+    /// Possible next states (taking constraints into account)
     pub fn possible_transitions(&self) -> Vec<S>
     where
         S: From<SpaceCoordinates>,
     {
         let current = self.space.coordinates();
 
-        // 1. 기본 구조적 인접성
+        // 1. Basic structural adjacency
         let basic = self.space.basic_adjacency();
 
-        // 2. 전이 행렬 기반 인접성
+        // 2. Transition matrix based adjacency
         let from_transitions = self.transition_matrix.transitions_from(&current);
 
-        // 3. 병합하고 제약조건 필터링
+        // 3. Merge and filter constraints
         basic
             .into_iter()
             .chain(from_transitions)
@@ -178,7 +178,7 @@ where
             .collect()
     }
 
-    /// 상태 트리 생성 (제약조건 만족하는 전이만)
+    /// Create a state tree (only transitions that satisfy constraints)
     pub fn generate_tree(&self, max_depth: usize) -> HashSet<S>
     where
         S: From<SpaceCoordinates> + Hash + Eq,
@@ -197,7 +197,7 @@ where
                 continue;
             }
 
-            // 현재 StateField에서의 전이 계산
+            // Calculating transitions in the current StateField
             let field = StateField {
                 space: state,
                 transition_matrix: self.transition_matrix.clone(),
@@ -218,7 +218,7 @@ where
 
 // ==================== TRANSITION MATRIX ====================
 
-/// 전이 행렬: 상태 간 전이 규칙 정의
+/// Transition matrix: defining transition rules between states
 #[derive(Debug, Clone, Default)]
 pub struct TransitionMatrix {
     pub transitions: Vec<(SpaceCoordinates, SpaceCoordinates, f64)>,
@@ -247,7 +247,7 @@ impl TransitionMatrix {
 
 // ==================== OBSERVATION CONFIG ====================
 
-/// 관측 설정: 투영자와 관측자 설정
+/// Observation settings: Projector and observer settings
 #[derive(Debug, Clone)]
 pub struct ObservationConfig<O, V>
 where
@@ -299,7 +299,7 @@ pub trait Observer: Debug + Send + Sync {
     fn describe(&self) -> String;
 }
 
-/// 정수 투영자
+/// Essence Projector
 #[derive(Debug, Clone)]
 pub struct IntegerProjector {
     axis: usize,
@@ -321,7 +321,7 @@ impl Projector for IntegerProjector {
     }
 }
 
-/// 값 비교 관측자
+/// value comparison observer
 #[derive(Debug, Clone)]
 pub struct ValueObserver<T: Eq + Debug> {
     expected: T,
@@ -354,7 +354,7 @@ where
 
 // ==================== CORE FUNCTIONS ====================
 
-/// StateField에서 관측 수행
+/// Perform observations on StateField
 pub fn observe_field<S, O, V, P>(field: &StateField<S, O, V>, projector: &P) -> Option<P::Output>
 where
     S: SchemeSegment,
@@ -399,7 +399,7 @@ where
     results
 }
 
-/// 상태 공간 합성 (old.txt의 compose_spaces와 유사)
+/// State space composition (similar to compose_spaces in old.txt)
 pub fn compose_fields<S1, S2, O1, V1, O2, V2>(
     field1: &StateField<S1, O1, V1>,
     field2: &StateField<S2, O2, V2>,
@@ -451,7 +451,7 @@ pub struct CompositionResult {
 
 // ==================== CONSTRAINT IMPLEMENTATIONS ====================
 
-/// 범위 제약조건 (old.txt InRange 참고)
+/// Range constraints (see old.txt InRange)
 #[derive(Debug, Clone)]
 pub struct RangeConstraint {
     axis: usize,
@@ -478,7 +478,7 @@ impl Constraint for RangeConstraint {
     }
 }
 
-/// 짝수 제약조건 (old.txt Even 참고)
+/// Even constraints (see old.txt Even)
 #[derive(Debug, Clone)]
 pub struct EvenConstraint {
     axis: usize,
@@ -508,7 +508,7 @@ impl Constraint for EvenConstraint {
 pub mod fields {
     use super::*;
 
-    /// StateField 빌더 패턴
+    /// StateField builder pattern
     pub struct FieldBuilder<S, O, V>
     where
         S: SchemeSegment,
@@ -567,11 +567,11 @@ pub mod fields {
 // ==================== MODULE STRUCTURE ====================
 
 pub mod spaces {
-    // arithmetic.ss
+    // Arithmetic.ss
     #[path = "../spaces/arithmetic.ss"]
     pub mod arithmetic;
 
-    // basic.ss
+    // Basic.ss
     #[path = "../spaces/basic.ss"]
     pub mod basic;
 }
