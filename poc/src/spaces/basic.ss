@@ -1,7 +1,7 @@
-//! basic state space
-use crate::{SchemeSegment, SpaceCoordinates};
+//! A basic space with one coordinate per axis and simple ±1 adjacency.
+use crate::core::{SchemeSegment, SpaceCoordinates};
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct BasicSpace {
     coords: SpaceCoordinates,
 }
@@ -23,12 +23,10 @@ impl SchemeSegment for BasicSpace {
 
         for i in 0..dim {
             if let Some(val) = self.coords.get_axis(i) {
-                // +1 direction
                 let mut plus = self.coords.raw.clone();
                 plus[i] = val + 1;
                 adjacent.push(SpaceCoordinates::new(plus));
 
-                // -1 direction
                 let mut minus = self.coords.raw.clone();
                 minus[i] = val - 1;
                 adjacent.push(SpaceCoordinates::new(minus));
@@ -41,6 +39,6 @@ impl SchemeSegment for BasicSpace {
 
 impl From<SpaceCoordinates> for BasicSpace {
     fn from(coords: SpaceCoordinates) -> Self {
-        Self { coords }
+        Self::new(coords)
     }
 }
