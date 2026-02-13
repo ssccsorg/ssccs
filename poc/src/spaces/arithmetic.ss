@@ -1,7 +1,8 @@
-//! Arithmetic state space
-use crate::{SchemeSegment, SpaceCoordinates};
+//! An arithmetic space: single‑axis with operations +1, -1, ×2, ÷2.
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+use crate::core::{SchemeSegment, SpaceCoordinates};
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ArithmeticSpace {
     coords: SpaceCoordinates,
 }
@@ -21,12 +22,11 @@ impl SchemeSegment for ArithmeticSpace {
 
     fn basic_adjacency(&self) -> Vec<SpaceCoordinates> {
         let current = self.coords.get_axis(0).unwrap_or(0);
-
         vec![
-            SpaceCoordinates::new(vec![current + 1]), // +1
-            SpaceCoordinates::new(vec![current - 1]), // 1
-            SpaceCoordinates::new(vec![current * 2]), // ×2
-            SpaceCoordinates::new(vec![current / 2]), // ÷2 (integer)
+            SpaceCoordinates::new(vec![current + 1]),
+            SpaceCoordinates::new(vec![current - 1]),
+            SpaceCoordinates::new(vec![current * 2]),
+            SpaceCoordinates::new(vec![current / 2]), // integer division
         ]
     }
 }

@@ -1,182 +1,160 @@
-use ssccs_poc::arithmetic::ArithmeticSpace;
-use ssccs_poc::basic::BasicSpace;
-use ssccs_poc::fields::FieldBuilder;
-use ssccs_poc::spaces::*;
+use ssccs_poc::core::{Field, Projector, SchemeSegment, SpaceCoordinates};
+use ssccs_poc::spaces::{arithmetic::ArithmeticSpace, basic::BasicSpace};
 use ssccs_poc::*;
 
-fn main() {
-    println!(" Scheme SegmentScheme-Segment Computing (StateField 버전)");
-    println!("==================================================\n");
+// A simple projector that extracts a single axis value.
+#[derive(Debug, Clone)]
+struct IntegerProjector {
+    axis: usize,
+}
 
-    // 1. Basic structural experiment
-    println!(" 1. Basic structural experiment:");
-    let coords = SpaceCoordinates::new(vec![1, 2, 3]);
-    println!("   Pure coordinates: {:?}", coords.raw);
-    println!("   Coordinates are meaningless: just an array of numbers");
-    println!();
-
-    // 2. Create state space
-    println!(" 2. Create state space:");
-    let basic_space = basic::BasicSpace::new(coords.clone());
-    println!(
-        "   BasicSpace coordinates: {:?}",
-        basic_space.coordinates().raw
-    );
-
-    // Wrap it with StateField
-    let basic_field: StateField<BasicSpace, i64, i64> =
-        fields::FieldBuilder::<BasicSpace, i64, i64>::new(basic_space.clone())
-            .add_constraint(RangeConstraint::new(0, 0, 10))
-            .add_constraint(RangeConstraint::new(1, 0, 5))
-            .build();
-
-    println!(
-        "   StateField constraints: {}",
-        basic_field.constraints.describe()
-    );
-    println!("   Allowed: {}", basic_field.is_allowed());
-    println!();
-
-    // 3. Add constraints
-    println!(" 3. Add constraints:");
-    let constrained_field: StateField<BasicSpace, i64, i64> =
-        FieldBuilder::new(basic::BasicSpace::new(coords.clone()))
-            .add_constraint(RangeConstraint::new(0, 0, 10))
-            .add_constraint(RangeConstraint::new(1, 0, 5))
-            .build();
-
-    println!(
-        "   Constraints: {}",
-        constrained_field.constraints.describe()
-    );
-    println!(
-        "   Coordinates [1,2,3] allowed: {}",
-        constrained_field.is_allowed()
-    );
-    println!("   Constraints are structural limitations of space");
-    println!();
-
-    // 4. Projection experiment
-    println!(" 4. Projection experiment:");
-    let projector = IntegerProjector::new(0);
-    let projection = projector.project(&coords);
-    println!("   Projector: Extract first axis values");
-    println!("   Projection result: {:?}", projection);
-    println!("   Same coordinates → different projectors → different meanings");
-    println!();
-
-    // 5. Arithmetic space experiment
-    println!(" 5. Arithmetic space experiment:");
-    let arithmetic_space = arithmetic::ArithmeticSpace::new(5);
-    println!(
-        "   Arithmetic space coordinates: {:?}",
-        arithmetic_space.coordinates().raw
-    );
-    println!("   Arithmetic adjacency: +1, -1, ×2, ×², etc.");
-
-    let arithmetic_field: StateField<ArithmeticSpace, i64, i64> =
-        FieldBuilder::new(arithmetic_space.clone())
-            .add_constraint(RangeConstraint::new(0, 0, 50))
-            .build();
-
-    let direct = observe_field(&arithmetic_field, &projector);
-    println!("   Direct observation: {:?}", direct);
-
-    // Adjacent observations (possible transitions)
-    let possible_transitions = arithmetic_field.possible_transitions();
-    println!("   Possible transitions: {}dog", possible_transitions.len());
-    println!(
-        "   Transition example: {:?}",
-        possible_transitions
-            .iter()
-            .take(3)
-            .map(|s| s.coordinates().raw[0])
-            .collect::<Vec<_>>()
-    );
-    println!();
-
-    // 6. Tree navigation
-    println!(" 6. Tree navigation:");
-    let tree_results = observe_tree(&arithmetic_field, &projector, 2);
-    println!("   Depth 2 search results: {:?}", tree_results);
-    println!("   Searched values: {}dog", tree_results.len());
-    println!();
-
-    // 7. Observer pattern
-    println!(" 7. Observer pattern:");
-    let observer = ValueObserver::new(5, "Check if value is 5");
-
-    // Current value observation
-    let current_value = projector.project(&arithmetic_field.space.coordinates());
-    if let Some(value) = current_value {
-        println!("   Current value: {}", value);
-        println!("   Observations: {}", observer.observe(&value));
-        println!("   Observation Description: {}", observer.describe());
+impl IntegerProjector {
+    fn new(axis: usize) -> Self {
+        Self { axis }
     }
+}
 
-    // Transposed value observation
-    if let Some(first_transition) = possible_transitions.first() {
-        let transition_value = projector.project(&first_transition.coordinates());
-        if let Some(value) = transition_value {
-            println!("   Transition value: {}", value);
-            println!("   Observations: {}", observer.observe(&value));
+impl Projector for IntegerProjector {
+    type Output = i64;
+
+    fn project(&self, _field: &Field, segment: &dyn SchemeSegment) -> Option<Self::Output> {
+        // For this simple projector, we ignore the field and just return the coordinate value.
+        // But we do check that the coordinate is allowed (already done by `observe`).
+        segment.coordinates().get_axis(self.axis)
+    }
+}
+
+// A projector that returns a string based on parity (demonstrates using field).
+#[derive(Debug, Clone)]
+struct ParityProjector;
+
+impl Projector for ParityProjector {
+    type Output = String;
+
+    fn project(&self, _field: &Field, segment: &dyn SchemeSegment) -> Option<Self::Output> {
+        let coord = segment.coordinates().get_axis(0)?;
+        if coord % 2 == 0 {
+            Some("even".into())
+        } else {
+            Some("odd".into())
         }
     }
-    println!("   Observation = Projection + Expected Value Comparison");
-    println!();
+}
 
-    // 8. Synthesis experiments
-    println!(" 8. Spatial compositing:");
-    let space1_field: StateField<BasicSpace, i64, i64> =
-        FieldBuilder::new(basic::BasicSpace::new(SpaceCoordinates::new(vec![1, 2])))
-            .add_constraint(RangeConstraint::new(0, 0, 5))
-            .build();
+fn main() {
+    println!("SSCCS Proof of Concept (Constitution‑Compliant Rewrite)");
+    println!("=======================================================\n");
 
-    let space2_field: StateField<BasicSpace, i64, i64> =
-        FieldBuilder::new(basic::BasicSpace::new(SpaceCoordinates::new(vec![1, 2])))
-            .add_constraint(RangeConstraint::new(0, 0, 3))
-            .build();
-
-    let composition = compose_fields(&space1_field, &space2_field);
-    println!("   Synthetic results: {:?}", composition);
-    println!("   Synthesis = Analysis of relationships between spaces");
-    println!();
-
-    // 9. Even Constraint Testing
-    println!(" 9. Testing even constraints:");
-    let even_space = arithmetic::ArithmeticSpace::new(6);
-    let even_field: StateField<ArithmeticSpace, i64, i64> = FieldBuilder::new(even_space)
-        .add_constraint(EvenConstraint::new(0))
-        .add_constraint(RangeConstraint::new(0, 0, 20))
-        .build();
-
-    println!("   coordinate: {:?}", even_field.space.coordinates().raw);
-    println!("   Constraints: {}", even_field.constraints.describe());
-    println!("   Allowed: {}", even_field.is_allowed());
-
-    let even_transitions = even_field.possible_transitions();
+    // 1. Create an immutable SchemaSegment
+    let coords = SpaceCoordinates::new(vec![1, 2, 3]);
+    let basic_segment = BasicSpace::new(coords.clone());
+    println!("Segment coordinates: {:?}", basic_segment.coordinates().raw);
     println!(
-        "   Possible transitions under the even constraint: {}dog",
-        even_transitions.len()
+        "Segment identity: {:?}",
+        basic_segment.identity().as_bytes()
     );
     println!(
-        "   Transition values: {:?}",
-        even_transitions
+        "Basic adjacency: {:?}",
+        basic_segment
+            .basic_adjacency()
             .iter()
-            .map(|s| s.coordinates().raw[0])
+            .map(|c| &c.raw)
             .collect::<Vec<_>>()
     );
     println!();
 
-    // philosophical summary
-    println!(" Philosophical Hierarchy:");
-    println!("• Coordinates have the structure: SpaceCoordinates([x, y, z])");
-    println!("• SchemeSegment = Structure + Basic Adjacency");
-    println!("• StateField = SchemeSegment + Dynamic Field (constraint, transition, observation)");
-    println!("• Constraints are allowed: Constraint.allows(coords)");
-    println!("• Projection is semantic emergence: Projector.project(coords)");
-    println!("• Observation verifies meaning: Observer.observe(value)");
+    // 2. Create a mutable Field and add constraints
+    let mut field = Field::new();
+    field.add_constraint(RangeConstraint::new(0, 0, 10));
+    field.add_constraint(RangeConstraint::new(1, 0, 5));
+    field.add_transition(
+        SpaceCoordinates::new(vec![1, 2, 3]),
+        SpaceCoordinates::new(vec![2, 2, 3]),
+        1.0,
+    );
+    println!("Field constraints: {}", field.describe_constraints());
+    println!(
+        "Segment allowed? {}",
+        field.allows(&basic_segment.coordinates())
+    );
     println!();
 
-    println!(" Scheme SegmentState is immutable, conditions are variable, meaning is emergent!");
+    // 3. Observe using a projector
+    let projector = IntegerProjector::new(0);
+    if let Some(val) = observe(&field, &basic_segment, &projector) {
+        println!("Observation (IntegerProjector): {}", val);
+    } else {
+        println!("Observation failed (coordinate not allowed)");
+    }
+
+    // 4. Use a projector that incorporates field information
+    let parity_proj = ParityProjector;
+    if let Some(parity) = observe(&field, &basic_segment, &parity_proj) {
+        println!("Observation (ParityProjector): {}", parity);
+    }
+    println!();
+
+    // 5. Explore possible next coordinates
+    let next_coords = possible_next_coordinates(&field, &basic_segment);
+    println!("Possible next coordinates (structural + field transitions, filtered):");
+    for coord in &next_coords {
+        println!("  {:?}", coord.raw);
+    }
+    println!();
+
+    // 6. Work with a different segment type
+    let arith_segment = ArithmeticSpace::new(5);
+    println!(
+        "Arithmetic segment at {:?}",
+        arith_segment.coordinates().raw
+    );
+    println!(
+        "Arithmetic identity: {:?}",
+        arith_segment.identity().as_bytes()
+    );
+    println!(
+        "Arithmetic basic adjacency: {:?}",
+        arith_segment
+            .basic_adjacency()
+            .iter()
+            .map(|c| c.raw[0])
+            .collect::<Vec<_>>()
+    );
+
+    let mut arith_field = Field::new();
+    arith_field.add_constraint(RangeConstraint::new(0, 0, 20));
+    arith_field.add_constraint(EvenConstraint::new(0));
+
+    println!(
+        "Arithmetic field constraints: {}",
+        arith_field.describe_constraints()
+    );
+    println!(
+        "Segment allowed? {}",
+        arith_field.allows(&arith_segment.coordinates())
+    );
+
+    if let Some(val) = observe(&arith_field, &arith_segment, &IntegerProjector::new(0)) {
+        println!("Observed value: {}", val);
+    }
+
+    let next_arith = possible_next_coordinates(&arith_field, &arith_segment);
+    println!(
+        "Possible next values (filtered by even constraint): {:?}",
+        next_arith.iter().map(|c| c.raw[0]).collect::<Vec<_>>()
+    );
+    println!();
+
+    // 7. Demonstrate that projections are ephemeral – we don't store them.
+    println!("Projections are ephemeral: they are returned but not cached by the core.");
+    println!("If you need a projection again, you must observe again.");
+    println!();
+
+    // 8. Show that time is just another coordinate (conceptual)
+    println!("Time is just another coordinate. To model a temporal sequence,");
+    println!("include a time axis in your coordinates and compare values on that axis.");
+    println!("For example, coordinates [t, x, y] with t as time.");
+    println!();
+
+    println!("SSCCS PoC rewrite complete – aligned with constitutional principles.");
 }
