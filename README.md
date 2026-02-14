@@ -298,10 +298,9 @@ Phase 3: Native Execution
 
 * Dynamic attribute generation at observation points
 * Direct blueprint‑to‑hardware mapping
-* Observation‑Centric Processors (OCP)
+* Observation-Centric Processors (OCP), such as [memristor-based architectures](https://en.wikipedia.org/wiki/Memristor), provide a strong example of how Field states and projection logic can be physically realized, reducing the memory-processor bottleneck and pointing toward SSCCS’s principle of observation-concentrated energy consumption.
 * Universal computational substrate with verified semantic fidelity
 * Language‑less execution: composable requirements → direct machine execution
-
 
 > Final Declaration: SSCCS establishes composition—not instruction sequencing—as the primitive of computation.  
 > Immutable blueprints serve dual roles as representation and execution specification, with Observation as the singular mechanism that converts potential into actuality.  
