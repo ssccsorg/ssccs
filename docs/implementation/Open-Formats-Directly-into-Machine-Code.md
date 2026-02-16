@@ -7,9 +7,9 @@ The user writes an open-format document. The engine compiles it into hardware-gr
 ## 1. Core Philosophy
 
 SSCCS moves beyond runtime interpretation.  
-Instead of parsing open-format documents at runtime, storing data in HashMaps, performing dynamic lookups, and paying heap allocation and locking costs, SSCCS reads structured open-format definitions and **bakes them directly into native machine code at compile time**.
+Instead of parsing open-format documents at runtime, storing data in HashMaps, performing dynamic lookups, and paying heap allocation and locking costs, SSCCS reads structured open-format definitions and bakes them directly into native machine code at compile time.
 
-Rust is not used merely as a programming language — it acts as a **projection lens** that transforms schema into optimized hardware-level execution.
+Rust is not used merely as a programming language — it acts as a projection lens that transforms schema into optimized hardware-level execution.
 
 ---
 
@@ -29,7 +29,7 @@ Rust is not used merely as a programming language — it acts as a **projection 
 - Segments converted into `const`
 - Projectors converted into fully inlined functions
 - LLVM performs constant folding
-- Runtime overhead: **effectively zero**
+- Runtime overhead: effectively zero
 
 ---
 
@@ -108,7 +108,7 @@ fn main() {
 
 ### 4.1 Extreme Constant Folding
 
-Because `INT_A` and `INT_B` are compile-time constants, `INT_A + INT_B` becomes `2` at compile time. LLVM eliminates the addition entirely. At runtime, the CPU does not compute `1 + 1`; it simply operates on the literal value `2`. Runtime arithmetic cost: **0**.
+Because `INT_A` and `INT_B` are compile-time constants, `INT_A + INT_B` becomes `2` at compile time. LLVM eliminates the addition entirely. At runtime, the CPU does not compute `1 + 1`; it simply operates on the literal value `2`. Runtime arithmetic cost: 0.
 
 ---
 
@@ -136,7 +136,7 @@ The developer writes a structured document, and the compiler transforms it into 
 
 ## 6. Beyond 1 + 1
 
-The arithmetic example is trivial. But imagine embedding network routing policies, access control graphs, distributed system consensus rules, security boundary definitions, or permission projection engines — all described declaratively in an open format, then compiled into zero-overhead machine code. This is not configuration; this is **compilation of structure into silicon behavior**.
+The arithmetic example is trivial. But imagine embedding network routing policies, access control graphs, distributed system consensus rules, security boundary definitions, or permission projection engines — all described declaratively in an open format, then compiled into zero-overhead machine code. This is not configuration; this is compilation of structure into silicon behavior.
 
 ---
 
@@ -155,7 +155,7 @@ It provides memory safety, deterministic compilation, LLVM-level optimization, a
 > “The user writes a document.
 > The engine turns it into circuitry.”
 
-SSCCS is the transition from runtime interpretation → compile-time projection → hardware-equivalent execution. The schema is no longer read. It is **baked.**
+SSCCS is the transition from runtime interpretation → compile-time projection → hardware-equivalent execution. The schema is no longer read. It is baked.
 
 ---
 
