@@ -19,6 +19,7 @@ The "Squeezing" phase in Keccak, where the state is extracted to produce an outp
 ---
 
 ## 3. Physical Realization: Memristive Circuit Dynamics
+
 The [Memristor](https://en.wikipedia.org/wiki/Memristor), as the fourth fundamental circuit element, offers a physical substrate that mirrors the philosophical goals of SSCCS—specifically the dissolution of the program-data dichotomy.
 
 ### A. Stateful Logic and Immutability
@@ -56,3 +57,9 @@ This exploratory report suggests that SSCCS is uniquely positioned to bridge the
 ### References
 * [1] Keccak Team.  ["The Sponge Functions."](https://keccak.team/keccak_specs_summary.html)
 * [2] Wikipedia.  ["Memristor."](https://en.wikipedia.org/wiki/Memristor) 
+
+---
+
+© 2026 SSCCS gUG (i.G.), a German non-profit research initiative. All rights reserved.  
+- Document authenticity verifiable via GPG-signed commits (Key ID: BCCB196BADF50C99) in github.com/ssccsorg.
+- The foundation of the content was conceived by the human author, with generative AI (Gemini/GPT) assisting in structural refinement, clarity, and technical consistency.
