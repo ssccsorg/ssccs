@@ -1,4 +1,4 @@
-# “Bake Open Formats Directly into Machine Code”
+# Open Formats Directly into Machine Code
 
 The user writes an open-format document. The engine compiles it into hardware-grade logic.
 
