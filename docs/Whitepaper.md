@@ -428,6 +428,4 @@ Future work includes:
 
 ---
 
-© 2026 SSCCS gUG (i.G.), a German non‑profit research initiative. All rights reserved.  
-Document authenticity verifiable via GPG‑signed commits (Key ID: BCCB196BADF50C99) at github.com/ssccsorg.  
-The core concepts were conceived by the human author; generative AI (Gemini/GPT) assisted in structural refinement, clarity, and technical consistency.
+© 2026 SSCCS gUG (i.G.). This human-conceived and AI-refined documentation is licensed under CC BY-NC-ND 4.0; authenticity and integrity are cryptographically verifiable via GPG-signed commits (Key: BCCB196BADF50C99) at github

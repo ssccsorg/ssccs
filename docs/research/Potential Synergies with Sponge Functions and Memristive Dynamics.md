@@ -60,6 +60,4 @@ This exploratory report suggests that SSCCS is uniquely positioned to bridge the
 
 ---
 
-© 2026 SSCCS gUG (i.G.), a German non-profit research initiative. All rights reserved.  
-- Document authenticity verifiable via GPG-signed commits (Key ID: BCCB196BADF50C99) in github.com/ssccsorg.
-- The foundation of the content was conceived by the human author, with generative AI (Gemini/GPT) assisting in structural refinement, clarity, and technical consistency.
+© 2026 SSCCS gUG (i.G.). This human-conceived and AI-refined documentation is licensed under CC BY-NC-ND 4.0; authenticity and integrity are cryptographically verifiable via GPG-signed commits (Key: BCCB196BADF50C99) at github
