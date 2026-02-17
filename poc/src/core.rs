@@ -44,20 +44,49 @@ impl SegmentId {
     }
 }
 
-/// An immutable blueprint that defines a location.
-/// This trait is object‑safe, so it can be used via `dyn SchemeSegment`.
-pub trait SchemeSegment: Debug + Send + Sync {
-    /// The coordinates of this segment.
-    fn coordinates(&self) -> SpaceCoordinates;
+/// An immutable point in possibility space.
+/// Contains only coordinates and a cryptographic identity.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct Segment {
+    coords: SpaceCoordinates,
+    id: SegmentId,
+}
 
-    /// Cryptographic identity derived from the segment's immutable properties.
-    /// Default implementation hashes the coordinates.
-    fn identity(&self) -> SegmentId {
+impl Segment {
+    /// Create a new Segment from coordinates.
+    /// The cryptographic identity is automatically derived from the coordinates.
+    pub fn new(coords: SpaceCoordinates) -> Self {
+        let id = Self::compute_id(&coords);
+        Self { coords, id }
+    }
+
+    /// Compute the cryptographic identity from coordinates.
+    fn compute_id(coords: &SpaceCoordinates) -> SegmentId {
         let mut hasher = blake3::Hasher::new();
-        for v in self.coordinates().raw.iter() {
+        for v in coords.raw.iter() {
             hasher.update(&v.to_le_bytes());
         }
         SegmentId(hasher.finalize().into())
+    }
+
+    /// Get the coordinates of this segment.
+    pub fn coordinates(&self) -> &SpaceCoordinates {
+        &self.coords
+    }
+
+    /// Get the cryptographic identity of this segment.
+    pub fn id(&self) -> &SegmentId {
+        &self.id
+    }
+
+    /// Create a Segment from a single value (convenience for 1D spaces).
+    pub fn from_value(value: i64) -> Self {
+        Self::new(SpaceCoordinates::new(vec![value]))
+    }
+
+    /// Create a Segment from multiple values.
+    pub fn from_values(values: Vec<i64>) -> Self {
+        Self::new(SpaceCoordinates::new(values))
     }
 }
 
@@ -172,14 +201,14 @@ impl Field {
     }
 }
 
-/// A projector gives semantic meaning to a combination of Field and SchemaSegment.
+/// A projector gives semantic meang to a combination of Field and Segment.
 /// The output is the "collapsed cross‑section" of the constraint space at that point.
 pub trait Projector: Debug + Send + Sync {
     type Output: Clone + Debug + PartialEq + Eq + Hash;
 
     /// Produce a projection, if possible. The projector may use both the field's constraints
     /// and the segment's intrinsic properties.
-    fn project(&self, field: &Field, segment: &dyn SchemeSegment) -> Option<Self::Output>;
+    fn project(&self, field: &Field, segment: &Segment) -> Option<Self::Output>;
 
     /// Given a coordinate, return the possible next coordinates according to this projector's interpretation.
     /// This is where the projector defines the "adjacency" semantics (e.g., arithmetic operations, graph edges, etc.).

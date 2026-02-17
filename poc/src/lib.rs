@@ -1,5 +1,5 @@
 pub mod core;
-use crate::core::{Constraint, Field, Projector, SchemeSegment, SpaceCoordinates};
+use crate::core::{Constraint, Field, Projector, Segment, SpaceCoordinates};
 use std::fmt::Debug;
 
 // ==================== CONSTRAINT IMPLEMENTATIONS ====================
@@ -59,12 +59,8 @@ impl Constraint for EvenConstraint {
 // ==================== OBSERVATION FUNCTIONS ====================
 
 /// Observe a single point: project if the coordinate is allowed by the field.
-pub fn observe<P: Projector>(
-    field: &Field,
-    segment: &dyn SchemeSegment,
-    projector: &P,
-) -> Option<P::Output> {
-    if field.allows(&segment.coordinates()) {
+pub fn observe<P: Projector>(field: &Field, segment: &Segment, projector: &P) -> Option<P::Output> {
+    if field.allows(segment.coordinates()) {
         projector.project(field, segment)
     } else {
         None
@@ -76,12 +72,12 @@ pub fn observe<P: Projector>(
 /// filtered by field constraints.
 pub fn possible_next_coordinates<P: Projector>(
     field: &Field,
-    segment: &dyn SchemeSegment,
+    segment: &Segment,
     projector: &P,
 ) -> Vec<SpaceCoordinates> {
     let current = segment.coordinates();
-    let mut candidates = projector.possible_next_coordinates(&current);
-    candidates.extend(field.transition_targets(&current));
+    let mut candidates = projector.possible_next_coordinates(current);
+    candidates.extend(field.transition_targets(current));
     candidates.retain(|c| field.allows(c));
     candidates
 }

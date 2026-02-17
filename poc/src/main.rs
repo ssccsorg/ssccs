@@ -1,4 +1,4 @@
-use ssccs_poc::core::{Field, Projector, SchemeSegment, SpaceCoordinates};
+use ssccs_poc::core::{Field, Projector, Segment, SpaceCoordinates};
 use ssccs_poc::spaces::{arithmetic::IntegerSpace, basic::BasicSpace};
 use ssccs_poc::*;
 
@@ -17,7 +17,7 @@ impl IntegerProjector {
 impl Projector for IntegerProjector {
     type Output = i64;
 
-    fn project(&self, _field: &Field, segment: &dyn SchemeSegment) -> Option<Self::Output> {
+    fn project(&self, _field: &Field, segment: &Segment) -> Option<Self::Output> {
         segment.coordinates().get_axis(self.axis)
     }
 
@@ -31,7 +31,7 @@ struct ArithmeticProjector;
 impl Projector for ArithmeticProjector {
     type Output = i64;
 
-    fn project(&self, _field: &Field, segment: &dyn SchemeSegment) -> Option<Self::Output> {
+    fn project(&self, _field: &Field, segment: &Segment) -> Option<Self::Output> {
         segment.coordinates().get_axis(0)
     }
 
@@ -53,7 +53,7 @@ struct ParityProjector;
 impl Projector for ParityProjector {
     type Output = String;
 
-    fn project(&self, _field: &Field, segment: &dyn SchemeSegment) -> Option<Self::Output> {
+    fn project(&self, _field: &Field, segment: &Segment) -> Option<Self::Output> {
         let coord = segment.coordinates().get_axis(0)?;
         if coord % 2 == 0 {
             Some("even".into())
@@ -64,7 +64,7 @@ impl Projector for ParityProjector {
 }
 
 fn main() {
-    println!("SSCCS Proof of Concept (Constitution‑Compliant Rewrite)");
+    println!("SSCCS Proof of Concept");
     println!("=======================================================\n");
 
     // 1. Create immutable SchemaSegments
@@ -74,17 +74,14 @@ fn main() {
         "BasicSegment coordinates: {:?}",
         basic_segment.coordinates().raw
     );
-    println!(
-        "BasicSegment identity: {:?}",
-        basic_segment.identity().as_bytes()
-    );
+    println!("BasicSegment identity: {:?}", basic_segment.id().as_bytes());
     println!();
 
     let arith_segment = IntegerSpace::new(5);
     println!("IntegerSegment at {:?}", arith_segment.coordinates().raw);
     println!(
         "IntegerSegment identity: {:?}",
-        arith_segment.identity().as_bytes()
+        arith_segment.id().as_bytes()
     );
     println!();
 
