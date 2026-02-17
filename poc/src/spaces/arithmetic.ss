@@ -1,5 +1,4 @@
-//! An arithmetic space: single‑axis with operations +1, -1, ×2, ÷2.
-
+//! An arithmetic space: single‑axis.
 use crate::core::{SchemeSegment, SpaceCoordinates};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -18,16 +17,6 @@ impl ArithmeticSpace {
 impl SchemeSegment for ArithmeticSpace {
     fn coordinates(&self) -> SpaceCoordinates {
         self.coords.clone()
-    }
-
-    fn basic_adjacency(&self) -> Vec<SpaceCoordinates> {
-        let current = self.coords.get_axis(0).unwrap_or(0);
-        vec![
-            SpaceCoordinates::new(vec![current + 1]),
-            SpaceCoordinates::new(vec![current - 1]),
-            SpaceCoordinates::new(vec![current * 2]),
-            SpaceCoordinates::new(vec![current / 2]), // integer division
-        ]
     }
 }
 

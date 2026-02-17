@@ -72,67 +72,18 @@ pub fn observe<P: Projector>(
 }
 
 /// Compute all possible next coordinates from the current segment, taking into account
-/// both the segment's intrinsic adjacency and the field's transition matrix,
+/// both the projector's interpretation of adjacency and the field's transition matrix,
 /// filtered by field constraints.
-pub fn possible_next_coordinates(
+pub fn possible_next_coordinates<P: Projector>(
     field: &Field,
     segment: &dyn SchemeSegment,
+    projector: &P,
 ) -> Vec<SpaceCoordinates> {
     let current = segment.coordinates();
-    let mut candidates = segment.basic_adjacency();
+    let mut candidates = projector.possible_next_coordinates(&current);
     candidates.extend(field.transition_targets(&current));
     candidates.retain(|c| field.allows(c));
     candidates
-}
-
-/// Recursively explore the state space up to a given depth (demo only – not a core concept).
-/// Returns the set of all projection values encountered.
-/// Note: depth is a demo parameter; in a true SSCCS system, time is just another coordinate.
-///
-/// This function requires a way to reconstruct a `SchemeSegment` from `SpaceCoordinates`.
-/// For demonstration, you must provide a closure `make_segment` that does this.
-pub fn observe_tree<P, F>(
-    field: &Field,
-    start_coords: SpaceCoordinates,
-    projector: &P,
-    make_segment: F,
-    max_depth: usize,
-) -> std::collections::HashSet<P::Output>
-where
-    P: Projector,
-    P::Output: Eq + std::hash::Hash,
-    F: Fn(SpaceCoordinates) -> Box<dyn SchemeSegment>,
-{
-    let mut results = std::collections::HashSet::new();
-    let mut visited = std::collections::HashSet::new();
-    let mut stack = vec![(start_coords, 0)];
-
-    while let Some((coords, depth)) = stack.pop() {
-        if !visited.insert(coords.clone()) {
-            continue;
-        }
-
-        let segment = make_segment(coords.clone());
-        if let Some(proj) = observe(field, segment.as_ref(), projector) {
-            results.insert(proj);
-        }
-
-        if depth >= max_depth {
-            continue;
-        }
-
-        // Compute next coordinates using a temporary segment (just to get basic adjacency)
-        // We need the segment's basic adjacency, so we create one via the closure.
-        let temp_seg = make_segment(coords);
-        let next = possible_next_coordinates(field, temp_seg.as_ref());
-        for n in next {
-            if !visited.contains(&n) {
-                stack.push((n, depth + 1));
-            }
-        }
-    }
-
-    results
 }
 
 // ==================== MODULE STRUCTURE ====================

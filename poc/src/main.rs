@@ -18,13 +18,35 @@ impl Projector for IntegerProjector {
     type Output = i64;
 
     fn project(&self, _field: &Field, segment: &dyn SchemeSegment) -> Option<Self::Output> {
-        // For this simple projector, we ignore the field and just return the coordinate value.
-        // But we do check that the coordinate is allowed (already done by `observe`).
         segment.coordinates().get_axis(self.axis)
+    }
+
+    // No intrinsic adjacency for this projector.
+}
+
+// A projector that performs arithmetic operations to generate neighbours.
+#[derive(Debug, Clone)]
+struct ArithmeticProjector;
+
+impl Projector for ArithmeticProjector {
+    type Output = i64;
+
+    fn project(&self, _field: &Field, segment: &dyn SchemeSegment) -> Option<Self::Output> {
+        segment.coordinates().get_axis(0)
+    }
+
+    fn possible_next_coordinates(&self, coords: &SpaceCoordinates) -> Vec<SpaceCoordinates> {
+        let current = coords.get_axis(0).unwrap_or(0);
+        vec![
+            SpaceCoordinates::new(vec![current + 1]),
+            SpaceCoordinates::new(vec![current - 1]),
+            SpaceCoordinates::new(vec![current * 2]),
+            SpaceCoordinates::new(vec![current / 2]), // integer division
+        ]
     }
 }
 
-// A projector that returns a string based on parity (demonstrates using field).
+// A projector that returns a string based on parity.
 #[derive(Debug, Clone)]
 struct ParityProjector;
 
@@ -45,21 +67,24 @@ fn main() {
     println!("SSCCS Proof of Concept (Constitution‑Compliant Rewrite)");
     println!("=======================================================\n");
 
-    // 1. Create an immutable SchemaSegment
+    // 1. Create immutable SchemaSegments
     let coords = SpaceCoordinates::new(vec![1, 2, 3]);
     let basic_segment = BasicSpace::new(coords.clone());
-    println!("Segment coordinates: {:?}", basic_segment.coordinates().raw);
     println!(
-        "Segment identity: {:?}",
-        basic_segment.identity().as_bytes()
+        "BasicSegment coordinates: {:?}",
+        basic_segment.coordinates().raw
     );
     println!(
-        "Basic adjacency: {:?}",
-        basic_segment
-            .basic_adjacency()
-            .iter()
-            .map(|c| &c.raw)
-            .collect::<Vec<_>>()
+        "BasicSegment identity: {:?}",
+        basic_segment.identity().as_bytes()
+    );
+    println!();
+
+    let arith_segment = ArithmeticSpace::new(5);
+    println!("ArithmeticSegment at {:?}", arith_segment.coordinates().raw);
+    println!(
+        "ArithmeticSegment identity: {:?}",
+        arith_segment.identity().as_bytes()
     );
     println!();
 
@@ -74,53 +99,35 @@ fn main() {
     );
     println!("Field constraints: {}", field.describe_constraints());
     println!(
-        "Segment allowed? {}",
+        "BasicSegment allowed? {}",
         field.allows(&basic_segment.coordinates())
     );
     println!();
 
-    // 3. Observe using a projector
-    let projector = IntegerProjector::new(0);
-    if let Some(val) = observe(&field, &basic_segment, &projector) {
+    // 3. Observe using different projectors
+    let int_projector = IntegerProjector::new(0);
+    if let Some(val) = observe(&field, &basic_segment, &int_projector) {
         println!("Observation (IntegerProjector): {}", val);
     } else {
         println!("Observation failed (coordinate not allowed)");
     }
 
-    // 4. Use a projector that incorporates field information
     let parity_proj = ParityProjector;
     if let Some(parity) = observe(&field, &basic_segment, &parity_proj) {
         println!("Observation (ParityProjector): {}", parity);
     }
     println!();
 
-    // 5. Explore possible next coordinates
-    let next_coords = possible_next_coordinates(&field, &basic_segment);
-    println!("Possible next coordinates (structural + field transitions, filtered):");
+    // 4. Explore possible next coordinates using ArithmeticProjector
+    let arith_proj = ArithmeticProjector;
+    let next_coords = possible_next_coordinates(&field, &basic_segment, &arith_proj);
+    println!("Possible next coordinates (ArithmeticProjector + field transitions, filtered):");
     for coord in &next_coords {
         println!("  {:?}", coord.raw);
     }
     println!();
 
-    // 6. Work with a different segment type
-    let arith_segment = ArithmeticSpace::new(5);
-    println!(
-        "Arithmetic segment at {:?}",
-        arith_segment.coordinates().raw
-    );
-    println!(
-        "Arithmetic identity: {:?}",
-        arith_segment.identity().as_bytes()
-    );
-    println!(
-        "Arithmetic basic adjacency: {:?}",
-        arith_segment
-            .basic_adjacency()
-            .iter()
-            .map(|c| c.raw[0])
-            .collect::<Vec<_>>()
-    );
-
+    // 5. Work with arithmetic segment
     let mut arith_field = Field::new();
     arith_field.add_constraint(RangeConstraint::new(0, 0, 20));
     arith_field.add_constraint(EvenConstraint::new(0));
@@ -130,7 +137,7 @@ fn main() {
         arith_field.describe_constraints()
     );
     println!(
-        "Segment allowed? {}",
+        "ArithmeticSegment allowed? {}",
         arith_field.allows(&arith_segment.coordinates())
     );
 
@@ -138,23 +145,25 @@ fn main() {
         println!("Observed value: {}", val);
     }
 
-    let next_arith = possible_next_coordinates(&arith_field, &arith_segment);
+    let next_arith = possible_next_coordinates(&arith_field, &arith_segment, &arith_proj);
     println!(
-        "Possible next values (filtered by even constraint): {:?}",
+        "Possible next values (ArithmeticProjector, filtered by even constraint): {:?}",
         next_arith.iter().map(|c| c.raw[0]).collect::<Vec<_>>()
     );
     println!();
 
-    // 7. Demonstrate that projections are ephemeral – we don't store them.
+    // 6. Demonstrate that projections are ephemeral
     println!("Projections are ephemeral: they are returned but not cached by the core.");
     println!("If you need a projection again, you must observe again.");
     println!();
 
-    // 8. Show that time is just another coordinate (conceptual)
+    // 7. Time as just another coordinate (conceptual)
     println!("Time is just another coordinate. To model a temporal sequence,");
     println!("include a time axis in your coordinates and compare values on that axis.");
     println!("For example, coordinates [t, x, y] with t as time.");
     println!();
 
-    println!("SSCCS PoC rewrite complete – aligned with constitutional principles.");
+    println!(
+        "SSCCS PoC now fully aligns: segments are pure coordinates, meaning is projected by projectors."
+    );
 }
