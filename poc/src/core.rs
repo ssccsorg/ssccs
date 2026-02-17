@@ -5,7 +5,7 @@
 //! - Mutable `Field` (constraints + relational topology)
 //! - `Projector` trait for semantic interpretation
 //! - Observation functions that combine segment and field
-//!
+
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::hash::Hash;
@@ -34,7 +34,7 @@ impl SpaceCoordinates {
 }
 
 /// Cryptographic identifier of a SchemaSegment.
-/// Derived from the segment's intrinsic properties (coordinates + basic adjacency).
+/// Derived from the segment's intrinsic properties (coordinates only, since adjacency is now external).
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct SegmentId([u8; 32]);
 
@@ -44,31 +44,18 @@ impl SegmentId {
     }
 }
 
-/// An immutable blueprint that defines a location and its intrinsic neighbours.
+/// An immutable blueprint that defines a location.
 /// This trait is object‑safe, so it can be used via `dyn SchemeSegment`.
 pub trait SchemeSegment: Debug + Send + Sync {
     /// The coordinates of this segment.
     fn coordinates(&self) -> SpaceCoordinates;
 
-    /// Intrinsic, immutable adjacency (e.g. +1/-1 on each axis).
-    /// These are part of the segment's definition, not the field.
-    fn basic_adjacency(&self) -> Vec<SpaceCoordinates>;
-
     /// Cryptographic identity derived from the segment's immutable properties.
-    /// Default implementation hashes the coordinates and the basic adjacency list.
+    /// Default implementation hashes the coordinates.
     fn identity(&self) -> SegmentId {
         let mut hasher = blake3::Hasher::new();
-        // Hash coordinates
         for v in self.coordinates().raw.iter() {
             hasher.update(&v.to_le_bytes());
-        }
-        // Hash basic adjacency (order matters – we sort to ensure determinism)
-        let mut adj = self.basic_adjacency();
-        adj.sort_by(|a, b| a.raw.cmp(&b.raw));
-        for coord in adj {
-            for v in coord.raw.iter() {
-                hasher.update(&v.to_le_bytes());
-            }
         }
         SegmentId(hasher.finalize().into())
     }
@@ -193,4 +180,11 @@ pub trait Projector: Debug + Send + Sync {
     /// Produce a projection, if possible. The projector may use both the field's constraints
     /// and the segment's intrinsic properties.
     fn project(&self, field: &Field, segment: &dyn SchemeSegment) -> Option<Self::Output>;
+
+    /// Given a coordinate, return the possible next coordinates according to this projector's interpretation.
+    /// This is where the projector defines the "adjacency" semantics (e.g., arithmetic operations, graph edges, etc.).
+    /// The default implementation returns an empty vector, meaning no intrinsic adjacency.
+    fn possible_next_coordinates(&self, _: &SpaceCoordinates) -> Vec<SpaceCoordinates> {
+        Vec::new()
+    }
 }
