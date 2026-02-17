@@ -89,8 +89,8 @@ pub fn possible_next_coordinates<P: Projector>(
 // ==================== MODULE STRUCTURE ====================
 
 pub mod spaces {
-    // Arithmetic.ss
-    #[path = "../spaces/arithmetic.ss"]
+    // integer.ss
+    #[path = "../spaces/integer.ss"]
     pub mod arithmetic;
 
     // Basic.ss

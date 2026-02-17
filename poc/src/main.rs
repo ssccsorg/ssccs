@@ -1,5 +1,5 @@
 use ssccs_poc::core::{Field, Projector, SchemeSegment, SpaceCoordinates};
-use ssccs_poc::spaces::{arithmetic::ArithmeticSpace, basic::BasicSpace};
+use ssccs_poc::spaces::{arithmetic::IntegerSpace, basic::BasicSpace};
 use ssccs_poc::*;
 
 // A simple projector that extracts a single axis value.
@@ -80,10 +80,10 @@ fn main() {
     );
     println!();
 
-    let arith_segment = ArithmeticSpace::new(5);
-    println!("ArithmeticSegment at {:?}", arith_segment.coordinates().raw);
+    let arith_segment = IntegerSpace::new(5);
+    println!("IntegerSegment at {:?}", arith_segment.coordinates().raw);
     println!(
-        "ArithmeticSegment identity: {:?}",
+        "IntegerSegment identity: {:?}",
         arith_segment.identity().as_bytes()
     );
     println!();
@@ -137,7 +137,7 @@ fn main() {
         arith_field.describe_constraints()
     );
     println!(
-        "ArithmeticSegment allowed? {}",
+        "IntegerSegment allowed? {}",
         arith_field.allows(&arith_segment.coordinates())
     );
 

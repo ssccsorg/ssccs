@@ -1,12 +1,12 @@
-//! An arithmetic space: single‑axis.
+//! An integer space: single‑axis.
 use crate::core::{SchemeSegment, SpaceCoordinates};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct ArithmeticSpace {
+pub struct IntegerSpace {
     coords: SpaceCoordinates,
 }
 
-impl ArithmeticSpace {
+impl IntegerSpace {
     pub fn new(value: i64) -> Self {
         Self {
             coords: SpaceCoordinates::new(vec![value]),
@@ -14,13 +14,13 @@ impl ArithmeticSpace {
     }
 }
 
-impl SchemeSegment for ArithmeticSpace {
+impl SchemeSegment for IntegerSpace {
     fn coordinates(&self) -> SpaceCoordinates {
         self.coords.clone()
     }
 }
 
-impl From<SpaceCoordinates> for ArithmeticSpace {
+impl From<SpaceCoordinates> for IntegerSpace {
     fn from(coords: SpaceCoordinates) -> Self {
         Self { coords }
     }
