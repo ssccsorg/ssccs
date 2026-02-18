@@ -3,19 +3,11 @@
 
 ### Abstract
 
-SSCCS is a research initiative pioneering a computational paradigm centered on observation rather than procedural execution. By framing computation as a traceable projection of immutable segments within a defined scheme, logic becomes part of an Intellectual Public Commons—transparent, verifiable, and accessible to all.
+SSCCS is a research initiative that models computation as the traceable Projection of immutable Segments within a structured Scheme. Rather than defining execution as a sequence of state mutations, SSCCS formalizes computation as the simultaneous resolution of static potential under dynamic constraints encoded in Fields. This shift from process-oriented to structure-oriented computing reframes how data movement, concurrency, and verifiability are understood.
 
-SSCCS redefines computational ontology instead of merely optimizing performance. Unlike conventional systems, where data movement dominates cost, SSCCS models computation as the observation of static, structured potential under dynamic constraints. This approach minimizes data movement, eliminates most synchronization overhead, enables implicit parallelism, ensures deterministic reproducibility, enforces secure isolation via cryptography, and maps naturally to emerging hardware architectures.
+Segments act as immutable carriers of structured information. Schemes define bounded structural contexts, while Fields constitute relational topologies governed by dynamic constraints that determine which configurations are admissible. Computation occurs through Observation, which deterministically resolves admissible configurations into a Projection without altering underlying Segments. This architecture reduces data movement, avoids synchronization overhead, and enables implicit parallelism, while deterministic reproducibility follows from structural and cryptographic isolation.
 
-The paper presents the formal ontology of SSCCS—Segments, Schemes, Fields, Observation, and Projection—and demonstrates how it transforms computing at a fundamental level. It outlines an open specification validated across multiple domains and provides a roadmap from software emulation to potential hardware support. By combining intrinsic energy efficiency with high interpretability, SSCCS lays the foundation for sustainable, accountable computational infrastructures serving the public interest.
-
-### 0. Project Vision and Public Interest Commitment
-
-SSCCS is dedicated to the public good. It treats computation not as proprietary, opaque execution but as a transparent, verifiable manifestation of fixed architectural structures. Logic is part of an Intellectual Public Commons, ensuring computational processes remain accessible, auditable, and independently verifiable.
-
-Computation emerges as a simultaneous resolution across a spatial topology defined by a scheme that encodes the layout of segments. Observation, rather than stepwise mutation, determines execution, enabling consistent, reproducible, and interpretable outcomes. This lithographic-style projection decouples execution logic from mutable state, supporting inherent parallelism and cryptographically enforced isolation. The resulting output is a visible, auditable manifestation of the system’s architecture, not a hidden procedural trace.
-
-Through openness, verifiability, and energy efficiency, SSCCS aims to establish computational infrastructure that is sustainable, accountable, and resistant to opaque manipulation.
+The formal ontology of SSCCS—Segments, Schemes, Fields, Observation, and Projection—demonstrates how execution logic is decoupled from mutable state. The system is expressed in an open specification format validated across multiple domains, spanning software emulation to potential hardware support. By combining energy-efficient structure with high interpretability, SSCCS lays the foundation for sustainable, accountable computational infrastructures and defines logic as a transparent, verifiable, and accessible Intellectual Public Commons.
 
 
 ## 1. Introduction  
@@ -382,42 +374,46 @@ SSCCS draws inspiration from several established lines of research:
 
 The novelty of SSCCS lies in its integration of these ideas into a coherent system with a formal foundation, an open specification format, a clear path to hardware, and a commitment to the public interest—all grounded in a redefinition of what computation is.
 
-## 11. Conclusion and Future Work  
 
-This paper has presented SSCCS, a computational model that redefines computation as the observation of structured potential under dynamic constraints. The model's core components—immutable Segments, geometric Schemes, mutable Fields, and the observation/projection mechanism—together constitute a new computational ontology. From this ontology, multiple consequences follow: the elimination of most data transfers, the removal of synchronization overhead, implicit parallelism, deterministic reproducibility, secure isolation within cryptographically enforced boundaries, and above all, transparency.
+# 11. Conclusion and Future Work
 
-We have outlined how SSCCS can be realised through a compiler that performs structural mapping, and we have discussed both near‑term implementation in software and longer‑term possibilities in hardware. The open `.ss` format ensures that specifications are platform‑independent, human-readable, and cryptographically verifiable—embodying the project's commitment to an Intellectual Public Commons. Validation across multiple domains demonstrates the model's broad applicability.
+This paper has presented SSCCS, a computational model that redefines computation as the observation of structured potential under dynamic constraints. The model's core components—immutable Segments, geometric Schemes, mutable Fields, and the Observation/Projection mechanism—together constitute a new computational ontology. From this ontology, multiple consequences follow: the elimination of most data transfers, removal of synchronization overhead, implicit parallelism, deterministic reproducibility, secure isolation within cryptographically enforced boundaries, and above all, transparency.
+
+Observation deterministically resolves admissible configurations from the combination of Scheme and Field into a Projection, without altering the underlying Segments. The compiler performs structural mapping, and the open `.ss` format ensures that specifications are platform-independent, human-readable, and cryptographically verifiable—embodying the project's commitment to an Intellectual Public Commons.
+
+Validation across multiple domains demonstrates the model's broad applicability, including climate modeling, space systems, protein folding, swarm robotics, financial modeling, cryptographic systems, and autonomous vehicles. In each case, the shift from execution to observation enables determinism, parallelism, fault isolation, reduced communication, and intrinsic transparency—advantages that incremental optimization of conventional architectures cannot provide.
 
 In summary, SSCCS establishes several foundational principles:
 
-- Computation concerns revelation rather than change.  
-- Structure is more fundamental than process.  
-- Time is a coordinate rather than a flow.  
-- Value is projected rather than intrinsic.  
-- Programs are blueprints rather than recipes.  
-- Results are configurations revealed by observation.  
-- Composition is the primitive of computation.  
-- Structure serves as executable law.  
-- Observation is the sole active event.  
-- Projection is the result of observation.  
-- Immutability provides the foundation for concurrency and security.  
-- Cryptographic identity enables verifiability and auditability.  
-- Specification embodies the circuit and opens it to inspection.  
-- Transparency serves the public interest.
+* Computation concerns revelation rather than change.
+* Structure is more fundamental than process.
+* Time is a coordinate rather than a flow.
+* Value is projected rather than intrinsic.
+* Programs are blueprints rather than recipes.
+* Results are configurations revealed by Observation.
+* Composition is the primitive of computation.
+* Structure serves as executable law.
+* Observation is the sole active event.
+* Projection is the deterministic outcome of Observation.
+* Immutability provides the foundation for concurrency and security.
+* Cryptographic identity enables verifiability and auditability.
+* Specification embodies the circuit and opens it to inspection.
+* Transparency serves the public interest.
 
-The model is not presented as a complete replacement for all computing, but as a promising direction for data‑intensive, parallel workloads where the limitations of the von Neumann model are most apparent. More importantly, it offers a way of thinking about computation that may prove fruitful beyond its immediate engineering applications—a way that prioritizes transparency, verifiability, and public accessibility over opaque procedural execution.
+The model is not presented as a complete replacement for all computing, but as a promising direction for data-intensive, parallel workloads where the limitations of the von Neumann model are most apparent. More importantly, it offers a way of thinking about computation that may prove fruitful beyond its immediate engineering applications—a framework that prioritizes transparency, verifiability, and public accessibility over opaque procedural execution.
 
-As a non-profit research initiative, SSCCS invites collaboration from academia, industry, and the public to develop this vision further. The goal is not proprietary advantage but the establishment of computational infrastructure that is sustainable, accountable, and resistant to hidden manipulation—infrastructure that truly serves the public interest.
+As a non-profit research initiative, SSCCS invites collaboration from academia, industry, and the public to further develop this vision. The goal is not proprietary advantage but the establishment of computational infrastructure that is sustainable, accountable, and resistant to hidden manipulation—infrastructure that serves the public interest.
 
 Future work includes:
 
-- Development of a reference implementation in Rust.
-- Quantitative evaluation on representative benchmarks from the validation domains.
-- Refinement of the `.ss` format based on community feedback.
-- Exploration of hardware‑software co‑design with emerging memory technologies.
-- Formal verification of properties such as determinism, compositionality, and security isolation.
-- Investigation of the philosophical and societal implications for computer science education, regulation, and public policy.
-- Building a community around transparent, auditable computation.
+* Development of a reference implementation in Rust.
+* Quantitative evaluation on representative benchmarks from the validation domains.
+* Refinement of the `.ss` format based on community feedback.
+* Exploration of hardware-software co-design with emerging memory technologies.
+* Formal verification of properties such as determinism, compositionality, and security isolation.
+* Investigation of the philosophical and societal implications for computer science education, regulation, and public policy.
+* Building a community around transparent, auditable computation.
+
 
 ## References  
 
