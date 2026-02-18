@@ -142,10 +142,7 @@ impl TransitionMatrix {
     }
 
     pub fn add(&mut self, from: SpaceCoordinates, to: SpaceCoordinates, weight: f64) {
-        self.edges
-            .entry(from)
-            .or_insert_with(Vec::new)
-            .push((to, weight));
+        self.edges.entry(from).or_default().push((to, weight));
     }
 
     pub fn transitions_from(&self, from: &SpaceCoordinates) -> Vec<SpaceCoordinates> {
