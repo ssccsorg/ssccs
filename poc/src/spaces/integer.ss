@@ -1,16 +1,16 @@
-//! A basic space with one coordinate per axis.
+//! An integer space: single‑axis.
 use crate::core::{Segment, SpaceCoordinates};
 use std::ops::Deref;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct BasicSpace {
+pub struct IntegerSpace {
     segment: Segment,
 }
 
-impl BasicSpace {
-    pub fn new(coords: SpaceCoordinates) -> Self {
+impl IntegerSpace {
+    pub fn new(value: i64) -> Self {
         Self {
-            segment: Segment::new(coords),
+            segment: Segment::from_value(value),
         }
     }
 
@@ -19,7 +19,7 @@ impl BasicSpace {
     }
 }
 
-impl Deref for BasicSpace {
+impl Deref for IntegerSpace {
     type Target = Segment;
 
     fn deref(&self) -> &Self::Target {
@@ -27,13 +27,15 @@ impl Deref for BasicSpace {
     }
 }
 
-impl From<SpaceCoordinates> for BasicSpace {
+impl From<SpaceCoordinates> for IntegerSpace {
     fn from(coords: SpaceCoordinates) -> Self {
-        Self::new(coords)
+        Self {
+            segment: Segment::new(coords),
+        }
     }
 }
 
-impl From<Segment> for BasicSpace {
+impl From<Segment> for IntegerSpace {
     fn from(segment: Segment) -> Self {
         Self::from_segment(segment)
     }
