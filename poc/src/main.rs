@@ -97,7 +97,7 @@ fn main() {
     println!("Field constraints: {}", field.describe_constraints());
     println!(
         "BasicSegment allowed? {}",
-        field.allows(&basic_segment.coordinates())
+        field.allows(basic_segment.coordinates())
     );
     println!();
 
@@ -135,7 +135,7 @@ fn main() {
     );
     println!(
         "IntegerSegment allowed? {}",
-        arith_field.allows(&arith_segment.coordinates())
+        arith_field.allows(arith_segment.coordinates())
     );
 
     if let Some(val) = observe(&arith_field, &arith_segment, &IntegerProjector::new(0)) {
