@@ -134,7 +134,9 @@ pub struct Scheme {
     adjacency_matrix: AdjacencyMatrix,
     structural_constraints: Vec<Arc<dyn Constraint>>,
     memory_layout: MemoryLayout,
+    #[allow(dead_code)]
     observation_rules: ObservationRules,
+    #[allow(dead_code)]
     metadata: HashMap<String, String>,
 }
 
@@ -168,6 +170,7 @@ impl AdjacencyMatrix {
 }
 
 #[derive(Clone, Debug)]
+#[allow(dead_code)]
 pub struct ObservationRules {
     /// How to resolve multiple admissible configurations
     resolution_strategy: ResolutionStrategy,
