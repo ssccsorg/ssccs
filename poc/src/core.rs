@@ -38,6 +38,18 @@ impl SpaceCoordinates {
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct SegmentId([u8; 32]);
 
+impl PartialOrd for SegmentId {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for SegmentId {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.0.cmp(&other.0)
+    }
+}
+
 impl SegmentId {
     pub fn as_bytes(&self) -> &[u8; 32] {
         &self.0
