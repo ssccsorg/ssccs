@@ -2,6 +2,9 @@ use ssccs_poc::core::{Field, Projector, Segment, SpaceCoordinates};
 use ssccs_poc::spaces::{arithmetic::IntegerSpace, basic::BasicSpace};
 use ssccs_poc::*;
 
+pub mod scheme;
+pub use scheme::*;
+
 // A simple projector that extracts a single axis value.
 #[derive(Debug, Clone)]
 struct IntegerProjector {
@@ -163,4 +166,54 @@ fn main() {
     println!(
         "SSCCS PoC now fully aligns: segments are pure coordinates, meaning is projected by projectors."
     );
+
+    // --- Scheme-based observation example ---
+
+    // 1. Create a 2D grid scheme
+    let grid_scheme = Grid2DScheme::new(5, 5).to_scheme();
+    println!("Created grid scheme: {}", grid_scheme.describe());
+    println!("Scheme ID: {:?}", hex::encode(grid_scheme.id().as_bytes()));
+
+    // 2. Get a segment from the scheme
+    let segment_coords = SpaceCoordinates::new(vec![2, 2]);
+    let segment = Segment::new(segment_coords.clone());
+
+    if grid_scheme.contains_segment(segment.id()) {
+        println!("\nSegment at (2, 2) is part of the grid scheme");
+
+        // 3. Check structural constraints
+        if grid_scheme.structural_constraints_satisfied(&segment_coords) {
+            println!("Segment satisfies structural constraints");
+        }
+
+        // 4. Map to memory address
+        if let Some(addr) = grid_scheme.map_to_memory(&segment_coords) {
+            println!("Memory address for (2, 2): {}", addr);
+        }
+
+        // 5. Get neighbors
+        let neighbors = grid_scheme.neighbors_of(segment.id());
+        println!("Neighbors count: {}", neighbors.len());
+    }
+
+    println!("\n--- Integer Line Scheme Example ---");
+
+    // 6. Create an integer line scheme
+    let int_scheme = IntegerLineScheme::new(-10, 10).to_scheme();
+    println!("Created integer line scheme: {}", int_scheme.describe());
+
+    // 7. Demonstrate scheme-based observation
+    let int_field = Field::new();
+    let int_projector = IntegerProjector::new(0);
+
+    // Get all segments from the scheme
+    for segment in int_scheme.segments() {
+        if let Some(value) = observe(&int_field, segment, &int_projector) {
+            println!(
+                "Observed value at {:?}: {}",
+                segment.coordinates().raw,
+                value
+            );
+        }
+    }
 }
