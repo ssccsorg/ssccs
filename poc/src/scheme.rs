@@ -5,8 +5,6 @@ use std::fmt::Debug;
 use std::hash::Hash;
 use std::sync::Arc;
 
-// ==================== SCHEME LAYER ====================
-
 /// Cryptographic identifier of a Scheme.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct SchemeId([u8; 32]);
