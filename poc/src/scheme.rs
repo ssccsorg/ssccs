@@ -5,6 +5,12 @@ use std::fmt::Debug;
 use std::hash::Hash;
 use std::sync::Arc;
 
+// Type aliases for complex closure types to reduce type complexity
+type AdjacencyFn = Arc<dyn Fn(&SpaceCoordinates, &SpaceCoordinates) -> bool + Send + Sync>;
+type ResolutionFn = Arc<dyn Fn(&[SpaceCoordinates]) -> Option<SpaceCoordinates> + Send + Sync>;
+type LayoutFn = Arc<dyn Fn(&SpaceCoordinates) -> usize + Send + Sync>;
+type ProjectionFn = Arc<dyn Fn(&[Segment]) -> Vec<u8> + Send + Sync>;
+
 /// Cryptographic identifier of a Scheme.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct SchemeId([u8; 32]);
@@ -48,7 +54,7 @@ pub enum AdjacencyRelation {
     Euclidean(f64),              // Distance threshold
     Manhattan(i64),              // L1 distance threshold
     GridNeighbor(GridDirection), // Grid adjacency
-    Custom(Arc<dyn Fn(&SpaceCoordinates, &SpaceCoordinates) -> bool + Send + Sync>),
+    Custom(AdjacencyFn),
 }
 
 impl Debug for AdjacencyRelation {
@@ -82,14 +88,15 @@ pub enum GridDirection {
 }
 
 /// Memory layout specification
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub enum MemoryLayout {
-    Linear,   // Simple linear mapping
+    #[default]
+    Linear, // Simple linear mapping
     RowMajor, // For grids
     ColumnMajor,
     ZOrderCurve,  // Morton order for spatial locality
     HilbertCurve, // Better spatial locality preservation
-    Custom(Arc<dyn Fn(&SpaceCoordinates) -> usize + Send + Sync>),
+    Custom(LayoutFn),
 }
 
 impl Debug for MemoryLayout {
@@ -116,12 +123,6 @@ impl PartialEq for MemoryLayout {
             // Custom closures are never equal to each other
             _ => false,
         }
-    }
-}
-
-impl Default for MemoryLayout {
-    fn default() -> Self {
-        MemoryLayout::Linear
     }
 }
 
@@ -197,7 +198,7 @@ pub enum ResolutionStrategy {
     FirstValid,            // First admissible configuration
     MinimizeEnergy,        // Select configuration minimizing energy
     MaximizeEntropy,       // Select configuration maximizing entropy
-    Custom(Arc<dyn Fn(&[SpaceCoordinates]) -> Option<SpaceCoordinates> + Send + Sync>),
+    Custom(ResolutionFn),
 }
 
 impl Debug for ResolutionStrategy {
@@ -241,7 +242,7 @@ pub enum ProjectionFormat {
     Coordinates,            // Just return coordinates
     SegmentIds,             // Return segment IDs
     StructuredData(String), // Structured data format (JSON, etc.)
-    Custom(Arc<dyn Fn(&[Segment]) -> Vec<u8> + Send + Sync>),
+    Custom(ProjectionFn),
 }
 
 impl Debug for ProjectionFormat {
@@ -385,7 +386,7 @@ impl Scheme {
                     let col = coords.raw[1] as usize;
                     let height = self
                         .axes
-                        .get(0)
+                        .first()
                         .and_then(|a| a.range.map(|(min, max)| (max - min + 1) as usize))
                         .unwrap_or(1024);
                     Some(col * height + row)
@@ -425,7 +426,7 @@ fn z_order_encode(coords: &[i64]) -> usize {
     let mut result = 0usize;
 
     // Find maximum coordinate value to determine bits needed
-    let max_coord = coords.iter().map(|&v| v.abs() as u64).max().unwrap_or(0);
+    let max_coord = coords.iter().map(|&v| v.unsigned_abs()).max().unwrap_or(0);
     let bits_needed = (max_coord as f64).log2().ceil() as usize + 1;
 
     for bit in 0..bits_needed {

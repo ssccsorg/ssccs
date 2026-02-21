@@ -18,6 +18,9 @@ use ssccs_poc::core::{Field, Projector, Segment, SpaceCoordinates};
 use ssccs_poc::spaces::{arithmetic::IntegerSpace, basic::BasicSpace};
 use ssccs_poc::*;
 
+// Type alias for test function signature to reduce type complexity
+type TestFn = fn() -> Result<(), String>;
+
 // ==================== SSCCS CONSTITUTIONAL CONCEPT TESTS ====================
 
 fn main() {
@@ -27,43 +30,19 @@ fn main() {
     println!("╚════════════════════════════════════════════════════════════╝\n");
 
     // Run all concept tests
-    let tests: Vec<(&str, fn() -> Result<(), String>)> = vec![
-        (
-            "1. Segment Concept",
-            test_segment_concept as fn() -> Result<(), String>,
-        ),
-        (
-            "2. Field Concept",
-            test_field_concept as fn() -> Result<(), String>,
-        ),
-        (
-            "3. Projector Concept",
-            test_projector_concept as fn() -> Result<(), String>,
-        ),
-        (
-            "4. Observation Concept",
-            test_observation_concept as fn() -> Result<(), String>,
-        ),
-        (
-            "5. Space Concept",
-            test_space_concept as fn() -> Result<(), String>,
-        ),
-        (
-            "6. Scheme Concept",
-            test_scheme_concept as fn() -> Result<(), String>,
-        ),
+    let tests: Vec<(&str, TestFn)> = vec![
+        ("1. Segment Concept", test_segment_concept as TestFn),
+        ("2. Field Concept", test_field_concept as TestFn),
+        ("3. Projector Concept", test_projector_concept as TestFn),
+        ("4. Observation Concept", test_observation_concept as TestFn),
+        ("5. Space Concept", test_space_concept as TestFn),
+        ("6. Scheme Concept", test_scheme_concept as TestFn),
         (
             "7. Adjacency & Memory Layout",
-            test_adjacency_memory as fn() -> Result<(), String>,
+            test_adjacency_memory as TestFn,
         ),
-        (
-            "8. Transition Matrix",
-            test_transition_matrix as fn() -> Result<(), String>,
-        ),
-        (
-            "9. Integrated Workflow",
-            test_integrated_workflow as fn() -> Result<(), String>,
-        ),
+        ("8. Transition Matrix", test_transition_matrix as TestFn),
+        ("9. Integrated Workflow", test_integrated_workflow as TestFn),
     ];
 
     let mut passed = 0;
@@ -322,7 +301,7 @@ fn test_observation_concept() -> Result<(), String> {
         failed_observation
     );
 
-    if failed_observation != None {
+    if failed_observation.is_some() {
         return Err("Observation should fail for disallowed coordinates".to_string());
     }
 
@@ -694,7 +673,7 @@ fn test_integrated_workflow() -> Result<(), String> {
     let mut observed_count = 0;
 
     for seg in grid_scheme.segments() {
-        if let Some(_) = observe(&grid_field, seg, &grid_projector) {
+        if observe(&grid_field, seg, &grid_projector).is_some() {
             observed_count += 1;
         }
     }
