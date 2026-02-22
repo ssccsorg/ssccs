@@ -369,4 +369,4 @@ and the moment it collapses.
 
 ---
 
-© 2026 SSCCS gUG (i.G.). This human-conceived and AI-refined documentation is licensed under CC BY-NC-ND 4.0; authenticity and integrity are cryptographically verifiable via GPG-signed commits (Key: BCCB196BADF50C99) at github
+© 2026 SSCCS gUG (i.G.). This human-conceived and AI-refined documentation is licensed under CC BY-NC-ND 4.0; authenticity and integrity are cryptographically verifiable via [registered](https://keys.openpgp.org/search?q=BCCB196BADF50C99) GPG-signed commits.
