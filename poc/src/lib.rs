@@ -1,7 +1,6 @@
 pub mod core;
 pub mod scheme;
 pub mod ss_parser;
-pub mod compiler_pipeline;
 use crate::core::{Constraint, Field, Projector, Segment, SpaceCoordinates};
 use std::fmt::Debug;
 
