@@ -38,6 +38,18 @@ impl SpaceCoordinates {
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct SegmentId([u8; 32]);
 
+impl PartialOrd for SegmentId {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for SegmentId {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.0.cmp(&other.0)
+    }
+}
+
 impl SegmentId {
     pub fn as_bytes(&self) -> &[u8; 32] {
         &self.0
@@ -52,21 +64,21 @@ pub struct Segment {
     id: SegmentId,
 }
 
+/// Compute SegmentId from coordinates (public helper function).
+pub fn segment_id_from_coords(coords: &SpaceCoordinates) -> SegmentId {
+    let mut hasher = blake3::Hasher::new();
+    for v in coords.raw.iter() {
+        hasher.update(&v.to_le_bytes());
+    }
+    SegmentId(hasher.finalize().into())
+}
+
 impl Segment {
     /// Create a new Segment from coordinates.
     /// The cryptographic identity is automatically derived from the coordinates.
     pub fn new(coords: SpaceCoordinates) -> Self {
-        let id = Self::compute_id(&coords);
+        let id = segment_id_from_coords(&coords);
         Self { coords, id }
-    }
-
-    /// Compute the cryptographic identity from coordinates.
-    fn compute_id(coords: &SpaceCoordinates) -> SegmentId {
-        let mut hasher = blake3::Hasher::new();
-        for v in coords.raw.iter() {
-            hasher.update(&v.to_le_bytes());
-        }
-        SegmentId(hasher.finalize().into())
     }
 
     /// Get the coordinates of this segment.
@@ -130,10 +142,13 @@ impl ConstraintSet {
 
 /// Relational topology of the Field – currently a weighted directed graph.
 /// This is one possible representation; it may be generalised later.
+/// Uses SegmentId for relationship definitions to align with SSCCS cryptographic identity system.
 #[derive(Debug, Clone, Default)]
 pub struct TransitionMatrix {
-    /// from → [(to, weight)]
-    edges: HashMap<SpaceCoordinates, Vec<(SpaceCoordinates, f64)>>,
+    /// from SegmentId → [(to SegmentId, weight)]
+    edges: HashMap<SegmentId, Vec<(SegmentId, f64)>>,
+    /// Mapping from SegmentId to coordinates (for legacy API support)
+    id_to_coords: HashMap<SegmentId, SpaceCoordinates>,
 }
 
 impl TransitionMatrix {
@@ -141,21 +156,66 @@ impl TransitionMatrix {
         Self::default()
     }
 
-    pub fn add(&mut self, from: SpaceCoordinates, to: SpaceCoordinates, weight: f64) {
+    /// Add a transition using SegmentIds (new preferred API).
+    /// Note: You must also store coordinates if you want to use legacy API later.
+    pub fn add_by_id(
+        &mut self,
+        from: SegmentId,
+        to: SegmentId,
+        weight: f64,
+        from_coords: Option<SpaceCoordinates>,
+        to_coords: Option<SpaceCoordinates>,
+    ) {
         self.edges.entry(from).or_default().push((to, weight));
+        if let Some(coords) = from_coords {
+            self.id_to_coords.insert(from, coords);
+        }
+        if let Some(coords) = to_coords {
+            self.id_to_coords.insert(to, coords);
+        }
     }
 
-    pub fn transitions_from(&self, from: &SpaceCoordinates) -> Vec<SpaceCoordinates> {
+    /// Add a transition using coordinates (legacy API, converts to SegmentId internally).
+    pub fn add(&mut self, from: SpaceCoordinates, to: SpaceCoordinates, weight: f64) {
+        let from_id = segment_id_from_coords(&from);
+        let to_id = segment_id_from_coords(&to);
+
+        // Store coordinates for later lookup
+        self.id_to_coords.insert(from_id, from.clone());
+        self.id_to_coords.insert(to_id, to.clone());
+
+        self.edges.entry(from_id).or_default().push((to_id, weight));
+    }
+
+    /// Get transition targets from a SegmentId (new preferred API).
+    pub fn transitions_from_id(&self, from: &SegmentId) -> Vec<SegmentId> {
         self.edges
             .get(from)
-            .map(|v| v.iter().map(|(to, _)| to.clone()).collect())
+            .map(|v| v.iter().map(|(to, _)| *to).collect())
             .unwrap_or_default()
     }
 
-    pub fn get_weight(&self, from: &SpaceCoordinates, to: &SpaceCoordinates) -> Option<f64> {
+    /// Get transition targets from coordinates (legacy API).
+    pub fn transitions_from(&self, from: &SpaceCoordinates) -> Vec<SpaceCoordinates> {
+        let from_id = segment_id_from_coords(from);
+        self.transitions_from_id(&from_id)
+            .into_iter()
+            .filter_map(|segment_id| self.id_to_coords.get(&segment_id).cloned())
+            .collect()
+    }
+
+    /// Get weight between SegmentIds (new API).
+    pub fn get_weight_by_id(&self, from: &SegmentId, to: &SegmentId) -> Option<f64> {
         self.edges
             .get(from)
             .and_then(|vec| vec.iter().find(|(t, _)| t == to).map(|(_, w)| *w))
+    }
+
+    /// Get weight between coordinates (legacy API).
+    pub fn get_weight(&self, from: &SpaceCoordinates, to: &SpaceCoordinates) -> Option<f64> {
+        let from_id = segment_id_from_coords(from);
+        let to_id = segment_id_from_coords(to);
+        self.get_weight_by_id(&from_id, &to_id)
     }
 }
 

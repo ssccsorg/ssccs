@@ -35,7 +35,7 @@ Rust is not used merely as a programming language — it acts as a projection le
 
 ## 3. Prototype: Declarative Macro-Based Compiler
 
-In production, `build.rs` or procedural macros (`proc_macro`) would parse external `.ss` files. For conceptual clarity, we simulate the entire compilation pipeline using declarative macros.
+In production, `build.rs` or procedural macros (`proc_macro`) would parse external `.ss` files. For conceptual clarity, we simulate the entire compilation pipeline using declarative macros. *(In the current proof‑of‑concept, `.ss` blueprints are written as Rust macros; the external `.ss` file parsing is a future target.)*
 
 ```rust
 // Compiler engine that parses open format (.ss) and converts it into code

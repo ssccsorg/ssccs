@@ -43,11 +43,11 @@ format:
 
 ## Abstract
 
-SSCCS(Schema–Segment Composition Computing System) is a research initiative that redefines the ontological foundation of computation, modeling it as the traceable Projection of immutable Segments within a structured Scheme. While contemporary innovation focuses predominantly on material hardware shifts, SSCCS challenges and addresses the fundamental inefficiencies of the Von Neumann bottleneck at the logical layer. By formalizing computation as the simultaneous resolution of static potential under dynamic constraints rather than a sequence of state mutations, the architecture reframes data movement, concurrency, and verifiability.
+SSCCS (Schema–Segment Composition Computing System) is an infrastructure specification that redefines the ontological foundation of computation, modeling it as the traceable Projection of immutable Segments within a structured Scheme. While contemporary innovation focuses predominantly on material hardware shifts, SSCCS challenges and addresses the fundamental inefficiencies of the Von Neumann bottleneck at the logical layer. By formalizing computation as the simultaneous resolution of static potential under dynamic constraints rather than a sequence of state mutations, the architecture reframes data movement, concurrency, and verifiability.
 
-The framework operates through a distinct ontology: Segments serve as immutable carriers of structured information, while Schemes define bounded structural contexts. Fields constitute relational topologies governed by dynamic constraints that dictate admissible configurations. Within this layer, computation is executed through Observation, which deterministically resolves these configurations into a Projection without altering underlying Segments. This structural approach inherently minimizes data movement, eliminates synchronization overhead, and enables implicit parallelism.
+As a constitutional framework, SSCCS enforces three core values: **Immutability** (data cannot be altered after creation), **Structural Integrity** (computation must respect declared schemas), and **Traceability** (every projection is cryptographically verifiable). These values are technically realized through a distinct computational ontology: Segments serve as immutable carriers of information, while Schemes define the structural boundaries and constraints. Within this framework, computation is executed through Observation, which deterministically resolves these elements into a Projection without altering the underlying data. This structure-defined approach eliminates hidden manipulation, minimizes data movement, and establishes a transparent, auditable infrastructure that serves the public interest.
 
-Driven by a software-first philosophy, this architecture ensures deterministic reproducibility by completely decoupling execution logic from mutable state through structural and cryptographic isolation. This open specification, validated across diverse domains, provides a roadmap where logical design dictates physical implementation, spanning from software emulation to hardware-level support. By integrating intrinsic energy efficiency with high interpretability, SSCCS establishes a foundation for sustainable, accountable computational infrastructures, ultimately transitioning logic into a transparent, verifiable, and accessible Intellectual Public Commons.
+Driven by a software‑first philosophy, this architecture ensures deterministic reproducibility by completely decoupling execution logic from mutable state through structural and cryptographic isolation. This open specification, validated across diverse domains, provides a roadmap where logical design dictates physical implementation, spanning from software emulation to hardware‑level support. By integrating intrinsic energy efficiency with high interpretability, SSCCS establishes a foundation for sustainable, accountable computational infrastructures, ultimately transitioning logic into a transparent, verifiable, and accessible Intellectual Public Commons.
 
 
 ## 1. Introduction  
@@ -343,8 +343,72 @@ digraph Compilation_Process {
     Compiler -> Constraints;
 }
 ```
+### 5.1 Compiler Pipeline
 
-### 5.1 Automating Manual Optimizations  
+The SSCCS compiler transforms a high‑level `.ss` specification into a hardware‑specific layout through a deterministic pipeline.
+
+1. **Parsing and Validation** – The `.ss` file is parsed into an intermediate representation (IR) that captures the Scheme's axes, Segments, structural relations, constraints, memory‑layout declarations, and observation rules. Cryptographic identities (SchemeId, SegmentId) are computed and verified.
+
+2. **Structural Analysis** – The compiler extracts adjacency, hierarchy, dependency, and equivalence relations from the Scheme’s `RelationGraph`. It identifies independent sub‑graphs that can be observed concurrently and detects any structural conflicts.
+
+3. **Memory‑Layout Resolution** – Using the Scheme’s `MemoryLayout` component, the compiler resolves the mapping from coordinate space to logical addresses. The `MemoryLayout` struct contains a `layout_type` (Linear, RowMajor, ColumnMajor, SpaceFillingCurve, etc.) and a closure that implements the precise coordinate‑to‑address transformation. This stage produces a **logical address map** that preserves locality as defined by the Scheme’s adjacency relations.
+
+4. **Hardware Mapping** – The logical address map is projected onto the target hardware’s physical memory hierarchy. The compiler considers cache‑line boundaries, bank interleaving, and processing‑in‑memory (PIM) capabilities to place Segments such that structurally adjacent Segments reside in physically proximate storage locations. This step guarantees that observation can proceed with minimal data movement.
+
+5. **Observation‑Code Generation** – For each independent sub‑graph, the compiler emits native code (or configures a reconfigurable fabric) that implements the observation operator `Ω`. The generated code respects the resolution strategy, triggers, and priority defined in the Scheme’s `ObservationRules`.
+
+The entire pipeline is deterministic and reproducible: given the same `.ss` specification and target hardware profile, the compiler always produces the same layout and observation code.
+
+#### Concrete Example: Compiling a Grid2DTemplate
+
+Consider a simple 3×3 grid defined by a `Grid2DTemplate`:
+
+```rust
+// A Rust example
+let scheme = Grid2DTemplate::new(3, 3, GridTopology::FourConnected).build();
+```
+
+The compiler processes this Scheme as follows:
+
+- **Parsing:** The `.ss` representation (or its implementation‑specific equivalent) is parsed into a `Scheme` struct with two discrete axes (“x”, “y”), nine Segments (coordinates `(0,0)` … `(2,2)`), adjacency relations for four‑connected neighbors, and a default row‑major `MemoryLayout`.
+- **Structural Analysis:** The `RelationGraph` reveals that each interior cell has four neighbors; the graph is regular and contains no cycles that would create observational dependencies. All nine cells are mutually independent and can be observed in parallel.
+- **Memory‑Layout Resolution:** The default row‑major `MemoryLayout` closure is `|(x,y)| → offset = y*3 + x`. The compiler evaluates this closure for all nine Segments, producing a logical‑address map:
+  ```
+  (0,0) → offset 0, (1,0) → offset 1, (2,0) → offset 2,
+  (0,1) → offset 3, … , (2,2) → offset 8.
+  ```
+- **Hardware Mapping:** On a CPU with 64‑byte cache lines, the compiler packs the logical addresses into physical cache lines. Offsets 0‑7 fit into a single cache line; offset 8 spills into a second line. The compiler may decide to pad the layout to keep the entire grid in one cache line, or it may accept the spill because adjacent rows are still in adjacent lines.
+- **Observation‑Code Generation:** For a trivial observation that reads each Segment’s coordinate, the compiler emits a loop that iterates over the nine logical addresses and loads the corresponding data. Because the addresses are consecutive, the loop can be vectorized (SIMD). If the observation is a reduction (e.g., sum of values), the compiler may generate a parallel reduction using multiple cores.
+
+This example illustrates how the pipeline turns a declarative geometric description into efficient, hardware‑aware executable code without any manual optimization.
+
+### 5.2 Memory Mapping Logic
+
+The heart of the compiler’s ability to eliminate data movement is the `MemoryLayout` abstraction, introduced in the Scheme Abstraction Layer. A `MemoryLayout` consists of:
+
+- `layout_type` – an enum (`Linear`, `RowMajor`, `ColumnMajor`, `SpaceFillingCurve`, `Hierarchical`, `GraphBased`, `Custom`) that describes the high‑level organization.
+- `mapping` – a closure `Fn(&SpaceCoordinates) → Option<LogicalAddress>` that computes a logical address for any coordinate tuple.
+- `metadata` – key‑value pairs for implementation‑specific hints (e.g., curve parameters, stride values).
+
+A `LogicalAddress` is a pair `(space_id: u64, offset: u64)` plus metadata. It is **not** a physical memory address; rather, it is an intermediate coordinate in a uniform address space that the hardware mapper later translates to physical locations.
+
+**Example:** For a 2D grid with row‑major layout, the mapping closure might be:
+
+```rust
+// A Rust example
+|coords| {
+    let x = coords[0];
+    let y = coords[1];
+    let offset = y * width + x;
+    Some(LogicalAddress { space_id: 0, offset, metadata: HashMap::new() })
+}
+```
+
+The compiler uses this closure to pre‑compute address maps for all Segments, enabling it to place Segments with strong adjacency relations (e.g., nearest‑neighbor cells) into the same cache line or adjacent memory banks.
+
+By decoupling logical layout from physical implementation, the same Scheme can be projected onto disparate hardware topologies (CPU caches, FPGA block RAM, HBM stacks, memristor crossbars) without modifying the specification.
+
+### 5.3 Automating Manual Optimizations
 
 The following table summarises how traditional manual optimisations become automatic consequences of structural specification in SSCCS:
 
@@ -357,14 +421,15 @@ The following table summarises how traditional manual optimisations become autom
 | Lock management         | Immutability eliminates need for locks               |
 | Algorithm selection     | Observation rules determine resolution strategy      |
 
-### 5.2 Example: Vector Addition  
+### 5.4 Example: Vector Addition
 
-Consider the addition of two vectors of length \(N\).  
+Consider the addition of two vectors of length \(N\).
 
-Traditional approach (von Neumann):  
-A loop iterates over indices, loading each element \(a[i]\) and \(b[i]\) from memory into registers, performing the addition, and storing the result back to memory.  
+Traditional approach (von Neumann):
+A loop iterates over indices, loading each element \(a[i]\) and \(b[i]\) from memory into registers, performing the addition, and storing the result back to memory.
 
 ```rust
+// A Rust example
 fn add_vectors(a: &[f64], b: &[f64]) -> Vec<f64> {
     assert_eq!(a.len(), b.len());
     let mut result = Vec::with_capacity(a.len());
@@ -375,15 +440,16 @@ fn add_vectors(a: &[f64], b: &[f64]) -> Vec<f64> {
 }
 ```
 
-- Data movement: \(2N\) loads + \(N\) stores = \(3N\) memory transfers.  
-- Sequential dependency: loop‑carried dependencies limit parallelisation unless explicitly vectorised.  
-- Cache behaviour: depends on layout; random access may cause cache misses.  
-- Auditability: requires tracing tools to reconstruct execution path.  
+- Data movement: \(2N\) loads + \(N\) stores = \(3N\) memory transfers.
+- Sequential dependency: loop‑carried dependencies limit parallelisation unless explicitly vectorised.
+- Cache behaviour: depends on layout; random access may cause cache misses.
+- Auditability: requires tracing tools to reconstruct execution path.
 
-SSCCS approach:  
-A Scheme defines a set of Segments representing the vectors and an "adder" structure. The compiler, guided by adjacency relations, lays out the Segments consecutively in memory. An observation of the entire structure under a Field that enables addition yields a projection that is the sum vector.  
+SSCCS approach:
+A Scheme defines a set of Segments representing the vectors and an "adder" structure. The compiler, guided by adjacency relations, lays out the Segments consecutively in memory. An observation of the entire structure under a Field that enables addition yields a projection that is the sum vector.
 
 ```rust
+// A Rust example
 let a = Segment::vector(1..N, initial_value);
 let b = Segment::vector(1..N, initial_value);
 let scheme = Scheme::add_vectors(a, b);
@@ -391,10 +457,10 @@ let field = Field::new();
 let sum = observe(scheme, field);  // only result moves
 ```
 
-- Data movement: zero movement of input vectors—they are stationary. Only the resulting projection (a single vector of length \(N\)) is transmitted.  
-- Parallelism: independent element pairs are observed concurrently without any synchronisation.  
-- Locality: guaranteed by compile‑time layout, eliminating cache misses for inputs.  
-- Auditability: the Scheme itself documents the entire computational structure; the projection is a deterministic consequence.  
+- Data movement: zero movement of input vectors—they are stationary. Only the resulting projection (a single vector of length \(N\)) is transmitted.
+- Parallelism: independent element pairs are observed concurrently without any synchronisation.
+- Locality: guaranteed by compile‑time layout, eliminating cache misses for inputs.
+- Auditability: the Scheme itself documents the entire computational structure; the projection is a deterministic consequence.
 
 | Aspect                | Traditional                          | SSCCS                               |
 |-----------------------|--------------------------------------|-------------------------------------|
@@ -407,9 +473,10 @@ let sum = observe(scheme, field);  // only result moves
 
 This example illustrates the fundamental shift: computation becomes an observation of stationary structure rather than a sequence of data movements. The reduction in data movement is a consequence, not the goal; the deeper benefit is the transparency and verifiability that emerge from structural specification.
 
-## 6. The Open Format  
 
-Central to SSCCS is the `.ss` open format—a human‑readable, machine‑processable representation of Segments and Schemes. Inspired by Markdown's success, `.ss` files are designed with the following characteristics:
+## 6. The Open Format  
+Central to SSCCS is the `.ss` open format—a human‑readable, machine‑processable representation of Segments and Schemes. It is a domain‑specific language (DSL) that defines computational structures independently of any particular implementation language (such as Rust, C++, or Verilog). Inspired by Markdown's success, `.ss` files are designed with the following characteristics:
+
 
 - Human‑readable: intended to be written and understood by people without specialised tooling.
 - Machine‑processable: structured for efficient parsing and compilation.
@@ -422,7 +489,69 @@ The open format embodies the project's commitment to the Intellectual Public Com
 
 This specification describes what exists, not what to do. The observation engine reads this specification and performs observations accordingly—compiling to native code, mapping to FPGA, or directly instantiating in hardware. The format constitutes the program; the engine serves as the projector. Implementations may change, but the specification persists. 
 
-## 7. Hardware Considerations  
+### 6.1 Binary Serialization and Memory Layout
+The `.ss` format is designed to be both human‑readable and machine‑efficient. While the textual representation serves as the canonical source, the runtime employs a binary encoding that directly reflects the `MemoryLayout` abstraction. 
+
+The binary encoding of a Scheme includes:
+
+- A header containing the SchemeId (32‑byte Blake3 hash) and version.
+- A list of axes, each with its `AxisType` and metadata.
+- A segment table mapping each `SegmentId` to its coordinate vector.
+- A relation graph encoded as adjacency lists with relation‑type tags.
+- The `MemoryLayout` structure, serialized as:
+  - A tag for the `layout_type`.
+  - A portable representation of the mapping closure (e.g., a small bytecode that the loader can compile to a native closure).
+  - Key‑value metadata.
+- Observation rules and structural constraints.
+- Scheme metadata (key‑value pairs).
+
+The binary format is not merely a storage optimization; it is the in‑memory representation used by the compiler and runtime. Loading a `.ss` file parses the binary encoding and reconstructs the exact `MemoryLayout` object, which then drives the compilation pipeline described in Section 5.
+
+This binary‑level specification ensures that every implementation—whether a software emulator, an FPGA accelerator, or a future observation‑centric processor—interprets the same Scheme in the same way, guaranteeing interoperability and long‑term stability.
+## 7. System Stack and Instruction‑Set Interaction
+
+SSCCS does not replace the host CPU’s instruction set; instead, it inserts a thin runtime layer that translates observation requests into native instructions. The following Graphviz diagram illustrates the complete system stack:
+
+```{dot}
+//| label: fig-system-stack
+//| fig-cap: "SSCCS system stack: from CPU ISA to observation"
+digraph SystemStack {
+    rankdir=TB;
+    node [shape=rect, style=rounded];
+
+    // Hardware layers
+    CPU [label="CPU / ISA"];
+    RAM [label="RAM / Cache"];
+    PIM [label="PIM Unit\n(optional)"];
+
+    // SSCCS runtime layers
+    Runtime [label="SSCCS Runtime\n(Observation Manager)"];
+    SchemeInterpreter [label="Scheme Interpreter\n(MemoryLayout resolver)"];
+    Projector [label="Projector\n(Observation operator Ω)"];
+
+    // Application layer
+    App [label="Application\n(Field updates, observation requests)"];
+
+    // Edges
+    App -> Runtime [label="observe(scheme, field)"];
+    Runtime -> SchemeInterpreter [label="resolve layout"];
+    SchemeInterpreter -> CPU [label="generate mapping micro‑ops", style=dashed];
+    SchemeInterpreter -> RAM [label="logical‑address lookup"];
+    Runtime -> Projector [label="execute Ω"];
+    Projector -> CPU [label="arithmetic/logic ops", style=dashed];
+    Projector -> PIM [label="in‑memory observation", style=dashed];
+    CPU -> RAM [label="load/store (minimal)"];
+    PIM -> RAM [label="direct access"];
+}
+```
+
+**Interaction with the CPU ISA:** The SSCCS runtime is a library that compiles Schemes into a sequence of native instructions. The `MemoryLayout` mapping closure, for example, may be JIT‑compiled into a small loop that computes logical addresses using the CPU’s integer ALU. Observation of independent sub‑graphs is mapped to vector instructions (SIMD) or multiple cores via the host’s standard threading library.
+
+**Virtual‑machine interpretation:** In environments where direct hardware access is not available (e.g., secure enclaves, interpreted languages), the Scheme can be executed by a lightweight virtual machine that interprets the binary `.ss` format. This VM implements the same `MemoryLayout` and observation semantics, ensuring behavioral equivalence across execution platforms.
+
+The stack diagram underscores that SSCCS is an **infrastructure layer** that sits between the application and the hardware, not an academic abstraction. It provides concrete mechanisms for reducing data movement, exploiting parallelism, and guaranteeing auditability, all while reusing existing CPU instruction sets and memory hierarchies.
+
+## 8. Hardware Considerations
 
 While SSCCS can be implemented in software (e.g., as a runtime or compiler for conventional processors), its potential benefits are most pronounced when the hardware is designed to support observation‑centric computation. The following architectural features are consistent with the SSCCS model:
 
@@ -433,7 +562,7 @@ While SSCCS can be implemented in software (e.g., as a runtime or compiler for c
 
 These ideas build upon existing research in near‑memory computing, dataflow architectures, and reconfigurable logic. SSCCS provides a semantic framework that could make such hardware more programmable while preserving transparency. However, the realisation of such hardware is a long‑term research challenge and depends on advances in emerging memory technologies and architectural innovation.
 
-## 8. Implementation Roadmap  
+## 9. Implementation Roadmap
 
 The development of SSCCS is planned in three phases, each building on the previous and allowing gradual adoption. The phases are not predictions of guaranteed commercial products but research directions to validate the model and its public-interest mission.
 
@@ -444,7 +573,7 @@ digraph Implementation_Roadmap {
     rankdir=LR;
     node [shape=rect];
     
-    Phase1 [label="Phase 1\nSoftware Emulation\n(Rust Library)"];
+    Phase1 [label="Phase 1\nSoftware Emulation Reference\n(Reference Implementation in Rust)"];
     Phase2 [label="Phase 2\nHardware Acceleration\n(FPGA / PIM)"];
     Phase3 [label="Phase 3\nNative Processors\n(Observation-Centric)"];
     
@@ -466,7 +595,7 @@ digraph Implementation_Roadmap {
 
 ### Phase 1: Software Emulation (Proof of Concept)  
 
-- Implement a Rust library that reads `.ss` specification files and performs observation on conventional hardware.
+- Develop a reference implementation in Rust that reads `.ss` specification files and performs observation on conventional hardware.
 - Use the emulator to validate the model on small benchmarks (e.g., matrix multiplication, graph algorithms).
 - Measure the model's properties (determinism, implicit parallelism, data movement reduction, auditability) compared to conventional implementations.
 - Establish toolchain and community around the `.ss` format.
@@ -490,7 +619,7 @@ digraph Implementation_Roadmap {
 
 Throughout this progression, the `.ss` blueprint remains unchanged. The same specification that runs in software emulation will, in principle, run on native observation processors, ensuring investment in the format and toolchain is preserved.
 
-## 9. Validation Domains  
+## 10. Validation Domains
 
 SSCCS has concrete applicability across multiple domains. The following table summarises the traditional challenges and the SSCCS advantages in each domain:
 
@@ -506,7 +635,7 @@ SSCCS has concrete applicability across multiple domains. The following table su
 
 In each domain, the shift from execution to observation offers advantages that incremental optimization cannot provide. These advantages—determinism, parallelism, fault isolation, reduced communication, and above all transparency—are consequences of the ontological redefinition, not features added to address specific problems.
 
-## 10. Related Work  
+## 11. Related Work
 
 SSCCS draws inspiration from several established lines of research:
 

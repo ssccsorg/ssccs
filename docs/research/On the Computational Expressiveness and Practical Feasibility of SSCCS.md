@@ -158,6 +158,8 @@ To avoid interpreter behavior, the following must occur:
 4. Observation operators generated as inline evaluation code
 5. Field mutation isolated from structural graph mutation
 
+*(In the current proof‑of‑concept, `.ss` specifications are expressed as Rust macros; the compile‑time parsing described here is a future target.)*
+
 Under these conditions, runtime dispatch is minimized and structure becomes directly executable.
 
 SSCCS must function as a structural compiler, not a structural interpreter.
