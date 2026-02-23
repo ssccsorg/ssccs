@@ -28,7 +28,7 @@ Even with Rust’s prowess, the underlying von Neumann architecture imposes phys
 
 Today, Rust serves as the ideal projector for SSCCS:
 
-- It reads `.ss` blueprints and transforms them, via its type system and macros, into safe and fast code that runs on existing hardware—already outperforming traditional languages.
+- It reads `.ss` blueprints (expressed as Rust macros in the current proof‑of‑concept) and transforms them, via its type system and macros, into safe and fast code that runs on existing hardware—already outperforming traditional languages.
 - Tomorrow, the same `.ss` file can be fed to a PIM or an Observation‑Centric Processor (OCP) without modification, unlocking performance that transcends physical limits.
 
 This dual capability—compile to native code now, interpret or map to future hardware later—is precisely what makes the SSCCS design strategically future‑proof.

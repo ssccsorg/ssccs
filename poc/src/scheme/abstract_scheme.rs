@@ -9,6 +9,10 @@ use std::fmt::Debug;
 use std::hash::Hash;
 use std::sync::Arc;
 
+// Type aliases for complex closure types
+type PredicateFn = Arc<dyn Fn(&Segment, &Segment) -> bool + Send + Sync>;
+type MappingFn = Arc<dyn Fn(&SpaceCoordinates) -> Option<LogicalAddress> + Send + Sync>;
+
 // ==================== SCHEME IDENTITY ====================
 
 /// Scheme's cryptographic identifier
@@ -97,7 +101,7 @@ pub enum StructuralRelation {
     /// custom relationship
     Custom {
         name: String,
-        predicate: Arc<dyn Fn(&Segment, &Segment) -> bool + Send + Sync>,
+        predicate: PredicateFn,
     },
 }
 
@@ -365,7 +369,7 @@ pub struct MemoryLayout {
     pub layout_type: LayoutType,
 
     /// Mapping function (coordinate → logical address)
-    pub mapping: Arc<dyn Fn(&SpaceCoordinates) -> Option<LogicalAddress> + Send + Sync>,
+    pub mapping: MappingFn,
 
     /// Layout metadata
     pub metadata: HashMap<String, String>,
@@ -452,9 +456,11 @@ pub struct Scheme {
     memory_layout: MemoryLayout,
 
     /// observation rule
+    #[allow(dead_code)]
     observation_rules: ObservationRules,
 
     /// Scheme metadata
+    #[allow(dead_code)]
     metadata: HashMap<String, String>,
 }
 
@@ -573,7 +579,7 @@ impl Scheme {
             .get_outgoing(segment_id)
             .into_iter()
             .filter(|(_, relation)| {
-                relation_filter.map_or(true, |filter| match relation {
+                relation_filter.is_none_or(|filter| match relation {
                     StructuralRelation::Adjacency { relation_type, .. } => {
                         format!("{:?}", relation_type).contains(filter)
                     }
@@ -798,6 +804,7 @@ pub mod grid2d {
     pub struct Grid2DTemplate {
         width: i64,
         height: i64,
+        #[allow(dead_code)]
         topology: GridTopology,
     }
 
