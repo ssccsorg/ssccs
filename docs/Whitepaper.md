@@ -18,18 +18,14 @@ As a constitutional framework, SSCCS enforces three core values:
 **Immutability** (data cannot be altered after creation), **Structural
 Integrity** (computation must respect declared schemas), and
 **Traceability** (every projection is cryptographically verifiable).
-These values ensure that computational infrastructure is transparent,
-auditable, and resistant to hidden manipulation.
-
-The framework operates through a distinct ontology: Segments serve as
-immutable carriers of structured information, while Schemes define
-bounded structural contexts. Fields constitute relational topologies
-governed by dynamic constraints that dictate admissible configurations.
-Within this layer, computation is executed through Observation, which
-deterministically resolves these configurations into a Projection
-without altering underlying Segments. This structural approach
-inherently minimizes data movement, eliminates synchronization overhead,
-and enables implicit parallelism.
+These values are technically realized through a distinct computational
+ontology: Segments serve as immutable carriers of information, while
+Schemes define the structural boundaries and constraints. Within this
+framework, computation is executed through Observation, which
+deterministically resolves these elements into a Projection without
+altering the underlying data. This structure-defined approach eliminates
+hidden manipulation, minimizes data movement, and establishes a
+transparent, auditable infrastructure that serves the public interest.
 
 Driven by a software‑first philosophy, this architecture ensures
 deterministic reproducibility by completely decoupling execution logic
