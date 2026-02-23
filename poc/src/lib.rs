@@ -1,4 +1,5 @@
 pub mod core;
+pub mod scheme;
 use crate::core::{Constraint, Field, Projector, Segment, SpaceCoordinates};
 use std::fmt::Debug;
 
