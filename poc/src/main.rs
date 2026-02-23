@@ -524,10 +524,9 @@ fn test_adjacency_memory() -> Result<(), String> {
 fn test_composite_and_transformed_schemes() -> Result<(), String> {
     use scheme::{
         CombinationMethod, CompositeScheme, CompositionRules, ConflictResolution, Grid2DTemplate,
-        GridTopology, Matrix, TransformType, Transformation, TransformedScheme,
+        GridTopology, TransformType, Transformation, TransformedScheme,
     };
     use std::collections::HashMap;
-    use std::sync::Arc;
 
     println!("  1. Creating composite scheme (Union of two grids):");
 
@@ -536,8 +535,8 @@ fn test_composite_and_transformed_schemes() -> Result<(), String> {
     let grid2 = Grid2DTemplate::new(2, 2, GridTopology::FourConnected).build();
 
     let components = vec![
-        scheme::SchemeImpl::Basic(grid1),
-        scheme::SchemeImpl::Basic(grid2),
+        scheme::SchemeImpl::Basic(Box::new(grid1)),
+        scheme::SchemeImpl::Basic(Box::new(grid2)),
     ];
     let composition_rules = CompositionRules {
         combination_method: CombinationMethod::Union,
@@ -565,7 +564,7 @@ fn test_composite_and_transformed_schemes() -> Result<(), String> {
 
     // Create a base scheme
     let base = Grid2DTemplate::new(3, 3, GridTopology::FourConnected).build();
-    let base_impl = scheme::SchemeImpl::Basic(base);
+    let base_impl = scheme::SchemeImpl::Basic(Box::new(base));
 
     // Create translation transformation
     let mut params = HashMap::new();

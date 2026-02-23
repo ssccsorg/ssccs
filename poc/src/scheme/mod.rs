@@ -9,6 +9,9 @@ use crate::core::{Segment, SegmentId, SpaceCoordinates};
 use std::collections::HashMap;
 use std::sync::Arc;
 
+// Type alias for complex closure types
+type CustomCombinerFn = Arc<dyn Fn(&[&SchemeImpl]) -> SchemeImpl + Send + Sync>;
+
 /// Scheme traits -a common interface for various Scheme implementations
 pub trait SchemeTrait: std::fmt::Debug + Send + Sync {
     /// Scheme identifier
@@ -43,7 +46,7 @@ pub trait SchemeTrait: std::fmt::Debug + Send + Sync {
 #[derive(Clone, Debug)]
 pub enum SchemeImpl {
     /// Basic Scheme implementation
-    Basic(abstract_scheme::Scheme),
+    Basic(Box<abstract_scheme::Scheme>),
 
     /// Composite Scheme (composition of other Schemes)
     Composite(CompositeScheme),
@@ -131,6 +134,7 @@ impl SchemeTrait for SchemeImpl {
 pub struct CompositeScheme {
     id: SchemeId,
     components: Vec<SchemeImpl>,
+    #[allow(dead_code)]
     composition_rules: CompositionRules,
 }
 
@@ -210,7 +214,7 @@ pub enum CombinationMethod {
     Intersection, // intersection
     Product,      // Cartesian product
     Sum,          // straight
-    Custom(Arc<dyn Fn(&[&SchemeImpl]) -> SchemeImpl + Send + Sync>),
+    Custom(CustomCombinerFn),
 }
 
 impl std::fmt::Debug for CombinationMethod {
@@ -244,6 +248,7 @@ pub enum ConflictResolution {
 pub struct TransformedScheme {
     id: SchemeId,
     base: Box<SchemeImpl>,
+    #[allow(dead_code)]
     transformation: Transformation,
 }
 
