@@ -1129,6 +1129,6 @@ it),” in *IEEE International Solid‑State Circuits Conference*, 2014.
 
 © 2026 SSCCS gUG (i.G.). This human-conceived and AI-refined
 documentation is licensed under CC BY-NC-ND 4.0; authenticity and
-integrity are cryptographically verifiable via
+integrity are verifiable via
 [registered](https://keys.openpgp.org/search?q=BCCB196BADF50C99)
 GPG-signed commits.
