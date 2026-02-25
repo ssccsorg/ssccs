@@ -1136,8 +1136,7 @@ scientific records and cryptographic proofs.
 - Source code under Apache-2.0: [Github](https://github.com/ssccsorg) \|
   Verifiable by [GPG ID:
   BCCB196BADF50C99](https://keys.openpgp.org/search?q=BCCB196BADF50C99)
-- Whitepaper under CC BY-NC-ND 4.0:
-  [PDF](https://github.com/ssccsorg/ssccs/blob/main/docs/Whitepaper.pdf)
-  \| Registered in CERN DOI:
+- Whitepaper under CC BY-NC-ND 4.0: [PDF](https://ssccs.org/wp) \|
+  Registered in CERN DOI:
   [10.5281/zenodo.18759106](https://doi.org/10.5281/zenodo.18759106),
   [OpenAIRE](https://explore.openaire.eu/search/result?pid=10.5281%2Fzenodo.18759107)
