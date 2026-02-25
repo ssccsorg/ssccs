@@ -1,6 +1,8 @@
 # Schema–Segment Composition Computing System
 
 
+[![](https://zenodo.org/badge/DOI/10.5281/zenodo.18759107.svg)](https://doi.org/10.5281/zenodo.18759107)
+
 ## Abstract
 
 SSCCS (Schema–Segment Composition Computing System) is an infrastructure
@@ -1129,6 +1131,7 @@ it),” in *IEEE International Solid‑State Circuits Conference*, 2014.
 
 © 2026 SSCCS gUG (i.G.). This human-conceived and AI-refined
 documentation is licensed under CC BY-NC-ND 4.0; authenticity and
-integrity are verifiable via
-[registered](https://keys.openpgp.org/search?q=BCCB196BADF50C99)
-GPG-signed commits.
+integrity are verifiable via registered
+[GPG-signed](https://keys.openpgp.org/search?q=BCCB196BADF50C99) commits
+and [DOI:
+10.5281/zenodo.18759107](https://doi.org/10.5281/zenodo.18759107).
