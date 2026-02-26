@@ -1,0 +1,2348 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.27">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>Schema–Segment Composition Computing System</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="Whitepaper_files/libs/clipboard/clipboard.min.js"></script>
+<script src="Whitepaper_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="Whitepaper_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="Whitepaper_files/libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="Whitepaper_files/libs/quarto-html/popper.min.js"></script>
+<script src="Whitepaper_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="Whitepaper_files/libs/quarto-html/anchor.min.js"></script>
+<link href="Whitepaper_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="Whitepaper_files/libs/quarto-html/quarto-syntax-highlighting-ed96de9b727972fe78a7b5d16c58bf87.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="Whitepaper_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="Whitepaper_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="Whitepaper_files/libs/bootstrap/bootstrap-55315a3bd269dd1ffba185fa984e1f55.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-full">
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Contents</h2>
+   
+  <ul>
+  <li><a href="#abstract" id="toc-abstract" class="nav-link active" data-scroll-target="#abstract">Abstract</a></li>
+  <li><a href="#introduction" id="toc-introduction" class="nav-link" data-scroll-target="#introduction">1. Introduction</a></li>
+  <li><a href="#background-and-motivation" id="toc-background-and-motivation" class="nav-link" data-scroll-target="#background-and-motivation">2. Background and Motivation</a>
+  <ul class="collapse">
+  <li><a href="#the-von-neumann-inheritance" id="toc-the-von-neumann-inheritance" class="nav-link" data-scroll-target="#the-von-neumann-inheritance">2.1 The Von Neumann Inheritance</a></li>
+  <li><a href="#symptoms-of-architectural-assumptions" id="toc-symptoms-of-architectural-assumptions" class="nav-link" data-scroll-target="#symptoms-of-architectural-assumptions">2.2 Symptoms of Architectural Assumptions</a></li>
+  <li><a href="#concurrency-as-afterthought" id="toc-concurrency-as-afterthought" class="nav-link" data-scroll-target="#concurrency-as-afterthought">2.3 Concurrency as Afterthought</a></li>
+  <li><a href="#the-black-box-problem" id="toc-the-black-box-problem" class="nav-link" data-scroll-target="#the-black-box-problem">2.4 The Black Box Problem</a></li>
+  </ul></li>
+  <li><a href="#the-ssccs-model" id="toc-the-ssccs-model" class="nav-link" data-scroll-target="#the-ssccs-model">3. The SSCCS Model</a>
+  <ul class="collapse">
+  <li><a href="#segment-atomic-coordinate-existence" id="toc-segment-atomic-coordinate-existence" class="nav-link" data-scroll-target="#segment-atomic-coordinate-existence">3.1 Segment: Atomic Coordinate Existence</a></li>
+  <li><a href="#scheme-structural-blueprint" id="toc-scheme-structural-blueprint" class="nav-link" data-scroll-target="#scheme-structural-blueprint">3.2 Scheme: Structural Blueprint</a></li>
+  <li><a href="#field-dynamic-constraint-substrate" id="toc-field-dynamic-constraint-substrate" class="nav-link" data-scroll-target="#field-dynamic-constraint-substrate">3.3 Field: Dynamic Constraint Substrate</a></li>
+  <li><a href="#observation-and-projection" id="toc-observation-and-projection" class="nav-link" data-scroll-target="#observation-and-projection">3.4 Observation and Projection</a></li>
+  <li><a href="#secure-isolation-and-cryptographic-boundaries" id="toc-secure-isolation-and-cryptographic-boundaries" class="nav-link" data-scroll-target="#secure-isolation-and-cryptographic-boundaries">3.5 Secure Isolation and Cryptographic Boundaries</a></li>
+  <li><a href="#relationship-with-traditional-concepts" id="toc-relationship-with-traditional-concepts" class="nav-link" data-scroll-target="#relationship-with-traditional-concepts">3.6 Relationship with Traditional Concepts</a></li>
+  </ul></li>
+  <li><a href="#formal-properties" id="toc-formal-properties" class="nav-link" data-scroll-target="#formal-properties">4. Formal Properties</a>
+  <ul class="collapse">
+  <li><a href="#immutability-and-concurrency" id="toc-immutability-and-concurrency" class="nav-link" data-scroll-target="#immutability-and-concurrency">4.1 Immutability and Concurrency</a></li>
+  <li><a href="#determinism-and-auditability" id="toc-determinism-and-auditability" class="nav-link" data-scroll-target="#determinism-and-auditability">4.2 Determinism and Auditability</a></li>
+  <li><a href="#time-as-a-coordinate" id="toc-time-as-a-coordinate" class="nav-link" data-scroll-target="#time-as-a-coordinate">4.3 Time as a Coordinate</a></li>
+  <li><a href="#energy-model" id="toc-energy-model" class="nav-link" data-scroll-target="#energy-model">4.4 Energy Model</a></li>
+  </ul></li>
+  <li><a href="#compilation-and-structural-mapping" id="toc-compilation-and-structural-mapping" class="nav-link" data-scroll-target="#compilation-and-structural-mapping">5. Compilation and Structural Mapping</a>
+  <ul class="collapse">
+  <li><a href="#compiler-pipeline" id="toc-compiler-pipeline" class="nav-link" data-scroll-target="#compiler-pipeline">5.1 Compiler Pipeline</a></li>
+  </ul></li>
+  <li><a href="#memory-mapping-logic" id="toc-memory-mapping-logic" class="nav-link" data-scroll-target="#memory-mapping-logic">5.2 Memory Mapping Logic</a>
+  <ul class="collapse">
+  <li><a href="#automating-manual-optimizations" id="toc-automating-manual-optimizations" class="nav-link" data-scroll-target="#automating-manual-optimizations">5.3 Automating Manual Optimizations</a></li>
+  <li><a href="#example-vector-addition-with-rust-example" id="toc-example-vector-addition-with-rust-example" class="nav-link" data-scroll-target="#example-vector-addition-with-rust-example">5.4 Example: Vector Addition with Rust Example</a></li>
+  <li><a href="#scaling-to-n-dimensional-tensors-and-graphs" id="toc-scaling-to-n-dimensional-tensors-and-graphs" class="nav-link" data-scroll-target="#scaling-to-n-dimensional-tensors-and-graphs">5.5 Scaling to N-Dimensional Tensors and Graphs</a></li>
+  <li><a href="#comparison-computational-density-at-scale" id="toc-comparison-computational-density-at-scale" class="nav-link" data-scroll-target="#comparison-computational-density-at-scale">Comparison: Computational Density at Scale</a></li>
+  </ul></li>
+  <li><a href="#the-open-format" id="toc-the-open-format" class="nav-link" data-scroll-target="#the-open-format">6. The Open Format</a>
+  <ul class="collapse">
+  <li><a href="#binary-serialization-and-memory-layout" id="toc-binary-serialization-and-memory-layout" class="nav-link" data-scroll-target="#binary-serialization-and-memory-layout">6.1 Binary Serialization and Memory Layout</a></li>
+  </ul></li>
+  <li><a href="#system-stack-and-instructionset-interaction" id="toc-system-stack-and-instructionset-interaction" class="nav-link" data-scroll-target="#system-stack-and-instructionset-interaction">7. System Stack and Instruction‑Set Interaction</a>
+  <ul class="collapse">
+  <li><a href="#hardware-considerations" id="toc-hardware-considerations" class="nav-link" data-scroll-target="#hardware-considerations">7.1. Hardware Considerations</a></li>
+  </ul></li>
+  <li><a href="#theoretical-performance-scalability" id="toc-theoretical-performance-scalability" class="nav-link" data-scroll-target="#theoretical-performance-scalability">8. Theoretical Performance &amp; Scalability</a>
+  <ul class="collapse">
+  <li><a href="#time-space-complexity-analysis" id="toc-time-space-complexity-analysis" class="nav-link" data-scroll-target="#time-space-complexity-analysis">8.1 Time-Space Complexity Analysis</a></li>
+  <li><a href="#comparative-complexity-matrix" id="toc-comparative-complexity-matrix" class="nav-link" data-scroll-target="#comparative-complexity-matrix">8.2 Comparative Complexity Matrix</a></li>
+  <li><a href="#scalability-in-high-dimensional-ai-workloads" id="toc-scalability-in-high-dimensional-ai-workloads" class="nav-link" data-scroll-target="#scalability-in-high-dimensional-ai-workloads">8.3 Scalability in High-Dimensional AI Workloads</a></li>
+  </ul></li>
+  <li><a href="#implementation-roadmap" id="toc-implementation-roadmap" class="nav-link" data-scroll-target="#implementation-roadmap">9. Implementation Roadmap</a>
+  <ul class="collapse">
+  <li><a href="#phase-1-software-emulation-proof-of-concept" id="toc-phase-1-software-emulation-proof-of-concept" class="nav-link" data-scroll-target="#phase-1-software-emulation-proof-of-concept">Phase 1: Software Emulation (Proof of Concept)</a></li>
+  <li><a href="#phase-2-hardware-acceleration" id="toc-phase-2-hardware-acceleration" class="nav-link" data-scroll-target="#phase-2-hardware-acceleration">Phase 2: Hardware Acceleration</a></li>
+  <li><a href="#phase-3-native-observationcentric-processors-longterm-research" id="toc-phase-3-native-observationcentric-processors-longterm-research" class="nav-link" data-scroll-target="#phase-3-native-observationcentric-processors-longterm-research">Phase 3: Native Observation‑Centric Processors (Long‑Term Research)</a></li>
+  </ul></li>
+  <li><a href="#planned-validation-domains" id="toc-planned-validation-domains" class="nav-link" data-scroll-target="#planned-validation-domains">10. Planned Validation Domains</a></li>
+  <li><a href="#related-work" id="toc-related-work" class="nav-link" data-scroll-target="#related-work">11. Related Work</a></li>
+  <li><a href="#conclusion-and-future-work" id="toc-conclusion-and-future-work" class="nav-link" data-scroll-target="#conclusion-and-future-work">12. Conclusion and Future Work</a></li>
+  <li><a href="#references" id="toc-references" class="nav-link" data-scroll-target="#references">References</a></li>
+  </ul>
+<div class="quarto-alternate-formats"><h2>Other Formats</h2><ul><li><a href="Whitepaper.md"><i class="bi bi-file-code"></i>Github (GFM)</a></li><li><a href="Whitepaper.pdf"><i class="bi bi-file-pdf"></i>PDF</a></li></ul></div></nav>
+</div>
+<main class="content column-page-left" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Schema–Segment Composition Computing System</h1>
+<p class="subtitle lead">A Structure-Defined, Constraint-Conditioned, and Observation-Centric Computational System Architecture</p>
+</div>
+
+
+
+<div class="quarto-title-meta column-page-left">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="abstract" class="level2">
+<h2 class="anchored" data-anchor-id="abstract">Abstract</h2>
+<p>SSCCS (Schema–Segment Composition Computing System) is an infrastructure specification that redefines computation as the traceable projection of immutable Segments within a structured Scheme. While contemporary innovation focuses on material hardware shifts, SSCCS addresses fundamental inefficiencies of the Von Neumann bottleneck at the logical layer. By formalizing computation as the simultaneous resolution of static potential under dynamic constraints rather than a sequence of state mutations, the architecture reframes data movement, concurrency, and verifiability.</p>
+<p>SSCCS enforces three core values: Immutability (data cannot be altered after creation), Structural Integrity (computation must respect declared schemas), and Traceability (every projection is cryptographically verifiable). These values are realized through a distinct computational ontology: Segments serve as immutable carriers of information, Schemes define structural boundaries and constraints, and Observation deterministically resolves these elements into a Projection without altering underlying data. This structure-defined approach eliminates hidden manipulation, minimizes data movement, and establishes an auditable infrastructure.</p>
+<p>Driven by a software‑first philosophy, this architecture ensures deterministic reproducibility by completely decoupling execution logic from mutable state through structural and cryptographic isolation. This open specification, intended for validation across diverse domains, provides a roadmap where logical design dictates physical implementation, spanning from software emulation to hardware‑level support. By integrating intrinsic energy efficiency with high interpretability, SSCCS establishes a foundation for sustainable, accountable computational infrastructures, ultimately transitioning logic into a transparent, verifiable, and accessible Intellectual Public Commons.</p>
+</section>
+<section id="introduction" class="level2">
+<h2 class="anchored" data-anchor-id="introduction">1. Introduction</h2>
+<p>For decades, computation has been defined by the von Neumann model:</p>
+<pre><code>Data + Program → Execution → Result</code></pre>
+<p>This formulation rests on several assumptions:</p>
+<ul>
+<li>Data exists as intrinsic values stored in memory.</li>
+<li>Programs are sequences of instructions that operate on data.</li>
+<li>Execution involves moving data between memory and processor.</li>
+<li>State mutation produces results.</li>
+<li>Time orders execution sequentially.</li>
+</ul>
+<p>These assumptions, while deeply embedded, are not fundamental laws of computation but consequences of a particular architectural choice. SSCCS rejects this entire structure. In practice, the majority of energy and time in conventional systems is spent on moving data rather than on the actual arithmetic or logic operations [1, 2]—a symptom that reveals the underlying inefficiency of the von Neumann model. This imbalance, often called the “data‑movement wall” [3], has motivated research into alternative models.</p>
+<p>SSCCS proposes a different set of primitives. Computation is not the transformation of values but the observation of structured potential. There are no mutable values, no instruction streams, and no privileged timeline. Instead, the system consists of:</p>
+<ul>
+<li>Segments: immutable points in a multi‑dimensional coordinate space.</li>
+<li>Schemes: immutable blueprints defining the geometry and relations among Segments.</li>
+<li>Fields: mutable containers of dynamic constraints.</li>
+<li>Observation: the sole active event that reveals a Projection—a specific configuration from the space of possibilities.</li>
+</ul>
+<p>This redefinition has substantive consequences that extend far beyond data movement. The system’s structure determines what can be known; observation determines what becomes known. Data movement reduction is one consequence among many—a derivative benefit of a shift from procedural execution to structural observation. More fundamentally, this shift yields deterministic reproducibility: because structure is fixed and observation is deterministic, every computation produces a verifiable trace from blueprint to projection.</p>
+<p>The paper describes the formal components of SSCCS, their properties, the engineering implications (including but not limited to data movement reduction), the open specification format, the planned validation across multiple domains, and the project’s commitment to computational infrastructure.</p>
+</section>
+<section id="background-and-motivation" class="level2">
+<h2 class="anchored" data-anchor-id="background-and-motivation">2. Background and Motivation</h2>
+<section id="the-von-neumann-inheritance" class="level3">
+<h3 class="anchored" data-anchor-id="the-von-neumann-inheritance">2.1 The Von Neumann Inheritance</h3>
+<p>The von Neumann architecture, developed in the 1940s, embedded certain philosophical assumptions into the fabric of computing: that computation is a process of change over time, that data and program are separate categories, and that meaning emerges from sequences of operations. These assumptions have proven remarkably durable, but they are not inevitable.</p>
+</section>
+<section id="symptoms-of-architectural-assumptions" class="level3">
+<h3 class="anchored" data-anchor-id="symptoms-of-architectural-assumptions">2.2 Symptoms of Architectural Assumptions</h3>
+<p>The data movement problem is a symptom, not the disease. It arises because the von Neumann model requires data to be transported to a central processing unit, operated upon, and then returned to storage. This pattern repeats at every scale: from register files to caches to main memory to distributed systems. The energy and latency costs of this movement are well documented [1, 2, 4], but addressing them through incremental optimization—better caches, wider buses, smarter prefetching—treats the symptom while preserving the underlying model.</p>
+</section>
+<section id="concurrency-as-afterthought" class="level3">
+<h3 class="anchored" data-anchor-id="concurrency-as-afterthought">2.3 Concurrency as Afterthought</h3>
+<p>Shared mutable state, the source of most concurrency complexity, is another consequence of the von Neumann model. Locks, atomic operations, cache coherence protocols, and the entire edifice of concurrent programming exist to manage the conflicts that arise when multiple agents can modify the same storage location. These mechanisms add further data movement and energy consumption, while also creating opacity: the behavior of concurrent systems becomes notoriously difficult to predict or verify.</p>
+</section>
+<section id="the-black-box-problem" class="level3">
+<h3 class="anchored" data-anchor-id="the-black-box-problem">2.4 The Black Box Problem</h3>
+<p>Traditional computing treats the internal logic of execution as a black box. Programs accept inputs and produce outputs, but the path between them—the sequence of state mutations—is hidden unless explicitly traced. This opacity has profound consequences: software can contain undetected bugs, hidden backdoors, or inefficient pathways that remain invisible to users and auditors. Verification becomes a post-hoc activity rather than an intrinsic property of the system.</p>
+<p>SSCCS addresses these issues not by optimizing them but by rendering them unnecessary. By making all persistent data immutable and replacing execution with observation, the model eliminates the root causes of data movement, synchronization overhead, and computational opacity.</p>
+</section>
+</section>
+<section id="the-ssccs-model" class="level2">
+<h2 class="anchored" data-anchor-id="the-ssccs-model">3. The SSCCS Model</h2>
+<p>SSCCS comprises three ontologically distinct layers, each irreducible to the others:</p>
+<div class="cell" data-layout-align="default">
+<div class="cell-output-display">
+<div id="fig-ontology" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-ontology-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div>
+<svg width="672" height="480" viewbox="0.00 0.00 378.16 226.67" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" style="; max-width: none; max-height: none">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(4 222.67)">
+<title>SSCCS_Ontology</title>
+<polygon fill="white" stroke="transparent" points="-4,4 -4,-222.67 374.16,-222.67 374.16,4 -4,4"></polygon>
+<!-- s1 -->
+<g id="node1" class="node">
+<title>s1</title>
+<ellipse fill="black" stroke="black" cx="174.03" cy="-24" rx="7.2" ry="7.2"></ellipse>
+<text text-anchor="middle" x="135.53" y="-35.4" font-family="Times,serif" font-size="14.00">Segment A</text>
+</g>
+<!-- s2 -->
+<g id="node2" class="node">
+<title>s2</title>
+<ellipse fill="black" stroke="black" cx="119.03" cy="-24" rx="7.2" ry="7.2"></ellipse>
+<text text-anchor="middle" x="80.92" y="-4.2" font-family="Times,serif" font-size="14.00">Segment B</text>
+</g>
+<!-- s3 -->
+<g id="node3" class="node">
+<title>s3</title>
+<ellipse fill="black" stroke="black" cx="69.03" cy="-24" rx="7.2" ry="7.2"></ellipse>
+<text text-anchor="middle" x="30.92" y="-35.4" font-family="Times,serif" font-size="14.00">Segment C</text>
+</g>
+<!-- Scheme -->
+<g id="node4" class="node">
+<title>Scheme</title>
+<polygon fill="none" stroke="black" points="142.17,-119.04 61.89,-119.04 61.89,-94.44 142.17,-94.44 142.17,-119.04"></polygon>
+<text text-anchor="middle" x="102.03" y="-102.54" font-family="Times,serif" font-size="14.00">Scheme (Σ)</text>
+</g>
+<!-- Scheme&#45;&gt;s1 -->
+<g id="edge1" class="edge">
+<title>Scheme-&gt;s1</title>
+<path fill="none" stroke="black" d="M112.35,-94.17C128.37,-76.2 158.55,-42.36 169.72,-29.83"></path>
+</g>
+<!-- Scheme&#45;&gt;s2 -->
+<g id="edge2" class="edge">
+<title>Scheme-&gt;s2</title>
+<path fill="none" stroke="black" d="M104.47,-94.17C108.1,-76.9 114.83,-44.97 117.69,-31.38"></path>
+</g>
+<!-- Scheme&#45;&gt;s3 -->
+<g id="edge3" class="edge">
+<title>Scheme-&gt;s3</title>
+<path fill="none" stroke="black" d="M97.3,-94.17C90.17,-76.73 76.93,-44.32 71.47,-30.98"></path>
+</g>
+<!-- Field -->
+<g id="node5" class="node">
+<title>Field</title>
+<polygon fill="none" stroke="black" stroke-dasharray="5,2" points="252.92,-218.47 87.14,-218.47 87.14,-177.27 252.92,-177.27 252.92,-218.47"></polygon>
+<text text-anchor="middle" x="170.03" y="-202.07" font-family="Times,serif" font-size="14.00">Field F</text>
+<text text-anchor="middle" x="170.03" y="-185.27" font-family="Times,serif" font-size="14.00">(governance + constraints)</text>
+</g>
+<!-- Field&#45;&gt;s1 -->
+<g id="edge5" class="edge">
+<title>Field-&gt;s1</title>
+<path fill="none" stroke="black" stroke-dasharray="5,2" d="M178.8,-177.23C180.95,-171.5 182.94,-165.13 184.03,-159.07 192.24,-113.28 191.62,-100.3 184.03,-54.4 182.66,-46.1 179.25,-37 176.79,-31.16"></path>
+</g>
+<!-- Field&#45;&gt;s2 -->
+<g id="edge6" class="edge">
+<title>Field-&gt;s2</title>
+<path fill="none" stroke="black" stroke-dasharray="5,2" d="M168.25,-177C165.9,-155.08 160.84,-118.94 151.03,-89.2 143.46,-66.26 128.99,-41.22 122.42,-30.44"></path>
+</g>
+<!-- Field&#45;&gt;s3 -->
+<g id="edge7" class="edge">
+<title>Field-&gt;s3</title>
+<path fill="none" stroke="black" stroke-dasharray="5,2" d="M115.42,-177.22C91.8,-165.68 66.51,-148.5 53.03,-124.27 35.38,-92.54 56.97,-46.84 65.69,-30.81"></path>
+</g>
+<!-- Field&#45;&gt;Scheme -->
+<g id="edge4" class="edge">
+<title>Field-&gt;Scheme</title>
+<path fill="none" stroke="black" stroke-dasharray="5,2" d="M154.94,-177.09C141.4,-159.34 122,-133.91 110.84,-119.28"></path>
+</g>
+<!-- Observation -->
+<g id="node6" class="node">
+<title>Observation</title>
+<ellipse fill="none" stroke="black" cx="303.03" cy="-106.74" rx="67.25" ry="17.57"></ellipse>
+<text text-anchor="middle" x="303.03" y="-102.54" font-family="Times,serif" font-size="14.00">Observation Ω</text>
+</g>
+<!-- Field&#45;&gt;Observation -->
+<g id="edge8" class="edge">
+<title>Field-&gt;Observation</title>
+<path fill="none" stroke="black" d="M199.55,-177.09C220.8,-162.85 249.45,-143.65 271.21,-129.06"></path>
+<polygon fill="black" stroke="black" points="273.42,-131.79 279.78,-123.32 269.52,-125.98 273.42,-131.79"></polygon>
+<text text-anchor="middle" x="252.92" y="-146.47" font-family="Times,serif" font-size="14.00">F</text>
+</g>
+<!-- Projection -->
+<g id="node7" class="node">
+<title>Projection</title>
+<polygon fill="none" stroke="black" points="339.58,-36.3 266.48,-36.3 266.48,-11.7 339.58,-11.7 339.58,-36.3"></polygon>
+<text text-anchor="middle" x="303.03" y="-19.8" font-family="Times,serif" font-size="14.00">Projection</text>
+</g>
+<!-- Observation&#45;&gt;Projection -->
+<g id="edge9" class="edge">
+<title>Observation-&gt;Projection</title>
+<path fill="none" stroke="black" d="M303.03,-89.01C303.03,-76.74 303.03,-59.97 303.03,-46.68"></path>
+<polygon fill="black" stroke="black" points="306.53,-46.5 303.03,-36.5 299.53,-46.5 306.53,-46.5"></polygon>
+<text text-anchor="middle" x="333.43" y="-58.6" font-family="Times,serif" font-size="14.00">P = Ω(Σ, F)</text>
+</g>
+</g>
+</svg>
+</div>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-ontology-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;1: SSCCS Ontology: Three irreducible layers
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>Each layer has defined properties and relationships; together they constitute the complete computational ontology.</p>
+<ul>
+<li>Immutable Segments &amp; Schemes allow any number of observers to apply Ω concurrently – no locks or synchronization needed.</li>
+<li>Structural mapping eliminates data movement: the von Neumann bottleneck disappears by design.</li>
+<li>Consistency is guaranteed by the single mutable layer (Field), which governs all observations.</li>
+<li>Deterministic results arise from cryptographic identities and reproducible hardware mappings.</li>
+<li>Parallelism is emergent: concurrency flows from structure, not from explicit programming.</li>
+</ul>
+<div class="cell" data-layout-align="default">
+<div class="cell-output-display">
+<div id="fig-ssccs-integrated" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-ssccs-integrated-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div>
+<svg width="672" height="480" viewbox="0.00 0.00 389.93 260.80" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" style="; max-width: none; max-height: none">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(4 256.8)">
+<title>SSCCS_Integrated</title>
+<polygon fill="white" stroke="transparent" points="-4,4 -4,-256.8 385.93,-256.8 385.93,4 -4,4"></polygon>
+<!-- sA -->
+<g id="node1" class="node">
+<title>sA</title>
+<ellipse fill="black" stroke="black" cx="99.96" cy="-228.8" rx="7.2" ry="7.2"></ellipse>
+<text text-anchor="middle" x="61.46" y="-240.2" font-family="Times,serif" font-size="14.00">Segment A</text>
+</g>
+<!-- sB -->
+<g id="node2" class="node">
+<title>sB</title>
+<ellipse fill="black" stroke="black" cx="279.96" cy="-228.8" rx="7.2" ry="7.2"></ellipse>
+<text text-anchor="middle" x="241.85" y="-240.2" font-family="Times,serif" font-size="14.00">Segment B</text>
+</g>
+<!-- sC -->
+<g id="node3" class="node">
+<title>sC</title>
+<ellipse fill="black" stroke="black" cx="343.96" cy="-228.8" rx="7.2" ry="7.2"></ellipse>
+<text text-anchor="middle" x="305.85" y="-240.2" font-family="Times,serif" font-size="14.00">Segment C</text>
+</g>
+<!-- sD -->
+<g id="node4" class="node">
+<title>sD</title>
+<ellipse fill="black" stroke="black" cx="189.96" cy="-228.8" rx="7.2" ry="7.2"></ellipse>
+<text text-anchor="middle" x="151.46" y="-240.2" font-family="Times,serif" font-size="14.00">Segment D</text>
+</g>
+<!-- schemeX -->
+<g id="node5" class="node">
+<title>schemeX</title>
+<polygon fill="none" stroke="black" points="73.89,-108 0.04,-108 0.04,-72 73.89,-72 73.89,-108"></polygon>
+<text text-anchor="middle" x="36.96" y="-85.8" font-family="Times,serif" font-size="14.00">Scheme X</text>
+</g>
+<!-- schemeX&#45;&gt;sA -->
+<g id="edge1" class="edge">
+<title>schemeX-&gt;sA</title>
+<path fill="none" stroke="black" d="M39.6,-108.24C43.1,-127.86 50.49,-160.46 63.96,-185.6 72.34,-201.22 87.27,-216.18 95.01,-223.37"></path>
+</g>
+<!-- schemeX&#45;&gt;sD -->
+<g id="edge5" class="edge">
+<title>schemeX-&gt;sD</title>
+<path fill="none" stroke="black" d="M46.39,-108.02C59.91,-131.99 84.67,-174.08 97.96,-185.6 124.79,-208.85 166.56,-221.68 182.99,-226.06"></path>
+</g>
+<!-- schemeY -->
+<g id="node6" class="node">
+<title>schemeY</title>
+<polygon fill="none" stroke="black" points="381.89,-108 308.04,-108 308.04,-72 381.89,-72 381.89,-108"></polygon>
+<text text-anchor="middle" x="344.96" y="-85.8" font-family="Times,serif" font-size="14.00">Scheme Y</text>
+</g>
+<!-- schemeY&#45;&gt;sB -->
+<g id="edge2" class="edge">
+<title>schemeY-&gt;sB</title>
+<path fill="none" stroke="black" d="M341.61,-108.19C337.32,-127.78 328.75,-160.35 314.96,-185.6 306.57,-200.97 292.16,-216.05 284.72,-223.31"></path>
+</g>
+<!-- schemeY&#45;&gt;sC -->
+<g id="edge3" class="edge">
+<title>schemeY-&gt;sC</title>
+<path fill="none" stroke="black" d="M348.36,-108.11C351.67,-127.07 355.82,-158.55 352.96,-185.6 351.6,-198.56 347.93,-213.4 345.72,-221.57"></path>
+</g>
+<!-- schemeY&#45;&gt;sD -->
+<g id="edge4" class="edge">
+<title>schemeY-&gt;sD</title>
+<path fill="none" stroke="black" d="M335.17,-108.01C321.13,-131.98 295.47,-174.07 281.96,-185.6 254.97,-208.65 213.29,-221.6 196.91,-226.04"></path>
+</g>
+<!-- Field -->
+<g id="node7" class="node">
+<title>Field</title>
+<polygon fill="none" stroke="black" stroke-dasharray="5,2" points="272.86,-185.4 107.07,-185.4 107.07,-144.2 272.86,-144.2 272.86,-185.4"></polygon>
+<text text-anchor="middle" x="189.96" y="-169" font-family="Times,serif" font-size="14.00">Mutable Field</text>
+<text text-anchor="middle" x="189.96" y="-152.2" font-family="Times,serif" font-size="14.00">[governance + constraints]</text>
+</g>
+<!-- Field&#45;&gt;sA -->
+<g id="edge8" class="edge">
+<title>Field-&gt;sA</title>
+<path fill="none" stroke="black" stroke-dasharray="5,2" d="M161.17,-185.63C141.29,-199.33 116.52,-216.39 105.59,-223.92"></path>
+</g>
+<!-- Field&#45;&gt;sB -->
+<g id="edge9" class="edge">
+<title>Field-&gt;sB</title>
+<path fill="none" stroke="black" stroke-dasharray="5,2" d="M218.75,-185.63C238.64,-199.33 263.4,-216.39 274.33,-223.92"></path>
+</g>
+<!-- Field&#45;&gt;sC -->
+<g id="edge10" class="edge">
+<title>Field-&gt;sC</title>
+<path fill="none" stroke="black" stroke-dasharray="5,2" d="M238.9,-185.5C274.96,-200.02 320.54,-218.37 337.35,-225.14"></path>
+</g>
+<!-- Field&#45;&gt;sD -->
+<g id="edge11" class="edge">
+<title>Field-&gt;sD</title>
+<path fill="none" stroke="black" stroke-dasharray="5,2" d="M189.96,-185.56C189.96,-197.8 189.96,-212.73 189.96,-221.16"></path>
+</g>
+<!-- Field&#45;&gt;schemeX -->
+<g id="edge6" class="edge">
+<title>Field-&gt;schemeX</title>
+<path fill="none" stroke="black" stroke-dasharray="5,2" d="M148.56,-144.1C124.93,-132.86 95.6,-118.9 72.94,-108.12"></path>
+</g>
+<!-- Field&#45;&gt;schemeY -->
+<g id="edge7" class="edge">
+<title>Field-&gt;schemeY</title>
+<path fill="none" stroke="black" stroke-dasharray="5,2" d="M231.91,-144.1C255.85,-132.86 285.56,-118.9 308.52,-108.12"></path>
+</g>
+<!-- O1 -->
+<g id="node8" class="node">
+<title>O1</title>
+<ellipse fill="none" stroke="black" cx="118.96" cy="-90" rx="27" ry="18"></ellipse>
+<text text-anchor="middle" x="118.96" y="-85.8" font-family="Times,serif" font-size="14.00">Ω₁</text>
+</g>
+<!-- Field&#45;&gt;O1 -->
+<g id="edge12" class="edge">
+<title>Field-&gt;O1</title>
+<path fill="none" stroke="black" d="M170.56,-143.91C161.14,-134.25 149.8,-122.62 140.15,-112.72"></path>
+<polygon fill="black" stroke="black" points="142.65,-110.27 133.16,-105.56 137.64,-115.16 142.65,-110.27"></polygon>
+</g>
+<!-- O2 -->
+<g id="node9" class="node">
+<title>O2</title>
+<ellipse fill="none" stroke="black" cx="190.96" cy="-90" rx="27" ry="18"></ellipse>
+<text text-anchor="middle" x="190.96" y="-85.8" font-family="Times,serif" font-size="14.00">Ω₂</text>
+</g>
+<!-- Field&#45;&gt;O2 -->
+<g id="edge13" class="edge">
+<title>Field-&gt;O2</title>
+<path fill="none" stroke="black" d="M190.24,-143.91C190.34,-136.09 190.47,-126.99 190.59,-118.56"></path>
+<polygon fill="black" stroke="black" points="194.09,-118.44 190.72,-108.39 187.09,-118.34 194.09,-118.44"></polygon>
+</g>
+<!-- O3 -->
+<g id="node10" class="node">
+<title>O3</title>
+<ellipse fill="none" stroke="black" cx="262.96" cy="-90" rx="27" ry="18"></ellipse>
+<text text-anchor="middle" x="262.96" y="-85.8" font-family="Times,serif" font-size="14.00">Ω₃</text>
+</g>
+<!-- Field&#45;&gt;O3 -->
+<g id="edge14" class="edge">
+<title>Field-&gt;O3</title>
+<path fill="none" stroke="black" d="M209.91,-143.91C219.6,-134.25 231.26,-122.62 241.18,-112.72"></path>
+<polygon fill="black" stroke="black" points="243.76,-115.1 248.37,-105.56 238.81,-110.14 243.76,-115.1"></polygon>
+</g>
+<!-- P1 -->
+<g id="node11" class="node">
+<title>P1</title>
+<polygon fill="none" stroke="black" points="145.96,-36 91.96,-36 91.96,0 145.96,0 145.96,-36"></polygon>
+<text text-anchor="middle" x="118.96" y="-13.8" font-family="Times,serif" font-size="14.00">P₁</text>
+</g>
+<!-- O1&#45;&gt;P1 -->
+<g id="edge15" class="edge">
+<title>O1-&gt;P1</title>
+<path fill="none" stroke="black" d="M118.96,-71.7C118.96,-63.98 118.96,-54.71 118.96,-46.11"></path>
+<polygon fill="black" stroke="black" points="122.46,-46.1 118.96,-36.1 115.46,-46.1 122.46,-46.1"></polygon>
+</g>
+<!-- P2 -->
+<g id="node12" class="node">
+<title>P2</title>
+<polygon fill="none" stroke="black" points="217.96,-36 163.96,-36 163.96,0 217.96,0 217.96,-36"></polygon>
+<text text-anchor="middle" x="190.96" y="-13.8" font-family="Times,serif" font-size="14.00">P₂</text>
+</g>
+<!-- O2&#45;&gt;P2 -->
+<g id="edge16" class="edge">
+<title>O2-&gt;P2</title>
+<path fill="none" stroke="black" d="M190.96,-71.7C190.96,-63.98 190.96,-54.71 190.96,-46.11"></path>
+<polygon fill="black" stroke="black" points="194.46,-46.1 190.96,-36.1 187.46,-46.1 194.46,-46.1"></polygon>
+</g>
+<!-- P3 -->
+<g id="node13" class="node">
+<title>P3</title>
+<polygon fill="none" stroke="black" points="289.96,-36 235.96,-36 235.96,0 289.96,0 289.96,-36"></polygon>
+<text text-anchor="middle" x="262.96" y="-13.8" font-family="Times,serif" font-size="14.00">P₃</text>
+</g>
+<!-- O3&#45;&gt;P3 -->
+<g id="edge17" class="edge">
+<title>O3-&gt;P3</title>
+<path fill="none" stroke="black" d="M262.96,-71.7C262.96,-63.98 262.96,-54.71 262.96,-46.11"></path>
+<polygon fill="black" stroke="black" points="266.46,-46.1 262.96,-36.1 259.46,-46.1 266.46,-46.1"></polygon>
+</g>
+</g>
+</svg>
+</div>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-ssccs-integrated-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;2: SSCCS integrated view: Schemes, Segments, Field, Observations, and Projections
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>This integrated view illustrates the full SSCCS model: segments are shared across multiple schemes, the field governs all observations, and each observation event independently projects a result—demonstrating how immutability, structural mapping, and dynamic governance together form a complete computational ontology.</p>
+<section id="segment-atomic-coordinate-existence" class="level3">
+<h3 class="anchored" data-anchor-id="segment-atomic-coordinate-existence">3.1 Segment: Atomic Coordinate Existence</h3>
+<p>A Segment is the minimal unit of potential—the fundamental building block of the SSCCS universe. Formally, a Segment <span class="math inline">\(s\)</span> is a tuple <span class="math inline">\((c, id)\)</span> where <span class="math inline">\(c \in \mathbb{R}^d\)</span> (or a discrete lattice) represents coordinates in a <span class="math inline">\(d\)</span>-dimensional possibility space, and <span class="math inline">\(id = H(c)\)</span> is a cryptographic hash providing a unique identifier.</p>
+<p>Its properties are:</p>
+<ul>
+<li>Immutability: once created, a Segment cannot be modified; it can only be referenced.</li>
+<li>Statelessness: it contains no values, strings, or data structures—only coordinates and identity.</li>
+</ul>
+<p>Formally, a Segment <span class="math inline">\(s\)</span> is defined as a tuple <span class="math inline">\((c, id)\)</span> where <span class="math inline">\(c \in \mathbb{R}^d\)</span> (or a discrete lattice) represents coordinates in a <span class="math inline">\(d\)</span>-dimensional possibility space, and <span class="math inline">\(id = H(c)\)</span> is a cryptographic hash providing a unique identifier.</p>
+<p>A Segment does not define meaning, dimensionality, or adjacency. It merely exists as a coordinate point. Because Segments contain no mutable state, they can be observed concurrently by any number of observers without synchronization. The cryptographic identity ensures that every Segment is uniquely and verifiably identifiable.</p>
+</section>
+<section id="scheme-structural-blueprint" class="level3">
+<h3 class="anchored" data-anchor-id="scheme-structural-blueprint">3.2 Scheme: Structural Blueprint</h3>
+<p>If Segment is existence, Scheme is structure.</p>
+<p>A Scheme is an immutable blueprint that defines:</p>
+<ul>
+<li>Dimensional axes: specification of coordinate systems.</li>
+<li>Internal structural constraints: rules governing Segment relations.</li>
+<li>Adjacency relations: which Segments are neighbors in possibility space.</li>
+<li>Memory layout semantics: how structural relations map to physical storage.</li>
+<li>Observation rules: how observation resolves constraints into projections.</li>
+</ul>
+<p>A Scheme defines a geometric arrangement of Segments, not a sequence of operations. Segment relationships are spatial rather than temporal. During compilation, the compiler maps these spatial relationships directly to hardware addresses, ensuring that Segments which are structurally adjacent become physically adjacent. This design makes locality an inherent property of the specification, eliminating the need for runtime optimizations.</p>
+</section>
+<section id="field-dynamic-constraint-substrate" class="level3">
+<h3 class="anchored" data-anchor-id="field-dynamic-constraint-substrate">3.3 Field: Dynamic Constraint Substrate</h3>
+<p>The Field <span class="math inline">\(F\)</span> is the only mutable layer, but it does not store values. Instead, it stores admissibility conditions that dynamically constrain which configurations of Segments are possible at any given time. The Field can be thought of as a mutable set of rules or conditions that interact with the immutable structure defined by the Scheme.</p>
+<p>It contains:</p>
+<ul>
+<li>External constraints: rules and conditions that are not part of the immutable Scheme but affect observation.</li>
+<li>Relational topology: the dynamic structure of how constraints relate to one another.</li>
+<li>Observation frontier: regions of the constraint space that have already been observed and collapsed.</li>
+</ul>
+<p>Formally, <span class="math inline">\(F\)</span> is a set of admissibility predicates over the configuration space defined by <span class="math inline">\(\Sigma\)</span>. Mutating <span class="math inline">\(F\)</span> changes which configurations are possible, but does not modify any Segment.</p>
+</section>
+<section id="observation-and-projection" class="level3">
+<h3 class="anchored" data-anchor-id="observation-and-projection">3.4 Observation and Projection</h3>
+<p>Observation is the single active event. It is defined as:</p>
+<p><span class="math display">\[ P = \Omega(\Sigma, F) \]</span></p>
+<p>where<br>
+- <span class="math inline">\(\Sigma\)</span> is the set of Segments and their Scheme,<br>
+- <span class="math inline">\(F\)</span> is the current Field state,<br>
+- <span class="math inline">\(\Omega\)</span> is the observation operator,<br>
+- <span class="math inline">\(P\)</span> is the resulting Projection.</p>
+<p>Observation occurs when the structure and Field together create an instability—i.e., multiple admissible configurations. <span class="math inline">\(\Omega\)</span> deterministically selects one configuration and returns it as <span class="math inline">\(P\)</span>. No data is moved during observation; Segments remain in place. The Projection is ephemeral; if needed again, it is recomputed.</p>
+</section>
+<section id="secure-isolation-and-cryptographic-boundaries" class="level3">
+<h3 class="anchored" data-anchor-id="secure-isolation-and-cryptographic-boundaries">3.5 Secure Isolation and Cryptographic Boundaries</h3>
+<p>SSCCS provides natural isolation through:</p>
+<ul>
+<li>Identity-based boundaries: Every Segment and Scheme has a unique cryptographic hash. A computation can only access Segments for which it holds valid references.</li>
+<li>Isolation through immutability: Since Segments cannot be modified, concurrent observations are naturally isolated.</li>
+<li>Cryptographically enforced scoping: Schemes can define boundaries limiting visibility, enforced by observation rules and identity verification.</li>
+</ul>
+<p>This architecture enables complex computations within cryptographically enforced boundaries without requiring trust between components.</p>
+</section>
+<section id="relationship-with-traditional-concepts" class="level3">
+<h3 class="anchored" data-anchor-id="relationship-with-traditional-concepts">3.6 Relationship with Traditional Concepts</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 27%">
+<col style="width: 33%">
+<col style="width: 38%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Traditional Concept</th>
+<th>SSCCS Counterpart</th>
+<th>Shift</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Instruction fetch</td>
+<td>Not applicable</td>
+<td>No imperative control flow</td>
+</tr>
+<tr class="even">
+<td>Operand load</td>
+<td>Segment coordinates</td>
+<td>Data never moves; only observed</td>
+</tr>
+<tr class="odd">
+<td>Result store</td>
+<td>Projection (ephemeral)</td>
+<td>Results are events, not states</td>
+</tr>
+<tr class="even">
+<td>Cache line fill</td>
+<td>Structural layout</td>
+<td>Locality from geometry</td>
+</tr>
+<tr class="odd">
+<td>Lock acquisition</td>
+<td>Immutability</td>
+<td>No shared mutable state</td>
+</tr>
+<tr class="even">
+<td>Program counter</td>
+<td>Coordinate dimension</td>
+<td>Time as coordinate</td>
+</tr>
+<tr class="odd">
+<td>Algorithm</td>
+<td>Geometry</td>
+<td>Structure determines observation</td>
+</tr>
+<tr class="even">
+<td>Black box execution</td>
+<td>Transparent projection</td>
+<td>Computation is auditable</td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="formal-properties" class="level2">
+<h2 class="anchored" data-anchor-id="formal-properties">4. Formal Properties</h2>
+<section id="immutability-and-concurrency" class="level3">
+<h3 class="anchored" data-anchor-id="immutability-and-concurrency">4.1 Immutability and Concurrency</h3>
+<p>Because Segments are immutable, any number of observations can be performed simultaneously without interference. Formally, if <span class="math inline">\(S_1\)</span> and <span class="math inline">\(S_2\)</span> are disjoint sets of Segments, then:</p>
+<p><span class="math display">\[ \Omega(S_1 \cup S_2, F) = \Omega(S_1, F) \times \Omega(S_2, F) \]</span></p>
+<p>where <span class="math inline">\(\times\)</span> denotes independent composition of projections. This property enables implicit parallelism without any programmer effort or runtime synchronisation—a consequence of immutability, not a feature added to address performance.</p>
+</section>
+<section id="determinism-and-auditability" class="level3">
+<h3 class="anchored" data-anchor-id="determinism-and-auditability">4.2 Determinism and Auditability</h3>
+<p>Observation is deterministic: for identical <span class="math inline">\(\Sigma\)</span> and <span class="math inline">\(F\)</span>, <span class="math inline">\(\Omega\)</span> always yields the same <span class="math inline">\(P\)</span>. Determinism follows from the fact that selection among admissible configurations is a function of structure and constraints only. This enables auditability: every projection is a verifiable trace from blueprint to output.</p>
+</section>
+<section id="time-as-a-coordinate" class="level3">
+<h3 class="anchored" data-anchor-id="time-as-a-coordinate">4.3 Time as a Coordinate</h3>
+<p>Time is treated as one coordinate axis among many. Temporal ordering is expressed by comparing coordinates along that axis. Observations do not have a global temporal order unless explicitly defined. This eliminates the notion of a “program counter” and the associated assumption that computation must proceed in sequence.</p>
+<div class="cell" data-layout-align="default">
+<div class="cell-output-display">
+<div id="fig-time-coordinate" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-time-coordinate-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div>
+<svg width="672" height="480" viewbox="0.00 0.00 711.22 241.00" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" style="; max-width: none; max-height: none">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(4 237)">
+<title>SSCCS_Comparison</title>
+<polygon fill="white" stroke="transparent" points="-4,4 -4,-237 707.22,-237 707.22,4 -4,4"></polygon>
+<g id="clust1" class="cluster">
+<title>cluster_sequential</title>
+<polygon fill="none" stroke="black" stroke-dasharray="5,2" points="8,-8 8,-139 304.2,-139 304.2,-8 8,-8"></polygon>
+<text text-anchor="middle" x="156.1" y="-122.4" font-family="Times,serif" font-size="14.00">Sequential (von Neumann)</text>
+</g>
+<g id="clust2" class="cluster">
+<title>cluster_spatial</title>
+<polygon fill="none" stroke="black" stroke-dasharray="5,2" points="325.2,-25 325.2,-225 695.22,-225 695.22,-25 325.2,-25"></polygon>
+<text text-anchor="middle" x="510.21" y="-208.4" font-family="Times,serif" font-size="14.00">Spatial (SSCCS)</text>
+</g>
+<g id="clust3" class="cluster">
+<title>cluster_field</title>
+<polygon fill="none" stroke="black" stroke-dasharray="5,2" points="356.72,-73 356.72,-192 516.12,-192 516.12,-73 356.72,-73"></polygon>
+<text text-anchor="middle" x="436.42" y="-175.4" font-family="Times,serif" font-size="14.00">Field (rules + constraints)</text>
+</g>
+<!-- s0 -->
+<g id="node1" class="node">
+<title>s0</title>
+<polygon fill="none" stroke="black" points="92.1,-106 38.1,-106 38.1,-70 92.1,-70 92.1,-106"></polygon>
+<text text-anchor="middle" x="65.1" y="-91" font-family="Times,serif" font-size="10.00">State A</text>
+<text text-anchor="middle" x="65.1" y="-79" font-family="Times,serif" font-size="10.00">(t=0)</text>
+</g>
+<!-- s1 -->
+<g id="node2" class="node">
+<title>s1</title>
+<polygon fill="none" stroke="black" points="205.2,-106 151.2,-106 151.2,-70 205.2,-70 205.2,-106"></polygon>
+<text text-anchor="middle" x="178.2" y="-91" font-family="Times,serif" font-size="10.00">State B</text>
+<text text-anchor="middle" x="178.2" y="-79" font-family="Times,serif" font-size="10.00">(t=1)</text>
+</g>
+<!-- s0&#45;&gt;s1 -->
+<g id="edge1" class="edge">
+<title>s0-&gt;s1</title>
+<path fill="none" stroke="black" d="M92.15,-88C106.67,-88 124.98,-88 140.89,-88"></path>
+<polygon fill="black" stroke="black" points="140.93,-91.5 150.93,-88 140.93,-84.5 140.93,-91.5"></polygon>
+</g>
+<!-- s2 -->
+<g id="node3" class="node">
+<title>s2</title>
+<polygon fill="none" stroke="black" points="296.2,-106 242.2,-106 242.2,-70 296.2,-70 296.2,-106"></polygon>
+<text text-anchor="middle" x="269.2" y="-91" font-family="Times,serif" font-size="10.00">State C</text>
+<text text-anchor="middle" x="269.2" y="-79" font-family="Times,serif" font-size="10.00">(t=2)</text>
+</g>
+<!-- s1&#45;&gt;s2 -->
+<g id="edge2" class="edge">
+<title>s1-&gt;s2</title>
+<path fill="none" stroke="black" d="M205.42,-88C213.75,-88 223.12,-88 232.02,-88"></path>
+<polygon fill="black" stroke="black" points="232.17,-91.5 242.17,-88 232.17,-84.5 232.17,-91.5"></polygon>
+</g>
+<!-- p0 -->
+<g id="node5" class="node">
+<title>p0</title>
+<ellipse fill="black" stroke="black" cx="435.92" cy="-88" rx="7.2" ry="7.2"></ellipse>
+<text text-anchor="middle" x="400.22" y="-68.2" font-family="Times,serif" font-size="14.00">(t=0, x=1)</text>
+</g>
+<!-- s2&#45;&gt;p0 -->
+<!-- note_seq -->
+<g id="node4" class="node">
+<title>note_seq</title>
+<text text-anchor="middle" x="65.1" y="-31.6" font-family="Times,serif" font-size="8.00">Time flows, state mutates</text>
+</g>
+<!-- proj0 -->
+<g id="node8" class="node">
+<title>proj0</title>
+<polygon fill="none" stroke="black" points="687.24,-90 618.16,-90 618.16,-70 687.24,-70 687.24,-90"></polygon>
+<text text-anchor="middle" x="652.7" y="-77" font-family="Times,serif" font-size="10.00">projection: A</text>
+</g>
+<!-- p0&#45;&gt;proj0 -->
+<g id="edge3" class="edge">
+<title>p0-&gt;proj0</title>
+<path fill="none" stroke="black" d="M443.59,-87.75C468.01,-86.84 554.02,-83.64 607.52,-81.65"></path>
+<polygon fill="black" stroke="black" points="607.9,-85.13 617.76,-81.26 607.63,-78.14 607.9,-85.13"></polygon>
+<text text-anchor="middle" x="578.41" y="-87.2" font-family="Times,serif" font-size="14.00">observe</text>
+</g>
+<!-- p1 -->
+<g id="node6" class="node">
+<title>p1</title>
+<ellipse fill="black" stroke="black" cx="435.92" cy="-120" rx="7.2" ry="7.2"></ellipse>
+<text text-anchor="middle" x="400.22" y="-100.2" font-family="Times,serif" font-size="14.00">(t=2, x=3)</text>
+</g>
+<!-- proj1 -->
+<g id="node9" class="node">
+<title>proj1</title>
+<polygon fill="none" stroke="black" points="687.19,-130 618.21,-130 618.21,-110 687.19,-110 687.19,-130"></polygon>
+<text text-anchor="middle" x="652.7" y="-117" font-family="Times,serif" font-size="10.00">projection: B</text>
+</g>
+<!-- p1&#45;&gt;proj1 -->
+<g id="edge4" class="edge">
+<title>p1-&gt;proj1</title>
+<path fill="none" stroke="black" d="M443.59,-120C468.08,-120 554.48,-120 607.95,-120"></path>
+<polygon fill="black" stroke="black" points="608.18,-123.5 618.18,-120 608.18,-116.5 608.18,-123.5"></polygon>
+<text text-anchor="middle" x="578.41" y="-124.2" font-family="Times,serif" font-size="14.00">observe</text>
+</g>
+<!-- p2 -->
+<g id="node7" class="node">
+<title>p2</title>
+<ellipse fill="black" stroke="black" cx="435.92" cy="-152" rx="7.2" ry="7.2"></ellipse>
+<text text-anchor="middle" x="400.22" y="-132.2" font-family="Times,serif" font-size="14.00">(t=5, x=2)</text>
+</g>
+<!-- proj2 -->
+<g id="node10" class="node">
+<title>proj2</title>
+<polygon fill="none" stroke="black" points="687.19,-170 618.21,-170 618.21,-150 687.19,-150 687.19,-170"></polygon>
+<text text-anchor="middle" x="652.7" y="-157" font-family="Times,serif" font-size="10.00">projection: C</text>
+</g>
+<!-- p2&#45;&gt;proj2 -->
+<g id="edge5" class="edge">
+<title>p2-&gt;proj2</title>
+<path fill="none" stroke="black" d="M443.59,-152.25C468.08,-153.16 554.48,-156.38 607.95,-158.37"></path>
+<polygon fill="black" stroke="black" points="608.06,-161.88 618.18,-158.75 608.32,-154.88 608.06,-161.88"></polygon>
+<text text-anchor="middle" x="578.41" y="-162.2" font-family="Times,serif" font-size="14.00">observe</text>
+</g>
+<!-- note_spatial -->
+<g id="node11" class="node">
+<title>note_spatial</title>
+<text text-anchor="middle" x="435.92" y="-50.7" font-family="Times,serif" font-size="9.00">No persistent state – only coordinates + fields.</text>
+<text text-anchor="middle" x="435.92" y="-39.9" font-family="Times,serif" font-size="9.00">Observation yields projections we interpret as 'state'.</text>
+</g>
+</g>
+</svg>
+</div>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-time-coordinate-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;3: Time as a coordinate axis
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="energy-model" class="level3">
+<h3 class="anchored" data-anchor-id="energy-model">4.4 Energy Model</h3>
+<p>A simplified energy model for SSCCS is:</p>
+<p><span class="math display">\[
+E_{\text{total}} = E_{\text{observation}} \times N_{\text{obs}} + E_{\text{field-update}} \times N_{\text{update}}
+\]</span></p>
+<p>where <span class="math inline">\(E_{\text{observation}}\)</span> is the energy to perform one observation, and <span class="math inline">\(E_{\text{field-update}}\)</span> is the energy to modify the Field. There is no term for moving data between memory and processor, because Segments are stationary.</p>
+</section>
+</section>
+<section id="compilation-and-structural-mapping" class="level2">
+<h2 class="anchored" data-anchor-id="compilation-and-structural-mapping">5. Compilation and Structural Mapping</h2>
+<p>A key engineering contribution of SSCCS is that the compiler, rather than generating a sequence of instructions, performs structural mapping of the Schema onto the target hardware. The compiler analyses the adjacency relations and memory layout semantics declared in the Schema (written in the open <code>.ss</code> format) and produces a physical placement of Segments that maximises locality.</p>
+<p>For example, if a Schema defines a two‑dimensional grid of Segments with nearest‑neighbour adjacency, the compiler can lay out those Segments in memory in row‑major or column‑major order such that adjacent Segments occupy adjacent cache lines or even the same cache line. This is analogous to data layout optimisations performed manually in high‑performance computing, but here it is automated and guaranteed by the Schema’s specification.</p>
+<p>Furthermore, because the Schema encodes parallelism implicitly (independent subgraphs can be observed concurrently), the compiler can automatically generate code for vector units, multiple cores, or even custom hardware without explicit parallel annotations.</p>
+<div class="cell" data-layout-align="default">
+<div class="cell-output-display">
+<div id="fig-compilation-process" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-compilation-process-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div>
+<svg width="672" height="480" viewbox="0.00 0.00 730.69 234.20" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" style="; max-width: none; max-height: none">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(4 230.2)">
+<title>Compilation_Process</title>
+<polygon fill="white" stroke="transparent" points="-4,4 -4,-230.2 726.69,-230.2 726.69,4 -4,4"></polygon>
+<g id="clust1" class="cluster">
+<title>cluster_compiler</title>
+<path fill="none" stroke="black" d="M20,-80.8C20,-80.8 680,-80.8 680,-80.8 686,-80.8 692,-86.8 692,-92.8 692,-92.8 692,-151.2 692,-151.2 692,-157.2 686,-163.2 680,-163.2 680,-163.2 20,-163.2 20,-163.2 14,-163.2 8,-157.2 8,-151.2 8,-151.2 8,-92.8 8,-92.8 8,-86.8 14,-80.8 20,-80.8"></path>
+<text text-anchor="middle" x="350" y="-146.6" font-family="Times,serif" font-size="14.00">Compiler</text>
+</g>
+<!-- Schema -->
+<g id="node1" class="node">
+<title>Schema</title>
+<path fill="none" stroke="black" d="M88.21,-226.2C88.21,-226.2 33.79,-226.2 33.79,-226.2 27.79,-226.2 21.79,-220.2 21.79,-214.2 21.79,-214.2 21.79,-202.2 21.79,-202.2 21.79,-196.2 27.79,-190.2 33.79,-190.2 33.79,-190.2 88.21,-190.2 88.21,-190.2 94.21,-190.2 100.21,-196.2 100.21,-202.2 100.21,-202.2 100.21,-214.2 100.21,-214.2 100.21,-220.2 94.21,-226.2 88.21,-226.2"></path>
+<text text-anchor="middle" x="61" y="-204" font-family="Times,serif" font-size="14.00">.ss Schema</text>
+</g>
+<!-- Parse -->
+<g id="node3" class="node">
+<title>Parse</title>
+<path fill="none" stroke="black" d="M93.99,-130.2C93.99,-130.2 28.01,-130.2 28.01,-130.2 22.01,-130.2 16.01,-124.2 16.01,-118.2 16.01,-118.2 16.01,-101 16.01,-101 16.01,-95 22.01,-89 28.01,-89 28.01,-89 93.99,-89 93.99,-89 99.99,-89 105.99,-95 105.99,-101 105.99,-101 105.99,-118.2 105.99,-118.2 105.99,-124.2 99.99,-130.2 93.99,-130.2"></path>
+<text text-anchor="middle" x="61" y="-113.8" font-family="Times,serif" font-size="14.00">1. Parsing</text>
+<text text-anchor="middle" x="61" y="-97" font-family="Times,serif" font-size="14.00">&amp; Validation</text>
+</g>
+<!-- Schema&#45;&gt;Parse -->
+<g id="edge5" class="edge">
+<title>Schema-&gt;Parse</title>
+<path fill="none" stroke="black" d="M61,-189.93C61,-176.22 61,-156.72 61,-140.49"></path>
+<polygon fill="black" stroke="black" points="64.5,-140.39 61,-130.39 57.5,-140.39 64.5,-140.39"></polygon>
+</g>
+<!-- Hardware -->
+<g id="node2" class="node">
+<title>Hardware</title>
+<path fill="none" stroke="black" d="M660.34,-36C660.34,-36 569.66,-36 569.66,-36 563.66,-36 557.66,-30 557.66,-24 557.66,-24 557.66,-12 557.66,-12 557.66,-6 563.66,0 569.66,0 569.66,0 660.34,0 660.34,0 666.34,0 672.34,-6 672.34,-12 672.34,-12 672.34,-24 672.34,-24 672.34,-30 666.34,-36 660.34,-36"></path>
+<text text-anchor="middle" x="615" y="-13.8" font-family="Times,serif" font-size="14.00">Hardware Layout</text>
+</g>
+<!-- Analysis -->
+<g id="node4" class="node">
+<title>Analysis</title>
+<path fill="none" stroke="black" d="M214.71,-130.2C214.71,-130.2 153.29,-130.2 153.29,-130.2 147.29,-130.2 141.29,-124.2 141.29,-118.2 141.29,-118.2 141.29,-101 141.29,-101 141.29,-95 147.29,-89 153.29,-89 153.29,-89 214.71,-89 214.71,-89 220.71,-89 226.71,-95 226.71,-101 226.71,-101 226.71,-118.2 226.71,-118.2 226.71,-124.2 220.71,-130.2 214.71,-130.2"></path>
+<text text-anchor="middle" x="184" y="-113.8" font-family="Times,serif" font-size="14.00">2. Structural</text>
+<text text-anchor="middle" x="184" y="-97" font-family="Times,serif" font-size="14.00">Analysis</text>
+</g>
+<!-- Parse&#45;&gt;Analysis -->
+<g id="edge1" class="edge">
+<title>Parse-&gt;Analysis</title>
+<path fill="none" stroke="black" d="M106.16,-109.6C114.45,-109.6 122.74,-109.6 131.02,-109.6"></path>
+<polygon fill="black" stroke="black" points="131.13,-113.1 141.13,-109.6 131.13,-106.1 131.13,-113.1"></polygon>
+</g>
+<!-- Layout -->
+<g id="node5" class="node">
+<title>Layout</title>
+<path fill="none" stroke="black" d="M378.37,-130.2C378.37,-130.2 273.63,-130.2 273.63,-130.2 267.63,-130.2 261.63,-124.2 261.63,-118.2 261.63,-118.2 261.63,-101 261.63,-101 261.63,-95 267.63,-89 273.63,-89 273.63,-89 378.37,-89 378.37,-89 384.37,-89 390.37,-95 390.37,-101 390.37,-101 390.37,-118.2 390.37,-118.2 390.37,-124.2 384.37,-130.2 378.37,-130.2"></path>
+<text text-anchor="middle" x="326" y="-113.8" font-family="Times,serif" font-size="14.00">3. Memory‑Layout</text>
+<text text-anchor="middle" x="326" y="-97" font-family="Times,serif" font-size="14.00">Resolution</text>
+</g>
+<!-- Analysis&#45;&gt;Layout -->
+<g id="edge2" class="edge">
+<title>Analysis-&gt;Layout</title>
+<path fill="none" stroke="black" d="M226.71,-109.6C234.98,-109.6 243.26,-109.6 251.53,-109.6"></path>
+<polygon fill="black" stroke="black" points="251.62,-113.1 261.62,-109.6 251.62,-106.1 251.62,-113.1"></polygon>
+</g>
+<!-- Map -->
+<g id="node6" class="node">
+<title>Map</title>
+<path fill="none" stroke="black" d="M498.69,-130.2C498.69,-130.2 437.31,-130.2 437.31,-130.2 431.31,-130.2 425.31,-124.2 425.31,-118.2 425.31,-118.2 425.31,-101 425.31,-101 425.31,-95 431.31,-89 437.31,-89 437.31,-89 498.69,-89 498.69,-89 504.69,-89 510.69,-95 510.69,-101 510.69,-101 510.69,-118.2 510.69,-118.2 510.69,-124.2 504.69,-130.2 498.69,-130.2"></path>
+<text text-anchor="middle" x="468" y="-113.8" font-family="Times,serif" font-size="14.00">4. Hardware</text>
+<text text-anchor="middle" x="468" y="-97" font-family="Times,serif" font-size="14.00">Mapping</text>
+</g>
+<!-- Layout&#45;&gt;Map -->
+<g id="edge3" class="edge">
+<title>Layout-&gt;Map</title>
+<path fill="none" stroke="black" d="M390.34,-109.6C398.61,-109.6 406.88,-109.6 415.14,-109.6"></path>
+<polygon fill="black" stroke="black" points="415.23,-113.1 425.23,-109.6 415.23,-106.1 415.23,-113.1"></polygon>
+</g>
+<!-- CodeGen -->
+<g id="node7" class="node">
+<title>CodeGen</title>
+<path fill="none" stroke="black" d="M672.48,-130.2C672.48,-130.2 557.52,-130.2 557.52,-130.2 551.52,-130.2 545.52,-124.2 545.52,-118.2 545.52,-118.2 545.52,-101 545.52,-101 545.52,-95 551.52,-89 557.52,-89 557.52,-89 672.48,-89 672.48,-89 678.48,-89 684.48,-95 684.48,-101 684.48,-101 684.48,-118.2 684.48,-118.2 684.48,-124.2 678.48,-130.2 672.48,-130.2"></path>
+<text text-anchor="middle" x="615" y="-113.8" font-family="Times,serif" font-size="14.00">5. Observation‑Code</text>
+<text text-anchor="middle" x="615" y="-97" font-family="Times,serif" font-size="14.00">Generation</text>
+</g>
+<!-- Map&#45;&gt;CodeGen -->
+<g id="edge4" class="edge">
+<title>Map-&gt;CodeGen</title>
+<path fill="none" stroke="black" d="M510.78,-109.6C518.98,-109.6 527.18,-109.6 535.38,-109.6"></path>
+<polygon fill="black" stroke="black" points="535.38,-113.1 545.38,-109.6 535.38,-106.1 535.38,-113.1"></polygon>
+</g>
+<!-- CodeGen&#45;&gt;Hardware -->
+<g id="edge6" class="edge">
+<title>CodeGen-&gt;Hardware</title>
+<path fill="none" stroke="black" d="M615,-88.71C615,-76.27 615,-60.05 615,-46.4"></path>
+<polygon fill="black" stroke="black" points="618.5,-46.11 615,-36.11 611.5,-46.11 618.5,-46.11"></polygon>
+<text text-anchor="middle" x="668.85" y="-58.2" font-family="Times,serif" font-size="14.00">emit layout &amp; code</text>
+</g>
+</g>
+</svg>
+</div>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-compilation-process-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;4: Compiler pipeline: from Schema to hardware layout
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<section id="compiler-pipeline" class="level3">
+<h3 class="anchored" data-anchor-id="compiler-pipeline">5.1 Compiler Pipeline</h3>
+<p>The SSCCS compiler transforms a high‑level <code>.ss</code> schema into a hardware‑specific layout through a deterministic pipeline.</p>
+<ol type="1">
+<li><p>Parsing and Validation: The <code>.ss</code> file is parsed into an intermediate representation (IR) that captures the Schema’s axes, Segments, structural relations, constraints, memory‑layout declarations, and observation rules. Cryptographic identities (SchemaId, SegmentId) are computed and verified.</p></li>
+<li><p>Structural Analysis: The compiler extracts adjacency, hierarchy, dependency, and equivalence relations from the Schema’s relation graph. It identifies independent sub‑graphs that can be observed concurrently and detects any structural conflicts (e.g., cycles that would prevent deterministic observation).</p></li>
+<li><p>Memory‑Layout Resolution: Using the Schema’s <code>MemoryLayout</code> specification, the compiler resolves the mapping from coordinate space to logical addresses. The <code>MemoryLayout</code> struct contains a <code>layout_type</code> (Linear, RowMajor, ColumnMajor, SpaceFillingCurve, etc.) and a mapping function that implements the coordinate‑to‑address transformation. This stage produces a logical address map that preserves locality as defined by the adjacency relations.</p></li>
+<li><p>Hardware Mapping: The logical address map is projected onto the target hardware’s physical memory hierarchy. The compiler considers cache‑line boundaries, bank interleaving, and (where available) processing‑in‑memory (PIM) capabilities to place Segments such that structurally adjacent Segments reside in physically proximate storage locations (e.g., same cache line, adjacent memory banks). This step guarantees that observation can proceed with minimal data movement.</p></li>
+<li><p>Observation‑Code Generation: For each independent sub‑graph, the compiler emits native code (or configures a reconfigurable fabric) that implements the observation operator <code>Ω</code>. The generated code respects the resolution strategy, triggers, and priority defined in the Schema’s <code>ObservationRules</code>.</p></li>
+</ol>
+<p>The entire pipeline is deterministic and reproducible: given the same <code>.ss</code> specification and target hardware profile, the compiler always produces the same layout and observation code.</p>
+<section id="concrete-example-compiling-a-grid2dtemplate" class="level4">
+<h4 class="anchored" data-anchor-id="concrete-example-compiling-a-grid2dtemplate">Concrete Example: Compiling a Grid2DTemplate</h4>
+<p>Consider a simple 3×3 grid defined by a <code>Grid2DTemplate</code> (expressed here in a language‑neutral pseudocode):</p>
+<pre><code>grid = Grid2DTemplate(
+    axes: ["x": 0..2, "y": 0..2],
+    topology: FourConnected,
+    memory_layout: RowMajor
+)</code></pre>
+<p>The compiler processes this Schema as follows:</p>
+<ul>
+<li><p>Parsing: The schema is parsed into an internal representation with two discrete axes, nine Segments (coordinates (0,0) … (2,2)), adjacency relations for four‑connected neighbors, and a row‑major memory layout.</p></li>
+<li><p>Structural Analysis: The relation graph reveals that each interior cell has four neighbors; the graph is regular and contains no cycles that would create observational dependencies. All nine cells are mutually independent and can be observed in parallel.</p></li>
+<li><p>Memory‑Layout Resolution: The row‑major mapping function computes logical offsets: <code>offset = y * 3 + x</code>. The compiler evaluates this for all nine coordinates, producing a logical‑address map:</p>
+<pre><code>(0,0)→0, (1,0)→1, (2,0)→2,
+(0,1)→3, … , (2,2)→8.</code></pre></li>
+<li><p>Hardware Mapping: On a CPU with 64‑byte cache lines, the compiler packs the logical addresses into physical cache lines. Offsets 0‑7 fit into a single cache line; offset 8 spills into a second line. The compiler may decide to pad the layout to keep the entire grid in one cache line, or it may accept the spill because adjacent rows are still in adjacent lines.</p></li>
+<li><p>Observation‑Code Generation: For a trivial observation that reads each Segment’s value, the compiler emits a loop that iterates over the nine logical addresses and loads the corresponding data. Because the addresses are consecutive, the loop can be vectorized (SIMD). If the observation is a reduction (e.g., sum of values), the compiler may generate a parallel reduction using multiple cores.</p></li>
+</ul>
+<p>This example illustrates how the pipeline turns a declarative geometric description into efficient, hardware‑aware executable code without any manual optimization.</p>
+</section>
+</section>
+</section>
+<section id="memory-mapping-logic" class="level2">
+<h2 class="anchored" data-anchor-id="memory-mapping-logic">5.2 Memory Mapping Logic</h2>
+<p>The compiler’s ability to eliminate data movement hinges on the MemoryLayout abstraction. A <code>MemoryLayout</code> consists of:</p>
+<ul>
+<li>layout_type – a classification (<code>Linear</code>, <code>RowMajor</code>, <code>ColumnMajor</code>, <code>SpaceFillingCurve</code>, <code>Hierarchical</code>, <code>GraphBased</code>, <code>Custom</code>) describing the high‑level organisation.</li>
+<li>mapping – a function that, given a coordinate tuple (e.g., <code>(x, y, z)</code>), returns an optional logical address. This function is defined declaratively in the Schema and is independent of any programming language.</li>
+<li>metadata – a set of key‑value pairs providing implementation‑specific hints (e.g., curve parameters, stride lengths).</li>
+</ul>
+<p>A logical address is an intermediate representation consisting of a segment identifier and an offset within that segment’s conceptual address space. It is not a physical memory address; rather, it serves as an intermediate coordinate that the hardware mapper later translates to concrete physical locations (cache lines, memory banks, etc.).</p>
+<p>Example: For a two‑dimensional grid with row‑major layout, the mapping function can be expressed mathematically as:</p>
+<pre><code>f(x, y) = (grid_id, y·width + x)</code></pre>
+<p>where <code>width</code> is the grid’s extent in the x‑direction. The compiler evaluates this function for every coordinate in the Schema, producing a complete logical‑address map.</p>
+<p>By decoupling the logical layout from the physical implementation, the same Schema can be projected onto vastly different hardware topologies:</p>
+<ul>
+<li>CPU caches – Adjacent logical addresses are placed into the same cache line or neighbouring lines.</li>
+<li>FPGA block RAM – The logical‑to‑physical mapping can be realised as a simple address decoder.</li>
+<li>HBM (High‑Bandwidth Memory) stacks – Segments with high adjacency can be distributed across multiple memory channels to exploit parallelism.</li>
+<li>Emerging non‑volatile memories (e.g., resistive RAM) – The stationary data model of SSCCS aligns naturally with processing‑in‑memory (PIM) architectures, where computation is performed directly inside the memory arrays.</li>
+</ul>
+<p>In all cases, the mapping is deterministic and reproducible: given the same Schema and hardware profile, the compiler always produces the same physical layout, ensuring that observation proceeds with minimal data movement.</p>
+<section id="automating-manual-optimizations" class="level3">
+<h3 class="anchored" data-anchor-id="automating-manual-optimizations">5.3 Automating Manual Optimizations</h3>
+<p>The following table summarises how traditional manual optimisations become automatic consequences of structural specification in SSCCS:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 31%">
+<col style="width: 68%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Manual Optimization</th>
+<th>SSCCS Mechanism</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Data layout orchestration</td>
+<td>Schema defines geometry; compiler maps to hardware</td>
+</tr>
+<tr class="even">
+<td>Cache alignment</td>
+<td>Adjacency relations determine physical proximity</td>
+</tr>
+<tr class="odd">
+<td>SIMD vectorization</td>
+<td>Independent subgraphs imply vectorizable operations</td>
+</tr>
+<tr class="even">
+<td>Thread scheduling</td>
+<td>Parallel structure maps to independent cores</td>
+</tr>
+<tr class="odd">
+<td>Lock management</td>
+<td>Immutability eliminates need for locks</td>
+</tr>
+<tr class="even">
+<td>Execution strategy selection</td>
+<td>Observation rules and structural independence guide parallel execution</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="example-vector-addition-with-rust-example" class="level3">
+<h3 class="anchored" data-anchor-id="example-vector-addition-with-rust-example">5.4 Example: Vector Addition with Rust Example</h3>
+<p>Consider the addition of two vectors of length <span class="math inline">\(N\)</span>. This example demonstrates the transition from procedural execution to structural observation.</p>
+<section id="traditional-approach-von-neumann" class="level4">
+<h4 class="anchored" data-anchor-id="traditional-approach-von-neumann">Traditional Approach (von Neumann)</h4>
+<p>In a traditional architecture, a loop iterates over indices, loading each element <span class="math inline">\(a[i]\)</span> and <span class="math inline">\(b[i]\)</span> from memory into registers, performing the addition, and storing the result back to memory.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode rust code-with-copy"><code class="sourceCode rust"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Traditional procedural implementation</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="kw">fn</span> add_vectors(a<span class="op">:</span> <span class="op">&amp;</span>[<span class="dt">f64</span>]<span class="op">,</span> b<span class="op">:</span> <span class="op">&amp;</span>[<span class="dt">f64</span>]) <span class="op">-&gt;</span> <span class="dt">Vec</span><span class="op">&lt;</span><span class="dt">f64</span><span class="op">&gt;</span> <span class="op">{</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    <span class="pp">assert_eq!</span>(a<span class="op">.</span>len()<span class="op">,</span> b<span class="op">.</span>len())<span class="op">;</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> <span class="kw">mut</span> result <span class="op">=</span> <span class="dt">Vec</span><span class="pp">::</span>with_capacity(a<span class="op">.</span>len())<span class="op">;</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i <span class="kw">in</span> <span class="dv">0</span><span class="op">..</span>a<span class="op">.</span>len() <span class="op">{</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>        result<span class="op">.</span>push(a[i] <span class="op">+</span> b[i])<span class="op">;</span> <span class="co">// loads a[i], b[i]; stores result[i]</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>    result</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<ul>
+<li>Data Movement: <span class="math inline">\(2N\)</span> loads + <span class="math inline">\(N\)</span> stores = <span class="math inline">\(3N\)</span> total memory transfers.</li>
+<li>Sequential Dependency: Loop-carried dependencies limit parallelisation unless explicitly vectorised (SIMD).</li>
+<li>Cache Behaviour: Performance is highly dependent on memory layout; random access or misalignment causes cache misses.</li>
+<li>Auditability: Requires external tracing tools to reconstruct the execution path post-mortem.</li>
+</ul>
+</section>
+<section id="ssccs-approach" class="level4">
+<h4 class="anchored" data-anchor-id="ssccs-approach">SSCCS Approach</h4>
+<p>A Scheme defines a set of Segments representing the vectors and an “adder” structure. The compiler, guided by adjacency relations, lays out the Segments consecutively in memory. An observation of the entire structure under a Field that enables addition yields a projection that is the sum vector.</p>
+<p>Note: This model assumes a hardware environment capable of Near-Data Processing (NDP) or Processing-In-Memory (PIM), where logic is co-located with the data Segments.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="sourceCode rust code-with-copy"><code class="sourceCode rust"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co">// SSCCS structural implementation</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> a <span class="op">=</span> <span class="pp">Segment::</span>vector(<span class="dv">1</span><span class="op">..</span>N<span class="op">,</span> initial_value)<span class="op">;</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> b <span class="op">=</span> <span class="pp">Segment::</span>vector(<span class="dv">1</span><span class="op">..</span>N<span class="op">,</span> initial_value)<span class="op">;</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> scheme <span class="op">=</span> <span class="pp">Scheme::</span>add_vectors(a<span class="op">,</span> b)<span class="op">;</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> field <span class="op">=</span> <span class="pp">Field::</span>new()<span class="op">;</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Computation is an emergent property of the observation</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> sum <span class="op">=</span> observe(scheme<span class="op">,</span> field)<span class="op">;</span> </span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<ul>
+<li>Data Movement: Zero input movement. Segments remain stationary (“Logic-at-Rest”). Only the resulting projection (a single vector of length <span class="math inline">\(N\)</span>) is transmitted to the observer.</li>
+<li>Parallelism: Structural independence allows all element pairs to be observed concurrently without explicit synchronisation or partitioning.</li>
+<li>Locality: Enforced by the compiler’s topological mapping, treating memory as an active topology rather than passive storage.</li>
+<li>Auditability: The Scheme serves as an immutable specification of the computational intent; the projection is a deterministic and verifiable consequence.</li>
+</ul>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Aspect</th>
+<th>Traditional (Procedural)</th>
+<th>SSCCS (Structural)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Input Data Movement</td>
+<td><span class="math inline">\(2N\)</span> loads</td>
+<td>Zero (Stationary Segments)</td>
+</tr>
+<tr class="even">
+<td>Output Data Movement</td>
+<td><span class="math inline">\(N\)</span> stores</td>
+<td><span class="math inline">\(N\)</span> (Projection)</td>
+</tr>
+<tr class="odd">
+<td>Concurrency</td>
+<td>Requires explicit parallelisation</td>
+<td>Implicit (Structural independence)</td>
+</tr>
+<tr class="even">
+<td>Synchronisation</td>
+<td>Locks/atomics for shared state</td>
+<td>None (Immutability guaranteed)</td>
+</tr>
+<tr class="odd">
+<td>Memory Role</td>
+<td>Passive storage</td>
+<td>Active topology</td>
+</tr>
+<tr class="even">
+<td>Auditability</td>
+<td>Requires external tracing</td>
+<td>Intrinsic to Specification</td>
+</tr>
+</tbody>
+</table>
+<p>This example illustrates the fundamental ontological shift: computation becomes an observation of stationary structure rather than a sequence of data movements. The reduction in data movement is a consequence of this shift, not the primary goal. The deeper benefit lies in the absolute transparency and verifiability that emerge from treating computation as a structural specification.</p>
+</section>
+</section>
+<section id="scaling-to-n-dimensional-tensors-and-graphs" class="level3">
+<h3 class="anchored" data-anchor-id="scaling-to-n-dimensional-tensors-and-graphs">5.5 Scaling to N-Dimensional Tensors and Graphs</h3>
+<p>The structural principles of SSCCS extend beyond linear vectors to higher-dimensional and non-linear data structures. As dimensionality increases, the inefficiency of the von Neumann bottleneck grows exponentially; SSCCS provides a constant-time logical alternative for structural reorientation.</p>
+<div class="cell" data-layout-align="default">
+<div class="cell-output-display">
+<div id="fig-scaling" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-scaling-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div>
+<svg width="672" height="480" viewbox="0.00 0.00 435.16 294.80" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" style="; max-width: none; max-height: none">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(4 290.8)">
+<title>SSCCS_Scaling</title>
+<polygon fill="white" stroke="transparent" points="-4,4 -4,-290.8 431.16,-290.8 431.16,4 -4,4"></polygon>
+<g id="clust1" class="cluster">
+<title>cluster_tensor</title>
+<polygon fill="none" stroke="black" stroke-dasharray="5,2" points="11.16,-66 11.16,-244.8 189.16,-244.8 189.16,-66 11.16,-66"></polygon>
+<text text-anchor="middle" x="100.16" y="-228.2" font-family="Times,serif" font-size="14.00">Tensor (2D Matrix)</text>
+</g>
+<g id="clust6" class="cluster">
+<title>cluster_graph</title>
+<polygon fill="none" stroke="black" stroke-dasharray="5,2" points="247.16,-8 247.16,-244.8 419.16,-244.8 419.16,-8 247.16,-8"></polygon>
+<text text-anchor="middle" x="333.16" y="-228.2" font-family="Times,serif" font-size="14.00">Graph (Nodes as Segments)</text>
+</g>
+<!-- a11 -->
+<g id="node1" class="node">
+<title>a11</title>
+<polygon fill="none" stroke="black" points="219.16,-274.8 197.16,-274.8 197.16,-252.8 219.16,-252.8 219.16,-274.8"></polygon>
+<text text-anchor="middle" x="208.16" y="-260.8" font-family="Times,serif" font-size="10.00">a11</text>
+<text text-anchor="middle" x="187.58" y="-277.8" font-family="Times,serif" font-size="10.00">(0,0)</text>
+</g>
+<!-- a12 -->
+<g id="node2" class="node">
+<title>a12</title>
+<polygon fill="none" stroke="black" points="161.16,-212 139.16,-212 139.16,-190 161.16,-190 161.16,-212"></polygon>
+<text text-anchor="middle" x="150.16" y="-198" font-family="Times,serif" font-size="10.00">a12</text>
+<text text-anchor="middle" x="129.58" y="-215" font-family="Times,serif" font-size="10.00">(0,1)</text>
+</g>
+<!-- a11&#45;&gt;a12 -->
+<!-- a21 -->
+<g id="node3" class="node">
+<title>a21</title>
+<polygon fill="none" stroke="black" points="181.16,-154 159.16,-154 159.16,-132 181.16,-132 181.16,-154"></polygon>
+<text text-anchor="middle" x="170.16" y="-140" font-family="Times,serif" font-size="10.00">a21</text>
+<text text-anchor="middle" x="149.58" y="-157" font-family="Times,serif" font-size="10.00">(1,0)</text>
+</g>
+<!-- a11&#45;&gt;a21 -->
+<!-- reshape -->
+<g id="node5" class="node">
+<title>reshape</title>
+<text text-anchor="middle" x="155.16" y="-87.4" font-family="Times,serif" font-size="8.00">Field reorients</text>
+<text text-anchor="middle" x="155.16" y="-77.8" font-family="Times,serif" font-size="8.00">observation path</text>
+</g>
+<!-- a11&#45;&gt;reshape -->
+<g id="edge5" class="edge">
+<title>a11-&gt;reshape</title>
+<path fill="none" stroke="black" stroke-dasharray="5,2" d="M209.14,-252.36C210.24,-238.16 211.49,-211.99 208.16,-190 204.11,-163.31 202.52,-155.99 190.16,-132 185.04,-122.07 177.76,-112.08 171.16,-103.95"></path>
+<polygon fill="black" stroke="black" points="173.77,-101.63 164.65,-96.25 168.43,-106.14 173.77,-101.63"></polygon>
+</g>
+<!-- n1 -->
+<g id="node11" class="node">
+<title>n1</title>
+<ellipse fill="none" stroke="black" cx="346.16" cy="-263.8" rx="11" ry="11"></ellipse>
+<text text-anchor="middle" x="346.16" y="-260.8" font-family="Times,serif" font-size="10.00">1</text>
+</g>
+<!-- a11&#45;&gt;n1 -->
+<!-- a22 -->
+<g id="node4" class="node">
+<title>a22</title>
+<polygon fill="none" stroke="black" points="121.16,-154 99.16,-154 99.16,-132 121.16,-132 121.16,-154"></polygon>
+<text text-anchor="middle" x="110.16" y="-140" font-family="Times,serif" font-size="10.00">a22</text>
+<text text-anchor="middle" x="89.58" y="-157" font-family="Times,serif" font-size="10.00">(1,1)</text>
+</g>
+<!-- a12&#45;&gt;a22 -->
+<!-- a12&#45;&gt;reshape -->
+<g id="edge6" class="edge">
+<title>a12-&gt;reshape</title>
+<path fill="none" stroke="black" stroke-dasharray="5,2" d="M149.82,-189.85C149.45,-176.55 149.05,-152.51 150.16,-132 150.62,-123.51 151.56,-114.17 152.49,-106.14"></path>
+<polygon fill="black" stroke="black" points="155.97,-106.56 153.73,-96.21 149.02,-105.7 155.97,-106.56"></polygon>
+</g>
+<!-- a21&#45;&gt;a22 -->
+<!-- a21&#45;&gt;reshape -->
+<g id="edge7" class="edge">
+<title>a21-&gt;reshape</title>
+<path fill="none" stroke="black" stroke-dasharray="5,2" d="M167.48,-131.99C165.56,-124.83 162.92,-114.95 160.57,-106.19"></path>
+<polygon fill="black" stroke="black" points="163.89,-105.06 157.92,-96.3 157.13,-106.87 163.89,-105.06"></polygon>
+</g>
+<!-- a22&#45;&gt;reshape -->
+<g id="edge8" class="edge">
+<title>a22-&gt;reshape</title>
+<path fill="none" stroke="black" stroke-dasharray="5,2" d="M118.21,-131.99C124.4,-124.28 133.13,-113.42 140.55,-104.19"></path>
+<polygon fill="black" stroke="black" points="143.34,-106.29 146.88,-96.3 137.89,-101.91 143.34,-106.29"></polygon>
+</g>
+<!-- t11 -->
+<g id="node6" class="node">
+<title>t11</title>
+<polygon fill="none" stroke="black" points="81.16,-212 59.16,-212 59.16,-190 81.16,-190 81.16,-212"></polygon>
+<text text-anchor="middle" x="70.16" y="-198" font-family="Times,serif" font-size="10.00">a11</text>
+<text text-anchor="middle" x="49.58" y="-215" font-family="Times,serif" font-size="10.00">(0,0)</text>
+</g>
+<!-- t12 -->
+<g id="node7" class="node">
+<title>t12</title>
+<polygon fill="none" stroke="black" points="121.16,-212 99.16,-212 99.16,-190 121.16,-190 121.16,-212"></polygon>
+<text text-anchor="middle" x="110.16" y="-198" font-family="Times,serif" font-size="10.00">a21</text>
+<text text-anchor="middle" x="89.58" y="-215" font-family="Times,serif" font-size="10.00">(0,1)</text>
+</g>
+<!-- t11&#45;&gt;t12 -->
+<!-- t21 -->
+<g id="node8" class="node">
+<title>t21</title>
+<polygon fill="none" stroke="black" points="41.16,-154 19.16,-154 19.16,-132 41.16,-132 41.16,-154"></polygon>
+<text text-anchor="middle" x="30.16" y="-140" font-family="Times,serif" font-size="10.00">a12</text>
+<text text-anchor="middle" x="9.58" y="-157" font-family="Times,serif" font-size="10.00">(1,0)</text>
+</g>
+<!-- t11&#45;&gt;t21 -->
+<!-- t22 -->
+<g id="node9" class="node">
+<title>t22</title>
+<polygon fill="none" stroke="black" points="81.16,-154 59.16,-154 59.16,-132 81.16,-132 81.16,-154"></polygon>
+<text text-anchor="middle" x="70.16" y="-140" font-family="Times,serif" font-size="10.00">a22</text>
+<text text-anchor="middle" x="49.58" y="-157" font-family="Times,serif" font-size="10.00">(1,1)</text>
+</g>
+<!-- t12&#45;&gt;t22 -->
+<!-- t21&#45;&gt;t22 -->
+<!-- note_tensor -->
+<g id="node10" class="node">
+<title>note_tensor</title>
+<text text-anchor="middle" x="30.16" y="-203.4" font-family="Times,serif" font-size="8.00">No data moved;</text>
+<text text-anchor="middle" x="30.16" y="-193.8" font-family="Times,serif" font-size="8.00">only projection view changes</text>
+</g>
+<!-- n2 -->
+<g id="node12" class="node">
+<title>n2</title>
+<ellipse fill="none" stroke="black" cx="346.16" cy="-201" rx="11" ry="11"></ellipse>
+<text text-anchor="middle" x="346.16" y="-198" font-family="Times,serif" font-size="10.00">2</text>
+</g>
+<!-- n1&#45;&gt;n2 -->
+<g id="edge13" class="edge">
+<title>n1-&gt;n2</title>
+<path fill="none" stroke="black" d="M346.16,-252.76C346.16,-241.56 346.16,-223.54 346.16,-212.26"></path>
+</g>
+<!-- n3 -->
+<g id="node13" class="node">
+<title>n3</title>
+<ellipse fill="none" stroke="black" cx="380.16" cy="-143" rx="11" ry="11"></ellipse>
+<text text-anchor="middle" x="380.16" y="-140" font-family="Times,serif" font-size="10.00">3</text>
+</g>
+<!-- n1&#45;&gt;n3 -->
+<g id="edge14" class="edge">
+<title>n1-&gt;n3</title>
+<path fill="none" stroke="black" d="M355.28,-256.83C359.27,-253.73 363.62,-249.59 366.16,-244.8 382.06,-214.84 381.99,-173.12 380.95,-154.13"></path>
+</g>
+<!-- field_label -->
+<g id="node15" class="node">
+<title>field_label</title>
+<text text-anchor="middle" x="360.16" y="-29.4" font-family="Times,serif" font-size="8.00">Field propagates</text>
+<text text-anchor="middle" x="360.16" y="-19.8" font-family="Times,serif" font-size="8.00">in one observation</text>
+</g>
+<!-- n1&#45;&gt;field_label -->
+<!-- proj1 -->
+<g id="node16" class="node">
+<title>proj1</title>
+<polygon fill="none" stroke="black" points="317.16,-212 295.16,-212 295.16,-190 317.16,-190 317.16,-212"></polygon>
+<text text-anchor="middle" x="306.16" y="-198.6" font-family="Times,serif" font-size="8.00">new state 1</text>
+</g>
+<!-- n1&#45;&gt;proj1 -->
+<g id="edge21" class="edge">
+<title>n1-&gt;proj1</title>
+<path fill="none" stroke="black" d="M337.65,-256.44C333.79,-253.26 329.39,-249.15 326.16,-244.8 320.93,-237.74 316.58,-229.1 313.28,-221.44"></path>
+<polygon fill="black" stroke="black" points="316.53,-220.13 309.57,-212.14 310.03,-222.72 316.53,-220.13"></polygon>
+</g>
+<!-- n2&#45;&gt;n3 -->
+<g id="edge15" class="edge">
+<title>n2-&gt;n3</title>
+<path fill="none" stroke="black" d="M351.47,-191.25C357.82,-180.79 368.39,-163.39 374.77,-152.87"></path>
+</g>
+<!-- n2&#45;&gt;field_label -->
+<!-- proj2 -->
+<g id="node17" class="node">
+<title>proj2</title>
+<polygon fill="none" stroke="black" points="351.16,-154 329.16,-154 329.16,-132 351.16,-132 351.16,-154"></polygon>
+<text text-anchor="middle" x="340.16" y="-140.6" font-family="Times,serif" font-size="8.00">new state 2</text>
+</g>
+<!-- n2&#45;&gt;proj2 -->
+<g id="edge22" class="edge">
+<title>n2-&gt;proj2</title>
+<path fill="none" stroke="black" d="M345.09,-189.99C344.33,-182.91 343.29,-173.17 342.35,-164.48"></path>
+<polygon fill="black" stroke="black" points="345.81,-163.87 341.26,-154.3 338.85,-164.62 345.81,-163.87"></polygon>
+</g>
+<!-- n4 -->
+<g id="node14" class="node">
+<title>n4</title>
+<ellipse fill="none" stroke="black" cx="395.16" cy="-85" rx="11" ry="11"></ellipse>
+<text text-anchor="middle" x="395.16" y="-82" font-family="Times,serif" font-size="10.00">4</text>
+</g>
+<!-- n3&#45;&gt;n4 -->
+<g id="edge16" class="edge">
+<title>n3-&gt;n4</title>
+<path fill="none" stroke="black" d="M382.77,-132.25C385.49,-122.09 389.73,-106.27 392.48,-96.02"></path>
+</g>
+<!-- n3&#45;&gt;field_label -->
+<!-- proj3 -->
+<g id="node18" class="node">
+<title>proj3</title>
+<polygon fill="none" stroke="black" points="346.16,-96 324.16,-96 324.16,-74 346.16,-74 346.16,-96"></polygon>
+<text text-anchor="middle" x="335.16" y="-82.6" font-family="Times,serif" font-size="8.00">new state 3</text>
+</g>
+<!-- n3&#45;&gt;proj3 -->
+<g id="edge23" class="edge">
+<title>n3-&gt;proj3</title>
+<path fill="none" stroke="black" d="M373.52,-133.74C367.26,-125.94 357.65,-113.99 349.62,-104"></path>
+<polygon fill="black" stroke="black" points="352.35,-101.8 343.35,-96.2 346.89,-106.19 352.35,-101.8"></polygon>
+</g>
+<!-- n4&#45;&gt;field_label -->
+<!-- proj4 -->
+<g id="node19" class="node">
+<title>proj4</title>
+<polygon fill="none" stroke="black" points="411.16,-38 389.16,-38 389.16,-16 411.16,-16 411.16,-38"></polygon>
+<text text-anchor="middle" x="400.16" y="-24.6" font-family="Times,serif" font-size="8.00">new state 4</text>
+</g>
+<!-- n4&#45;&gt;proj4 -->
+<g id="edge24" class="edge">
+<title>n4-&gt;proj4</title>
+<path fill="none" stroke="black" d="M396.05,-73.99C396.69,-66.91 397.56,-57.17 398.33,-48.48"></path>
+<polygon fill="black" stroke="black" points="401.84,-48.58 399.24,-38.3 394.86,-47.95 401.84,-48.58"></polygon>
+</g>
+<!-- note_graph -->
+<g id="node20" class="node">
+<title>note_graph</title>
+<text text-anchor="middle" x="266.16" y="-208.2" font-family="Times,serif" font-size="8.00">All nodes observed</text>
+<text text-anchor="middle" x="266.16" y="-198.6" font-family="Times,serif" font-size="8.00">simultaneously;</text>
+<text text-anchor="middle" x="266.16" y="-189" font-family="Times,serif" font-size="8.00">no locks or iterators</text>
+</g>
+</g>
+</svg>
+</div>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-scaling-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;5: Scaling SSCCS to N-dimensional tensors and complex graphs
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<section id="n-dimensional-tensors" class="level4">
+<h4 class="anchored" data-anchor-id="n-dimensional-tensors">5.5.1 N-Dimensional Tensors</h4>
+<p>In SSCCS, an <span class="math inline">\(N\)</span>-dimensional tensor is represented as a set of Segments where adjacency relations are defined across multiple axes within the Scheme.</p>
+<ul>
+<li>Zero-Copy Reshaping: Traditional systems require physical data movement (<span class="math inline">\(O(N)\)</span> or <span class="math inline">\(O(N^2)\)</span>) to perform operations like transposition or reshaping. In SSCCS, reshaping is a metadata-only operation. By reorienting the Field’s observation path over stationary Segments, the dimensionality of the Projection changes without moving a single bit in memory (<span class="math inline">\(O(1)\)</span>).</li>
+<li>Logical Adjacency: For operations like matrix multiplication, the compiler maps Segments to ensure that the required operands for a specific Field are physically co-located. This transforms what would be complex indexing logic in a CPU into a direct physical property of the memory topology.</li>
+</ul>
+</section>
+<section id="complex-graph-processing" class="level4">
+<h4 class="anchored" data-anchor-id="complex-graph-processing">5.5.2 Complex Graph Processing</h4>
+<p>Graph algorithms (e.g., PageRank, GNNs) are traditionally bottlenecked by “Pointer Chasing,” which causes severe cache thrashing and memory latency.</p>
+<ul>
+<li>Segment-as-Node: Each node and its properties are encapsulated in a Segment.</li>
+<li>Adjacency-as-Structure: Edges are defined as structural constraints within the Scheme, not as memory pointers to be followed sequentially.</li>
+<li>Field-based Traversal: A Field propagates across the entire Scheme in a single observation cycle. Instead of “visiting” nodes, the observer captures the emergent state of the entire graph simultaneously.</li>
+<li>Concurrency: This eliminates vertex-centric synchronization (locks/mutexes). All nodes update their state in parallel as a deterministic consequence of the Field’s interaction with the Scheme’s topology.</li>
+</ul>
+</section>
+</section>
+<section id="comparison-computational-density-at-scale" class="level3">
+<h3 class="anchored" data-anchor-id="comparison-computational-density-at-scale">Comparison: Computational Density at Scale</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Computational Task</th>
+<th>Traditional Bottleneck</th>
+<th>SSCCS Solution</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Tensor Reshaping</td>
+<td>Physical data reshuffling (<span class="math inline">\(O(N^d)\)</span>)</td>
+<td>Metadata-level Field reorientation (<span class="math inline">\(O(1)\)</span>)</td>
+</tr>
+<tr class="even">
+<td>Matrix Contraction</td>
+<td>Memory bandwidth &amp; indexing overhead</td>
+<td>Hardwired adjacency in the Scheme</td>
+</tr>
+<tr class="odd">
+<td>Graph Traversal</td>
+<td>High latency due to random access</td>
+<td>Distributed parallel observation</td>
+</tr>
+<tr class="even">
+<td>Sparse Operations</td>
+<td>Complex indexing &amp; storage overhead</td>
+<td>Non-linear Scheme mapping (skipping null-space)</td>
+</tr>
+</tbody>
+</table>
+<p>The scaling of SSCCS addresses the Curse of Dimensionality by decoupling the logical structure of data from the physical cost of its traversal. While traditional architectures expend energy moving data to accommodate logic, SSCCS modifies the Field to accommodate the stationary structure. This positions SSCCS as a foundational methodology for future AI-hardware co-design, where computational density and energy efficiency are the primary constraints.</p>
+</section>
+</section>
+<section id="the-open-format" class="level2">
+<h2 class="anchored" data-anchor-id="the-open-format">6. The Open Format</h2>
+<p>A central goal of SSCCS is the definition of an open <code>.ss</code> format—a human‑readable, machine‑processable representation of Segments and Schemes. The format is designed to be language‑agnostic and platform‑independent. (If desired: “The specification is currently under development; once the Segment‑Scheme structure is finalized, a translation layer may convert existing data representations into <code>.ss</code>.”)</p>
+<p>Characteristics: - Human‑readable, machine‑processable. - Immutable by default; evolution creates new versions. - Cryptographically identifiable (hash‑based). - Compositional: Schemes can include other Schemes. - Platform‑independent.</p>
+<section id="binary-serialization-and-memory-layout" class="level3">
+<h3 class="anchored" data-anchor-id="binary-serialization-and-memory-layout">6.1 Binary Serialization and Memory Layout</h3>
+<p>The binary encoding of a Scheme includes: - Header (SchemeId, version) - Axes list (definitions of each axis) - Segment table (IDs, coordinate ranges, and associated data) - Relation graph (encoding of adjacency, hierarchy, and dependencies) - Serialized <code>MemoryLayout</code> (layout type, encoded mapping function, metadata) - Observation rules and constraints</p>
+<p>This binary format ensures interoperability across implementations and enables deterministic reconstruction of the Scheme’s structure.</p>
+</section>
+</section>
+<section id="system-stack-and-instructionset-interaction" class="level2">
+<h2 class="anchored" data-anchor-id="system-stack-and-instructionset-interaction">7. System Stack and Instruction‑Set Interaction</h2>
+<p>SSCCS inserts a runtime layer between application and hardware that translates observation requests into hardware‑specific memory mappings and observation primitives. The runtime coordinates the Scheme interpreter and projector to realise observation without moving data unnecessarily.</p>
+<div class="cell" data-layout-align="default">
+<div class="cell-output-display">
+<div id="fig-system-stack" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-system-stack-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div>
+<svg width="672" height="480" viewbox="0.00 0.00 551.75 416.00" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" style="; max-width: none; max-height: none">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(4 412)">
+<title>SystemStack</title>
+<polygon fill="white" stroke="transparent" points="-4,4 -4,-412 547.75,-412 547.75,4 -4,4"></polygon>
+<!-- CPU -->
+<g id="node1" class="node">
+<title>CPU</title>
+<path fill="none" stroke="black" d="M269.07,-127.6C269.07,-127.6 216.71,-127.6 216.71,-127.6 210.71,-127.6 204.71,-121.6 204.71,-115.6 204.71,-115.6 204.71,-103.6 204.71,-103.6 204.71,-97.6 210.71,-91.6 216.71,-91.6 216.71,-91.6 269.07,-91.6 269.07,-91.6 275.07,-91.6 281.07,-97.6 281.07,-103.6 281.07,-103.6 281.07,-115.6 281.07,-115.6 281.07,-121.6 275.07,-127.6 269.07,-127.6"></path>
+<text text-anchor="middle" x="242.89" y="-105.4" font-family="Times,serif" font-size="14.00">CPU / ISA</text>
+</g>
+<!-- RAM -->
+<g id="node2" class="node">
+<title>RAM</title>
+<path fill="none" stroke="black" d="M277.66,-36C277.66,-36 208.13,-36 208.13,-36 202.13,-36 196.13,-30 196.13,-24 196.13,-24 196.13,-12 196.13,-12 196.13,-6 202.13,0 208.13,0 208.13,0 277.66,0 277.66,0 283.66,0 289.66,-6 289.66,-12 289.66,-12 289.66,-24 289.66,-24 289.66,-30 283.66,-36 277.66,-36"></path>
+<text text-anchor="middle" x="242.89" y="-13.8" font-family="Times,serif" font-size="14.00">RAM / Cache</text>
+</g>
+<!-- CPU&#45;&gt;RAM -->
+<g id="edge8" class="edge">
+<title>CPU-&gt;RAM</title>
+<path fill="none" stroke="black" d="M242.89,-91.32C242.89,-78.56 242.89,-60.92 242.89,-46.26"></path>
+<polygon fill="black" stroke="black" points="246.39,-46.22 242.89,-36.22 239.39,-46.22 246.39,-46.22"></polygon>
+<text text-anchor="middle" x="300.24" y="-58.2" font-family="Times,serif" font-size="14.00">load/store (minimal)</text>
+</g>
+<!-- PIM -->
+<g id="node3" class="node">
+<title>PIM</title>
+<path fill="none" stroke="black" d="M443.6,-130.2C443.6,-130.2 396.18,-130.2 396.18,-130.2 390.18,-130.2 384.18,-124.2 384.18,-118.2 384.18,-118.2 384.18,-101 384.18,-101 384.18,-95 390.18,-89 396.18,-89 396.18,-89 443.6,-89 443.6,-89 449.6,-89 455.6,-95 455.6,-101 455.6,-101 455.6,-118.2 455.6,-118.2 455.6,-124.2 449.6,-130.2 443.6,-130.2"></path>
+<text text-anchor="middle" x="419.89" y="-113.8" font-family="Times,serif" font-size="14.00">PIM Unit</text>
+<text text-anchor="middle" x="419.89" y="-97" font-family="Times,serif" font-size="14.00">(optional)</text>
+</g>
+<!-- PIM&#45;&gt;RAM -->
+<g id="edge9" class="edge">
+<title>PIM-&gt;RAM</title>
+<path fill="none" stroke="black" d="M403.4,-88.97C392.65,-77.31 377.73,-63.08 361.89,-54 342.87,-43.09 320.15,-35.32 299.68,-29.92"></path>
+<polygon fill="black" stroke="black" points="300.39,-26.49 289.84,-27.46 298.69,-33.28 300.39,-26.49"></polygon>
+<text text-anchor="middle" x="419.45" y="-58.2" font-family="Times,serif" font-size="14.00">direct access</text>
+</g>
+<!-- Runtime -->
+<g id="node4" class="node">
+<title>Runtime</title>
+<path fill="none" stroke="black" d="M238.4,-319C238.4,-319 115.39,-319 115.39,-319 109.39,-319 103.39,-313 103.39,-307 103.39,-307 103.39,-289.8 103.39,-289.8 103.39,-283.8 109.39,-277.8 115.39,-277.8 115.39,-277.8 238.4,-277.8 238.4,-277.8 244.4,-277.8 250.4,-283.8 250.4,-289.8 250.4,-289.8 250.4,-307 250.4,-307 250.4,-313 244.4,-319 238.4,-319"></path>
+<text text-anchor="middle" x="176.89" y="-302.6" font-family="Times,serif" font-size="14.00">SSCCS Runtime</text>
+<text text-anchor="middle" x="176.89" y="-285.8" font-family="Times,serif" font-size="14.00">(Observation Manager)</text>
+</g>
+<!-- SchemeInterpreter -->
+<g id="node5" class="node">
+<title>SchemeInterpreter</title>
+<path fill="none" stroke="black" d="M149.67,-224.6C149.67,-224.6 12.11,-224.6 12.11,-224.6 6.11,-224.6 0.11,-218.6 0.11,-212.6 0.11,-212.6 0.11,-195.4 0.11,-195.4 0.11,-189.4 6.11,-183.4 12.11,-183.4 12.11,-183.4 149.67,-183.4 149.67,-183.4 155.67,-183.4 161.67,-189.4 161.67,-195.4 161.67,-195.4 161.67,-212.6 161.67,-212.6 161.67,-218.6 155.67,-224.6 149.67,-224.6"></path>
+<text text-anchor="middle" x="80.89" y="-208.2" font-family="Times,serif" font-size="14.00">Scheme Interpreter</text>
+<text text-anchor="middle" x="80.89" y="-191.4" font-family="Times,serif" font-size="14.00">(MemoryLayout resolver)</text>
+</g>
+<!-- Runtime&#45;&gt;SchemeInterpreter -->
+<g id="edge2" class="edge">
+<title>Runtime-&gt;SchemeInterpreter</title>
+<path fill="none" stroke="black" d="M156.06,-277.35C142.25,-264.06 123.98,-246.47 108.9,-231.96"></path>
+<polygon fill="black" stroke="black" points="110.98,-229.11 101.35,-224.69 106.13,-234.15 110.98,-229.11"></polygon>
+<text text-anchor="middle" x="177.35" y="-247" font-family="Times,serif" font-size="14.00">resolve layout</text>
+</g>
+<!-- Projector -->
+<g id="node6" class="node">
+<title>Projector</title>
+<path fill="none" stroke="black" d="M294.71,-224.6C294.71,-224.6 251.07,-224.6 251.07,-224.6 245.07,-224.6 239.07,-218.6 239.07,-212.6 239.07,-212.6 239.07,-195.4 239.07,-195.4 239.07,-189.4 245.07,-183.4 251.07,-183.4 251.07,-183.4 294.71,-183.4 294.71,-183.4 300.71,-183.4 306.71,-189.4 306.71,-195.4 306.71,-195.4 306.71,-212.6 306.71,-212.6 306.71,-218.6 300.71,-224.6 294.71,-224.6"></path>
+<text text-anchor="middle" x="272.89" y="-208.2" font-family="Times,serif" font-size="14.00">Projector</text>
+<text text-anchor="middle" x="272.89" y="-191.4" font-family="Times,serif" font-size="14.00">(Ω)</text>
+</g>
+<!-- Runtime&#45;&gt;Projector -->
+<g id="edge5" class="edge">
+<title>Runtime-&gt;Projector</title>
+<path fill="none" stroke="black" d="M201.02,-277.42C207.59,-271.79 214.61,-265.57 220.89,-259.6 229.99,-250.95 239.57,-241.12 248,-232.21"></path>
+<polygon fill="black" stroke="black" points="250.78,-234.35 255.06,-224.66 245.67,-229.57 250.78,-234.35"></polygon>
+<text text-anchor="middle" x="263.51" y="-247" font-family="Times,serif" font-size="14.00">execute Ω</text>
+</g>
+<!-- SchemeInterpreter&#45;&gt;CPU -->
+<g id="edge3" class="edge">
+<title>SchemeInterpreter-&gt;CPU</title>
+<path fill="none" stroke="black" stroke-dasharray="5,2" d="M75.5,-183.15C73.65,-171.7 73.75,-157.77 81.76,-148.4 96.87,-130.71 162.35,-136.18 184.89,-130.4 188.09,-129.58 191.36,-128.67 194.64,-127.7"></path>
+<polygon fill="black" stroke="black" points="195.94,-130.96 204.46,-124.66 193.87,-124.28 195.94,-130.96"></polygon>
+<text text-anchor="middle" x="166.46" y="-152.6" font-family="Times,serif" font-size="14.00">logical‑to‑physical mapping</text>
+</g>
+<!-- SchemeInterpreter&#45;&gt;RAM -->
+<g id="edge4" class="edge">
+<title>SchemeInterpreter-&gt;RAM</title>
+<path fill="none" stroke="black" d="M70.06,-183.38C58.23,-159.04 43.42,-117.28 62.92,-88.8 90.29,-48.82 144.15,-31.74 185.85,-24.44"></path>
+<polygon fill="black" stroke="black" points="186.57,-27.87 195.89,-22.82 185.46,-20.95 186.57,-27.87"></polygon>
+<text text-anchor="middle" x="130.38" y="-105.4" font-family="Times,serif" font-size="14.00">logical‑address lookup</text>
+</g>
+<!-- Projector&#45;&gt;CPU -->
+<g id="edge6" class="edge">
+<title>Projector-&gt;CPU</title>
+<path fill="none" stroke="black" stroke-dasharray="5,2" d="M266.38,-182.95C262.08,-169.71 256.4,-152.2 251.7,-137.72"></path>
+<polygon fill="black" stroke="black" points="254.9,-136.25 248.48,-127.82 248.24,-138.41 254.9,-136.25"></polygon>
+<text text-anchor="middle" x="325.6" y="-152.6" font-family="Times,serif" font-size="14.00">observation micro‑ops</text>
+</g>
+<!-- Projector&#45;&gt;PIM -->
+<g id="edge7" class="edge">
+<title>Projector-&gt;PIM</title>
+<path fill="none" stroke="black" stroke-dasharray="5,2" d="M306.82,-200.02C333.56,-196.05 370.32,-186.79 394.89,-165.2 402.48,-158.53 407.91,-149.08 411.72,-139.92"></path>
+<polygon fill="black" stroke="black" points="415.12,-140.82 415.25,-130.23 408.54,-138.42 415.12,-140.82"></polygon>
+<text text-anchor="middle" x="475.32" y="-152.6" font-family="Times,serif" font-size="14.00">in‑memory observation</text>
+</g>
+<!-- App -->
+<g id="node7" class="node">
+<title>App</title>
+<path fill="none" stroke="black" d="M205.99,-408C205.99,-408 147.79,-408 147.79,-408 141.79,-408 135.79,-402 135.79,-396 135.79,-396 135.79,-384 135.79,-384 135.79,-378 141.79,-372 147.79,-372 147.79,-372 205.99,-372 205.99,-372 211.99,-372 217.99,-378 217.99,-384 217.99,-384 217.99,-396 217.99,-396 217.99,-402 211.99,-408 205.99,-408"></path>
+<text text-anchor="middle" x="176.89" y="-385.8" font-family="Times,serif" font-size="14.00">Application</text>
+</g>
+<!-- App&#45;&gt;Runtime -->
+<g id="edge1" class="edge">
+<title>App-&gt;Runtime</title>
+<path fill="none" stroke="black" d="M176.89,-371.72C176.89,-359.73 176.89,-343.44 176.89,-329.35"></path>
+<polygon fill="black" stroke="black" points="180.39,-329.12 176.89,-319.12 173.39,-329.12 180.39,-329.12"></polygon>
+<text text-anchor="middle" x="240.64" y="-341.4" font-family="Times,serif" font-size="14.00">observe(scheme, field)</text>
+</g>
+</g>
+</svg>
+</div>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-system-stack-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;6: SSCCS system stack
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>In environments without direct hardware support, a lightweight software runtime emulates the observation process by interpreting the binary <code>.ss</code> format.</p>
+<section id="hardware-considerations" class="level3">
+<h3 class="anchored" data-anchor-id="hardware-considerations">7.1. Hardware Considerations</h3>
+<p>While SSCCS can be implemented in software, its benefits are most pronounced with hardware support:</p>
+<ul>
+<li>No instruction fetch unit; observation triggered structurally.</li>
+<li>Processing‑in‑memory (PIM) for direct observation.</li>
+<li>Spatial computation mapping adjacency to wiring.</li>
+<li>Cryptographic primitives in hardware.</li>
+</ul>
+</section>
+</section>
+<section id="theoretical-performance-scalability" class="level2">
+<h2 class="anchored" data-anchor-id="theoretical-performance-scalability">8. Theoretical Performance &amp; Scalability</h2>
+<p>The SSCCS architecture derives its efficiency not from incremental hardware acceleration, but from a fundamental shift in computational complexity. By redefining execution as the Structural Observation of a stationary Scheme, the framework bypasses the sequential bottlenecks inherent in the von Neumann architecture.</p>
+<section id="time-space-complexity-analysis" class="level3">
+<h3 class="anchored" data-anchor-id="time-space-complexity-analysis">8.1 Time-Space Complexity Analysis</h3>
+<p>Traditional procedural models are constrained by the linear relationship between data volume (<span class="math inline">\(N\)</span>) and execution cycles. SSCCS decouples this relationship by utilizing the concurrent propagation of a Field across a pre-defined Topology.</p>
+<div id="cell-fig-complexity" class="cell" data-execution_count="1">
+<div class="cell-output cell-output-display">
+<div id="fig-complexity" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-complexity-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="Whitepaper_files/figure-html/fig-complexity-output-1.png" width="1141" height="467" class="figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-complexity-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;7: Asymptotic Complexity: Procedural vs.&nbsp;SSCCS Structural Observation
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<section id="temporal-complexity-latency" class="level4">
+<h4 class="anchored" data-anchor-id="temporal-complexity-latency">8.1.1 Temporal Complexity (Latency)</h4>
+<p>In a von Neumann environment, even with SIMD/MIMD parallelism, latency scales at <span class="math inline">\(O(N)\)</span> or <span class="math inline">\(O(N/k)\)</span> due to instruction dispatch, synchronization, and memory-wall stalls.</p>
+<ul>
+<li>SSCCS Latency: Defined by the physical propagation delay of the Field across the Scheme. Because structural constraints are resolved at the mapping phase, the observation of the result—the Projection—approaches <span class="math inline">\(O(\log N)\)</span> or even <span class="math inline">\(O(1)\)</span> in specialized hardware environments such as Processing-In-Memory (PIM).</li>
+</ul>
+</section>
+<section id="data-movement-complexity-spatialenergy-cost" class="level4">
+<h4 class="anchored" data-anchor-id="data-movement-complexity-spatialenergy-cost">8.1.2 Data Movement Complexity (Spatial/Energy Cost)</h4>
+<p>The primary energy sink in modern computing is the movement of operands from memory to logic units.</p>
+<ul>
+<li>Procedural Cost: <span class="math inline">\(O(N \cdot D)\)</span>, where <span class="math inline">\(D\)</span> represents the dimensionality of the data required for each operation.</li>
+<li>SSCCS Cost (Logic-at-Rest): <span class="math inline">\(O(Projection)\)</span>. Since the input Segments remain stationary within the Scheme, the energy expenditure is strictly limited to the transmission of the resulting Projection. This creates a widening efficiency gap as the scale of <span class="math inline">\(N\)</span> increases.</li>
+</ul>
+</section>
+</section>
+<section id="comparative-complexity-matrix" class="level3">
+<h3 class="anchored" data-anchor-id="comparative-complexity-matrix">8.2 Comparative Complexity Matrix</h3>
+<p>The following table summarizes the asymptotic behavior of SSCCS compared to traditional sequential and parallel (SIMD) architectures.</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Metric</th>
+<th>Sequential</th>
+<th>Parallel (SIMD/GPU)</th>
+<th>SSCCS (Structural)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Instruction Overhead</td>
+<td>High (<span class="math inline">\(O(N)\)</span>)</td>
+<td>Moderate (<span class="math inline">\(O(N/k)\)</span>)</td>
+<td>Minimal (Field-based)</td>
+</tr>
+<tr class="even">
+<td>Data Locality</td>
+<td>Managed (Cache)</td>
+<td>Explicit (SRAM/Tiling)</td>
+<td>Intrinsic (Scheme-defined)</td>
+</tr>
+<tr class="odd">
+<td>Execution Latency</td>
+<td><span class="math inline">\(O(N)\)</span></td>
+<td><span class="math inline">\(O(N/k) + \text{sync}\)</span></td>
+<td><span class="math inline">\(O(\log N)\)</span> or <span class="math inline">\(O(1)\)</span></td>
+</tr>
+<tr class="even">
+<td>Data Movement</td>
+<td><span class="math inline">\(O(N)\)</span></td>
+<td><span class="math inline">\(O(N)\)</span></td>
+<td><span class="math inline">\(O(\text{Output Only})\)</span></td>
+</tr>
+<tr class="odd">
+<td>Scalability Limit</td>
+<td>Amdahl’s Law</td>
+<td>Memory Bandwidth</td>
+<td>Physical Propagation Delay</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="scalability-in-high-dimensional-ai-workloads" class="level3">
+<h3 class="anchored" data-anchor-id="scalability-in-high-dimensional-ai-workloads">8.3 Scalability in High-Dimensional AI Workloads</h3>
+<p>As demonstrated in the emergence of State-Space Models (SSMs) <span class="math inline">\([6]\)</span> and manifold-constrained learning <span class="math inline">\([5]\)</span>, the ability to process high-dimensional representations without exhaustive data shuffling is critical.</p>
+<ol type="1">
+<li>Stationary Topology: By fixing the Segments in a k-dimensional <code>MemoryLayout</code>, SSCCS allows the hardware to perform “Observation” as a near-instantaneous mapping.</li>
+<li>Implicit Parallelism: Unlike threads or warps that require explicit management, SSCCS parallelism is implicit—it is a property of the structure itself. The scalability is limited only by the fidelity of the Field and the resolution of the Projector (<span class="math inline">\(\Omega\)</span>).</li>
+</ol>
+</section>
+</section>
+<section id="implementation-roadmap" class="level2">
+<h2 class="anchored" data-anchor-id="implementation-roadmap">9. Implementation Roadmap</h2>
+<div class="cell" data-layout-align="default">
+<div class="cell-output-display">
+<div id="fig-roadmap" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-roadmap-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div>
+<svg width="672" height="480" viewbox="0.00 0.00 838.06 209.00" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" style="; max-width: none; max-height: none">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(4 205)">
+<title>Implementation_Roadmap</title>
+<polygon fill="white" stroke="transparent" points="-4,4 -4,-205 834.06,-205 834.06,4 -4,4"></polygon>
+<g id="clust1" class="cluster">
+<title>cluster_goals</title>
+<polygon fill="none" stroke="black" points="687.79,-8 687.79,-193 822.06,-193 822.06,-8 687.79,-8"></polygon>
+<text text-anchor="middle" x="754.93" y="-176.4" font-family="Times,serif" font-size="14.00">Goals</text>
+</g>
+<!-- Phase1 -->
+<g id="node1" class="node">
+<title>Phase1</title>
+<polygon fill="none" stroke="black" points="128.54,-79.4 -0.18,-79.4 -0.18,-20.6 128.54,-20.6 128.54,-79.4"></polygon>
+<text text-anchor="middle" x="64.18" y="-62.6" font-family="Times,serif" font-size="14.00">Phase 1</text>
+<text text-anchor="middle" x="64.18" y="-45.8" font-family="Times,serif" font-size="14.00">Software Emulation</text>
+<text text-anchor="middle" x="64.18" y="-29" font-family="Times,serif" font-size="14.00">(Reference in Rust)</text>
+</g>
+<!-- Phase2 -->
+<g id="node2" class="node">
+<title>Phase2</title>
+<polygon fill="none" stroke="black" points="358.08,-120.4 211.68,-120.4 211.68,-61.6 358.08,-61.6 358.08,-120.4"></polygon>
+<text text-anchor="middle" x="284.88" y="-103.6" font-family="Times,serif" font-size="14.00">Phase 2</text>
+<text text-anchor="middle" x="284.88" y="-86.8" font-family="Times,serif" font-size="14.00">Hardware Acceleration</text>
+<text text-anchor="middle" x="284.88" y="-70" font-family="Times,serif" font-size="14.00">(FPGA / PIM)</text>
+</g>
+<!-- Phase1&#45;&gt;Phase2 -->
+<g id="edge1" class="edge">
+<title>Phase1-&gt;Phase2</title>
+<path fill="none" stroke="black" d="M128.44,-61.86C151.28,-66.14 177.4,-71.04 201.63,-75.58"></path>
+<polygon fill="black" stroke="black" points="201.05,-79.03 211.53,-77.44 202.34,-72.15 201.05,-79.03"></polygon>
+<text text-anchor="middle" x="170.07" y="-76.2" font-family="Times,serif" font-size="14.00">Validate</text>
+</g>
+<!-- G1 -->
+<g id="node4" class="node">
+<title>G1</title>
+<polygon fill="none" stroke="black" points="814.19,-52 695.66,-52 695.66,-16 814.19,-16 814.19,-52"></polygon>
+<text text-anchor="middle" x="754.93" y="-29.8" font-family="Times,serif" font-size="14.00">Structural Fidelity</text>
+</g>
+<!-- Phase1&#45;&gt;G1 -->
+<g id="edge3" class="edge">
+<title>Phase1-&gt;G1</title>
+<path fill="none" stroke="black" d="M128.44,-48.53C257.75,-45.53 551.45,-38.7 685.24,-35.6"></path>
+<polygon fill="black" stroke="black" points="685.45,-39.09 695.36,-35.36 685.28,-32.09 685.45,-39.09"></polygon>
+</g>
+<!-- Phase3 -->
+<g id="node3" class="node">
+<title>Phase3</title>
+<polygon fill="none" stroke="black" points="659.04,-160.6 424.05,-160.6 424.05,-119.4 659.04,-119.4 659.04,-160.6"></polygon>
+<text text-anchor="middle" x="541.55" y="-144.2" font-family="Times,serif" font-size="14.00">Phase 3</text>
+<text text-anchor="middle" x="541.55" y="-127.4" font-family="Times,serif" font-size="14.00">Native Observation-Centric Processors</text>
+</g>
+<!-- Phase2&#45;&gt;Phase3 -->
+<g id="edge2" class="edge">
+<title>Phase2-&gt;Phase3</title>
+<path fill="none" stroke="black" d="M358.18,-104.91C378.54,-108.83 401.24,-113.2 423.51,-117.48"></path>
+<polygon fill="black" stroke="black" points="422.88,-120.92 433.36,-119.38 424.2,-114.05 422.88,-120.92"></polygon>
+<text text-anchor="middle" x="391.14" y="-118.2" font-family="Times,serif" font-size="14.00">Scale</text>
+</g>
+<!-- G2 -->
+<g id="node5" class="node">
+<title>G2</title>
+<polygon fill="none" stroke="black" points="794.41,-106 715.44,-106 715.44,-70 794.41,-70 794.41,-106"></polygon>
+<text text-anchor="middle" x="754.93" y="-83.8" font-family="Times,serif" font-size="14.00">Parallelism</text>
+</g>
+<!-- Phase2&#45;&gt;G2 -->
+<g id="edge4" class="edge">
+<title>Phase2-&gt;G2</title>
+<path fill="none" stroke="black" d="M357.99,-90.54C454.38,-89.92 622.67,-88.84 705.32,-88.31"></path>
+<polygon fill="black" stroke="black" points="705.46,-91.81 715.44,-88.25 705.42,-84.81 705.46,-91.81"></polygon>
+</g>
+<!-- G3 -->
+<g id="node6" class="node">
+<title>G3</title>
+<polygon fill="none" stroke="black" points="814.15,-160 695.7,-160 695.7,-124 814.15,-124 814.15,-160"></polygon>
+<text text-anchor="middle" x="754.93" y="-137.8" font-family="Times,serif" font-size="14.00">Energy Efficiency</text>
+</g>
+<!-- Phase3&#45;&gt;G3 -->
+<g id="edge5" class="edge">
+<title>Phase3-&gt;G3</title>
+<path fill="none" stroke="black" d="M659.06,-141.1C668.04,-141.19 676.92,-141.27 685.42,-141.35"></path>
+<polygon fill="black" stroke="black" points="685.57,-144.85 695.6,-141.45 685.63,-137.85 685.57,-144.85"></polygon>
+</g>
+</g>
+</svg>
+</div>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-roadmap-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;8: Implementation roadmap: three research phases
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<section id="phase-1-software-emulation-proof-of-concept" class="level3">
+<h3 class="anchored" data-anchor-id="phase-1-software-emulation-proof-of-concept">Phase 1: Software Emulation (Proof of Concept)</h3>
+<ul>
+<li>Rust reference implementation reading <code>.ss</code> specifications.</li>
+<li>Validate model on small benchmarks (matrix multiplication, graph algorithms).</li>
+<li>Measure determinism, implicit parallelism, data movement reduction.</li>
+<li>Establish toolchain and community.</li>
+</ul>
+</section>
+<section id="phase-2-hardware-acceleration" class="level3">
+<h3 class="anchored" data-anchor-id="phase-2-hardware-acceleration">Phase 2: Hardware Acceleration</h3>
+<ul>
+<li>Map Schemes to FPGA fabrics.</li>
+<li>Explore PIM architectures (UPMEM, Samsung FIM).</li>
+<li>Develop compiler targeting CPUs (via SIMD) and FPGA/PIM.</li>
+<li>Begin formal verification.</li>
+</ul>
+</section>
+<section id="phase-3-native-observationcentric-processors-longterm-research" class="level3">
+<h3 class="anchored" data-anchor-id="phase-3-native-observationcentric-processors-longterm-research">Phase 3: Native Observation‑Centric Processors (Long‑Term Research)</h3>
+<ul>
+<li>Design processor directly instantiating Schemes.</li>
+<li>Integrate memory and logic in unified substrate (e.g., memristor arrays).</li>
+<li>Evaluate energy efficiency for target domains.</li>
+<li>Establish SSCCS as foundational infrastructure.</li>
+</ul>
+<p>Throughout, the <code>.ss</code> blueprint remains unchanged, preserving investment.</p>
+</section>
+</section>
+<section id="planned-validation-domains" class="level2">
+<h2 class="anchored" data-anchor-id="planned-validation-domains">10. Planned Validation Domains</h2>
+<p>SSCCS is intended for validation across multiple domains. The following table outlines traditional challenges and expected advantages:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 16%">
+<col style="width: 43%">
+<col style="width: 40%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Domain</th>
+<th>Traditional Challenge</th>
+<th>Expected Advantages</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Climate modelling</td>
+<td>Massive state space, grid data movement</td>
+<td>Constraint isolation, deterministic observation, minimal data transfer</td>
+</tr>
+<tr class="even">
+<td>Space systems</td>
+<td>Radiation-induced errors, power constraints</td>
+<td>Structural reproducibility, error detectability, verifiable execution</td>
+</tr>
+<tr class="odd">
+<td>Protein folding</td>
+<td>Combinatorial explosion, long time scales</td>
+<td>Massive parallel observation, structure-guided exploration</td>
+</tr>
+<tr class="even">
+<td>Swarm robotics</td>
+<td>Coordination overhead, limited communication</td>
+<td>Recursive composition, emergent coordination from shared structure</td>
+</tr>
+<tr class="odd">
+<td>Financial modelling</td>
+<td>Real‑time constraints, complex dependencies</td>
+<td>Deterministic projections, no race conditions, auditable processing</td>
+</tr>
+<tr class="even">
+<td>Cryptographic systems</td>
+<td>Side‑channel attacks, verification complexity</td>
+<td>Immutable structure enables formal verification, no intermediate state</td>
+</tr>
+<tr class="odd">
+<td>Autonomous vehicles</td>
+<td>Sensor fusion, real‑time decision making</td>
+<td>Constraint‑based observation, deterministic response, auditable decisions</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="related-work" class="level2">
+<h2 class="anchored" data-anchor-id="related-work">11. Related Work</h2>
+<p>SSCCS is presented alongside several established research domains, providing a unified theoretical foundation:</p>
+<ul>
+<li>Dataflow architectures (e.g., Dennis’s dataflow graphs) treat programs as graphs where nodes fire when inputs are available.</li>
+<li>Functional programming emphasises immutability and referential transparency.</li>
+<li>Processing‑in‑memory (PIM) research directly addresses the data movement problem.</li>
+<li>Declarative languages (SQL, Datalog) describe <em>what</em> to compute rather than how.</li>
+<li>Intentional programming and memoisation share conceptual ground with observation‑based computation.</li>
+</ul>
+<p>Recent work in AI demonstrates the growing relevance of structural constraints:</p>
+<ul>
+<li><p>Geometric Constraints: Research such as <em>Manifold-Constrained Hyper-Connections</em> by DeepSeek <span class="math inline">\([5]\)</span> highlights the efficacy of applying geometric inductive biases in high-dimensional representations. This validates the SSCCS approach of defining computational processes through topological constraints rather than procedural instructions.</p></li>
+<li><p>SSCCS as a Structural Superset: SSCCS serves as a formal ontological superset for State-Space Models (SSMs) like Mamba <span class="math inline">\([6]\)</span> and hardware-aware frameworks such as Modular AI’s MAX/Mojo <span class="math inline">\([7, 8]\)</span>. While these systems achieve high-performance linear recurrences through ad-hoc kernel tuning, SSCCS redefines the SSM recurrence not as a procedural loop, but as a one-dimensional Scheme of adjacent Segments where state transitions emerge as Projections of a sequential Field. By shifting from execution-based optimization to the deterministic observation of stationary topological constraints, SSCCS inherently encompasses the efficiency gains of modern AI execution engines within a universal, structure-defined architecture.</p></li>
+</ul>
+<p>These references contextualize SSCCS within the broader intellectual landscape. In each domain, the shift from execution to observation is expected to offer advantages that incremental optimization cannot provide. These advantages—determinism, parallelism, fault isolation, reduced communication, and above all verifiability—are expected consequences of the ontological redefinition, not features added to address specific problems.</p>
+</section>
+<section id="conclusion-and-future-work" class="level2">
+<h2 class="anchored" data-anchor-id="conclusion-and-future-work">12. Conclusion and Future Work</h2>
+<p>This paper has presented SSCCS, a computational model that redefines computation as the observation of structured potential under dynamic constraints. The model’s core components—immutable Segments, geometric Schemes, mutable Fields, and the Observation/Projection mechanism—constitute a new computational ontology. From this ontology, multiple consequences follow: elimination of most data transfers, removal of synchronization overhead, implicit parallelism, deterministic reproducibility, and secure isolation within cryptographically enforced boundaries.</p>
+<p>Observation deterministically resolves admissible configurations from the combination of Scheme and Field into a Projection, without altering underlying Segments. The compiler performs structural mapping, and the open <code>.ss</code> format ensures platform‑independent, verifiable specifications.</p>
+<p>Planned validation across multiple domains—climate modeling, space systems, protein folding, swarm robotics, financial modeling, cryptographic systems, and autonomous vehicles—will assess the model’s advantages: determinism, parallelism, fault isolation, reduced communication, and verifiability.</p>
+<p>In summary, SSCCS establishes several foundational principles:</p>
+<ul>
+<li>Computation concerns revelation rather than change.</li>
+<li>Structure is more fundamental than process.</li>
+<li>Time is a coordinate rather than a flow.</li>
+<li>Value is projected rather than intrinsic.</li>
+<li>Programs are blueprints rather than recipes.</li>
+<li>Results are configurations revealed by Observation.</li>
+<li>Composition is the primitive of computation.</li>
+<li>Structure serves as executable law.</li>
+<li>Observation is the sole active event.</li>
+<li>Projection is the deterministic outcome of Observation.</li>
+<li>Immutability provides the foundation for concurrency and security.</li>
+</ul>
+<p>The model is not presented as a complete replacement for all computing, but as a promising direction for data-intensive, parallel workloads where the limitations of the von Neumann model are most apparent. More importantly, it offers a way of thinking about computation that may prove fruitful beyond its immediate engineering applications—a framework that prioritizes verifiability and accessibility over opaque procedural execution.</p>
+</section>
+<section id="references" class="level2">
+<h2 class="anchored" data-anchor-id="references">References</h2>
+<ul>
+<li>[1] W. A. Wulf and S. A. McKee, “Hitting the memory wall: implications of the obvious,” <em>ACM SIGARCH Computer Architecture News</em>, vol.&nbsp;23, no. 1, pp.&nbsp;20–24, 1995.</li>
+<li>[2] S. Borkar and A. A. Chien, “The future of microprocessors,” <em>Communications of the ACM</em>, vol.&nbsp;54, no. 5, pp.&nbsp;67–77, 2011.</li>
+<li>[3] R. Lucas et al., “Top ten exascale research challenges,” US Department of Energy, 2014.</li>
+<li>[4] M. Horowitz, “Computing’s energy problem (and what we can do about it),” in <em>IEEE International Solid‑State Circuits Conference</em>, 2014.</li>
+<li>[5] DeepSeek-AI, “Manifold-Constrained Hyper-Connections: Geometric Inductive Biases in High-Dimensional Representations,” <em>arXiv preprint arXiv:2512.24880</em>, 2025.</li>
+<li>[6] A. Gu and T. Dao, “Mamba: Linear-Time Sequence Modeling with Selective State Spaces,” <em>arXiv preprint arXiv:2312.00752</em>, 2023.</li>
+<li>[7] Modular AI, “MAX: A Unified AI Execution Engine,” [Online]. Available: https://www.modular.com/max. Accessed Feb.&nbsp;2026.</li>
+<li>[8] C. Lattner et al., “Mojo: Programming Language for All of AI,” [Online]. Available: https://www.modular.com/mojo. Accessed Feb.&nbsp;2026.</li>
+</ul>
+<hr>
+<p>© 2026 SSCCS gUG (i.G.) — A non‑profit research initiative, formalized through global standards and its authenticity substantiated by immutable scientific records and cryptographic proofs.</p>
+<ul>
+<li>Source code under Apache 2.0: <a href="https://github.com/ssccsorg">Github</a> | Verifiable by <a href="https://keys.openpgp.org/search?q=BCCB196BADF50C99">GPG ID: BCCB196BADF50C99</a></li>
+<li>Whitepaper under CC BY-NC-ND 4.0: <a href="https://ssccs.org/wp">PDF</a> | Registered in CERN DOI: <a href="https://doi.org/10.5281/zenodo.18787286">10.5281/zenodo.18787286</a>, <a href="https://explore.openaire.eu/search/result?pid=10.5281%2Fzenodo.18787286">OpenAIRE</a></li>
+</ul>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>
