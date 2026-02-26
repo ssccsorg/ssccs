@@ -7,6 +7,9 @@ format:
         eval: true
         echo: false
     output-file: "index.html"
+    embed-resources: true
+    self-contained-math: true 
+    minimal: true
     theme: minimal
     mainfont: "Georgia"
     code-font: "Source Code Pro"
@@ -15,13 +18,20 @@ format:
     font-size: 11pt
     page-layout: full
     code-overflow: wrap
+    include-in-header:
+      text: |
+        <style>
+        a {
+          text-decoration: none !important;
+          color: #0d6efd;
+        }
+        </style>
   gfm:
     execute:
       eval: false
       echo: true
   pdf:
     execute:
-        eval: true
         echo: false
     pdf-engine-opts: ["-shell-escape"]
     fig-format: svg
@@ -1026,7 +1036,7 @@ The model is not presented as a complete replacement for all computing, but as a
 * Source code under Apache 2.0: [Github](https://github.com/ssccsorg) | Verifiable by [GPG ID: BCCB196BADF50C99](https://keys.openpgp.org/search?q=BCCB196BADF50C99)
 * Whitepaper under CC BY-NC-ND 4.0: [PDF](https://ssccs.org/wp) | Registered in CERN DOI: [10.5281/zenodo.18787286](https://doi.org/10.5281/zenodo.18787286), [OpenAIRE](https://explore.openaire.eu/search/result?pid=10.5281%2Fzenodo.18787286)
 
-::: {.content-visible when-format="pdf,html"}
+::: {.content-visible when-format="pdf"}
 ```{python}
 #| echo: false
 #| results: asis
@@ -1055,4 +1065,16 @@ for i, svg in enumerate(svgs):
     \includesvg[height=50pt]{./Whitepaper_files/image1.svg}
 \end{flushright}
 ```
+:::
+
+
+::: {.content-visible when-format="html"}
+<div style="text-align: right; display: flex; align-items: center; justify-content: flex-end; gap: 30px; margin-top: 20px;">
+  <a href="https://www.openaire.eu/">
+    <img src="https://ssccs.org/images/openaire.svg" alt="Open AIRE" style="height: 40px; margin-right: 20px;">
+  </a>
+  <a href="https://cernandsocietyfoundation.cern/projects/zenodo">
+  <img src="https://ssccs.org/images/cern.svg" alt="CERN Open Science" style="height: 80px;">
+  </a>
+</div>
 :::
