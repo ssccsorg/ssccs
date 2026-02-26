@@ -5,26 +5,26 @@
 
 ## Abstract
 
-SSCCS (Schema–Segment Composition Computing System) is an infrastructure
-specification that redefines computation as the traceable projection of
-immutable Segments within a structured Scheme. While contemporary
-innovation focuses on material hardware shifts, SSCCS addresses
-fundamental inefficiencies of the Von Neumann bottleneck at the logical
-layer. By formalizing computation as the simultaneous resolution of
-static potential under dynamic constraints rather than a sequence of
-state mutations, the architecture reframes data movement, concurrency,
-and verifiability.
+**SSCCS (Schema–Segment Composition Computing System)** is an
+infrastructure specification that redefines computation as the traceable
+projection of immutable Segments within a structured Scheme. While
+contemporary innovation focuses on material hardware shifts, SSCCS
+addresses fundamental inefficiencies of the Von Neumann bottleneck at
+the logical layer. By formalizing computation as the simultaneous
+resolution of static potential under dynamic constraints rather than a
+sequence of state mutations, the architecture reframes data movement,
+concurrency, and verifiability.
 
-SSCCS enforces three core values: Immutability (data cannot be altered
-after creation), Structural Integrity (computation must respect declared
-schemas), and Traceability (every projection is cryptographically
-verifiable). These values are realized through a distinct computational
-ontology: Segments serve as immutable carriers of information, Schemes
-define structural boundaries and constraints, and Observation
-deterministically resolves these elements into a Projection without
-altering underlying data. This structure-defined approach eliminates
-hidden manipulation, minimizes data movement, and establishes an
-auditable infrastructure.
+SSCCS enforces three core values: **Immutability** (data cannot be
+altered after creation), **Structural Integrity** (computation must
+respect declared schemas), and **Traceability** (every projection is
+cryptographically verifiable). These values are realized through a
+distinct computational ontology: Segments serve as immutable carriers of
+information, Schemes define structural boundaries and constraints, and
+Observation deterministically resolves these elements into a Projection
+without altering underlying data. This structure-defined approach
+eliminates hidden manipulation, minimizes data movement, and establishes
+an auditable infrastructure.
 
 Driven by a software‑first philosophy, this architecture ensures
 deterministic reproducibility by completely decoupling execution logic
@@ -144,43 +144,51 @@ the others:
 digraph SSCCS_Ontology {
     node [shape=rect];
     
-    // Left: Atomic Segments (immutable coordinates)
+    // Static Infrastructure: Immutable physical coordinates (S1 is defined but not utilized)
     node [shape=point, width=0.2, height=0.2];
-    s1 [xlabel="Segment A"];
-    s2 [xlabel="Segment B"];
-    s3 [xlabel="Segment C"];
+    s1 [xlabel="Segment 1(S₁)\nNOT USED"];
+    s2 [xlabel="Segment 2(S₂)"];
+    s3 [xlabel="Segment 3(S₃)"];
     
-    // Center-left: Scheme (structural blueprint)
-    Scheme [label="Scheme (Σ)", shape=rect];
+    // Structural Blueprint: Topological configuration of segments
+    Scheme [label="Scheme (Σ₁)", shape=rect];
     
-    // Center: Field (dynamic governance)
-    Field [label="Field F\n(governance + constraints)", shape=rect, style=dashed];
+    // Dynamic Governance: The medium for constraints and field propagation
+    Field [label="Field (F₁)\ngovernance, constraints, ...", shape=rect];
     
-    // Center-right: Observation event
-    Observation [label="Observation Ω", shape=ellipse];
+    // Computation Event: The triggering observation that initiates projection
+    Observation [label="Observation (Ω₁)", shape=ellipse];
     
-    // Right: Projection (result)
-    Projection [label="Projection", shape=box];
+    // Manifested State: The output of the field under observation
+    Projection [label="Projection (P₁)\n", shape=box];
+
+    // Final Deterministic State: Interpreted data from the projection
+    Data [label="Collapsed Possibility, State, or Data (D₁)\nD₁ = I₁(P₁)", shape=box];
     
-    // Scheme references Segments (structural relations)
-    edge [arrowhead=none, style=solid];
-    Scheme -> s1;
-    Scheme -> s2;
-    Scheme -> s3;
+    // Structural Binding: Defines the static relationship between Scheme and Segments
+    {rank=source;
+        edge [arrowhead=none, style=solid];
+        Scheme -> s2;
+        Scheme -> s3;
+    }
     
-    // Field influences both Scheme and Segments (dashed)
-    edge [arrowhead=none, style=dashed];
-    Field -> Scheme;
-    Field -> s1;
-    Field -> s2;
-    Field -> s3;
-    
-    // Observation takes Scheme and Field as inputs
+    // Structural Input: Topology and Segments define the Field's boundary conditions
+    edge [arrowhead=normal];
+    Scheme -> Field;
+
+    edge [arrowhead=normal];
+    s2 -> Field;
+    s3 -> Field;
+
+    // Trigger Mechanism: Observation acts as the operator on the Field
     edge [arrowhead=normal, style=solid];
-    Field -> Observation [label="F"];
+    Observation -> Field [label="Ω: Computation Event"];
     
-    // Observation produces a Projection
-    Observation -> Projection [label="P = Ω(Σ, F)"];
+    // Resultant Projection: Field manifests the state through the observation operator
+    Field -> Projection [label="P₁ = Ω₁(F(Σ(S₂,S₃)))"];
+
+    // Data Derivation: The final step of interpreting physical projection into data
+    Projection -> Data [label="Interpretion (I₁)"];
 }
 ```
 
@@ -194,8 +202,10 @@ Figure 1: SSCCS Ontology: Three irreducible layers
 
 </div>
 
-Each layer has defined properties and relationships; together they
-constitute the complete computational ontology.
+Simply the Field governs the observation of the Scheme and its Segments,
+producing a Projection that can be interpreted as data. Each layer has
+defined properties and relationships; together they constitute the
+complete computational ontology.
 
 - Immutable Segments & Schemes allow any number of observers to apply Ω
   concurrently – no locks or synchronization needed.
@@ -209,100 +219,280 @@ constitute the complete computational ontology.
   explicit programming.
 
 ``` dot
-digraph SSCCS_Integrated {
-    rankdir=TB;
+digraph SSCCS_MultiField {
     node [shape=rect];
     
-    // === Ranks ===
-    // Top: Segments (atomic coordinates)
+    // === Leftmost rank: Segments and Schemes (immutable) ===
     { rank=source;
+        // Segments (atomic coordinates)
         node [shape=point, width=0.2, height=0.2];
-        sA [xlabel="Segment A"];
-        sB [xlabel="Segment B"];
-        sC [xlabel="Segment C"];
-        sD [xlabel="Segment D"];
+        s1 [xlabel="S₁"];
+        s2 [xlabel="S₂"];
+        s3 [xlabel="S₃"];
+        s4 [xlabel="S₄"];
+        s5 [xlabel="S₅"];
+        s6 [xlabel="S₆"];
+        s7 [xlabel="S₇"];
+        s8 [xlabel="S₈"];
+        
+        // Schemes (structural blueprints)
+        node [shape=box, style=solid];
+        sch1 [label="Σ₁"];
+        sch2 [label="Σ₂"];
+        sch3 [label="Σ₃"];
+        sch4 [label="Σ₄"];
+        
+        // Arrange in order: all segments then all schemes (will stack vertically)
+        // We don't need to specify order; DOT will place them in the order they appear.
     }
-    { rank=same; sA; sB; sC; sD; }
     
-    // Second: Schemes (structural blueprints)
+    // === Second rank: Fields (dynamic governance) ===
     { rank=2;
-        node [shape=box];
-        schemeX [label="Scheme X"];
-        schemeY [label="Scheme Y"];
+        node [shape=rect, style=dashed];
+        f1 [label="F₁"];
+        f2 [label="F₂"];
+        f3 [label="F₃"];
     }
-    { rank=same; schemeX; schemeY; }
+    { rank=same; f1; f2; f3; }
     
-    // Third: Field (dynamic governance)
+    // === Third rank: Observation events ===
     { rank=3;
-        Field [label="Mutable Field\n[governance + constraints]", shape=rect, style=dashed];
-    }
-    
-    // Fourth: Observation events
-    { rank=4;
         node [shape=ellipse];
-        O1 [label="Ω₁"];
-        O2 [label="Ω₂"];
-        O3 [label="Ω₃"];
+        o1 [label="Ω₁"];
+        o2 [label="Ω₂"];
+        o3 [label="Ω₃"];
+        o4 [label="Ω₄"];
+        o5 [label="Ω₅"];
     }
-    { rank=same; O1; O2; O3; }
+    { rank=same; o1; o2; o3; o4; o5; }
     
-    // Bottom: Projections (results)
-    { rank=5;
+    // === Fourth rank: Projections (manifested states) ===
+    { rank=4;
         node [shape=box];
-        P1 [label="P₁"];
-        P2 [label="P₂"];
-        P3 [label="P₃"];
+        p1 [label="P₁"];
+        p2 [label="P₂"];
+        p3 [label="P₃"];
+        p4 [label="P₄"];
+        p5 [label="P₅"];
     }
-    { rank=same; P1; P2; P3; }
+    { rank=same; p1; p2; p3; p4; p5; }
     
-    // === Edges ===
+    // === Fifth rank: Interpreted Data (final deterministic values) ===
+    { rank=5;
+        node [shape=box, style=rounded];
+        d1 [label="D₁\n= I₁(P₁)"];
+        d2 [label="D₂\n= I₂(P₂)"];
+        d3 [label="D₃\n= I₃(P₃)"];
+        d4 [label="D₄\n= I₄(P₄)"];
+        d5 [label="D₅\n= I₅(P₅)"];
+    }
+    { rank=same; d1; d2; d3; d4; d5; }
     
-    // Scheme–Segment relationships (undirected lines)
+    // === Scheme–Segment structural relations (undirected lines) ===
     edge [arrowhead=none, style=solid];
-    schemeX -> sA;      // 1:1 – Scheme X references only A
-    schemeY -> sB;
-    schemeY -> sC;
-    schemeY -> sD;      // 1:N – Scheme Y references B, C, D
-    schemeX -> sD;      // N:M – Segment D is referenced by both Scheme X and Y
+    sch1 -> s1; sch1 -> s2; sch1 -> s3;
+    sch2 -> s2; sch2 -> s4; sch2 -> s5; sch2 -> s6;
+    sch3 -> s3; sch3 -> s5; sch3 -> s7; sch3 -> s8;
+    sch4 -> s1; sch4 -> s4; sch4 -> s6; sch4 -> s8;
     
-    // Field influences Schemes and Segments (dashed)
+    // === Field influences on Schemes and Segments (dashed) ===
     edge [arrowhead=none, style=dashed];
-    Field -> schemeX;
-    Field -> schemeY;
-    Field -> sA;
-    Field -> sB;
-    Field -> sC;
-    Field -> sD;
+    f1 -> sch1; f1 -> sch2; f1 -> s1; f1 -> s2; f1 -> s4;
+    f2 -> sch2; f2 -> sch3; f2 -> s3; f2 -> s5; f2 -> s7;
+    f3 -> sch3; f3 -> sch4; f3 -> s6; f3 -> s8;
     
-    // Observation inputs: each Ω takes a Scheme and the Field
+    // === Structural input: Schemes and Segments define Field boundaries (solid) ===
     edge [arrowhead=normal, style=solid];
-    Field -> O1;
-    Field -> O2;
-    Field -> O3;
+    sch1 -> f1; sch2 -> f1; sch2 -> f2; sch3 -> f2; sch3 -> f3; sch4 -> f3;
+    s1 -> f1; s2 -> f1; s3 -> f2; s4 -> f1; s5 -> f2; s6 -> f3; s7 -> f2; s8 -> f3;
     
-    // Observation outputs: each Ω produces a Projection
-    O1 -> P1;
-    O2 -> P2;
-    O3 -> P3;
+    // === Trigger mechanism: Each Observation applies to a Field ===
+    edge [arrowhead=normal, style=solid];
+    o1 -> f1 [label="Ω"];
+    o2 -> f1 [label="Ω"];
+    o3 -> f2 [label="Ω"];
+    o4 -> f2 [label="Ω"];
+    o5 -> f3 [label="Ω"];
+    
+    // === Field manifests Projection under observation ===
+    f1 -> p1 [label="P₁ = Ω₁(F₁)"];
+    f1 -> p2 [label="P₂ = Ω₂(F₁)"];
+    f2 -> p3 [label="P₃ = Ω₃(F₂)"];
+    f2 -> p4 [label="P₄ = Ω₄(F₂)"];
+    f3 -> p5 [label="P₅ = Ω₅(F₃)"];
+    
+    // === Interpretation: Projection yields deterministic Data ===
+    edge [arrowhead=normal, style=solid];
+    p1 -> d1 [label="I₁"];
+    p2 -> d2 [label="I₂"];
+    p3 -> d3 [label="I₃"];
+    p4 -> d4 [label="I₄"];
+    p5 -> d5 [label="I₅"];
 }
 ```
 
-<div id="fig-ssccs-integrated">
+<div id="fig-ssccs-multifield">
 
 <div>
 
 </div>
 
-Figure 2: SSCCS integrated view: Schemes, Segments, Field, Observations,
-and Projections
+Figure 2: SSCCS multi-field, multi-observation parallel model with rich
+segment set
 
 </div>
 
-This integrated view illustrates the full SSCCS model: segments are
-shared across multiple schemes, the field governs all observations, and
-each observation event independently projects a result—demonstrating how
-immutability, structural mapping, and dynamic governance together form a
-complete computational ontology.
+This integrated view illustrates the full SSCCS model: The observation
+events (Ω₁, Ω₂, etc.) can occur concurrently without any temporal
+ordering, and the resulting projections (P₁, P₂, etc.) are independent
+of each other. The data (D₁, D₂, etc.) derived from these projections
+can also be interpreted independently. So **time is not a fundamental
+dimension that governs state changes**; instead, the structure of
+Schemes and the constraints of Fields govern what can be observed and
+when.
+
+A more complexier structural composition can be defined like,
+“Computational Cosmos”:
+
+``` dot
+digraph SSCCS_MultiField {
+    rankdir=TB;
+    node [shape=rect];
+    
+    // === Row 1: Segments 1–6 ===
+    { rank=1;
+        node [shape=point, width=0.2, height=0.2];
+        s1 [xlabel="S₁"]; s2 [xlabel="S₂"]; s3 [xlabel="S₃"]; s4 [xlabel="S₄"]; s5 [xlabel="S₅"]; s6 [xlabel="S₆"];
+    }
+    // === Row 2: Segments 7–12 ===
+    { rank=2;
+        node [shape=point, width=0.2, height=0.2];
+        s7 [xlabel="S₇"]; s8 [xlabel="S₈"]; s9 [xlabel="S₉"]; s10 [xlabel="S₁₀"]; s11 [xlabel="S₁₁"]; s12 [xlabel="S₁₂"];
+    }
+    // === Row 3: Segments 13–18 ===
+    { rank=3;
+        node [shape=point, width=0.2, height=0.2];
+        s13 [xlabel="S₁₃"]; s14 [xlabel="S₁₄"]; s15 [xlabel="S₁₅"]; s16 [xlabel="S₁₆"]; s17 [xlabel="S₁₇"]; s18 [xlabel="S₁₈"];
+    }
+    // === Row 4: Segments 19–24 ===
+    { rank=4;
+        node [shape=point, width=0.2, height=0.2];
+        s19 [xlabel="S₁₉"]; s20 [xlabel="S₂₀"]; s21 [xlabel="S₂₁"]; s22 [xlabel="S₂₂"]; s23 [xlabel="S₂₃"]; s24 [xlabel="S₂₄"];
+    }
+    
+    // === Row 5: Schemes (structural blueprints) ===
+    { rank=5;
+        node [shape=box, style=solid];
+        sch1 [label="Σ₁"]; sch2 [label="Σ₂"]; sch3 [label="Σ₃"]; sch4 [label="Σ₄"];
+    }
+    
+    // === Row 6: Fields (dynamic governance) ===
+    { rank=6;
+        node [shape=rect, style=dashed];
+        f1 [label="F₁"]; f2 [label="F₂"]; f3 [label="F₃"]; f4 [label="F₄"];
+    }
+    
+    // === Row 7: Observation events ===
+    { rank=7;
+        node [shape=ellipse];
+        o1 [label="Ω₁"]; o2 [label="Ω₂"]; o3 [label="Ω₃"]; o4 [label="Ω₄"]; o5 [label="Ω₅"]; o6 [label="Ω₆"]; o7 [label="Ω₇"];
+    }
+    
+    // === Row 8: Projections (manifested states) ===
+    { rank=8;
+        node [shape=box];
+        p1 [label="P₁"]; p2 [label="P₂"]; p3 [label="P₃"]; p4 [label="P₄"]; p5 [label="P₅"]; p6 [label="P₆"]; p7 [label="P₇"];
+    }
+    
+    // === Row 9: Interpreted Data (final deterministic values) ===
+    { rank=9;
+        node [shape=box, style=rounded];
+        d1 [label="D₁\n= I₁(P₁)"]; d2 [label="D₂\n= I₂(P₂)"]; d3 [label="D₃\n= I₃(P₃)"];
+        d4 [label="D₄\n= I₄(P₄)"]; d5 [label="D₅\n= I₅(P₅)"]; d6 [label="D₆\n= I₆(P₆)"];
+        d7 [label="D₇\n= I₇(P₇)"];
+    }
+    
+    // === Scheme–Segment structural relations (undirected lines) ===
+    edge [arrowhead=none, style=solid];
+    // Σ₁: references s1–s6
+    sch1 -> s1; sch1 -> s2; sch1 -> s3; sch1 -> s4; sch1 -> s5; sch1 -> s6;
+    // Σ₂: references s5–s12
+    sch2 -> s5; sch2 -> s6; sch2 -> s7; sch2 -> s8; sch2 -> s9; sch2 -> s10; sch2 -> s11; sch2 -> s12;
+    // Σ₃: references s10–s18
+    sch3 -> s10; sch3 -> s11; sch3 -> s12; sch3 -> s13; sch3 -> s14; sch3 -> s15; sch3 -> s16; sch3 -> s17; sch3 -> s18;
+    // Σ₄: references s15–s24
+    sch4 -> s15; sch4 -> s16; sch4 -> s17; sch4 -> s18; sch4 -> s19; sch4 -> s20; sch4 -> s21; sch4 -> s22; sch4 -> s23; sch4 -> s24;
+    
+    // === Field influences on Schemes and Segments (dashed) ===
+    edge [arrowhead=none, style=dashed];
+    // F1 influences Σ1, Σ2 and segments s1–s12
+    f1 -> sch1; f1 -> sch2;
+    f1 -> s1; f1 -> s2; f1 -> s3; f1 -> s4; f1 -> s5; f1 -> s6; f1 -> s7; f1 -> s8; f1 -> s9; f1 -> s10; f1 -> s11; f1 -> s12;
+    // F2 influences Σ2, Σ3 and segments s8–s18
+    f2 -> sch2; f2 -> sch3;
+    f2 -> s8; f2 -> s9; f2 -> s10; f2 -> s11; f2 -> s12; f2 -> s13; f2 -> s14; f2 -> s15; f2 -> s16; f2 -> s17; f2 -> s18;
+    // F3 influences Σ3, Σ4 and segments s14–s24
+    f3 -> sch3; f3 -> sch4;
+    f3 -> s14; f3 -> s15; f3 -> s16; f3 -> s17; f3 -> s18; f3 -> s19; f3 -> s20; f3 -> s21; f3 -> s22; f3 -> s23; f3 -> s24;
+    // F4 influences Σ1, Σ4 and selected segments
+    f4 -> sch1; f4 -> sch4;
+    f4 -> s1; f4 -> s3; f4 -> s5; f4 -> s18; f4 -> s20; f4 -> s22;
+    
+    // === Structural input: Schemes and Segments define Field boundaries (solid) ===
+    edge [arrowhead=normal, style=solid];
+    // Schemes to Fields
+    sch1 -> f1; sch1 -> f4;
+    sch2 -> f1; sch2 -> f2;
+    sch3 -> f2; sch3 -> f3;
+    sch4 -> f3; sch4 -> f4;
+    // Segments to Fields (only those influenced)
+    s1 -> f1; s2 -> f1; s3 -> f1; s4 -> f1; s5 -> f1; s6 -> f1; s7 -> f1; s8 -> f1; s9 -> f1; s10 -> f1; s11 -> f1; s12 -> f1;
+    s8 -> f2; s9 -> f2; s10 -> f2; s11 -> f2; s12 -> f2; s13 -> f2; s14 -> f2; s15 -> f2; s16 -> f2; s17 -> f2; s18 -> f2;
+    s14 -> f3; s15 -> f3; s16 -> f3; s17 -> f3; s18 -> f3; s19 -> f3; s20 -> f3; s21 -> f3; s22 -> f3; s23 -> f3; s24 -> f3;
+    s1 -> f4; s3 -> f4; s5 -> f4; s18 -> f4; s20 -> f4; s22 -> f4;
+    
+    // === Trigger mechanism: Each Observation applies to one or more Fields ===
+    edge [arrowhead=normal, style=solid];
+    o1 -> f1 [label="Ω"]; o1 -> f2 [label="Ω"];
+    o2 -> f1 [label="Ω"]; o2 -> f4 [label="Ω"];
+    o3 -> f2 [label="Ω"]; o3 -> f3 [label="Ω"];
+    o4 -> f3 [label="Ω"]; o4 -> f4 [label="Ω"];
+    o5 -> f1 [label="Ω"];
+    o6 -> f2 [label="Ω"];
+    o7 -> f1 [label="Ω"]; o7 -> f2 [label="Ω"]; o7 -> f3 [label="Ω"];
+    
+    // === Observation outputs: each Ω produces a Projection (field combination indicated) ===
+    edge [arrowhead=normal, style=solid];
+    o1 -> p1 [label="P₁ = Ω₁(F₁,F₂)"];
+    o2 -> p2 [label="P₂ = Ω₂(F₁,F₄)"];
+    o3 -> p3 [label="P₃ = Ω₃(F₂,F₃)"];
+    o4 -> p4 [label="P₄ = Ω₄(F₃,F₄)"];
+    o5 -> p5 [label="P₅ = Ω₅(F₁)"];
+    o6 -> p6 [label="P₆ = Ω₆(F₂)"];
+    o7 -> p7 [label="P₇ = Ω₇(F₁,F₂,F₃)"];
+    
+    // === Interpretation: Projection yields deterministic Data ===
+    edge [arrowhead=normal, style=solid];
+    p1 -> d1 [label="I₁"];
+    p2 -> d2 [label="I₂"];
+    p3 -> d3 [label="I₃"];
+    p4 -> d4 [label="I₄"];
+    p5 -> d5 [label="I₅"];
+    p6 -> d6 [label="I₆"];
+    p7 -> d7 [label="I₇"];
+}
+```
+
+<div id="fig-ssccs-multifield">
+
+<div>
+
+</div>
+
+Figure 3: SSCCS multi-field, multi-observation parallel model with rich
+segment universe
+
+</div>
 
 ### 3.1 Segment: Atomic Coordinate Existence
 
@@ -470,7 +660,7 @@ digraph SSCCS_Comparison {
         
         s0 -> s1 -> s2;
         
-        note_seq [shape=plaintext, label="Time flows, state mutates", fontsize=8];
+        note_seq [shape=plaintext, label="Time flows, state mutates", fontsize=11];
     }
 
     // Spatial cluster (right)
@@ -523,7 +713,7 @@ digraph SSCCS_Comparison {
 
 </div>
 
-Figure 3: Time as a coordinate axis
+Figure 4: Time as a coordinate axis
 
 </div>
 
@@ -597,7 +787,7 @@ digraph Compilation_Process {
 
 </div>
 
-Figure 4: Compiler pipeline: from Schema to hardware layout
+Figure 5: Compiler pipeline: from Schema to hardware layout
 
 </div>
 
@@ -769,7 +959,7 @@ each element $a[i]$ and $b[i]$ from memory into registers, performing
 the addition, and storing the result back to memory.
 
 ``` rust
-// Traditional procedural implementation
+// Rust-like pseudocode
 fn add_vectors(a: &[f64], b: &[f64]) -> Vec<f64> {
     assert_eq!(a.len(), b.len());
     let mut result = Vec::with_capacity(a.len());
@@ -780,12 +970,13 @@ fn add_vectors(a: &[f64], b: &[f64]) -> Vec<f64> {
 }
 ```
 
-- Data Movement: $2N$ loads + $N$ stores = $3N$ total memory transfers.
-- Sequential Dependency: Loop-carried dependencies limit parallelisation
-  unless explicitly vectorised (SIMD).
-- Cache Behaviour: Performance is highly dependent on memory layout;
+- **Data Movement**: $2N$ loads + $N$ stores = $3N$ total memory
+  transfers.
+- **Sequential Dependency**: Loop-carried dependencies limit
+  parallelisation unless explicitly vectorised (SIMD).
+- **Cache Behaviour**: Performance is highly dependent on memory layout;
   random access or misalignment causes cache misses.
-- Auditability: Requires external tracing tools to reconstruct the
+- **Auditability**: Requires external tracing tools to reconstruct the
   execution path post-mortem.
 
 #### SSCCS Approach
@@ -794,34 +985,31 @@ A Scheme defines a set of Segments representing the vectors and an
 “adder” structure. The compiler, guided by adjacency relations, lays out
 the Segments consecutively in memory. An observation of the entire
 structure under a Field that enables addition yields a projection that
-is the sum vector.
-
-Note: This model assumes a hardware environment capable of Near-Data
-Processing (NDP) or Processing-In-Memory (PIM), where logic is
+is the sum vector. This model assumes a hardware environment capable of
+Near-Data Processing (NDP) or Processing-In-Memory (PIM), where logic is
 co-located with the data Segments.
 
 ``` rust
-// SSCCS structural implementation
+// Rust-like pseudocode
 let a = Segment::vector(1..N, initial_value);
 let b = Segment::vector(1..N, initial_value);
 let scheme = Scheme::add_vectors(a, b);
 let field = Field::new();
-
 // Computation is an emergent property of the observation
 let sum = observe(scheme, field); 
 ```
 
-- Data Movement: Zero input movement. Segments remain stationary
+- **Data Movement**: Zero input movement. Segments remain stationary
   (“Logic-at-Rest”). Only the resulting projection (a single vector of
   length $N$) is transmitted to the observer.
-- Parallelism: Structural independence allows all element pairs to be
-  observed concurrently without explicit synchronisation or
+- **Parallelism**: Structural independence allows all element pairs to
+  be observed concurrently without explicit synchronisation or
   partitioning.
-- Locality: Enforced by the compiler’s topological mapping, treating
+- **Locality**: Enforced by the compiler’s topological mapping, treating
   memory as an active topology rather than passive storage.
-- Auditability: The Scheme serves as an immutable specification of the
-  computational intent; the projection is a deterministic and verifiable
-  consequence.
+- **Auditability**: The Scheme serves as an immutable specification of
+  the computational intent; the projection is a deterministic and
+  verifiable consequence.
 
 | Aspect | Traditional (Procedural) | SSCCS (Structural) |
 |----|----|----|
@@ -954,7 +1142,7 @@ digraph SSCCS_Scaling {
 
 </div>
 
-Figure 5: Scaling SSCCS to N-dimensional tensors and complex graphs
+Figure 6: Scaling SSCCS to N-dimensional tensors and complex graphs
 
 </div>
 
@@ -964,13 +1152,13 @@ In SSCCS, an $N$-dimensional tensor is represented as a set of Segments
 where adjacency relations are defined across multiple axes within the
 Scheme.
 
-- Zero-Copy Reshaping: Traditional systems require physical data
+- **Zero-Copy Reshaping**: Traditional systems require physical data
   movement ($O(N)$ or $O(N^2)$) to perform operations like transposition
   or reshaping. In SSCCS, reshaping is a metadata-only operation. By
   reorienting the Field’s observation path over stationary Segments, the
   dimensionality of the Projection changes without moving a single bit
   in memory ($O(1)$).
-- Logical Adjacency: For operations like matrix multiplication, the
+- **Logical Adjacency**: For operations like matrix multiplication, the
   compiler maps Segments to ensure that the required operands for a
   specific Field are physically co-located. This transforms what would
   be complex indexing logic in a CPU into a direct physical property of
@@ -982,14 +1170,16 @@ Graph algorithms (e.g., PageRank, GNNs) are traditionally bottlenecked
 by “Pointer Chasing,” which causes severe cache thrashing and memory
 latency.
 
-- Segment-as-Node: Each node and its properties are encapsulated in a
-  Segment.
-- Adjacency-as-Structure: Edges are defined as structural constraints
-  within the Scheme, not as memory pointers to be followed sequentially.
-- Field-based Traversal: A Field propagates across the entire Scheme in
-  a single observation cycle. Instead of “visiting” nodes, the observer
-  captures the emergent state of the entire graph simultaneously.
-- Concurrency: This eliminates vertex-centric synchronization
+- **Segment-as-Node**: Each node and its properties are encapsulated in
+  a Segment.
+- **Adjacency-as-Structure**: Edges are defined as structural
+  constraints within the Scheme, not as memory pointers to be followed
+  sequentially.
+- **Field-based Traversal**: A Field propagates across the entire Scheme
+  in a single observation cycle. Instead of “visiting” nodes, the
+  observer captures the emergent state of the entire graph
+  simultaneously.
+- **Concurrency**: This eliminates vertex-centric synchronization
   (locks/mutexes). All nodes update their state in parallel as a
   deterministic consequence of the Field’s interaction with the Scheme’s
   topology.
@@ -1074,7 +1264,7 @@ digraph SystemStack {
 
 </div>
 
-Figure 6: SSCCS system stack
+Figure 7: SSCCS system stack
 
 </div>
 
@@ -1100,7 +1290,7 @@ complexity. By redefining execution as the Structural Observation of a
 stationary Scheme, the framework bypasses the sequential bottlenecks
 inherent in the von Neumann architecture.
 
-### 8.1 Time-Space Complexity Analysis
+### 8.1 Architectural Expectations of Time-Space Complexity
 
 Traditional procedural models are constrained by the linear relationship
 between data volume ($N$) and execution cycles. SSCCS decouples this
@@ -1155,7 +1345,7 @@ plt.tight_layout()
 plt.show()
 ```
 
-Figure 7
+Figure 8
 
 </div>
 
@@ -1165,23 +1355,23 @@ In a von Neumann environment, even with SIMD/MIMD parallelism, latency
 scales at $O(N)$ or $O(N/k)$ due to instruction dispatch,
 synchronization, and memory-wall stalls.
 
-- SSCCS Latency: Defined by the physical propagation delay of the Field
-  across the Scheme. Because structural constraints are resolved at the
-  mapping phase, the observation of the result—the Projection—approaches
-  $O(\log N)$ or even $O(1)$ in specialized hardware environments such
-  as Processing-In-Memory (PIM).
+- **SSCCS Latency**: Defined by the physical propagation delay of the
+  Field across the Scheme. Because structural constraints are resolved
+  at the mapping phase, the observation of the result—the
+  Projection—approaches $O(\log N)$ or even $O(1)$ in specialized
+  hardware environments such as Processing-In-Memory (PIM).
 
 #### 8.1.2 Data Movement Complexity (Spatial/Energy Cost)
 
 The primary energy sink in modern computing is the movement of operands
 from memory to logic units.
 
-- Procedural Cost: $O(N \cdot D)$, where $D$ represents the
+- **Procedural Cost**: $O(N \cdot D)$, where $D$ represents the
   dimensionality of the data required for each operation.
-- SSCCS Cost (Logic-at-Rest): $O(Projection)$. Since the input Segments
-  remain stationary within the Scheme, the energy expenditure is
-  strictly limited to the transmission of the resulting Projection. This
-  creates a widening efficiency gap as the scale of $N$ increases.
+- **SSCCS Cost (Logic-at-Rest)**: $O(Projection)$. Since the input
+  Segments remain stationary within the Scheme, the energy expenditure
+  is strictly limited to the transmission of the resulting Projection.
+  This creates a widening efficiency gap as the scale of $N$ increases.
 
 ### 8.2 Comparative Complexity Matrix
 
@@ -1240,7 +1430,7 @@ digraph Implementation_Roadmap {
 
 </div>
 
-Figure 8: Implementation roadmap: three research phases
+Figure 9: Implementation roadmap: three research phases
 
 </div>
 
@@ -1304,16 +1494,16 @@ providing a unified theoretical foundation:
 Recent work in AI demonstrates the growing relevance of structural
 constraints:
 
-- Geometric Constraints: Research such as *Manifold-Constrained
+- **Geometric Constraints**: Research such as *Manifold-Constrained
   Hyper-Connections* by DeepSeek $[5]$ highlights the efficacy of
   applying geometric inductive biases in high-dimensional
   representations. This validates the SSCCS approach of defining
   computational processes through topological constraints rather than
   procedural instructions.
 
-- SSCCS as a Structural Superset: SSCCS serves as a formal ontological
-  superset for State-Space Models (SSMs) like Mamba $[6]$ and
-  hardware-aware frameworks such as Modular AI’s MAX/Mojo $[7, 8]$.
+- **SSCCS as a Structural Superset**: SSCCS serves as a formal
+  ontological superset for State-Space Models (SSMs) like Mamba $[6]$
+  and hardware-aware frameworks such as Modular AI’s MAX/Mojo $[7, 8]$.
   While these systems achieve high-performance linear recurrences
   through ad-hoc kernel tuning, SSCCS redefines the SSM recurrence not
   as a procedural loop, but as a one-dimensional Scheme of adjacent
@@ -1407,9 +1597,10 @@ through global standards and its authenticity substantiated by immutable
 scientific records and cryptographic proofs.
 
 - Source code under Apache 2.0: [Github](https://github.com/ssccsorg) \|
-  Verifiable by [GPG ID:
-  BCCB196BADF50C99](https://keys.openpgp.org/search?q=BCCB196BADF50C99)
-- Whitepaper under CC BY-NC-ND 4.0: [PDF](https://ssccs.org/wp) \|
-  Registered in CERN DOI:
-  [10.5281/zenodo.18787286](https://doi.org/10.5281/zenodo.18787286),
+  GPG ID:
+  [BCCB196BADF50C99](https://keys.openpgp.org/search?q=BCCB196BADF50C99)
+- Whitepaper under CC BY-NC-ND 4.0: [PDF](https://ssccs.org/wp)
+  [HTML](https://ssccsorg.github.io/ssccs) \| Registered DOI:
+  [10.5281/zenodo.18787286](https://doi.org/10.5281/zenodo.18787286) by
+  CERN,
   [OpenAIRE](https://explore.openaire.eu/search/result?pid=10.5281%2Fzenodo.18787286)
