@@ -5,26 +5,26 @@
 
 ## Abstract
 
-**SSCCS (Schema–Segment Composition Computing System)** is an
-infrastructure specification that redefines computation as the traceable
-projection of immutable Segments within a structured Scheme. While
-contemporary innovation focuses on material hardware shifts, SSCCS
-addresses fundamental inefficiencies of the Von Neumann bottleneck at
-the logical layer. By formalizing computation as the simultaneous
-resolution of static potential under dynamic constraints rather than a
-sequence of state mutations, the architecture reframes data movement,
-concurrency, and verifiability.
+SSCCS (Schema–Segment Composition Computing System) is an infrastructure
+specification that redefines computation as the traceable projection of
+immutable Segments within a structured Scheme. While contemporary
+innovation focuses on material hardware shifts, SSCCS addresses
+fundamental inefficiencies of the Von Neumann bottleneck at the logical
+layer. By formalizing computation as the simultaneous resolution of
+static potential under dynamic constraints rather than a sequence of
+state mutations, the architecture reframes data movement, concurrency,
+and verifiability.
 
-SSCCS enforces three core values: **Immutability** (data cannot be
-altered after creation), **Structural Integrity** (computation must
-respect declared schemas), and **Traceability** (every projection is
-cryptographically verifiable). These values are realized through a
-distinct computational ontology: Segments serve as immutable carriers of
-information, Schemes define structural boundaries and constraints, and
-Observation deterministically resolves these elements into a Projection
-without altering underlying data. This structure-defined approach
-eliminates hidden manipulation, minimizes data movement, and establishes
-an auditable infrastructure.
+SSCCS enforces three core values: Immutability (data cannot be altered
+after creation), Structural Integrity (computation must respect declared
+schemas), and Traceability (every projection is cryptographically
+verifiable). These values are realized through a distinct computational
+ontology: Segments serve as immutable carriers of information, Schemes
+define structural boundaries and constraints, and Observation
+deterministically resolves these elements into a Projection without
+altering underlying data. This structure-defined approach eliminates
+hidden manipulation, minimizes data movement, and establishes an
+auditable infrastructure.
 
 Driven by a software‑first philosophy, this architecture ensures
 deterministic reproducibility by completely decoupling execution logic
@@ -66,12 +66,11 @@ transformation of values but the observation of structured potential.
 There are no mutable values, no instruction streams, and no privileged
 timeline. Instead, the system consists of:
 
-- **Segments:** immutable points in a multi‑dimensional coordinate
-  space.
-- **Schemes:** immutable blueprints defining the geometry and relations
+- Segments: immutable points in a multi‑dimensional coordinate space.
+- Schemes: immutable blueprints defining the geometry and relations
   among Segments.
-- **Fields:** mutable containers of dynamic constraints.
-- **Observation:** the sole active event that reveals a Projection—a
+- Fields: mutable containers of dynamic constraints.
+- Observation: the sole active event that reveals a Projection—a
   specific configuration from the space of possibilities.
 
 This redefinition has substantive consequences that extend far beyond
@@ -198,16 +197,16 @@ Figure 1: SSCCS Ontology: Three irreducible layers
 Each layer has defined properties and relationships; together they
 constitute the complete computational ontology.
 
-- **Immutable Segments & Schemes** allow any number of observers to
-  apply Ω concurrently – no locks or synchronization needed.
-- **Structural mapping** eliminates data movement: the von Neumann
+- Immutable Segments & Schemes allow any number of observers to apply Ω
+  concurrently – no locks or synchronization needed.
+- Structural mapping eliminates data movement: the von Neumann
   bottleneck disappears by design.
-- **Consistency** is guaranteed by the single mutable layer (Field),
-  which governs all observations.
-- **Deterministic results** arise from cryptographic identities and
+- Consistency is guaranteed by the single mutable layer (Field), which
+  governs all observations.
+- Deterministic results arise from cryptographic identities and
   reproducible hardware mappings.
-- **Parallelism is emergent**: concurrency flows from structure, not
-  from explicit programming.
+- Parallelism is emergent: concurrency flows from structure, not from
+  explicit programming.
 
 ``` dot
 digraph SSCCS_Integrated {
@@ -544,11 +543,11 @@ Segments are stationary.
 ## 5. Compilation and Structural Mapping
 
 A key engineering contribution of SSCCS is that the compiler, rather
-than generating a sequence of instructions, performs **structural
-mapping** of the Schema onto the target hardware. The compiler analyses
-the adjacency relations and memory layout semantics declared in the
-Schema (written in the open `.ss` format) and produces a physical
-placement of Segments that maximises locality.
+than generating a sequence of instructions, performs structural mapping
+of the Schema onto the target hardware. The compiler analyses the
+adjacency relations and memory layout semantics declared in the Schema
+(written in the open `.ss` format) and produces a physical placement of
+Segments that maximises locality.
 
 For example, if a Schema defines a two‑dimensional grid of Segments with
 nearest‑neighbour adjacency, the compiler can lay out those Segments in
@@ -607,28 +606,28 @@ Figure 4: Compiler pipeline: from Schema to hardware layout
 The SSCCS compiler transforms a high‑level `.ss` schema into a
 hardware‑specific layout through a deterministic pipeline.
 
-1.  **Parsing and Validation**: The `.ss` file is parsed into an
+1.  Parsing and Validation: The `.ss` file is parsed into an
     intermediate representation (IR) that captures the Schema’s axes,
     Segments, structural relations, constraints, memory‑layout
     declarations, and observation rules. Cryptographic identities
     (SchemaId, SegmentId) are computed and verified.
 
-2.  **Structural Analysis**: The compiler extracts adjacency, hierarchy,
+2.  Structural Analysis: The compiler extracts adjacency, hierarchy,
     dependency, and equivalence relations from the Schema’s relation
     graph. It identifies independent sub‑graphs that can be observed
     concurrently and detects any structural conflicts (e.g., cycles that
     would prevent deterministic observation).
 
-3.  **Memory‑Layout Resolution**: Using the Schema’s `MemoryLayout`
+3.  Memory‑Layout Resolution: Using the Schema’s `MemoryLayout`
     specification, the compiler resolves the mapping from coordinate
     space to logical addresses. The `MemoryLayout` struct contains a
     `layout_type` (Linear, RowMajor, ColumnMajor, SpaceFillingCurve,
     etc.) and a mapping function that implements the
-    coordinate‑to‑address transformation. This stage produces a
-    **logical address map** that preserves locality as defined by the
-    adjacency relations.
+    coordinate‑to‑address transformation. This stage produces a logical
+    address map that preserves locality as defined by the adjacency
+    relations.
 
-4.  **Hardware Mapping**: The logical address map is projected onto the
+4.  Hardware Mapping: The logical address map is projected onto the
     target hardware’s physical memory hierarchy. The compiler considers
     cache‑line boundaries, bank interleaving, and (where available)
     processing‑in‑memory (PIM) capabilities to place Segments such that
@@ -637,7 +636,7 @@ hardware‑specific layout through a deterministic pipeline.
     This step guarantees that observation can proceed with minimal data
     movement.
 
-5.  **Observation‑Code Generation**: For each independent sub‑graph, the
+5.  Observation‑Code Generation: For each independent sub‑graph, the
     compiler emits native code (or configures a reconfigurable fabric)
     that implements the observation operator `Ω`. The generated code
     respects the resolution strategy, triggers, and priority defined in
@@ -660,33 +659,32 @@ in a language‑neutral pseudocode):
 
 The compiler processes this Schema as follows:
 
-- **Parsing:** The schema is parsed into an internal representation with
-  two discrete axes, nine Segments (coordinates (0,0) … (2,2)),
-  adjacency relations for four‑connected neighbors, and a row‑major
-  memory layout.
+- Parsing: The schema is parsed into an internal representation with two
+  discrete axes, nine Segments (coordinates (0,0) … (2,2)), adjacency
+  relations for four‑connected neighbors, and a row‑major memory layout.
 
-- **Structural Analysis:** The relation graph reveals that each interior
+- Structural Analysis: The relation graph reveals that each interior
   cell has four neighbors; the graph is regular and contains no cycles
   that would create observational dependencies. All nine cells are
   mutually independent and can be observed in parallel.
 
-- **Memory‑Layout Resolution:** The row‑major mapping function computes
+- Memory‑Layout Resolution: The row‑major mapping function computes
   logical offsets: `offset = y * 3 + x`. The compiler evaluates this for
   all nine coordinates, producing a logical‑address map:
 
       (0,0)→0, (1,0)→1, (2,0)→2,
       (0,1)→3, … , (2,2)→8.
 
-- **Hardware Mapping:** On a CPU with 64‑byte cache lines, the compiler
+- Hardware Mapping: On a CPU with 64‑byte cache lines, the compiler
   packs the logical addresses into physical cache lines. Offsets 0‑7 fit
   into a single cache line; offset 8 spills into a second line. The
   compiler may decide to pad the layout to keep the entire grid in one
   cache line, or it may accept the spill because adjacent rows are still
   in adjacent lines.
 
-- **Observation‑Code Generation:** For a trivial observation that reads
-  each Segment’s value, the compiler emits a loop that iterates over the
-  nine logical addresses and loads the corresponding data. Because the
+- Observation‑Code Generation: For a trivial observation that reads each
+  Segment’s value, the compiler emits a loop that iterates over the nine
+  logical addresses and loads the corresponding data. Because the
   addresses are consecutive, the loop can be vectorized (SIMD). If the
   observation is a reduction (e.g., sum of values), the compiler may
   generate a parallel reduction using multiple cores.
@@ -698,28 +696,26 @@ manual optimization.
 ## 5.2 Memory Mapping Logic
 
 The compiler’s ability to eliminate data movement hinges on the
-**MemoryLayout** abstraction. A `MemoryLayout` consists of:
+MemoryLayout abstraction. A `MemoryLayout` consists of:
 
-- **layout_type** – a classification (`Linear`, `RowMajor`,
-  `ColumnMajor`, `SpaceFillingCurve`, `Hierarchical`, `GraphBased`,
-  `Custom`) describing the high‑level organisation.
-- **mapping** – a function that, given a coordinate tuple (e.g.,
-  `(x, y, z)`), returns an optional **logical address**. This function
-  is defined declaratively in the Schema and is independent of any
+- layout_type – a classification (`Linear`, `RowMajor`, `ColumnMajor`,
+  `SpaceFillingCurve`, `Hierarchical`, `GraphBased`, `Custom`)
+  describing the high‑level organisation.
+- mapping – a function that, given a coordinate tuple (e.g.,
+  `(x, y, z)`), returns an optional logical address. This function is
+  defined declaratively in the Schema and is independent of any
   programming language.
-- **metadata** – a set of key‑value pairs providing
-  implementation‑specific hints (e.g., curve parameters, stride
-  lengths).
+- metadata – a set of key‑value pairs providing implementation‑specific
+  hints (e.g., curve parameters, stride lengths).
 
-A **logical address** is an intermediate representation consisting of a
-**segment identifier** and an **offset** within that segment’s
-conceptual address space. It is **not** a physical memory address;
-rather, it serves as an intermediate coordinate that the hardware mapper
-later translates to concrete physical locations (cache lines, memory
-banks, etc.).
+A logical address is an intermediate representation consisting of a
+segment identifier and an offset within that segment’s conceptual
+address space. It is not a physical memory address; rather, it serves as
+an intermediate coordinate that the hardware mapper later translates to
+concrete physical locations (cache lines, memory banks, etc.).
 
-**Example:** For a two‑dimensional grid with row‑major layout, the
-mapping function can be expressed mathematically as:
+Example: For a two‑dimensional grid with row‑major layout, the mapping
+function can be expressed mathematically as:
 
     f(x, y) = (grid_id, y·width + x)
 
@@ -730,17 +726,16 @@ complete logical‑address map.
 By decoupling the logical layout from the physical implementation, the
 same Schema can be projected onto vastly different hardware topologies:
 
-- **CPU caches** – Adjacent logical addresses are placed into the same
-  cache line or neighbouring lines.
-- **FPGA block RAM** – The logical‑to‑physical mapping can be realised
-  as a simple address decoder.
-- **HBM (High‑Bandwidth Memory) stacks** – Segments with high adjacency
-  can be distributed across multiple memory channels to exploit
-  parallelism.
-- **Emerging non‑volatile memories (e.g., resistive RAM)** – The
-  stationary data model of SSCCS aligns naturally with
-  processing‑in‑memory (PIM) architectures, where computation is
-  performed directly inside the memory arrays.
+- CPU caches – Adjacent logical addresses are placed into the same cache
+  line or neighbouring lines.
+- FPGA block RAM – The logical‑to‑physical mapping can be realised as a
+  simple address decoder.
+- HBM (High‑Bandwidth Memory) stacks – Segments with high adjacency can
+  be distributed across multiple memory channels to exploit parallelism.
+- Emerging non‑volatile memories (e.g., resistive RAM) – The stationary
+  data model of SSCCS aligns naturally with processing‑in‑memory (PIM)
+  architectures, where computation is performed directly inside the
+  memory arrays.
 
 In all cases, the mapping is deterministic and reproducible: given the
 same Schema and hardware profile, the compiler always produces the same
@@ -785,13 +780,12 @@ fn add_vectors(a: &[f64], b: &[f64]) -> Vec<f64> {
 }
 ```
 
-- **Data Movement:** $2N$ loads + $N$ stores = $3N$ total memory
-  transfers.
-- **Sequential Dependency:** Loop-carried dependencies limit
-  parallelisation unless explicitly vectorised (SIMD).
-- **Cache Behaviour:** Performance is highly dependent on memory layout;
+- Data Movement: $2N$ loads + $N$ stores = $3N$ total memory transfers.
+- Sequential Dependency: Loop-carried dependencies limit parallelisation
+  unless explicitly vectorised (SIMD).
+- Cache Behaviour: Performance is highly dependent on memory layout;
   random access or misalignment causes cache misses.
-- **Auditability:** Requires external tracing tools to reconstruct the
+- Auditability: Requires external tracing tools to reconstruct the
   execution path post-mortem.
 
 #### SSCCS Approach
@@ -802,7 +796,7 @@ the Segments consecutively in memory. An observation of the entire
 structure under a Field that enables addition yields a projection that
 is the sum vector.
 
-**Note:** This model assumes a hardware environment capable of Near-Data
+Note: This model assumes a hardware environment capable of Near-Data
 Processing (NDP) or Processing-In-Memory (PIM), where logic is
 co-located with the data Segments.
 
@@ -817,33 +811,33 @@ let field = Field::new();
 let sum = observe(scheme, field); 
 ```
 
-- **Data Movement:** Zero input movement. Segments remain stationary
+- Data Movement: Zero input movement. Segments remain stationary
   (“Logic-at-Rest”). Only the resulting projection (a single vector of
   length $N$) is transmitted to the observer.
-- **Parallelism:** Structural independence allows all element pairs to
-  be observed concurrently without explicit synchronisation or
+- Parallelism: Structural independence allows all element pairs to be
+  observed concurrently without explicit synchronisation or
   partitioning.
-- **Locality:** Enforced by the compiler’s topological mapping, treating
+- Locality: Enforced by the compiler’s topological mapping, treating
   memory as an active topology rather than passive storage.
-- **Auditability:** The Scheme serves as an immutable specification of
-  the computational intent; the projection is a deterministic and
-  verifiable consequence.
+- Auditability: The Scheme serves as an immutable specification of the
+  computational intent; the projection is a deterministic and verifiable
+  consequence.
 
 | Aspect | Traditional (Procedural) | SSCCS (Structural) |
 |----|----|----|
-| **Input Data Movement** | $2N$ loads | Zero (Stationary Segments) |
-| **Output Data Movement** | $N$ stores | $N$ (Projection) |
-| **Concurrency** | Requires explicit parallelisation | Implicit (Structural independence) |
-| **Synchronisation** | Locks/atomics for shared state | None (Immutability guaranteed) |
-| **Memory Role** | Passive storage | Active topology |
-| **Auditability** | Requires external tracing | Intrinsic to Specification |
+| Input Data Movement | $2N$ loads | Zero (Stationary Segments) |
+| Output Data Movement | $N$ stores | $N$ (Projection) |
+| Concurrency | Requires explicit parallelisation | Implicit (Structural independence) |
+| Synchronisation | Locks/atomics for shared state | None (Immutability guaranteed) |
+| Memory Role | Passive storage | Active topology |
+| Auditability | Requires external tracing | Intrinsic to Specification |
 
 This example illustrates the fundamental ontological shift: computation
-becomes an **observation of stationary structure** rather than a
-sequence of data movements. The reduction in data movement is a
-consequence of this shift, not the primary goal. The deeper benefit lies
-in the absolute transparency and verifiability that emerge from treating
-computation as a structural specification.
+becomes an observation of stationary structure rather than a sequence of
+data movements. The reduction in data movement is a consequence of this
+shift, not the primary goal. The deeper benefit lies in the absolute
+transparency and verifiability that emerge from treating computation as
+a structural specification.
 
 ### 5.5 Scaling to N-Dimensional Tensors and Graphs
 
@@ -970,13 +964,13 @@ In SSCCS, an $N$-dimensional tensor is represented as a set of Segments
 where adjacency relations are defined across multiple axes within the
 Scheme.
 
-- **Zero-Copy Reshaping:** Traditional systems require physical data
+- Zero-Copy Reshaping: Traditional systems require physical data
   movement ($O(N)$ or $O(N^2)$) to perform operations like transposition
-  or reshaping. In SSCCS, **reshaping is a metadata-only operation.** By
+  or reshaping. In SSCCS, reshaping is a metadata-only operation. By
   reorienting the Field’s observation path over stationary Segments, the
   dimensionality of the Projection changes without moving a single bit
   in memory ($O(1)$).
-- **Logical Adjacency:** For operations like matrix multiplication, the
+- Logical Adjacency: For operations like matrix multiplication, the
   compiler maps Segments to ensure that the required operands for a
   specific Field are physically co-located. This transforms what would
   be complex indexing logic in a CPU into a direct physical property of
@@ -988,16 +982,14 @@ Graph algorithms (e.g., PageRank, GNNs) are traditionally bottlenecked
 by “Pointer Chasing,” which causes severe cache thrashing and memory
 latency.
 
-- **Segment-as-Node:** Each node and its properties are encapsulated in
-  a Segment.
-- **Adjacency-as-Structure:** Edges are defined as structural
-  constraints within the Scheme, not as memory pointers to be followed
-  sequentially.
-- **Field-based Traversal:** A Field propagates across the entire Scheme
-  in a single observation cycle. Instead of “visiting” nodes, the
-  observer captures the **emergent state** of the entire graph
-  simultaneously.
-- **Concurrency:** This eliminates vertex-centric synchronization
+- Segment-as-Node: Each node and its properties are encapsulated in a
+  Segment.
+- Adjacency-as-Structure: Edges are defined as structural constraints
+  within the Scheme, not as memory pointers to be followed sequentially.
+- Field-based Traversal: A Field propagates across the entire Scheme in
+  a single observation cycle. Instead of “visiting” nodes, the observer
+  captures the emergent state of the entire graph simultaneously.
+- Concurrency: This eliminates vertex-centric synchronization
   (locks/mutexes). All nodes update their state in parallel as a
   deterministic consequence of the Field’s interaction with the Scheme’s
   topology.
@@ -1006,18 +998,18 @@ latency.
 
 | Computational Task | Traditional Bottleneck | SSCCS Solution |
 |----|----|----|
-| **Tensor Reshaping** | Physical data reshuffling ($O(N^d)$) | Metadata-level Field reorientation ($O(1)$) |
-| **Matrix Contraction** | Memory bandwidth & indexing overhead | Hardwired adjacency in the Scheme |
-| **Graph Traversal** | High latency due to random access | Distributed parallel observation |
-| **Sparse Operations** | Complex indexing & storage overhead | Non-linear Scheme mapping (skipping null-space) |
+| Tensor Reshaping | Physical data reshuffling ($O(N^d)$) | Metadata-level Field reorientation ($O(1)$) |
+| Matrix Contraction | Memory bandwidth & indexing overhead | Hardwired adjacency in the Scheme |
+| Graph Traversal | High latency due to random access | Distributed parallel observation |
+| Sparse Operations | Complex indexing & storage overhead | Non-linear Scheme mapping (skipping null-space) |
 
-The scaling of SSCCS addresses the **Curse of Dimensionality** by
-decoupling the logical structure of data from the physical cost of its
-traversal. While traditional architectures expend energy moving data to
-accommodate logic, SSCCS modifies the Field to accommodate the
-stationary structure. This positions SSCCS as a foundational methodology
-for future AI-hardware co-design, where computational density and energy
-efficiency are the primary constraints.
+The scaling of SSCCS addresses the Curse of Dimensionality by decoupling
+the logical structure of data from the physical cost of its traversal.
+While traditional architectures expend energy moving data to accommodate
+logic, SSCCS modifies the Field to accommodate the stationary structure.
+This positions SSCCS as a foundational methodology for future
+AI-hardware co-design, where computational density and energy efficiency
+are the primary constraints.
 
 ## 6. The Open Format
 
@@ -1090,7 +1082,7 @@ In environments without direct hardware support, a lightweight software
 runtime emulates the observation process by interpreting the binary
 `.ss` format.
 
-## 8. Hardware Considerations
+### 7.1. Hardware Considerations
 
 While SSCCS can be implemented in software, its benefits are most
 pronounced with hardware support:
@@ -1100,9 +1092,72 @@ pronounced with hardware support:
 - Spatial computation mapping adjacency to wiring.
 - Cryptographic primitives in hardware.
 
-These ideas build on research in near‑memory computing, dataflow
-architectures, and reconfigurable logic. Realization is a long‑term
-research challenge.
+## 8. Theoretical Performance & Scalability
+
+The SSCCS architecture derives its efficiency not from incremental
+hardware acceleration, but from a fundamental shift in computational
+complexity. By redefining execution as the Structural Observation of a
+stationary Scheme, the framework bypasses the sequential bottlenecks
+inherent in the von Neumann architecture.
+
+### 8.1 Time-Space Complexity Analysis
+
+Traditional procedural models are constrained by the linear relationship
+between data volume ($N$) and execution cycles. SSCCS decouples this
+relationship by utilizing the concurrent propagation of a Field across a
+pre-defined Topology.
+
+#### 8.1.1 Temporal Complexity (Latency)
+
+In a von Neumann environment, even with SIMD/MIMD parallelism, latency
+scales at $O(N)$ or $O(N/k)$ due to instruction dispatch,
+synchronization, and memory-wall stalls.
+
+- SSCCS Latency: Defined by the physical propagation delay of the Field
+  across the Scheme. Because structural constraints are resolved at the
+  mapping phase, the observation of the result—the Projection—approaches
+  $O(\log N)$ or even $O(1)$ in specialized hardware environments such
+  as Processing-In-Memory (PIM).
+
+#### 8.1.2 Data Movement Complexity (Spatial/Energy Cost)
+
+The primary energy sink in modern computing is the movement of operands
+from memory to logic units.
+
+- Procedural Cost: $O(N \cdot D)$, where $D$ represents the
+  dimensionality of the data required for each operation.
+- SSCCS Cost (Logic-at-Rest): $O(Projection)$. Since the input Segments
+  remain stationary within the Scheme, the energy expenditure is
+  strictly limited to the transmission of the resulting Projection. This
+  creates a widening efficiency gap as the scale of $N$ increases.
+
+### 8.2 Comparative Complexity Matrix
+
+The following table summarizes the asymptotic behavior of SSCCS compared
+to traditional sequential and parallel (SIMD) architectures.
+
+| Metric | Sequential | Parallel (SIMD/GPU) | SSCCS (Structural) |
+|----|----|----|----|
+| Instruction Overhead | High ($O(N)$) | Moderate ($O(N/k)$) | Minimal (Field-based) |
+| Data Locality | Managed (Cache) | Explicit (SRAM/Tiling) | Intrinsic (Scheme-defined) |
+| Execution Latency | $O(N)$ | $O(N/k) + \text{sync}$ | $O(\log N)$ or $O(1)$ |
+| Data Movement | $O(N)$ | $O(N)$ | $O(\text{Output Only})$ |
+| Scalability Limit | Amdahl’s Law | Memory Bandwidth | Physical Propagation Delay |
+
+### 8.3 Scalability in High-Dimensional AI Workloads
+
+As demonstrated in the emergence of State-Space Models (SSMs) $[6]$ and
+manifold-constrained learning $[5]$, the ability to process
+high-dimensional representations without exhaustive data shuffling is
+critical.
+
+1.  Stationary Topology: By fixing the Segments in a k-dimensional
+    `MemoryLayout`, SSCCS allows the hardware to perform “Observation”
+    as a near-instantaneous mapping.
+2.  Implicit Parallelism: Unlike threads or warps that require explicit
+    management, SSCCS parallelism is implicit—it is a property of the
+    structure itself. The scalability is limited only by the fidelity of
+    the Field and the resolution of the Projector ($\Omega$).
 
 ## 9. Implementation Roadmap
 
@@ -1195,15 +1250,26 @@ providing a unified theoretical foundation:
   observation‑based computation.
 
 Recent work in AI demonstrates the growing relevance of structural
-constraints: - Manifold-Constrained Hyper-Connections (DeepSeek,
-arXiv:2512.24880) explores geometric constraints in high-dimensional
-neural representations, showing the efficacy of structural constraints
-for efficient learning. While domain-specific, it underscores the
-timeliness of structure-defined computation. - State-Space Models (SSMs)
-have been optimized in hardware for efficient linear recurrences, but
-operate at a different layer (sequence modeling). SSCCS is foundational
-for general-purpose computation, orthogonal to such domain-specific
-optimizations.
+constraints:
+
+- Geometric Constraints: Research such as *Manifold-Constrained
+  Hyper-Connections* by DeepSeek $[5]$ highlights the efficacy of
+  applying geometric inductive biases in high-dimensional
+  representations. This validates the SSCCS approach of defining
+  computational processes through topological constraints rather than
+  procedural instructions.
+
+- SSCCS as a Structural Superset: SSCCS serves as a formal ontological
+  superset for State-Space Models (SSMs) like Mamba $[6]$ and
+  hardware-aware frameworks such as Modular AI’s MAX/Mojo $[7, 8]$.
+  While these systems achieve high-performance linear recurrences
+  through ad-hoc kernel tuning, SSCCS redefines the SSM recurrence not
+  as a procedural loop, but as a one-dimensional Scheme of adjacent
+  Segments where state transitions emerge as Projections of a sequential
+  Field. By shifting from execution-based optimization to the
+  deterministic observation of stationary topological constraints, SSCCS
+  inherently encompasses the efficiency gains of modern AI execution
+  engines within a universal, structure-defined architecture.
 
 These references contextualize SSCCS within the broader intellectual
 landscape. In each domain, the shift from execution to observation is
@@ -1261,15 +1327,26 @@ execution.
 
 ## References
 
-\[1\] W. A. Wulf and S. A. McKee, “Hitting the memory wall: implications
-of the obvious,” *ACM SIGARCH Computer Architecture News*, vol. 23, no.
-1, pp. 20–24, 1995.  
-\[2\] S. Borkar and A. A. Chien, “The future of microprocessors,”
-*Communications of the ACM*, vol. 54, no. 5, pp. 67–77, 2011.  
-\[3\] R. Lucas et al., “Top ten exascale research challenges,” US
-Department of Energy, 2014.  
-\[4\] M. Horowitz, “Computing’s energy problem (and what we can do about
-it),” in *IEEE International Solid‑State Circuits Conference*, 2014.
+- \[1\] W. A. Wulf and S. A. McKee, “Hitting the memory wall:
+  implications of the obvious,” *ACM SIGARCH Computer Architecture
+  News*, vol. 23, no. 1, pp. 20–24, 1995.
+- \[2\] S. Borkar and A. A. Chien, “The future of microprocessors,”
+  *Communications of the ACM*, vol. 54, no. 5, pp. 67–77, 2011.
+- \[3\] R. Lucas et al., “Top ten exascale research challenges,” US
+  Department of Energy, 2014.
+- \[4\] M. Horowitz, “Computing’s energy problem (and what we can do
+  about it),” in *IEEE International Solid‑State Circuits Conference*,
+  2014.
+- \[5\] DeepSeek-AI, “Manifold-Constrained Hyper-Connections: Geometric
+  Inductive Biases in High-Dimensional Representations,” *arXiv preprint
+  arXiv:2512.24880*, 2025.
+- \[6\] A. Gu and T. Dao, “Mamba: Linear-Time Sequence Modeling with
+  Selective State Spaces,” *arXiv preprint arXiv:2312.00752*, 2023.
+- \[7\] Modular AI, “MAX: A Unified AI Execution Engine,” \[Online\].
+  Available: https://www.modular.com/max. Accessed Feb. 2026.
+- \[8\] C. Lattner et al., “Mojo: Programming Language for All of AI,”
+  \[Online\]. Available: https://www.modular.com/mojo. Accessed
+  Feb. 2026.
 
 ------------------------------------------------------------------------
 
@@ -1277,7 +1354,7 @@ it),” in *IEEE International Solid‑State Circuits Conference*, 2014.
 through global standards and its authenticity substantiated by immutable
 scientific records and cryptographic proofs.
 
-- Source code under Apache-2.0: [Github](https://github.com/ssccsorg) \|
+- Source code under Apache 2.0: [Github](https://github.com/ssccsorg) \|
   Verifiable by [GPG ID:
   BCCB196BADF50C99](https://keys.openpgp.org/search?q=BCCB196BADF50C99)
 - Whitepaper under CC BY-NC-ND 4.0: [PDF](https://ssccs.org/wp) \|
