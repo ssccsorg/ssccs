@@ -163,7 +163,7 @@ digraph SSCCS_Ontology {
     Projection [label="Projection (P₁)\n", shape=box];
 
     // Final Deterministic State: Interpreted data from the projection
-    Data [label="Collapsed Possibility, State, or Data (D₁)\nD₁ = I₁(P₁)", shape=box];
+    Data [label="Collapsed Possibility, State, or Data (D₁)\nD₁ = I₁(P₁)",shape=box, style=rounded, penwidth=2];
     
     // Structural Binding: Defines the static relationship between Scheme and Segments
     {rank=source;
@@ -279,7 +279,7 @@ digraph SSCCS_MultiField {
     
     // === Fifth rank: Interpreted Data (final deterministic values) ===
     { rank=5;
-        node [shape=box, style=rounded];
+        node [shape=box, style=rounded, penwidth=2];
         d1 [label="D₁\n= I₁(P₁)"];
         d2 [label="D₂\n= I₂(P₂)"];
         d3 [label="D₃\n= I₃(P₃)"];
@@ -343,53 +343,67 @@ segment set
 </div>
 
 This integrated view illustrates the full SSCCS model: The observation
-events (Ω₁, Ω₂, etc.) can occur concurrently without any temporal
-ordering, and the resulting projections (P₁, P₂, etc.) are independent
-of each other. The data (D₁, D₂, etc.) derived from these projections
-can also be interpreted independently. So **time is not a fundamental
-dimension that governs state changes**; instead, the structure of
-Schemes and the constraints of Fields govern what can be observed and
-when.
+events ($Ω_1$, $Ω_2$, etc.) can occur concurrently without any temporal
+ordering, and the resulting projections ($P_1$, $P_2$, etc.) are
+independent of each other. The data ($D_1$, $D_2$, $D_3$, etc.) derived
+from these projections can also be interpreted independently. So **time
+is not a fundamental dimension that governs state changes**; instead,
+the structure of Schemes and the constraints of Fields govern what can
+be observed and when.
 
-A more complexier structural composition can be defined like,
-“Computational Cosmos”:
+A more complexier structural composition can be defined like:
 
 ``` dot
 digraph SSCCS_MultiField {
     rankdir=TB;
     node [shape=rect];
     
-    // === Row 1: Segments 1–6 ===
+    ranksep=0.1;
+    nodesep=0.13;
+    
+    // === Row 1: Segments 1–6 + invisible (to make 7 columns) ===
     { rank=1;
         node [shape=point, width=0.2, height=0.2];
         s1 [xlabel="S₁"]; s2 [xlabel="S₂"]; s3 [xlabel="S₃"]; s4 [xlabel="S₄"]; s5 [xlabel="S₅"]; s6 [xlabel="S₆"];
+        node [style=invis, shape=point, label="", width=0, height=0];
+        invis_s1;
     }
-    // === Row 2: Segments 7–12 ===
+    // === Row 2: Segments 7–12 + invisible ===
     { rank=2;
         node [shape=point, width=0.2, height=0.2];
         s7 [xlabel="S₇"]; s8 [xlabel="S₈"]; s9 [xlabel="S₉"]; s10 [xlabel="S₁₀"]; s11 [xlabel="S₁₁"]; s12 [xlabel="S₁₂"];
+        node [style=invis, shape=point, label="", width=0, height=0];
+        invis_s2;
     }
-    // === Row 3: Segments 13–18 ===
+    // === Row 3: Segments 13–18 + invisible ===
     { rank=3;
         node [shape=point, width=0.2, height=0.2];
         s13 [xlabel="S₁₃"]; s14 [xlabel="S₁₄"]; s15 [xlabel="S₁₅"]; s16 [xlabel="S₁₆"]; s17 [xlabel="S₁₇"]; s18 [xlabel="S₁₈"];
+        node [style=invis, shape=point, label="", width=0, height=0];
+        invis_s3;
     }
-    // === Row 4: Segments 19–24 ===
+    // === Row 4: Segments 19–24 + invisible ===
     { rank=4;
         node [shape=point, width=0.2, height=0.2];
         s19 [xlabel="S₁₉"]; s20 [xlabel="S₂₀"]; s21 [xlabel="S₂₁"]; s22 [xlabel="S₂₂"]; s23 [xlabel="S₂₃"]; s24 [xlabel="S₂₄"];
+        node [style=invis, shape=point, label="", width=0, height=0];
+        invis_s4;
     }
     
-    // === Row 5: Schemes (structural blueprints) ===
+    // === Row 5: Schemes (structural blueprints) – widened to 7 columns ===
     { rank=5;
         node [shape=box, style=solid];
         sch1 [label="Σ₁"]; sch2 [label="Σ₂"]; sch3 [label="Σ₃"]; sch4 [label="Σ₄"];
+        node [style=invis, shape=point, label=""];
+        invis_sch1; invis_sch2; invis_sch3;
     }
     
-    // === Row 6: Fields (dynamic governance) ===
+    // === Row 6: Fields (dynamic governance) – widened to 7 columns ===
     { rank=6;
         node [shape=rect, style=dashed];
         f1 [label="F₁"]; f2 [label="F₂"]; f3 [label="F₃"]; f4 [label="F₄"];
+        node [style=invis, shape=point, label=""];
+        invis_f1; invis_f2; invis_f3;
     }
     
     // === Row 7: Observation events ===
@@ -406,46 +420,40 @@ digraph SSCCS_MultiField {
     
     // === Row 9: Interpreted Data (final deterministic values) ===
     { rank=9;
-        node [shape=box, style=rounded];
-        d1 [label="D₁\n= I₁(P₁)"]; d2 [label="D₂\n= I₂(P₂)"]; d3 [label="D₃\n= I₃(P₃)"];
-        d4 [label="D₄\n= I₄(P₄)"]; d5 [label="D₅\n= I₅(P₅)"]; d6 [label="D₆\n= I₆(P₆)"];
+        node [shape=rect, style=rounded, penwidth=2];
+        d1 [label="D₁\n= I₁(P₁)"]; 
+        d2 [label="D₂\n= I₂(P₂)"]; 
+        d3 [label="D₃\n= I₃(P₃)"];
+        d4 [label="D₄\n= I₄(P₄)"]; 
+        d5 [label="D₅\n= I₅(P₅)"]; 
+        d6 [label="D₆\n= I₆(P₆)"];
         d7 [label="D₇\n= I₇(P₇)"];
     }
     
     // === Scheme–Segment structural relations (undirected lines) ===
     edge [arrowhead=none, style=solid];
-    // Σ₁: references s1–s6
     sch1 -> s1; sch1 -> s2; sch1 -> s3; sch1 -> s4; sch1 -> s5; sch1 -> s6;
-    // Σ₂: references s5–s12
     sch2 -> s5; sch2 -> s6; sch2 -> s7; sch2 -> s8; sch2 -> s9; sch2 -> s10; sch2 -> s11; sch2 -> s12;
-    // Σ₃: references s10–s18
     sch3 -> s10; sch3 -> s11; sch3 -> s12; sch3 -> s13; sch3 -> s14; sch3 -> s15; sch3 -> s16; sch3 -> s17; sch3 -> s18;
-    // Σ₄: references s15–s24
     sch4 -> s15; sch4 -> s16; sch4 -> s17; sch4 -> s18; sch4 -> s19; sch4 -> s20; sch4 -> s21; sch4 -> s22; sch4 -> s23; sch4 -> s24;
     
     // === Field influences on Schemes and Segments (dashed) ===
     edge [arrowhead=none, style=dashed];
-    // F1 influences Σ1, Σ2 and segments s1–s12
     f1 -> sch1; f1 -> sch2;
     f1 -> s1; f1 -> s2; f1 -> s3; f1 -> s4; f1 -> s5; f1 -> s6; f1 -> s7; f1 -> s8; f1 -> s9; f1 -> s10; f1 -> s11; f1 -> s12;
-    // F2 influences Σ2, Σ3 and segments s8–s18
     f2 -> sch2; f2 -> sch3;
     f2 -> s8; f2 -> s9; f2 -> s10; f2 -> s11; f2 -> s12; f2 -> s13; f2 -> s14; f2 -> s15; f2 -> s16; f2 -> s17; f2 -> s18;
-    // F3 influences Σ3, Σ4 and segments s14–s24
     f3 -> sch3; f3 -> sch4;
     f3 -> s14; f3 -> s15; f3 -> s16; f3 -> s17; f3 -> s18; f3 -> s19; f3 -> s20; f3 -> s21; f3 -> s22; f3 -> s23; f3 -> s24;
-    // F4 influences Σ1, Σ4 and selected segments
     f4 -> sch1; f4 -> sch4;
     f4 -> s1; f4 -> s3; f4 -> s5; f4 -> s18; f4 -> s20; f4 -> s22;
     
     // === Structural input: Schemes and Segments define Field boundaries (solid) ===
     edge [arrowhead=normal, style=solid];
-    // Schemes to Fields
     sch1 -> f1; sch1 -> f4;
     sch2 -> f1; sch2 -> f2;
     sch3 -> f2; sch3 -> f3;
     sch4 -> f3; sch4 -> f4;
-    // Segments to Fields (only those influenced)
     s1 -> f1; s2 -> f1; s3 -> f1; s4 -> f1; s5 -> f1; s6 -> f1; s7 -> f1; s8 -> f1; s9 -> f1; s10 -> f1; s11 -> f1; s12 -> f1;
     s8 -> f2; s9 -> f2; s10 -> f2; s11 -> f2; s12 -> f2; s13 -> f2; s14 -> f2; s15 -> f2; s16 -> f2; s17 -> f2; s18 -> f2;
     s14 -> f3; s15 -> f3; s16 -> f3; s17 -> f3; s18 -> f3; s19 -> f3; s20 -> f3; s21 -> f3; s22 -> f3; s23 -> f3; s24 -> f3;
@@ -453,23 +461,22 @@ digraph SSCCS_MultiField {
     
     // === Trigger mechanism: Each Observation applies to one or more Fields ===
     edge [arrowhead=normal, style=solid];
-    o1 -> f1 [label="Ω"]; o1 -> f2 [label="Ω"];
-    o2 -> f1 [label="Ω"]; o2 -> f4 [label="Ω"];
-    o3 -> f2 [label="Ω"]; o3 -> f3 [label="Ω"];
-    o4 -> f3 [label="Ω"]; o4 -> f4 [label="Ω"];
-    o5 -> f1 [label="Ω"];
-    o6 -> f2 [label="Ω"];
-    o7 -> f1 [label="Ω"]; o7 -> f2 [label="Ω"]; o7 -> f3 [label="Ω"];
-    
-    // === Observation outputs: each Ω produces a Projection (field combination indicated) ===
+    o1 -> {f1, f2};
+    o2 -> {f1, f4};
+    o3 -> {f2, f3};
+    o4 -> {f3, f4};
+    o5 -> f1;
+    o6 -> f2;
+    o7 -> {f1, f2, f3};
+
     edge [arrowhead=normal, style=solid];
-    o1 -> p1 [label="P₁ = Ω₁(F₁,F₂)"];
-    o2 -> p2 [label="P₂ = Ω₂(F₁,F₄)"];
-    o3 -> p3 [label="P₃ = Ω₃(F₂,F₃)"];
-    o4 -> p4 [label="P₄ = Ω₄(F₃,F₄)"];
-    o5 -> p5 [label="P₅ = Ω₅(F₁)"];
-    o6 -> p6 [label="P₆ = Ω₆(F₂)"];
-    o7 -> p7 [label="P₇ = Ω₇(F₁,F₂,F₃)"];
+    {f1, f2} -> p1 [label="Ω₁"];
+    {f1, f4} -> p2 [label="Ω₂"];
+    {f2, f3} -> p3 [label="Ω₃"];
+    {f3, f4} -> p4 [label="Ω₄"];
+    f1 -> p5 [label="Ω₅"];
+    f2 -> p6 [label="Ω₆"];
+    {f1, f2, f3} -> p7 [label="Ω₇"];
     
     // === Interpretation: Projection yields deterministic Data ===
     edge [arrowhead=normal, style=solid];
@@ -489,8 +496,7 @@ digraph SSCCS_MultiField {
 
 </div>
 
-Figure 3: SSCCS multi-field, multi-observation parallel model with rich
-segment universe
+Figure 3: The large-scale mass-segment and multi-field scenario
 
 </div>
 
