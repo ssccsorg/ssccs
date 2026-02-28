@@ -1,7 +1,7 @@
 # Schema–Segment Composition Computing System
 
 
-[![](https://zenodo.org/badge/DOI/10.5281/zenodo.18787286.svg)](https://doi.org/10.5281/zenodo.18787286)
+[![](https://zenodo.org/badge/DOI/10.5281/zenodo.18759106.svg)](https://doi.org/10.5281/zenodo.18759106)
 
 ## Abstract
 
@@ -37,172 +37,6 @@ Commons.
 
 
 
-``` python
-import numpy as np
-import random
-random.seed(42)
-np.random.seed(42)
-num_segments = 100          
-num_schemes = 8
-num_fields = 6
-num_observations = 12
-num_projections = num_observations
-num_data = num_observations
-y_layer = {'segment':0, 'scheme':1, 'field':2, 'observation':3, 'projection':4, 'data':5}
-all_coords = {}
-
-for i in range(1, num_segments+1):
-    all_coords[f's{i}'] = (random.uniform(0,12), y_layer['segment'], random.uniform(-12,12))
-
-for i in range(1, num_schemes+1):
-    all_coords[f'sch{i}'] = (random.uniform(0,10), y_layer['scheme'], random.uniform(-5,5))
-
-for i in range(1, num_fields+1):
-    all_coords[f'f{i}'] = (random.uniform(4,6), y_layer['field'], random.uniform(-5,5))
-
-for i in range(1, num_observations+1):
-    side = random.choice(['left', 'right'])
-    x_pos = -3 if side == 'left' else 13
-    all_coords[f'o{i}'] = (x_pos, y_layer['observation'], random.uniform(-10,10))
-
-for i, obs in enumerate([f'o{i}' for i in range(1, num_observations+1)], start=1):
-    obs_x = all_coords[obs][0]
-    angle = random.uniform(0, 2 * np.pi)
-    radius = random.uniform(1.5, 3.0)
-    proj_x = 5 + radius * np.cos(angle)
-    proj_z = radius * np.sin(angle)
-    all_coords[f'p{i}'] = (proj_x, y_layer['projection'], proj_z)
-
-for i in range(1, num_data+1):
-    angle = (i / num_data) * 2 * np.pi
-    radius = 12  
-    all_coords[f'd{i}'] = (5 + radius * np.cos(angle), y_layer['data'], radius * np.sin(angle))
-    
-def get_pos(node): return all_coords[node]
-seg_nodes = [f's{i}' for i in range(1, num_segments+1)]
-sch_nodes = [f'sch{i}' for i in range(1, num_schemes+1)]
-f_nodes   = [f'f{i}'   for i in range(1, num_fields+1)]
-obs_nodes = [f'o{i}'   for i in range(1, num_observations+1)]
-proj_nodes= [f'p{i}'   for i in range(1, num_projections+1)]
-data_nodes= [f'd{i}'   for i in range(1, num_data+1)]
-
-scheme_seg_edges = []
-for sch in sch_nodes:
-    k = random.randint(5, min(15, num_segments))
-    chosen = random.sample(seg_nodes, k)
-    for seg in chosen:
-        scheme_seg_edges.append((sch, seg))
-field_influence_edges = []
-for f in f_nodes:
-    k_sch = random.randint(0, min(3, num_schemes))
-    chosen_sch = random.sample(sch_nodes, k_sch) if k_sch > 0 else []
-    for sch in chosen_sch:
-        field_influence_edges.append((f, sch))
-    k_seg = random.randint(5, min(20, num_segments))
-    chosen_seg = random.sample(seg_nodes, k_seg)
-    for seg in chosen_seg:
-        field_influence_edges.append((f, seg))
-scheme_to_field_edges = []
-for sch in sch_nodes:
-    k = random.randint(1, min(3, num_fields))
-    chosen = random.sample(f_nodes, k)
-    for f in chosen:
-        scheme_to_field_edges.append((sch, f))
-seg_to_field_edges = []
-for seg in seg_nodes:
-    k = random.randint(1, min(3, num_fields))
-    chosen = random.sample(f_nodes, k)
-    for f in chosen:
-        seg_to_field_edges.append((seg, f))
-obs_to_field_edges = []
-obs_to_fields_map = {}
-for obs in obs_nodes:
-    k = random.randint(1, min(2, num_fields))
-    chosen = random.sample(f_nodes, k)
-    obs_to_fields_map[obs] = chosen
-    for f in chosen:
-        obs_to_field_edges.append((obs, f))
-field_to_proj_edges = []
-for i, obs in enumerate(obs_nodes, start=1):
-    proj = f'p{i}'
-    fields_for_obs = obs_to_fields_map[obs]
-    for f in fields_for_obs:
-        field_to_proj_edges.append((f, proj))
-proj_to_data_edges = [(f'p{i}', f'd{i}') for i in range(1, num_projections+1)]
-```
-
-``` python
-import plotly.graph_objects as go
-import numpy as np
-
-BLACK = '#000000'
-DARKGRAY = '#333333'
-GRAY = '#555555'
-LIGHTGRAY = '#777777'
-PALEGRAY = '#999999'
-
-def create_edge_trace(edge_list, color, width=1, dash=None, name=''):
-    x, y, z = [], [], []
-    for s, t in edge_list:
-        x1, y1, z1 = get_pos(s)
-        x2, y2, z2 = get_pos(t)
-        x += [x1, x2, None]
-        y += [y1, y2, None]
-        z += [z1, z2, None]
-    return go.Scatter3d(x=x, y=y, z=z, mode='lines',
-                        line=dict(color=color, width=width, dash=dash),
-                        name=name, hoverinfo='none')
-
-def create_node_trace(nodes, symbol='circle', size=7, color=BLACK, name=''):
-    xyz = [get_pos(n) for n in nodes]
-    return go.Scatter3d(
-        x=[p[0] for p in xyz], y=[p[1] for p in xyz], z=[p[2] for p in xyz],
-        mode='markers',
-        marker=dict(size=size, color=color, symbol=symbol),
-        text=nodes,
-        hoverinfo='text',
-        name=name
-    )
-
-trace_sch_seg = create_edge_trace(scheme_seg_edges, color=PALEGRAY, width=0.5, name='Scheme-Segment')
-trace_field_inf = create_edge_trace(field_influence_edges, color=GRAY, width=0.8, dash='dash', name='Field influence')
-trace_sch2f = create_edge_trace(scheme_to_field_edges, color=GRAY, width=0.8, name='Scheme→Field')
-trace_seg2f = create_edge_trace(seg_to_field_edges, color=GRAY, width=0.8, name='Segment→Field')
-
-trace_obs2f = create_edge_trace(obs_to_field_edges, color=BLACK, width=4, name='Observation→Field')
-trace_f2proj = create_edge_trace(field_to_proj_edges, color=DARKGRAY, width=0.8, name='Field→Projection')
-trace_proj2data = create_edge_trace(proj_to_data_edges, color=DARKGRAY, width=0.8, name='Projection→Data')
-
-node_seg = create_node_trace(seg_nodes, symbol='circle', size=4, color=BLACK, name='Segments')
-node_sch = create_node_trace(sch_nodes, symbol='square', size=5, color=BLACK, name='Schemes')
-node_f = create_node_trace(f_nodes, symbol='diamond', size=10, color=BLACK, name='Fields')
-node_obs = create_node_trace(obs_nodes, symbol='circle', size=8, color=BLACK, name='Observations')
-node_proj = create_node_trace(proj_nodes, symbol='diamond', size=5, color=BLACK, name='Projections')
-node_data = create_node_trace(data_nodes, symbol='diamond-open', size=6, color=BLACK, name='Data (State)')
-fig = go.Figure(data=[
-    trace_sch_seg, trace_field_inf, trace_sch2f, trace_seg2f,
-    trace_obs2f, trace_f2proj, trace_proj2data,
-    node_seg, node_sch, node_f, node_obs, node_proj, node_data,
-])
-
-fig.update_layout(
-    scene=dict(
-        camera=dict(eye=dict(x=1.577, y=0.923, z=1.155)),
-        aspectmode='manual',
-        aspectratio=dict(x=1, y=1, z=0.8)
-    ),
-    legend=dict(
-        x=0.93,
-        y=0.9,
-        xanchor="right",
-        yanchor="top"
-    ),
-    width=1000,
-    height=1000
-)
-fig.show()
-```
-
 Before observation, structure exists as constrained potential, **data is
 merely the shadow of a collapsed state.** Beneath the surface of
 immutable segments and schemes, observation momentarily illuminates the
@@ -213,53 +47,110 @@ remains eternally untouched.
 
 ## Introduction
 
-For decades, computation has been defined by the von Neumann model:
+For decades, computation has been defined by the von Neumann model:  
+`Data (Input) + Program → Execution → Result`
 
-    Data + Program → Execution → Result
+This formulation rests on several assumptions: **data exists as
+intrinsic values in memory, programs are instruction sequences, and
+execution involves moving data between memory and processor across a
+sequential timeline.** These assumptions are not fundamental laws but
+consequences of a specific architectural choice. Consequently, the
+majority of energy and time in conventional systems is spent on data
+movement rather than logic—a symptom known as the “data-movement wall”
+\[1, 2, 3\]. While new hardware-side paradigms attempt to mitigate this,
+it remains a localized optimization within the same sequential paradigm.
 
-This formulation rests on several assumptions:
+SSCCS proposes a shift from procedural execution to **structural
+observation**:
 
-- Data exists as intrinsic values stored in memory.
-- Programs are sequences of instructions that operate on data.
-- Execution involves moving data between memory and processor.
-- State mutation produces results.
-- Time orders execution sequentially.
+``` dot
+digraph SSCCS_Comparison {
+    rankdir=LR;
+ 
+    // Sequential cluster (left)
+    subgraph cluster_sequential {
+        label="Sequential (von Neumann)";
+        labelloc=t;
+        node [shape=box, fontsize=10];
+        edge [arrowhead=normal];
+        
+        s0 [label="State A\n(t=0)"];
+        s1 [label="State B\n(t=1)"];
+        s2 [label="State C\n(t=2)"];
+        
+        s0 -> s1 -> s2;
+    }
 
-These assumptions, while deeply embedded, are not fundamental laws of
-computation but consequences of a particular architectural choice. In
-practice, the majority of energy and time in conventional systems is
-spent on moving data rather than on the actual arithmetic or logic
-operations \[1, 2\]—a symptom that reveals the underlying inefficiency
-of the von Neumann model. This imbalance, often called the
-“data‑movement wall” \[3\], has motivated research into alternative
-models.
+    // Spatial cluster (right)
+    subgraph cluster_spatial {
+        label="Spatial (SSCCS)";
+        labelloc=t;
+        
+        // Scheme‑segments (coordinates in space‑time)
+        node [shape=point, width=0.2, height=0.2];
+        p0 [shape=point, width=0.15, xlabel="Observe(t=0)", fontsize=7];
+        p1 [shape=point, width=0.15, xlabel="Observe(t=2)", fontsize=7];
+        p2 [shape=point, width=0.15, xlabel="Observe(t=5)", fontsize=7];
 
-SSCCS proposes a different set of primitives. Computation is not the
-transformation of values but the observation of structured potential.
-There are no mutable values, no instruction streams, and no privileged
-timeline. Instead, the system consists of:
+        // Field – drawn as a rectangle around points (using a subgraph)
+        subgraph cluster_field {
+            label="Manifold Field\n(+constraints)";
+            style=dashed;
+            color=black;
+            node [shape=point];  // keep points inside
+            p0; p1; p2;
+        }
 
-- Segments: immutable points in a multi‑dimensional coordinate space.
-- Schemes: immutable blueprints defining the geometry and relations
+        // Observation events – projections
+        node [shape=box, fontsize=10];
+        proj0 [label="State: A"];
+        proj1 [label="State: B"];
+        proj2 [label="State: C"];
+
+        // Observation arrows
+        edge [arrowhead=normal, style=solid, label="Projection"];
+        p0 -> proj0;
+        p1 -> proj1;
+        p2 -> proj2;
+    }
+
+    // Invisible edge to align clusters horizontally (optional)
+    edge [style=invis];
+    s2 -> p0;
+}
+```
+
+<div id="fig-time-coordinate">
+
+<div>
+
+</div>
+
+Figure 1: SSCCS: Time as a coordinate axis
+
+</div>
+
+SSCCS redefines computation as the observation of structured potential
+through four primitives:
+
+- **Segments**: Immutable points in a multi-dimensional coordinate
+  space.
+- **Schemes**: Immutable blueprints defining the geometry and relations
   among Segments.
-- Fields: mutable containers of dynamic constraints.
-- Observation: the sole active event that reveals a Projection—a
-  specific configuration from the space of possibilities.
+- **Fields**: Mutable containers of dynamic constraints.
+- **Observation**: The active event that reveals a Projection from the
+  space of possibilities.
 
-This redefinition has substantive consequences that extend far beyond
-data movement. The system’s structure determines what can be known;
-observation determines what becomes known. Data movement reduction is
-one consequence among many—a derivative benefit of a shift from
-procedural execution to structural observation. More fundamentally, this
-shift yields deterministic reproducibility: because structure is fixed
-and observation is deterministic, every computation produces a
-verifiable trace from blueprint to projection.
+This redefinition has substantive consequences. Data movement reduction
+is a derivative benefit of a shift from procedural execution to
+structural mapping. More fundamentally, this shift yields
+**deterministic reproducibility**: because the structure is fixed and
+observation is deterministic, every computation produces a verifiable
+trace from blueprint to projection.
 
-The paper describes the formal components of SSCCS, their properties,
-the engineering implications (including but not limited to data movement
-reduction), the open specification format, the planned validation across
-multiple domains, and the project’s commitment to computational
-infrastructure.
+The following sections describe the formal components of SSCCS, their
+engineering implications, the open specification format, and the
+project’s commitment to a new computational infrastructure.
 
 ## The SSCCS Model
 
@@ -324,7 +215,7 @@ digraph SSCCS_Ontology {
 
 </div>
 
-Figure 1: SSCCS Ontology: Three irreducible layers
+Figure 2: SSCCS Ontology: Three irreducible layers
 
 </div>
 
@@ -462,7 +353,7 @@ digraph SSCCS_MultiField {
 
 </div>
 
-Figure 2: SSCCS multi-field, multi-observation parallel model with
+Figure 3: SSCCS multi-field, multi-observation parallel model with
 segment set
 
 </div>
@@ -615,13 +506,13 @@ digraph SSCCS_MultiField {
 }
 ```
 
-<div id="fig-ssccs-multifield">
+<div id="fig-ssccs-multifield-large">
 
 <div>
 
 </div>
 
-Figure 3: The large-scale mass-segment scenario
+Figure 4: The large-scale mass-segment scenario
 
 </div>
 
@@ -697,25 +588,21 @@ configurations are possible, but does not modify any Segment.
 
 ### Observation and Projection
 
-Observation is the single active event. It is defined as:
-
 $$ P = \Omega(\Sigma, F) $$
 
-where  
-- $\Sigma$ is the set of Segments and their Scheme,  
-- $F$ is the current Field state,  
-- $\Omega$ is the observation operator,  
-- $P$ is the resulting Projection.
-
-Observation occurs when the structure and Field together create an
-instability—i.e., multiple admissible configurations. $\Omega$
-deterministically selects one configuration and returns it as $P$. No
-data is moved during observation; Segments remain in place. The
-Projection is ephemeral; if needed again, it is recomputed.
+Observation $\Omega$ is the single active event. where $\Sigma$ is the
+set of Segments and their Scheme, $F$ is the current Field state, $P$ is
+the resulting Projection. Observation occurs when the structure and
+Field together create an instability—i.e., multiple admissible
+configurations. $\Omega$ deterministically selects one configuration and
+returns it as $P$. No data is moved during observation; Segments remain
+in place. The Projection is ephemeral; if needed again, it is
+recomputed.
 
 ### Secure Isolation and Cryptographic Boundaries
 
-SSCCS provides natural isolation through:
+This architecture enables complex computations within cryptographically
+enforced boundaries without requiring trust between components.
 
 - Identity-based boundaries: Every Segment and Scheme has a unique
   cryptographic hash. A computation can only access Segments for which
@@ -725,9 +612,6 @@ SSCCS provides natural isolation through:
 - Cryptographically enforced scoping: Schemes can define boundaries
   limiting visibility, enforced by observation rules and identity
   verification.
-
-This architecture enables complex computations within cryptographically
-enforced boundaries without requiring trust between components.
 
 ### Relationship with Traditional Concepts
 
@@ -773,93 +657,21 @@ have a global temporal order unless explicitly defined. This eliminates
 the notion of a “program counter” and the associated assumption that
 computation must proceed in sequence.
 
-``` dot
-digraph SSCCS_Comparison {
-    rankdir=LR;
- 
-    // Sequential cluster (left)
-    subgraph cluster_sequential {
-        label="Sequential (von Neumann)";
-        labelloc=t;
-        style=dashed;
-        node [shape=box, fontsize=10];
-        edge [arrowhead=normal];
-        
-        s0 [label="State A\n(t=0)"];
-        s1 [label="State B\n(t=1)"];
-        s2 [label="State C\n(t=2)"];
-        
-        s0 -> s1 -> s2;
-        
-        note_seq [shape=plaintext, label="Time flows, state mutates", fontsize=11];
-    }
-
-    // Spatial cluster (right)
-    subgraph cluster_spatial {
-        label="Spatial (SSCCS)";
-        labelloc=t;
-        style=dashed;
-        
-        // Scheme‑segments (coordinates in space‑time)
-        node [shape=point, width=0.2, height=0.2];
-        p0 [xlabel="(t=0, x=1)"];
-        p1 [xlabel="(t=2, x=3)"];
-        p2 [xlabel="(t=5, x=2)"];
-
-        // Field – drawn as a rectangle around points (using a subgraph)
-        subgraph cluster_field {
-            label="Field (rules + constraints)";
-            style=dashed;
-            color=black;
-            node [shape=point];  // keep points inside
-            p0; p1; p2;
-        }
-
-        // Observation events – projections
-        node [shape=box, fontsize=10];
-        proj0 [label="projection: A"];
-        proj1 [label="projection: B"];
-        proj2 [label="projection: C"];
-
-        // Observation arrows
-        edge [arrowhead=normal, style=solid, label="observe"];
-        p0 -> proj0;
-        p1 -> proj1;
-        p2 -> proj2;
-
-        // No arrows between scheme‑segments
-        note_spatial [shape=plaintext, fontsize=9, label=
-            "No persistent state – only coordinates + fields.\nObservation yields projections we interpret as 'state'."];
-    }
-
-    // Invisible edge to align clusters horizontally (optional)
-    edge [style=invis];
-    s2 -> p0;
-}
-```
-
-<div id="fig-time-coordinate">
-
-<div>
-
-</div>
-
-Figure 4: Time as a coordinate axis
-
-</div>
+$$\delta(S_t, \text{instr}_{pc}) \to S_{t+1}, \quad pc \leftarrow pc + 1$$
 
 ### Energy Model
 
-A simplified energy model for SSCCS is:
-
-$$
+A simplified energy model for SSCCS is: $$
 E_{\text{total}} = E_{\text{observation}} \times N_{\text{obs}} + E_{\text{field-update}} \times N_{\text{update}}
 $$
 
 where $E_{\text{observation}}$ is the energy to perform one observation,
 and $E_{\text{field-update}}$ is the energy to modify the Field. There
 is no term for moving data between memory and processor, because
-Segments are stationary.
+Segments are stationary. This model predicts that energy consumption
+with hardware‑dependent constants scales with the number of observations
+and field updates, but not with data movement, which is a key source of
+energy inefficiency in traditional architectures.
 
 ## Compilation and Structural Mapping
 
@@ -1017,51 +829,64 @@ manual optimization.
 ## Memory Mapping Logic
 
 The compiler’s ability to eliminate data movement hinges on the
-MemoryLayout abstraction. A `MemoryLayout` consists of:
+`MemoryLayout` abstraction. A `MemoryLayout` consists of:
 
-- layout_type – a classification (`Linear`, `RowMajor`, `ColumnMajor`,
+- **layout_type** – classification (`Linear`, `RowMajor`, `ColumnMajor`,
   `SpaceFillingCurve`, `Hierarchical`, `GraphBased`, `Custom`)
   describing the high‑level organisation.
-- mapping – a function that, given a coordinate tuple (e.g.,
-  `(x, y, z)`), returns an optional logical address. This function is
-  defined declaratively in the Schema and is independent of any
-  programming language.
-- metadata – a set of key‑value pairs providing implementation‑specific
-  hints (e.g., curve parameters, stride lengths).
+- **mapping** – a function that, given a coordinate tuple (e.g.,
+  `(x, y, z)`), returns an optional logical address. Defined
+  declaratively in the Schema, independent of any programming language.
+- **metadata** – implementation‑specific hints (curve parameters, stride
+  lengths, etc.).
 
-A logical address is an intermediate representation consisting of a
-segment identifier and an offset within that segment’s conceptual
-address space. It is not a physical memory address; rather, it serves as
-an intermediate coordinate that the hardware mapper later translates to
-concrete physical locations (cache lines, memory banks, etc.).
+A logical address is an intermediate representation: a segment
+identifier and an offset within that segment’s conceptual address space.
+It is not a physical address; rather, it serves as an intermediate
+coordinate that the hardware mapper later translates to concrete
+physical locations.
 
-Example: For a two‑dimensional grid with row‑major layout, the mapping
-function can be expressed mathematically as:
+**Example**: For a 2D grid with row‑major layout:
 
     f(x, y) = (grid_id, y·width + x)
 
-where `width` is the grid’s extent in the x‑direction. The compiler
-evaluates this function for every coordinate in the Schema, producing a
-complete logical‑address map.
+where `width` is the grid’s x‑extent. The compiler evaluates this
+function for every coordinate in the Schema, producing a complete
+logical‑address map.
 
-By decoupling the logical layout from the physical implementation, the
-same Schema can be projected onto vastly different hardware topologies:
+### Embedding Schema into Hardware Topologies
 
-- CPU caches – Adjacent logical addresses are placed into the same cache
-  line or neighbouring lines.
-- FPGA block RAM – The logical‑to‑physical mapping can be realised as a
-  simple address decoder.
-- HBM (High‑Bandwidth Memory) stacks – Segments with high adjacency can
-  be distributed across multiple memory channels to exploit parallelism.
-- Emerging non‑volatile memories (e.g., resistive RAM) – The stationary
-  data model of SSCCS aligns naturally with processing‑in‑memory (PIM)
-  architectures, where computation is performed directly inside the
-  memory arrays.
+The logical address space acts as a **virtualisation layer**, decoupling
+structural description from physical implementation. The same Schema can
+be embedded into vastly different hardware substrates:
+
+- **CPU Caches/DRAM** – The logical map materialises as conventional
+  address generation. High‑adjacency Segments map to contiguous cache
+  lines, maximising spatial locality within the native memory hierarchy.
+- **FPGA Block RAM** – The mapping becomes a hardwired address decoder,
+  transforming geometric relations directly into hardware signals—no
+  instruction stream intervenes.
+- **HBM** – Segments distribute across independent memory channels,
+  exploiting massive spatial parallelism inherent in the coordinate
+  field.
+- **Emerging Non‑volatile Memories (ReRAM, PCM)** – These devices’
+  crossbar structures naturally suit a stationary data model. SSCCS
+  treats the physical array as a static coordinate manifold, enabling
+  direct structural projection within the memory substrate itself.
+
+Crucially, even on conventional von Neumann hardware, SSCCS overlays a
+structural interpretation on existing infrastructure: the compiler
+translates logical addresses into standard load/store operations, but
+the overall computation remains free of data movement because all
+necessary data is already resident where observation occurs. The same
+Schema thus deploys on today’s CPUs, tomorrow’s PIM accelerators, or
+purely spatial substrates like FPGAs—with the compiler adapting the
+embedding strategy accordingly.
 
 In all cases, the mapping is deterministic and reproducible: given the
 same Schema and hardware profile, the compiler always produces the same
-physical layout, ensuring that observation proceeds with minimal data
-movement.
+physical layout, ensuring that every observation proceeds with
+minimal—often zero—data movement.
 
 ### Automating Manual Optimizations
 
@@ -1116,9 +941,7 @@ A Scheme defines a set of Segments representing the vectors and an
 “adder” structure. The compiler, guided by adjacency relations, lays out
 the Segments consecutively in memory. An observation of the entire
 structure under a Field that enables addition yields a projection that
-is the sum vector. This model assumes a hardware environment capable of
-Near-Data Processing (NDP) or Processing-In-Memory (PIM), where logic is
-co-located with the data Segments.
+is the sum vector.
 
 ``` rust
 // Rust-like pseudocode
@@ -1162,9 +985,9 @@ a structural specification.
 
 The structural principles of SSCCS extend beyond linear vectors to
 higher-dimensional and non-linear data structures. As dimensionality
-increases, the inefficiency of the von Neumann bottleneck grows
-exponentially; SSCCS provides a constant-time logical alternative for
-structural reorientation.
+increases, the limitations of the von Neumann model in certain domains
+grows exponentially; SSCCS provides a constant-time logical alternative
+for structural reorientation.
 
 ``` dot
 digraph SSCCS_Scaling {
@@ -1403,7 +1226,7 @@ In environments without direct hardware support, a lightweight software
 runtime emulates the observation process by interpreting the binary
 `.ss` format.
 
-### Hardware Considerations
+### Future Hardware Considerations
 
 While SSCCS can be implemented in software, its benefits are most
 pronounced with hardware support:
@@ -1489,8 +1312,9 @@ synchronization, and memory-wall stalls.
 - **SSCCS Latency**: Defined by the physical propagation delay of the
   Field across the Scheme. Because structural constraints are resolved
   at the mapping phase, the observation of the result—the
-  Projection—approaches $O(\log N)$ or even $O(1)$ in specialized
-  hardware environments such as Processing-In-Memory (PIM).
+  Projection—theoretically approaches $O(1)$ in emerging hardware
+  paradigms such as Processing-In-Memory (PIM), where data movement
+  overhead is minimized.
 
 #### Data Movement Complexity (Spatial/Energy Cost)
 
@@ -1615,8 +1439,8 @@ providing a unified theoretical foundation:
   as graphs where nodes fire when inputs are available.
 - Functional programming emphasises immutability and referential
   transparency.
-- Processing‑in‑memory (PIM) research directly addresses the data
-  movement problem.
+- Processing‑in‑memory (PIM) research addresses the data movement
+  problem within the von Neumann paradigm.
 - Declarative languages (SQL, Datalog) describe *what* to compute rather
   than how.
 - Intentional programming and memoisation share conceptual ground with
@@ -1732,6 +1556,6 @@ scientific records and cryptographic proofs.
   [BCCB196BADF50C99](https://keys.openpgp.org/search?q=BCCB196BADF50C99)
 - Whitepaper under CC BY-NC-ND 4.0: [PDF](https://ssccs.org/wp)
   [HTML](https://ssccsorg.github.io/ssccs) \| Registered DOI:
-  [10.5281/zenodo.18787286](https://doi.org/10.5281/zenodo.18787286) by
+  [10.5281/zenodo.18759106](https://doi.org/10.5281/zenodo.18759106) by
   CERN,
   [OpenAIRE](https://explore.openaire.eu/search/result?pid=10.5281%2Fzenodo.18787286)
