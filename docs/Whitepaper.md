@@ -6,25 +6,22 @@
 ## Abstract
 
 **SSCCS (Schema–Segment Composition Computing System)** is an
-infrastructure specification that redefines computation as the traceable
-projection of immutable Segments within a structured Scheme. While
-contemporary innovation focuses on material hardware shifts, SSCCS
-addresses fundamental inefficiencies of the Von Neumann bottleneck at
-the logical layer. By formalizing computation as the simultaneous
-resolution of static potential under dynamic constraints rather than a
-sequence of state mutations, the architecture reframes data movement,
-concurrency, and verifiability.
+observation-driven computing model and infrastructure specification that
+redefines computation as the traceable projection of immutable Segments
+within a structured Scheme. While contemporary innovation focuses on
+material hardware shifts, SSCCS addresses fundamental inefficiencies of
+the Von Neumann bottleneck at the logical layer. By formalizing
+computation as the simultaneous resolution of static potential under
+dynamic constraints rather than a sequence of state mutations, the
+architecture reframes data movement, concurrency, and verifiability.
 
-SSCCS enforces three core values: **Immutability** (data cannot be
-altered after creation), **Structural Integrity** (computation must
-respect declared schemas), and **Traceability** (every projection is
-cryptographically verifiable). These values are realized through a
-distinct computational ontology: Segments serve as immutable carriers of
-information, Schemes define structural boundaries and constraints, and
-Observation deterministically resolves these elements into a Projection
-without altering underlying data. This structure-defined approach
-eliminates hidden manipulation, minimizes data movement, and establishes
-an auditable infrastructure.
+SSCCS embodies three core principles: Immutability (segments and schemes
+are immutable once created), Structural Integrity (computations adhere
+to predefined scheme-segment relationships), and Traceability (every
+projection is deterministically derived and cryptographically
+verifiable). Its layered ontology—Segments, Schemes, Fields,
+Observations, Projections, and Data—ensures that information remains
+unchanged, operations are transparent, and all outcomes can be audited.
 
 Driven by a software‑first philosophy, this architecture ensures
 deterministic reproducibility by completely decoupling execution logic
@@ -40,12 +37,181 @@ Commons.
 
 
 
-Before observation, structure exists as constrained potential - Data is
-merely the shadow of a collapsed state.
+``` python
+import numpy as np
+import random
+random.seed(42)
+np.random.seed(42)
+num_segments = 100          
+num_schemes = 8
+num_fields = 6
+num_observations = 12
+num_projections = num_observations
+num_data = num_observations
+y_layer = {'segment':0, 'scheme':1, 'field':2, 'observation':3, 'projection':4, 'data':5}
+all_coords = {}
+
+for i in range(1, num_segments+1):
+    all_coords[f's{i}'] = (random.uniform(0,12), y_layer['segment'], random.uniform(-12,12))
+
+for i in range(1, num_schemes+1):
+    all_coords[f'sch{i}'] = (random.uniform(0,10), y_layer['scheme'], random.uniform(-5,5))
+
+for i in range(1, num_fields+1):
+    all_coords[f'f{i}'] = (random.uniform(4,6), y_layer['field'], random.uniform(-5,5))
+
+for i in range(1, num_observations+1):
+    side = random.choice(['left', 'right'])
+    x_pos = -3 if side == 'left' else 13
+    all_coords[f'o{i}'] = (x_pos, y_layer['observation'], random.uniform(-10,10))
+
+for i, obs in enumerate([f'o{i}' for i in range(1, num_observations+1)], start=1):
+    obs_x = all_coords[obs][0]
+    angle = random.uniform(0, 2 * np.pi)
+    radius = random.uniform(1.5, 3.0)
+    proj_x = 5 + radius * np.cos(angle)
+    proj_z = radius * np.sin(angle)
+    all_coords[f'p{i}'] = (proj_x, y_layer['projection'], proj_z)
+
+for i in range(1, num_data+1):
+    angle = (i / num_data) * 2 * np.pi
+    radius = 12  
+    all_coords[f'd{i}'] = (5 + radius * np.cos(angle), y_layer['data'], radius * np.sin(angle))
+    
+def get_pos(node): return all_coords[node]
+seg_nodes = [f's{i}' for i in range(1, num_segments+1)]
+sch_nodes = [f'sch{i}' for i in range(1, num_schemes+1)]
+f_nodes   = [f'f{i}'   for i in range(1, num_fields+1)]
+obs_nodes = [f'o{i}'   for i in range(1, num_observations+1)]
+proj_nodes= [f'p{i}'   for i in range(1, num_projections+1)]
+data_nodes= [f'd{i}'   for i in range(1, num_data+1)]
+
+scheme_seg_edges = []
+for sch in sch_nodes:
+    k = random.randint(5, min(15, num_segments))
+    chosen = random.sample(seg_nodes, k)
+    for seg in chosen:
+        scheme_seg_edges.append((sch, seg))
+field_influence_edges = []
+for f in f_nodes:
+    k_sch = random.randint(0, min(3, num_schemes))
+    chosen_sch = random.sample(sch_nodes, k_sch) if k_sch > 0 else []
+    for sch in chosen_sch:
+        field_influence_edges.append((f, sch))
+    k_seg = random.randint(5, min(20, num_segments))
+    chosen_seg = random.sample(seg_nodes, k_seg)
+    for seg in chosen_seg:
+        field_influence_edges.append((f, seg))
+scheme_to_field_edges = []
+for sch in sch_nodes:
+    k = random.randint(1, min(3, num_fields))
+    chosen = random.sample(f_nodes, k)
+    for f in chosen:
+        scheme_to_field_edges.append((sch, f))
+seg_to_field_edges = []
+for seg in seg_nodes:
+    k = random.randint(1, min(3, num_fields))
+    chosen = random.sample(f_nodes, k)
+    for f in chosen:
+        seg_to_field_edges.append((seg, f))
+obs_to_field_edges = []
+obs_to_fields_map = {}
+for obs in obs_nodes:
+    k = random.randint(1, min(2, num_fields))
+    chosen = random.sample(f_nodes, k)
+    obs_to_fields_map[obs] = chosen
+    for f in chosen:
+        obs_to_field_edges.append((obs, f))
+field_to_proj_edges = []
+for i, obs in enumerate(obs_nodes, start=1):
+    proj = f'p{i}'
+    fields_for_obs = obs_to_fields_map[obs]
+    for f in fields_for_obs:
+        field_to_proj_edges.append((f, proj))
+proj_to_data_edges = [(f'p{i}', f'd{i}') for i in range(1, num_projections+1)]
+```
+
+``` python
+import plotly.graph_objects as go
+import numpy as np
+
+BLACK = '#000000'
+DARKGRAY = '#333333'
+GRAY = '#555555'
+LIGHTGRAY = '#777777'
+PALEGRAY = '#999999'
+
+def create_edge_trace(edge_list, color, width=1, dash=None, name=''):
+    x, y, z = [], [], []
+    for s, t in edge_list:
+        x1, y1, z1 = get_pos(s)
+        x2, y2, z2 = get_pos(t)
+        x += [x1, x2, None]
+        y += [y1, y2, None]
+        z += [z1, z2, None]
+    return go.Scatter3d(x=x, y=y, z=z, mode='lines',
+                        line=dict(color=color, width=width, dash=dash),
+                        name=name, hoverinfo='none')
+
+def create_node_trace(nodes, symbol='circle', size=7, color=BLACK, name=''):
+    xyz = [get_pos(n) for n in nodes]
+    return go.Scatter3d(
+        x=[p[0] for p in xyz], y=[p[1] for p in xyz], z=[p[2] for p in xyz],
+        mode='markers',
+        marker=dict(size=size, color=color, symbol=symbol),
+        text=nodes,
+        hoverinfo='text',
+        name=name
+    )
+
+trace_sch_seg = create_edge_trace(scheme_seg_edges, color=PALEGRAY, width=0.5, name='Scheme-Segment')
+trace_field_inf = create_edge_trace(field_influence_edges, color=GRAY, width=0.8, dash='dash', name='Field influence')
+trace_sch2f = create_edge_trace(scheme_to_field_edges, color=GRAY, width=0.8, name='Scheme→Field')
+trace_seg2f = create_edge_trace(seg_to_field_edges, color=GRAY, width=0.8, name='Segment→Field')
+
+trace_obs2f = create_edge_trace(obs_to_field_edges, color=BLACK, width=4, name='Observation→Field')
+trace_f2proj = create_edge_trace(field_to_proj_edges, color=DARKGRAY, width=0.8, name='Field→Projection')
+trace_proj2data = create_edge_trace(proj_to_data_edges, color=DARKGRAY, width=0.8, name='Projection→Data')
+
+node_seg = create_node_trace(seg_nodes, symbol='circle', size=4, color=BLACK, name='Segments')
+node_sch = create_node_trace(sch_nodes, symbol='square', size=5, color=BLACK, name='Schemes')
+node_f = create_node_trace(f_nodes, symbol='diamond', size=10, color=BLACK, name='Fields')
+node_obs = create_node_trace(obs_nodes, symbol='circle', size=8, color=BLACK, name='Observations')
+node_proj = create_node_trace(proj_nodes, symbol='diamond', size=5, color=BLACK, name='Projections')
+node_data = create_node_trace(data_nodes, symbol='diamond-open', size=6, color=BLACK, name='Data (State)')
+fig = go.Figure(data=[
+    trace_sch_seg, trace_field_inf, trace_sch2f, trace_seg2f,
+    trace_obs2f, trace_f2proj, trace_proj2data,
+    node_seg, node_sch, node_f, node_obs, node_proj, node_data,
+])
+
+fig.update_layout(
+    scene=dict(
+        camera=dict(eye=dict(x=1.577, y=0.923, z=1.155)),
+        aspectmode='manual',
+        aspectratio=dict(x=1, y=1, z=0.8)
+    ),
+    legend=dict(
+        x=0.93,
+        y=0.9,
+        xanchor="right",
+        yanchor="top"
+    ),
+    width=1000,
+    height=1000
+)
+fig.show()
+```
+
+Before observation, structure exists as constrained potential, **data is
+merely the shadow of a collapsed state.** Beneath the surface of
+immutable segments and schemes, observation momentarily illuminates the
+field, projections arise as shadows, yet the underlying structure
+remains eternally untouched.
 
 
 
-## 1. Introduction
+## Introduction
 
 For decades, computation has been defined by the von Neumann model:
 
@@ -60,13 +226,13 @@ This formulation rests on several assumptions:
 - Time orders execution sequentially.
 
 These assumptions, while deeply embedded, are not fundamental laws of
-computation but consequences of a particular architectural choice. SSCCS
-rejects this entire structure. In practice, the majority of energy and
-time in conventional systems is spent on moving data rather than on the
-actual arithmetic or logic operations \[1, 2\]—a symptom that reveals
-the underlying inefficiency of the von Neumann model. This imbalance,
-often called the “data‑movement wall” \[3\], has motivated research into
-alternative models.
+computation but consequences of a particular architectural choice. In
+practice, the majority of energy and time in conventional systems is
+spent on moving data rather than on the actual arithmetic or logic
+operations \[1, 2\]—a symptom that reveals the underlying inefficiency
+of the von Neumann model. This imbalance, often called the
+“data‑movement wall” \[3\], has motivated research into alternative
+models.
 
 SSCCS proposes a different set of primitives. Computation is not the
 transformation of values but the observation of structured potential.
@@ -95,54 +261,7 @@ reduction), the open specification format, the planned validation across
 multiple domains, and the project’s commitment to computational
 infrastructure.
 
-## 2. Background and Motivation
-
-### 2.1 The Von Neumann Inheritance
-
-The von Neumann architecture, developed in the 1940s, embedded certain
-philosophical assumptions into the fabric of computing: that computation
-is a process of change over time, that data and program are separate
-categories, and that meaning emerges from sequences of operations. These
-assumptions have proven remarkably durable, but they are not inevitable.
-
-### 2.2 Symptoms of Architectural Assumptions
-
-The data movement problem is a symptom, not the disease. It arises
-because the von Neumann model requires data to be transported to a
-central processing unit, operated upon, and then returned to storage.
-This pattern repeats at every scale: from register files to caches to
-main memory to distributed systems. The energy and latency costs of this
-movement are well documented \[1, 2, 4\], but addressing them through
-incremental optimization—better caches, wider buses, smarter
-prefetching—treats the symptom while preserving the underlying model.
-
-### 2.3 Concurrency as Afterthought
-
-Shared mutable state, the source of most concurrency complexity, is
-another consequence of the von Neumann model. Locks, atomic operations,
-cache coherence protocols, and the entire edifice of concurrent
-programming exist to manage the conflicts that arise when multiple
-agents can modify the same storage location. These mechanisms add
-further data movement and energy consumption, while also creating
-opacity: the behavior of concurrent systems becomes notoriously
-difficult to predict or verify.
-
-### 2.4 The Black Box Problem
-
-Traditional computing treats the internal logic of execution as a black
-box. Programs accept inputs and produce outputs, but the path between
-them—the sequence of state mutations—is hidden unless explicitly traced.
-This opacity has profound consequences: software can contain undetected
-bugs, hidden backdoors, or inefficient pathways that remain invisible to
-users and auditors. Verification becomes a post-hoc activity rather than
-an intrinsic property of the system.
-
-SSCCS addresses these issues not by optimizing them but by rendering
-them unnecessary. By making all persistent data immutable and replacing
-execution with observation, the model eliminates the root causes of data
-movement, synchronization overhead, and computational opacity.
-
-## 3. The SSCCS Model
+## The SSCCS Model
 
 SSCCS comprises three ontologically distinct layers, each irreducible to
 the others:
@@ -216,8 +335,7 @@ complete computational ontology.
 
 - Immutable Segments & Schemes allow any number of observers to apply Ω
   concurrently – no locks or synchronization needed.
-- Structural mapping eliminates data movement: the von Neumann
-  bottleneck disappears by design.
+- Structural mapping eliminates data movement.
 - Consistency is guaranteed by the single mutable layer (Field), which
   governs all observations.
 - Deterministic results arise from cryptographic identities and
@@ -507,7 +625,7 @@ Figure 3: The large-scale mass-segment scenario
 
 </div>
 
-### 3.1 Segment: Atomic Coordinate Existence
+### Segment: Atomic Coordinate Existence
 
 A Segment is the minimal unit of potential—the fundamental building
 block of the SSCCS universe. Formally, a Segment $s$ is a tuple
@@ -533,7 +651,7 @@ state, they can be observed concurrently by any number of observers
 without synchronization. The cryptographic identity ensures that every
 Segment is uniquely and verifiably identifiable.
 
-### 3.2 Scheme: Structural Blueprint
+### Scheme: Structural Blueprint
 
 If Segment is existence, Scheme is structure.
 
@@ -556,7 +674,7 @@ structurally adjacent become physically adjacent. This design makes
 locality an inherent property of the specification, eliminating the need
 for runtime optimizations.
 
-### 3.3 Field: Dynamic Constraint Substrate
+### Field: Dynamic Constraint Substrate
 
 The Field $F$ is the only mutable layer, but it does not store values.
 Instead, it stores admissibility conditions that dynamically constrain
@@ -577,7 +695,7 @@ Formally, $F$ is a set of admissibility predicates over the
 configuration space defined by $\Sigma$. Mutating $F$ changes which
 configurations are possible, but does not modify any Segment.
 
-### 3.4 Observation and Projection
+### Observation and Projection
 
 Observation is the single active event. It is defined as:
 
@@ -595,7 +713,7 @@ deterministically selects one configuration and returns it as $P$. No
 data is moved during observation; Segments remain in place. The
 Projection is ephemeral; if needed again, it is recomputed.
 
-### 3.5 Secure Isolation and Cryptographic Boundaries
+### Secure Isolation and Cryptographic Boundaries
 
 SSCCS provides natural isolation through:
 
@@ -611,7 +729,7 @@ SSCCS provides natural isolation through:
 This architecture enables complex computations within cryptographically
 enforced boundaries without requiring trust between components.
 
-### 3.6 Relationship with Traditional Concepts
+### Relationship with Traditional Concepts
 
 | Traditional Concept | SSCCS Counterpart | Shift |
 |----|----|----|
@@ -624,9 +742,9 @@ enforced boundaries without requiring trust between components.
 | Algorithm | Geometry | Structure determines observation |
 | Black box execution | Transparent projection | Computation is auditable |
 
-## 4. Formal Properties
+## Formal Properties
 
-### 4.1 Immutability and Concurrency
+### Immutability and Concurrency
 
 Because Segments are immutable, any number of observations can be
 performed simultaneously without interference. Formally, if $S_1$ and
@@ -639,7 +757,7 @@ property enables implicit parallelism without any programmer effort or
 runtime synchronisation—a consequence of immutability, not a feature
 added to address performance.
 
-### 4.2 Determinism and Auditability
+### Determinism and Auditability
 
 Observation is deterministic: for identical $\Sigma$ and $F$, $\Omega$
 always yields the same $P$. Determinism follows from the fact that
@@ -647,7 +765,7 @@ selection among admissible configurations is a function of structure and
 constraints only. This enables auditability: every projection is a
 verifiable trace from blueprint to output.
 
-### 4.3 Time as a Coordinate
+### Time as a Coordinate
 
 Time is treated as one coordinate axis among many. Temporal ordering is
 expressed by comparing coordinates along that axis. Observations do not
@@ -730,7 +848,7 @@ Figure 4: Time as a coordinate axis
 
 </div>
 
-### 4.4 Energy Model
+### Energy Model
 
 A simplified energy model for SSCCS is:
 
@@ -743,7 +861,7 @@ and $E_{\text{field-update}}$ is the energy to modify the Field. There
 is no term for moving data between memory and processor, because
 Segments are stationary.
 
-## 5. Compilation and Structural Mapping
+## Compilation and Structural Mapping
 
 A key engineering contribution of SSCCS is that the compiler, rather
 than generating a sequence of instructions, performs structural mapping
@@ -804,7 +922,7 @@ Figure 5: Compiler pipeline: from Schema to hardware layout
 
 </div>
 
-### 5.1 Compiler Pipeline
+### Compiler Pipeline
 
 The SSCCS compiler transforms a high‑level `.ss` schema into a
 hardware‑specific layout through a deterministic pipeline.
@@ -896,7 +1014,7 @@ This example illustrates how the pipeline turns a declarative geometric
 description into efficient, hardware‑aware executable code without any
 manual optimization.
 
-## 5.2 Memory Mapping Logic
+## Memory Mapping Logic
 
 The compiler’s ability to eliminate data movement hinges on the
 MemoryLayout abstraction. A `MemoryLayout` consists of:
@@ -945,7 +1063,7 @@ same Schema and hardware profile, the compiler always produces the same
 physical layout, ensuring that observation proceeds with minimal data
 movement.
 
-### 5.3 Automating Manual Optimizations
+### Automating Manual Optimizations
 
 The following table summarises how traditional manual optimisations
 become automatic consequences of structural specification in SSCCS:
@@ -959,7 +1077,7 @@ become automatic consequences of structural specification in SSCCS:
 | Lock management | Immutability eliminates need for locks |
 | Execution strategy selection | Observation rules and structural independence guide parallel execution |
 
-### 5.4 Example: Vector Addition with Rust Example
+### Example: Vector Addition with Rust Example
 
 Consider the addition of two vectors of length $N$. This example
 demonstrates the transition from procedural execution to structural
@@ -1040,7 +1158,7 @@ shift, not the primary goal. The deeper benefit lies in the absolute
 transparency and verifiability that emerge from treating computation as
 a structural specification.
 
-### 5.5 Scaling to N-Dimensional Tensors and Graphs
+### Scaling to N-Dimensional Tensors and Graphs
 
 The structural principles of SSCCS extend beyond linear vectors to
 higher-dimensional and non-linear data structures. As dimensionality
@@ -1159,7 +1277,7 @@ Figure 6: Scaling SSCCS to N-dimensional tensors and complex graphs
 
 </div>
 
-#### 5.5.1 N-Dimensional Tensors
+#### N-Dimensional Tensors
 
 In SSCCS, an $N$-dimensional tensor is represented as a set of Segments
 where adjacency relations are defined across multiple axes within the
@@ -1177,7 +1295,7 @@ Scheme.
   be complex indexing logic in a CPU into a direct physical property of
   the memory topology.
 
-#### 5.5.2 Complex Graph Processing
+#### Complex Graph Processing
 
 Graph algorithms (e.g., PageRank, GNNs) are traditionally bottlenecked
 by “Pointer Chasing,” which causes severe cache thrashing and memory
@@ -1214,7 +1332,7 @@ This positions SSCCS as a foundational methodology for future
 AI-hardware co-design, where computational density and energy efficiency
 are the primary constraints.
 
-## 6. The Open Format
+## The Open Format
 
 A central goal of SSCCS is the definition of an open `.ss` format—a
 human‑readable, machine‑processable representation of Segments and
@@ -1229,7 +1347,7 @@ default; evolution creates new versions. - Cryptographically
 identifiable (hash‑based). - Compositional: Schemes can include other
 Schemes. - Platform‑independent.
 
-### 6.1 Binary Serialization and Memory Layout
+### Binary Serialization and Memory Layout
 
 The binary encoding of a Scheme includes: - Header (SchemeId, version) -
 Axes list (definitions of each axis) - Segment table (IDs, coordinate
@@ -1240,7 +1358,7 @@ encoded mapping function, metadata) - Observation rules and constraints
 This binary format ensures interoperability across implementations and
 enables deterministic reconstruction of the Scheme’s structure.
 
-## 7. System Stack and Instruction‑Set Interaction
+## System Stack and Instruction‑Set Interaction
 
 SSCCS inserts a runtime layer between application and hardware that
 translates observation requests into hardware‑specific memory mappings
@@ -1285,7 +1403,7 @@ In environments without direct hardware support, a lightweight software
 runtime emulates the observation process by interpreting the binary
 `.ss` format.
 
-### 7.1. Hardware Considerations
+### Hardware Considerations
 
 While SSCCS can be implemented in software, its benefits are most
 pronounced with hardware support:
@@ -1295,7 +1413,7 @@ pronounced with hardware support:
 - Spatial computation mapping adjacency to wiring.
 - Cryptographic primitives in hardware.
 
-## 8. Theoretical Performance & Scalability
+## Theoretical Performance & Scalability
 
 The SSCCS architecture derives its efficiency not from incremental
 hardware acceleration, but from a fundamental shift in computational
@@ -1303,7 +1421,7 @@ complexity. By redefining execution as the Structural Observation of a
 stationary Scheme, the framework bypasses the sequential bottlenecks
 inherent in the von Neumann architecture.
 
-### 8.1 Architectural Expectations of Time-Space Complexity
+### Architectural Expectations of Time-Space Complexity
 
 Traditional procedural models are constrained by the linear relationship
 between data volume ($N$) and execution cycles. SSCCS decouples this
@@ -1319,13 +1437,13 @@ import numpy as np
 # Define Data Scale (N)
 N = np.geomspace(1, 1024, 100)
 
-# 1. Temporal Complexity (Latency)
+# Temporal Complexity (Latency)
 # Procedural: O(N)
 # SSCCS: O(log N) - Field Propagation
 latency_procedural = N * 1.2 + 5
 latency_ssccs = np.log2(N) + 2
 
-# 2. Data Movement Complexity (Energy/Space)
+# Data Movement Complexity (Energy/Space)
 # Procedural: O(N*D)
 # SSCCS: O(Output) - Logic-at-Rest
 movement_procedural = N**1.15
@@ -1362,7 +1480,7 @@ Figure 8
 
 </div>
 
-#### 8.1.1 Temporal Complexity (Latency)
+#### Temporal Complexity (Latency)
 
 In a von Neumann environment, even with SIMD/MIMD parallelism, latency
 scales at $O(N)$ or $O(N/k)$ due to instruction dispatch,
@@ -1374,7 +1492,7 @@ synchronization, and memory-wall stalls.
   Projection—approaches $O(\log N)$ or even $O(1)$ in specialized
   hardware environments such as Processing-In-Memory (PIM).
 
-#### 8.1.2 Data Movement Complexity (Spatial/Energy Cost)
+#### Data Movement Complexity (Spatial/Energy Cost)
 
 The primary energy sink in modern computing is the movement of operands
 from memory to logic units.
@@ -1386,7 +1504,7 @@ from memory to logic units.
   is strictly limited to the transmission of the resulting Projection.
   This creates a widening efficiency gap as the scale of $N$ increases.
 
-### 8.2 Comparative Complexity Matrix
+### Comparative Complexity Matrix
 
 The following table summarizes the asymptotic behavior of SSCCS compared
 to traditional sequential and parallel (SIMD) architectures.
@@ -1399,7 +1517,7 @@ to traditional sequential and parallel (SIMD) architectures.
 | Data Movement | $O(N)$ | $O(N)$ | $O(\text{Output Only})$ |
 | Scalability Limit | Amdahl’s Law | Memory Bandwidth | Physical Propagation Delay |
 
-### 8.3 Scalability in High-Dimensional AI Workloads
+### Scalability in High-Dimensional AI Workloads
 
 As demonstrated in the emergence of State-Space Models (SSMs) $[6]$ and
 manifold-constrained learning $[5]$, the ability to process
@@ -1414,7 +1532,7 @@ critical.
     structure itself. The scalability is limited only by the fidelity of
     the Field and the resolution of the Projector ($\Omega$).
 
-## 9. Implementation Roadmap
+## Implementation Roadmap
 
 ``` dot
 digraph Implementation_Roadmap {
@@ -1473,7 +1591,7 @@ Figure 9: Implementation roadmap: three research phases
 Throughout, the `.ss` blueprint remains unchanged, preserving
 investment.
 
-## 10. Planned Validation Domains
+## Planned Validation Domains
 
 SSCCS is intended for validation across multiple domains. The following
 table outlines traditional challenges and expected advantages:
@@ -1488,7 +1606,7 @@ table outlines traditional challenges and expected advantages:
 | Cryptographic systems | Side‑channel attacks, verification complexity | Immutable structure enables formal verification, no intermediate state |
 | Autonomous vehicles | Sensor fusion, real‑time decision making | Constraint‑based observation, deterministic response, auditable decisions |
 
-## 11. Related Work
+## Related Work
 
 SSCCS is presented alongside several established research domains,
 providing a unified theoretical foundation:
@@ -1534,7 +1652,7 @@ reduced communication, and above all verifiability—are expected
 consequences of the ontological redefinition, not features added to
 address specific problems.
 
-## 12. Conclusion and Future Work
+## Conclusion and Future Work
 
 This paper has presented SSCCS, a computational model that redefines
 computation as the observation of structured potential under dynamic
