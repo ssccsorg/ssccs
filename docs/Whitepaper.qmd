@@ -34,13 +34,13 @@ format:
       echo: true
   pdf:
     number-sections: true
-    default-figure-format: pdf
+    default-figure-format: svg
     colorlinks: false
     toc-title: "Contents"
     execute:
         echo: false
     pdf-engine-opts: ["-shell-escape"]
-    fig-format: pdf
+    fig-format: svg
     papersize: a4
     graphics: true
     highlight-style: monochrome
@@ -76,7 +76,7 @@ format:
 
 ::: {.content-visible when-format="gfm"}
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18787286.svg)](https://doi.org/10.5281/zenodo.18787286)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18759106.svg)](https://doi.org/10.5281/zenodo.18759106)
 
 :::
 
@@ -107,32 +107,83 @@ Before observation, structure exists as constrained potential, **data is merely 
 
 ## Introduction  
 
-For decades, computation has been defined by the von Neumann model:
+For decades, computation has been defined by the von Neumann model:  
+`Data (Input) + Program → Execution → Result`  
 
+This formulation rests on several assumptions: **data exists as intrinsic values in memory, programs are instruction sequences, and execution involves moving data between memory and processor across a sequential timeline.** These assumptions are not fundamental laws but consequences of a specific architectural choice. Consequently, the majority of energy and time in conventional systems is spent on data movement rather than logic—a symptom known as the "data-movement wall" [1, 2, 3]. While new hardware-side paradigms attempt to mitigate this, it remains a localized optimization within the same sequential paradigm.
+
+SSCCS proposes a shift from procedural execution to **structural observation**:
+
+```{dot}
+//| label: fig-time-coordinate
+//| fig-cap: "SSCCS: Time as a coordinate axis"
+digraph SSCCS_Comparison {
+    rankdir=LR;
+ 
+    // Sequential cluster (left)
+    subgraph cluster_sequential {
+        label="Sequential (von Neumann)";
+        labelloc=t;
+        node [shape=box, fontsize=10];
+        edge [arrowhead=normal];
+        
+        s0 [label="State A\n(t=0)"];
+        s1 [label="State B\n(t=1)"];
+        s2 [label="State C\n(t=2)"];
+        
+        s0 -> s1 -> s2;
+    }
+
+    // Spatial cluster (right)
+    subgraph cluster_spatial {
+        label="Spatial (SSCCS)";
+        labelloc=t;
+        
+        // Scheme‑segments (coordinates in space‑time)
+        node [shape=point, width=0.2, height=0.2];
+        p0 [shape=point, width=0.15, xlabel="Observe(t=0)", fontsize=7];
+        p1 [shape=point, width=0.15, xlabel="Observe(t=2)", fontsize=7];
+        p2 [shape=point, width=0.15, xlabel="Observe(t=5)", fontsize=7];
+
+        // Field – drawn as a rectangle around points (using a subgraph)
+        subgraph cluster_field {
+            label="Manifold Field\n(+constraints)";
+            style=dashed;
+            color=black;
+            node [shape=point];  // keep points inside
+            p0; p1; p2;
+        }
+
+        // Observation events – projections
+        node [shape=box, fontsize=10];
+        proj0 [label="State: A"];
+        proj1 [label="State: B"];
+        proj2 [label="State: C"];
+
+        // Observation arrows
+        edge [arrowhead=normal, style=solid, label="Projection"];
+        p0 -> proj0;
+        p1 -> proj1;
+        p2 -> proj2;
+    }
+
+    // Invisible edge to align clusters horizontally (optional)
+    edge [style=invis];
+    s2 -> p0;
+}
 ```
-Data + Program → Execution → Result
-```
 
-This formulation rests on several assumptions:
+SSCCS redefines computation as the observation of structured potential through four primitives:
 
-- Data exists as intrinsic values stored in memory.
-- Programs are sequences of instructions that operate on data.
-- Execution involves moving data between memory and processor.
-- State mutation produces results.
-- Time orders execution sequentially.
+* **Segments**: Immutable points in a multi-dimensional coordinate space.
+* **Schemes**: Immutable blueprints defining the geometry and relations among Segments.
+* **Fields**: Mutable containers of dynamic constraints.
+* **Observation**: The active event that reveals a Projection from the space of possibilities.
 
-These assumptions, while deeply embedded, are not fundamental laws of computation but consequences of a particular architectural choice. In practice, the majority of energy and time in conventional systems is spent on moving data rather than on the actual arithmetic or logic operations [1, 2]—a symptom that reveals the underlying inefficiency of the von Neumann model. This imbalance, often called the "data‑movement wall" [3], has motivated research into alternative models.
+This redefinition has substantive consequences. Data movement reduction is a derivative benefit of a shift from procedural execution to structural mapping. More fundamentally, this shift yields **deterministic reproducibility**: because the structure is fixed and observation is deterministic, every computation produces a verifiable trace from blueprint to projection.
 
-SSCCS proposes a different set of primitives. Computation is not the transformation of values but the observation of structured potential. There are no mutable values, no instruction streams, and no privileged timeline. Instead, the system consists of:
+The following sections describe the formal components of SSCCS, their engineering implications, the open specification format, and the project's commitment to a new computational infrastructure.
 
-- Segments: immutable points in a multi‑dimensional coordinate space.
-- Schemes: immutable blueprints defining the geometry and relations among Segments.
-- Fields: mutable containers of dynamic constraints.
-- Observation: the sole active event that reveals a Projection—a specific configuration from the space of possibilities.
-
-This redefinition has substantive consequences that extend far beyond data movement. The system's structure determines what can be known; observation determines what becomes known. Data movement reduction is one consequence among many—a derivative benefit of a shift from procedural execution to structural observation. More fundamentally, this shift yields deterministic reproducibility: because structure is fixed and observation is deterministic, every computation produces a verifiable trace from blueprint to projection.
-
-The paper describes the formal components of SSCCS, their properties, the engineering implications (including but not limited to data movement reduction), the open specification format, the planned validation across multiple domains, and the project's commitment to computational infrastructure.
 
 ## The SSCCS Model  
 
@@ -320,7 +371,7 @@ This integrated view illustrates the full SSCCS model: The observation events ($
 A more complexier structural composition can be defined like:
 
 ```{dot}
-//| label: fig-ssccs-multifield
+//| label: fig-ssccs-multifield-large
 //| fig-cap: "The large-scale mass-segment scenario"
 digraph SSCCS_MultiField {
     rankdir=TB;
@@ -500,27 +551,17 @@ Formally, $F$ is a set of admissibility predicates over the configuration space 
 
 ### Observation and Projection  
 
-Observation is the single active event. It is defined as:
-
 $$ P = \Omega(\Sigma, F) $$
 
-where  
-- $\Sigma$ is the set of Segments and their Scheme,  
-- $F$ is the current Field state,  
-- $\Omega$ is the observation operator,  
-- $P$ is the resulting Projection.
-
-Observation occurs when the structure and Field together create an instability—i.e., multiple admissible configurations. $\Omega$ deterministically selects one configuration and returns it as $P$. No data is moved during observation; Segments remain in place. The Projection is ephemeral; if needed again, it is recomputed.
+Observation $\Omega$ is the single active event. where $\Sigma$ is the set of Segments and their Scheme, $F$ is the current Field state, $P$ is the resulting Projection. Observation occurs when the structure and Field together create an instability—i.e., multiple admissible configurations. $\Omega$ deterministically selects one configuration and returns it as $P$. No data is moved during observation; Segments remain in place. The Projection is ephemeral; if needed again, it is recomputed.
 
 ### Secure Isolation and Cryptographic Boundaries  
 
-SSCCS provides natural isolation through:
+This architecture enables complex computations within cryptographically enforced boundaries without requiring trust between components.
 
 - Identity-based boundaries: Every Segment and Scheme has a unique cryptographic hash. A computation can only access Segments for which it holds valid references.
 - Isolation through immutability: Since Segments cannot be modified, concurrent observations are naturally isolated.
 - Cryptographically enforced scoping: Schemes can define boundaries limiting visibility, enforced by observation rules and identity verification.
-
-This architecture enables complex computations within cryptographically enforced boundaries without requiring trust between components.
 
 ### Relationship with Traditional Concepts  
 
@@ -553,82 +594,16 @@ Observation is deterministic: for identical $\Sigma$ and $F$, $\Omega$ always yi
 
 Time is treated as one coordinate axis among many. Temporal ordering is expressed by comparing coordinates along that axis. Observations do not have a global temporal order unless explicitly defined. This eliminates the notion of a "program counter" and the associated assumption that computation must proceed in sequence.
 
-```{dot}
-//| label: fig-time-coordinate
-//| fig-cap: "Time as a coordinate axis"
-digraph SSCCS_Comparison {
-    rankdir=LR;
- 
-    // Sequential cluster (left)
-    subgraph cluster_sequential {
-        label="Sequential (von Neumann)";
-        labelloc=t;
-        style=dashed;
-        node [shape=box, fontsize=10];
-        edge [arrowhead=normal];
-        
-        s0 [label="State A\n(t=0)"];
-        s1 [label="State B\n(t=1)"];
-        s2 [label="State C\n(t=2)"];
-        
-        s0 -> s1 -> s2;
-        
-        note_seq [shape=plaintext, label="Time flows, state mutates", fontsize=11];
-    }
-
-    // Spatial cluster (right)
-    subgraph cluster_spatial {
-        label="Spatial (SSCCS)";
-        labelloc=t;
-        style=dashed;
-        
-        // Scheme‑segments (coordinates in space‑time)
-        node [shape=point, width=0.2, height=0.2];
-        p0 [xlabel="(t=0, x=1)"];
-        p1 [xlabel="(t=2, x=3)"];
-        p2 [xlabel="(t=5, x=2)"];
-
-        // Field – drawn as a rectangle around points (using a subgraph)
-        subgraph cluster_field {
-            label="Field (rules + constraints)";
-            style=dashed;
-            color=black;
-            node [shape=point];  // keep points inside
-            p0; p1; p2;
-        }
-
-        // Observation events – projections
-        node [shape=box, fontsize=10];
-        proj0 [label="projection: A"];
-        proj1 [label="projection: B"];
-        proj2 [label="projection: C"];
-
-        // Observation arrows
-        edge [arrowhead=normal, style=solid, label="observe"];
-        p0 -> proj0;
-        p1 -> proj1;
-        p2 -> proj2;
-
-        // No arrows between scheme‑segments
-        note_spatial [shape=plaintext, fontsize=9, label=
-            "No persistent state – only coordinates + fields.\nObservation yields projections we interpret as 'state'."];
-    }
-
-    // Invisible edge to align clusters horizontally (optional)
-    edge [style=invis];
-    s2 -> p0;
-}
-```
+$$\delta(S_t, \text{instr}_{pc}) \to S_{t+1}, \quad pc \leftarrow pc + 1$$
 
 ### Energy Model  
 
 A simplified energy model for SSCCS is:
-
 $$
 E_{\text{total}} = E_{\text{observation}} \times N_{\text{obs}} + E_{\text{field-update}} \times N_{\text{update}}
 $$
 
-where $E_{\text{observation}}$ is the energy to perform one observation, and $E_{\text{field-update}}$ is the energy to modify the Field. There is no term for moving data between memory and processor, because Segments are stationary.
+where $E_{\text{observation}}$ is the energy to perform one observation, and $E_{\text{field-update}}$ is the energy to modify the Field. There is no term for moving data between memory and processor, because Segments are stationary. This model predicts that energy consumption with hardware‑dependent constants scales with the number of observations and field updates, but not with data movement, which is a key source of energy inefficiency in traditional architectures.
   
 ## Compilation and Structural Mapping
 
@@ -714,30 +689,32 @@ This example illustrates how the pipeline turns a declarative geometric descript
 
 ## Memory Mapping Logic
 
-The compiler’s ability to eliminate data movement hinges on the MemoryLayout abstraction. A `MemoryLayout` consists of:
+The compiler's ability to eliminate data movement hinges on the `MemoryLayout` abstraction. A `MemoryLayout` consists of:
 
-- layout_type – a classification (`Linear`, `RowMajor`, `ColumnMajor`, `SpaceFillingCurve`, `Hierarchical`, `GraphBased`, `Custom`) describing the high‑level organisation.
-- mapping – a function that, given a coordinate tuple (e.g., `(x, y, z)`), returns an optional logical address. This function is defined declaratively in the Schema and is independent of any programming language.
-- metadata – a set of key‑value pairs providing implementation‑specific hints (e.g., curve parameters, stride lengths).
+- **layout_type** – classification (`Linear`, `RowMajor`, `ColumnMajor`, `SpaceFillingCurve`, `Hierarchical`, `GraphBased`, `Custom`) describing the high‑level organisation.
+- **mapping** – a function that, given a coordinate tuple (e.g., `(x, y, z)`), returns an optional logical address. Defined declaratively in the Schema, independent of any programming language.
+- **metadata** – implementation‑specific hints (curve parameters, stride lengths, etc.).
 
-A logical address is an intermediate representation consisting of a segment identifier and an offset within that segment’s conceptual address space. It is not a physical memory address; rather, it serves as an intermediate coordinate that the hardware mapper later translates to concrete physical locations (cache lines, memory banks, etc.).
+A logical address is an intermediate representation: a segment identifier and an offset within that segment's conceptual address space. It is not a physical address; rather, it serves as an intermediate coordinate that the hardware mapper later translates to concrete physical locations.
 
-Example: For a two‑dimensional grid with row‑major layout, the mapping function can be expressed mathematically as:
-
+**Example**: For a 2D grid with row‑major layout:
 ```
 f(x, y) = (grid_id, y·width + x)
 ```
+where `width` is the grid's x‑extent. The compiler evaluates this function for every coordinate in the Schema, producing a complete logical‑address map.
 
-where `width` is the grid’s extent in the x‑direction. The compiler evaluates this function for every coordinate in the Schema, producing a complete logical‑address map.
+### Embedding Schema into Hardware Topologies
 
-By decoupling the logical layout from the physical implementation, the same Schema can be projected onto vastly different hardware topologies:
+The logical address space acts as a **virtualisation layer**, decoupling structural description from physical implementation. The same Schema can be embedded into vastly different hardware substrates:
 
-- CPU caches – Adjacent logical addresses are placed into the same cache line or neighbouring lines.
-- FPGA block RAM – The logical‑to‑physical mapping can be realised as a simple address decoder.
-- HBM (High‑Bandwidth Memory) stacks – Segments with high adjacency can be distributed across multiple memory channels to exploit parallelism.
-- Emerging non‑volatile memories (e.g., resistive RAM) – The stationary data model of SSCCS aligns naturally with processing‑in‑memory (PIM) architectures, where computation is performed directly inside the memory arrays.
+* **CPU Caches/DRAM** – The logical map materialises as conventional address generation. High‑adjacency Segments map to contiguous cache lines, maximising spatial locality within the native memory hierarchy.
+* **FPGA Block RAM** – The mapping becomes a hardwired address decoder, transforming geometric relations directly into hardware signals—no instruction stream intervenes.
+* **HBM** – Segments distribute across independent memory channels, exploiting massive spatial parallelism inherent in the coordinate field.
+* **Emerging Non‑volatile Memories (ReRAM, PCM)** – These devices' crossbar structures naturally suit a stationary data model. SSCCS treats the physical array as a static coordinate manifold, enabling direct structural projection within the memory substrate itself.
 
-In all cases, the mapping is deterministic and reproducible: given the same Schema and hardware profile, the compiler always produces the same physical layout, ensuring that observation proceeds with minimal data movement. 
+Crucially, even on conventional von Neumann hardware, SSCCS overlays a structural interpretation on existing infrastructure: the compiler translates logical addresses into standard load/store operations, but the overall computation remains free of data movement because all necessary data is already resident where observation occurs. The same Schema thus deploys on today's CPUs, tomorrow's PIM accelerators, or purely spatial substrates like FPGAs—with the compiler adapting the embedding strategy accordingly.
+
+In all cases, the mapping is deterministic and reproducible: given the same Schema and hardware profile, the compiler always produces the same physical layout, ensuring that every observation proceeds with minimal—often zero—data movement.
 
 ### Automating Manual Optimizations
 
@@ -781,7 +758,7 @@ fn add_vectors(a: &[f64], b: &[f64]) -> Vec<f64> {
 
 #### SSCCS Approach
 
-A Scheme defines a set of Segments representing the vectors and an "adder" structure. The compiler, guided by adjacency relations, lays out the Segments consecutively in memory. An observation of the entire structure under a Field that enables addition yields a projection that is the sum vector. This model assumes a hardware environment capable of Near-Data Processing (NDP) or Processing-In-Memory (PIM), where logic is co-located with the data Segments.
+A Scheme defines a set of Segments representing the vectors and an "adder" structure. The compiler, guided by adjacency relations, lays out the Segments consecutively in memory. An observation of the entire structure under a Field that enables addition yields a projection that is the sum vector. 
 
 ```rust
 // Rust-like pseudocode
@@ -812,7 +789,7 @@ This example illustrates the fundamental ontological shift: computation becomes 
 
 ### Scaling to N-Dimensional Tensors and Graphs
 
-The structural principles of SSCCS extend beyond linear vectors to higher-dimensional and non-linear data structures. As dimensionality increases, the inefficiency of the von Neumann bottleneck grows exponentially; SSCCS provides a constant-time logical alternative for structural reorientation.
+The structural principles of SSCCS extend beyond linear vectors to higher-dimensional and non-linear data structures. As dimensionality increases, the limitations of the von Neumann model in certain domains grows exponentially; SSCCS provides a constant-time logical alternative for structural reorientation.
 
 ```{dot}
 //| label: fig-scaling  
@@ -998,8 +975,7 @@ digraph SystemStack {
 
 In environments without direct hardware support, a lightweight software runtime emulates the observation process by interpreting the binary `.ss` format.
 
-
-### Hardware Considerations  
+### Future Hardware Considerations  
 
 While SSCCS can be implemented in software, its benefits are most pronounced with hardware support:
 
@@ -1069,7 +1045,7 @@ plt.show()
 
 In a von Neumann environment, even with SIMD/MIMD parallelism, latency scales at $O(N)$ or $O(N/k)$ due to instruction dispatch, synchronization, and memory-wall stalls.
 
-- **SSCCS Latency**: Defined by the physical propagation delay of the Field across the Scheme. Because structural constraints are resolved at the mapping phase, the observation of the result—the Projection—approaches $O(\log N)$ or even $O(1)$ in specialized hardware environments such as Processing-In-Memory (PIM).
+- **SSCCS Latency**: Defined by the physical propagation delay of the Field across the Scheme. Because structural constraints are resolved at the mapping phase, the observation of the result—the Projection—theoretically approaches $O(1)$ in emerging hardware paradigms such as Processing-In-Memory (PIM), where data movement overhead is minimized.
 
 #### Data Movement Complexity (Spatial/Energy Cost)
 
@@ -1163,7 +1139,7 @@ SSCCS is presented alongside several established research domains, providing a u
 
 - Dataflow architectures (e.g., Dennis's dataflow graphs) treat programs as graphs where nodes fire when inputs are available.
 - Functional programming emphasises immutability and referential transparency.
-- Processing‑in‑memory (PIM) research directly addresses the data movement problem.
+- Processing‑in‑memory (PIM) research addresses the data movement problem within the von Neumann paradigm.
 - Declarative languages (SQL, Datalog) describe *what* to compute rather than how.
 - Intentional programming and memoisation share conceptual ground with observation‑based computation.
 
@@ -1172,7 +1148,6 @@ Recent work in AI demonstrates the growing relevance of structural constraints:
 - **Geometric Constraints**: Research such as *Manifold-Constrained Hyper-Connections* by DeepSeek $[5]$ highlights the efficacy of applying geometric inductive biases in high-dimensional representations. This validates the SSCCS approach of defining computational processes through topological constraints rather than procedural instructions.
 
 - **SSCCS as a Structural Superset**: SSCCS serves as a formal ontological superset for State-Space Models (SSMs) like Mamba $[6]$ and hardware-aware frameworks such as Modular AI's MAX/Mojo $[7, 8]$. While these systems achieve high-performance linear recurrences through ad-hoc kernel tuning, SSCCS redefines the SSM recurrence not as a procedural loop, but as a one-dimensional Scheme of adjacent Segments where state transitions emerge as Projections of a sequential Field. By shifting from execution-based optimization to the deterministic observation of stationary topological constraints, SSCCS inherently encompasses the efficiency gains of modern AI execution engines within a universal, structure-defined architecture.
-
 
 These references contextualize SSCCS within the broader intellectual landscape. In each domain, the shift from execution to observation is expected to offer advantages that incremental optimization cannot provide. These advantages—determinism, parallelism, fault isolation, reduced communication, and above all verifiability—are expected consequences of the ontological redefinition, not features added to address specific problems.
 
@@ -1200,7 +1175,7 @@ In summary, SSCCS establishes several foundational principles:
 
 The model is not presented as a complete replacement for all computing, but as a promising direction for data-intensive, parallel workloads where the limitations of the von Neumann model are most apparent. More importantly, it offers a way of thinking about computation that may prove fruitful beyond its immediate engineering applications—a framework that prioritizes verifiability and accessibility over opaque procedural execution. 
 
-## References  
+## References {.unnumbered .unlisted}
 
 - [1] W. A. Wulf and S. A. McKee, "Hitting the memory wall: implications of the obvious," *ACM SIGARCH Computer Architecture News*, vol. 23, no. 1, pp. 20–24, 1995.
 - [2] S. Borkar and A. A. Chien, "The future of microprocessors," *Communications of the ACM*, vol. 54, no. 5, pp. 67–77, 2011.
@@ -1216,6 +1191,6 @@ The model is not presented as a complete replacement for all computing, but as a
 © 2026 SSCCS gUG (i.G.) — A non‑profit research initiative, formalized through global standards and its authenticity substantiated by immutable scientific records and cryptographic proofs.
 
 - Source code under Apache 2.0: [Github](https://github.com/ssccsorg) | GPG ID: [BCCB196BADF50C99](https://keys.openpgp.org/search?q=BCCB196BADF50C99)
-- Whitepaper under CC BY-NC-ND 4.0: [PDF](https://ssccs.org/wp) [HTML](https://ssccsorg.github.io/ssccs) | Registered DOI: [10.5281/zenodo.18787286](https://doi.org/10.5281/zenodo.18787286) by CERN, [OpenAIRE](https://explore.openaire.eu/search/result?pid=10.5281%2Fzenodo.18787286)
+- Whitepaper under CC BY-NC-ND 4.0: [PDF](https://ssccs.org/wp) [HTML](https://ssccsorg.github.io/ssccs) | Registered DOI: [10.5281/zenodo.18759106](https://doi.org/10.5281/zenodo.18759106) by CERN, [OpenAIRE](https://explore.openaire.eu/search/result?pid=10.5281%2Fzenodo.18787286)
 
 {{< include whitepaper/_seal.qmd >}}
