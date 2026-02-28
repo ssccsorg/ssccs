@@ -38,6 +38,13 @@ accountable computational infrastructures, ultimately transitioning
 logic into a transparent, verifiable, and accessible Intellectual Public
 Commons.
 
+
+
+Before observation, structure exists as constrained potential - Data is
+merely the shadow of a collapsed state.
+
+
+
 ## 1. Introduction
 
 For decades, computation has been defined by the von Neumann model:
@@ -163,7 +170,7 @@ digraph SSCCS_Ontology {
     Projection [label="Projection (P₁)\n", shape=box];
 
     // Final Deterministic State: Interpreted data from the projection
-    Data [label="Collapsed Possibility, State, or Data (D₁)\nD₁ = I₁(P₁)",shape=box, style=rounded, penwidth=2];
+    Data [label="Collapsed Possibility, State, or Data (D₁)\nD₁ = I₁(P₁)",shape=box, style=rounded];
     
     // Structural Binding: Defines the static relationship between Scheme and Segments
     {rank=source;
@@ -279,7 +286,7 @@ digraph SSCCS_MultiField {
     
     // === Fifth rank: Interpreted Data (final deterministic values) ===
     { rank=5;
-        node [shape=box, style=rounded, penwidth=2];
+        node [shape=box, style=rounded];
         d1 [label="D₁\n= I₁(P₁)"];
         d2 [label="D₂\n= I₂(P₂)"];
         d3 [label="D₃\n= I₃(P₃)"];

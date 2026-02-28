@@ -31,13 +31,13 @@ format:
       eval: false
       echo: true
   pdf:
-    default-figure-format: svg
+    default-figure-format: pdf
     colorlinks: false
     toc-title: "Contents"
     execute:
         echo: false
     pdf-engine-opts: ["-shell-escape"]
-    fig-format: svg
+    fig-format: pdf
     papersize: a4
     graphics: true
     highlight-style: monochrome
@@ -82,6 +82,13 @@ format:
 SSCCS enforces three core values: **Immutability** (data cannot be altered after creation), **Structural Integrity** (computation must respect declared schemas), and **Traceability** (every projection is cryptographically verifiable). These values are realized through a distinct computational ontology: Segments serve as immutable carriers of information, Schemes define structural boundaries and constraints, and Observation deterministically resolves these elements into a Projection without altering underlying data. This structure-defined approach eliminates hidden manipulation, minimizes data movement, and establishes an auditable infrastructure.
 
 Driven by a software‑first philosophy, this architecture ensures deterministic reproducibility by completely decoupling execution logic from mutable state through structural and cryptographic isolation. This open specification, intended for validation across diverse domains, provides a roadmap where logical design dictates physical implementation, spanning from software emulation to hardware‑level support. By integrating intrinsic energy efficiency with high interpretability, SSCCS establishes a foundation for sustainable, accountable computational infrastructures, ultimately transitioning logic into a transparent, verifiable, and accessible Intellectual Public Commons.
+
+{{< pagebreak >}}
+{{< include whitepaper/_ontology3d.qmd >}}
+
+Before observation, structure exists as constrained potential - Data is merely the shadow of a collapsed state.
+
+{{< pagebreak >}}
 
 ::: {.content-visible when-format="pdf"}
 {{< pagebreak >}}
@@ -171,7 +178,7 @@ digraph SSCCS_Ontology {
     Projection [label="Projection (P₁)\n", shape=box];
 
     // Final Deterministic State: Interpreted data from the projection
-    Data [label="Collapsed Possibility, State, or Data (D₁)\nD₁ = I₁(P₁)",shape=box, style=rounded, penwidth=2];
+    Data [label="Collapsed Possibility, State, or Data (D₁)\nD₁ = I₁(P₁)",shape=box, style=rounded];
     
     // Structural Binding: Defines the static relationship between Scheme and Segments
     {rank=source;
@@ -271,7 +278,7 @@ digraph SSCCS_MultiField {
     
     // === Fifth rank: Interpreted Data (final deterministic values) ===
     { rank=5;
-        node [shape=box, style=rounded, penwidth=2];
+        node [shape=box, style=rounded];
         d1 [label="D₁\n= I₁(P₁)"];
         d2 [label="D₂\n= I₂(P₂)"];
         d3 [label="D₃\n= I₃(P₃)"];
