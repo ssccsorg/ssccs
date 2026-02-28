@@ -337,7 +337,7 @@ digraph SSCCS_MultiField {
 
 </div>
 
-Figure 2: SSCCS multi-field, multi-observation parallel model with rich
+Figure 2: SSCCS multi-field, multi-observation parallel model with
 segment set
 
 </div>
@@ -496,7 +496,7 @@ digraph SSCCS_MultiField {
 
 </div>
 
-Figure 3: The large-scale mass-segment and multi-field scenario
+Figure 3: The large-scale mass-segment scenario
 
 </div>
 
