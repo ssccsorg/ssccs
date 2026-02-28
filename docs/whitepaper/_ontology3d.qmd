@@ -3,35 +3,45 @@
 #| include: false
 import numpy as np
 import random
-
 random.seed(42)
 np.random.seed(42)
-
-num_segments = 50
+num_segments = 100          
 num_schemes = 8
 num_fields = 6
 num_observations = 12
 num_projections = num_observations
 num_data = num_observations
-
 y_layer = {'segment':0, 'scheme':1, 'field':2, 'observation':3, 'projection':4, 'data':5}
 all_coords = {}
 
 for i in range(1, num_segments+1):
-    all_coords[f's{i}'] = (random.uniform(0,10), y_layer['segment'], random.uniform(-3,3))
+    all_coords[f's{i}'] = (random.uniform(0,12), y_layer['segment'], random.uniform(-12,12))
+
 for i in range(1, num_schemes+1):
-    all_coords[f'sch{i}'] = (random.uniform(0,10), y_layer['scheme'], random.uniform(-2.5,2.5))
+    all_coords[f'sch{i}'] = (random.uniform(0,10), y_layer['scheme'], random.uniform(-5,5))
+
 for i in range(1, num_fields+1):
-    all_coords[f'f{i}'] = (random.uniform(0,10), y_layer['field'], random.uniform(-2,2))
+    all_coords[f'f{i}'] = (random.uniform(4,6), y_layer['field'], random.uniform(-5,5))
+
 for i in range(1, num_observations+1):
-    all_coords[f'o{i}'] = (random.uniform(0,10), y_layer['observation'], random.uniform(-1.5,1.5))
-for i in range(1, num_projections+1):
-    all_coords[f'p{i}'] = (random.uniform(0,10), y_layer['projection'], random.uniform(-1,1))
+    side = random.choice(['left', 'right'])
+    x_pos = -3 if side == 'left' else 13
+    all_coords[f'o{i}'] = (x_pos, y_layer['observation'], random.uniform(-10,10))
+
+for i, obs in enumerate([f'o{i}' for i in range(1, num_observations+1)], start=1):
+    obs_x = all_coords[obs][0]
+    angle = random.uniform(0, 2 * np.pi)
+    radius = random.uniform(1.5, 3.0)
+    proj_x = 5 + radius * np.cos(angle)
+    proj_z = radius * np.sin(angle)
+    all_coords[f'p{i}'] = (proj_x, y_layer['projection'], proj_z)
+
 for i in range(1, num_data+1):
-    all_coords[f'd{i}'] = (random.uniform(0,10), y_layer['data'], random.uniform(-0.5,0.5))
-
+    angle = (i / num_data) * 2 * np.pi
+    radius = 12  
+    all_coords[f'd{i}'] = (5 + radius * np.cos(angle), y_layer['data'], radius * np.sin(angle))
+    
 def get_pos(node): return all_coords[node]
-
 seg_nodes = [f's{i}' for i in range(1, num_segments+1)]
 sch_nodes = [f'sch{i}' for i in range(1, num_schemes+1)]
 f_nodes   = [f'f{i}'   for i in range(1, num_fields+1)]
@@ -39,15 +49,12 @@ obs_nodes = [f'o{i}'   for i in range(1, num_observations+1)]
 proj_nodes= [f'p{i}'   for i in range(1, num_projections+1)]
 data_nodes= [f'd{i}'   for i in range(1, num_data+1)]
 
-# 1. Scheme–Segment
 scheme_seg_edges = []
 for sch in sch_nodes:
     k = random.randint(5, min(15, num_segments))
     chosen = random.sample(seg_nodes, k)
     for seg in chosen:
         scheme_seg_edges.append((sch, seg))
-
-# 2. Field influences (dashed)
 field_influence_edges = []
 for f in f_nodes:
     k_sch = random.randint(0, min(3, num_schemes))
@@ -58,73 +65,68 @@ for f in f_nodes:
     chosen_seg = random.sample(seg_nodes, k_seg)
     for seg in chosen_seg:
         field_influence_edges.append((f, seg))
-
-# 3. Schemes to Fields
 scheme_to_field_edges = []
 for sch in sch_nodes:
     k = random.randint(1, min(3, num_fields))
     chosen = random.sample(f_nodes, k)
     for f in chosen:
         scheme_to_field_edges.append((sch, f))
-
-# 4. Segments to Fields
 seg_to_field_edges = []
 for seg in seg_nodes:
     k = random.randint(1, min(3, num_fields))
     chosen = random.sample(f_nodes, k)
     for f in chosen:
         seg_to_field_edges.append((seg, f))
-
-# 5. Observations to Fields
 obs_to_field_edges = []
 obs_to_fields_map = {}
 for obs in obs_nodes:
-    k = random.randint(1, min(3, num_fields))
+    k = random.randint(1, min(2, num_fields))
     chosen = random.sample(f_nodes, k)
     obs_to_fields_map[obs] = chosen
     for f in chosen:
         obs_to_field_edges.append((obs, f))
-
-# 6. Fields to Projections
 field_to_proj_edges = []
 for i, obs in enumerate(obs_nodes, start=1):
     proj = f'p{i}'
     fields_for_obs = obs_to_fields_map[obs]
     for f in fields_for_obs:
         field_to_proj_edges.append((f, proj))
-
-# 7. Projections to Data
 proj_to_data_edges = [(f'p{i}', f'd{i}') for i in range(1, num_projections+1)]
 ```
-
 ::: {.content-visible when-format="pdf"}
 ```{python}
 #| echo: false
 #| label: fig-ssccs3d-pdf
-#| fig-cap: "3D visualization of SSCCS ontology"
+#| fig-cap: "A visualization of SSCCS ontology"
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-
+import numpy as np
 fig = plt.figure(figsize=(10, 8))
 ax = fig.add_subplot(111, projection='3d')
-
 def plot_edges(edge_list, color, linestyle='-', lw=0.3, alpha=1):
     for src, tgt in edge_list:
         x1, y1, z1 = get_pos(src)
         x2, y2, z2 = get_pos(tgt)
         ax.plot([x1, x2], [y1, y2], [z1, z2], color=color, linestyle=linestyle, linewidth=lw, alpha=alpha)
 
-plot_edges(scheme_seg_edges, 'gray', '-')
-plot_edges(field_influence_edges, 'black', '--')
-plot_edges(scheme_to_field_edges, 'dimgray', '-')
-plot_edges(seg_to_field_edges, 'gray', '-')
-plot_edges(obs_to_field_edges, 'darkgray', '-')
-plot_edges(field_to_proj_edges, 'black', '-')
-plot_edges(proj_to_data_edges, 'dimgray', '-')
+plot_edges(scheme_seg_edges, 'lightgray', '-', lw=0.2)
+plot_edges(field_influence_edges, 'gray', '--', lw=0.2)
+plot_edges(scheme_to_field_edges, 'gray', '-', lw=0.2)
+plot_edges(seg_to_field_edges, 'gray', '-', lw=0.2)
+plot_edges(obs_to_field_edges, 'black', '-', lw=1.2)
+plot_edges(field_to_proj_edges, 'dimgray', ':', lw=0.5)
+plot_edges(proj_to_data_edges, 'dimgray', ':', lw=0.5)
 
-for edge_list, color in [(obs_to_field_edges, 'black'),
-                          (field_to_proj_edges, 'black'),
-                          (proj_to_data_edges, 'black')]:
+for src, tgt in obs_to_field_edges:
+    x1, y1, z1 = get_pos(src)
+    x2, y2, z2 = get_pos(tgt)
+    dx, dy, dz = x2-x1, y2-y1, z2-z1
+    xa = x1 + 0.9*dx
+    ya = y1 + 0.9*dy
+    za = z1 + 0.9*dz
+    ax.quiver(xa, ya, za, dx, dy, dz,
+              color='black', length=0.7, normalize=True, arrow_length_ratio=1.2, linewidth=1)
+for edge_list, color in [(field_to_proj_edges, 'black'), (proj_to_data_edges, 'black')]:
     for src, tgt in edge_list:
         x1, y1, z1 = get_pos(src)
         x2, y2, z2 = get_pos(tgt)
@@ -133,37 +135,35 @@ for edge_list, color in [(obs_to_field_edges, 'black'),
         ya = y1 + 0.9*dy
         za = z1 + 0.9*dz
         ax.quiver(xa, ya, za, dx, dy, dz,
-                  color='dimgray', length=0.3, normalize=True, arrow_length_ratio=0.3)
-
-ax.scatter(*zip(*[get_pos(n) for n in seg_nodes]), c='black', marker='.', s=40, label='Segments')
+                  color=color, length=0.4, normalize=True, arrow_length_ratio=1.1, linewidth=0.5)
+ 
+ax.scatter(*zip(*[get_pos(n) for n in seg_nodes]), c='black', marker='.', s=30, label='Segments')
 ax.scatter(*zip(*[get_pos(n) for n in sch_nodes]), c='black', marker='s', s=40, label='Schemes')
 ax.scatter(*zip(*[get_pos(n) for n in f_nodes]), c='black', marker='^', s=40, label='Fields')
-ax.scatter(*zip(*[get_pos(n) for n in obs_nodes]), c='black', marker='o', s=40, label='Observations')
+ax.scatter(*zip(*[get_pos(n) for n in obs_nodes]), c='black', marker='o', s=80, label='Observations')
 ax.scatter(*zip(*[get_pos(n) for n in proj_nodes]), c='black', marker='D', s=40, label='Projections')
-ax.scatter(*zip(*[get_pos(n) for n in data_nodes]), c='black', marker='*', s=60, label='Data')
-
-ax.legend(loc='upper left', bbox_to_anchor=(0.8, 0.8), fontsize='small')
+ax.scatter(*zip(*[get_pos(n) for n in data_nodes]), c='black', marker='*', s=60, label='State (Data)')
+ax.legend(loc='upper left', bbox_to_anchor=(0.9, 0.9), fontsize='small')
 ax.set_box_aspect([1, 1, 0.8])
-ax.view_init(elev=20, azim=15)
-plt.tight_layout()
+ax.view_init(elev=25, azim=20)
 plt.show()
 ```
 :::
-
 ::: {.content-visible unless-format="pdf"}
 ```{python}
 #| echo: false
 #| label: fig-ssccs3d-html
-#| fig-cap: "3D visualization of SSCCS ontology"
+#| fig-cap: "A visualization of SSCCS ontology"
 import plotly.graph_objects as go
+import numpy as np
 
-GRAY1 = '#111111'
-GRAY2 = '#333333'
-GRAY3 = '#555555'
-GRAY4 = '#777777'
-GRAYSCALE = [GRAY1, GRAY2, GRAY3, GRAY4]
+BLACK = '#000000'
+DARKGRAY = '#333333'
+GRAY = '#555555'
+LIGHTGRAY = '#777777'
+PALEGRAY = '#999999'
 
-def create_edge_trace(edge_list, width=1, dash=None, name=''):
+def create_edge_trace(edge_list, color, width=1, dash=None, name=''):
     x, y, z = [], [], []
     for s, t in edge_list:
         x1, y1, z1 = get_pos(s)
@@ -172,69 +172,55 @@ def create_edge_trace(edge_list, width=1, dash=None, name=''):
         y += [y1, y2, None]
         z += [z1, z2, None]
     return go.Scatter3d(x=x, y=y, z=z, mode='lines',
-                        line=dict(width=width, dash=dash),
+                        line=dict(color=color, width=width, dash=dash),
                         name=name, hoverinfo='none')
 
-def create_arrow_trace(edge_list, name):
-    x_ar, y_ar, z_ar, u, v, w = [], [], [], [], [], []
-    for s, t in edge_list:
-        x1, y1, z1 = get_pos(s)
-        x2, y2, z2 = get_pos(t)
-        xa = x1 + 0.9*(x2-x1)
-        ya = y1 + 0.9*(y2-y1)
-        za = z1 + 0.9*(z2-z1)
-        u.append(0.1*(x2-x1))
-        v.append(0.1*(y2-y1))
-        w.append(0.1*(z2-z1))
-        x_ar.append(xa)
-        y_ar.append(ya)
-        z_ar.append(za)
-    return go.Cone(x=x_ar, y=y_ar, z=z_ar, u=u, v=v, w=w,
-                   colorscale=[[0, GRAY3], [1, GRAY3]], 
-                   showscale=False,
-                   sizemode="scaled", sizeref=0.2, name=name, hoverinfo='none')
-
-def create_node_trace(nodes, symbol='circle', size=7, name=''):
+def create_node_trace(nodes, symbol='circle', size=7, color=BLACK, name=''):
     xyz = [get_pos(n) for n in nodes]
     return go.Scatter3d(
         x=[p[0] for p in xyz], y=[p[1] for p in xyz], z=[p[2] for p in xyz],
         mode='markers',
-        marker=dict(size=size, symbol=symbol),
+        marker=dict(size=size, color=color, symbol=symbol),
         text=nodes,
         hoverinfo='text',
         name=name
     )
 
+trace_sch_seg = create_edge_trace(scheme_seg_edges, color=PALEGRAY, width=0.5, name='Scheme-Segment')
+trace_field_inf = create_edge_trace(field_influence_edges, color=GRAY, width=0.8, dash='dash', name='Field influence')
+trace_sch2f = create_edge_trace(scheme_to_field_edges, color=GRAY, width=0.8, name='Scheme→Field')
+trace_seg2f = create_edge_trace(seg_to_field_edges, color=GRAY, width=0.8, name='Segment→Field')
+
+trace_obs2f = create_edge_trace(obs_to_field_edges, color=BLACK, width=4, name='Observation→Field')
+trace_f2proj = create_edge_trace(field_to_proj_edges, color=DARKGRAY, width=0.8, name='Field→Projection')
+trace_proj2data = create_edge_trace(proj_to_data_edges, color=DARKGRAY, width=0.8, name='Projection→Data')
+
+node_seg = create_node_trace(seg_nodes, symbol='circle', size=4, color=BLACK, name='Segments')
+node_sch = create_node_trace(sch_nodes, symbol='square', size=5, color=BLACK, name='Schemes')
+node_f = create_node_trace(f_nodes, symbol='diamond', size=10, color=BLACK, name='Fields')
+node_obs = create_node_trace(obs_nodes, symbol='circle', size=8, color=BLACK, name='Observations')
+node_proj = create_node_trace(proj_nodes, symbol='diamond', size=5, color=BLACK, name='Projections')
+node_data = create_node_trace(data_nodes, symbol='diamond-open', size=6, color=BLACK, name='Data (State)')
 fig = go.Figure(data=[
-    create_edge_trace(scheme_seg_edges, name='Scheme-Segment'),
-    create_edge_trace(field_influence_edges, dash='dash', name='Field influence'),
-    create_edge_trace(scheme_to_field_edges, name='Scheme→Field'),
-    create_edge_trace(seg_to_field_edges, name='Segment→Field'),
-    create_edge_trace(obs_to_field_edges, name='Observation→Field'),
-    create_edge_trace(field_to_proj_edges, name='Field→Projection'),
-    create_edge_trace(proj_to_data_edges, name='Projection→Data'),
-    create_arrow_trace(obs_to_field_edges, 'arrow_obs2f'),
-    create_arrow_trace(field_to_proj_edges, 'arrow_f2proj'),
-    create_arrow_trace(proj_to_data_edges, 'arrow_proj2data'),
-    create_node_trace(seg_nodes, 'circle', 4, 'Segments'),
-    create_node_trace(sch_nodes, 'square', 5, 'Schemes'),
-    create_node_trace(f_nodes, 'diamond', 5, 'Fields'),
-    create_node_trace(obs_nodes, 'circle-open', 5, 'Observations'),
-    create_node_trace(proj_nodes, 'square-open', 5, 'Projections'),
-    create_node_trace(data_nodes, 'diamond-open', 6, 'Data'),
+    trace_sch_seg, trace_field_inf, trace_sch2f, trace_seg2f,
+    trace_obs2f, trace_f2proj, trace_proj2data,
+    node_seg, node_sch, node_f, node_obs, node_proj, node_data,
 ])
 
 fig.update_layout(
-    colorway=GRAYSCALE,
-    paper_bgcolor='white',
     scene=dict(
-        bgcolor='white',
-        camera=dict(eye=dict(x=1.577, y=0.423, z=1.155)),
+        camera=dict(eye=dict(x=1.577, y=0.923, z=1.155)),
         aspectmode='manual',
         aspectratio=dict(x=1, y=1, z=0.8)
     ),
+    legend=dict(
+        x=0.93,
+        y=0.9,
+        xanchor="right",
+        yanchor="top"
+    ),
     width=1000,
-    height=900
+    height=1000
 )
 fig.show()
 ```
