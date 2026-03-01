@@ -8,9 +8,10 @@ The Whitepaper uses advanced Quarto features that require several external tools
 
 1. **Quarto** – The document rendering engine.
 2. **LaTeX** – For PDF generation, including the `pdfLaTeX` engine with `--shell-escape` support.
-3. **Python** – For inline Python code that creates SVG logos.
-4. **Graphviz** – For rendering `dot` diagrams embedded in the document.
+3. **Python** – For inline Python code that creates SVG logos. The Python environment must have the `graphviz` and `IPython` packages installed (e.g., via `pip install graphviz IPython`).
+4. **Graphviz** – For rendering `dot` diagrams embedded in the document. This includes both the system Graphviz binaries (`dot` command) and the Python `graphviz` package.
 5. **Inkscape** (optional but recommended) – For converting SVG images when using the LaTeX `svg` package.
+6. **Quarto filter** – The document uses a custom Quarto filter (`quarto-filter`) for advanced formatting; ensure the filter is available in the project's `_extensions/` directory.
 
 ## Installation
 
@@ -30,6 +31,9 @@ brew install python
 
 # Install Graphviz
 brew install graphviz
+
+# Install required Python packages for Graphviz diagrams
+pip install graphviz IPython
 
 # Install Inkscape (optional, but needed for SVG inclusion in PDF)
 brew install --cask inkscape
@@ -60,6 +64,9 @@ sudo apt-get install python3
 # Install Graphviz
 sudo apt-get install graphviz
 
+# Install required Python packages for Graphviz diagrams
+pip install graphviz IPython
+
 # Install Inkscape
 sudo apt-get install inkscape
 ```
@@ -70,11 +77,17 @@ Download and install:
 
 - Quarto from [quarto.org](https://quarto.org/docs/download/)
 - MiKTeX or TeX Live for LaTeX
-- Python from [python.org](https://www.python.org/downloads/)
-- Graphviz from [graphviz.org](https://graphviz.org/download/)
+- Python from [python.org](https://www.python.org/downloads/) (ensure `pip` is installed)
+- Graphviz from [graphviz.org](https://graphviz.org/download/) (both the binaries and the Python package)
 - Inkscape from [inkscape.org](https://inkscape.org/release/)
 
 Add the installation directories to your system PATH.
+
+After installing Python, install the required Python packages via:
+
+```bash
+pip install graphviz IPython
+```
 
 ## Generating the Whitepaper
 
@@ -112,11 +125,25 @@ quarto render Whitepaper.qmd
 
 By default Quarto will produce all output formats declared in the document’s YAML header (here `gfm` and `pdf`).
 
+## Advanced Rendering Techniques
+
+The Whitepaper uses several advanced Quarto features:
+
+- **Three output formats**: HTML (for web viewing), GFM (GitHub‑Flavored Markdown), and PDF (for print). The format settings are defined in the YAML header of `Whitepaper.qmd`.
+- **HTML output**: Custom CSS styling, embedded SVG figures, and self‑contained resources.
+- **PDF output**: Uses `pdflatex` with the `-shell‑escape` flag to allow the `svg` package to call Inkscape for SVG‑to‑PDF conversion. The LaTeX header includes custom packages (`authblk`, `svg`, `unicode‑math`, etc.) and layout adjustments.
+- **Graphviz diagrams**: The document includes `dot` code blocks that are rendered to SVG (for HTML/Markdown) or PDF (for PDF) using the `_graphviz.py` helper module.
+- **Conditional content**: Some blocks are visible only in specific formats (e.g., `{.content‑visible when‑format=\"gfm\"}`).
+- **Quarto filter**: A custom filter (`quarto‑filter`) is used for additional formatting transformations.
+
+Refer to the source `Whitepaper.qmd` for the exact configuration.
+
 ## Document Structure
 
 - `Whitepaper.qmd` – The source file containing the complete paper in Quarto Markdown.
-- `Whitepaper_files/` – Directory created during rendering that holds generated SVG images and other auxiliary files.
+- `_lib/python/_graphviz.py` – Python module that provides `dot()` and `dot_svg()` functions for generating Graphviz diagrams.
 - `_extensions/` – Contains Quarto extensions (currently only a custom extension for inline SVG).
+- `Whitepaper_files/` – Directory created during rendering that holds generated SVG images and other auxiliary files.
 - `Whitepaper.pdf` – The final PDF (already included in the repository).
 - `Whitepaper.md` – The final Markdown version (already included in the repository).
 
@@ -140,11 +167,20 @@ If the CERN and other logos are missing in the PDF, verify that:
 
 ### Graphviz diagrams not rendered
 
-Ensure that the `dot` command (part of Graphviz) is in your `PATH`. Quarto will call `dot` to produce SVG diagrams; if `dot` is missing, the diagrams will be omitted.
+Ensure that:
+
+1. The `dot` command (part of Graphviz) is in your `PATH`. Quarto will call `dot` to produce SVG diagrams; if `dot` is missing, the diagrams will be omitted.
+2. The Python `graphviz` package is installed (via `pip install graphviz`). The `_graphviz.py` module depends on it.
+3. The `IPython` package is installed if you are using Jupyter kernels.
+4. If diagrams contain non‑ASCII characters, ensure your system’s locale supports UTF‑8. The `_graphviz.py` module normalizes Unicode to NFC form, but encoding issues may still arise.
 
 ### Python code block errors
 
-The Python block is marked `eval: false`, so it is not executed during rendering. It only writes static SVG code into the `Whitepaper_files` folder. If you encounter Python‑related errors, make sure Python is installed and the `os` and `tempfile` modules are available (they are part of the standard library).
+The Python block is marked `eval: false`, so it is not executed during rendering. It only writes static SVG code into the `Whitepaper_files` folder. However, the block imports the `_graphviz.py` module, which requires the `graphviz` and `IPython` packages. If you encounter Python‑related errors, verify that:
+
+1. Python is installed and the `os` and `tempfile` modules are available (they are part of the standard library).
+2. The required Python packages are installed (`pip install graphviz IPython`).
+3. The `_lib/python/_graphviz.py` file is present and readable.
 
 ## Updating the Whitepaper
 
