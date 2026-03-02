@@ -1,0 +1,263 @@
+```{python}
+#| echo: false
+#| include: false
+import numpy as np
+import math
+
+np.random.seed(42)
+
+x = np.linspace(-3, 3, 60)
+y = np.linspace(-3, 3, 60)
+X, Y = np.meshgrid(x, y)
+Z = np.sin(2*X) * np.cos(1.5*Y) + 0.5*X*np.sin(Y) - 0.3*Y*np.cos(X)
+
+z_plane = Z.min() - 0.5
+
+n_segments = 25
+seg_x = np.random.uniform(-2.5, 2.5, n_segments)
+seg_y = np.random.uniform(-2.5, 2.5, n_segments)
+seg_z = np.sin(2*seg_x) * np.cos(1.5*seg_y) + 0.5*seg_x*np.sin(seg_y) - 0.3*seg_y*np.cos(seg_x)
+
+light_x, light_y, light_z = 0, 0, 4.0
+
+shadow_x = []
+shadow_y = []
+for sx, sy, sz in zip(seg_x, seg_y, seg_z):
+    t = (z_plane - light_z) / (sz - light_z)
+    ix = light_x + t * (sx - light_x)
+    iy = light_y + t * (sy - light_y)
+    shadow_x.append(ix)
+    shadow_y.append(iy)
+shadow_z = [z_plane] * n_segments
+
+def bilinear_interpolate(xi, yi, x_grid, y_grid, Z_grid):
+    i = np.searchsorted(x_grid, xi) - 1
+    j = np.searchsorted(y_grid, yi) - 1
+    i = max(0, min(i, len(x_grid)-2))
+    j = max(0, min(j, len(y_grid)-2))
+    x1, x2 = x_grid[i], x_grid[i+1]
+    y1, y2 = y_grid[j], y_grid[j+1]
+    z11 = Z_grid[j, i]
+    z12 = Z_grid[j, i+1]
+    z21 = Z_grid[j+1, i]
+    z22 = Z_grid[j+1, i+1]
+    dx = x2 - x1
+    dy = y2 - y1
+    if dx == 0 or dy == 0:
+        return (z11 + z12 + z21 + z22) / 4
+    tx = (xi - x1) / dx
+    uy = (yi - y1) / dy
+    z1 = (1 - tx) * z11 + tx * z12
+    z2 = (1 - tx) * z21 + tx * z22
+    return (1 - uy) * z1 + uy * z2
+
+t_vals = np.linspace(0, 1, 30)
+curve_x_list = []
+curve_y_list = []
+curve_z_list = []
+for (sx, sy, sz, shx, shy) in zip(seg_x, seg_y, seg_z, shadow_x, shadow_y):
+    mx = (sx + shx) / 2
+    my = (sy + shy) / 2
+    mz = bilinear_interpolate(mx, my, x, y, Z)
+    bx_vals = []
+    by_vals = []
+    bz_vals = []
+    for t in t_vals:
+        bx = (1-t)**2 * sx + 2*(1-t)*t * mx + t**2 * shx
+        by = (1-t)**2 * sy + 2*(1-t)*t * my + t**2 * shy
+        bz = (1-t)**2 * sz + 2*(1-t)*t * mz + t**2 * z_plane
+        bx_vals.append(bx)
+        by_vals.append(by)
+        bz_vals.append(bz)
+    curve_x_list.append(bx_vals)
+    curve_y_list.append(by_vals)
+    curve_z_list.append(bz_vals)
+
+curve_x_flat = []
+curve_y_flat = []
+curve_z_flat = []
+for bx, by, bz in zip(curve_x_list, curve_y_list, curve_z_list):
+    curve_x_flat.extend(bx)
+    curve_y_flat.extend(by)
+    curve_z_flat.extend(bz)
+    curve_x_flat.append(None)
+    curve_y_flat.append(None)
+    curve_z_flat.append(None)
+
+arrow_start = (light_x, light_y, light_z)
+arrow_end = (0, 0, 0)
+```
+::: {.content-visible when-format="pdf"}
+```{python}
+#| echo: false
+#| label: fig-ssccs-phil-pdf
+#| fig-cap: "From Constrained Potential to Transient Projection"
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+
+fig = plt.figure(figsize=(12, 11))
+ax = fig.add_subplot(111, projection='3d')
+
+ax.plot_surface(X, Y, Z, facecolor='whitesmoke', alpha=0.2, rstride=1, cstride=1, linewidth=0.5, edgecolor='black')
+ax.plot_surface(X, Y, np.full_like(Z, z_plane), color='#cccccc', alpha=0.2, edgecolor='none')
+
+for bx, by, bz in zip(curve_x_list, curve_y_list, curve_z_list):
+    ax.plot(bx, by, bz, color='gray', linestyle=':', linewidth=0.6, alpha=1)
+
+ax.scatter(seg_x, seg_y, seg_z, marker='s', s=40, color='white', edgecolor='black', linewidth=1, label='Scheme-Segment')
+ax.scatter(shadow_x, shadow_y, shadow_z, color='#000000', s=25, label='Projections (Data or State)')
+
+ax.quiver(arrow_start[0], arrow_start[1], arrow_start[2],
+          arrow_end[0]-arrow_start[0], arrow_end[1]-arrow_start[1], arrow_end[2]-arrow_start[2],
+          color='black', alpha=1, arrow_length_ratio=0.1, linewidth=1)
+
+ax.text(0, 0, 3.8, "Observation\nas the only computation event",
+        color='black', fontsize=11, ha='center', va='bottom',
+        bbox=dict(boxstyle='round', facecolor='white', alpha=1, edgecolor='lightgray'))
+
+ax.set_xlabel('Segment space X')
+ax.set_ylabel('Segment space Y')
+ax.set_zlabel('Constraint potential')
+ax.legend(loc='upper left', bbox_to_anchor=(0.05, 0.8), fontsize='small',
+          facecolor='white', edgecolor='black')
+
+ax.xaxis.pane.fill = False
+ax.yaxis.pane.fill = False
+ax.zaxis.pane.fill = False
+ax.xaxis.pane.set_edgecolor('none')
+ax.yaxis.pane.set_edgecolor('none')
+ax.zaxis.pane.set_edgecolor('none')
+ax.xaxis.line.set_color('black')
+ax.yaxis.line.set_color('black')
+ax.zaxis.line.set_color('black')
+ax.tick_params(axis='x', colors='black')
+ax.tick_params(axis='y', colors='black')
+ax.tick_params(axis='z', colors='black')
+ax.view_init(elev=30, azim=-64)
+
+plt.tight_layout()
+
+plt.show()
+```
+:::
+
+::: {.content-visible unless-format="pdf"}
+```{python}
+#| echo: false
+#| label: fig-ssccs-phil-html
+#| fig-cap: "From Constrained Potential to Transient Projection"
+import plotly.graph_objects as go
+import math
+
+fig = go.Figure()
+
+fig.add_trace(go.Surface(
+    x=X, y=Y, z=Z,
+    colorscale='Viridis', opacity=0.9, showscale=False,
+    contours={
+        "x": {"show": True, "color": "black", "width": 1},
+        "y": {"show": True, "color": "black", "width": 1},
+        "z": {"show": False}
+    }
+))
+
+fig.add_trace(go.Surface(
+    x=X, y=Y, z=np.full_like(Z, z_plane),
+    colorscale=[[0, '#cccccc'], [1, '#cccccc']],
+    opacity=0.3, showscale=False,
+    contours={"x": {"show": False}, "y": {"show": False}, "z": {"show": False}}
+))
+
+fig.add_trace(go.Scatter3d(
+    x=curve_x_flat, y=curve_y_flat, z=curve_z_flat,
+    mode='lines',
+    line=dict(color='gray', width=2, dash='dot'),
+    opacity=0.7, showlegend=False
+))
+
+fig.add_trace(go.Scatter3d(
+    x=seg_x, y=seg_y, z=seg_z,
+    mode='markers',
+    marker=dict(
+        size=6,
+        symbol='square-open',
+        color='black',
+        line=dict(width=1)
+    ),
+    name='Structured Potential<br>(Scheme-Segment)'
+))
+
+fig.add_trace(go.Scatter3d(
+    x=shadow_x, y=shadow_y, z=shadow_z,
+    mode='markers',
+    marker=dict(size=4, color='#000000', symbol='circle'),
+    name='Projections<br>(State or Data)'
+))
+
+fig.add_trace(go.Scatter3d(
+    x=[arrow_start[0], arrow_end[0]],
+    y=[arrow_start[1], arrow_end[1]],
+    z=[arrow_start[2]-0.8, arrow_end[2]],
+    mode='lines', line=dict(color='black', width=4), showlegend=False
+))
+
+fig.add_trace(go.Cone(
+    x=[arrow_end[0]], y=[arrow_end[1]], z=[arrow_end[2]],
+    u=[0], v=[0], w=[-0.3],
+    colorscale=[[0, 'black'], [1, 'black']],
+    showscale=False, sizemode='scaled', sizeref=1.4, anchor='tip'
+))
+
+fig.add_trace(go.Scatter3d(
+    x=[0], y=[0], z=[3.8],
+    mode='text',
+    text=["Observation as the only computation event"],
+    textposition='bottom center',
+    textfont=dict(size=12, color='black'),
+    showlegend=False
+))
+
+azim_rad = 156 * math.pi / 180
+elev_rad = 26 * math.pi / 180
+r = 1.9
+eye_x = r * math.cos(elev_rad) * math.sin(azim_rad)
+eye_y = r * math.cos(elev_rad) * math.cos(azim_rad)
+eye_z = r * math.sin(elev_rad)
+
+fig.update_layout(
+    title=None,
+    width=900, height=700,
+    scene=dict(
+        aspectmode='manual', 
+        aspectratio=dict(x=1, y=1, z=0.7),
+        xaxis=dict(title='Segment space X', showbackground=False, gridcolor='gray',
+                   zerolinecolor='black', linecolor='black', tickcolor='black', ticks='outside'),
+        yaxis=dict(title='Segment space Y', showbackground=False, gridcolor='gray',
+                   zerolinecolor='black', linecolor='black', tickcolor='black', ticks='outside'),
+        zaxis=dict(title='Constraint potential', showbackground=False, gridcolor='gray',
+                   zerolinecolor='black', linecolor='black', tickcolor='black', ticks='outside'),
+        camera=dict(
+            eye=dict(x=eye_x, y=eye_y, z=eye_z),
+            center=dict(x=0, y=0, z=-0.2)
+        )
+    ),
+    legend=dict(
+        x=0.9, y=0.9,
+        xanchor='right', yanchor='top',
+        bgcolor='white', bordercolor='black', borderwidth=1,
+        font=dict(size=12, color='black'),
+        itemsizing='constant'
+    ),
+    margin=dict(l=0, r=0, t=0, b=0),
+    paper_bgcolor='white', plot_bgcolor='white'
+)
+
+fig.show()
+
+# from pathlib import Path
+# import plotly.io as pio
+# import os
+# current_dir = Path.cwd()
+# pio.write_json(fig, os.path.join(current_dir, "_philvis_output.json"))
+```
+:::

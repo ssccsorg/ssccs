@@ -13,7 +13,7 @@ material hardware shifts, SSCCS addresses fundamental inefficiencies of
 the Von Neumann bottleneck at the logical layer. By formalizing
 computation as the simultaneous resolution of static potential under
 dynamic constraints rather than a sequence of state mutations, the
-architecture reframes data movement, concurrency, and verifiability./
+architecture reframes data movement, concurrency, and verifiability.
 
 SSCCS embodies three core principles: Immutability (segments and schemes
 are immutable once created), Structural Integrity (computations adhere
@@ -37,11 +37,16 @@ Commons.
 
 
 
-Before observation, structure exists as constrained potential, **data is
-merely the shadow of a collapsed state.** Beneath the surface of
-immutable segments and schemes, observation momentarily illuminates the
-field, projections arise as shadows, yet the underlying structure
-remains eternally untouched.
+## Philosophical Foundation
+
+Before observation, structure exists as constrained potential. **Data,
+or state is merely the shadow cast by collapsed possibility.** Beneath
+immutable segments and schemes, observation momentarily activates the
+Field, precipitating the collapse of possibility and giving rise to a
+projection. A projection, as the residue of collapse, is transient; it
+constitutes what we recognize as data or state. Yet throughout this
+entire process, the fundamental structure itself remains untouched and
+unaltered.
 
 
 
@@ -152,22 +157,13 @@ producing a Projection that can be interpreted as data. Each layer has
 defined properties and relationships; together they constitute the
 complete computational ontology.
 
-- Immutable Segments & Schemes allow any number of observers to apply Ω
-  concurrently – no locks or synchronization needed.
-- Structural mapping eliminates data movement.
-- Consistency is guaranteed by the single mutable layer (Field), which
-  governs all observations.
-- Deterministic results arise from cryptographic identities and
-  reproducible hardware mappings.
-- Parallelism is emergent: concurrency flows from structure, not from
-  explicit programming.
-
 <div id="fig-ssccs-multifield">
 
 ``` python
 dot("""
 digraph SSCCS_MultiField {
     node [shape=rect];
+    graph [pad="0.5, 0.5"];
     
     // === Leftmost rank: Segments and Schemes (immutable) ===
     { rank=source;
@@ -284,6 +280,16 @@ Figure 2
 
 </div>
 
+- Immutable Segments & Schemes allow any number of observers to apply Ω
+  concurrently – no locks or synchronization needed.
+- Structural mapping eliminates data movement.
+- Consistency is guaranteed by the single mutable layer (Field), which
+  governs all observations.
+- Deterministic results arise from cryptographic identities and
+  reproducible hardware mappings.
+- Parallelism is emergent: concurrency flows from structure, not from
+  explicit programming.
+
 This integrated view illustrates the full SSCCS model: The observation
 events ($Ω_1$, $Ω_2$, etc.) can occur concurrently without any temporal
 ordering, and the resulting projections ($P_1$, $P_2$, etc.) are
@@ -293,153 +299,8 @@ is not a fundamental dimension that governs state changes**; instead,
 the structure of Schemes and the constraints of Fields govern what can
 be observed and when.
 
-A more complexier structural composition can be defined like:
-
-<div id="fig-ssccs-multifield-large">
-
-``` python
-dot("""
-digraph SSCCS_MultiField {
-    rankdir=TB;
-    node [shape=rect];
-    
-    ranksep=0.1;
-    nodesep=0.13;
-    
-    // === Row 1: Segments 1–6 + invisible (to make 7 columns) ===
-    { rank=1;
-        node [shape=point, width=0.2, height=0.2];
-        s1 [xlabel="S₁"]; s2 [xlabel="S₂"]; s3 [xlabel="S₃"]; s4 [xlabel="S₄"]; s5 [xlabel="S₅"]; s6 [xlabel="S₆"];
-        node [style=invis, shape=point, label="", width=0, height=0];
-        invis_s1;
-    }
-    // === Row 2: Segments 7–12 + invisible ===
-    { rank=2;
-        node [shape=point, width=0.2, height=0.2];
-        s7 [xlabel="S₇"]; s8 [xlabel="S₈"]; s9 [xlabel="S₉"]; s10 [xlabel="S₁₀"]; s11 [xlabel="S₁₁"]; s12 [xlabel="S₁₂"];
-        node [style=invis, shape=point, label="", width=0, height=0];
-        invis_s2;
-    }
-    // === Row 3: Segments 13–18 + invisible ===
-    { rank=3;
-        node [shape=point, width=0.2, height=0.2];
-        s13 [xlabel="S₁₃"]; s14 [xlabel="S₁₄"]; s15 [xlabel="S₁₅"]; s16 [xlabel="S₁₆"]; s17 [xlabel="S₁₇"]; s18 [xlabel="S₁₈"];
-        node [style=invis, shape=point, label="", width=0, height=0];
-        invis_s3;
-    }
-    // === Row 4: Segments 19–24 + invisible ===
-    { rank=4;
-        node [shape=point, width=0.2, height=0.2];
-        s19 [xlabel="S₁₉"]; s20 [xlabel="S₂₀"]; s21 [xlabel="S₂₁"]; s22 [xlabel="S₂₂"]; s23 [xlabel="S₂₃"]; s24 [xlabel="S₂₄"];
-        node [style=invis, shape=point, label="", width=0, height=0];
-        invis_s4;
-    }
-    
-    // === Row 5: Schemes (structural blueprints) – widened to 7 columns ===
-    { rank=5;
-        node [shape=box, style=solid];
-        sch1 [label="Σ₁"]; sch2 [label="Σ₂"]; sch3 [label="Σ₃"]; sch4 [label="Σ₄"];
-        node [style=invis, shape=point, label=""];
-        invis_sch1; invis_sch2; invis_sch3;
-    }
-    
-    // === Row 6: Fields (dynamic governance) – widened to 7 columns ===
-    { rank=6;
-        node [shape=rect, style=dashed];
-        f1 [label="F₁"]; f2 [label="F₂"]; f3 [label="F₃"]; f4 [label="F₄"];
-        node [style=invis, shape=point, label=""];
-        invis_f1; invis_f2; invis_f3;
-    }
-    
-    // === Row 7: Observation events ===
-    { rank=7;
-        node [shape=ellipse];
-        o1 [label="Ω₁"]; o2 [label="Ω₂"]; o3 [label="Ω₃"]; o4 [label="Ω₄"]; o5 [label="Ω₅"]; o6 [label="Ω₆"]; o7 [label="Ω₇"];
-    }
-    
-    // === Row 8: Projections (manifested states) ===
-    { rank=8;
-        node [shape=box];
-        p1 [label="P₁"]; p2 [label="P₂"]; p3 [label="P₃"]; p4 [label="P₄"]; p5 [label="P₅"]; p6 [label="P₆"]; p7 [label="P₇"];
-    }
-    
-    // === Row 9: Interpreted Data (final deterministic values) ===
-    { rank=9;
-        node [shape=rect, style=rounded];
-        d1 [label="D₁\n= I₁(P₁)"]; 
-        d2 [label="D₂\n= I₂(P₂)"]; 
-        d3 [label="D₃\n= I₃(P₃)"];
-        d4 [label="D₄\n= I₄(P₄)"]; 
-        d5 [label="D₅\n= I₅(P₅)"]; 
-        d6 [label="D₆\n= I₆(P₆)"];
-        d7 [label="D₇\n= I₇(P₇)"];
-    }
-    
-    // === Scheme–Segment structural relations (undirected lines) ===
-    edge [arrowhead=none, style=solid];
-    sch1 -> s1; sch1 -> s2; sch1 -> s3; sch1 -> s4; sch1 -> s5; sch1 -> s6;
-    sch2 -> s5; sch2 -> s6; sch2 -> s7; sch2 -> s8; sch2 -> s9; sch2 -> s10; sch2 -> s11; sch2 -> s12;
-    sch3 -> s10; sch3 -> s11; sch3 -> s12; sch3 -> s13; sch3 -> s14; sch3 -> s15; sch3 -> s16; sch3 -> s17; sch3 -> s18;
-    sch4 -> s15; sch4 -> s16; sch4 -> s17; sch4 -> s18; sch4 -> s19; sch4 -> s20; sch4 -> s21; sch4 -> s22; sch4 -> s23; sch4 -> s24;
-    
-    // === Field influences on Schemes and Segments (dashed) ===
-    edge [arrowhead=none, style=dashed];
-    f1 -> sch1; f1 -> sch2;
-    f1 -> s1; f1 -> s2; f1 -> s3; f1 -> s4; f1 -> s5; f1 -> s6; f1 -> s7; f1 -> s8; f1 -> s9; f1 -> s10; f1 -> s11; f1 -> s12;
-    f2 -> sch2; f2 -> sch3;
-    f2 -> s8; f2 -> s9; f2 -> s10; f2 -> s11; f2 -> s12; f2 -> s13; f2 -> s14; f2 -> s15; f2 -> s16; f2 -> s17; f2 -> s18;
-    f3 -> sch3; f3 -> sch4;
-    f3 -> s14; f3 -> s15; f3 -> s16; f3 -> s17; f3 -> s18; f3 -> s19; f3 -> s20; f3 -> s21; f3 -> s22; f3 -> s23; f3 -> s24;
-    f4 -> sch1; f4 -> sch4;
-    f4 -> s1; f4 -> s3; f4 -> s5; f4 -> s18; f4 -> s20; f4 -> s22;
-    
-    // === Structural input: Schemes and Segments define Field boundaries (solid) ===
-    edge [arrowhead=normal, style=solid];
-    sch1 -> f1; sch1 -> f4;
-    sch2 -> f1; sch2 -> f2;
-    sch3 -> f2; sch3 -> f3;
-    sch4 -> f3; sch4 -> f4;
-    s1 -> f1; s2 -> f1; s3 -> f1; s4 -> f1; s5 -> f1; s6 -> f1; s7 -> f1; s8 -> f1; s9 -> f1; s10 -> f1; s11 -> f1; s12 -> f1;
-    s8 -> f2; s9 -> f2; s10 -> f2; s11 -> f2; s12 -> f2; s13 -> f2; s14 -> f2; s15 -> f2; s16 -> f2; s17 -> f2; s18 -> f2;
-    s14 -> f3; s15 -> f3; s16 -> f3; s17 -> f3; s18 -> f3; s19 -> f3; s20 -> f3; s21 -> f3; s22 -> f3; s23 -> f3; s24 -> f3;
-    s1 -> f4; s3 -> f4; s5 -> f4; s18 -> f4; s20 -> f4; s22 -> f4;
-    
-    // === Trigger mechanism: Each Observation applies to one or more Fields ===
-    edge [arrowhead=normal, style=solid];
-    o1 -> {f1, f2};
-    o2 -> {f1, f4};
-    o3 -> {f2, f3};
-    o4 -> {f3, f4};
-    o5 -> f1;
-    o6 -> f2;
-    o7 -> {f1, f2, f3};
-
-    edge [arrowhead=normal, style=solid];
-    {f1, f2} -> p1 [label="Ω₁"];
-    {f1, f4} -> p2 [label="Ω₂"];
-    {f2, f3} -> p3 [label="Ω₃"];
-    {f3, f4} -> p4 [label="Ω₄"];
-    f1 -> p5 [label="Ω₅"];
-    f2 -> p6 [label="Ω₆"];
-    {f1, f2, f3} -> p7 [label="Ω₇"];
-    
-    // === Interpretation: Projection yields deterministic Data ===
-    edge [arrowhead=normal, style=solid];
-    p1 -> d1 [label="I₁"];
-    p2 -> d2 [label="I₂"];
-    p3 -> d3 [label="I₃"];
-    p4 -> d4 [label="I₄"];
-    p5 -> d5 [label="I₅"];
-    p6 -> d6 [label="I₆"];
-    p7 -> d7 [label="I₇"];
-}
-"""
-)
-```
-
-Figure 3
-
-</div>
+A more complexier structural composition can be visualized in 3d space
+like:
 
 ### Segment: Atomic Coordinate Existence
 
@@ -653,7 +514,7 @@ digraph Compilation_Process {
 )
 ```
 
-Figure 4
+Figure 3
 
 </div>
 
@@ -961,7 +822,7 @@ digraph TensorReshaping {
 )
 ```
 
-Figure 5
+Figure 4
 
 </div>
 
@@ -1058,7 +919,7 @@ digraph Graph_Cluster_Detailed {
 )
 ```
 
-Figure 6
+Figure 5
 
 </div>
 
@@ -1159,7 +1020,7 @@ digraph SystemStack {
 )
 ```
 
-Figure 7
+Figure 6
 
 </div>
 
@@ -1240,7 +1101,7 @@ plt.tight_layout()
 plt.show()
 ```
 
-Figure 8
+Figure 7
 
 </div>
 
@@ -1325,7 +1186,7 @@ digraph Implementation_Roadmap {
 )
 ```
 
-Figure 9
+Figure 8
 
 </div>
 
