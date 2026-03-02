@@ -1487,15 +1487,20 @@ execution.
 
 ------------------------------------------------------------------------
 
-© 2026 SSCCS gUG (i.G.) — A non-profit research initiative, formalized
-through global standards and its authenticity substantiated by immutable
-scientific records and cryptographic proofs.
+© 2026 SSCCS Foundation (in formation) — A non-profit research
+initiative, formalized through global standards and its authenticity
+substantiated by immutable scientific records and cryptographic proofs.
 
-- Source code under Apache 2.0: [Github](https://github.com/ssccsorg) \|
-  GPG ID:
-  [BCCB196BADF50C99](https://keys.openpgp.org/search?q=BCCB196BADF50C99)
-- Whitepaper under CC BY-NC-ND 4.0: [PDF](https://ssccs.org/wp)
-  [HTML](https://ssccsorg.github.io/ssccs) \| Registered DOI:
-  [10.5281/zenodo.18759106](https://doi.org/10.5281/zenodo.18759106) by
-  CERN,
-  [OpenAIRE](https://explore.openaire.eu/search/result?pid=10.5281%2Fzenodo.18787286)
+- Open Source Software: All resources are licensed under the *Apache
+  License 2.0* in the official repository
+  [Github](https://github.com/ssccsorg). All codes are signed by GPG Key
+  ID:
+  [`BCCB196BADF50C99`](https://keys.openpgp.org/search?q=BCCB196BADF50C99)
+- Legal: *Foundational Charter and Statute*:
+  [PDF](https://ssccsorg.github.io/ssccs/legal/legal.pdf) \|
+  [HTML](https://ssccsorg.github.io/ssccs/legal)
+- Publications: The Whitepaper and all specification documents are
+  licensed under *CC BY-NC-ND 4.0*: [PDF](https://ssccs.org/wp) \|
+  [HTML](https://ssccsorg.github.io/ssccs) \| DOI
+  [10.5281/zenodo.18759106](https://doi.org/10.5281/zenodo.18759106)
+  registered in CERN/Zenodo, OpenAIRE
