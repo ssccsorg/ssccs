@@ -158,7 +158,7 @@ complete computational ontology.
 dot("""
 digraph SSCCS_MultiField {
     node [shape=rect];
-    graph [pad="0.5, 0.5"];
+    graph [pad="0.5, 0"];
     
     // === Leftmost rank: Segments and Schemes (immutable) ===
     { rank=source;
@@ -275,15 +275,11 @@ Figure 2
 
 </div>
 
-- Immutable Segments & Schemes allow any number of observers to apply Ω
-  concurrently – no locks or synchronization needed.
-- Structural mapping eliminates data movement.
-- Consistency is guaranteed by the single mutable layer (Field), which
-  governs all observations.
-- Deterministic results arise from cryptographic identities and
-  reproducible hardware mappings.
-- Parallelism is emergent: concurrency flows from structure, not from
-  explicit programming.
+Through immutable Segments and Schemes, SSCCS achieves emergent
+**parallelism without locks, eliminates data movement via structural
+mapping, guarantees consistency with a single mutable Field, and ensures
+deterministic results** via cryptographic identities and reproducible
+hardware mappings.
 
 This integrated view illustrates the full SSCCS model: The observation
 events ($Ω_1$, $Ω_2$, etc.) can occur concurrently without any temporal
@@ -293,9 +289,6 @@ from these projections can also be interpreted independently. So **time
 is not a fundamental dimension that governs state changes**; instead,
 the structure of Schemes and the constraints of Fields govern what can
 be observed and when.
-
-A more complexier structural composition can be visualized in 3d space
-like:
 
 ### Segment: Atomic Coordinate Existence
 

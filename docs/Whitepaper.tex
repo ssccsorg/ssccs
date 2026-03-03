@@ -1,0 +1,1610 @@
+% Options for packages loaded elsewhere
+% Options for packages loaded elsewhere
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+%
+\documentclass[
+  a4paper,
+  DIV=11,
+  numbers=noendperiod]{scrartcl}
+\usepackage{xcolor}
+\usepackage{amsmath,amssymb}
+\setcounter{secnumdepth}{5}
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provide euro and other symbols
+\else % if luatex or xetex
+  \usepackage{unicode-math} % this also loads fontspec
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+\usepackage{lmodern}
+\ifPDFTeX\else
+  % xetex/luatex font selection
+\fi
+% Use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+% Make \paragraph and \subparagraph free-standing
+\makeatletter
+\ifx\paragraph\undefined\else
+  \let\oldparagraph\paragraph
+  \renewcommand{\paragraph}{
+    \@ifstar
+      \xxxParagraphStar
+      \xxxParagraphNoStar
+  }
+  \newcommand{\xxxParagraphStar}[1]{\oldparagraph*{#1}\mbox{}}
+  \newcommand{\xxxParagraphNoStar}[1]{\oldparagraph{#1}\mbox{}}
+\fi
+\ifx\subparagraph\undefined\else
+  \let\oldsubparagraph\subparagraph
+  \renewcommand{\subparagraph}{
+    \@ifstar
+      \xxxSubParagraphStar
+      \xxxSubParagraphNoStar
+  }
+  \newcommand{\xxxSubParagraphStar}[1]{\oldsubparagraph*{#1}\mbox{}}
+  \newcommand{\xxxSubParagraphNoStar}[1]{\oldsubparagraph{#1}\mbox{}}
+\fi
+\makeatother
+
+\usepackage{color}
+\usepackage{fancyvrb}
+\newcommand{\VerbBar}{|}
+\newcommand{\VERB}{\Verb[commandchars=\\\{\}]}
+\DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\}}
+% Add ',fontsize=\small' for more characters per line
+\usepackage{framed}
+\definecolor{shadecolor}{RGB}{255,255,255}
+\newenvironment{Shaded}{\begin{snugshade}}{\end{snugshade}}
+\newcommand{\AlertTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\AnnotationTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{\textit{#1}}}
+\newcommand{\AttributeTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\BaseNTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\BuiltInTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\CharTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\CommentTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{\textit{#1}}}
+\newcommand{\CommentVarTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{\textit{#1}}}
+\newcommand{\ConstantTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\ControlFlowTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\DataTypeTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\DecValTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\DocumentationTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{\textit{#1}}}
+\newcommand{\ErrorTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\ExtensionTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\FloatTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\FunctionTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\ImportTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\InformationTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{\textit{#1}}}
+\newcommand{\KeywordTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\NormalTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\OperatorTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\OtherTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\PreprocessorTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\RegionMarkerTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\SpecialCharTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\SpecialStringTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\StringTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\VariableTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\VerbatimStringTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\WarningTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{\textit{#1}}}
+
+\usepackage{longtable,booktabs,array}
+\usepackage{calc} % for calculating minipage widths
+% Correct order of tables after \paragraph or \subparagraph
+\usepackage{etoolbox}
+\makeatletter
+\patchcmd\longtable{\par}{\if@noskipsec\mbox{}\fi\par}{}{}
+\makeatother
+% Allow footnotes in longtable head/foot
+\IfFileExists{footnotehyper.sty}{\usepackage{footnotehyper}}{\usepackage{footnote}}
+\makesavenoteenv{longtable}
+\usepackage{graphicx}
+\makeatletter
+\newsavebox\pandoc@box
+\newcommand*\pandocbounded[1]{% scales image to fit in text height/width
+  \sbox\pandoc@box{#1}%
+  \Gscale@div\@tempa{\textheight}{\dimexpr\ht\pandoc@box+\dp\pandoc@box\relax}%
+  \Gscale@div\@tempb{\linewidth}{\wd\pandoc@box}%
+  \ifdim\@tempb\p@<\@tempa\p@\let\@tempa\@tempb\fi% select the smaller of both
+  \ifdim\@tempa\p@<\p@\scalebox{\@tempa}{\usebox\pandoc@box}%
+  \else\usebox{\pandoc@box}%
+  \fi%
+}
+% Set default figure placement to htbp
+\def\fps@figure{htbp}
+\makeatother
+
+
+
+
+
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+
+
+
+ 
+
+
+\usepackage{unicode-math}
+\addtokomafont{disposition}{\rmfamily}
+\usepackage{graphicx}
+\setkeys{Gin}{width=\linewidth,height=\textheight,keepaspectratio}
+\DeclareTOCStyleEntry[beforeskip=0.5pt]{default}{section}
+\DeclareTOCStyleEntry[beforeskip=0pt]{default}{subsection}
+\KOMAoption{captions}{tableheading}
+\usepackage{authblk}
+\author{Taeho Lee (Founder \& Architect)\thanks{Correspondence author: lee@ssccs.org; Official project website: https://ssccs.org}}
+\affil{SSCCS Foundation}
+\makeatletter
+\@ifpackageloaded{caption}{}{\usepackage{caption}}
+\AtBeginDocument{%
+\ifdefined\contentsname
+  \renewcommand*\contentsname{Table of contents}
+\else
+  \newcommand\contentsname{Table of contents}
+\fi
+\ifdefined\listfigurename
+  \renewcommand*\listfigurename{List of Figures}
+\else
+  \newcommand\listfigurename{List of Figures}
+\fi
+\ifdefined\listtablename
+  \renewcommand*\listtablename{List of Tables}
+\else
+  \newcommand\listtablename{List of Tables}
+\fi
+\ifdefined\figurename
+  \renewcommand*\figurename{Figure}
+\else
+  \newcommand\figurename{Figure}
+\fi
+\ifdefined\tablename
+  \renewcommand*\tablename{Table}
+\else
+  \newcommand\tablename{Table}
+\fi
+}
+\@ifpackageloaded{float}{}{\usepackage{float}}
+\floatstyle{ruled}
+\@ifundefined{c@chapter}{\newfloat{codelisting}{h}{lop}}{\newfloat{codelisting}{h}{lop}[chapter]}
+\floatname{codelisting}{Listing}
+\newcommand*\listoflistings{\listof{codelisting}{List of Listings}}
+\makeatother
+\makeatletter
+\makeatother
+\makeatletter
+\@ifpackageloaded{caption}{}{\usepackage{caption}}
+\@ifpackageloaded{subcaption}{}{\usepackage{subcaption}}
+\makeatother
+\makeatletter
+\@ifpackageloaded{tcolorbox}{}{\usepackage[skins,breakable]{tcolorbox}}
+\makeatother
+\makeatletter
+\@ifundefined{shadecolor}{\definecolor{shadecolor}{rgb}{.97, .97, .97}}{}
+\makeatother
+\makeatletter
+\makeatother
+\makeatletter
+\ifdefined\Shaded\renewenvironment{Shaded}{\begin{tcolorbox}[sharp corners, interior hidden, enhanced, borderline west={3pt}{0pt}{shadecolor}, frame hidden, boxrule=0pt, breakable]}{\end{tcolorbox}}\fi
+\makeatother
+\usepackage{bookmark}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\urlstyle{same}
+\hypersetup{
+  pdftitle={Schema--Segment Composition Computing System},
+  hidelinks,
+  pdfcreator={LaTeX via pandoc}}
+
+
+\title{Schema--Segment Composition Computing System}
+\usepackage{etoolbox}
+\makeatletter
+\providecommand{\subtitle}[1]{% add subtitle to \maketitle
+  \apptocmd{\@title}{\par {\large #1 \par}}{}{}
+}
+\makeatother
+\subtitle{A Structure-Defined, Constraint-Conditioned, and
+Observation-Centric Computational System Architecture}
+\author{}
+\date{February 16, 2026}
+\begin{document}
+\maketitle
+
+
+\section*{Abstract}\label{abstract}
+
+\textbf{SSCCS (Schema--Segment Composition Computing System)} is an
+observation-driven computing model that redefines computation as the
+traceable projection of immutable Segments within a structured Scheme.
+While current hardware advances focus on physical improvements, SSCCS
+tackles the Von Neumann bottleneck at the logical layer. By formalizing
+computation as the resolution of static potential under dynamic
+constraints---rather than sequential state mutations---the architecture
+reframes data movement, concurrency, and verifiability.
+
+SSCCS embodies three core principles: Immutability (segments and schemes
+are immutable), Structural Integrity (computations follow predefined
+relationships), and Traceability (every projection is cryptographically
+verifiable). Its layered ontology---Segments, Schemes, Fields, and
+Projections---ensures information remains unchanged, operations
+transparent, and outcomes auditable.
+
+Driven by a software-first philosophy, this architecture ensures
+deterministic reproducibility by decoupling execution logic from mutable
+state through structural and cryptographic isolation. This open
+specification provides a roadmap where logical design dictates physical
+implementation---from software to hardware. By integrating energy
+efficiency with high interpretability, SSCCS establishes a foundation
+for sustainable, accountable computational infrastructures, ultimately
+transitioning logic into a transparent, verifiable, and accessible
+Intellectual Public Commons.
+
+\newpage{}
+
+\section*{Philosophical Foundation}\label{philosophical-foundation}
+
+\begin{figure}[H]
+
+\centering{
+
+\pandocbounded{\includegraphics[keepaspectratio]{Whitepaper_files/figure-pdf/fig-ssccs-phil-pdf-output-1.pdf}}
+
+}
+
+\caption{\label{fig-ssccs-phil-pdf}From Constrained Potential to
+Transient Projection}
+
+\end{figure}%
+
+Before observation, structure exists as constrained potential.
+\textbf{Data, or state is the shadow cast by collapsed possibility.}
+Beneath immutable segments and schemes, observation momentarily
+activates the Field, precipitating the collapse of possibility and
+giving rise to a projection. A projection, as the residue of collapse,
+is transient; it constitutes what we recognize as data or state. Yet
+throughout this entire process, the fundamental structure itself remains
+untouched and unaltered.
+
+\newpage{}
+
+\newpage{}
+
+\newpage
+\tableofcontents
+\newpage
+
+\newpage{}
+
+\section{Introduction}\label{introduction}
+
+For decades, computation has been defined by the von Neumann model:\\
+\texttt{Data\ (Input)\ +\ Program\ →\ Execution\ →\ Result}
+
+This formulation rests on several assumptions: \textbf{data exists as
+intrinsic values in memory, programs are instruction sequences, and
+execution involves moving data between memory and processor across a
+sequential timeline.} These assumptions are not fundamental laws but
+consequences of a specific architectural choice. Consequently, the
+majority of energy and time in conventional systems is spent on data
+movement rather than logic---a symptom known as the ``data-movement
+wall'' {[}1, 2, 3{]}. While new hardware-side paradigms attempt to
+mitigate this, it remains a localized optimization within the same
+sequential paradigm.
+
+SSCCS proposes a shift from procedural execution to \textbf{structural
+observation}:
+
+\begin{figure}[H]
+
+\centering{
+
+\pandocbounded{\includegraphics[keepaspectratio]{Whitepaper_files/mediabag/Whitepaper_files/figure-pdf/fig-time-coordinate-output-1.pdf}}
+
+}
+
+\caption{\label{fig-time-coordinate}SSCCS: Time as a coordinate axis}
+
+\end{figure}%
+
+SSCCS redefines computation as the observation of structured potential
+through four primitives:
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{Segments}: Immutable points in a multi-dimensional coordinate
+  space.
+\item
+  \textbf{Schemes}: Immutable blueprints defining the geometry and
+  relations among Segments.
+\item
+  \textbf{Fields}: Mutable containers of dynamic constraints.
+\item
+  \textbf{Observation}: The active event that reveals a Projection from
+  the space of possibilities.
+\end{itemize}
+
+This redefinition has substantive consequences. Data movement reduction
+is a derivative benefit of a shift from procedural execution to
+structural mapping. More fundamentally, this shift yields
+\textbf{deterministic reproducibility}: because the structure is fixed
+and observation is deterministic, every computation produces a
+verifiable trace from blueprint to projection.
+
+The following sections describe the formal components of SSCCS, their
+engineering implications, the open specification format, and the
+project's commitment to a new computational infrastructure.
+
+\section{The SSCCS Model}\label{the-ssccs-model}
+
+SSCCS comprises three ontologically distinct layers, each irreducible to
+the others:
+
+\begin{figure}[H]
+
+\centering{
+
+\pandocbounded{\includegraphics[keepaspectratio]{Whitepaper_files/mediabag/Whitepaper_files/figure-pdf/fig-ontology-output-1.pdf}}
+
+}
+
+\caption{\label{fig-ontology}SSCCS Ontology: Three irreducible layers}
+
+\end{figure}%
+
+Simply the Field governs the observation of the Scheme and its Segments,
+producing a Projection that can be interpreted as data. Each layer has
+defined properties and relationships; together they constitute the
+complete computational ontology.
+
+\begin{figure}[H]
+
+\centering{
+
+\pandocbounded{\includegraphics[keepaspectratio]{Whitepaper_files/mediabag/Whitepaper_files/figure-pdf/fig-ssccs-multifield-output-1.pdf}}
+
+}
+
+\caption{\label{fig-ssccs-multifield}SSCCS multi-field,
+multi-observation parallel model with segment set}
+
+\end{figure}%
+
+Through immutable Segments and Schemes, SSCCS achieves emergent
+\textbf{parallelism without locks, eliminates data movement via
+structural mapping, guarantees consistency with a single mutable Field,
+and ensures deterministic results} via cryptographic identities and
+reproducible hardware mappings.
+
+This integrated view illustrates the full SSCCS model: The observation
+events (\(Ω_1\), \(Ω_2\), etc.) can occur concurrently without any
+temporal ordering, and the resulting projections (\(P_1\), \(P_2\),
+etc.) are independent of each other. The data (\(D_1\), \(D_2\),
+\(D_3\), etc.) derived from these projections can also be interpreted
+independently. So \textbf{time is not a fundamental dimension that
+governs state changes}; instead, the structure of Schemes and the
+constraints of Fields govern what can be observed and when.
+
+\begin{figure}[H]
+
+\centering{
+
+\pandocbounded{\includegraphics[keepaspectratio]{Whitepaper_files/figure-pdf/fig-ssccs3d-pdf-output-1.pdf}}
+
+}
+
+\caption{\label{fig-ssccs3d-pdf}A structural composition visualization.}
+
+\end{figure}%
+
+\subsection{Segment: Atomic Coordinate
+Existence}\label{segment-atomic-coordinate-existence}
+
+A Segment is the minimal unit of potential---the fundamental building
+block of the SSCCS universe. Formally, a Segment \(s\) is a tuple
+\((c, id)\) where \(c \in \mathbb{R}^d\) (or a discrete lattice)
+represents coordinates in a \(d\)-dimensional possibility space, and
+\(id = H(c)\) is a cryptographic hash providing a unique identifier.
+
+Its properties are:
+
+\begin{itemize}
+\tightlist
+\item
+  Immutability: once created, a Segment cannot be modified; it can only
+  be referenced.
+\item
+  Statelessness: it contains no values, strings, or data
+  structures---only coordinates and identity.
+\end{itemize}
+
+Formally, a Segment \(s\) is defined as a tuple \((c, id)\) where
+\(c \in \mathbb{R}^d\) (or a discrete lattice) represents coordinates in
+a \(d\)-dimensional possibility space, and \(id = H(c)\) is a
+cryptographic hash providing a unique identifier.
+
+A Segment does not define meaning, dimensionality, or adjacency. It
+merely exists as a coordinate point. Because Segments contain no mutable
+state, they can be observed concurrently by any number of observers
+without synchronization. The cryptographic identity ensures that every
+Segment is uniquely and verifiably identifiable.
+
+\subsection{Scheme: Structural
+Blueprint}\label{scheme-structural-blueprint}
+
+If Segment is existence, Scheme is structure.
+
+A Scheme is an immutable blueprint that defines:
+
+\begin{itemize}
+\tightlist
+\item
+  Dimensional axes: specification of coordinate systems.
+\item
+  Internal structural constraints: rules governing Segment relations.
+\item
+  Adjacency relations: which Segments are neighbors in possibility
+  space.
+\item
+  Memory layout semantics: how structural relations map to physical
+  storage.
+\item
+  Observation rules: how observation resolves constraints into
+  projections.
+\end{itemize}
+
+A Scheme defines a geometric arrangement of Segments, not a sequence of
+operations. Segment relationships are spatial rather than temporal.
+During compilation, the compiler maps these spatial relationships
+directly to hardware addresses, ensuring that Segments which are
+structurally adjacent become physically adjacent. This design makes
+locality an inherent property of the specification, eliminating the need
+for runtime optimizations.
+
+\subsection{Field: Dynamic Constraint
+Substrate}\label{field-dynamic-constraint-substrate}
+
+The Field \(F\) is the only mutable layer, but it does not store values.
+Instead, it stores admissibility conditions that dynamically constrain
+which configurations of Segments are possible at any given time. The
+Field can be thought of as a mutable set of rules or conditions that
+interact with the immutable structure defined by the Scheme.
+
+It contains:
+
+\begin{itemize}
+\tightlist
+\item
+  External constraints: rules and conditions that are not part of the
+  immutable Scheme but affect observation.
+\item
+  Relational topology: the dynamic structure of how constraints relate
+  to one another.
+\item
+  Observation frontier: regions of the constraint space that have
+  already been observed and collapsed.
+\end{itemize}
+
+Formally, \(F\) is a set of admissibility predicates over the
+configuration space defined by \(\Sigma\). Mutating \(F\) changes which
+configurations are possible, but does not modify any Segment.
+
+\subsection{Observation and
+Projection}\label{observation-and-projection}
+
+\[ P = \Omega(\Sigma, F) \]
+
+Observation \(\Omega\) is the single active event. where \(\Sigma\) is
+the set of Segments and their Scheme, \(F\) is the current Field state,
+\(P\) is the resulting Projection. Observation occurs when the structure
+and Field together create an instability---i.e., multiple admissible
+configurations. \(\Omega\) deterministically selects one configuration
+and returns it as \(P\). No data is moved during observation; Segments
+remain in place. The Projection is ephemeral; if needed again, it is
+recomputed.
+
+\subsection{Secure Isolation and Cryptographic
+Boundaries}\label{secure-isolation-and-cryptographic-boundaries}
+
+This architecture enables complex computations within cryptographically
+enforced boundaries without requiring trust between components.
+
+\begin{itemize}
+\tightlist
+\item
+  Identity-based boundaries: Every Segment and Scheme has a unique
+  cryptographic hash. A computation can only access Segments for which
+  it holds valid references.
+\item
+  Isolation through immutability: Since Segments cannot be modified,
+  concurrent observations are naturally isolated.
+\item
+  Cryptographically enforced scoping: Schemes can define boundaries
+  limiting visibility, enforced by observation rules and identity
+  verification.
+\end{itemize}
+
+\subsection{Relationship with Traditional
+Concepts}\label{relationship-with-traditional-concepts}
+
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.2771}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.3373}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.3855}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Traditional Concept
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+SSCCS Counterpart
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Shift
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Instruction fetch & Not applicable & No imperative control flow \\
+Operand load & Segment coordinates & Data never moves; only observed \\
+Result store & Projection (ephemeral) & Results are events, not
+states \\
+Cache line fill & Structural layout & Locality from geometry \\
+Lock acquisition & Immutability & No shared mutable state \\
+Program counter & Coordinate dimension & Time as coordinate \\
+Algorithm & Geometry & Structure determines observation \\
+Black box execution & Transparent projection & Computation is
+auditable \\
+\end{longtable}
+
+\section{Formal Properties}\label{formal-properties}
+
+\subsection{Immutability and
+Concurrency}\label{immutability-and-concurrency}
+
+Because Segments are immutable, any number of observations can be
+performed simultaneously without interference. Formally, if \(S_1\) and
+\(S_2\) are disjoint sets of Segments, then:
+
+\[ \Omega(S_1 \cup S_2, F) = \Omega(S_1, F) \times \Omega(S_2, F) \]
+
+where \(\times\) denotes independent composition of projections. This
+property enables implicit parallelism without any programmer effort or
+runtime synchronisation---a consequence of immutability, not a feature
+added to address performance.
+
+\subsection{Determinism and
+Auditability}\label{determinism-and-auditability}
+
+Observation is deterministic: for identical \(\Sigma\) and \(F\),
+\(\Omega\) always yields the same \(P\). Determinism follows from the
+fact that selection among admissible configurations is a function of
+structure and constraints only. This enables auditability: every
+projection is a verifiable trace from blueprint to output.
+
+\subsection{Time as a Coordinate}\label{time-as-a-coordinate}
+
+Time is treated as one coordinate axis among many. Temporal ordering is
+expressed by comparing coordinates along that axis. Observations do not
+have a global temporal order unless explicitly defined. This eliminates
+the notion of a ``program counter'' and the associated assumption that
+computation must proceed in sequence.
+
+\[\delta(S_t, \text{instr}_{pc}) \to S_{t+1}, \quad pc \leftarrow pc + 1\]
+
+\subsection{Energy Model}\label{energy-model}
+
+A simplified energy model for SSCCS is: \[
+E_{\text{total}} = E_{\text{observation}} \times N_{\text{obs}} + E_{\text{field-update}} \times N_{\text{update}}
+\]
+
+where \(E_{\text{observation}}\) is the energy to perform one
+observation, and \(E_{\text{field-update}}\) is the energy to modify the
+Field. There is no term for moving data between memory and processor,
+because Segments are stationary. This model predicts that energy
+consumption with hardware-dependent constants scales with the number of
+observations and field updates, but not with data movement, which is a
+key source of energy inefficiency in traditional architectures.
+
+\section{Compilation and Structural
+Mapping}\label{compilation-and-structural-mapping}
+
+A key engineering contribution of SSCCS is that the compiler, rather
+than generating a sequence of instructions, performs structural mapping
+of the Schema onto the target hardware. The compiler analyses the
+adjacency relations and memory layout semantics declared in the Schema
+(written in the open \texttt{.ss} format) and produces a physical
+placement of Segments that maximises locality.
+
+For example, if a Schema defines a two-dimensional grid of Segments with
+nearest-neighbour adjacency, the compiler can lay out those Segments in
+memory in row-major or column-major order such that adjacent Segments
+occupy adjacent cache lines or even the same cache line. This is
+analogous to data layout optimisations performed manually in
+high-performance computing, but here it is automated and guaranteed by
+the Schema's specification.
+
+Furthermore, because the Schema encodes parallelism implicitly
+(independent subgraphs can be observed concurrently), the compiler can
+automatically generate code for vector units, multiple cores, or even
+custom hardware without explicit parallel annotations.
+
+\begin{figure}[H]
+
+\centering{
+
+\pandocbounded{\includegraphics[keepaspectratio]{Whitepaper_files/mediabag/Whitepaper_files/figure-pdf/fig-compilation-process-output-1.pdf}}
+
+}
+
+\caption{\label{fig-compilation-process}Compiler pipeline: from Schema
+to hardware layout}
+
+\end{figure}%
+
+\subsection{Compiler Pipeline}\label{compiler-pipeline}
+
+The SSCCS compiler transforms a high-level \texttt{.ss} schema into a
+hardware-specific layout through a deterministic pipeline.
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\item
+  Parsing and Validation: The \texttt{.ss} file is parsed into an
+  intermediate representation (IR) that captures the Schema's axes,
+  Segments, structural relations, constraints, memory-layout
+  declarations, and observation rules. Cryptographic identities
+  (SchemaId, SegmentId) are computed and verified.
+\item
+  Structural Analysis: The compiler extracts adjacency, hierarchy,
+  dependency, and equivalence relations from the Schema's relation
+  graph. It identifies independent sub-graphs that can be observed
+  concurrently and detects any structural conflicts (e.g., cycles that
+  would prevent deterministic observation).
+\item
+  Memory-Layout Resolution: Using the Schema's \texttt{MemoryLayout}
+  specification, the compiler resolves the mapping from coordinate space
+  to logical addresses. The \texttt{MemoryLayout} struct contains a
+  \texttt{layout\_type} (Linear, RowMajor, ColumnMajor,
+  SpaceFillingCurve, etc.) and a mapping function that implements the
+  coordinate-to-address transformation. This stage produces a logical
+  address map that preserves locality as defined by the adjacency
+  relations.
+\item
+  Hardware Mapping: The logical address map is projected onto the target
+  hardware's physical memory hierarchy. The compiler considers
+  cache-line boundaries, bank interleaving, and (where available)
+  processing-in-memory (PIM) capabilities to place Segments such that
+  structurally adjacent Segments reside in physically proximate storage
+  locations (e.g., same cache line, adjacent memory banks). This step
+  guarantees that observation can proceed with minimal data movement.
+\item
+  Observation-Code Generation: For each independent sub-graph, the
+  compiler emits native code (or configures a reconfigurable fabric)
+  that implements the observation operator \texttt{Ω}. The generated
+  code respects the resolution strategy, triggers, and priority defined
+  in the Schema's \texttt{ObservationRules}.
+\end{enumerate}
+
+The entire pipeline is deterministic and reproducible: given the same
+\texttt{.ss} specification and target hardware profile, the compiler
+always produces the same layout and observation code.
+
+\subsubsection{Concrete Example: Compiling a
+Grid2DTemplate}\label{concrete-example-compiling-a-grid2dtemplate}
+
+Consider a simple 3×3 grid defined by a \texttt{Grid2DTemplate}
+(expressed here in a language-neutral pseudocode):
+
+\begin{verbatim}
+grid = Grid2DTemplate(
+    axes: ["x": 0..2, "y": 0..2],
+    topology: FourConnected,
+    memory_layout: RowMajor
+)
+\end{verbatim}
+
+The compiler processes this Schema as follows:
+
+\begin{itemize}
+\item
+  Parsing: The schema is parsed into an internal representation with two
+  discrete axes, nine Segments (coordinates (0,0) \ldots{} (2,2)),
+  adjacency relations for four-connected neighbors, and a row-major
+  memory layout.
+\item
+  Structural Analysis: The relation graph reveals that each interior
+  cell has four neighbors; the graph is regular and contains no cycles
+  that would create observational dependencies. All nine cells are
+  mutually independent and can be observed in parallel.
+\item
+  Memory-Layout Resolution: The row-major mapping function computes
+  logical offsets: \texttt{offset\ =\ y\ *\ 3\ +\ x}. The compiler
+  evaluates this for all nine coordinates, producing a logical-address
+  map:
+
+\begin{verbatim}
+(0,0)→0, (1,0)→1, (2,0)→2,
+(0,1)→3, … , (2,2)→8.
+\end{verbatim}
+\item
+  Hardware Mapping: On a CPU with 64-byte cache lines, the compiler
+  packs the logical addresses into physical cache lines. Offsets 0-7 fit
+  into a single cache line; offset 8 spills into a second line. The
+  compiler may decide to pad the layout to keep the entire grid in one
+  cache line, or it may accept the spill because adjacent rows are still
+  in adjacent lines.
+\item
+  Observation-Code Generation: For a trivial observation that reads each
+  Segment's value, the compiler emits a loop that iterates over the nine
+  logical addresses and loads the corresponding data. Because the
+  addresses are consecutive, the loop can be vectorized (SIMD). If the
+  observation is a reduction (e.g., sum of values), the compiler may
+  generate a parallel reduction using multiple cores.
+\end{itemize}
+
+This example illustrates how the pipeline turns a declarative geometric
+description into efficient, hardware-aware executable code without any
+manual optimization.
+
+\section{Memory Mapping Logic}\label{memory-mapping-logic}
+
+The compiler's ability to eliminate data movement hinges on the
+\texttt{MemoryLayout} abstraction. A \texttt{MemoryLayout} consists of:
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{layout\_type} -- classification (\texttt{Linear},
+  \texttt{RowMajor}, \texttt{ColumnMajor}, \texttt{SpaceFillingCurve},
+  \texttt{Hierarchical}, \texttt{GraphBased}, \texttt{Custom})
+  describing the high-level organisation.
+\item
+  \textbf{mapping} -- a function that, given a coordinate tuple (e.g.,
+  \texttt{(x,\ y,\ z)}), returns an optional logical address. Defined
+  declaratively in the Schema, independent of any programming language.
+\item
+  \textbf{metadata} -- implementation-specific hints (curve parameters,
+  stride lengths, etc.).
+\end{itemize}
+
+A logical address is an intermediate representation: a segment
+identifier and an offset within that segment's conceptual address space.
+It is not a physical address; rather, it serves as an intermediate
+coordinate that the hardware mapper later translates to concrete
+physical locations.
+
+\textbf{Example}: For a 2D grid with row-major layout:
+
+\begin{verbatim}
+f(x, y) = (grid_id, y·width + x)
+\end{verbatim}
+
+where \texttt{width} is the grid's x-extent. The compiler evaluates this
+function for every coordinate in the Schema, producing a complete
+logical-address map.
+
+\subsection{Embedding Schema into Hardware
+Topologies}\label{embedding-schema-into-hardware-topologies}
+
+The logical address space acts as a \textbf{virtualisation layer},
+decoupling structural description from physical implementation. The same
+Schema can be embedded into vastly different hardware substrates:
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{CPU Caches/DRAM} -- The logical map materialises as
+  conventional address generation. High-adjacency Segments map to
+  contiguous cache lines, maximising spatial locality within the native
+  memory hierarchy.
+\item
+  \textbf{FPGA Block RAM} -- The mapping becomes a hardwired address
+  decoder, transforming geometric relations directly into hardware
+  signals---no instruction stream intervenes.
+\item
+  \textbf{HBM} -- Segments distribute across independent memory
+  channels, exploiting massive spatial parallelism inherent in the
+  coordinate field.
+\item
+  \textbf{Emerging Non-volatile Memories (ReRAM, PCM)} -- These devices'
+  crossbar structures naturally suit a stationary data model. SSCCS
+  treats the physical array as a static coordinate manifold, enabling
+  direct structural projection within the memory substrate itself.
+\end{itemize}
+
+Crucially, even on conventional von Neumann hardware, SSCCS overlays a
+structural interpretation on existing infrastructure: the compiler
+translates logical addresses into standard load/store operations, but
+the overall computation remains free of data movement because all
+necessary data is already resident where observation occurs. The same
+Schema thus deploys on today's CPUs, tomorrow's PIM accelerators, or
+purely spatial substrates like FPGAs---with the compiler adapting the
+embedding strategy accordingly.
+
+In all cases, the mapping is deterministic and reproducible: given the
+same Schema and hardware profile, the compiler always produces the same
+physical layout, ensuring that every observation proceeds with
+minimal---often zero---data movement.
+
+\subsection{Automating Manual
+Optimizations}\label{automating-manual-optimizations}
+
+The following table summarises how traditional manual optimisations
+become automatic consequences of structural specification in SSCCS:
+
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 2\tabcolsep) * \real{0.3165}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 2\tabcolsep) * \real{0.6835}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Manual Optimization
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+SSCCS Mechanism
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Data layout orchestration & Schema defines geometry; compiler maps to
+hardware \\
+Cache alignment & Adjacency relations determine physical proximity \\
+SIMD vectorization & Independent subgraphs imply vectorizable
+operations \\
+Thread scheduling & Parallel structure maps to independent cores \\
+Lock management & Immutability eliminates need for locks \\
+Execution strategy selection & Observation rules and structural
+independence guide parallel execution \\
+\end{longtable}
+
+\subsection{Example: Vector Addition with Rust
+Example}\label{example-vector-addition-with-rust-example}
+
+Consider the addition of two vectors of length \(N\). This example
+demonstrates the transition from procedural execution to structural
+observation.
+
+\subsubsection{Traditional Approach (von
+Neumann)}\label{traditional-approach-von-neumann}
+
+In a traditional architecture, a loop iterates over indices, loading
+each element \(a[i]\) and \(b[i]\) from memory into registers,
+performing the addition, and storing the result back to memory.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{// Rust{-}like pseudocode}
+\KeywordTok{fn}\NormalTok{ add\_vectors(a}\OperatorTok{:} \OperatorTok{\&}\NormalTok{[}\DataTypeTok{f64}\NormalTok{]}\OperatorTok{,}\NormalTok{ b}\OperatorTok{:} \OperatorTok{\&}\NormalTok{[}\DataTypeTok{f64}\NormalTok{]) }\OperatorTok{{-}\textgreater{}} \DataTypeTok{Vec}\OperatorTok{\textless{}}\DataTypeTok{f64}\OperatorTok{\textgreater{}} \OperatorTok{\{}
+    \PreprocessorTok{assert\_eq!}\NormalTok{(a}\OperatorTok{.}\NormalTok{len()}\OperatorTok{,}\NormalTok{ b}\OperatorTok{.}\NormalTok{len())}\OperatorTok{;}
+    \KeywordTok{let} \KeywordTok{mut}\NormalTok{ result }\OperatorTok{=} \DataTypeTok{Vec}\PreprocessorTok{::}\NormalTok{with\_capacity(a}\OperatorTok{.}\NormalTok{len())}\OperatorTok{;}
+    \ControlFlowTok{for}\NormalTok{ i }\KeywordTok{in} \DecValTok{0}\OperatorTok{..}\NormalTok{a}\OperatorTok{.}\NormalTok{len() }\OperatorTok{\{}
+\NormalTok{        result}\OperatorTok{.}\NormalTok{push(a[i] }\OperatorTok{+}\NormalTok{ b[i])}\OperatorTok{;} \CommentTok{// loads a[i], b[i]; stores result[i]}
+    \OperatorTok{\}}
+\NormalTok{    result}
+\OperatorTok{\}}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{Data Movement}: \(2N\) loads + \(N\) stores = \(3N\) total
+  memory transfers.
+\item
+  \textbf{Sequential Dependency}: Loop-carried dependencies limit
+  parallelisation unless explicitly vectorised (SIMD).
+\item
+  \textbf{Cache Behaviour}: Performance is highly dependent on memory
+  layout; random access or misalignment causes cache misses.
+\item
+  \textbf{Auditability}: Requires external tracing tools to reconstruct
+  the execution path post-mortem.
+\end{itemize}
+
+\subsubsection{SSCCS Approach}\label{ssccs-approach}
+
+A Scheme defines a set of Segments representing the vectors and an
+``adder'' structure. The compiler, guided by adjacency relations, lays
+out the Segments consecutively in memory. An observation of the entire
+structure under a Field that enables addition yields a projection that
+is the sum vector.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{// Rust{-}like pseudocode}
+\KeywordTok{let}\NormalTok{ a }\OperatorTok{=} \PreprocessorTok{Segment::}\NormalTok{vector(}\DecValTok{1}\OperatorTok{..}\NormalTok{N}\OperatorTok{,}\NormalTok{ initial\_value)}\OperatorTok{;}
+\KeywordTok{let}\NormalTok{ b }\OperatorTok{=} \PreprocessorTok{Segment::}\NormalTok{vector(}\DecValTok{1}\OperatorTok{..}\NormalTok{N}\OperatorTok{,}\NormalTok{ initial\_value)}\OperatorTok{;}
+\KeywordTok{let}\NormalTok{ scheme }\OperatorTok{=} \PreprocessorTok{Scheme::}\NormalTok{add\_vectors(a}\OperatorTok{,}\NormalTok{ b)}\OperatorTok{;}
+\KeywordTok{let}\NormalTok{ field }\OperatorTok{=} \PreprocessorTok{Field::}\NormalTok{new()}\OperatorTok{;}
+\CommentTok{// Computation is an emergent property of the observation}
+\KeywordTok{let}\NormalTok{ sum }\OperatorTok{=}\NormalTok{ observe(scheme}\OperatorTok{,}\NormalTok{ field)}\OperatorTok{;} 
+\end{Highlighting}
+\end{Shaded}
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{Data Movement}: Zero input movement. Segments remain
+  stationary (``Logic-at-Rest''). Only the resulting projection (a
+  single vector of length \(N\)) is transmitted to the observer.
+\item
+  \textbf{Parallelism}: Structural independence allows all element pairs
+  to be observed concurrently without explicit synchronisation or
+  partitioning.
+\item
+  \textbf{Locality}: Enforced by the compiler's topological mapping,
+  treating memory as an active topology rather than passive storage.
+\item
+  \textbf{Auditability}: The Scheme serves as an immutable specification
+  of the computational intent; the projection is a deterministic and
+  verifiable consequence.
+\end{itemize}
+
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.3333}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.3333}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.3333}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Aspect
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Traditional (Procedural)
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+SSCCS (Structural)
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Input Data Movement & \(2N\) loads & Zero (Stationary Segments) \\
+Output Data Movement & \(N\) stores & \(N\) (Projection) \\
+Concurrency & Requires explicit parallelisation & Implicit (Structural
+independence) \\
+Synchronisation & Locks/atomics for shared state & None (Immutability
+guaranteed) \\
+Memory Role & Passive storage & Active topology \\
+Auditability & Requires external tracing & Intrinsic to Specification \\
+\end{longtable}
+
+This example illustrates the fundamental ontological shift: computation
+becomes an observation of stationary structure rather than a sequence of
+data movements. The reduction in data movement is a consequence of this
+shift, not the primary goal. The deeper benefit lies in the absolute
+transparency and verifiability that emerge from treating computation as
+a structural specification.
+
+\subsection{Scaling to N-Dimensional Tensors and
+Graphs}\label{scaling-to-n-dimensional-tensors-and-graphs}
+
+The structural principles of SSCCS extend beyond linear vectors to
+higher-dimensional and non-linear data structures. As dimensionality
+increases, the limitations of the von Neumann model in certain domains
+grows exponentially; SSCCS provides a constant-time logical alternative
+for structural reorientation.
+
+\subsubsection{N-Dimensional Tensors}\label{n-dimensional-tensors}
+
+In SSCCS, an \(N\)-dimensional tensor is represented as a set of
+Segments where adjacency relations are defined across multiple axes
+within the Scheme.
+
+\begin{figure}[H]
+
+\centering{
+
+\pandocbounded{\includegraphics[keepaspectratio]{Whitepaper_files/mediabag/Whitepaper_files/figure-pdf/fig-scaling-tensor-output-1.pdf}}
+
+}
+
+\caption{\label{fig-scaling-tensor}SSCCS applied to a 2D tensor}
+
+\end{figure}%
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{Zero-Copy Reshaping}: Traditional systems require physical
+  data movement (\(O(N)\) or \(O(N^2)\)) to perform operations like
+  transposition or reshaping. In SSCCS, reshaping is a metadata-only
+  operation. By reorienting the Field's observation path over stationary
+  Segments, the dimensionality of the Projection changes without moving
+  a single bit in memory (\(O(1)\)).
+\item
+  \textbf{Logical Adjacency}: For operations like matrix multiplication,
+  the compiler maps Segments to ensure that the required operands for a
+  specific Field are physically co-located. This transforms what would
+  be complex indexing logic in a CPU into a direct physical property of
+  the memory topology.
+\end{itemize}
+
+\subsubsection{Complex Graph Processing}\label{complex-graph-processing}
+
+Graph algorithms (e.g., PageRank, GNNs) are traditionally bottlenecked
+by ``Pointer Chasing,'' which causes severe cache thrashing and memory
+latency.
+
+\begin{figure}[H]
+
+\centering{
+
+\pandocbounded{\includegraphics[keepaspectratio]{Whitepaper_files/mediabag/Whitepaper_files/figure-pdf/fig-scaling-graph-output-1.pdf}}
+
+}
+
+\caption{\label{fig-scaling-graph}SSCCS applied to graph: All nodes
+observed in parallel (no iteration)}
+
+\end{figure}%
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{Segment-as-Node}: Each node and its properties are
+  encapsulated in a Segment.
+\item
+  \textbf{Adjacency-as-Structure}: Edges are defined as structural
+  constraints within the Scheme, not as memory pointers to be followed
+  sequentially.
+\item
+  \textbf{Field-based Traversal}: A Field propagates across the entire
+  Scheme in a single observation cycle. Instead of ``visiting'' nodes,
+  the observer captures the emergent state of the entire graph
+  simultaneously.
+\item
+  \textbf{Concurrency}: This eliminates vertex-centric synchronization
+  (locks/mutexes). All nodes update their state in parallel as a
+  deterministic consequence of the Field's interaction with the Scheme's
+  topology.
+\end{itemize}
+
+\subsection{Comparison: Computational Density at
+Scale}\label{comparison-computational-density-at-scale}
+
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.3333}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.3333}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.3333}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Computational Task
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Traditional Bottleneck
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+SSCCS Solution
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Tensor Reshaping & Physical data reshuffling (\(O(N^d)\)) &
+Metadata-level Field reorientation (\(O(1)\)) \\
+Matrix Contraction & Memory bandwidth \& indexing overhead & Hardwired
+adjacency in the Scheme \\
+Graph Traversal & High latency due to random access & Distributed
+parallel observation \\
+Sparse Operations & Complex indexing \& storage overhead & Non-linear
+Scheme mapping (skipping null-space) \\
+\end{longtable}
+
+The scaling of SSCCS addresses the Curse of Dimensionality by decoupling
+the logical structure of data from the physical cost of its traversal.
+While traditional architectures expend energy moving data to accommodate
+logic, SSCCS modifies the Field to accommodate the stationary structure.
+This positions SSCCS as a foundational methodology for future
+AI-hardware co-design, where computational density and energy efficiency
+are the primary constraints.
+
+\section{The Open Format}\label{the-open-format}
+
+A central goal of SSCCS is the definition of an open \texttt{.ss}
+format---a human-readable, machine-processable representation of
+Segments and Schemes. The format is designed to be language-agnostic and
+platform-independent. (If desired: ``The specification is currently
+under development; once the Segment-Scheme structure is finalized, a
+translation layer may convert existing data representations into
+\texttt{.ss}.'')
+
+Characteristics:
+
+\begin{itemize}
+\tightlist
+\item
+  Human-readable, machine-processable.
+\item
+  Immutable by default; evolution creates new versions.
+\item
+  Cryptographically identifiable (hash-based).
+\item
+  Compositional: Schemes can include other Schemes.
+\item
+  Platform-independent.
+\end{itemize}
+
+\subsection{Binary Serialization and Memory
+Layout}\label{binary-serialization-and-memory-layout}
+
+The binary encoding of a Scheme includes: - Header (SchemeId, version) -
+Axes list (definitions of each axis) - Segment table (IDs, coordinate
+ranges, and associated data) - Relation graph (encoding of adjacency,
+hierarchy, and dependencies) - Serialized \texttt{MemoryLayout} (layout
+type, encoded mapping function, metadata) - Observation rules and
+constraints
+
+This binary format ensures interoperability across implementations and
+enables deterministic reconstruction of the Scheme's structure.
+
+\section{System Stack and Instruction-Set
+Interaction}\label{system-stack-and-instruction-set-interaction}
+
+SSCCS inserts a runtime layer between application and hardware that
+translates observation requests into hardware-specific memory mappings
+and observation primitives. The runtime coordinates the Scheme
+interpreter and projector to realise observation without moving data
+unnecessarily.
+
+\begin{figure}[H]
+
+\centering{
+
+\pandocbounded{\includegraphics[keepaspectratio]{Whitepaper_files/mediabag/Whitepaper_files/figure-pdf/fig-system-stack-output-1.pdf}}
+
+}
+
+\caption{\label{fig-system-stack}SSCCS system stack}
+
+\end{figure}%
+
+In environments without direct hardware support, a lightweight software
+runtime emulates the observation process by interpreting the binary
+\texttt{.ss} format.
+
+\subsection{Future Hardware
+Considerations}\label{future-hardware-considerations}
+
+While SSCCS can be implemented in software, its benefits are most
+pronounced with hardware support:
+
+\begin{itemize}
+\tightlist
+\item
+  No instruction fetch unit; observation triggered structurally.
+\item
+  Processing-in-memory (PIM) for direct observation.
+\item
+  Spatial computation mapping adjacency to wiring.
+\item
+  Cryptographic primitives in hardware.
+\end{itemize}
+
+\section{Theoretical Performance \&
+Scalability}\label{theoretical-performance-scalability}
+
+The SSCCS architecture derives its efficiency not from incremental
+hardware acceleration, but from a fundamental shift in computational
+complexity. By redefining execution as the Structural Observation of a
+stationary Scheme, the framework bypasses the sequential bottlenecks
+inherent in the von Neumann architecture.
+
+\subsection{Architectural Expectations of Time-Space
+Complexity}\label{architectural-expectations-of-time-space-complexity}
+
+Traditional procedural models are constrained by the linear relationship
+between data volume (\(N\)) and execution cycles. SSCCS decouples this
+relationship by utilizing the concurrent propagation of a Field across a
+pre-defined Topology.
+
+\begin{figure}[H]
+
+\centering{
+
+\pandocbounded{\includegraphics[keepaspectratio]{Whitepaper_files/figure-pdf/fig-complexity-output-1.pdf}}
+
+}
+
+\caption{\label{fig-complexity}Asymptotic Complexity: Procedural
+vs.~SSCCS Structural Observation}
+
+\end{figure}%
+
+\subsubsection{Temporal Complexity
+(Latency)}\label{temporal-complexity-latency}
+
+In a von Neumann environment, even with SIMD/MIMD parallelism, latency
+scales at \(O(N)\) or \(O(N/k)\) due to instruction dispatch,
+synchronization, and memory-wall stalls.
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{SSCCS Latency}: Defined by the physical propagation delay of
+  the Field across the Scheme. Because structural constraints are
+  resolved at the mapping phase, the observation of the result---the
+  Projection---theoretically approaches \(O(1)\) in emerging hardware
+  paradigms such as Processing-In-Memory (PIM), where data movement
+  overhead is minimized.
+\end{itemize}
+
+\subsubsection{Data Movement Complexity (Spatial/Energy
+Cost)}\label{data-movement-complexity-spatialenergy-cost}
+
+The primary energy sink in modern computing is the movement of operands
+from memory to logic units.
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{Procedural Cost}: \(O(N \cdot D)\), where \(D\) represents the
+  dimensionality of the data required for each operation.
+\item
+  \textbf{SSCCS Cost (Logic-at-Rest)}: \(O(Projection)\). Since the
+  input Segments remain stationary within the Scheme, the energy
+  expenditure is strictly limited to the transmission of the resulting
+  Projection. This creates a widening efficiency gap as the scale of
+  \(N\) increases.
+\end{itemize}
+
+\subsection{Comparative Complexity
+Matrix}\label{comparative-complexity-matrix}
+
+The following table summarizes the asymptotic behavior of SSCCS compared
+to traditional sequential and parallel (SIMD) architectures.
+
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 6\tabcolsep) * \real{0.2500}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 6\tabcolsep) * \real{0.2500}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 6\tabcolsep) * \real{0.2500}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 6\tabcolsep) * \real{0.2500}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Metric
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Sequential
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Parallel (SIMD/GPU)
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+SSCCS (Structural)
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Instruction Overhead & High (\(O(N)\)) & Moderate (\(O(N/k)\)) & Minimal
+(Field-based) \\
+Data Locality & Managed (Cache) & Explicit (SRAM/Tiling) & Intrinsic
+(Scheme-defined) \\
+Execution Latency & \(O(N)\) & \(O(N/k) + \text{sync}\) & \(O(\log N)\)
+or \(O(1)\) \\
+Data Movement & \(O(N)\) & \(O(N)\) & \(O(\text{Output Only})\) \\
+Scalability Limit & Amdahl's Law & Memory Bandwidth & Physical
+Propagation Delay \\
+\end{longtable}
+
+\subsection{Scalability in High-Dimensional AI
+Workloads}\label{scalability-in-high-dimensional-ai-workloads}
+
+As demonstrated in the emergence of State-Space Models (SSMs) \([6]\)
+and manifold-constrained learning \([5]\), the ability to process
+high-dimensional representations without exhaustive data shuffling is
+critical.
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  Stationary Topology: By fixing the Segments in a k-dimensional
+  \texttt{MemoryLayout}, SSCCS allows the hardware to perform
+  ``Observation'' as a near-instantaneous mapping.
+\item
+  Implicit Parallelism: Unlike threads or warps that require explicit
+  management, SSCCS parallelism is implicit---it is a property of the
+  structure itself. The scalability is limited only by the fidelity of
+  the Field and the resolution of the Projector (\(\Omega\)).
+\end{enumerate}
+
+\section{Implementation Roadmap}\label{implementation-roadmap}
+
+\begin{figure}[H]
+
+\centering{
+
+\pandocbounded{\includegraphics[keepaspectratio]{Whitepaper_files/mediabag/Whitepaper_files/figure-pdf/fig-roadmap-output-1.pdf}}
+
+}
+
+\caption{\label{fig-roadmap}Implementation roadmap: three research
+phases}
+
+\end{figure}%
+
+\subsection{Phase 1: Software Emulation (Proof of
+Concept)}\label{phase-1-software-emulation-proof-of-concept}
+
+\begin{itemize}
+\tightlist
+\item
+  Rust reference implementation reading \texttt{.ss} specifications.
+\item
+  Validate model on small benchmarks (matrix multiplication, graph
+  algorithms).
+\item
+  Measure determinism, implicit parallelism, data movement reduction.
+\item
+  Establish toolchain and community.
+\end{itemize}
+
+\subsection{Phase 2: Hardware
+Acceleration}\label{phase-2-hardware-acceleration}
+
+\begin{itemize}
+\tightlist
+\item
+  Map Schemes to FPGA fabrics.
+\item
+  Explore PIM architectures (UPMEM, Samsung FIM).
+\item
+  Develop compiler targeting CPUs (via SIMD) and FPGA/PIM.
+\item
+  Begin formal verification.
+\end{itemize}
+
+\subsection{Phase 3: Native Observation-Centric Processors (Long-Term
+Research)}\label{phase-3-native-observation-centric-processors-long-term-research}
+
+\begin{itemize}
+\tightlist
+\item
+  Design processor directly instantiating Schemes.
+\item
+  Integrate memory and logic in unified substrate (e.g., memristor
+  arrays).
+\item
+  Evaluate energy efficiency for target domains.
+\item
+  Establish SSCCS as foundational infrastructure.
+\end{itemize}
+
+Throughout, the \texttt{.ss} blueprint remains unchanged, preserving
+investment.
+
+\section{Planned Validation Domains}\label{planned-validation-domains}
+
+SSCCS is intended for validation across multiple domains. The following
+table outlines traditional challenges and expected advantages:
+
+\begin{longtable}[]{@{}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.1630}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.4370}}
+  >{\raggedright\arraybackslash}p{(\linewidth - 4\tabcolsep) * \real{0.4000}}@{}}
+\toprule\noalign{}
+\begin{minipage}[b]{\linewidth}\raggedright
+Domain
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Traditional Challenge
+\end{minipage} & \begin{minipage}[b]{\linewidth}\raggedright
+Expected Advantages
+\end{minipage} \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Climate modelling & Massive state space, grid data movement & Constraint
+isolation, deterministic observation, minimal data transfer \\
+Space systems & Radiation-induced errors, power constraints & Structural
+reproducibility, error detectability, verifiable execution \\
+Protein folding & Combinatorial explosion, long time scales & Massive
+parallel observation, structure-guided exploration \\
+Swarm robotics & Coordination overhead, limited communication &
+Recursive composition, emergent coordination from shared structure \\
+Financial modelling & Real-time constraints, complex dependencies &
+Deterministic projections, no race conditions, auditable processing \\
+Cryptographic systems & Side-channel attacks, verification complexity &
+Immutable structure enables formal verification, no intermediate
+state \\
+Autonomous vehicles & Sensor fusion, real-time decision making &
+Constraint-based observation, deterministic response, auditable
+decisions \\
+\end{longtable}
+
+\section{Related Work}\label{related-work}
+
+Although SSCCS was developed without direct reference to prior work, its
+theoretical core later revealed meaningful parallels with several
+established research domains:
+
+\begin{itemize}
+\tightlist
+\item
+  Dataflow architectures (e.g., Dennis's dataflow graphs) treat programs
+  as graphs where nodes fire when inputs are available.
+\item
+  Functional programming emphasizes immutability and referential
+  transparency.
+\item
+  Processing-in-memory (PIM) research addresses the data movement
+  problem within the von Neumann paradigm.
+\item
+  Intentional programming and memoisation share conceptual ground with
+  observation-based computation.
+\end{itemize}
+
+Recent work in AI demonstrates the growing relevance of structural
+constraints:
+
+\begin{itemize}
+\item
+  \textbf{Geometric Constraints}: Research such as
+  \emph{Manifold-Constrained Hyper-Connections} by DeepSeek {[}5{]}
+  highlights the efficacy of applying geometric inductive biases in
+  high-dimensional representations. This supports the SSCCS approach of
+  defining computational processes through topological constraints
+  rather than procedural instructions.
+\item
+  \textbf{SSCCS as a Structural Superset}: SSCCS serves as a formal
+  ontological superset for State-Space Models (SSMs) like Mamba {[}6{]}
+  and hardware-aware frameworks such as Modular AI's MAX/Mojo {[}7,
+  8{]}. While these systems achieve high-performance linear recurrences
+  through ad-hoc kernel tuning, SSCCS redefines the SSM recurrence not
+  as a procedural loop, but as a one-dimensional Scheme of adjacent
+  Segments where state transitions emerge as Projections of a sequential
+  Field. By shifting from execution-based optimization to the
+  deterministic observation of stationary topological constraints, SSCCS
+  inherently encompasses the efficiency gains of modern AI execution
+  engines within a universal, structure-defined architecture.
+\end{itemize}
+
+These references contextualize SSCCS within the broader intellectual
+landscape. In each domain, the shift from execution to observation is
+expected to offer advantages that incremental optimization cannot
+provide. These advantages---determinism, parallelism, fault isolation,
+reduced communication, and above all verifiability---are expected
+consequences of the ontological redefinition, not features added to
+address specific problems.
+
+\section{Conclusion and Future Work}\label{conclusion-and-future-work}
+
+This paper has presented SSCCS, a computational model that redefines
+computation as the observation of structured potential under dynamic
+constraints. The model's core components---immutable Segments, geometric
+Schemes, mutable Fields, and the Observation/Projection
+mechanism---constitute a new computational ontology. From this ontology,
+multiple consequences follow: elimination of most data transfers,
+removal of synchronization overhead, implicit parallelism, deterministic
+reproducibility, and secure isolation within cryptographically enforced
+boundaries.
+
+Observation deterministically resolves admissible configurations from
+the combination of Scheme and Field into a Projection, without altering
+underlying Segments. The compiler performs structural mapping, and the
+open \texttt{.ss} format ensures platform-independent, verifiable
+specifications.
+
+Planned validation across multiple domains---climate modeling, space
+systems, protein folding, swarm robotics, financial modeling,
+cryptographic systems, and autonomous vehicles---will assess the model's
+advantages: determinism, parallelism, fault isolation, reduced
+communication, and verifiability.
+
+In summary, SSCCS establishes several foundational principles:
+
+\begin{itemize}
+\tightlist
+\item
+  Computation concerns revelation rather than change.
+\item
+  Structure is more fundamental than process.
+\item
+  Time is a coordinate rather than a flow.
+\item
+  Value is projected rather than intrinsic.
+\item
+  Programs are blueprints rather than recipes.
+\item
+  Results are configurations revealed by Observation.
+\item
+  Composition is the primitive of computation.
+\item
+  Structure serves as executable law.
+\item
+  Observation is the sole active event.
+\item
+  Projection is the deterministic outcome of Observation.
+\item
+  Immutability provides the foundation for concurrency and security.
+\end{itemize}
+
+The model is not presented as a complete replacement for all computing,
+but as a promising direction for data-intensive, parallel workloads
+where the limitations of the von Neumann model are most apparent. More
+importantly, it offers a way of thinking about computation that may
+prove fruitful beyond its immediate engineering applications---a
+framework that prioritizes verifiability and accessibility over opaque
+procedural execution.
+
+\section*{References}\label{references}
+
+\begin{itemize}
+\tightlist
+\item
+  {[}1{]} W. A. Wulf and S. A. McKee, ``Hitting the memory wall:
+  implications of the obvious,'' \emph{ACM SIGARCH Computer Architecture
+  News}, vol.~23, no. 1, pp.~20--24, 1995.
+\item
+  {[}2{]} S. Borkar and A. A. Chien, ``The future of microprocessors,''
+  \emph{Communications of the ACM}, vol.~54, no. 5, pp.~67--77, 2011.
+\item
+  {[}3{]} R. Lucas et al., ``Top ten exascale research challenges,'' US
+  Department of Energy, 2014.
+\item
+  {[}4{]} M. Horowitz, ``Computing's energy problem (and what we can do
+  about it),'' in \emph{IEEE International Solid-State Circuits
+  Conference}, 2014.
+\item
+  {[}5{]} DeepSeek-AI. (2025). \emph{mHC: Manifold-Constrained
+  Hyper-Connections}. arXiv preprint arXiv:2512.24880.
+  https://arxiv.org/abs/2512.24880
+\item
+  {[}6{]} A. Gu and T. Dao, ``Mamba: Linear-Time Sequence Modeling with
+  Selective State Spaces,'' \emph{arXiv preprint arXiv:2312.00752},
+  2023.
+\item
+  {[}7{]} Modular AI, ``MAX: A Unified AI Execution Engine,''
+  {[}Online{]}. Available: https://www.modular.com/max. Accessed
+  Feb.~2026.
+\item
+  {[}8{]} C. Lattner et al., ``Mojo: Programming Language for All of
+  AI,'' {[}Online{]}. Available: https://www.modular.com/mojo. Accessed
+  Feb.~2026.
+\end{itemize}
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+© 2026 SSCCS Foundation --- A non-profit research initiative, formalized
+through global standards and substantiated by its cryptographic
+authenticity.
+
+\begin{itemize}
+\tightlist
+\item
+  Whitepaper: \href{https://ssccs.org/wp}{PDF} /
+  \href{https://ssccs.org/wpw}{HTML} DOI:
+  \href{https://doi.org/10.5281/zenodo.18759106}{10.5281/zenodo.18759106}
+  via CERN/Zenodo, indexed by OpenAIRE. Licensed under \emph{CC BY-NC-ND
+  4.0}.
+\item
+  Official repository: \href{https://github.com/ssccsorg}{GitHub}.
+  Authenticated via GPG:
+  \href{https://keys.openpgp.org/search?q=BCCB196BADF50C99}{BCCB196BADF50C99}.
+  Licensed under \emph{Apache 2.0}.
+\item
+  Governed by the \href{https://ssccs.org/legal}{Foundational Charter
+  and Statute} of the SSCCS Foundation (in formation).
+\end{itemize}
+
+\begin{flushright}
+    \includegraphics[height=30pt]{Whitepaper_files/image0.pdf}
+    \hspace{10pt}
+    \includegraphics[height=50pt]{Whitepaper_files/image1.pdf}
+\end{flushright}
+
+
+
+
+\end{document}

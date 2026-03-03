@@ -15,16 +15,21 @@ svgs = [
 '''
 ]
 for i, svg in enumerate(svgs):
-    os.makedirs("Whitepaper_files", exist_ok=True)
-    with open(f"./Whitepaper_files/image{i}.svg", "w", encoding="utf-8") as f:
+    svg_path = f"./Whitepaper_files/image{i}.svg"
+    pdf_path = f"./Whitepaper_files/image{i}.pdf"
+    
+    with open(svg_path, "w", encoding="utf-8") as f:
         f.write(svg)
+    
+    import cairosvg
+    cairosvg.svg2pdf(url=svg_path, write_to=pdf_path)
 ```
 
 ```{=latex}
 \begin{flushright}
-    \includesvg[height=30pt]{./Whitepaper_files/image0.svg}
+    \includegraphics[height=30pt]{Whitepaper_files/image0.pdf}
     \hspace{10pt}
-    \includesvg[height=50pt]{./Whitepaper_files/image1.svg}
+    \includegraphics[height=50pt]{Whitepaper_files/image1.pdf}
 \end{flushright}
 ```
 :::

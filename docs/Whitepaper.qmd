@@ -39,6 +39,9 @@ format:
       eval: false
       echo: true
   pdf:
+    pdf-engine: xelatex
+    latex-auto-install: false
+    keep-tex: true
     default-figure-format: "pdf"
     fig-format: pdf
     fig-dpi: 300
@@ -47,7 +50,6 @@ format:
     toc-title: "Contents"
     execute:
         echo: false
-    pdf-engine-opts: ["-shell-escape"]
     papersize: a4
     graphics: true
     highlight-style: monochrome
@@ -58,27 +60,16 @@ format:
     header-includes:
         - |
             \usepackage{authblk}
-            \usepackage{svg}
-            \svgsetup{inkscapepath=Whitepaper_files}
             \author{Taeho Lee (Founder \& Architect)\thanks{Correspondence author: lee@ssccs.org; Official project website: https://ssccs.org}}
             \affil{SSCCS Foundation}
     include-in-header:
         text: |
             \usepackage{unicode-math}
             \addtokomafont{disposition}{\rmfamily}
-            \usepackage{graphicx}            
+            \usepackage{graphicx}
             \setkeys{Gin}{width=\linewidth,height=\textheight,keepaspectratio}
-            \usepackage{adjustbox}
-            \let\oldincludegraphics\includegraphics
-            \renewcommand{\includegraphics}[2][]{%
-                \vspace{1em}%
-                \maxsizebox{\linewidth}{\textheight}{%
-                    \oldincludegraphics[#1]{#2}%
-                }%
-                \vspace{1em}%
-            }
             \DeclareTOCStyleEntry[beforeskip=0.5pt]{default}{section}
-            \DeclareTOCStyleEntry[beforeskip=0pt]{default}{subsection}
+            \DeclareTOCStyleEntry[beforeskip=0pt]{default}{subsection}            
 ---
 ```{python}
 #| echo: false
@@ -257,7 +248,7 @@ Simply the Field governs the observation of the Scheme and its Segments, produci
 dot("""
 digraph SSCCS_MultiField {
     node [shape=rect];
-    graph [pad="0.5, 0.5"];
+    graph [pad="0.5, 0"];
     
     // === Leftmost rank: Segments and Schemes (immutable) ===
     { rank=source;
@@ -370,15 +361,9 @@ digraph SSCCS_MultiField {
 )
 ```
 
-- Immutable Segments & Schemes allow any number of observers to apply Ω concurrently – no locks or synchronization needed.
-- Structural mapping eliminates data movement.
-- Consistency is guaranteed by the single mutable layer (Field), which governs all observations.
-- Deterministic results arise from cryptographic identities and reproducible hardware mappings.
-- Parallelism is emergent: concurrency flows from structure, not from explicit programming.
+Through immutable Segments and Schemes, SSCCS achieves emergent **parallelism without locks, eliminates data movement via structural mapping, guarantees consistency with a single mutable Field, and ensures deterministic results** via cryptographic identities and reproducible hardware mappings.
 
-This integrated view illustrates the full SSCCS model: The observation events ($Ω_1$, $Ω_2$, etc.) can occur concurrently without any temporal ordering, and the resulting projections ($P_1$, $P_2$, etc.) are independent of each other. The data ($D_1$, $D_2$, $D_3$, etc.) derived from these projections can also be interpreted independently. So **time is not a fundamental dimension that governs state changes**; instead, the structure of Schemes and the constraints of Fields govern what can be observed and when.
-
-A more complexier structural composition can be visualized in 3d space like:
+This integrated view illustrates the full SSCCS model: The observation events ($Ω_1$, $Ω_2$, etc.) can occur concurrently without any temporal ordering, and the resulting projections ($P_1$, $P_2$, etc.) are independent of each other. The data ($D_1$, $D_2$, $D_3$, etc.) derived from these projections can also be interpreted independently. So **time is not a fundamental dimension that governs state changes**; instead, the structure of Schemes and the constraints of Fields govern what can be observed and when. 
 
 {{< include _lib/qmd/whitepaper/_ontology3d.qmd >}}
 
