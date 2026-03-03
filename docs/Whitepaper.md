@@ -1,46 +1,43 @@
 # Schema–Segment Composition Computing System
 
+February 16, 2026
 
 [![](https://zenodo.org/badge/DOI/10.5281/zenodo.18759106.svg)](https://doi.org/10.5281/zenodo.18759106)
 
 ## Abstract
 
 **SSCCS (Schema–Segment Composition Computing System)** is an
-observation-driven computing model and infrastructure specification that
-redefines computation as the traceable projection of immutable Segments
-within a structured Scheme. While contemporary innovation focuses on
-material hardware shifts, SSCCS addresses fundamental inefficiencies of
-the Von Neumann bottleneck at the logical layer. By formalizing
-computation as the simultaneous resolution of static potential under
-dynamic constraints rather than a sequence of state mutations, the
-architecture reframes data movement, concurrency, and verifiability.
+observation-driven computing model that redefines computation as the
+traceable projection of immutable Segments within a structured Scheme.
+While current hardware advances focus on physical improvements, SSCCS
+tackles the Von Neumann bottleneck at the logical layer. By formalizing
+computation as the resolution of static potential under dynamic
+constraints—rather than sequential state mutations—the architecture
+reframes data movement, concurrency, and verifiability.
 
 SSCCS embodies three core principles: Immutability (segments and schemes
-are immutable once created), Structural Integrity (computations adhere
-to predefined scheme-segment relationships), and Traceability (every
-projection is deterministically derived and cryptographically
-verifiable). Its layered ontology—Segments, Schemes, Fields,
-Observations, Projections, and Data—ensures that information remains
-unchanged, operations are transparent, and all outcomes can be audited.
+are immutable), Structural Integrity (computations follow predefined
+relationships), and Traceability (every projection is cryptographically
+verifiable). Its layered ontology—Segments, Schemes, Fields, and
+Projections—ensures information remains unchanged, operations
+transparent, and outcomes auditable.
 
 Driven by a software-first philosophy, this architecture ensures
-deterministic reproducibility by completely decoupling execution logic
-from mutable state through structural and cryptographic isolation. This
-open specification, intended for validation across diverse domains,
-provides a roadmap where logical design dictates physical
-implementation, spanning from software emulation to hardware-level
-support. By integrating intrinsic energy efficiency with high
-interpretability, SSCCS establishes a foundation for sustainable,
-accountable computational infrastructures, ultimately transitioning
-logic into a transparent, verifiable, and accessible Intellectual Public
-Commons.
+deterministic reproducibility by decoupling execution logic from mutable
+state through structural and cryptographic isolation. This open
+specification provides a roadmap where logical design dictates physical
+implementation—from software to hardware. By integrating energy
+efficiency with high interpretability, SSCCS establishes a foundation
+for sustainable, accountable computational infrastructures, ultimately
+transitioning logic into a transparent, verifiable, and accessible
+Intellectual Public Commons.
 
 
 
 ## Philosophical Foundation
 
 Before observation, structure exists as constrained potential. **Data,
-or state is merely the shadow cast by collapsed possibility.** Beneath
+or state is the shadow cast by collapsed possibility.** Beneath
 immutable segments and schemes, observation momentarily activates the
 Field, precipitating the collapse of possibility and giving rise to a
 projection. A projection, as the residue of collapse, is transient; it
@@ -1233,17 +1230,16 @@ table outlines traditional challenges and expected advantages:
 
 ## Related Work
 
-SSCCS is presented alongside several established research domains,
-providing a unified theoretical foundation:
+Although SSCCS was developed without direct reference to prior work, its
+theoretical core later revealed meaningful parallels with several
+established research domains:
 
 - Dataflow architectures (e.g., Dennis’s dataflow graphs) treat programs
   as graphs where nodes fire when inputs are available.
-- Functional programming emphasises immutability and referential
+- Functional programming emphasizes immutability and referential
   transparency.
 - Processing-in-memory (PIM) research addresses the data movement
   problem within the von Neumann paradigm.
-- Declarative languages (SQL, Datalog) describe *what* to compute rather
-  than how.
 - Intentional programming and memoisation share conceptual ground with
   observation-based computation.
 
@@ -1251,15 +1247,15 @@ Recent work in AI demonstrates the growing relevance of structural
 constraints:
 
 - **Geometric Constraints**: Research such as *Manifold-Constrained
-  Hyper-Connections* by DeepSeek $[5]$ highlights the efficacy of
+  Hyper-Connections* by DeepSeek \[5\] highlights the efficacy of
   applying geometric inductive biases in high-dimensional
-  representations. This validates the SSCCS approach of defining
+  representations. This supports the SSCCS approach of defining
   computational processes through topological constraints rather than
   procedural instructions.
 
 - **SSCCS as a Structural Superset**: SSCCS serves as a formal
-  ontological superset for State-Space Models (SSMs) like Mamba $[6]$
-  and hardware-aware frameworks such as Modular AI’s MAX/Mojo $[7, 8]$.
+  ontological superset for State-Space Models (SSMs) like Mamba \[6\]
+  and hardware-aware frameworks such as Modular AI’s MAX/Mojo \[7, 8\].
   While these systems achieve high-performance linear recurrences
   through ad-hoc kernel tuning, SSCCS redefines the SSM recurrence not
   as a procedural loop, but as a one-dimensional Scheme of adjacent
@@ -1335,9 +1331,9 @@ execution.
 - \[4\] M. Horowitz, “Computing’s energy problem (and what we can do
   about it),” in *IEEE International Solid-State Circuits Conference*,
   2014.
-- \[5\] DeepSeek-AI, “Manifold-Constrained Hyper-Connections: Geometric
-  Inductive Biases in High-Dimensional Representations,” *arXiv preprint
-  arXiv:2512.24880*, 2025.
+- \[5\] DeepSeek-AI. (2025). *mHC: Manifold-Constrained
+  Hyper-Connections*. arXiv preprint arXiv:2512.24880.
+  https://arxiv.org/abs/2512.24880
 - \[6\] A. Gu and T. Dao, “Mamba: Linear-Time Sequence Modeling with
   Selective State Spaces,” *arXiv preprint arXiv:2312.00752*, 2023.
 - \[7\] Modular AI, “MAX: A Unified AI Execution Engine,” \[Online\].
@@ -1348,20 +1344,18 @@ execution.
 
 ------------------------------------------------------------------------
 
-© 2026 SSCCS Foundation (in formation) — A non-profit research
-initiative, formalized through global standards and its authenticity
-substantiated by immutable scientific records and cryptographic proofs.
+© 2026 SSCCS Foundation — A non-profit research initiative, formalized
+through global standards and substantiated by its cryptographic
+authenticity.
 
-- Open Source Software: All resources are licensed under the *Apache
-  License 2.0* in the official repository
-  [Github](https://github.com/ssccsorg). All codes are signed by GPG Key
-  ID:
-  [`BCCB196BADF50C99`](https://keys.openpgp.org/search?q=BCCB196BADF50C99)
-- Legal: *Foundational Charter and Statute*:
-  [PDF](https://ssccsorg.github.io/ssccs/legal/legal.pdf) \|
-  [HTML](https://ssccsorg.github.io/ssccs/legal)
-- Publications: The Whitepaper and all specification documents are
-  licensed under *CC BY-NC-ND 4.0*: [PDF](https://ssccs.org/wp) \|
-  [HTML](https://ssccsorg.github.io/ssccs) \| DOI
-  [10.5281/zenodo.18759106](https://doi.org/10.5281/zenodo.18759106)
-  registered in CERN/Zenodo, OpenAIRE
+- Whitepaper: [PDF](https://ssccs.org/wp) /
+  [HTML](https://ssccs.org/wpw) DOI:
+  [10.5281/zenodo.18759106](https://doi.org/10.5281/zenodo.18759106) via
+  CERN/Zenodo, indexed by OpenAIRE. Licensed under *CC BY-NC-ND 4.0*.
+- Official repository: [GitHub](https://github.com/ssccsorg).
+  Authenticated via GPG:
+  [BCCB196BADF50C99](https://keys.openpgp.org/search?q=BCCB196BADF50C99).
+  Licensed under *Apache 2.0*.
+- Governed by the [Foundational Charter and
+  Statute](https://ssccs.org/legal) of the SSCCS Foundation (in
+  formation).
