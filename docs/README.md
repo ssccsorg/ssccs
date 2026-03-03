@@ -7,11 +7,9 @@ This document explains how to generate the SSCCS Whitepaper (`Whitepaper.pdf` an
 The Whitepaper uses advanced Quarto features that require several external tools:
 
 1. **Quarto** – The document rendering engine.
-2. **LaTeX** – For PDF generation, including the `pdfLaTeX` engine with `--shell-escape` support.
-3. **Python** – For inline Python code that creates SVG logos. The Python environment must have the `graphviz` and `IPython` packages installed (e.g., via `pip install graphviz IPython`).
+2. **LaTeX** – For PDF generation, using the `xelatex` engine.
+3. **Python** – For inline Python code that generates diagrams and converts SVG logos. The Python environment must have the `graphviz`, `IPython`, and `cairosvg` packages installed (e.g., via `pip install graphviz IPython cairosvg`).
 4. **Graphviz** – For rendering `dot` diagrams embedded in the document. This includes both the system Graphviz binaries (`dot` command) and the Python `graphviz` package.
-5. **Inkscape** (optional but recommended) – For converting SVG images when using the LaTeX `svg` package.
-6. **Quarto filter** – The document uses a custom Quarto filter (`quarto-filter`) for advanced formatting; ensure the filter is available in the project's `_extensions/` directory.
 
 ## Installation
 
@@ -32,11 +30,8 @@ brew install python
 # Install Graphviz
 brew install graphviz
 
-# Install required Python packages for Graphviz diagrams
-pip install graphviz IPython
-
-# Install Inkscape (optional, but needed for SVG inclusion in PDF)
-brew install --cask inkscape
+# Install required Python packages for diagrams and SVG conversion
+pip install graphviz IPython cairosvg
 ```
 
 After installing MacTeX, ensure the LaTeX binaries are in your `PATH`. You may need to open a new terminal or run:
@@ -64,11 +59,8 @@ sudo apt-get install python3
 # Install Graphviz
 sudo apt-get install graphviz
 
-# Install required Python packages for Graphviz diagrams
-pip install graphviz IPython
-
-# Install Inkscape
-sudo apt-get install inkscape
+# Install required Python packages for diagrams and SVG conversion
+pip install graphviz IPython cairosvg
 ```
 
 ### Windows
@@ -79,14 +71,13 @@ Download and install:
 - MiKTeX or TeX Live for LaTeX
 - Python from [python.org](https://www.python.org/downloads/) (ensure `pip` is installed)
 - Graphviz from [graphviz.org](https://graphviz.org/download/) (both the binaries and the Python package)
-- Inkscape from [inkscape.org](https://inkscape.org/release/)
 
 Add the installation directories to your system PATH.
 
-After installing Python, install the required Python packages via:
+After installing Python, install the required Python packages for diagrams and SVG conversion via:
 
 ```bash
-pip install graphviz IPython
+pip install graphviz IPython cairosvg
 ```
 
 ## Generating the Whitepaper
@@ -131,10 +122,9 @@ The Whitepaper uses several advanced Quarto features:
 
 - **Three output formats**: HTML (for web viewing), GFM (GitHub‑Flavored Markdown), and PDF (for print). The format settings are defined in the YAML header of `Whitepaper.qmd`.
 - **HTML output**: Custom CSS styling, embedded SVG figures, and self‑contained resources.
-- **PDF output**: Uses `pdflatex` with the `-shell‑escape` flag to allow the `svg` package to call Inkscape for SVG‑to‑PDF conversion. The LaTeX header includes custom packages (`authblk`, `svg`, `unicode‑math`, etc.) and layout adjustments.
+- **PDF output**: Uses `xelatex` engine. SVG logos are converted to PDF via Python’s `cairosvg` package. The LaTeX header includes custom packages (`authblk`, `unicode‑math`, `graphicx`, etc.) and layout adjustments.
 - **Graphviz diagrams**: The document includes `dot` code blocks that are rendered to SVG (for HTML/Markdown) or PDF (for PDF) using the `_graphviz.py` helper module.
 - **Conditional content**: Some blocks are visible only in specific formats (e.g., `{.content‑visible when‑format=\"gfm\"}`).
-- **Quarto filter**: A custom filter (`quarto‑filter`) is used for additional formatting transformations.
 
 Refer to the source `Whitepaper.qmd` for the exact configuration.
 
@@ -151,19 +141,15 @@ Refer to the source `Whitepaper.qmd` for the exact configuration.
 
 ### LaTeX errors about missing packages
 
-The document uses several LaTeX packages (`authblk`, `svg`, `unicode‑math`, `graphicx`, `adjustbox`). If you encounter missing‑package errors, ensure you have a **full** LaTeX installation (e.g., `texlive‑full` on Linux, or the complete MacTeX bundle). You can also manually install missing packages with `tlmgr`.
+The document uses several LaTeX packages (`authblk`, `unicode‑math`, `graphicx`, `adjustbox`). If you encounter missing‑package errors, ensure you have a **full** LaTeX installation (e.g., `texlive‑full` on Linux, or the complete MacTeX bundle). You can also manually install missing packages with `tlmgr`.
 
-### `--shell-escape` requirement
-
-The PDF engine is called with the `-shell‑escape` flag (enabled via `pdf‑engine‑opts: ["-shell‑escape"]`). This is necessary for the `svg` package to call Inkscape. If your LaTeX installation blocks shell‑escape for security reasons, you may need to adjust your LaTeX configuration or run Quarto in a trusted environment.
 
 ### SVG images not appearing in PDF
 
 If the CERN and other logos are missing in the PDF, verify that:
 
-1. Inkscape is installed and the `inkscape` command is available in your `PATH`.
-2. The `svg` LaTeX package is installed (it is part of most modern LaTeX distributions).
-3. The `Whitepaper_files` directory is writable and contains the generated `image0.svg` and `image1.svg` files after rendering.
+1. The Python `cairosvg` package is installed (via `pip install cairosvg`). This is required for SVG‑to‑PDF conversion.
+2. The `Whitepaper_files` directory is writable and contains the generated `image0.svg` and `image1.svg` files after rendering.
 
 ### Graphviz diagrams not rendered
 
@@ -176,10 +162,10 @@ Ensure that:
 
 ### Python code block errors
 
-The Python block is marked `eval: false`, so it is not executed during rendering. It only writes static SVG code into the `Whitepaper_files` folder. However, the block imports the `_graphviz.py` module, which requires the `graphviz` and `IPython` packages. If you encounter Python‑related errors, verify that:
+The Python block is marked `eval: false`, so it is not executed during rendering. It only writes static SVG code into the `Whitepaper_files` folder. However, the block imports the `_graphviz.py` module, which requires the `graphviz` and `IPython` packages, and the SVG‑to‑PDF conversion uses the `cairosvg` package. If you encounter Python‑related errors, verify that:
 
 1. Python is installed and the `os` and `tempfile` modules are available (they are part of the standard library).
-2. The required Python packages are installed (`pip install graphviz IPython`).
+2. The required Python packages are installed (`pip install graphviz IPython cairosvg`).
 3. The `_lib/python/_graphviz.py` file is present and readable.
 
 ## Updating the Whitepaper
@@ -195,4 +181,3 @@ The Whitepaper text is licensed under CC BY‑NC‑ND 4.0. The build instruction
 - [Quarto documentation](https://quarto.org/docs/)
 - [LaTeX Project](https://www.latex-project.org/)
 - [Graphviz](https://graphviz.org/)
-- [Inkscape](https://inkscape.org/)
