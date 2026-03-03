@@ -57,8 +57,10 @@ sequential timeline.** These assumptions are not fundamental laws but
 consequences of a specific architectural choice. Consequently, the
 majority of energy and time in conventional systems is spent on data
 movement rather than logic—a symptom known as the “data-movement wall”
-\[1, 2, 3\]. While new hardware-side paradigms attempt to mitigate this,
-it remains a localized optimization within the same sequential paradigm.
+[\[1\]](#ref-wulf1995hitting), [\[2\]](#ref-borkar2011future),
+[\[3\]](#ref-lucas2014top), [\[4\]](#ref-horowitz2014computing). While
+new hardware-side paradigms attempt to mitigate this, it remains a
+localized optimization within the same sequential paradigm.
 
 SSCCS proposes a shift from procedural execution to **structural
 observation**:
@@ -445,7 +447,8 @@ is no term for moving data between memory and processor, because
 Segments are stationary. This model predicts that energy consumption
 with hardware-dependent constants scales with the number of observations
 and field updates, but not with data movement, which is a key source of
-energy inefficiency in traditional architectures.
+energy inefficiency in traditional architectures
+[\[4\]](#ref-horowitz2014computing).
 
 ## Compilation and Structural Mapping
 
@@ -1133,8 +1136,9 @@ to traditional sequential and parallel (SIMD) architectures.
 
 ### Scalability in High-Dimensional AI Workloads
 
-As demonstrated in the emergence of State-Space Models (SSMs) $[6]$ and
-manifold-constrained learning $[5]$, the ability to process
+As demonstrated in the emergence of State-Space Models (SSMs)
+[\[5\]](#ref-gu2023mamba) and manifold-constrained learning
+[\[6\]](#ref-deepseek2025manifold), the ability to process
 high-dimensional representations without exhaustive data shuffling is
 critical.
 
@@ -1238,23 +1242,25 @@ Recent work in AI demonstrates the growing relevance of structural
 constraints:
 
 - **Geometric Constraints**: Research such as *Manifold-Constrained
-  Hyper-Connections* by DeepSeek \[5\] highlights the efficacy of
-  applying geometric inductive biases in high-dimensional
-  representations. This supports the SSCCS approach of defining
-  computational processes through topological constraints rather than
-  procedural instructions.
+  Hyper-Connections* by DeepSeek [\[6\]](#ref-deepseek2025manifold)
+  highlights the efficacy of applying geometric inductive biases in
+  high-dimensional representations. This supports the SSCCS approach of
+  defining computational processes through topological constraints
+  rather than procedural instructions.
 
 - **SSCCS as a Structural Superset**: SSCCS serves as a formal
-  ontological superset for State-Space Models (SSMs) like Mamba \[6\]
-  and hardware-aware frameworks such as Modular AI’s MAX/Mojo \[7, 8\].
-  While these systems achieve high-performance linear recurrences
-  through ad-hoc kernel tuning, SSCCS redefines the SSM recurrence not
-  as a procedural loop, but as a one-dimensional Scheme of adjacent
-  Segments where state transitions emerge as Projections of a sequential
-  Field. By shifting from execution-based optimization to the
-  deterministic observation of stationary topological constraints, SSCCS
-  inherently encompasses the efficiency gains of modern AI execution
-  engines within a universal, structure-defined architecture.
+  ontological superset for State-Space Models (SSMs) like Mamba
+  [\[5\]](#ref-gu2023mamba) and hardware-aware frameworks such as
+  Modular AI’s MAX/Mojo [\[7\]](#ref-modular2026max),
+  [\[8\]](#ref-lattner2026mojo). While these systems achieve
+  high-performance linear recurrences through ad-hoc kernel tuning,
+  SSCCS redefines the SSM recurrence not as a procedural loop, but as a
+  one-dimensional Scheme of adjacent Segments where state transitions
+  emerge as Projections of a sequential Field. By shifting from
+  execution-based optimization to the deterministic observation of
+  stationary topological constraints, SSCCS inherently encompasses the
+  efficiency gains of modern AI execution engines within a universal,
+  structure-defined architecture.
 
 These references contextualize SSCCS within the broader intellectual
 landscape. In each domain, the shift from execution to observation is
@@ -1312,26 +1318,82 @@ execution.
 
 ## References
 
-- \[1\] W. A. Wulf and S. A. McKee, “Hitting the memory wall:
-  implications of the obvious,” *ACM SIGARCH Computer Architecture
-  News*, vol. 23, no. 1, pp. 20–24, 1995.
-- \[2\] S. Borkar and A. A. Chien, “The future of microprocessors,”
-  *Communications of the ACM*, vol. 54, no. 5, pp. 67–77, 2011.
-- \[3\] R. Lucas et al., “Top ten exascale research challenges,” US
-  Department of Energy, 2014.
-- \[4\] M. Horowitz, “Computing’s energy problem (and what we can do
-  about it),” in *IEEE International Solid-State Circuits Conference*,
-  2014.
-- \[5\] DeepSeek-AI. (2025). *mHC: Manifold-Constrained
-  Hyper-Connections*. arXiv preprint arXiv:2512.24880.
-  https://arxiv.org/abs/2512.24880
-- \[6\] A. Gu and T. Dao, “Mamba: Linear-Time Sequence Modeling with
-  Selective State Spaces,” *arXiv preprint arXiv:2312.00752*, 2023.
-- \[7\] Modular AI, “MAX: A Unified AI Execution Engine,” \[Online\].
-  Available: https://www.modular.com/max. Accessed Feb. 2026.
-- \[8\] C. Lattner et al., “Mojo: Programming Language for All of AI,”
-  \[Online\]. Available: https://www.modular.com/mojo. Accessed
-  Feb. 2026.
+<div id="refs" class="references csl-bib-body" entry-spacing="0">
+
+<div id="ref-wulf1995hitting" class="csl-entry">
+
+<span class="csl-left-margin">\[1\]
+</span><span class="csl-right-inline">W. A. Wulf and S. A. McKee,
+“Hitting the memory wall: Implications of the obvious,” *ACM SIGARCH
+Computer Architecture News*, vol. 23, no. 1, pp. 20–24, 1995.</span>
+
+</div>
+
+<div id="ref-borkar2011future" class="csl-entry">
+
+<span class="csl-left-margin">\[2\]
+</span><span class="csl-right-inline">S. Borkar and A. A. Chien, “The
+future of microprocessors,” *Communications of the ACM*, vol. 54, no. 5,
+pp. 67–77, 2011.</span>
+
+</div>
+
+<div id="ref-lucas2014top" class="csl-entry">
+
+<span class="csl-left-margin">\[3\]
+</span><span class="csl-right-inline">R. Lucas *et al.*, “Top ten
+exascale research challenges,” US Department of Energy, 2014.</span>
+
+</div>
+
+<div id="ref-horowitz2014computing" class="csl-entry">
+
+<span class="csl-left-margin">\[4\]
+</span><span class="csl-right-inline">M. Horowitz, “Computing’s energy
+problem (and what we can do about it),” in *2014 IEEE international
+solid-state circuits conference (ISSCC)*, IEEE, 2014, pp. 10–14.</span>
+
+</div>
+
+<div id="ref-gu2023mamba" class="csl-entry">
+
+<span class="csl-left-margin">\[5\]
+</span><span class="csl-right-inline">A. Gu and T. Dao, “Mamba:
+Linear-time sequence modeling with selective state spaces,” *arXiv
+preprint arXiv:2312.00752*, 2023, Available:
+<https://arxiv.org/abs/2312.00752></span>
+
+</div>
+
+<div id="ref-deepseek2025manifold" class="csl-entry">
+
+<span class="csl-left-margin">\[6\]
+</span><span class="csl-right-inline">DeepSeek-AI, “mHC:
+Manifold-constrained hyper-connections,” *arXiv preprint
+arXiv:2512.24880*, 2025, Available:
+<https://arxiv.org/abs/2512.24880></span>
+
+</div>
+
+<div id="ref-modular2026max" class="csl-entry">
+
+<span class="csl-left-margin">\[7\]
+</span><span class="csl-right-inline">Modular AI, “MAX: A unified AI
+execution engine.” \[Online\]. Available:
+<https://www.modular.com/max></span>
+
+</div>
+
+<div id="ref-lattner2026mojo" class="csl-entry">
+
+<span class="csl-left-margin">\[8\]
+</span><span class="csl-right-inline">C. Lattner *et al.*, “Mojo:
+Programming language for all of AI.” \[Online\]. Available:
+<https://www.modular.com/mojo></span>
+
+</div>
+
+</div>
 
 ------------------------------------------------------------------------
 

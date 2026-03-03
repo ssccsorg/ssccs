@@ -3,6 +3,10 @@ title: "Schema–Segment Composition Computing System"
 subtitle: "A Structure-Defined, Constraint-Conditioned, and Observation-Centric Computational System Architecture"
 date: 2026-02-16
 date-format: "MMMM D, YYYY"
+bibliography: _lib/qmd/whitepaper/references.bib
+csl: _lib/qmd/whitepaper/ieee.csl
+link-citations: true
+colorlinks: true
 format:
   html:
     default-figure-format: "svg"
@@ -46,13 +50,16 @@ format:
     fig-format: pdf
     fig-dpi: 300
     number-sections: true
-    colorlinks: false
     toc-title: "Contents"
     execute:
         echo: false
     papersize: a4
     graphics: true
     highlight-style: monochrome
+    colorlinks: true
+    linkcolor: darkgray
+    citecolor: gray
+    urlcolor: darkgray
     code-block-bg: false
     code-block-border-left: true
     fig-pos: 'H'
@@ -110,7 +117,7 @@ Before observation, structure exists as constrained potential. **Data, or state 
 For decades, computation has been defined by the von Neumann model:  
 `Data (Input) + Program → Execution → Result`  
 
-This formulation rests on several assumptions: **data exists as intrinsic values in memory, programs are instruction sequences, and execution involves moving data between memory and processor across a sequential timeline.** These assumptions are not fundamental laws but consequences of a specific architectural choice. Consequently, the majority of energy and time in conventional systems is spent on data movement rather than logic—a symptom known as the "data-movement wall" [1, 2, 3]. While new hardware-side paradigms attempt to mitigate this, it remains a localized optimization within the same sequential paradigm.
+This formulation rests on several assumptions: **data exists as intrinsic values in memory, programs are instruction sequences, and execution involves moving data between memory and processor across a sequential timeline.** These assumptions are not fundamental laws but consequences of a specific architectural choice. Consequently, the majority of energy and time in conventional systems is spent on data movement rather than logic—a symptom known as the "data-movement wall" [@wulf1995hitting; @borkar2011future; @lucas2014top; @horowitz2014computing]. While new hardware-side paradigms attempt to mitigate this, it remains a localized optimization within the same sequential paradigm.
 
 SSCCS proposes a shift from procedural execution to **structural observation**:
 
@@ -461,7 +468,7 @@ $$
 E_{\text{total}} = E_{\text{observation}} \times N_{\text{obs}} + E_{\text{field-update}} \times N_{\text{update}}
 $$
 
-where $E_{\text{observation}}$ is the energy to perform one observation, and $E_{\text{field-update}}$ is the energy to modify the Field. There is no term for moving data between memory and processor, because Segments are stationary. This model predicts that energy consumption with hardware-dependent constants scales with the number of observations and field updates, but not with data movement, which is a key source of energy inefficiency in traditional architectures.
+where $E_{\text{observation}}$ is the energy to perform one observation, and $E_{\text{field-update}}$ is the energy to modify the Field. There is no term for moving data between memory and processor, because Segments are stationary. This model predicts that energy consumption with hardware-dependent constants scales with the number of observations and field updates, but not with data movement, which is a key source of energy inefficiency in traditional architectures [@horowitz2014computing].
   
 ## Compilation and Structural Mapping
 
@@ -628,7 +635,6 @@ let scheme = Scheme::add_vectors(a, b);
 let field = Field::new();
 // Computation is an emergent property of the observation
 let sum = observe(scheme, field); 
-
 ```
 
 - **Data Movement**: Zero input movement. Segments remain stationary ("Logic-at-Rest"). Only the resulting projection (a single vector of length $N$) is transmitted to the observer.
@@ -948,7 +954,7 @@ The following table summarizes the asymptotic behavior of SSCCS compared to trad
 
 ### Scalability in High-Dimensional AI Workloads
 
-As demonstrated in the emergence of State-Space Models (SSMs) $[6]$ and manifold-constrained learning $[5]$, the ability to process high-dimensional representations without exhaustive data shuffling is critical.
+As demonstrated in the emergence of State-Space Models (SSMs) [@gu2023mamba] and manifold-constrained learning [@deepseek2025manifold], the ability to process high-dimensional representations without exhaustive data shuffling is critical.
 
 1. Stationary Topology: By fixing the Segments in a k-dimensional `MemoryLayout`, SSCCS allows the hardware to perform "Observation" as a near-instantaneous mapping.
 2. Implicit Parallelism: Unlike threads or warps that require explicit management, SSCCS parallelism is implicit—it is a property of the structure itself. The scalability is limited only by the fidelity of the Field and the resolution of the Projector ($\Omega$).
@@ -1027,9 +1033,9 @@ Although SSCCS was developed without direct reference to prior work, its theoret
 
 Recent work in AI demonstrates the growing relevance of structural constraints:
 
-- **Geometric Constraints**: Research such as *Manifold-Constrained Hyper-Connections* by DeepSeek [5] highlights the efficacy of applying geometric inductive biases in high-dimensional representations. This supports the SSCCS approach of defining computational processes through topological constraints rather than procedural instructions.
+- **Geometric Constraints**: Research such as *Manifold-Constrained Hyper-Connections* by DeepSeek [@deepseek2025manifold] highlights the efficacy of applying geometric inductive biases in high-dimensional representations. This supports the SSCCS approach of defining computational processes through topological constraints rather than procedural instructions.
 
-- **SSCCS as a Structural Superset**: SSCCS serves as a formal ontological superset for State-Space Models (SSMs) like Mamba [6] and hardware-aware frameworks such as Modular AI's MAX/Mojo [7, 8]. While these systems achieve high-performance linear recurrences through ad-hoc kernel tuning, SSCCS redefines the SSM recurrence not as a procedural loop, but as a one-dimensional Scheme of adjacent Segments where state transitions emerge as Projections of a sequential Field. By shifting from execution-based optimization to the deterministic observation of stationary topological constraints, SSCCS inherently encompasses the efficiency gains of modern AI execution engines within a universal, structure-defined architecture.
+- **SSCCS as a Structural Superset**: SSCCS serves as a formal ontological superset for State-Space Models (SSMs) like Mamba [@gu2023mamba] and hardware-aware frameworks such as Modular AI's MAX/Mojo [@modular2026max; @lattner2026mojo]. While these systems achieve high-performance linear recurrences through ad-hoc kernel tuning, SSCCS redefines the SSM recurrence not as a procedural loop, but as a one-dimensional Scheme of adjacent Segments where state transitions emerge as Projections of a sequential Field. By shifting from execution-based optimization to the deterministic observation of stationary topological constraints, SSCCS inherently encompasses the efficiency gains of modern AI execution engines within a universal, structure-defined architecture.
 
 These references contextualize SSCCS within the broader intellectual landscape. In each domain, the shift from execution to observation is expected to offer advantages that incremental optimization cannot provide. These advantages—determinism, parallelism, fault isolation, reduced communication, and above all verifiability—are expected consequences of the ontological redefinition, not features added to address specific problems.
 
@@ -1059,14 +1065,8 @@ The model is not presented as a complete replacement for all computing, but as a
 
 ## References {.unnumbered .unlisted}
 
-- [1] W. A. Wulf and S. A. McKee, "Hitting the memory wall: implications of the obvious," *ACM SIGARCH Computer Architecture News*, vol. 23, no. 1, pp. 20–24, 1995.
-- [2] S. Borkar and A. A. Chien, "The future of microprocessors," *Communications of the ACM*, vol. 54, no. 5, pp. 67–77, 2011.
-- [3] R. Lucas et al., "Top ten exascale research challenges," US Department of Energy, 2014.
-- [4] M. Horowitz, "Computing's energy problem (and what we can do about it)," in *IEEE International Solid-State Circuits Conference*, 2014.
-- [5] DeepSeek-AI. (2025). *mHC: Manifold-Constrained Hyper-Connections*. arXiv preprint arXiv:2512.24880. https://arxiv.org/abs/2512.24880
-- [6] A. Gu and T. Dao, "Mamba: Linear-Time Sequence Modeling with Selective State Spaces," *arXiv preprint arXiv:2312.00752*, 2023.
-- [7] Modular AI, "MAX: A Unified AI Execution Engine," [Online]. Available: https://www.modular.com/max. Accessed Feb. 2026.
-- [8] C. Lattner et al., "Mojo: Programming Language for All of AI," [Online]. Available: https://www.modular.com/mojo. Accessed Feb. 2026.
+::: {#refs}
+:::
 
 ---
 
