@@ -2,8 +2,6 @@
 
 February 16, 2026
 
-[![](https://zenodo.org/badge/DOI/10.5281/zenodo.18759106.svg)](https://doi.org/10.5281/zenodo.18759106)
-
 ## Abstract
 
 **SSCCS (Schema–Segment Composition Computing System)** is an
