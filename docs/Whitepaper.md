@@ -49,10 +49,9 @@ authenticity.
 - Governed by the [Foundational Charter and
   Statute](https://ssccs.org/legal) of the SSCCS Foundation (in
   formation).
-- Provenance Disclosure: Human-authored and AI-refined: linguistic and
-  editorial review; full intellectual responsibility remains with the
-  author(s). A [C2PA-signed cryptographic
-  provenance](https://ssccs.org/wpc2pa) of the whitepaper is provided.
+- Provenance: Human-authored and AI-refined: linguistic and editorial
+  review; full intellectual responsibility with author(s). All major
+  outputs are [C2PA-certified](https://ssccs.org/wpc2pa).
 
 ------------------------------------------------------------------------
 
