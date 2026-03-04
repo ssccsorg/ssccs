@@ -131,7 +131,7 @@ Refer to the source `Whitepaper.qmd` for the exact configuration.
 ## Document Structure
 
 - `Whitepaper.qmd` – The source file containing the complete paper in Quarto Markdown.
-- `_lib/python/_graphviz.py` – Python module that provides `dot()` and `dot_svg()` functions for generating Graphviz diagrams.
+- `_include/_graphviz.py` – Python module that provides `dot()` and `dot_svg()` functions for generating Graphviz diagrams.
 - `_extensions/` – Contains Quarto extensions (currently only a custom extension for inline SVG).
 - `Whitepaper_files/` – Directory created during rendering that holds generated SVG images and other auxiliary files.
 - `Whitepaper.pdf` – The final PDF (already included in the repository).
@@ -166,7 +166,7 @@ The Python block is marked `eval: false`, so it is not executed during rendering
 
 1. Python is installed and the `os` and `tempfile` modules are available (they are part of the standard library).
 2. The required Python packages are installed (`pip install graphviz IPython cairosvg`).
-3. The `_lib/python/_graphviz.py` file is present and readable.
+3. The `_include/_graphviz.py` file is present and readable.
 
 ## Updating the Whitepaper
 
