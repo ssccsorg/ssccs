@@ -1,6 +1,6 @@
 # Schema–Segment Composition Computing System
 
-February 16, 2026
+February, 2026
 
 ## Abstract
 
@@ -32,6 +32,34 @@ Intellectual Public Commons.
 
 
 
+## Legal and Provenance
+
+© 2026 SSCCS Foundation — A non-profit research initiative, formalized
+through global standards and substantiated by its cryptographic
+authenticity.
+
+- Whitepaper: [PDF](https://ssccs.org/wp) /
+  [HTML](https://ssccs.org/wpw) DOI:
+  [10.5281/zenodo.18759106](https://doi.org/10.5281/zenodo.18759106) via
+  CERN/Zenodo, indexed by OpenAIRE. Licensed under *CC BY-NC-ND 4.0*.
+- Official repository: [GitHub](https://github.com/ssccsorg).
+  Authenticated via GPG:
+  [BCCB196BADF50C99](https://keys.openpgp.org/search?q=BCCB196BADF50C99).
+  Licensed under *Apache 2.0*.
+- Governed by the [Foundational Charter and
+  Statute](https://ssccs.org/legal) of the SSCCS Foundation (in
+  formation).
+- Provenance Disclosure: Human-authored and AI-refined: linguistic and
+  editorial review; full intellectual responsibility remains with the
+  author(s). A [C2PA-signed cryptographic
+  provenance](https://ssccs.org/wpc2pa) of the whitepaper is provided.
+
+------------------------------------------------------------------------
+
+
+
+
+
 ## Philosophical Foundation
 
 Before observation, structure exists as constrained potential. **Data,
@@ -41,9 +69,7 @@ Field, precipitating the collapse of possibility and giving rise to a
 projection. A projection, as the residue of collapse, is transient; it
 constitutes what we recognize as data or state. Yet throughout this
 entire process, the fundamental structure itself remains untouched and
-unaltered.
-
-
+unaltered. 
 
 ## Introduction
 
@@ -1394,21 +1420,3 @@ Programming language for all of AI.” \[Online\]. Available:
 </div>
 
 </div>
-
-------------------------------------------------------------------------
-
-© 2026 SSCCS Foundation — A non-profit research initiative, formalized
-through global standards and substantiated by its cryptographic
-authenticity.
-
-- Whitepaper: [PDF](https://ssccs.org/wp) /
-  [HTML](https://ssccs.org/wpw) DOI:
-  [10.5281/zenodo.18759106](https://doi.org/10.5281/zenodo.18759106) via
-  CERN/Zenodo, indexed by OpenAIRE. Licensed under *CC BY-NC-ND 4.0*.
-- Official repository: [GitHub](https://github.com/ssccsorg).
-  Authenticated via GPG:
-  [BCCB196BADF50C99](https://keys.openpgp.org/search?q=BCCB196BADF50C99).
-  Licensed under *Apache 2.0*.
-- Governed by the [Foundational Charter and
-  Statute](https://ssccs.org/legal) of the SSCCS Foundation (in
-  formation).
