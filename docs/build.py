@@ -120,7 +120,7 @@ def build_whitepaper(output_dir: Optional[Path] = None) -> bool:
 
     dest_pdf = output_dir / "Whitepaper.pdf"
     try:
-        shutil.copy2(source_pdf, dest_pdf)
+        shutil.move(source_pdf, dest_pdf)
         logger.info(f"Copied PDF to {dest_pdf}")
     except Exception as e:
         logger.error(f"Failed to copy PDF: {e}")
@@ -132,15 +132,72 @@ def build_whitepaper(output_dir: Optional[Path] = None) -> bool:
 
 def build_all(output_dir: Optional[Path] = None) -> bool:
     """
-    Build all artifacts (currently only whitepaper).
+    Build all artifacts (whitepaper, README, legal).
     """
     logger.info("Building all artifacts...")
-    success = build_whitepaper(output_dir=output_dir)
+    success = True
+    if not build_whitepaper(output_dir=output_dir):
+        success = False
+    if not build_readme():
+        success = False
+    if not build_legal():
+        success = False
     if success:
         logger.info("All artifacts built successfully.")
     else:
         logger.error("One or more artifacts failed to build.")
     return success
+
+
+def build_readme() -> bool:
+    """
+    Render docs/README.qmd to docs/README.md and copy to root README.md.
+    """
+    logger.info("Building README...")
+    docs_root = Path(__file__).parent.absolute()
+    os.chdir(docs_root)
+    logger.info(f"Working directory: {docs_root}")
+
+    # Quarto render to GFM
+    quarto_cmd = ["quarto", "render", "README.qmd", "--to", "gfm"]
+    if not run_command(quarto_cmd):
+        logger.error("Quarto render failed for README.")
+        return False
+    logger.info("README built successfully.")
+
+    # Copy to project root (parent directory)
+    rendered_path = docs_root / "README.md"
+    root_path = docs_root.parent / "README.md"
+    # If root is a symlink pointing to the rendered file, no need to copy
+    if root_path.is_symlink() and root_path.resolve() == rendered_path.resolve():
+        logger.info(f"Root README.md is a symlink to {rendered_path}; skipping copy.")
+    else:
+        try:
+            shutil.copy2(rendered_path, root_path)
+            logger.info(f"Copied README.md to project root: {root_path}")
+        except Exception as e:
+            logger.error(f"Failed to copy README.md to root: {e}")
+            return False
+
+    return True
+
+
+def build_legal() -> bool:
+    """
+    Render docs/legal/legal.qmd to docs/legal/legal.md (GitHub‑Flavored Markdown).
+    """
+    logger.info("Building legal document...")
+    docs_root = Path(__file__).parent.absolute()
+    os.chdir(docs_root)
+    logger.info(f"Working directory: {docs_root}")
+
+    # Quarto render to GFM
+    quarto_cmd = ["quarto", "render", "legal/legal.qmd"]
+    if not run_command(quarto_cmd):
+        logger.error("Quarto render failed for legal document.")
+        return False
+    logger.info("Legal document built successfully.")
+    return True
 
 
 def main() -> None:
@@ -161,6 +218,14 @@ def main() -> None:
     whitepaper_parser = subparsers.add_parser(
         "whitepaper", help="Build the SSCCS whitepaper"
     )
+    # README subcommand
+    readme_parser = subparsers.add_parser(
+        "readme", help="Render docs/README.qmd to docs/README.md"
+    )
+    # Legal subcommand
+    legal_parser = subparsers.add_parser(
+        "legal", help="Render docs/legal/legal.qmd to docs/legal/legal.md"
+    )
     # All subcommand
     all_parser = subparsers.add_parser(
         "all", help="Build all artifacts (default behavior)"
@@ -173,6 +238,12 @@ def main() -> None:
 
     if args.target == "whitepaper":
         success = build_whitepaper(output_dir=args.output_dir)
+        sys.exit(0 if success else 1)
+    elif args.target == "readme":
+        success = build_readme()
+        sys.exit(0 if success else 1)
+    elif args.target == "legal":
+        success = build_legal()
         sys.exit(0 if success else 1)
     elif args.target == "all":
         success = build_all(output_dir=args.output_dir)

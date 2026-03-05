@@ -1,1 +1,0 @@
-docs/legal/legal.md

@@ -1,222 +1,230 @@
-# Whitepaper Generation with Quarto
+# Schema–Segment Composition Computing System (SSCCS)
 
-This document explains how to generate the SSCCS Whitepaper (`Whitepaper.pdf` and `Whitepaper.md`) from the Quarto source file `Whitepaper.qmd`.
 
-## Prerequisites
+<!-- badges -->
 
-The Whitepaper uses advanced Quarto features that require several external tools:
+[![License: Apache
+2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![License: CC BY-NC-ND
+4.0](https://img.shields.io/badge/License-CC_BY--NC--ND_4.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-nd/4.0/)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18759106.svg)](https://doi.org/10.5281/zenodo.18759106)
+[![SSCCS
+Foundation](https://img.shields.io/badge/Foundation-Non--Profit-8A2BE2.png)](https://ssccs.org/legal)
 
-1. **Quarto** – The document rendering engine.
-2. **LaTeX** – For PDF generation, using the `xelatex` engine.
-3. **Python** – For inline Python code that generates diagrams and converts SVG logos. The Python environment must have the `graphviz`, `IPython`, and `cairosvg` packages installed (e.g., via `pip install graphviz IPython cairosvg`).
-4. **Graphviz** – For rendering `dot` diagrams embedded in the document. This includes both the system Graphviz binaries (`dot` command) and the Python `graphviz` package.
+## Abstract
 
-## Installation
+**SSCCS (Schema–Segment Composition Computing System)** is an
+observation‑driven computing model that redefines computation as the
+traceable projection of immutable Segments within a structured Scheme.
+While current hardware advances focus on physical improvements, SSCCS
+tackles the Von Neumann bottleneck at the logical layer. By formalizing
+computation as the resolution of static potential under dynamic
+constraints—rather than sequential state mutations—the architecture
+reframes data movement, concurrency, and verifiability.
 
-### macOS (using Homebrew)
+SSCCS embodies three core principles:
 
-If you have Homebrew installed, run the following commands:
+- **Immutability** – segments and schemes are immutable.
+- **Structural Integrity** – computations follow predefined
+  relationships.
+- **Traceability** – every projection is cryptographically verifiable.
 
-```bash
-# Install Quarto
-brew install --cask quarto
+Its layered ontology—Segments, Schemes, Fields, and Projections—ensures
+information remains unchanged, operations transparent, and outcomes
+auditable.
 
-# Install LaTeX distribution (MacTeX)
-brew install --cask mactex
+Driven by a software‑first philosophy, this architecture ensures
+deterministic reproducibility by decoupling execution logic from mutable
+state through structural and cryptographic isolation. This open
+specification provides a roadmap where logical design dictates physical
+implementation—from software to hardware. By integrating energy
+efficiency with high interpretability, SSCCS establishes a foundation
+for sustainable, accountable computational infrastructures, ultimately
+transitioning logic into a transparent, verifiable, and accessible
+Intellectual Public Commons.
 
-# Install Python (if not already present)
-brew install python
+## Core Concepts
 
-# Install Graphviz
-brew install graphviz
+### Segment
 
-# Install required Python packages for diagrams and SVG conversion
-pip install graphviz IPython cairosvg
+Immutable coordinate points in a multi‑dimensional possibility space.
+Each Segment is identified by a cryptographic hash and carries a fixed
+value across all observations.
+
+### Scheme
+
+Immutable structural blueprint defining axes, segments, relations,
+memory layout, and observation rules. A Scheme is a static graph that
+describes how Segments relate to each other and how they can be
+observed.
+
+### Field
+
+Mutable container of dynamic constraints. A Field is the only mutable
+component in the system; it holds the current set of constraints that
+are applied during observation.
+
+### Projector
+
+Semantic interpreter that observes a combination of Field and Segment to
+produce a projection. The Projector implements the observation rules
+defined in the Scheme.
+
+### Observation
+
+The sole active event that collapses admissible configurations into a
+deterministic projection. Observation is the act of applying a Field to
+a Segment within a Scheme, yielding a result that is both reproducible
+and verifiable.
+
+## Project Status & Vision
+
+SSCCS is a **non‑profit, open‑source research initiative** formally
+organized under the SSCCS Foundation (in formation). The project
+operates as a global, collaborative effort to design, prototype, and
+standardize a new computational paradigm.
+
+- **Phase 1 (Software Emulation)** – Implement a reference model in Rust
+  (current PoC).
+- **Phase 2 (Formal Verification)** – Develop a mechanized proof of the
+  core properties (immutability, determinism, verifiability).
+- **Phase 3 (Hardware Prototype)** – Translate the software model into a
+  hardware description (Verilog/VHDL) and produce an FPGA‑based
+  prototype.
+- **Phase 4 (Standardization)** – Submit the architecture to relevant
+  standards bodies (IEEE, ISO) as a publicly‑available specification.
+
+All outputs—whitepapers, software, proofs, hardware designs—are released
+under open‑source licenses and are cryptographically signed with
+[C2PA](https://c2pa.org) to guarantee provenance and authenticity.
+
+## Repository Structure
+
+    ssccs/
+    ├── docs/                   # Documentation and whitepaper source
+    │   ├── README.md           # Rendered GitHub‑Flavored Markdown
+    │   ├── README.qmd          # README Quarto Source
+    │   ├── Whitepaper.pdf      # Whitepaper PDF
+    │   ├── whitepaper/         # Whitepaper (Quarto source, PDF, C2PA)
+    │   ├── legal/              # Foundation charter, statutes, legal documents
+    │   ├── _include/           # Reusable Quarto components
+    │   └── _utils/             # Build utilities (C2PA signing, etc.)
+    ├── poc/                    # Proof‑of‑Concept implementation in Rust
+    │   ├── src/                # Core SSCCS libraries
+    │   └── Cargo.toml          # Rust project configuration
+    ├── README.md               # Symbolic link to docs/README.md
+    ├── LICENSE                 # Apache 2.0 (software)
+    └── .github/                # GitHub Actions workflows
+
+## Getting Started
+
+### 1. Clone the Repository
+
+``` bash
+git clone https://github.com/ssccsorg/ssccs.git
+cd ssccs
 ```
 
-After installing MacTeX, ensure the LaTeX binaries are in your `PATH`. You may need to open a new terminal or run:
+### 2. Explore the Proof of Concept
 
-```bash
-export PATH="/Library/TeX/texbin:$PATH"
+The Rust PoC demonstrates the core ontological layers. See
+[poc/README.md](poc/README.md) for detailed build and run instructions.
+
+``` bash
+cd poc
+cargo build --release
+cargo run --release
 ```
 
-### Linux (Debian/Ubuntu)
+### 3. Generate the Whitepaper
 
-```bash
-# Install Quarto
-# Download the latest .deb from https://quarto.org/docs/download/
-# or use the install script:
-curl -LO https://quarto.org/download/latest/quarto-linux-amd64.deb
-sudo dpkg -i quarto-linux-amd64.deb
+The whitepaper (PDF, HTML, GFM) is built with Quarto and signed with
+C2PA. A convenient build script is provided:
 
-# Install LaTeX (TeX Live)
-sudo apt-get update
-sudo apt-get install texlive-full
-
-# Install Python (usually pre-installed)
-sudo apt-get install python3
-
-# Install Graphviz
-sudo apt-get install graphviz
-
-# Install required Python packages for diagrams and SVG conversion
-pip install graphviz IPython cairosvg
+``` bash
+cd docs
+python build.py whitepaper
 ```
 
-### Windows
+To build all artifacts (whitepaper and C2PA manifest) in one step:
 
-Download and install:
-
-- Quarto from [quarto.org](https://quarto.org/docs/download/)
-- MiKTeX or TeX Live for LaTeX
-- Python from [python.org](https://www.python.org/downloads/) (ensure `pip` is installed)
-- Graphviz from [graphviz.org](https://graphviz.org/download/) (both the binaries and the Python package)
-
-Add the installation directories to your system PATH.
-
-After installing Python, install the required Python packages for diagrams and SVG conversion via:
-
-```bash
-pip install graphviz IPython cairosvg
+``` bash
+cd docs
+python build.py          # default target 'all'
 ```
 
-## Generating the Whitepaper
+See [docs/whitepaper/README.md](docs/whitepaper/README.md) for full
+prerequisites and advanced rendering options.
 
-Once all prerequisites are satisfied, navigate to the `docs` directory and run Quarto:
+## Community & Collaboration
 
-```bash
-cd /path/to/qs-core/docs
-```
+SSCCS is developed as a **public‑good, community‑driven** project. We
+welcome contributions from researchers, engineers, legal experts, and
+enthusiasts.
 
-### Render PDF
+- **Official Website**: <https://ssccs.org>
+- **GitHub Repository**: <https://github.com/ssccsorg>
+- **Discussion Forum**: [GitHub
+  Discussions](https://github.com/ssccsorg/ssccs/discussions)
+- **Whitepaper (PDF)**: <https://ssccs.org/wp> (C2PA‑authenticated)
+- **Legal Charter**: <https://ssccs.org/legal>
 
-To produce the PDF version (requires LaTeX):
+## Governance
 
-```bash
-quarto render whitepaper/Whitepaper.qmd --to pdf
-```
+The SSCCS Foundation is a non‑profit entity (in formation) that holds
+the intellectual property, manages the trademark, and oversees the
+standardization process. The foundation’s charter ensures that the
+project remains open, neutral, and aligned with its mission of creating
+a verifiable, sustainable computational commons.
 
-The output will be `Whitepaper.pdf` (generated in the `whitepaper/` subdirectory). The first run may take several minutes because LaTeX must install missing packages and compile the document.
+All technical decisions are made through open RFCs and consensus among
+maintainers. The foundation’s statutes guarantee that no single
+corporation or individual can control the direction of the architecture.
 
-### Render Markdown (GitHub‑Flavored Markdown)
+## Contributing
 
-To generate the plain‑markdown version (without LaTeX dependencies):
+We invite contributions of all kinds:
 
-```bash
-quarto render whitepaper/Whitepaper.qmd --to gfm
-```
+- **Code**: Rust implementations, formal proofs, hardware descriptions.
+- **Documentation**: Whitepaper improvements, tutorials, API docs.
+- **Research**: Formal analysis, performance benchmarks, security
+  audits.
+- **Outreach**: Blog posts, conference talks, educational material.
 
-The output will be `Whitepaper.md` (generated in the `whitepaper/` subdirectory). This version includes the DOI badge and all diagrams as embedded SVG images (if Graphviz is available).
+Please read
+[CONTRIBUTING.md](https://github.com/ssccsorg/ssccs/blob/main/CONTRIBUTING.md)
+(to be created) for guidelines on pull requests, code style, and
+licensing.
 
-### Render both formats at once
+## Acknowledgments
 
-```bash
-quarto render whitepaper/Whitepaper.qmd
-```
+SSCCS builds upon decades of research in functional programming, formal
+verification, hardware design, and cryptographic provenance. We are
+grateful to the open‑source communities that have made this work
+possible, and to the early collaborators who have contributed ideas,
+code, and critical feedback.
 
-By default Quarto will produce all output formats declared in the document’s YAML header (here `gfm` and `pdf`).
+The project is currently maintained by the SSCCS Foundation and a
+growing network of volunteers. If you would like to support the
+initiative financially or in kind, please contact <contact@ssccs.org>.
 
-### Automated Build Script
+------------------------------------------------------------------------
 
-A centralized build script `build.py` is provided in the `docs` directory to automate the whitepaper generation, C2PA signing, and PDF copying.
+© 2026 SSCCS Foundation — A non-profit research initiative, formalized
+through global standards and substantiated by its cryptographic
+authenticity.
 
-**Basic usage** (builds all artifacts):
-
-```bash
-python3 build.py
-```
-
-This runs the following steps automatically:
-
-1. Renders the whitepaper PDF and Markdown via `quarto render whitepaper/Whitepaper.qmd`
-2. Signs the PDF with C2PA using `_utils/sign_c2pa.py`
-3. Copies the signed PDF to the `docs` directory (or a custom output directory)
-
-**Subcommands:**
-
-- `whitepaper` – Build only the whitepaper:
-  ```bash
-  python3 build.py whitepaper
-  ```
-- `all` – Same as default (build all artifacts):
-  ```bash
-  python3 build.py all
-  ```
-
-**Options:**
-
-- `--output-dir` (or `-o`) – Specify a custom directory for the final PDF.
-
-Example: generate the whitepaper and place the PDF in a `dist` folder:
-
-```bash
-python3 build.py --output-dir dist
-```
-
-For more details, run `python3 build.py --help`.
-
-## Advanced Rendering Techniques
-
-The Whitepaper uses several advanced Quarto features:
-
-- **Three output formats**: HTML (for web viewing), GFM (GitHub‑Flavored Markdown), and PDF (for print). The format settings are defined in the YAML header of `Whitepaper.qmd`.
-- **HTML output**: Custom CSS styling, embedded SVG figures, and self‑contained resources.
-- **PDF output**: Uses `xelatex` engine. SVG logos are converted to PDF via Python’s `cairosvg` package. The LaTeX header includes custom packages (`authblk`, `unicode‑math`, `graphicx`, etc.) and layout adjustments.
-- **Graphviz diagrams**: The document includes `dot` code blocks that are rendered to SVG (for HTML/Markdown) or PDF (for PDF) using the `_graphviz.py` helper module.
-- **Conditional content**: Some blocks are visible only in specific formats (e.g., `{.content‑visible when‑format=\"gfm\"}`).
-
-Refer to the source `Whitepaper.qmd` for the exact configuration.
-
-## Document Structure
-
-- `Whitepaper.qmd` – The source file containing the complete paper in Quarto Markdown.
-- `_include/_graphviz.py` – Python module that provides `dot()` and `dot_svg()` functions for generating Graphviz diagrams.
-- `_extensions/` – Contains Quarto extensions (currently only a custom extension for inline SVG).
-- `Whitepaper_files/` – Directory created during rendering that holds generated SVG images and other auxiliary files.
-- `Whitepaper.pdf` – The final PDF (already included in the repository).
-- `Whitepaper.md` – The final Markdown version (already included in the repository).
-
-## Troubleshooting
-
-### LaTeX errors about missing packages
-
-The document uses several LaTeX packages (`authblk`, `unicode‑math`, `graphicx`, `adjustbox`). If you encounter missing‑package errors, ensure you have a **full** LaTeX installation (e.g., `texlive‑full` on Linux, or the complete MacTeX bundle). You can also manually install missing packages with `tlmgr`.
-
-
-### SVG images not appearing in PDF
-
-If the CERN and other logos are missing in the PDF, verify that:
-
-1. The Python `cairosvg` package is installed (via `pip install cairosvg`). This is required for SVG‑to‑PDF conversion.
-2. The `Whitepaper_files` directory is writable and contains the generated `image0.svg` and `image1.svg` files after rendering.
-
-### Graphviz diagrams not rendered
-
-Ensure that:
-
-1. The `dot` command (part of Graphviz) is in your `PATH`. Quarto will call `dot` to produce SVG diagrams; if `dot` is missing, the diagrams will be omitted.
-2. The Python `graphviz` package is installed (via `pip install graphviz`). The `_graphviz.py` module depends on it.
-3. The `IPython` package is installed if you are using Jupyter kernels.
-4. If diagrams contain non‑ASCII characters, ensure your system’s locale supports UTF‑8. The `_graphviz.py` module normalizes Unicode to NFC form, but encoding issues may still arise.
-
-### Python code block errors
-
-The Python block is marked `eval: false`, so it is not executed during rendering. It only writes static SVG code into the `Whitepaper_files` folder. However, the block imports the `_graphviz.py` module, which requires the `graphviz` and `IPython` packages, and the SVG‑to‑PDF conversion uses the `cairosvg` package. If you encounter Python‑related errors, verify that:
-
-1. Python is installed and the `os` and `tempfile` modules are available (they are part of the standard library).
-2. The required Python packages are installed (`pip install graphviz IPython cairosvg`).
-3. The `_include/_graphviz.py` file is present and readable.
-
-## Updating the Whitepaper
-
-To modify the Whitepaper, edit `Whitepaper.qmd` and then re‑run the `quarto render` commands above (or use the automated build script `build.py`). Always commit both the source `.qmd` and the rendered `.pdf`/`.md` files to the repository.
-
-## License
-
-The Whitepaper text is licensed under CC BY‑NC‑ND 4.0. The build instructions in this README are provided under the same license as the rest of the SSCCS project (Apache‑2.0 for code, CC BY‑NC‑ND 4.0 for documentation).
-
-## References
-
-- [Quarto documentation](https://quarto.org/docs/)
-- [LaTeX Project](https://www.latex-project.org/)
-- [Graphviz](https://graphviz.org/)
+- Whitepaper: [PDF](https://ssccs.org/wp) /
+  [HTML](https://ssccs.org/wpw) DOI:
+  [10.5281/zenodo.18759106](https://doi.org/10.5281/zenodo.18759106) via
+  CERN/Zenodo, indexed by OpenAIRE. Licensed under *CC BY-NC-ND 4.0*.
+- Official repository: [GitHub](https://github.com/ssccsorg).
+  Authenticated via GPG:
+  [BCCB196BADF50C99](https://keys.openpgp.org/search?q=BCCB196BADF50C99).
+  Licensed under *Apache 2.0*.
+- Governed by the [Foundational Charter and
+  Statute](https://ssccs.org/legal) of the SSCCS Foundation (in
+  formation).
+- Provenance: Human-authored and AI-refined: linguistic and editorial
+  review; full intellectual responsibility with author(s). All major
+  outputs are [C2PA-certified](https://ssccs.org/wpc2pa).
