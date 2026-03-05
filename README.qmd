@@ -1,0 +1,146 @@
+---
+title: "Schema–Segment Composition Computing System (SSCCS)"
+subtitle: "A Non‑Profit Open‑Source Research Initiative"
+format: gfm
+---
+
+<!-- badges -->
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![License: CC BY-NC-ND 4.0](https://img.shields.io/badge/License-CC_BY--NC--ND_4.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-nd/4.0/)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18759106.svg)](https://doi.org/10.5281/zenodo.18759106)
+[![SSCCS Foundation](https://img.shields.io/badge/Foundation-Non--Profit-8A2BE2)](https://ssccs.org/legal)
+
+## Abstract
+
+**SSCCS (Schema–Segment Composition Computing System)** is an observation‑driven computing model that redefines computation as the traceable projection of immutable Segments within a structured Scheme. While current hardware advances focus on physical improvements, SSCCS tackles the Von Neumann bottleneck at the logical layer. By formalizing computation as the resolution of static potential under dynamic constraints—rather than sequential state mutations—the architecture reframes data movement, concurrency, and verifiability.
+
+SSCCS embodies three core principles:
+
+- **Immutability** – segments and schemes are immutable.
+- **Structural Integrity** – computations follow predefined relationships.
+- **Traceability** – every projection is cryptographically verifiable.
+
+Its layered ontology—Segments, Schemes, Fields, and Projections—ensures information remains unchanged, operations transparent, and outcomes auditable.
+
+Driven by a software‑first philosophy, this architecture ensures deterministic reproducibility by decoupling execution logic from mutable state through structural and cryptographic isolation. This open specification provides a roadmap where logical design dictates physical implementation—from software to hardware. By integrating energy efficiency with high interpretability, SSCCS establishes a foundation for sustainable, accountable computational infrastructures, ultimately transitioning logic into a transparent, verifiable, and accessible Intellectual Public Commons.
+
+## Core Concepts
+
+### Segment
+Immutable coordinate points in a multi‑dimensional possibility space. Each Segment is identified by a cryptographic hash and carries a fixed value across all observations.
+
+### Scheme
+Immutable structural blueprint defining axes, segments, relations, memory layout, and observation rules. A Scheme is a static graph that describes how Segments relate to each other and how they can be observed.
+
+### Field
+Mutable container of dynamic constraints. A Field is the only mutable component in the system; it holds the current set of constraints that are applied during observation.
+
+### Projector
+Semantic interpreter that observes a combination of Field and Segment to produce a projection. The Projector implements the observation rules defined in the Scheme.
+
+### Observation
+The sole active event that collapses admissible configurations into a deterministic projection. Observation is the act of applying a Field to a Segment within a Scheme, yielding a result that is both reproducible and verifiable.
+
+## Project Status & Vision
+
+SSCCS is a **non‑profit, open‑source research initiative** formally organized under the SSCCS Foundation (in formation). The project operates as a global, collaborative effort to design, prototype, and standardize a new computational paradigm.
+
+- **Phase 1 (Software Emulation)** – Implement a reference model in Rust (current PoC).
+- **Phase 2 (Formal Verification)** – Develop a mechanized proof of the core properties (immutability, determinism, verifiability).
+- **Phase 3 (Hardware Prototype)** – Translate the software model into a hardware description (Verilog/VHDL) and produce an FPGA‑based prototype.
+- **Phase 4 (Standardization)** – Submit the architecture to relevant standards bodies (IEEE, ISO) as a publicly‑available specification.
+
+All outputs—whitepapers, software, proofs, hardware designs—are released under open‑source licenses and are cryptographically signed with [C2PA](https://c2pa.org) to guarantee provenance and authenticity.
+
+## Repository Structure
+
+```
+ssccs/
+├── docs/                    # Documentation and whitepaper source
+│   ├── whitepaper/         # Whitepaper (Quarto source, PDF, C2PA)
+│   ├── legal/              # Foundation charter, statutes, legal documents
+│   ├── _include/           # Reusable Quarto components
+│   └── _utils/             # Build utilities (C2PA signing, etc.)
+├── poc/                    # Proof‑of‑Concept implementation in Rust
+│   ├── src/                # Core SSCCS libraries
+│   └── Cargo.toml          # Rust project configuration
+├── README.qmd              # This file (source)
+├── README.md               # Rendered GitHub‑Flavored Markdown
+├── LICENSE                 # Apache 2.0 (software)
+├── LEGAL.md                # Legal notices and foundation references
+└── .github/                # GitHub Actions workflows
+```
+
+## Getting Started
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/ssccsorg/ssccs.git
+cd ssccs
+```
+
+### 2. Explore the Proof of Concept
+
+The Rust PoC demonstrates the core ontological layers. See [poc/README.md](poc/README.md) for detailed build and run instructions.
+
+```bash
+cd poc
+cargo build --release
+cargo run --release
+```
+
+### 3. Generate the Whitepaper
+
+The whitepaper (PDF, HTML, GFM) is built with Quarto and signed with C2PA. A convenient build script is provided:
+
+```bash
+cd docs
+python build.py whitepaper
+```
+
+To build all artifacts (whitepaper and C2PA manifest) in one step:
+
+```bash
+cd docs
+python build.py          # default target 'all'
+```
+
+See [docs/README.md](docs/README.md) for full prerequisites and advanced rendering options.
+
+## Community & Collaboration
+
+SSCCS is developed as a **public‑good, community‑driven** project. We welcome contributions from researchers, engineers, legal experts, and enthusiasts.
+
+- **Official Website**: [https://ssccs.org](https://ssccs.org)
+- **GitHub Repository**: [https://github.com/ssccsorg](https://github.com/ssccsorg)
+- **Discussion Forum**: [GitHub Discussions](https://github.com/ssccsorg/ssccs/discussions)
+- **Whitepaper (PDF)**: [https://ssccs.org/wp](https://ssccs.org/wp) (C2PA‑authenticated)
+- **Legal Charter**: [https://ssccs.org/legal](https://ssccs.org/legal)
+
+## Governance
+
+The SSCCS Foundation is a non‑profit entity (in formation) that holds the intellectual property, manages the trademark, and oversees the standardization process. The foundation’s charter ensures that the project remains open, neutral, and aligned with its mission of creating a verifiable, sustainable computational commons.
+
+All technical decisions are made through open RFCs and consensus among maintainers. The foundation’s statutes guarantee that no single corporation or individual can control the direction of the architecture.
+
+## Contributing
+
+We invite contributions of all kinds:
+
+- **Code**: Rust implementations, formal proofs, hardware descriptions.
+- **Documentation**: Whitepaper improvements, tutorials, API docs.
+- **Research**: Formal analysis, performance benchmarks, security audits.
+- **Outreach**: Blog posts, conference talks, educational material.
+
+Please read [CONTRIBUTING.md](https://github.com/ssccsorg/ssccs/blob/main/CONTRIBUTING.md) (to be created) for guidelines on pull requests, code style, and licensing.
+
+## Acknowledgments
+
+SSCCS builds upon decades of research in functional programming, formal verification, hardware design, and cryptographic provenance. We are grateful to the open‑source communities that have made this work possible, and to the early collaborators who have contributed ideas, code, and critical feedback.
+
+The project is currently maintained by the SSCCS Foundation and a growing network of volunteers. If you would like to support the initiative financially or in kind, please contact [contact@ssccs.org](mailto:contact@ssccs.org).
+
+---
+
+{{< include docs/_include/_license.qmd >}}
