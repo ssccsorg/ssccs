@@ -86,6 +86,15 @@ for bx, by, bz in zip(curve_x_list, curve_y_list, curve_z_list):
 
 arrow_start = (light_x, light_y, light_z)
 arrow_end = (0, 0, 0)
+
+ray_x = []
+ray_y = []
+ray_z = []
+for sx, sy, sz in zip(seg_x, seg_y, seg_z):
+    ray_x.extend([light_x, sx, None])
+    ray_y.extend([light_y, sy, None])
+    ray_z.extend([light_z, sz, None])
+    
 ```
 ::: {.content-visible when-format="pdf"}
 ```{python}
@@ -94,24 +103,28 @@ arrow_end = (0, 0, 0)
 #| fig-cap: "From Constrained Potential to Transient Projection"
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-
 fig = plt.figure(figsize=(12, 11))
 ax = fig.add_subplot(111, projection='3d')
 
 ax.plot_surface(X, Y, Z, facecolor='whitesmoke', alpha=0.2, rstride=1, cstride=1, linewidth=0.5, edgecolor='black')
 ax.plot_surface(X, Y, np.full_like(Z, z_plane), color='#cccccc', alpha=0.2, edgecolor='none')
 
+# curved shadow path
 for bx, by, bz in zip(curve_x_list, curve_y_list, curve_z_list):
     ax.plot(bx, by, bz, color='gray', linestyle=':', linewidth=0.6, alpha=1)
 
+# Observation ray (light → segment)
+for sx, sy, sz in zip(seg_x, seg_y, seg_z):
+    ax.plot([light_x, sx], [light_y, sy], [light_z, sz],
+            color='black', linestyle='-', linewidth=0.8, alpha=0.5)
+
+# segment point
 ax.scatter(seg_x, seg_y, seg_z, marker='s', s=40, color='white', edgecolor='black', linewidth=1, label='Scheme-Segment')
+# shadow dot
 ax.scatter(shadow_x, shadow_y, shadow_z, color='#000000', s=25, label='Projections (Data or State)')
 
-ax.quiver(arrow_start[0], arrow_start[1], arrow_start[2],
-          arrow_end[0]-arrow_start[0], arrow_end[1]-arrow_start[1], arrow_end[2]-arrow_start[2],
-          color='black', alpha=1, arrow_length_ratio=0.1, linewidth=1)
-
-ax.text(0, 0, 3.8, "Observation\nas the only computation event",
+# Text (near center)
+ax.text(0, 0, 4.2, "Observation\nas the computation event",
         color='black', fontsize=11, ha='center', va='bottom',
         bbox=dict(boxstyle='round', facecolor='white', alpha=1, edgecolor='lightgray'))
 
@@ -136,7 +149,6 @@ ax.tick_params(axis='z', colors='black')
 ax.view_init(elev=30, azim=-64)
 
 plt.tight_layout()
-
 plt.show()
 ```
 :::
@@ -148,9 +160,9 @@ plt.show()
 #| fig-cap: "From Constrained Potential to Transient Projection"
 import plotly.graph_objects as go
 import math
-
 fig = go.Figure()
 
+# surface
 fig.add_trace(go.Surface(
     x=X, y=Y, z=Z,
     colorscale='Viridis', opacity=0.9, showscale=False,
@@ -161,6 +173,7 @@ fig.add_trace(go.Surface(
     }
 ))
 
+# shadow plane
 fig.add_trace(go.Surface(
     x=X, y=Y, z=np.full_like(Z, z_plane),
     colorscale=[[0, '#cccccc'], [1, '#cccccc']],
@@ -168,6 +181,7 @@ fig.add_trace(go.Surface(
     contours={"x": {"show": False}, "y": {"show": False}, "z": {"show": False}}
 ))
 
+# curved shadow path
 fig.add_trace(go.Scatter3d(
     x=curve_x_flat, y=curve_y_flat, z=curve_z_flat,
     mode='lines',
@@ -175,6 +189,21 @@ fig.add_trace(go.Scatter3d(
     opacity=0.7, showlegend=False
 ))
 
+# Observation ray (light → each segment)
+ray_x, ray_y, ray_z = [], [], []
+for sx, sy, sz in zip(seg_x, seg_y, seg_z):
+    ray_x.extend([light_x, sx, None])
+    ray_y.extend([light_y, sy, None])
+    ray_z.extend([light_z, sz, None])
+
+fig.add_trace(go.Scatter3d(
+    x=ray_x, y=ray_y, z=ray_z,
+    mode='lines',
+    line=dict(color='black', width=2),
+    opacity=0.5, showlegend=False
+))
+
+# segment point
 fig.add_trace(go.Scatter3d(
     x=seg_x, y=seg_y, z=seg_z,
     mode='markers',
@@ -187,6 +216,7 @@ fig.add_trace(go.Scatter3d(
     name='Structured Potential<br>(Scheme-Segment)'
 ))
 
+# shadow dot
 fig.add_trace(go.Scatter3d(
     x=shadow_x, y=shadow_y, z=shadow_z,
     mode='markers',
@@ -194,22 +224,9 @@ fig.add_trace(go.Scatter3d(
     name='Projections<br>(State or Data)'
 ))
 
+# Text label (center)
 fig.add_trace(go.Scatter3d(
-    x=[arrow_start[0], arrow_end[0]],
-    y=[arrow_start[1], arrow_end[1]],
-    z=[arrow_start[2]-0.8, arrow_end[2]],
-    mode='lines', line=dict(color='black', width=4), showlegend=False
-))
-
-fig.add_trace(go.Cone(
-    x=[arrow_end[0]], y=[arrow_end[1]], z=[arrow_end[2]],
-    u=[0], v=[0], w=[-0.3],
-    colorscale=[[0, 'black'], [1, 'black']],
-    showscale=False, sizemode='scaled', sizeref=1.4, anchor='tip'
-))
-
-fig.add_trace(go.Scatter3d(
-    x=[0], y=[0], z=[3.8],
+    x=[0], y=[0], z=[4.6],
     mode='text',
     text=["Observation as the computational event"],
     textposition='bottom center',
@@ -217,6 +234,7 @@ fig.add_trace(go.Scatter3d(
     showlegend=False
 ))
 
+# Camera viewpoint settings
 azim_rad = 156 * math.pi / 180
 elev_rad = 26 * math.pi / 180
 r = 1.9
@@ -256,8 +274,7 @@ fig.show()
 
 # from pathlib import Path
 # import plotly.io as pio
-# import os
-# current_dir = Path.cwd()
-# pio.write_json(fig, os.path.join(current_dir, "_philvis_output.json"))
+# script_name = Path(__file__).stem if '__file__' in globals() else 'figure'
+# pio.write_json(fig, f"{script_name}.json")
 ```
 :::

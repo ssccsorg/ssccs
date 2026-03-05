@@ -11,17 +11,26 @@ num_fields = 6
 num_observations = 12
 num_projections = num_observations
 num_data = num_observations
-y_layer = {'segment':0, 'scheme':1, 'field':2, 'observation':3, 'projection':4, 'data':5}
+
+y_layer = {
+    'observation': 5.0,
+    'scheme': 3.6,
+    'field': 3.2,
+    'projection': 2.6,
+    'data': 1.0
+}
 all_coords = {}
 
 for i in range(1, num_segments+1):
-    all_coords[f's{i}'] = (random.uniform(0,12), y_layer['segment'], random.uniform(-12,12))
+    y = y_layer['scheme'] + random.uniform(-0.1, 0.1)
+    all_coords[f's{i}'] = (random.uniform(0,12), y, random.uniform(-12,12))
 
 for i in range(1, num_schemes+1):
     all_coords[f'sch{i}'] = (random.uniform(0,10), y_layer['scheme'], random.uniform(-5,5))
 
 for i in range(1, num_fields+1):
-    all_coords[f'f{i}'] = (random.uniform(4,6), y_layer['field'], random.uniform(-5,5))
+    y = y_layer['field'] + random.uniform(-0.05, 0.05)
+    all_coords[f'f{i}'] = (random.uniform(4,6), y, random.uniform(-5,5))
 
 for i in range(1, num_observations+1):
     side = random.choice(['left', 'right'])
@@ -38,7 +47,7 @@ for i, obs in enumerate([f'o{i}' for i in range(1, num_observations+1)], start=1
 
 for i in range(1, num_data+1):
     angle = (i / num_data) * 2 * np.pi
-    radius = 12  
+    radius = 12
     all_coords[f'd{i}'] = (5 + radius * np.cos(angle), y_layer['data'], radius * np.sin(angle))
     
 def get_pos(node): return all_coords[node]
@@ -49,6 +58,7 @@ obs_nodes = [f'o{i}'   for i in range(1, num_observations+1)]
 proj_nodes= [f'p{i}'   for i in range(1, num_projections+1)]
 data_nodes= [f'd{i}'   for i in range(1, num_data+1)]
 
+# (나머지 엣지 생성 코드는 동일)
 scheme_seg_edges = []
 for sch in sch_nodes:
     k = random.randint(5, min(15, num_segments))
@@ -113,7 +123,7 @@ plot_edges(scheme_seg_edges, 'lightgray', '-', lw=0.1)
 plot_edges(field_influence_edges, 'gray', '--', lw=0.1)
 plot_edges(scheme_to_field_edges, 'gray', '-', lw=0.1)
 plot_edges(seg_to_field_edges, 'gray', '-', lw=0.1)
-plot_edges(obs_to_field_edges, 'black', '-', lw=1.2)
+plot_edges(obs_to_field_edges, 'black', '-', lw=0.8)
 plot_edges(field_to_proj_edges, 'dimgray', ':', lw=0.5)
 plot_edges(proj_to_data_edges, 'dimgray', ':', lw=0.5)
 
@@ -145,7 +155,7 @@ ax.scatter(*zip(*[get_pos(n) for n in proj_nodes]), c='black', marker='D', s=40,
 ax.scatter(*zip(*[get_pos(n) for n in data_nodes]), c='black', marker='*', s=60, label='State (Data)')
 ax.legend(loc='upper left', bbox_to_anchor=(0.9, 0.9), fontsize='small')
 ax.set_box_aspect([1, 1, 0.8])
-ax.view_init(elev=25, azim=20)
+ax.view_init(elev=25, azim=200)
 plt.tight_layout(pad=0)
 plt.show()
 ```
@@ -192,7 +202,7 @@ trace_field_inf = create_edge_trace(field_influence_edges, color=GRAY, width=0.8
 trace_sch2f = create_edge_trace(scheme_to_field_edges, color=GRAY, width=0.8, name='Scheme→Field')
 trace_seg2f = create_edge_trace(seg_to_field_edges, color=GRAY, width=0.8, name='Segment→Field')
 
-trace_obs2f = create_edge_trace(obs_to_field_edges, color=BLACK, width=4, name='Observation→Field')
+trace_obs2f = create_edge_trace(obs_to_field_edges, color=BLACK, width=2, name='Observation→Field')
 trace_f2proj = create_edge_trace(field_to_proj_edges, color=DARKGRAY, width=0.8, name='Field→Projection')
 trace_proj2data = create_edge_trace(proj_to_data_edges, color=DARKGRAY, width=0.8, name='Projection→Data')
 
@@ -211,17 +221,18 @@ fig = go.Figure(data=[
 fig.update_layout(
     scene=dict(
         camera=dict(
-            eye=dict(x=1.577, y=0.923, z=1.155),
+            eye=dict(x=-1.577, y=-0.923, z=0.255),
             center=dict(x=0, y=0, z=-0.2)
             ),
         aspectmode='manual',
         aspectratio=dict(x=1, y=1, z=0.8)
     ),
     legend=dict(
-        x=0.93,
-        y=0.9,
+        x=1,
+        y=1,
         xanchor="right",
-        yanchor="top"
+        yanchor="top",
+        bgcolor="rgba(255,255,255,0.5)",
     ),
     width=900,
     height=700
@@ -230,8 +241,7 @@ fig.show()
 
 # from pathlib import Path
 # import plotly.io as pio
-# import os
-# current_dir = Path.cwd()
-# pio.write_json(fig, os.path.join(current_dir, "_ontology3d.json"))
+# script_name = Path(__file__).stem if '__file__' in globals() else 'figure'
+# pio.write_json(fig, f"{script_name}.json")
 ```
 :::
