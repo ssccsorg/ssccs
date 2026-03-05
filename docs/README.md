@@ -93,28 +93,67 @@ cd /path/to/qs-core/docs
 To produce the PDF version (requires LaTeX):
 
 ```bash
-quarto render Whitepaper.qmd --to pdf
+quarto render whitepaper/Whitepaper.qmd --to pdf
 ```
 
-The output will be `Whitepaper.pdf`. The first run may take several minutes because LaTeX must install missing packages and compile the document.
+The output will be `Whitepaper.pdf` (generated in the `whitepaper/` subdirectory). The first run may take several minutes because LaTeX must install missing packages and compile the document.
 
 ### Render Markdown (GitHub‑Flavored Markdown)
 
 To generate the plain‑markdown version (without LaTeX dependencies):
 
 ```bash
-quarto render Whitepaper.qmd --to gfm
+quarto render whitepaper/Whitepaper.qmd --to gfm
 ```
 
-The output will be `Whitepaper.md`. This version includes the DOI badge and all diagrams as embedded SVG images (if Graphviz is available).
+The output will be `Whitepaper.md` (generated in the `whitepaper/` subdirectory). This version includes the DOI badge and all diagrams as embedded SVG images (if Graphviz is available).
 
 ### Render both formats at once
 
 ```bash
-quarto render Whitepaper.qmd
+quarto render whitepaper/Whitepaper.qmd
 ```
 
 By default Quarto will produce all output formats declared in the document’s YAML header (here `gfm` and `pdf`).
+
+### Automated Build Script
+
+A centralized build script `build.py` is provided in the `docs` directory to automate the whitepaper generation, C2PA signing, and PDF copying.
+
+**Basic usage** (builds all artifacts):
+
+```bash
+python3 build.py
+```
+
+This runs the following steps automatically:
+
+1. Renders the whitepaper PDF and Markdown via `quarto render whitepaper/Whitepaper.qmd`
+2. Signs the PDF with C2PA using `_utils/sign_c2pa.py`
+3. Copies the signed PDF to the `docs` directory (or a custom output directory)
+
+**Subcommands:**
+
+- `whitepaper` – Build only the whitepaper:
+  ```bash
+  python3 build.py whitepaper
+  ```
+- `all` – Same as default (build all artifacts):
+  ```bash
+  python3 build.py all
+  ```
+
+**Options:**
+
+- `--output-dir` (or `-o`) – Specify a custom directory for the final PDF.
+
+Example: generate the whitepaper and place the PDF in a `dist` folder:
+
+```bash
+python3 build.py --output-dir dist
+```
+
+For more details, run `python3 build.py --help`.
 
 ## Advanced Rendering Techniques
 
@@ -170,7 +209,7 @@ The Python block is marked `eval: false`, so it is not executed during rendering
 
 ## Updating the Whitepaper
 
-To modify the Whitepaper, edit `Whitepaper.qmd` and then re‑run the `quarto render` commands above. Always commit both the source `.qmd` and the rendered `.pdf`/`.md` files to the repository.
+To modify the Whitepaper, edit `Whitepaper.qmd` and then re‑run the `quarto render` commands above (or use the automated build script `build.py`). Always commit both the source `.qmd` and the rendered `.pdf`/`.md` files to the repository.
 
 ## License
 

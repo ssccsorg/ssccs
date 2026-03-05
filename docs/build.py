@@ -148,34 +148,26 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="SSCCS Documentation Build Manager"
     )
+    parser.add_argument(
+        "--output-dir",
+        "-o",
+        type=Path,
+        default=None,
+        help="Directory to place the final PDF (default: docs root)",
+    )
     subparsers = parser.add_subparsers(dest="target", help="Build target")
 
     # Whitepaper subcommand
     whitepaper_parser = subparsers.add_parser(
         "whitepaper", help="Build the SSCCS whitepaper"
     )
-    whitepaper_parser.add_argument(
-        "--output-dir",
-        "-o",
-        type=Path,
-        default=None,
-        help="Directory to place the final PDF (default: docs root)",
-    )
-
     # All subcommand
     all_parser = subparsers.add_parser(
         "all", help="Build all artifacts (default behavior)"
     )
-    all_parser.add_argument(
-        "--output-dir",
-        "-o",
-        type=Path,
-        default=None,
-        help="Directory to place the final PDF (default: docs root)",
-    )
 
-    # Set default target to 'all' if no arguments, and default output_dir
-    parser.set_defaults(target="all", output_dir=None)
+    # Set default target to 'all' if no arguments
+    parser.set_defaults(target="all")
 
     args = parser.parse_args()
 
