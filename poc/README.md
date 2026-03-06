@@ -139,16 +139,20 @@ The following development milestones have been completed, each documented in the
 ### 5. Projector Implementations (`src/projector.rs`)
 - `IntegerProjector` – extracts a coordinate along a given axis.
 - `ArithmeticProjector` – defines adjacency through arithmetic operations (`+1`, `-1`, `*2`, `/2`).
-- `ParityProjector` – classifies coordinates as “even” or “odd” strings.
+- `ParityProjector` – classifies coordinates as "even" or "odd" strings.
 
-### 6. Constitutional Concept Tests (`src/main.rs`)
+### 6. Space Implementations (`src/spaces/`)
+- **`boolean.ss`** – `BooleanSpace` for representing true/false values as 1D coordinates (0 = false, 1 = true).
+- **`integer.ss`** – `IntegerSpace` for single‑axis integer values with convenient constructors.
+
+### 7. Constitutional Concept Tests (`src/main.rs`)
 Ten tests verify that the SSCCS model satisfies its foundational principles:
 
 1. **Segment Concept** – immutability and cryptographic identity.
 2. **Field Concept** – constraint admissibility and transition topology.
 3. **Projector Concept** – semantic interpretation of Segment‑Field pairs.
 4. **Observation Concept** – deterministic projection via `observe` function.
-5. **Space Concept** – coordinate dimensionality and axis access.
+5. **Space Concept** – coordinate dimensionality and axis access, including `BooleanSpace` (true/false values) and `IntegerSpace` (single‑axis integer values).
 6. **Scheme Concept** – structural blueprint with Grid2D and IntegerLine templates.
 7. **Adjacency Memory** – memory‑layout mapping for a 2D grid.
 8. **Composite and Transformed Schemes** – composition and geometric transformation.
@@ -157,19 +161,19 @@ Ten tests verify that the SSCCS model satisfies its foundational principles:
 
 All ten tests pass, confirming that the PoC correctly embodies the SSCCS ontology.
 
-### 7. Code Quality and Maintenance
+### 8. Code Quality and Maintenance
 - **Clippy linting** – resolved 10 warnings (type‑complexity, unnecessary‑map‑or, large‑enum‑variant, needless‑borrow, clone‑on‑copy) by introducing type aliases, boxing large variants, and removing redundant operations.
 - **Formatting** – module order adjusted to satisfy `cargo fmt`.
 - **Documentation** – inline doc comments and references to the whitepaper.
 
-### 8. Whitepaper Synchronization
+### 9. Whitepaper Synchronization
 The implementation stays aligned with the conceptual description in `docs/Whitepaper.qmd`:
 - Ontological layers (Segment, Scheme, Field, Observation, Projection) match the code.
 - Compiler‑pipeline section (Section 5.1) corresponds to `compiler_pipeline.rs`.
 - Memory‑layout abstraction (Section 5.2) is realized as `MemoryLayout` in `abstract_scheme.rs`.
 - Open `.ss` format (Section 6) is stubbed in `ss_parser.rs`.
 
-### 9. Next Steps (Immediate)
+### 10. Next Steps (Immediate)
 - Extend the `.ss` parser to fully deserialize a Scheme.
 - Implement the hardware‑mapping stage with concrete cache‑line and bank‑interleaving logic.
 - Add more realistic projectors (e.g., floating‑point operations, image‑pixel interpretation).
