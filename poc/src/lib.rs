@@ -91,8 +91,8 @@ pub mod spaces {
     #[path = "../spaces/integer.ss"]
     pub mod arithmetic;
 
-    // Basic.ss
-    #[path = "../spaces/basic.ss"]
-    pub mod basic;
+    // boolean.ss
+    #[path = "../spaces/boolean.ss"]
+    pub mod boolean;
 }
 pub use spaces::*;

@@ -15,7 +15,7 @@ pub mod scheme;
 pub use scheme::*;
 
 use ssccs_poc::core::{Field, Projector, Segment, SpaceCoordinates};
-use ssccs_poc::spaces::{arithmetic::IntegerSpace, basic::BasicSpace};
+use ssccs_poc::spaces::{arithmetic::IntegerSpace, boolean::BooleanSpace};
 use ssccs_poc::*;
 
 // Type alias for test function signature to reduce type complexity
@@ -332,28 +332,47 @@ fn test_observation_concept() -> Result<(), String> {
 /// Test 5: Space Concept -Structured coordinate spaces
 /// SSCCS Docs: "Spaces provide structured access to coordinate systems"
 fn test_space_concept() -> Result<(), String> {
-    println!("  1. BasicSpace - Multi-dimensional coordinates:");
+    println!("  1. BooleanSpace - Boolean values:");
 
-    let coords = SpaceCoordinates::new(vec![1, 2, 3]);
-    let basic_space = BasicSpace::new(coords.clone());
-
+    // Test true value
+    let true_space = BooleanSpace::new(true);
     println!(
-        "     - Created from coordinates: {:?}",
-        basic_space.coordinates().raw
+        "     - Created from true: coordinates {:?}, value = {}",
+        true_space.coordinates().raw,
+        true_space.value()
     );
-    println!("     - ID: {}", hex::encode(basic_space.id().as_bytes()));
+    println!("     - ID: {}", hex::encode(true_space.id().as_bytes()));
+
+    // Test false value
+    let false_space = BooleanSpace::new(false);
+    println!(
+        "     - Created from false: coordinates {:?}, value = {}",
+        false_space.coordinates().raw,
+        false_space.value()
+    );
+    println!("     - ID: {}", hex::encode(false_space.id().as_bytes()));
 
     // Test deref to Segment
-    let segment_ref: &Segment = &basic_space;
+    let segment_ref: &Segment = &true_space;
     println!(
         "     - Dereferences to Segment: {:?}",
         segment_ref.coordinates().raw
     );
 
-    // Test From trait
-    let basic_from_coords: BasicSpace = coords.clone().into();
-    if basic_from_coords.coordinates() != &coords {
-        return Err("From<SpaceCoordinates> should preserve coordinates".to_string());
+    // Test From<bool> trait
+    let from_bool: BooleanSpace = true.into();
+    if !from_bool.value() {
+        return Err("From<bool> true should create BooleanSpace with true value".to_string());
+    }
+    println!("     From<bool> trait works");
+
+    // Test From<SpaceCoordinates> trait
+    let coords = SpaceCoordinates::new(vec![1]); // 1 = true
+    let from_coords: BooleanSpace = coords.clone().into();
+    if !from_coords.value() {
+        return Err(
+            "From<SpaceCoordinates> [1] should create BooleanSpace with true value".to_string(),
+        );
     }
     println!("     From<SpaceCoordinates> trait works");
 
