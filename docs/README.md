@@ -11,110 +11,19 @@
 [![SSCCS
 Foundation](https://img.shields.io/badge/Foundation-Non--Profit-8A2BE2.png)](https://ssccs.org/legal)
 
-## Abstract
+SSCCS (Schema–Segment Composition Computing System) is an
+observation-driven computing model that challenges the current
+decades-old paradigm by redefining computation as the projection of
+static potential under dynamic constraints, rather than sequential
+instruction sequencing, state mutations, and data movement between
+memory and processor. This model treats time as merely one axis of
+multi-dimensional computation rather than an absolute sequence,
+employing a Geometric Manifold to ensure lossless interpretation and
+provide inherent structural isolation against interference.
 
-**SSCCS (Schema–Segment Composition Computing System)** is an
-observation‑driven computing model that redefines computation as the
-traceable projection of immutable Segments within a structured Scheme.
-While current hardware advances focus on physical improvements, SSCCS
-tackles the Von Neumann bottleneck at the logical layer. By formalizing
-computation as the resolution of static potential under dynamic
-constraints—rather than sequential state mutations—the architecture
-reframes data movement, concurrency, and verifiability.
-
-SSCCS embodies three core principles:
-
-- **Immutability** – segments and schemes are immutable.
-- **Structural Integrity** – computations follow predefined
-  relationships.
-- **Traceability** – every projection is cryptographically verifiable.
-
-Its layered ontology—Segments, Schemes, Fields, and Projections—ensures
-information remains unchanged, operations transparent, and outcomes
-auditable.
-
-Driven by a software‑first philosophy, this architecture ensures
-deterministic reproducibility by decoupling execution logic from mutable
-state through structural and cryptographic isolation. This open
-specification provides a roadmap where logical design dictates physical
-implementation—from software to hardware. By integrating energy
-efficiency with high interpretability, SSCCS establishes a foundation
-for sustainable, accountable computational infrastructures, ultimately
-transitioning logic into a transparent, verifiable, and accessible
-Intellectual Public Commons.
-
-## Core Concepts
-
-### Segment
-
-Immutable coordinate points in a multi‑dimensional possibility space.
-Each Segment is identified by a cryptographic hash and carries a fixed
-value across all observations.
-
-### Scheme
-
-Immutable structural blueprint defining axes, segments, relations,
-memory layout, and observation rules. A Scheme is a static graph that
-describes how Segments relate to each other and how they can be
-observed.
-
-### Field
-
-Mutable container of dynamic constraints. A Field is the only mutable
-component in the system; it holds the current set of constraints that
-are applied during observation.
-
-### Projector
-
-Semantic interpreter that observes a combination of Field and Segment to
-produce a projection. The Projector implements the observation rules
-defined in the Scheme.
-
-### Observation
-
-The sole active event that collapses admissible configurations into a
-deterministic projection. Observation is the act of applying a Field to
-a Segment within a Scheme, yielding a result that is both reproducible
-and verifiable.
-
-## Project Status & Vision
-
-SSCCS is a **non‑profit, open‑source research initiative** formally
-organized under the SSCCS Foundation (in formation). The project
-operates as a global, collaborative effort to design, prototype, and
-standardize a new computational paradigm.
-
-- **Phase 1 (Software Emulation)** – Implement a reference model in Rust
-  (current PoC).
-- **Phase 2 (Formal Verification)** – Develop a mechanized proof of the
-  core properties (immutability, determinism, verifiability).
-- **Phase 3 (Hardware Prototype)** – Translate the software model into a
-  hardware description (Verilog/VHDL) and produce an FPGA‑based
-  prototype.
-- **Phase 4 (Standardization)** – Submit the architecture to relevant
-  standards bodies (IEEE, ISO) as a publicly‑available specification.
-
-All outputs—whitepapers, software, proofs, hardware designs—are released
-under open‑source licenses and are cryptographically signed with
-[C2PA](https://c2pa.org) to guarantee provenance and authenticity.
-
-## Repository Structure
-
-    ssccs/
-    ├── docs/                   # Documentation and whitepaper source
-    │   ├── README.md           # Rendered GitHub‑Flavored Markdown
-    │   ├── README.qmd          # README Quarto Source
-    │   ├── Whitepaper.pdf      # Whitepaper PDF
-    │   ├── whitepaper/         # Whitepaper (Quarto source, PDF, C2PA)
-    │   ├── legal/              # Foundation charter, statutes, legal documents
-    │   ├── _include/           # Reusable Quarto components
-    │   └── _utils/             # Build utilities (C2PA signing, etc.)
-    ├── poc/                    # Proof‑of‑Concept implementation in Rust
-    │   ├── src/                # Core SSCCS libraries
-    │   └── Cargo.toml          # Rust project configuration
-    ├── README.md               # Symbolic link to docs/README.md
-    ├── LICENSE                 # Apache 2.0 (software)
-    └── .github/                # GitHub Actions workflows
+For the full philosophical foundation and technical specification, see
+the Whitepaper [PDF](https://ssccs.org/wp)
+[HTML](https://ssccs.org/wpw).
 
 ## Getting Started
 
@@ -158,16 +67,16 @@ prerequisites and advanced rendering options.
 
 ## Community & Collaboration
 
-SSCCS is developed as a **public‑good, community‑driven** project. We
+SSCCS is developed as a public‑good, community‑driven project. We
 welcome contributions from researchers, engineers, legal experts, and
 enthusiasts.
 
-- **Official Website**: <https://ssccs.org>
-- **GitHub Repository**: <https://github.com/ssccsorg>
-- **Discussion Forum**: [GitHub
+- Official Website: <https://ssccs.org>
+- GitHub Repository: <https://github.com/ssccsorg>
+- Discussion Forum: [GitHub
   Discussions](https://github.com/ssccsorg/ssccs/discussions)
-- **Whitepaper (PDF)**: <https://ssccs.org/wp> (C2PA‑authenticated)
-- **Legal Charter**: <https://ssccs.org/legal>
+- Whitepaper (PDF): <https://ssccs.org/wp> (C2PA‑authenticated)
+- Legal Charter: <https://ssccs.org/legal>
 
 ## Governance
 
@@ -185,11 +94,10 @@ corporation or individual can control the direction of the architecture.
 
 We invite contributions of all kinds:
 
-- **Code**: Rust implementations, formal proofs, hardware descriptions.
-- **Documentation**: Whitepaper improvements, tutorials, API docs.
-- **Research**: Formal analysis, performance benchmarks, security
-  audits.
-- **Outreach**: Blog posts, conference talks, educational material.
+- Code: Rust implementations, formal proofs, hardware descriptions.
+- Documentation: Whitepaper improvements, tutorials, API docs.
+- Research: Formal analysis, performance benchmarks, security audits.
+- Outreach: Blog posts, conference talks, educational material.
 
 Please read
 [CONTRIBUTING.md](https://github.com/ssccsorg/ssccs/blob/main/CONTRIBUTING.md)
