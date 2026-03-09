@@ -1177,149 +1177,198 @@ the logical structure of data from the physical cost of its traversal.
 While traditional architectures expend energy moving data to accommodate
 logic, SSCCS modifies the Field to accommodate the stationary structure.
 
-## Open Format (.ss) Initial Specification Draft
+## Open Format Specification (Draft)
 
-The `.ss` format serves as the language-agnostic, platform-independent
-representation of Segments and Schemes within the SSCCS framework. It
-provides a formal bridge between abstract structural design and
-hardware-level execution. **Note: This specification is currently in the
-Draft stage and is subject to refinement.**
+The `.ss` format is a declarative language for specifying the
+**topological structure** of an SSCCS computation. It describes the
+geometric and relational properties of a computational space, leaving
+all physical mapping decisions to the hardware‑specific compiler
+backend. The format captures *what* the structure is – not *how* to
+execute it – in full alignment with the SSCCS principle of
+structure‑defined logic.
 
-### Design Goals
+### Core Components
 
-The development of the `.ss` format is guided by five core pillars
-ensuring that computational structures remain robust and portable:
+The following diagram illustrates how the four core components of a
+`.ss` description relate to each other. Notice that no memory layout or
+instruction flow appears – only the static topology of the computation.
 
-- **Human-readable:** The text-based syntax is designed for
-  deterministic parsing, allowing architects to author and review
-  structures using standard version control tools.
-- **Immutable by default:** To maintain a permanent record of
-  computational logic, evolution occurs through versioning; existing
-  specifications remain unchanged once finalized.
-- **Cryptographically identifiable:** Utilizing hash-based identifiers
-  (SchemaId, SegmentId), the format enables native verification of
-  structural integrity.
-- **Compositional:** Schemes are designed to be recursive, allowing
-  complex architectures to be built by including and referencing
-  existing Schemes.
-- **Platform-independent:** The format ensures consistent behavior
-  across diverse hardware targets by abstracting physical memory into
-  logical layouts.
+<div id="fig-ss-format-topology">
 
-### High-Level Structure
-
-The `.ss` ecosystem utilizes a dual representation model to balance
-human productivity with machine performance:
-
-1.  **Text Format (`.ss`)**: A human-readable source format optimized
-    for authoring, peer review, and logical verification.
-2.  **Binary Format (`.ssb`)**: A compiled, compact representation
-    optimized for rapid deployment, hardware mapping, and execution.
-
-#### Binary Encoding Layout
-
-The binary representation is organized into discrete sections to ensure
-efficient parsing and integrity:
-
-| Section | Purpose |
-|----|----|
-| **Header** | Contains the magic number, protocol version, and the unique `SchemaId`. |
-| **Axes Table** | Defines the coordinate space and dimensional boundaries. |
-| **Segment Table** | Lists all atomic units, including IDs, coordinate ranges, and type hints. |
-| **Relation Graph** | Encodes adjacency, hierarchy, and dependencies between Segments. |
-| **MemoryLayout** | Dictates the layout type, mapping functions, and hardware metadata. |
-| **Observation Rules** | Defines trigger conditions, constraints, and projection formats. |
-| **Checksum** | A cryptographic seal ensuring the integrity of the entire binary file. |
-
-### Key Components and Definitions
-
-#### Axes Definition
-
-Axes establish the coordinate space dimensions. Each axis specifies a
-name (identifier), a range (discrete or continuous), and an optional
-semantic type to guide the compiler’s optimization strategies.
-
-#### Segment Declaration
-
-Segments represent the atomic units within a Scheme. A declaration
-includes a unique identifier, a coordinate expression referencing the
-defined axes, and an optional type hint for specialized hardware
-acceleration.
-
-#### Relation Graph
-
-The Relation Graph defines the structural constraints between Segments.
-This includes adjacency (e.g., nearest-neighbor, k-hop), hierarchy
-(parent-child ownership), and dependency hints that dictate the required
-observation ordering.
-
-#### Memory Layout
-
-The `MemoryLayout` section is a critical directive for the compiler’s
-mapping process. It includes:
-
-- **layout_type**: Specifies the structural strategy (e.g., Linear,
-  RowMajor, ColumnMajor, SpaceFillingCurve).
-- **mapping**: A declarative function that translates logical
-  coordinates into physical addresses.
-- **metadata**: Implementation-specific hints such as stride patterns
-  and cache-line alignment.
-
-#### Observation Rules
-
-Observation rules govern how the external Field interacts with the
-internal Scheme, defining trigger conditions, deterministic resolution
-strategies, and the final output projection format.
-
-### Example: 2D Grid Schema (Draft)
-
-The following example demonstrates a text-based `.ss` representation for
-a simple grid, highlighting the declarative nature of the format.
-
-``` text
-# Schema: Grid2D
-# Version: 0.1-draft
-
-@axes {
-    x: 0..2
-    y: 0..2
+``` python
+dot("""
+digraph SSFormat_Topology {
+    rankdir=LR;
+    nodesep=0.8;
+    ranksep=1.0;
+    graph [fontname="Georgia", fontsize=11, pad=0.5];
+    node [fontname="Georgia", fontsize=10];
+    edge [fontname="Georgia", fontsize=9];
+    
+    subgraph cluster_axes {
+        label = "Axes (Dimensional Space)";
+        labelloc=t;
+        style=dashed;
+        color=gray;
+        fontsize=10;
+        
+        node [shape=point, width=0.3, height=0.3, fillcolor=black, style=filled];
+        ax1 [xlabel="x: 0..N"];
+        ax2 [xlabel="y: 0..N"];
+        ax3 [xlabel="z: 0..N (optional)"];
+        
+        { rank=same; ax1; ax2; ax3; }
+    }
+    
+    subgraph cluster_segments {
+        label = "Segments (Coordinate Atoms)";
+        labelloc=t;
+        style=dashed;
+        color=gray;
+        fontsize=10;
+        
+        node [shape=circle, width=0.5, height=0.5, style=filled, fillcolor=white, color=black];
+        s1 [label="S₁\\n(0,0)"];
+        s2 [label="S₂\\n(1,0)"];
+        s3 [label="S₃\\n(0,1)"];
+        s4 [label="S₄\\n(1,1)"];
+        
+        { rank=same; s1; s2; s3; s4; }
+    }
+    
+    subgraph cluster_relations {
+        label = "Relations (Topological Fabric)";
+        labelloc=t;
+        style=dashed;
+        color=gray;
+        fontsize=10;
+        
+        node [shape=diamond, width=0.8, height=0.6, style=filled, fillcolor=white, color=black];
+        r1 [label="Adjacency\n(4-connected, ...)"];
+        r2 [label="Metric Space\n(Manhattan, ...)"];
+        r3 [label="Boundary\n(Periodic, Fixed)"];
+        
+        { rank=same; r1; r2; r3; }
+    }
+    
+    subgraph cluster_observation {
+        label = "Observation (State Projection)";
+        labelloc=t;
+        style=dashed;
+        color=gray;
+        fontsize=10;
+        
+        node [shape=ellipse, width=1.4, height=0.8, style=filled, fillcolor=white, color=black];
+        obs [label="Ω (Field + Scheme)\nTrigger | Resolution | Format"];
+    }
+    
+    subgraph cluster_projection {
+        label = "Projection (Result)";
+        labelloc=t;
+        style=dashed;
+        color=gray;
+        fontsize=10;
+        
+        node [shape=box, width=1.2, height=0.6, style=filled, fillcolor=white, color=black];
+        proj [label="P = Ω(Σ, F)"];
+    }
+    
+    edge [arrowhead=normal, style=solid, color=black, penwidth=1.2];
+    
+    ax1 -> s1 [style=dashed, color=gray, penwidth=0.8, arrowhead=none];
+    ax1 -> s2 [style=dashed, color=gray, penwidth=0.8, arrowhead=none];
+    ax2 -> s3 [style=dashed, color=gray, penwidth=0.8, arrowhead=none];
+    ax2 -> s4 [style=dashed, color=gray, penwidth=0.8, arrowhead=none];
+    
+    s1 -> r1 [style=solid, color=black, penwidth=1.0];
+    s2 -> r1 [style=solid, color=black, penwidth=1.0];
+    s3 -> r1 [style=solid, color=black, penwidth=1.0];
+    s4 -> r1 [style=solid, color=black, penwidth=1.0];
+    
+    r1 -> obs [style=solid, color=black, penwidth=1.2];
+    r2 -> obs [style=solid, color=black, penwidth=1.2];
+    r3 -> obs [style=solid, color=black, penwidth=1.2];
+    
+    obs -> proj [style=solid, color=black, penwidth=1.5, label="P"];
+    
+    node [shape=plaintext, fontsize=9, fontcolor=gray];
+    hw_note [label="Physical mapping deferred to hardware backend"];
+    
+    edge [style=dashed, color=gray, penwidth=0.5, arrowhead=none];
+    proj -> hw_note;
 }
-
-@segments {
-    cell: Point(x, y)
-}
-
-@relations {
-    cell ~> cell : FourConnected  # Defines 2D grid adjacency
-}
-
-@memory_layout {
-    type: RowMajor
-    alignment: CacheLine
-}
-
-@observation {
-    op: Read
-    output: Projection
-}
+""")
 ```
 
-### Cryptographic Identification
+Figure 9
 
-Every entity in the SSCCS ecosystem is identified by its content. This
-“Content-Addressing” ensures that the structure itself is the source of
-truth.
+</div>
 
-$$SchemaId = H(\text{Header} + \text{Axes} + \text{Segments} + \text{Relations} + \text{Layout} + \text{Rules})$$
+### Component Details
 
-$$SegmentId = H(SchemaId + \text{Coordinate} + \text{Type})$$
+#### Axes
 
-By using a cryptographic hash function $H$ (such as SHA-256), the system
-achieves:
+Define the coordinate space: names, ranges (discrete or continuous), and
+optional manifold properties (e.g., toroidal, bounded). They establish
+the dimensional foundation upon which Segments are placed.
 
-- **Integrity Verification**: Any modification to the structure is
-  immediately detectable.
-- **Provenance Tracking**: Computational lineage is preserved through
-  immutable IDs.
-- **Deduplication**: Identical structures share the same ID, optimizing
-  storage and transfer.
+#### Segments
+
+Atomic coordinate points. Each Segment is identified by its coordinates
+$(x, y, z, \dots)$ and a cryptographic hash derived from them. Segments
+are immutable and stateless – they carry no values, only position.
+
+#### Relations
+
+The topological fabric that connects Segments. This block encodes: -
+**Adjacency**: How Segments are connected (e.g., 4‑connected,
+8‑connected, arbitrary graph). - **Metric Space**: The distance function
+$d(s_i, s_j)$ that governs interaction strength (e.g., Manhattan,
+Euclidean, graph distance). - **Boundary Conditions**: The shape of the
+manifold (e.g., `Periodic` for a torus, `Fixed` for a finite grid).
+
+Relations replace traditional control flow (loops, conditionals) with a
+static description of connectivity and proximity.
+
+#### Observation
+
+Defines how a Field’s dynamic constraints interact with the static
+Scheme to produce a Projection. It includes:
+
+- **Trigger**: The condition that initiates observation (e.g.,
+  `Equilibrium`, `ExternalPulse`, `Timer`).
+- **Resolution Strategy**: How multi‑segment interactions are resolved
+  into a single output (e.g., summation, maximum, tensor contraction).
+- **Projection Format**: The mathematical type of the result (e.g.,
+  scalar, vector, tensor).
+
+### Topological Properties
+
+From these components emerge the key characteristics of a `.ss`
+specification:
+
+1.  **Non‑linear addressing** – Segments are identified by coordinate
+    tuples, not memory offsets.
+2.  **Relation‑defined computation** – What traditional code expresses
+    as loops and conditionals is encoded in the connectivity and metric
+    of the `Relations` block.
+3.  **Observation as collapse** – The `Observation` block specifies how
+    a Field’s constraints resolve the Scheme’s potential into a
+    deterministic Projection.
+4.  **Deferred physical mapping** – No memory layout or instruction
+    sequence is included; the compiler backend maps the topology to
+    concrete hardware (SRAM, DRAM, HBM, etc.) based solely on the
+    declared relations.
+
+### Cryptographic Identity
+
+A Schema’s identity is derived solely from its topological properties.
+Changing a physical implementation detail (e.g., cache‑line alignment)
+does **not** affect the `SchemeId`. However, altering the connectivity
+or the metric space produces a new, distinct identity:
+
+$$SchemeId = H(\text{Axes} + \text{Segments} + \text{Relations} + \text{ObservationRules})$$
+
+This content‑based addressing ensures that the same topological
+blueprint always yields the same cryptographic hash, enabling
+verification and composition.
