@@ -25,45 +25,18 @@ For the full philosophical foundation and technical specification, see
 the Whitepaper [PDF](https://ssccs.org/wp)
 [HTML](https://ssccs.org/wpw).
 
-## Getting Started
-
-### 1. Clone the Repository
-
-``` bash
-git clone https://github.com/ssccsorg/ssccs.git
-cd ssccs
-```
-
-### 2. Explore the Proof of Concept
+## Proof of Concept
 
 The Rust PoC demonstrates the core ontological layers. See
 [poc/README.md](poc/README.md) for detailed build and run instructions.
 
 ``` bash
+git clone https://github.com/ssccsorg/ssccs.git
+cd ssccs
 cd poc
 cargo build --release
 cargo run --release
 ```
-
-### 3. Generate the Whitepaper
-
-The whitepaper (PDF, HTML, GFM) is built with Quarto and signed with
-C2PA. A convenient build script is provided:
-
-``` bash
-cd docs
-python build.py whitepaper
-```
-
-To build all artifacts (whitepaper and C2PA manifest) in one step:
-
-``` bash
-cd docs
-python build.py          # default target 'all'
-```
-
-See [docs/whitepaper/README.md](docs/whitepaper/README.md) for full
-prerequisites and advanced rendering options.
 
 ## Community & Collaboration
 
@@ -75,8 +48,13 @@ enthusiasts.
 - GitHub Repository: <https://github.com/ssccsorg>
 - Discussion Forum: [GitHub
   Discussions](https://github.com/ssccsorg/ssccs/discussions)
-- Whitepaper (PDF): <https://ssccs.org/wp> (C2PA‑authenticated)
 - Legal Charter: <https://ssccs.org/legal>
+
+## Documentation
+
+The Whitepaper and main documentations are built with Quarto and signed
+with C2PA. See [docs/whitepaper/README.md](docs/whitepaper/README.md)
+for full prerequisites and advanced rendering options.
 
 ## Governance
 
