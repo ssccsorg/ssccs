@@ -1,3 +1,27 @@
+#!/usr/bin/env python3
+"""
+Graphviz DOT Utilities for IPython/Quarto
+=========================================
+Provides robust rendering of DOT diagrams with encoding safety and layout control.
+
+Functions:
+    - dot(code): Renders to PDF format. Best for high-quality static exports.
+    - dot_svg(code, h): Renders to SVG with CSS height control. Ideal for web/Quarto layouts.
+
+Features:
+    - Auto-normalizes Unicode (NFC) to prevent rendering failures.
+    - Suppresses engine warnings (stderr) for clean build logs.
+    - Flexible input: Supports both raw logic and full 'digraph' syntax.
+
+Usage Example:
+    ```{python}
+    # For standard output
+    dot("A -> B")
+
+    # For responsive web layouts in .qmd
+    dot_svg("A -> B", h="150px")
+    ```
+"""
 import graphviz
 import contextlib, io
 from IPython.display import display
