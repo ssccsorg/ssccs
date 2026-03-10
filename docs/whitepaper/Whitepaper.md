@@ -1185,9 +1185,8 @@ The `.ss` format is a declarative language for specifying the
 **topological structure** of an SSCCS computation. It describes the
 geometric and relational properties of a computational space, leaving
 all physical mapping decisions to the hardware‑specific compiler
-backend. The format captures *what* the structure is – not *how* to
-execute it – in full alignment with the SSCCS principle of
-structure‑defined logic.
+backend. The format captures *what* the structure is; not *how* to
+execute it.
 
 ### Core Components
 
@@ -1345,10 +1344,7 @@ Scheme to produce a Projection. It includes:
 - **Projection Format**: The mathematical type of the result (e.g.,
   scalar, vector, tensor).
 
-### Topological Properties
-
-From these components emerge the key characteristics of a `.ss`
-specification:
+### Key characteristics
 
 1.  **Non‑linear addressing** – Segments are identified by coordinate
     tuples, not memory offsets.
@@ -1365,12 +1361,9 @@ specification:
 
 ### Cryptographic Identity
 
-This content‑based addressing ensures that the same topological
-blueprint always yields the same cryptographic hash, enabling
-verification and composition. A Schema’s identity is derived solely from
-its topological properties. Changing a physical implementation detail
-(e.g., cache‑line alignment) does **not** affect the `SchemeId`.
-However, altering the connectivity or the metric space produces a new,
-distinct identity:
+A Schema’s identity is derived solely from its topological properties.
+Changing a physical implementation detail (e.g., cache‑line alignment)
+does **not** affect the `SchemeId`. However, altering the connectivity
+or the metric space produces a new, distinct identity:
 
 $$SchemeId = H(\text{Axes} + \text{Segments} + \text{Relations} + \text{ObservationRules})$$
