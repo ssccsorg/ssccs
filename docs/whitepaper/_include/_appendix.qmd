@@ -331,15 +331,16 @@ digraph SSFormat_Topology {
 Define the coordinate space: names, ranges (discrete or continuous), and optional manifold properties (e.g., toroidal, bounded). They establish the dimensional foundation upon which Segments are placed.
 
 #### Segments
+
 Atomic coordinate points. Each Segment is identified by its coordinates $(x, y, z, \dots)$ and a cryptographic hash derived from them. Segments are immutable and stateless – they carry no values, only position.
 
 #### Relations
-The topological fabric that connects Segments. This block encodes:
+
+Relations replace traditional control flow (loops, conditionals) with a static description of connectivity and proximity. The topological fabric that connects Segments. This block encodes:
+
 - **Adjacency**: How Segments are connected (e.g., 4‑connected, 8‑connected, arbitrary graph).
 - **Metric Space**: The distance function $d(s_i, s_j)$ that governs interaction strength (e.g., Manhattan, Euclidean, graph distance).
-- **Boundary Conditions**: The shape of the manifold (e.g., `Periodic` for a torus, `Fixed` for a finite grid).
-
-Relations replace traditional control flow (loops, conditionals) with a static description of connectivity and proximity.
+- **Boundary Conditions**: The shape of the manifold (e.g., `Periodic` for a torus, `Fixed` for a finite grid). 
 
 #### Observation
 
@@ -360,8 +361,6 @@ From these components emerge the key characteristics of a `.ss` specification:
 
 ### Cryptographic Identity
 
-A Schema’s identity is derived solely from its topological properties. Changing a physical implementation detail (e.g., cache‑line alignment) does **not** affect the `SchemeId`. However, altering the connectivity or the metric space produces a new, distinct identity:
+This content‑based addressing ensures that the same topological blueprint always yields the same cryptographic hash, enabling verification and composition. A Schema’s identity is derived solely from its topological properties. Changing a physical implementation detail (e.g., cache‑line alignment) does **not** affect the `SchemeId`. However, altering the connectivity or the metric space produces a new, distinct identity:
 
 $$SchemeId = H(\text{Axes} + \text{Segments} + \text{Relations} + \text{ObservationRules})$$
-
-This content‑based addressing ensures that the same topological blueprint always yields the same cryptographic hash, enabling verification and composition.

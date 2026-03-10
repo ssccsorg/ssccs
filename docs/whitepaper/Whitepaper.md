@@ -5,14 +5,17 @@ February, 2026
 ## Abstract
 
 SSCCS (Schema–Segment Composition Computing System) is an
-observation-driven computing model that redefines computation as the
-realization of static potential under dynamic constraints, rather than
-sequential instruction sequencing, state mutations, and data
+observation-driven computing model that defines deterministic
+computation as the realization of structured potential under dynamic
+constraints. In an era of increasing complexity and distributed systems,
+this contrasts with the traditional von Neumann approach of instruction
+sequencing, state mutations, and data
 movement[\[1\]](#ref-horowitz2014computing) between memory and
-processor. This model treats time as merely one axis of
-multi-dimensional computation rather than an absolute sequence,
-employing a Geometric Manifold to ensure lossless interpretation and
-provide inherent structural isolation against interference.
+processor, and the compiler’s role shifts from translating code to
+optimizing the topology of data movement. This model treats time as
+merely one axis of multi-dimensional computation rather than an absolute
+sequence, with inherent structural isolation against interference and
+lossless interpretation via a Geometric Manifold.
 
 Computation is formalized as the deterministic projection of immutable
 Segments and Schemes within dynamic Fields. Acting as mutable constraint
@@ -32,9 +35,10 @@ systems. Driven by a software-first philosophy, this specification
 provides a roadmap where logical design dictates physical
 implementation, contrasting with current hardware advances that focus
 primarily on physical improvements. Ultimately, SSCCS aims to evolve
-into an open format at the language layer, transitioning logic into a
-transparent, accessible, and energy-efficient Intellectual Public
-Commons.
+into an open
+format\[<a href="#sec-appendix-openformat" class="quarto-xref">14</a>\]
+at the language layer, transitioning logic into a transparent,
+accessible, and energy-efficient Intellectual Public Commons.
 
 ## Philosophical Foundation
 
@@ -833,27 +837,7 @@ provide.
 
 ## Conclusion and Future Work
 
-This paper has presented SSCCS, a computational model that redefines
-computation as the observation of structured potential under dynamic
-constraints. The model’s core components—immutable Segments, geometric
-Schemes, mutable Fields, and the Observation/Projection
-mechanism—constitute a new computational ontology. From this ontology,
-multiple consequences follow: elimination of most data transfers,
-removal of synchronization overhead, inherent parallelism, and
-deterministic reproducibility.
-
-Observation deterministically resolves admissible configurations from
-the combination of Scheme and Field into a Projection, without altering
-underlying Segments. The compiler performs structural mapping, and the
-open format
-\[<a href="#sec-appendix-openformat" class="quarto-xref">Section 14</a>\]
-ensures platform-independent, verifiable specifications.
-
-Planned validation across multiple domains will assess the model’s
-advantages: determinism, parallelism, fault isolation, reduced
-communication, and verifiability.
-
-In summary, SSCCS establishes five foundational principles:
+SSCCS establishes five foundational principles:
 
 1.  Computation concerns revelation rather than change.
 2.  Structure is more fundamental than process.
@@ -861,13 +845,31 @@ In summary, SSCCS establishes five foundational principles:
 4.  Value is projected rather than intrinsic.
 5.  Immutability enables parallelism and verifiability.
 
-The model is not presented as a complete replacement for all computing,
-but as a promising direction for data-intensive, parallel workloads
-where the limitations of the von Neumann model are most apparent. More
-importantly, it offers a way of thinking about computation that may
-prove fruitful beyond its immediate engineering applications—a framework
-that prioritizes verifiability and accessibility over opaque procedural
-execution.
+The most significant departure is the treatment of time as one
+coordinate among many, eliminating global sequentiality and enabling
+lock-free concurrency. The compiler’s role correspondingly shifts from
+instruction scheduling to topological optimization—mapping logical
+adjacency directly onto physical locality.
+
+Open questions remain: formal treatment of nested Field dynamics,
+compiler infrastructure for geometric constraints at scale, and
+empirical validation of energy efficiency gains across target domains.
+Beyond engineering challenges, SSCCS invites a broader reconsideration
+of what computing is. If computation can be structured as the revelation
+of static potential rather than the execution of mutable instructions,
+then many assumptions about hardware design, programming languages, and
+system architecture become contingent rather than necessary. The open
+.ss
+format\[<a href="#sec-appendix-openformat" class="quarto-xref">14</a>\]
+is a first step toward making these ideas concrete and composable.
+
+SSCCS is not proposed as a universal replacement for all computing. For
+problems inherently sequential or interaction-dominant, traditional
+models may remain appropriate. But for the growing class of
+data-intensive, parallel workloads where the von Neumann bottleneck
+dominates, this model offers a fundamentally different trade-off: one
+where verifiability, parallelism, and energy efficiency are not features
+to be added, but consequences of how computation is defined.
 
 ## References
 
@@ -1320,15 +1322,16 @@ are immutable and stateless – they carry no values, only position.
 
 #### Relations
 
-The topological fabric that connects Segments. This block encodes: -
-**Adjacency**: How Segments are connected (e.g., 4‑connected,
-8‑connected, arbitrary graph). - **Metric Space**: The distance function
-$d(s_i, s_j)$ that governs interaction strength (e.g., Manhattan,
-Euclidean, graph distance). - **Boundary Conditions**: The shape of the
-manifold (e.g., `Periodic` for a torus, `Fixed` for a finite grid).
-
 Relations replace traditional control flow (loops, conditionals) with a
-static description of connectivity and proximity.
+static description of connectivity and proximity. The topological fabric
+that connects Segments. This block encodes:
+
+- **Adjacency**: How Segments are connected (e.g., 4‑connected,
+  8‑connected, arbitrary graph).
+- **Metric Space**: The distance function $d(s_i, s_j)$ that governs
+  interaction strength (e.g., Manhattan, Euclidean, graph distance).
+- **Boundary Conditions**: The shape of the manifold (e.g., `Periodic`
+  for a torus, `Fixed` for a finite grid).
 
 #### Observation
 
@@ -1362,13 +1365,12 @@ specification:
 
 ### Cryptographic Identity
 
-A Schema’s identity is derived solely from its topological properties.
-Changing a physical implementation detail (e.g., cache‑line alignment)
-does **not** affect the `SchemeId`. However, altering the connectivity
-or the metric space produces a new, distinct identity:
-
-$$SchemeId = H(\text{Axes} + \text{Segments} + \text{Relations} + \text{ObservationRules})$$
-
 This content‑based addressing ensures that the same topological
 blueprint always yields the same cryptographic hash, enabling
-verification and composition.
+verification and composition. A Schema’s identity is derived solely from
+its topological properties. Changing a physical implementation detail
+(e.g., cache‑line alignment) does **not** affect the `SchemeId`.
+However, altering the connectivity or the metric space produces a new,
+distinct identity:
+
+$$SchemeId = H(\text{Axes} + \text{Segments} + \text{Relations} + \text{ObservationRules})$$
