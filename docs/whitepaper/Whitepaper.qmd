@@ -5,12 +5,18 @@ author:
     corresponding: true 
     orcid: 0009-0006-8767-8069
     email: lee@ssccs.org
+    role: "Founder \\& Engineering Architect"
     affiliations:
       - name: SSCCS Foundation
+        domain: ssccs.org
+        url: https://www.ssccs.org
 date: 2026-02
 date-format: "MMMM, YYYY"
-bibliography: ./_resource/references.bib
-csl: ./_resource/ieee.csl
+bibliography: ./_include/references.bib
+date-modified: last-modified
+csl: ./_include/ieee.csl
+metadata-files:
+  - ./_include/citation.yml
 link-citations: true
 colorlinks: true
 format:
@@ -74,16 +80,20 @@ format:
         \addtokomafont{disposition}{\rmfamily}
         \DeclareTOCStyleEntry[beforeskip=6pt]{default}{section}
         \DeclareTOCStyleEntry[beforeskip=0pt]{default}{subsection}
+        \input{./_include/_metadata.tex}        
         \makeatletter
         \def\@maketitle{
           \begin{center}
             {\LARGE \bfseries \@title \par}
             \vspace{4em}
-            {\large \@author \thanks{Founder \& Engineering Architect; Corresponding author: \href{mailto:lee@ssccs.org}{lee@ssccs.org}} \par}
-            \vspace{0.3em}
-            {\normalsize SSCCS Foundation | \texttt{\href{https://www.ssccs.org}{ssccs.org}} \par}
+                {\large \@author \thanks{\authorrole; Corresponding author: \href{mailto:\authoremail}{\authoremail}} \par}
+                \vspace{0.3em}
+                {\normalsize \affiliationname \ | \texttt{\href{\affiliationurl}{\affiliationdomain}} \par}
+            \vspace{2em}
+                {\normalsize \@date \par}
+                \vspace{0.3em}
+                {\scriptsize \texttt{\version} \par}
             \vspace{4em}
-            {\normalsize \@date \par}
           \end{center}
         }
         \makeatother
@@ -91,7 +101,12 @@ format:
 ```{python}
 #| echo: false
 #| include: false
+#| context: local
+
+# Preprocessor
 %run ../_include/_graphviz.py
+
+%run ../_include/_generate_metadata_tex.py --output ./_include/_metadata.tex --version_prefix 0.1
 ```
 
 ## Abstract {.unnumbered .unlisted}
