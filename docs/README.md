@@ -40,6 +40,14 @@ cargo build --release
 cargo run --release
 ```
 
+## Proposal
+
+[The Proposal](https://ssccsorg.github.io/ssccs/proposal) outlines a
+foundation for energy‑efficient, verifiable computing, detailing the
+technical roadmap and architectural decisions. It serves as a companion
+document to the Whitepaper, focusing on practical implementation and
+sustainability.
+
 ## Community & Collaboration
 
 SSCCS is developed as a public‑good, community‑driven project. We
@@ -54,9 +62,9 @@ enthusiasts.
 
 ## Documentation
 
-The Whitepaper and main documentations are built with Quarto and signed
-with C2PA. See [docs/whitepaper/README.md](docs/whitepaper/README.md)
-for full prerequisites and advanced rendering options.
+The Whitepaper and Proposal are built with Quarto and signed with C2PA.
+See [docs/whitepaper/README.md](docs/whitepaper/README.md) for full
+prerequisites and advanced rendering options.
 
 ## Governance
 
