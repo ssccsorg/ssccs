@@ -53,6 +53,8 @@ unaltered.
 
 
 
+------------------------------------------------------------------------
+
 © 2026 SSCCS Foundation — A non-profit research initiative, formalized
 through global standards and substantiated by its cryptographic
 authenticity.
@@ -372,9 +374,7 @@ interference without requiring additional security mechanisms.
 
 A simplified energy model for SSCCS is:
 
-$$
-E_{\text{total}} = E_{\text{observation}} \times N_{\text{obs}} + E_{\text{field-update}} \times N_{\text{update}}
-$$
+$$E_{\text{total}} = E_{\text{observation}} \times N_{\text{obs}} + E_{\text{field-update}} \times N_{\text{update}}$$
 
 Where $E_{\text{observation}}$ is the energy to perform one observation,
 and $E_{\text{field-update}}$ is the energy to modify the Field. There
@@ -905,8 +905,9 @@ pp. 67–77, 2011.</span>
 <div id="ref-lucas2014top" class="csl-entry">
 
 <span class="csl-left-margin">\[4\]
-</span><span class="csl-right-inline">R. Lucas *et al.*, “Top ten
-exascale research challenges,” US Department of Energy, 2014.</span>
+</span><span class="csl-right-inline"><span class="nocase">R. Lucas *et
+al.*</span>, “Top ten exascale research challenges,” US Department of
+Energy, 2014.</span>
 
 </div>
 

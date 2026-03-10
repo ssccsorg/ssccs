@@ -14,7 +14,7 @@ date: 2026-02
 date-format: "MMMM, YYYY"
 bibliography: ./_include/references.bib
 date-modified: last-modified
-csl: ./_include/ieee.csl
+csl: ./../_include/ieee.csl
 metadata-files:
   - ./_include/citation.yml
 link-citations: true
@@ -76,6 +76,7 @@ format:
     fig-cap-location: bottom
     include-in-header:
       text: |
+        \usepackage{xcolor}
         \setkeys{Gin}{width=\linewidth,height=\textheight,keepaspectratio}
         \addtokomafont{disposition}{\rmfamily}
         \DeclareTOCStyleEntry[beforeskip=6pt]{default}{section}
@@ -86,14 +87,15 @@ format:
           \begin{center}
             {\LARGE \bfseries \@title \par}
             \vspace{4em}
-                {\large \@author \thanks{\authorrole; Corresponding author: \href{mailto:\authoremail}{\authoremail}} \par}
+                {\large \@author \thanks{\authorrole; Corresponding author: \texttt{\href{mailto:\authoremail}{\authoremail}}} \par}
                 \vspace{0.3em}
-                {\normalsize \affiliationname \ | \texttt{\href{\affiliationurl}{\affiliationdomain}} \par}
+                {\normalsize \affiliationname \par}
+                \vspace{0.3em}
+                {\scriptsize \texttt{\href{\affiliationurl}{www.\affiliationdomain}} \par}
             \vspace{2em}
                 {\normalsize \@date \par}
                 \vspace{0.3em}
-                {\scriptsize \texttt{\version} \par}
-            \vspace{4em}
+                {\scriptsize \texttt{\color{gray}\version} \par}
           \end{center}
         }
         \makeatother
@@ -102,10 +104,7 @@ format:
 #| echo: false
 #| include: false
 #| context: local
-
-# Preprocessor
 %run ../_include/_graphviz.py
-
 %run ../_include/_generate_metadata_tex.py --output ./_include/_metadata.tex --version_prefix 0.1
 ```
 

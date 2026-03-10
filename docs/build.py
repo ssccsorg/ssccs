@@ -129,14 +129,83 @@ def build_whitepaper(output_dir: Optional[Path] = None) -> bool:
     logger.info("Whitepaper build completed successfully.")
     return True
 
+def build_proposal(output_dir: Optional[Path] = None) -> bool:
+    """
+    Build the SSCCS proposal.
+
+    Steps:
+        1. quarto render proposal/Proposal.qmd
+        2. python3 _utils/sign_c2pa.py --pdf proposal/Proposal.pdf
+               --manifest proposal/Proposal.c2pa_manifest.json
+               --output proposal/Proposal.c2pa
+        3. Copy proposal/Proposal.pdf to docs/ (or output_dir)
+
+    Args:
+        output_dir: Directory where the final PDF should be placed.
+                   Defaults to the docs root.
+
+    Returns:
+        True if all steps succeeded, False otherwise.
+    """
+    logger.info("Building proposal...")
+
+    # Ensure we are in the docs directory
+    docs_root = Path(__file__).parent.absolute()
+    os.chdir(docs_root)
+    logger.info(f"Working directory: {docs_root}")
+
+    # Step 1: Quarto render
+    quarto_cmd = ["quarto", "render", "proposal/Proposal.qmd"]
+    if not run_command(quarto_cmd):
+        logger.error("Quarto render failed. Aborting proposal build.")
+        return False
+
+    # Step 2: C2PA signing
+    sign_cmd = [
+        "python3",
+        "_utils/sign_c2pa.py",
+        "--pdf", "proposal/Proposal.pdf",
+        "--manifest", "proposal/Proposal.c2pa_manifest.json",
+        "--output", "proposal/Proposal.c2pa",
+    ]
+    if not run_command(sign_cmd):
+        logger.error("C2PA signing failed. Proposal PDF may be unsigned.")
+        # Continue anyway? The PDF is still generated, but without C2PA.
+        # We'll treat this as a warning, not a fatal error.
+        logger.warning("Proceeding without C2PA signature.")
+
+    # Step 3: Copy PDF to output location
+    source_pdf = docs_root / "proposal" / "Proposal.pdf"
+    if not source_pdf.exists():
+        logger.error(f"Generated PDF not found at {source_pdf}")
+        return False
+
+    if output_dir is None:
+        output_dir = docs_root
+    else:
+        output_dir = Path(output_dir).absolute()
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+    dest_pdf = output_dir / "Proposal.pdf"
+    try:
+        shutil.move(source_pdf, dest_pdf)
+        logger.info(f"Copied PDF to {dest_pdf}")
+    except Exception as e:
+        logger.error(f"Failed to copy PDF: {e}")
+        return False
+
+    logger.info("Proposal build completed successfully.")
+    return True
 
 def build_all(output_dir: Optional[Path] = None) -> bool:
     """
-    Build all artifacts (whitepaper, README, legal).
+    Build all artifacts (whitepaper, proposal, README, legal).
     """
     logger.info("Building all artifacts...")
     success = True
     if not build_whitepaper(output_dir=output_dir):
+        success = False
+    if not build_proposal(output_dir=output_dir):
         success = False
     if not build_readme():
         success = False
@@ -218,6 +287,10 @@ def main() -> None:
     whitepaper_parser = subparsers.add_parser(
         "whitepaper", help="Build the SSCCS whitepaper"
     )
+    # Proposal subcommand
+    proposal_parser = subparsers.add_parser(
+        "proposal", help="Build the SSCCS proposal"
+    )
     # README subcommand
     readme_parser = subparsers.add_parser(
         "readme", help="Render docs/README.qmd to docs/README.md"
@@ -238,6 +311,9 @@ def main() -> None:
 
     if args.target == "whitepaper":
         success = build_whitepaper(output_dir=args.output_dir)
+        sys.exit(0 if success else 1)
+    elif args.target == "proposal":
+        success = build_proposal(output_dir=args.output_dir)
         sys.exit(0 if success else 1)
     elif args.target == "readme":
         success = build_readme()

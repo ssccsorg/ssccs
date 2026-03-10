@@ -1,0 +1,216 @@
+---
+title: "A Foundation for Energy-Efficient, Verifiable Computing"
+author:
+  - name: Taeho Lee
+    corresponding: true 
+    orcid: 0009-0006-8767-8069
+    email: lee@ssccs.org
+    role: "Founder \\& Engineering Architect"
+    affiliations:
+      - name: SSCCS Foundation
+        domain: ssccs.org
+        url: https://www.ssccs.org
+date: 2026-03
+date-format: "MMMM, YYYY"
+bibliography: ./_include/references.bib
+date-modified: last-modified
+csl: ./../_include/ieee.csl
+link-citations: true
+colorlinks: true
+format:
+  html:
+    output-file: "index.html"
+    default-figure-format: "svg"
+    fig-format: "svg"
+    number-sections: true
+    execute:
+        eval: true
+        echo: false
+    embed-resources: true
+    self-contained-math: true 
+    minimal: true
+    theme: minimal
+    mainfont: "Arial"
+    toc: true
+    toc-title: "Contents"
+    font-size: 11pt
+    page-layout: full
+    code-overflow: wrap
+    include-in-header:
+      text: |
+        <style>
+        a {
+          text-decoration: none !important;
+        }
+        .figure-img {
+            width: 100%;
+        }
+        </style>
+  pdf:
+    geometry:
+        - margin=20mm
+    default-figure-format: "pdf"
+    fig-format: pdf
+    fig-dpi: 300
+    number-sections: true
+    toc-title: "Contents"
+    execute:
+        echo: false
+    papersize: a4
+    graphics: true
+    highlight-style: monochrome
+    colorlinks: true
+    linkcolor: darkgray
+    citecolor: gray
+    urlcolor: gray
+    code-block-bg: false
+    code-block-border-left: true
+    fig-pos: 'H'
+    fig-cap-location: bottom
+    mainfont: "Arial"
+    include-in-header:
+      text: |
+        \usepackage{xcolor}
+        \setkeys{Gin}{width=\linewidth,height=\textheight,keepaspectratio}
+        \DeclareTOCStyleEntry[beforeskip=6pt]{default}{section}
+        \DeclareTOCStyleEntry[beforeskip=0pt]{default}{subsection}
+        \input{./_include/_metadata.tex}        
+        \makeatletter
+        \def\@maketitle{
+          {\scriptsize \texttt{\color{gray}\version} \par}
+          {\LARGE \bfseries \@title \par}
+            \vspace{2em}
+                {\large \@author \par}
+                \vspace{0.3em}
+                {\normalsize \texttt{\href{mailto:\authoremail}{\authoremail}} \par}
+                \vspace{0.3em}
+                {\normalsize \affiliationname \par}
+                \vspace{0.3em}
+                {\normalsize \texttt{\href{\affiliationurl}{www.\affiliationdomain}} \par}
+        }
+        \makeatother
+---
+```{python}
+#| echo: false
+#| include: false
+#| context: local
+%run ../_include/_generate_metadata_tex.py --output ./_include/_metadata.tex --version_prefix 1
+```
+
+## The Problem We Face
+
+For eighty years, computing has followed the same pattern: fetch an instruction, move data from memory to processor, execute, store the result back. This worked when processors and memory ran at comparable speeds. It no longer does.
+
+Today, data movement consumes 60–80% of energy in modern AI accelerators [@eyeriss2016]. As models grow to hundreds of billions of parameters, this “data movement wall”[@wulf1995hitting] [@horowitz2014computing] becomes insurmountable. Each NVIDIA H100 accelerator draws 700W continuously under load, and AI data centers are projected to consume 68 GW by 2027—nearly matching California’s entire power capacity [@ieee2025; @omdia2025]. 
+
+```{python}
+#| echo: false
+#| fig-cap: "Relative energy cost of various operations (normalized to arithmetic). Data from Eyeriss (ISCA 2016)."
+#| label: fig-energy-breakdown
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+categories = ['Arithmetic', 'Register File', 'SRAM', 'DRAM']
+energy_cost = [1, 6, 20, 200]  # from Eyeriss
+
+plt.figure(figsize=(8, 5))
+bars = plt.bar(categories, energy_cost, color=['green', 'gold', 'orange', 'red'])
+plt.yscale('log')
+plt.ylabel('Relative Energy Cost (log scale)')
+plt.title('Data Movement Dominates Energy Consumption')
+plt.grid(True, axis='y', alpha=0.3)
+
+for bar, val in zip(bars, energy_cost):
+    plt.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 5, f'{val}x', 
+             ha='center', va='bottom', fontweight='bold')
+
+plt.tight_layout()
+plt.show()
+```
+
+Industry analysts warn that data center power consumption could surge 165% from AI workloads alone [@mrl2025]. Furthermore, the Electric Power Research Institute projects that data centers could account for 9–17% of US electricity by 2030 [@epri2026], while Gartner forecasts that AI-optimized server investments are 3–4 times those of traditional servers, with data center power expected to double within four years [@gartner2026].
+
+The fundamental limitations of the von Neumann architecture have been recognized for decades, with microprocessor scaling facing power and memory walls [@borkar2011future]. Data movement has been identified as one of the top ten research challenges for exascale computing [@lucas2014top].
+
+But the problem goes beyond energy. Machine learning models remain black boxes. Their outputs carry no guarantees, no verifiable path from input to result. For critical applications, this lack of verifiability creates unacceptable risk:
+
+- An autonomous vehicle misclassifies a pedestrian: no auditable trail to determine why.
+- An AI diagnostic system misses early-stage cancer: no verifiable path to assign accountability.
+- A financial algorithm triggers a flash crash: no deterministic reconstruction of the decision chain.
+
+Today, organizations compensate with redundant systems and lengthy certification—costing billions annually. We need a foundation where trust is built in, not bolted on.
+
+## A Different Approach
+
+We emerged from research on high-dimensional time-series data, where preserving structural integrity revealed a deeper truth: **structure itself can compute.** SSCCS (Schema–Segment Composition Computing System) asks a simple question: what if data never moved at all?
+
+Instead of fetching and storing, SSCCS treats computation as the observation of stationary structure. Immutable units called Segments sit fixed in memory, arranged by geometric blueprints called Schemes. A mutable Field imposes constraints on these arrangements—like light casting shadows from a fixed sculpture. Computation happens when the Field triggers an Observation, collapsing the structure’s potential into a deterministic Projection.
+
+This shift from instruction sequencing to structural revelation changes everything:
+
+- Data movement becomes optional. The compiler maps logical adjacency directly onto physical locality. Segments that interact are neighbors in hardware. No data travels—only results do. Studies show that eliminating data movement can yield order-of-magnitude improvements in I/O performance and energy efficiency [@emlio2025].
+- Parallelism becomes implicit. Immutable structures can be observed simultaneously without locks, without synchronization, without race conditions.
+- Verifiability becomes intrinsic. Every computation produces a traceable, deterministic path from blueprint to projection. Security follows from geometry, not added checks.
+
+## Where This Matters
+
+SSCCS is not a replacement for all computing. Hardware acceleration is still in research phases, and sequential, interaction-heavy workloads may stay as they are. But for the workloads that dominate our future, the von Neumann bottleneck is the primary constraint.
+
+- AI at scale currently means moving terabytes of weights through limited memory bandwidth. SSCCS keeps weights stationary and observes them in place. With AI power demand projected to reach 23 GW by 2026 [@techspot2025], eliminating data movement is no longer optional—it is essential.
+- Climate modeling requires processing massive grids with complex dependencies. SSCCS encodes those dependencies as geometry, eliminating redundant data movement.
+- Autonomous systems need verifiable real-time decisions. SSCCS provides deterministic outputs that can be audited by design, not retroactively.
+- Scientific computing faces the same data movement wall. As datasets grow, I/O energy and latency dominate runtime.
+
+Recent advances in AI architecture, such as manifold-constrained hyper-connections [@deepseek2025manifold] and efficient sequence modeling techniques like Mamba [@gu2023mamba], highlight the industry's push for structurally constrained computations and reduced computational overhead—goals that SSCCS addresses at the architectural level. Industry efforts such as Modular's MAX unified AI execution engine [@modular2026max] and the Mojo programming language for AI [@lattner2026mojo] reflect the demand for new compilation and execution models; SSCCS meets this demand at a fundamental computing level, providing a structural paradigm that transcends specific domains.
+
+The scale of the opportunity is underscored by recent market forecasts:
+
+```{python}
+#| echo: false
+#| fig-cap: "Share of US electricity consumption by data centers (EPRI 2026)."
+#| label: fig-epri-forecast
+
+years = ['2024', '2026', '2028', '2030']
+low = [4, 6, 8, 9]
+high = [4, 8, 13, 17]
+
+plt.figure(figsize=(8, 5))
+plt.plot(years, low, 'o-', label='Low-growth scenario', color='blue')
+plt.plot(years, high, 's-', label='High-growth scenario', color='red')
+plt.fill_between(years, low, high, alpha=0.2, color='gray')
+plt.ylabel('Share of US Electricity Consumption (%)')
+plt.title('Data Center Power Demand Forecast (EPRI 2026)')
+plt.grid(True, alpha=0.3)
+plt.legend()
+plt.tight_layout()
+plt.show()
+```
+ 
+## Current Status
+
+Just as Markdown transformed the web by offering a human-readable yet machine-processable format for text, SSCCS introduces an open, declarative format for specifying computational structures. This format allows complex structural blueprints to be expressed in a way that is both human-readable and easy to define, while remaining platform-independent. We are actively developing this format alongside the reference implementation, aiming to make structural computation as accessible as writing a simple text file. 
+
+## What We Ask
+
+SSCCS is a non-profit, open-source research initiative building public infrastructure for trustworthy, energy-efficient computing. We seek:
+
+- Strategic funding (€500k over 18 months) to expand the core compiler team (2 FTE), build an FPGA validation rig for structural mapping benchmarks, and establish foundation governance and community tooling.
+- Research partners for formal verification and domain-specific validation.
+- Technical contributors for compiler development and hardware exploration.
+
+All outputs remain open-source. Intellectual property stays in the public commons.
+
+Next Step: Download the whitepaper, explore the [GitHub repository](https://github.com/ssccsorg/ssccs), or contact us at [contact@ssccs.org](mailto:contact@ssccs.org) to discuss partnership opportunities.
+
+ {{< pagebreak >}}
+
+## References {.unnumbered .unlisted}
+
+::: {#refs}
+::: 
+
+---
+
+{{< include ../_include/_license.qmd >}}
+ 
