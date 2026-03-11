@@ -9,7 +9,7 @@ author:
     affiliations:
       - name: SSCCS Foundation
         domain: ssccs.org
-        url: https://www.ssccs.org
+        url: https://ssccs.org
 date: 2026-03
 date-format: "MMMM, YYYY"
 bibliography: ./_include/references.bib
@@ -22,7 +22,7 @@ format:
     output-file: "index.html"
     default-figure-format: "svg"
     fig-format: "svg"
-    number-sections: true
+    number-sections: false
     execute:
         eval: true
         echo: false
@@ -52,7 +52,7 @@ format:
     default-figure-format: "pdf"
     fig-format: pdf
     fig-dpi: 300
-    number-sections: true
+    number-sections: false
     toc-title: "Contents"
     execute:
         echo: false
@@ -77,16 +77,17 @@ format:
         \input{./_include/_metadata.tex}        
         \makeatletter
         \def\@maketitle{
-          {\scriptsize \texttt{\color{gray}\version} \par}
+          {\scriptsize \texttt{\color{lightgray}\version}}
+          {\hfill \scriptsize \texttt{\color{lightgray} \timestamp} \par}
+          \vspace{0.3em}
           {\LARGE \bfseries \@title \par}
             \vspace{2em}
-                {\large \@author \par}
-                \vspace{0.3em}
-                {\normalsize \texttt{\href{mailto:\authoremail}{\authoremail}} \par}
-                \vspace{0.3em}
-                {\normalsize \affiliationname \par}
-                \vspace{0.3em}
-                {\normalsize \texttt{\href{\affiliationurl}{www.\affiliationdomain}} \par}
+                \setlength{\tabcolsep}{20pt}
+                \begin{tabular}{@{} l l}
+                    {\large \@author} & {\normalsize \affiliationname} \\[0.3em]
+                    {\normalsize \texttt{\href{mailto:\authoremail}{\authoremail}}} 
+                      & {\normalsize \texttt{\href{\affiliationurl}{\affiliationdomain}}}
+                \end{tabular}
         }
         \makeatother
 ---
@@ -94,7 +95,7 @@ format:
 #| echo: false
 #| include: false
 #| context: local
-%run ../_include/_generate_metadata_tex.py --output ./_include/_metadata.tex --version_prefix 1
+%run ../_include/_generate_metadata_tex.py --output ./_include/_metadata.tex --version_prefix PROPOSAL-1
 ```
 
 ## The Problem We Face
@@ -103,6 +104,7 @@ For eighty years, computing has followed the same pattern: fetch an instruction,
 
 Today, data movement consumes 60–80% of energy in modern AI accelerators [@eyeriss2016]. As models grow to hundreds of billions of parameters, this “data movement wall”[@wulf1995hitting] [@horowitz2014computing] becomes insurmountable. Each NVIDIA H100 accelerator draws 700W continuously under load, and AI data centers are projected to consume 68 GW by 2027—nearly matching California’s entire power capacity [@ieee2025; @omdia2025]. 
 
+::: {layout-ncol=2}
 ```{python}
 #| echo: false
 #| fig-cap: "Relative energy cost of various operations (normalized to arithmetic). Data from Eyeriss (ISCA 2016)."
@@ -115,19 +117,40 @@ categories = ['Arithmetic', 'Register File', 'SRAM', 'DRAM']
 energy_cost = [1, 6, 20, 200]  # from Eyeriss
 
 plt.figure(figsize=(8, 5))
-bars = plt.bar(categories, energy_cost, color=['green', 'gold', 'orange', 'red'])
+bars = plt.bar(categories, energy_cost)
 plt.yscale('log')
 plt.ylabel('Relative Energy Cost (log scale)')
 plt.title('Data Movement Dominates Energy Consumption')
 plt.grid(True, axis='y', alpha=0.3)
 
 for bar, val in zip(bars, energy_cost):
-    plt.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 5, f'{val}x', 
+    plt.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 5, f'{val}x',
              ha='center', va='bottom', fontweight='bold')
 
 plt.tight_layout()
 plt.show()
+``` 
+```{python}
+#| echo: false
+#| fig-cap: "Share of US electricity consumption by data centers (EPRI 2026)."
+#| label: fig-epri-forecast
+
+years = ['2024', '2026', '2028', '2030']
+low = [4, 6, 8, 9]
+high = [4, 8, 13, 17]
+
+plt.figure(figsize=(8, 5))
+plt.plot(years, low, 'o-', label='Low-growth scenario')
+plt.plot(years, high, 's-', label='High-growth scenario')
+plt.fill_between(years, low, high, alpha=0.2)
+plt.ylabel('Share of US Electricity Consumption (%)')
+plt.title('Data Center Power Demand Forecast (EPRI 2026)')
+plt.grid(True, alpha=0.3)
+plt.legend()
+plt.tight_layout()
+plt.show()
 ```
+:::
 
 Industry analysts warn that data center power consumption could surge 165% from AI workloads alone [@mrl2025]. Furthermore, the Electric Power Research Institute projects that data centers could account for 9–17% of US electricity by 2030 [@epri2026], while Gartner forecasts that AI-optimized server investments are 3–4 times those of traditional servers, with data center power expected to double within four years [@gartner2026].
 
@@ -166,26 +189,6 @@ Recent advances in AI architecture, such as manifold-constrained hyper-connectio
 
 The scale of the opportunity is underscored by recent market forecasts:
 
-```{python}
-#| echo: false
-#| fig-cap: "Share of US electricity consumption by data centers (EPRI 2026)."
-#| label: fig-epri-forecast
-
-years = ['2024', '2026', '2028', '2030']
-low = [4, 6, 8, 9]
-high = [4, 8, 13, 17]
-
-plt.figure(figsize=(8, 5))
-plt.plot(years, low, 'o-', label='Low-growth scenario', color='blue')
-plt.plot(years, high, 's-', label='High-growth scenario', color='red')
-plt.fill_between(years, low, high, alpha=0.2, color='gray')
-plt.ylabel('Share of US Electricity Consumption (%)')
-plt.title('Data Center Power Demand Forecast (EPRI 2026)')
-plt.grid(True, alpha=0.3)
-plt.legend()
-plt.tight_layout()
-plt.show()
-```
  
 ## Current Status
 
@@ -195,7 +198,7 @@ Just as Markdown transformed the web by offering a human-readable yet machine-pr
 
 SSCCS is a non-profit, open-source research initiative building public infrastructure for trustworthy, energy-efficient computing. We seek:
 
-- Strategic funding (€500k over 18 months) to expand the core compiler team (2 FTE), build an FPGA validation rig for structural mapping benchmarks, and establish foundation governance and community tooling.
+- Strategic funding to expand the core compiler team, build an FPGA validation rig for structural mapping benchmarks, and establish foundation governance and community tooling.
 - Research partners for formal verification and domain-specific validation.
 - Technical contributors for compiler development and hardware exploration.
 

@@ -81,6 +81,7 @@ def main():
     # ----- Write LaTeX macros -----
     with open(args.output, 'w', encoding='utf-8') as f:
         f.write(f"\\newcommand{{\\version}}{{{version_str}}}\n")
+        f.write(f"\\newcommand{{\\timestamp}}{{{datetime.now()}}}\n")
         f.write(f"\\newcommand{{\\affiliationname}}{{{aff['name']}}}\n")
         if 'url' in aff:
             f.write(f"\\newcommand{{\\affiliationurl}}{{{aff['url']}}}\n")
