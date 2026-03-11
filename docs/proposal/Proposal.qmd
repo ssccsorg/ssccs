@@ -1,11 +1,9 @@
 ---
 title: "A Foundation for Energy-Efficient, Verifiable Computing"
 author:
-  - name: Taeho Lee
+  - name: SSCCS Proposal
     corresponding: true 
-    orcid: 0009-0006-8767-8069
-    email: lee@ssccs.org
-    role: "Founder \\& Engineering Architect"
+    email: proposal@ssccs.org
     affiliations:
       - name: SSCCS Foundation
         domain: ssccs.org
@@ -48,7 +46,7 @@ format:
         </style>
   pdf:
     geometry:
-        - margin=20mm
+        - margin=16mm
     default-figure-format: "pdf"
     fig-format: pdf
     fig-dpi: 300
@@ -71,22 +69,26 @@ format:
     include-in-header:
       text: |
         \usepackage{xcolor}
+        \usepackage{geometry}
+        \geometry{bottom=1.6cm, footskip=1cm}
+
         \setkeys{Gin}{width=\linewidth,height=\textheight,keepaspectratio}
         \DeclareTOCStyleEntry[beforeskip=6pt]{default}{section}
         \DeclareTOCStyleEntry[beforeskip=0pt]{default}{subsection}
         \input{./_include/_metadata.tex}        
         \makeatletter
         \def\@maketitle{
-          {\scriptsize \texttt{\color{lightgray}\version}}
-          {\hfill \scriptsize \texttt{\color{lightgray} \timestamp} \par}
+          {\scriptsize \texttt{\color{lightgray}\version} \par}
           \vspace{0.3em}
           {\LARGE \bfseries \@title \par}
             \vspace{2em}
                 \setlength{\tabcolsep}{20pt}
-                \begin{tabular}{@{} l l}
-                    {\large \@author} & {\normalsize \affiliationname} \\[0.3em]
+                \begin{tabular}{@{} l l l}
+                    {\large \@author} & {\normalsize \affiliationname} & {\normalsize Whitepaper DOI} 
+                    \\[0.3em]
                     {\normalsize \texttt{\href{mailto:\authoremail}{\authoremail}}} 
                       & {\normalsize \texttt{\href{\affiliationurl}{\affiliationdomain}}}
+                      & {\normalsize \texttt{\href{https://doi.org/10.5281/zenodo.18759106}{10.5281/zenodo.18759106}}}
                 \end{tabular}
         }
         \makeatother
@@ -102,7 +104,7 @@ format:
 
 For eighty years, computing has followed the same pattern: fetch an instruction, move data from memory to processor, execute, store the result back. This worked when processors and memory ran at comparable speeds. It no longer does.
 
-Today, data movement consumes 60–80% of energy in modern AI accelerators [@eyeriss2016]. As models grow to hundreds of billions of parameters, this “data movement wall”[@wulf1995hitting] [@horowitz2014computing] becomes insurmountable. Each NVIDIA H100 accelerator draws 700W continuously under load, and AI data centers are projected to consume 68 GW by 2027—nearly matching California’s entire power capacity [@ieee2025; @omdia2025]. 
+Today, data movement consumes 60–80% of energy in modern AI accelerators [@eyeriss2016]. As models grow to hundreds of billions of parameters, this “data movement wall”[@wulf1995hitting] [@horowitz2014computing] becomes insurmountable. Each NVIDIA H100 accelerator draws 700W continuously under load, and AI data centers are projected to consume 68 GW by 2027 nearly matching California’s entire power capacity [@ieee2025; @omdia2025]. 
 
 ::: {layout-ncol=2}
 ```{python}
@@ -132,7 +134,7 @@ plt.show()
 ``` 
 ```{python}
 #| echo: false
-#| fig-cap: "Share of US electricity consumption by data centers (EPRI 2026)."
+#| fig-cap: "Share of US electricity consumption by data centers (EPRI 2026) [@epri2026]."
 #| label: fig-epri-forecast
 
 years = ['2024', '2026', '2028', '2030']
@@ -152,21 +154,19 @@ plt.show()
 ```
 :::
 
-Industry analysts warn that data center power consumption could surge 165% from AI workloads alone [@mrl2025]. Furthermore, the Electric Power Research Institute projects that data centers could account for 9–17% of US electricity by 2030 [@epri2026], while Gartner forecasts that AI-optimized server investments are 3–4 times those of traditional servers, with data center power expected to double within four years [@gartner2026].
+Industry analysts warn data center power could surge 165% from AI workloads alone [@mrl2025]. EPRI projects data centers may account for 9–17% of US electricity by 2030 [@epri2026]; Gartner forecasts AI-optimized server investments at 3–4× traditional servers, with power doubling in four years [@gartner2026]. These fundamental limitations have been recognized for decades [@borkar2011future], with data movement among the top exascale challenges [@lucas2014top].
 
-The fundamental limitations of the von Neumann architecture have been recognized for decades, with microprocessor scaling facing power and memory walls [@borkar2011future]. Data movement has been identified as one of the top ten research challenges for exascale computing [@lucas2014top].
+But the problem goes beyond energy. Machine learning models remain black boxes with no verifiable path from input to result. For critical applications, this lack of verifiability creates unacceptable risk:
 
-But the problem goes beyond energy. Machine learning models remain black boxes. Their outputs carry no guarantees, no verifiable path from input to result. For critical applications, this lack of verifiability creates unacceptable risk:
+- An autonomous vehicle misclassifies a pedestrian as in the 2018 Uber fatality, where the system detected a person for nearly six seconds but never classified her as a pedestrian, with no auditable trail to determine why the decision chain failed [@ntsb2019uber].
+- An AI diagnostic system misses early-stage cancer while AI matches or exceeds human accuracy in controlled settings, the lack of explainability makes accountability impossible when errors occur [@yang2025pathology].
+- A financial algorithm triggers a flash crash as in 2010, where a single automated sell program contributed to a 600-point Dow plunge, yet regulators could not deterministically reconstruct the precise decision chain [@nanex2010flash; @sec2010flash].
 
-- An autonomous vehicle misclassifies a pedestrian: no auditable trail to determine why.
-- An AI diagnostic system misses early-stage cancer: no verifiable path to assign accountability.
-- A financial algorithm triggers a flash crash: no deterministic reconstruction of the decision chain.
+Today, organizations compensate with redundant systems and lengthy certification costing billions annually. Total documented damage from AI-related incidents already exceeds $100 billion [@raiids2025]. We need a foundation where trust is built in, not bolted on.
 
-Today, organizations compensate with redundant systems and lengthy certification—costing billions annually. We need a foundation where trust is built in, not bolted on.
+### A Different Approach
 
-## A Different Approach
-
-We emerged from research on high-dimensional time-series data, where preserving structural integrity revealed a deeper truth: **structure itself can compute.** SSCCS (Schema–Segment Composition Computing System) asks a simple question: what if data never moved at all?
+We started from research on high-dimensional time-series data, where preserving structure across chaotic systems forced us to rethink what computation even is. The result is SSCCS (Schema–Segment Composition Computing System), built on a simple question: **what if data never moved at all?**
 
 Instead of fetching and storing, SSCCS treats computation as the observation of stationary structure. Immutable units called Segments sit fixed in memory, arranged by geometric blueprints called Schemes. A mutable Field imposes constraints on these arrangements—like light casting shadows from a fixed sculpture. Computation happens when the Field triggers an Observation, collapsing the structure’s potential into a deterministic Projection.
 
@@ -178,33 +178,47 @@ This shift from instruction sequencing to structural revelation changes everythi
 
 ## Where This Matters
 
-SSCCS is not a replacement for all computing. Hardware acceleration is still in research phases, and sequential, interaction-heavy workloads may stay as they are. But for the workloads that dominate our future, the von Neumann bottleneck is the primary constraint.
+SSCCS is not a replacement for all computing—sequential, interaction-heavy workloads may stay as they are. But for the workloads that dominate our future, the von Neumann bottleneck is the primary constraint:
 
-- AI at scale currently means moving terabytes of weights through limited memory bandwidth. SSCCS keeps weights stationary and observes them in place. With AI power demand projected to reach 23 GW by 2026 [@techspot2025], eliminating data movement is no longer optional—it is essential.
-- Climate modeling requires processing massive grids with complex dependencies. SSCCS encodes those dependencies as geometry, eliminating redundant data movement.
-- Autonomous systems need verifiable real-time decisions. SSCCS provides deterministic outputs that can be audited by design, not retroactively.
-- Scientific computing faces the same data movement wall. As datasets grow, I/O energy and latency dominate runtime.
+- **AI at scale** means moving terabytes of weights through limited memory bandwidth. SSCCS keeps weights stationary and observes them in place. With AI power demand projected to reach 23 GW by 2026 [@techspot2025], eliminating data movement is no longer optional—it’s essential.
+- **Climate modeling** requires processing massive grids with complex dependencies. SSCCS encodes those dependencies as geometry, cutting redundant data movement.
+- **Autonomous systems** need verifiable real-time decisions. SSCCS provides deterministic outputs that are auditable by design, not retroactively.
+- **Scientific computing** faces the same data movement wall. As datasets grow, I/O energy and latency dominate runtime.
 
-Recent advances in AI architecture, such as manifold-constrained hyper-connections [@deepseek2025manifold] and efficient sequence modeling techniques like Mamba [@gu2023mamba], highlight the industry's push for structurally constrained computations and reduced computational overhead—goals that SSCCS addresses at the architectural level. Industry efforts such as Modular's MAX unified AI execution engine [@modular2026max] and the Mojo programming language for AI [@lattner2026mojo] reflect the demand for new compilation and execution models; SSCCS meets this demand at a fundamental computing level, providing a structural paradigm that transcends specific domains.
-
-The scale of the opportunity is underscored by recent market forecasts:
+The same structural principles driving recent advances in AI—such as manifold-constrained hyper-connections [@deepseek2025manifold] and efficient sequence models like Mamba [@gu2023mamba]—point toward a deeper need: computation should be constrained by structure, not just optimized within it. SSCCS was built from this insight, providing a general foundation that works across AI, scientific computing, and beyond.
 
  
-## Current Status
+## Current status and plan
 
-Just as Markdown transformed the web by offering a human-readable yet machine-processable format for text, SSCCS introduces an open, declarative format for specifying computational structures. This format allows complex structural blueprints to be expressed in a way that is both human-readable and easy to define, while remaining platform-independent. We are actively developing this format alongside the reference implementation, aiming to make structural computation as accessible as writing a simple text file. 
+::: {tbl-colwidths="[20, 80]"}
+
+
+| Aspect | Current Status |
+|--------|----------------|
+| **Founder structure** | Solo founder; Berlin-based |
+| **Legal entity** | Preparing non-profit in Berlin, globally oriented |
+| **Project nature** | Long-term research loop: philosophy <-> technical validation |
+| **Initial declaration** | Whitepaper on CERN/Zenodo |
+| **PoC** | Rust (meta-programming, memory control, low-level system); early primitives in progress, evolving with research |
+| **Research output** | Topic papers (arXiv) -> insights folded back into core |
+| **Partnership scope** | EU(Germany, France, ...), South Korea, and any nation with aligned public-interest programs |
+| **Operating principle** | Research + implementation + partnership – in parallel, without borders |
+
+:::
+
+I’m building SSCCS from Berlin, preparing a local non-profit while keeping the project global—if the right opportunity comes from elsewhere, we’ll go there. This isn’t a startup chasing quick returns; it’s a long-term effort to test philosophical ideas through real code. The first whitepaper is out, the Rust PoC is in early stages, and research will branch into multiple threads, each published and then consolidated. At the same time, we’re talking to potential partners—public-interest institutions anywhere that share our mission. Research, implementation, and partnerships move together, not in sequence.
+
 
 ## What We Ask
 
-SSCCS is a non-profit, open-source research initiative building public infrastructure for trustworthy, energy-efficient computing. We seek:
+SSCCS is an open-source, non-profit initiative building public infrastructure. We welcome all kinds of collaboration:
 
-- Strategic funding to expand the core compiler team, build an FPGA validation rig for structural mapping benchmarks, and establish foundation governance and community tooling.
-- Research partners for formal verification and domain-specific validation.
-- Technical contributors for compiler development and hardware exploration.
+- We are seeking €500k over 18 months to expand the core compiler team (approx. 2 FTE), complete the reference implementation, and establish legal governance and community tooling.
+- Research partners: For formal verification, compiler correctness, and domain-specific validation.
+- Technical contributors: To help with compiler development and tooling.
+- Outreach: Blog posts, talks, educational material—anything that spreads the word.
 
-All outputs remain open-source. Intellectual property stays in the public commons.
-
-Next Step: Download the whitepaper, explore the [GitHub repository](https://github.com/ssccsorg/ssccs), or contact us at [contact@ssccs.org](mailto:contact@ssccs.org) to discuss partnership opportunities.
+In return, we offer early access to a new computational paradigm and co-authorship on foundational papers. All outputs stay open, and intellectual property remains in the public commons.
 
  {{< pagebreak >}}
 

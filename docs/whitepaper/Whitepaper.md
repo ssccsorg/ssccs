@@ -55,9 +55,9 @@ unaltered.
 
 ------------------------------------------------------------------------
 
-© 2026 SSCCS Foundation — A non-profit research initiative, formalized
-through global standards and substantiated by its cryptographic
-authenticity.
+© 2026 [SSCCS Foundation](https://ssccs.org) — A non-profit research
+initiative, formalized through global standards and substantiated by its
+cryptographic authenticity.
 
 - Whitepaper: [PDF](https://ssccs.org/wp) /
   [HTML](https://ssccs.org/wpw) DOI:
