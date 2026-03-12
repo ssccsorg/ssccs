@@ -167,7 +167,7 @@ All ten tests pass, confirming that the PoC correctly embodies the SSCCS ontolog
 - **Documentation** – inline doc comments and references to the whitepaper.
 
 ### 9. Whitepaper Synchronization
-The implementation stays aligned with the conceptual description in `docs/Whitepaper.qmd`:
+The implementation stays aligned with the conceptual description in `docs/whitepaper.qmd`:
 - Ontological layers (Segment, Scheme, Field, Observation, Projection) match the code.
 - Compiler‑pipeline section (Section 5.1) corresponds to `compiler_pipeline.rs`.
 - Memory‑layout abstraction (Section 5.2) is realized as `MemoryLayout` in `abstract_scheme.rs`.
@@ -183,10 +183,10 @@ The implementation stays aligned with the conceptual description in `docs/Whitep
 
 This PoC is released under the **Apache License 2.0**. See the [LICENSE](../LICENSE) file for details.
 
-The accompanying whitepaper (`docs/Whitepaper.qmd`) is licensed under **CC BY‑NC‑ND 4.0**.
+The accompanying whitepaper (`docs/whitepaper.qmd`) is licensed under **CC BY‑NC‑ND 4.0**.
 
 ## Acknowledgments
 
 SSCCS Foundation a non‑profit research initiative. The PoC was developed as a reference implementation to validate the model’s feasibility and to invite collaboration from the open‑source and research communities.
 
-For more information, visit the [SSCCS GitHub organization](https://github.com/ssccsorg/ssccs) or read the full whitepaper in `docs/Whitepaper.pdf`.
+For more information, visit the [SSCCS GitHub organization](https://github.com/ssccsorg/ssccs) or read the full whitepaper in `docs/whitepaper.pdf`.

@@ -1,5 +1,16 @@
 ---
 title: "Foundational Charter and Statute"
+author:
+  - name: SSCCS Foundation
+    corresponding: true 
+    email: contact@ssccs.org
+    affiliations:
+      - name: SSCCS Foundation
+        domain: ssccs.org
+        url: https://ssccs.org
+date: 2026-02
+date-format: "MMMM, YYYY"
+date-modified: last-modified
 format:
   gfm: 
     _blank: null
@@ -13,19 +24,13 @@ format:
     toc-title: "Contents"
     font-size: 11pt
     page-layout: full
-    output-dir: "legal"
     output-file: "index.html"
     include-in-header:
-      text: |
-        <style>
-        a {
-          text-decoration: none !important;
-          color: #0d6efd;
-        }
-        .figure-img {
-            width: 100%;
-        }
-        </style>
+      file: ../_include/default_html_style.html
+    format-links: false
+    title-meta-extension:
+      other-formats:
+        pdf: ./legal.pdf
   pdf:
     colorlinks: false
     papersize: a4
@@ -35,7 +40,23 @@ format:
         text: |
             \usepackage{unicode-math}
             \addtokomafont{disposition}{\rmfamily}
+            \input{./_include/_metadata.tex}        
+            \makeatletter
+            \def\@maketitle{
+              \centering
+              {\LARGE \bfseries \@title \par}
+              \vspace{0.6em}
+              {\scriptsize \texttt{\color{lightgray}\version} \par}
+              \vspace{6em}
+            }
+            \makeatother
 ---
+```{python}
+#| echo: false
+#| include: false
+#| context: local
+%run ../_include/_generate_metadata_tex.py --output ./_include/_metadata.tex --version_prefix 1
+```
 
 # SSCCS Foundation (In Formation) {.unnumbered .unlisted}
 

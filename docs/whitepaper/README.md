@@ -1,6 +1,6 @@
 # Whitepaper Generation with Quarto
 
-This document explains how to generate the SSCCS Whitepaper (`Whitepaper.pdf` and `Whitepaper.md`) from the Quarto source file `Whitepaper.qmd`.
+This document explains how to generate the SSCCS Whitepaper (`whitepaper.pdf` and `whitepaper.md`) from the Quarto source file `whitepaper.qmd`.
 
 ## Prerequisites
 
@@ -95,25 +95,25 @@ Alternatively, you can use the centralized build script `docs/build.py` to autom
 To produce the PDF version (requires LaTeX):
 
 ```bash
-quarto render whitepaper/Whitepaper.qmd --to pdf
+quarto render whitepaper/whitepaper.qmd --to pdf
 ```
 
-The output will be `Whitepaper.pdf` (generated in the `whitepaper/` subdirectory). The first run may take several minutes because LaTeX must install missing packages and compile the document.
+The output will be `whitepaper.pdf` (generated in the `whitepaper/` subdirectory). The first run may take several minutes because LaTeX must install missing packages and compile the document.
 
 ### Render Markdown (GitHub‑Flavored Markdown)
 
 To generate the plain‑markdown version (without LaTeX dependencies):
 
 ```bash
-quarto render whitepaper/Whitepaper.qmd --to gfm
+quarto render whitepaper/whitepaper.qmd --to gfm
 ```
 
-The output will be `Whitepaper.md` (generated in the `whitepaper/` subdirectory). This version includes the DOI badge and all diagrams as embedded SVG images (if Graphviz is available).
+The output will be `whitepaper.md` (generated in the `whitepaper/` subdirectory). This version includes the DOI badge and all diagrams as embedded SVG images (if Graphviz is available).
 
 ### Render both formats at once
 
 ```bash
-quarto render whitepaper/Whitepaper.qmd
+quarto render whitepaper/whitepaper.qmd
 ```
 
 By default Quarto will produce all output formats declared in the document’s YAML header (here `gfm` and `pdf`).
@@ -123,22 +123,22 @@ By default Quarto will produce all output formats declared in the document’s Y
 
 The Whitepaper uses several advanced Quarto features:
 
-- **Three output formats**: HTML (for web viewing), GFM (GitHub‑Flavored Markdown), and PDF (for print). The format settings are defined in the YAML header of `Whitepaper.qmd`.
+- **Three output formats**: HTML (for web viewing), GFM (GitHub‑Flavored Markdown), and PDF (for print). The format settings are defined in the YAML header of `whitepaper.qmd`.
 - **HTML output**: Custom CSS styling, embedded SVG figures, and self‑contained resources.
 - **PDF output**: Uses `xelatex` engine. SVG logos are converted to PDF via Python’s `cairosvg` package. The LaTeX header includes custom packages (`authblk`, `unicode‑math`, `graphicx`, etc.) and layout adjustments.
 - **Graphviz diagrams**: The document includes `dot` code blocks that are rendered to SVG (for HTML/Markdown) or PDF (for PDF) using the `_graphviz.py` helper module.
 - **Conditional content**: Some blocks are visible only in specific formats (e.g., `{.content‑visible when‑format=\"gfm\"}`).
 
-Refer to the source `Whitepaper.qmd` for the exact configuration.
+Refer to the source `whitepaper.qmd` for the exact configuration.
 
 ## Document Structure
 
-- `Whitepaper.qmd` – The source file containing the complete paper in Quarto Markdown.
+- `whitepaper.qmd` – The source file containing the complete paper in Quarto Markdown.
 - `_include/_graphviz.py` – Python module that provides `dot()` and `dot_svg()` functions for generating Graphviz diagrams.
 - `_extensions/` – Contains Quarto extensions (currently only a custom extension for inline SVG).
 - `Whitepaper_files/` – Directory created during rendering that holds generated SVG images and other auxiliary files.
-- `Whitepaper.pdf` – The final PDF (already included in the repository).
-- `Whitepaper.md` – The final Markdown version (already included in the repository).
+- `whitepaper.pdf` – The final PDF (already included in the repository).
+- `whitepaper.md` – The final Markdown version (already included in the repository).
 
 ## Troubleshooting
 
@@ -173,7 +173,7 @@ The Python block is marked `eval: false`, so it is not executed during rendering
 
 ## Updating the Whitepaper
 
-To modify the Whitepaper, edit `Whitepaper.qmd` and then re‑run the `quarto render` commands above (or use the automated build script `build.py`). Always commit both the source `.qmd` and the rendered `.pdf`/`.md` files to the repository.
+To modify the Whitepaper, edit `whitepaper.qmd` and then re‑run the `quarto render` commands above (or use the automated build script `build.py`). Always commit both the source `.qmd` and the rendered `.pdf`/`.md` files to the repository.
 
 ## License
 

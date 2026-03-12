@@ -79,7 +79,7 @@ def build_whitepaper(output_dir: Optional[Path] = None) -> bool:
     os.chdir(docs_root)
 
     # Step 1: Quarto render
-    quarto_cmd = ["quarto", "render", "whitepaper/Whitepaper.qmd"]
+    quarto_cmd = ["quarto", "render", "whitepaper/whitepaper.qmd"]
     if not run_command(quarto_cmd):
         logger.error("Quarto render failed. Aborting whitepaper build.")
         return False
@@ -87,22 +87,22 @@ def build_whitepaper(output_dir: Optional[Path] = None) -> bool:
     # Step 2: C2PA signing (non-fatal)
     sign_cmd = [
         "python3", "_utils/sign_c2pa.py",
-        "--pdf", "whitepaper/Whitepaper.pdf",
-        "--manifest", "whitepaper/Whitepaper.c2pa_manifest.json",
-        "--output", "whitepaper/Whitepaper.c2pa",
+        "--pdf", "whitepaper/whitepaper.pdf",
+        "--manifest", "whitepaper/whitepaper.c2pa_manifest.json",
+        "--output", "whitepaper/whitepaper.c2pa",
     ]
     if not run_command(sign_cmd):
         logger.warning("C2PA signing failed. Proceeding without signature.")
 
     # Step 3: Copy PDF
-    source_pdf = docs_root / "whitepaper" / "Whitepaper.pdf"
+    source_pdf = docs_root / "whitepaper" / "whitepaper.pdf"
     if not source_pdf.exists():
         logger.error(f"Generated PDF not found at {source_pdf}")
         return False
 
     dest_dir = Path(output_dir).absolute() if output_dir else docs_root
     dest_dir.mkdir(parents=True, exist_ok=True)
-    dest_pdf = dest_dir / "Whitepaper.pdf"
+    dest_pdf = dest_dir / "whitepaper.pdf"
 
     try:
         shutil.move(source_pdf, dest_pdf)
@@ -122,7 +122,7 @@ def build_proposal(output_dir: Optional[Path] = None) -> bool:
     os.chdir(docs_root)
 
     # Step 1: Quarto render
-    quarto_cmd = ["quarto", "render", "proposal/Proposal.qmd"]
+    quarto_cmd = ["quarto", "render", "proposal/proposal.qmd"]
     if not run_command(quarto_cmd):
         logger.error("Quarto render failed. Aborting proposal build.")
         return False
@@ -130,22 +130,22 @@ def build_proposal(output_dir: Optional[Path] = None) -> bool:
     # Step 2: C2PA signing (non-fatal)
     sign_cmd = [
         "python3", "_utils/sign_c2pa.py",
-        "--pdf", "proposal/Proposal.pdf",
-        "--manifest", "proposal/Proposal.c2pa_manifest.json",
-        "--output", "proposal/Proposal.c2pa",
+        "--pdf", "proposal/proposal.pdf",
+        "--manifest", "proposal/proposal.c2pa_manifest.json",
+        "--output", "proposal/proposal.c2pa",
     ]
     if not run_command(sign_cmd):
         logger.warning("C2PA signing failed. Proceeding without signature.")
 
     # Step 3: Copy PDF
-    source_pdf = docs_root / "proposal" / "Proposal.pdf"
+    source_pdf = docs_root / "proposal" / "proposal.pdf"
     if not source_pdf.exists():
         logger.error(f"Generated PDF not found at {source_pdf}")
         return False
 
     dest_dir = Path(output_dir).absolute() if output_dir else docs_root
     dest_dir.mkdir(parents=True, exist_ok=True)
-    dest_pdf = dest_dir / "Proposal.pdf"
+    dest_pdf = dest_dir / "proposal.pdf"
 
     try:
         shutil.move(source_pdf, dest_pdf)
@@ -201,7 +201,7 @@ def build_legal() -> bool:
     return True
 
 
-# 타겟별 빌드 함수 매핑
+# Build function mapping per target
 BUILD_FUNCTIONS: Dict[str, Callable[..., bool]] = {
     "whitepaper": build_whitepaper,
     "proposal": build_proposal,
@@ -209,7 +209,7 @@ BUILD_FUNCTIONS: Dict[str, Callable[..., bool]] = {
     "legal": build_legal,
 }
 
-# output_dir 인자를 받는 타겟 목록
+# list of targets that receive output_dir argument
 OUTPUT_DIR_TARGETS = {"whitepaper", "proposal"}
 
 
@@ -263,8 +263,8 @@ def build_targets(
     Build multiple targets.
     
     Behavior:
-      - If sequence_mode=True: run sequentially regardless of target count
-      - If sequence_mode=False and len(targets) > 1: run in parallel (default)
+      -If sequence_mode=True: run sequentially regardless of target count
+      -If sequence_mode=False and len(targets) > 1: run in parallel (default)
       - If sequence_mode=False and len(targets) == 1: run normally (no threading overhead)
     """
     if not targets:
@@ -294,7 +294,7 @@ def build_targets(
             _, success = build_single_target(target, output_dir)
             results[target] = success
 
-    # 결과 요약
+    # Summary of results
     failed = [t for t, s in results.items() if not s]
     if failed:
         logger.error(f"Failed targets: {failed}")
@@ -351,14 +351,14 @@ Examples:
 
     args = parser.parse_args()
 
-    # 'all' 특별 처리
+    # 'all' special handling
     if "all" in args.targets:
         targets = list(BUILD_FUNCTIONS.keys())
     else:
         targets = parse_targets(args.targets)
         targets = validate_targets(targets)
 
-    # 빌드 실행
+    # Run build
     success = build_targets(
         targets=targets,
         output_dir=args.output_dir,
