@@ -8,7 +8,7 @@ The Whitepaper uses advanced Quarto features that require several external tools
 
 1. **Quarto** – The document rendering engine.
 2. **LaTeX** – For PDF generation, using the `xelatex` engine.
-3. **Python** – For inline Python code that generates diagrams and converts SVG logos. The Python environment must have the `graphviz`, `IPython`, and `cairosvg` packages installed (e.g., via `pip install graphviz IPython cairosvg`).
+3. **Python** – For inline Python code that generates diagrams and converts SVG logos. The Python environment must have the `graphviz`, `IPython`, `cairosvg`, `matplotlib`, and `numpy` packages installed (e.g., via `pip install graphviz IPython cairosvg matplotlib numpy`).
 4. **Graphviz** – For rendering `dot` diagrams embedded in the document. This includes both the system Graphviz binaries (`dot` command) and the Python `graphviz` package.
 
 ## Installation
@@ -31,7 +31,7 @@ brew install python
 brew install graphviz
 
 # Install required Python packages for diagrams and SVG conversion
-pip install graphviz IPython cairosvg
+pip install graphviz IPython cairosvg matplotlib numpy
 ```
 
 After installing MacTeX, ensure the LaTeX binaries are in your `PATH`. You may need to open a new terminal or run:
@@ -60,7 +60,7 @@ sudo apt-get install python3
 sudo apt-get install graphviz
 
 # Install required Python packages for diagrams and SVG conversion
-pip install graphviz IPython cairosvg
+pip install graphviz IPython cairosvg matplotlib numpy
 ```
 
 ### Windows
@@ -77,7 +77,7 @@ Add the installation directories to your system PATH.
 After installing Python, install the required Python packages for diagrams and SVG conversion via:
 
 ```bash
-pip install graphviz IPython cairosvg
+pip install graphviz IPython cairosvg matplotlib numpy
 ```
 
 ## Generating the Whitepaper
@@ -87,6 +87,8 @@ Once all prerequisites are satisfied, navigate to the `docs` directory and run Q
 ```bash
 cd /path/to/qs-core/docs
 ```
+
+Alternatively, you can use the centralized build script `docs/build.py` to automate the generation, C2PA signing, and PDF copying.
 
 ### Render PDF
 
@@ -116,44 +118,6 @@ quarto render whitepaper/Whitepaper.qmd
 
 By default Quarto will produce all output formats declared in the document’s YAML header (here `gfm` and `pdf`).
 
-### Automated Build Script
-
-A centralized build script `build.py` is provided in the `docs` directory to automate the whitepaper generation, C2PA signing, and PDF copying.
-
-**Basic usage** (builds all artifacts):
-
-```bash
-python3 build.py
-```
-
-This runs the following steps automatically:
-
-1. Renders the whitepaper PDF and Markdown via `quarto render whitepaper/Whitepaper.qmd`
-2. Signs the PDF with C2PA using `_utils/sign_c2pa.py`
-3. Copies the signed PDF to the `docs` directory (or a custom output directory)
-
-**Subcommands:**
-
-- `whitepaper` – Build only the whitepaper:
-  ```bash
-  python3 build.py whitepaper
-  ```
-- `all` – Same as default (build all artifacts):
-  ```bash
-  python3 build.py all
-  ```
-
-**Options:**
-
-- `--output-dir` (or `-o`) – Specify a custom directory for the final PDF.
-
-Example: generate the whitepaper and place the PDF in a `dist` folder:
-
-```bash
-python3 build.py --output-dir dist
-```
-
-For more details, run `python3 build.py --help`.
 
 ## Advanced Rendering Techniques
 
@@ -204,7 +168,7 @@ Ensure that:
 The Python block is marked `eval: false`, so it is not executed during rendering. It only writes static SVG code into the `Whitepaper_files` folder. However, the block imports the `_graphviz.py` module, which requires the `graphviz` and `IPython` packages, and the SVG‑to‑PDF conversion uses the `cairosvg` package. If you encounter Python‑related errors, verify that:
 
 1. Python is installed and the `os` and `tempfile` modules are available (they are part of the standard library).
-2. The required Python packages are installed (`pip install graphviz IPython cairosvg`).
+2. The required Python packages are installed (`pip install graphviz IPython cairosvg matplotlib numpy`).
 3. The `_include/_graphviz.py` file is present and readable.
 
 ## Updating the Whitepaper

@@ -1,7 +1,8 @@
 ---
-title: "A Foundation for Energy-Efficient, Verifiable Computing"
+title: "Proposal: A New Foundation for Efficient and Trustworthy Computing"
+subtitle: "SSCCS: Observation-Driven Computation beyond the Von Neumann Model"
 author:
-  - name: SSCCS Proposal
+  - name: SSCCS Foundation
     corresponding: true 
     email: proposal@ssccs.org
     affiliations:
@@ -31,19 +32,16 @@ format:
     mainfont: "Arial"
     toc: true
     toc-title: "Contents"
+    toc-expand: true
     font-size: 11pt
     page-layout: full
     code-overflow: wrap
     include-in-header:
-      text: |
-        <style>
-        a {
-          text-decoration: none !important;
-        }
-        .figure-img {
-            width: 100%;
-        }
-        </style>
+      file: ../_include/default_html_style.html
+    format-links: false
+    title-meta-extension:
+      other-formats:
+        pdf: ../Proposal.pdf
   pdf:
     geometry:
         - margin=16mm
@@ -97,8 +95,10 @@ format:
 #| echo: false
 #| include: false
 #| context: local
-%run ../_include/_generate_metadata_tex.py --output ./_include/_metadata.tex --version_prefix PROPOSAL-1
+%run ../_include/_generate_metadata_tex.py --output ./_include/_metadata.tex --version_prefix 1
 ```
+
+{{< include ../_include/_title_meta_extension.qmd >}}
 
 ## The Problem We Face
 
@@ -109,7 +109,7 @@ Today, data movement consumes 60–80% of energy in modern AI accelerators [@eye
 ::: {layout-ncol=2}
 ```{python}
 #| echo: false
-#| fig-cap: "Relative energy cost of various operations (normalized to arithmetic). Data from Eyeriss (ISCA 2016)."
+#| fig-cap: "Relative energy cost of various operations (normalized to arithmetic). Data from Eyeriss (ISCA 2016) [@]."
 #| label: fig-energy-breakdown
 
 import matplotlib.pyplot as plt
