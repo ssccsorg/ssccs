@@ -56,15 +56,20 @@ enthusiasts.
 
 The SSCCS documentation suite consists of several formal documents:
 
-- **Whitepaper**: The core technical specification, available as PDF and
-  HTML.
-- **Proposal**: A companion document focusing on practical
-  implementation and sustainability.
-- **Legal documents**: The foundation’s charter and statutes.
-- **Research notes**: Informal technical explorations.
+- **[Whitepaper](docs/whitepaper.pdf)**: The core technical
+  specification, available as PDF and HTML.
+- **[Proposal](docs/proposal.pdf)**: A companion document focusing on
+  practical implementation and sustainability.
+- **[Manifesto](docs/MANIFESTO.md)**: The high‑level philosophical and
+  technical introduction.
+- **[Guide](docs/GUIDE.md)**: A comprehensive guide to SSCCS core
+  concepts.
+- **[Legal documents](docs/legal/legal.md)**: The foundation’s charter
+  and statutes.
+- **[Research notes](docs/research)**: Informal technical explorations.
 
-All documents are authored in Quarto (`.qmd`) and can be rendered to
-PDF, HTML, and Markdown using the centralized build script
+All major documents are authored in Quarto (`.qmd`) and can be rendered
+to PDF, HTML, and Markdown using the centralized build script
 `docs/build.py`. This script handles Quarto rendering, C2PA signing (for
 PDFs), and copying outputs to the appropriate locations.
 
