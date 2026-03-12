@@ -42,14 +42,16 @@ accessible, and energy-efficient Intellectual Public Commons.
 
 ## Philosophical Foundation
 
-Before observation, structure exists as constrained potential. **Data,
-or state, is the shadow cast by collapsed possibility.** Beneath
-immutable segments and schemes, observation momentarily activates the
-Field, precipitating the collapse of possibility and giving rise to a
-projection. A projection, as the residue of collapse, is transient; it
-constitutes what we recognize as data or state. Yet throughout this
-entire process, the fundamental structure itself remains untouched and
-unaltered.
+A System where Structured Deployment is the Path, and Observed Synthesis
+is the Computation: **Loops disappear into layout. Data, or state, is
+the shadow cast by collapsed possibility.**
+
+Beneath immutable segments and schemes, observation momentarily
+activates the Field, precipitating the collapse of possibility and
+giving rise to a projection. A projection, as the residue of collapse,
+is transient; it constitutes what we recognize as data or state. Yet
+throughout this entire process, the fundamental structure itself remains
+untouched and unaltered.
 
 
 

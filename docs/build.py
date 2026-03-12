@@ -201,16 +201,45 @@ def build_legal() -> bool:
     return True
 
 
+def build_manifesto(output_dir: Optional[Path] = None) -> bool:
+    """Render MANIFESTO.qmd to HTML as index.html."""
+    logger.info("Building manifesto...")
+    docs_root = Path(__file__).parent.absolute()
+    os.chdir(docs_root)
+
+    # Quarto render to HTML
+    quarto_cmd = ["quarto", "render", "MANIFESTO.md", "--to", "html", "--output", "index.html"]
+    if not run_command(quarto_cmd):
+        logger.error("Quarto render failed for manifesto.")
+        return False
+
+    # Optionally copy HTML to output_dir if provided
+    if output_dir:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        source_html = docs_root / "index.html"
+        dest_html = output_dir / "index.html"
+        try:
+            shutil.copy2(source_html, dest_html)
+            logger.info(f"Copied index.html to {dest_html}")
+        except Exception as e:
+            logger.error(f"Failed to copy index.html: {e}")
+            return False
+
+    logger.info("Manifesto build completed successfully.")
+    return True
+
+
 # Build function mapping per target
 BUILD_FUNCTIONS: Dict[str, Callable[..., bool]] = {
     "whitepaper": build_whitepaper,
     "proposal": build_proposal,
     "readme": build_readme,
     "legal": build_legal,
+    "manifesto": build_manifesto,
 }
 
 # list of targets that receive output_dir argument
-OUTPUT_DIR_TARGETS = {"whitepaper", "proposal"}
+OUTPUT_DIR_TARGETS = {"whitepaper", "proposal", "manifesto"}
 
 
 def parse_targets(targets_arg: List[str]) -> List[str]:
@@ -346,7 +375,7 @@ Examples:
         "targets",
         nargs="*",
         default=["all"],
-        help="Build targets: whitepaper, proposal, readme, legal, all (default: all)",
+        help="Build targets: whitepaper, proposal, readme, legal, manifesto, all (default: all)",
     )
 
     args = parser.parse_args()
