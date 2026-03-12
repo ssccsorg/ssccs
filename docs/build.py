@@ -201,14 +201,29 @@ def build_legal() -> bool:
     return True
 
 
+def build_guide() -> bool:
+    """Render docs/GUIDE.qmd to docs/GUIDE.md."""
+    logger.info("Building guide...")
+    docs_root = Path(__file__).parent.absolute()
+    os.chdir(docs_root)
+
+    quarto_cmd = ["quarto", "render", "GUIDE.qmd"]
+    if not run_command(quarto_cmd):
+        logger.error("Quarto render failed for guide.")
+        return False
+
+    logger.info("Guide built successfully.")
+    return True
+
+
 def build_manifesto(output_dir: Optional[Path] = None) -> bool:
-    """Render MANIFESTO.qmd to HTML as index.html."""
+    """Render MANIFESTO.qmd to HTML (index.html) and Markdown (MANIFESTO.md)."""
     logger.info("Building manifesto...")
     docs_root = Path(__file__).parent.absolute()
     os.chdir(docs_root)
 
     # Quarto render to HTML
-    quarto_cmd = ["quarto", "render", "MANIFESTO.md", "--to", "html", "--output", "index.html"]
+    quarto_cmd = ["quarto", "render", "MANIFESTO.qmd"]
     if not run_command(quarto_cmd):
         logger.error("Quarto render failed for manifesto.")
         return False
@@ -224,6 +239,14 @@ def build_manifesto(output_dir: Optional[Path] = None) -> bool:
         except Exception as e:
             logger.error(f"Failed to copy index.html: {e}")
             return False
+        source_md = docs_root / "MANIFESTO.md"
+        dest_md = output_dir / "MANIFESTO.md"
+        try:
+            shutil.copy2(source_md, dest_md)
+            logger.info(f"Copied MANIFESTO.md to {dest_md}")
+        except Exception as e:
+            logger.error(f"Failed to copy MANIFESTO.md: {e}")
+            return False
 
     logger.info("Manifesto build completed successfully.")
     return True
@@ -235,6 +258,7 @@ BUILD_FUNCTIONS: Dict[str, Callable[..., bool]] = {
     "proposal": build_proposal,
     "readme": build_readme,
     "legal": build_legal,
+    "guide": build_guide,
     "manifesto": build_manifesto,
 }
 
@@ -375,7 +399,7 @@ Examples:
         "targets",
         nargs="*",
         default=["all"],
-        help="Build targets: whitepaper, proposal, readme, legal, manifesto, all (default: all)",
+        help="Build targets: whitepaper, proposal, readme, legal, guide, manifesto, all (default: all)",
     )
 
     args = parser.parse_args()
