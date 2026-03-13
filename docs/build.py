@@ -38,30 +38,20 @@ logger = logging.getLogger(__name__)
 # Special target configurations
 SPECIAL_CONFIG: Dict[str, Dict[str, Any]] = {
     "whitepaper": {
-        "qmd": "whitepaper/whitepaper.qmd",
         "output_dir": True,
         "c2pa": True,
         "copy_pdf": True,
     },
     "proposal": {
-        "qmd": "proposal/proposal.qmd",
         "output_dir": True,
         "c2pa": True,
         "copy_pdf": True,
     },
     "readme": {
-        "qmd": "README.qmd",
         "to": "gfm",
         "copy_to_root": True,
     },
-    "legal": {
-        "qmd": "legal/legal.qmd",
-    },
-    "guide": {
-        "qmd": "GUIDE.qmd",
-    },
     "manifesto": {
-        "qmd": "MANIFESTO.qmd",
         "output_dir": True,
         "copy_html": True,
         "copy_md": True,
@@ -110,12 +100,24 @@ def discover_qmd_targets(docs_root: Path) -> Dict[str, Dict[str, Any]]:
 
 def get_target_config(docs_root: Path) -> Dict[str, Dict[str, Any]]:
     """
-    Return merged configuration: special config overrides discovered defaults.
+    Return merged configuration: special config updates discovered defaults.
     """
     discovered = discover_qmd_targets(docs_root)
-    # Merge special config (overwrites discovered entries)
+    # Merge special config (updates discovered entries)
     for target, config in SPECIAL_CONFIG.items():
-        discovered[target] = config
+        if target not in discovered:
+            logger.error(f"Target '{target}' not found in discovered .qmd files")
+            sys.exit(1)
+        # Update discovered config with special config, preserving missing keys
+        discovered[target].update(config)
+        # Validate that qmd stem matches target name (case-insensitive)
+        qmd_path = Path(discovered[target]["qmd"])
+        if qmd_path.stem.lower() != target.lower():
+            logger.error(
+                f"Target name '{target}' does not match QMD file stem '{qmd_path.stem}' "
+                f"(expected '{target}.qmd' or similar)"
+            )
+            sys.exit(1)
     return discovered
 
 
