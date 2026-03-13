@@ -36,8 +36,6 @@ format:
     font-size: 11pt
     page-layout: full
     code-overflow: wrap
-    include-before-body:
-      file: ../_include/title_meta.html    
     include-in-header:
       file: ../_include/default_html_style.html
     format-links: false
@@ -68,18 +66,12 @@ format:
     mainfont: "Arial"
     include-in-header:
       text: |
-        \usepackage{xcolor}
         \usepackage{geometry}
         \geometry{bottom=1.6cm, footskip=1cm}
-
-        \setkeys{Gin}{width=\linewidth,height=\textheight,keepaspectratio}
-        \DeclareTOCStyleEntry[beforeskip=6pt]{default}{section}
-        \DeclareTOCStyleEntry[beforeskip=0pt]{default}{subsection}
-        \input{./_include/proposal_metadata.tex}        
+        \input{./_include/proposal_metadata.tex}
+        
         \makeatletter
         \def\@maketitle{
-          {\scriptsize \texttt{\color{lightgray}\version} \par}
-          \vspace{0.3em}
           {\LARGE \bfseries \@title \par}
           \vspace{0.3em}
           {\large \@subtitle \par}
@@ -99,9 +91,10 @@ format:
 #| echo: false
 #| include: false
 #| context: local
-%run ../_include/_generate_metadata_tex.py --output ./_include/proposal_metadata.tex --version_prefix 1
+%run ../_include/_generate_metadata_tex.py --output ./_include/proposal_metadata.tex --version_prefix 1.0 --versionmark
 ```
 
+{{< include ../_include/_title_meta_extension.qmd >}}
 
 ## The Problem We Face
 
@@ -112,7 +105,7 @@ Today, data movement consumes 60–80% of energy in modern AI accelerators [@eye
 ::: {layout-ncol=2}
 ```{python}
 #| echo: false
-#| fig-cap: "Relative energy cost of various operations (normalized to arithmetic). Data from Eyeriss (ISCA 2016) [@]."
+#| fig-cap: "Relative energy cost of various operations (normalized to arithmetic). Data from Eyeriss (ISCA 2016) [@eyeriss2016]."
 #| label: fig-energy-breakdown
 
 import matplotlib.pyplot as plt
@@ -183,6 +176,8 @@ This shift from instruction sequencing to structural revelation changes everythi
 
 SSCCS is not a replacement for all computing—sequential, interaction-heavy workloads may stay as they are. But for the workloads that dominate our future, the von Neumann bottleneck is the primary constraint:
 
+- **Space systems** face radiation-induced errors and tight power constraints. SSCCS enables each field composition to act as a standalone binary unit, providing structural reproducibility and verifiable execution that are resilient in extreme environments.
+- **Swarm robotics** suffers from coordination overhead and limited communication. With fields as composable program units, SSCCS allows emergent coordination where each robot executes the same logical structure, acting as a distributed system without central coordination.
 - **AI at scale** means moving terabytes of weights through limited memory bandwidth. SSCCS keeps weights stationary and observes them in place. With AI power demand projected to reach 23 GW by 2026 [@techspot2025], eliminating data movement is no longer optional—it’s essential.
 - **Climate modeling** requires processing massive grids with complex dependencies. SSCCS encodes those dependencies as geometry, cutting redundant data movement.
 - **Autonomous systems** need verifiable real-time decisions. SSCCS provides deterministic outputs that are auditable by design, not retroactively.
