@@ -24,7 +24,7 @@ import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import List, Optional, Dict, Callable, Tuple
+from typing import List, Optional, Dict, Callable, Tuple, Any
 
 # Configure logging
 logging.basicConfig(
@@ -33,6 +33,181 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger(__name__)
+
+
+# Special target configurations
+SPECIAL_CONFIG: Dict[str, Dict[str, Any]] = {
+    "whitepaper": {
+        "qmd": "whitepaper/whitepaper.qmd",
+        "output_dir": True,
+        "c2pa": True,
+        "copy_pdf": True,
+    },
+    "proposal": {
+        "qmd": "proposal/proposal.qmd",
+        "output_dir": True,
+        "c2pa": True,
+        "copy_pdf": True,
+    },
+    "readme": {
+        "qmd": "README.qmd",
+        "to": "gfm",
+        "copy_to_root": True,
+    },
+    "legal": {
+        "qmd": "legal/legal.qmd",
+    },
+    "guide": {
+        "qmd": "GUIDE.qmd",
+    },
+    "manifesto": {
+        "qmd": "MANIFESTO.qmd",
+        "output_dir": True,
+        "copy_html": True,
+        "copy_md": True,
+    },
+}
+
+
+def discover_qmd_targets(docs_root: Path) -> Dict[str, Dict[str, Any]]:
+    """
+    Scan docs_root for .qmd files and return target configurations.
+    Excludes directories like _include, _extensions, _utils, _output, _regseal_files.
+    """
+    exclude_dirs = {"_include", "_extensions", "_utils", "_output", "_regseal_files"}
+    targets = {}
+    for qmd_path in docs_root.rglob("*.qmd"):
+        # Skip files in excluded directories
+        if any(part in exclude_dirs for part in qmd_path.parts):
+            continue
+        rel_path = qmd_path.relative_to(docs_root)
+        # Target name is the stem of the file (extension removed), lowercased.
+        # If duplicate stems exist, append parent directory name to disambiguate.
+        target_name = rel_path.stem.lower()
+        if target_name in targets:
+            parent = rel_path.parent.name
+            if parent:
+                target_name = f"{target_name}_{parent}"
+            else:
+                suffix = 2
+                while f"{target_name}_{suffix}" in targets:
+                    suffix += 1
+                target_name = f"{target_name}_{suffix}"
+        # Default config
+        config = {
+            "qmd": str(rel_path),
+            "output_dir": False,
+            "c2pa": False,
+            "copy_pdf": False,
+            "copy_to_root": False,
+            "to": None,
+            "copy_html": False,
+            "copy_md": False,
+        }
+        targets[target_name] = config
+    return targets
+
+
+def get_target_config(docs_root: Path) -> Dict[str, Dict[str, Any]]:
+    """
+    Return merged configuration: special config overrides discovered defaults.
+    """
+    discovered = discover_qmd_targets(docs_root)
+    # Merge special config (overwrites discovered entries)
+    for target, config in SPECIAL_CONFIG.items():
+        discovered[target] = config
+    return discovered
+
+
+def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path] = None) -> bool:
+    """
+    Generic build function that renders a .qmd file and performs optional post‑processing.
+    """
+    logger.info(f"Building {target}...")
+    docs_root = Path(__file__).parent.absolute()
+    os.chdir(docs_root)
+    
+    qmd_path = Path(config["qmd"])
+    if not qmd_path.exists():
+        logger.error(f"Qmd file not found: {qmd_path}")
+        return False
+    
+    # Step 1: Quarto render
+    quarto_cmd = ["quarto", "render", str(qmd_path)]
+    if config.get("to"):
+        quarto_cmd.extend(["--to", config["to"]])
+    if not run_command(quarto_cmd):
+        logger.error(f"Quarto render failed for {target}.")
+        return False
+    
+    # Determine generated files
+    stem = qmd_path.stem
+    parent = qmd_path.parent
+    generated_pdf = parent / f"{stem}.pdf"
+    generated_html = parent / f"{stem}.html"
+    generated_md = parent / f"{stem}.md"
+    
+    # Step 2: C2PA signing (if enabled)
+    if config.get("c2pa") and generated_pdf.exists():
+        manifest_path = parent / f"{stem}.c2pa_manifest.json"
+        output_c2pa = parent / f"{stem}.c2pa"
+        sign_cmd = [
+            "python3", "_utils/sign_c2pa.py",
+            "--pdf", str(generated_pdf),
+            "--manifest", str(manifest_path),
+            "--output", str(output_c2pa),
+        ]
+        if not run_command(sign_cmd):
+            logger.warning(f"C2PA signing failed for {target}. Proceeding without signature.")
+    
+    # Step 3: Copy PDF to output_dir (if enabled)
+    if config.get("copy_pdf") and generated_pdf.exists():
+        dest_dir = Path(output_dir).absolute() if output_dir else docs_root
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        dest_pdf = dest_dir / f"{stem}.pdf"
+        try:
+            shutil.move(str(generated_pdf), str(dest_pdf))
+            logger.info(f"Copied PDF to {dest_pdf}")
+        except Exception as e:
+            logger.error(f"Failed to copy PDF: {e}")
+            return False
+    
+    # Step 4: Copy to project root (if enabled)
+    if config.get("copy_to_root") and generated_md.exists():
+        root_path = docs_root.parent / "README.md"
+        if root_path.is_symlink() and root_path.resolve() == generated_md.resolve():
+            logger.info(f"Root README.md is a symlink; skipping copy.")
+        else:
+            try:
+                shutil.copy2(str(generated_md), str(root_path))
+                logger.info(f"Copied README.md to project root: {root_path}")
+            except Exception as e:
+                logger.error(f"Failed to copy README.md to root: {e}")
+                return False
+    
+    # Step 5: Copy HTML/Markdown to output_dir (if enabled)
+    if output_dir and (config.get("copy_html") or config.get("copy_md")):
+        dest_dir = Path(output_dir).absolute()
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        if config.get("copy_html") and generated_html.exists():
+            dest_html = dest_dir / "index.html"
+            try:
+                shutil.copy2(str(generated_html), str(dest_html))
+                logger.info(f"Copied index.html to {dest_html}")
+            except Exception as e:
+                logger.error(f"Failed to copy index.html: {e}")
+                return False
+        if config.get("copy_md") and generated_md.exists():
+            dest_md = dest_dir / f"{stem}.md"
+            try:
+                shutil.copy2(str(generated_md), str(dest_md))
+                logger.info(f"Copied {stem}.md to {dest_md}")
+            except Exception as e:
+                logger.error(f"Failed to copy {stem}.md: {e}")
+                return False
+    
+    logger.info(f"{target} build completed successfully.")
+    return True
 
 
 def run_command(cmd: List[str], cwd: Optional[Path] = None) -> bool:
@@ -72,198 +247,23 @@ def run_command(cmd: List[str], cwd: Optional[Path] = None) -> bool:
         return False
 
 
-def build_whitepaper(output_dir: Optional[Path] = None) -> bool:
-    """Build the SSCCS whitepaper with C2PA signing."""
-    logger.info("Building whitepaper...")
-    docs_root = Path(__file__).parent.absolute()
-    os.chdir(docs_root)
-
-    # Step 1: Quarto render
-    quarto_cmd = ["quarto", "render", "whitepaper/whitepaper.qmd"]
-    if not run_command(quarto_cmd):
-        logger.error("Quarto render failed. Aborting whitepaper build.")
-        return False
-
-    # Step 2: C2PA signing (non-fatal)
-    sign_cmd = [
-        "python3", "_utils/sign_c2pa.py",
-        "--pdf", "whitepaper/whitepaper.pdf",
-        "--manifest", "whitepaper/whitepaper.c2pa_manifest.json",
-        "--output", "whitepaper/whitepaper.c2pa",
-    ]
-    if not run_command(sign_cmd):
-        logger.warning("C2PA signing failed. Proceeding without signature.")
-
-    # Step 3: Copy PDF
-    source_pdf = docs_root / "whitepaper" / "whitepaper.pdf"
-    if not source_pdf.exists():
-        logger.error(f"Generated PDF not found at {source_pdf}")
-        return False
-
-    dest_dir = Path(output_dir).absolute() if output_dir else docs_root
-    dest_dir.mkdir(parents=True, exist_ok=True)
-    dest_pdf = dest_dir / "whitepaper.pdf"
-
-    try:
-        shutil.move(source_pdf, dest_pdf)
-        logger.info(f"Copied PDF to {dest_pdf}")
-    except Exception as e:
-        logger.error(f"Failed to copy PDF: {e}")
-        return False
-
-    logger.info("Whitepaper build completed successfully.")
-    return True
+DOCS_ROOT = Path(__file__).parent.absolute()
+TARGET_CONFIG = get_target_config(DOCS_ROOT)
 
 
-def build_proposal(output_dir: Optional[Path] = None) -> bool:
-    """Build the SSCCS proposal with C2PA signing."""
-    logger.info("Building proposal...")
-    docs_root = Path(__file__).parent.absolute()
-    os.chdir(docs_root)
 
-    # Step 1: Quarto render
-    quarto_cmd = ["quarto", "render", "proposal/proposal.qmd"]
-    if not run_command(quarto_cmd):
-        logger.error("Quarto render failed. Aborting proposal build.")
-        return False
+# Build function mapping per target (auto‑generated from TARGET_CONFIG)
+BUILD_FUNCTIONS: Dict[str, Callable[..., bool]] = {}
+for target, config in TARGET_CONFIG.items():
+    # Create a closure that captures target and config
+    def make_builder(tgt, cfg):
+        def builder(output_dir: Optional[Path] = None) -> bool:
+            return build_generic(tgt, cfg, output_dir)
+        return builder
+    BUILD_FUNCTIONS[target] = make_builder(target, config)
 
-    # Step 2: C2PA signing (non-fatal)
-    sign_cmd = [
-        "python3", "_utils/sign_c2pa.py",
-        "--pdf", "proposal/proposal.pdf",
-        "--manifest", "proposal/proposal.c2pa_manifest.json",
-        "--output", "proposal/proposal.c2pa",
-    ]
-    if not run_command(sign_cmd):
-        logger.warning("C2PA signing failed. Proceeding without signature.")
-
-    # Step 3: Copy PDF
-    source_pdf = docs_root / "proposal" / "proposal.pdf"
-    if not source_pdf.exists():
-        logger.error(f"Generated PDF not found at {source_pdf}")
-        return False
-
-    dest_dir = Path(output_dir).absolute() if output_dir else docs_root
-    dest_dir.mkdir(parents=True, exist_ok=True)
-    dest_pdf = dest_dir / "proposal.pdf"
-
-    try:
-        shutil.move(source_pdf, dest_pdf)
-        logger.info(f"Copied PDF to {dest_pdf}")
-    except Exception as e:
-        logger.error(f"Failed to copy PDF: {e}")
-        return False
-
-    logger.info("Proposal build completed successfully.")
-    return True
-
-
-def build_readme() -> bool:
-    """Render docs/README.qmd to docs/README.md and copy to root."""
-    logger.info("Building README...")
-    docs_root = Path(__file__).parent.absolute()
-    os.chdir(docs_root)
-
-    quarto_cmd = ["quarto", "render", "README.qmd", "--to", "gfm"]
-    if not run_command(quarto_cmd):
-        logger.error("Quarto render failed for README.")
-        return False
-
-    rendered_path = docs_root / "README.md"
-    root_path = docs_root.parent / "README.md"
-
-    if root_path.is_symlink() and root_path.resolve() == rendered_path.resolve():
-        logger.info(f"Root README.md is a symlink; skipping copy.")
-    else:
-        try:
-            shutil.copy2(rendered_path, root_path)
-            logger.info(f"Copied README.md to project root: {root_path}")
-        except Exception as e:
-            logger.error(f"Failed to copy README.md to root: {e}")
-            return False
-
-    logger.info("README built successfully.")
-    return True
-
-
-def build_legal() -> bool:
-    """Render docs/legal/legal.qmd to docs/legal/legal.md."""
-    logger.info("Building legal document...")
-    docs_root = Path(__file__).parent.absolute()
-    os.chdir(docs_root)
-
-    quarto_cmd = ["quarto", "render", "legal/legal.qmd"]
-    if not run_command(quarto_cmd):
-        logger.error("Quarto render failed for legal document.")
-        return False
-
-    logger.info("Legal document built successfully.")
-    return True
-
-
-def build_guide() -> bool:
-    """Render docs/GUIDE.qmd to docs/GUIDE.md."""
-    logger.info("Building guide...")
-    docs_root = Path(__file__).parent.absolute()
-    os.chdir(docs_root)
-
-    quarto_cmd = ["quarto", "render", "GUIDE.qmd"]
-    if not run_command(quarto_cmd):
-        logger.error("Quarto render failed for guide.")
-        return False
-
-    logger.info("Guide built successfully.")
-    return True
-
-
-def build_manifesto(output_dir: Optional[Path] = None) -> bool:
-    """Render MANIFESTO.qmd to HTML (index.html) and Markdown (MANIFESTO.md)."""
-    logger.info("Building manifesto...")
-    docs_root = Path(__file__).parent.absolute()
-    os.chdir(docs_root)
-
-    # Quarto render to HTML
-    quarto_cmd = ["quarto", "render", "MANIFESTO.qmd"]
-    if not run_command(quarto_cmd):
-        logger.error("Quarto render failed for manifesto.")
-        return False
-
-    # Optionally copy HTML to output_dir if provided
-    if output_dir:
-        output_dir.mkdir(parents=True, exist_ok=True)
-        source_html = docs_root / "index.html"
-        dest_html = output_dir / "index.html"
-        try:
-            shutil.copy2(source_html, dest_html)
-            logger.info(f"Copied index.html to {dest_html}")
-        except Exception as e:
-            logger.error(f"Failed to copy index.html: {e}")
-            return False
-        source_md = docs_root / "MANIFESTO.md"
-        dest_md = output_dir / "MANIFESTO.md"
-        try:
-            shutil.copy2(source_md, dest_md)
-            logger.info(f"Copied MANIFESTO.md to {dest_md}")
-        except Exception as e:
-            logger.error(f"Failed to copy MANIFESTO.md: {e}")
-            return False
-
-    logger.info("Manifesto build completed successfully.")
-    return True
-
-
-# Build function mapping per target
-BUILD_FUNCTIONS: Dict[str, Callable[..., bool]] = {
-    "whitepaper": build_whitepaper,
-    "proposal": build_proposal,
-    "readme": build_readme,
-    "legal": build_legal,
-    "guide": build_guide,
-    "manifesto": build_manifesto,
-}
-
-# list of targets that receive output_dir argument
-OUTPUT_DIR_TARGETS = {"whitepaper", "proposal", "manifesto"}
+# list of targets that receive output_dir argument (those with output_dir=True in config)
+OUTPUT_DIR_TARGETS = {t for t, cfg in TARGET_CONFIG.items() if cfg.get("output_dir")}
 
 
 def parse_targets(targets_arg: List[str]) -> List[str]:
@@ -399,7 +399,7 @@ Examples:
         "targets",
         nargs="*",
         default=["all"],
-        help="Build targets: whitepaper, proposal, readme, legal, guide, manifesto, all (default: all)",
+        help="Build targets: any discovered .qmd file (e.g., whitepaper, proposal, readme, legal, guide, manifesto, pt, ...) or 'all' (default: all)",
     )
 
     args = parser.parse_args()
