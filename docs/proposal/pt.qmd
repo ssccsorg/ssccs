@@ -1,6 +1,6 @@
 ---
 title: "A New Foundation for Efficient and Trustworthy Computing"
-subtitle: "SSCCS: Observation-Driven Computation beyond the Von Neumann Model"
+subtitle: "SSCCS: Schema–Segment Composition Computing System"
 institute: "SSCCS Foundation"
 email: "proposal@ssccs.org"
 website: "https://ssccs.org"
@@ -15,21 +15,35 @@ format:
     classoption: [12pt]
     fonttheme: "professionalfonts"
     slide-level: 2
+    include-in-header:
+        text: |
+            \setbeamertemplate{title page}{
+                \centering
+                \begin{beamercolorbox}[sep=8pt,center]{title}
+                    \usebeamerfont{title}\inserttitle\par
+                    \ifx\insertsubtitle\@empty\else
+                    \vskip0.25em
+                    {\usebeamerfont{subtitle}\usebeamercolor[fg]{subtitle}\insertsubtitle\par}
+                    \fi
+                \end{beamercolorbox}
+                \vskip1em
+                {\usebeamerfont{author}\insertauthor}\par
+                {\usebeamerfont{institute}\insertinstitute}\par
+                {\usebeamerfont{date}\insertdate}\par
+                \vskip1.5em
+                \input{./_include/pt_metadata.tex}
+                {\scriptsize \texttt{\color{lightgray}\version} \par}
+            }
 ---
+
 ```{python}
 #| echo: false
 #| include: false
-import matplotlib.pyplot as plt
-import numpy as np
-import graphviz
-from IPython.display import display, SVG
-
-def dot_svg(code, h="150px"):
-    src = graphviz.Source(code)
-    svg_str = src.pipe(format='svg').decode('utf-8')
-    styled_svg = svg_str.replace('<svg ', f'<svg style="height:{h}; width:auto;" ')
-    return SVG(styled_svg)
+#| context: local
+%run ../_include/_graphviz.py
+%run ../_include/_generate_metadata_tex.py --output ./_include/pt_metadata.tex --version_prefix 1
 ```
+
 ## Introducing
 
 **Taeho Lee, Founder & Engineering Architect** ([lee@ssccs.org](mailto:lee@ssccs.org))
@@ -39,9 +53,27 @@ def dot_svg(code, h="150px"):
 
 <br /><br />
 
-### How it started: Background
+### SSCCS is
 
-While the industry races to build bigger hardware, SSCCS began from a time-series interpreation project on preserving structure in chaotic high‑dimensional data forced us to rethink computation itself: **Without a new software philosophy, even the best hardware hits a wall.**
+A computing model by geometrically arranging data and observing structure under dynamic constraints without moving it.
+
+- Von Neumann: dynamic data, static logic. 
+- SSCCS: static geometry, dynamic constraints: data emerges as projection.
+
+---
+
+## Current Status
+
+| Founder         | Solo, Berlin-based                          |
+|-----------------|---------------------------------------------|
+| Legal           | Non-profit (in preparation), global scope   |
+| Project         | Long-term research + technical validation   |
+| Initial         | Whitepaper on CERN/Zenodo                   |
+| PoC             | Rust – early primitives in progress         |
+| Research        | Topic papers → insights feed back to core   |
+| Partners        | EU, South Korea, any aligned public-interest|
+| Operating principle | Research + implementation + partnership in parallel |
+
 
 ---
 
@@ -115,7 +147,7 @@ plt.show()
 
 **What if data never moved at all?**
 
-SSCCS (Schema–Segment Composition Computing System) emerged from research on high‑dimensional time‑series data, where preserving structure across chaotic systems forced us to rethink computation.
+SSCCS emerged from research on high‑dimensional time‑series data, where preserving structure across chaotic systems forced us to rethink computation.
 
 Instead of fetching and storing, SSCCS treats computation as observation of stationary structure.
 
@@ -132,6 +164,20 @@ Instead of fetching and storing, SSCCS treats computation as observation of stat
 ```
 
 **Loops disappear into layout. Data, or state, is the shadow cast by collapsed possibility.** A System where Structured Deployment is the Path, and Observed Synthesis is the Computation
+
+---
+
+## Core Contrast
+
+**Von Neumann:**  
+- Data/state is **dynamic** and stored in memory  
+- Logic/instructions are **static**  
+- Computation = moving data through fixed logic over time  
+
+**SSCCS:**  
+- No intrinsic data/state – only **static geometric structure** (Segments + Scheme)  
+- Constraints (Field) are **dynamic**  
+- Computation = applying dynamic constraints to static geometry → **projects ephemeral data/state** as results  
 
 ---
 
@@ -250,6 +296,7 @@ digraph OnePlusOneMemory {
 - Numbers are **never stored** in Segments – they are attached as constraints in the Field.
 - The addition emerges from observing the structure under those constraints.
 
+---
 
 ## Why This Matters
 
@@ -266,19 +313,7 @@ digraph OnePlusOneMemory {
 - **Autonomous systems**: Verifiable real‑time decisions.
 - **Scientific computing**: I/O energy and latency eliminated.
 
-
-## Current Status
-
-| Founder         | Solo, Berlin-based                          |
-|-----------------|---------------------------------------------|
-| Legal           | Non-profit (in preparation), global scope   |
-| Project         | Long-term research + technical validation   |
-| Initial         | Whitepaper on CERN/Zenodo                   |
-| PoC             | Rust – early primitives in progress         |
-| Research        | Topic papers → insights feed back to core   |
-| Partners        | EU, South Korea, any aligned public-interest|
-| Operating principle | Research + implementation + partnership in parallel |
-
+---
 
 ## What We Ask
 

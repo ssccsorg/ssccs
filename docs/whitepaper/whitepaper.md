@@ -42,9 +42,9 @@ accessible, and energy-efficient Intellectual Public Commons.
 
 ## Philosophical Foundation
 
-A System where Structured Deployment is the Path, and Observed Synthesis
-is the Computation: **Loops disappear into layout. Data, or state, is
-the shadow cast by collapsed possibility.**
+**Loops disappear into layout. Data, or state, is the shadow cast by
+collapsed possibility:** A System where Structured Deployment is the
+Path, and Observed Synthesis is the Computation
 
 Beneath immutable segments and schemes, observation momentarily
 activates the Field, precipitating the collapse of possibility and

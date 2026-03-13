@@ -1,6 +1,6 @@
 # Schema–Segment Composition Computing System
 
-2026-03-12
+2026-03-13
 
 - [Manifesto](#manifesto)
   - [Part I — Ontological Break](#part-i--ontological-break)
@@ -32,7 +32,7 @@
 
 # Manifesto
 
-Loops disappear into layout: A System where Structured Deployment is the
+Loops disappear into layout. A System where Structured Deployment is the
 Path, and Observed Synthesis is the Computation
 
 ## Part I — Ontological Break

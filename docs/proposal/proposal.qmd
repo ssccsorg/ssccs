@@ -36,6 +36,8 @@ format:
     font-size: 11pt
     page-layout: full
     code-overflow: wrap
+    include-before-body:
+      file: ../_include/title_meta.html    
     include-in-header:
       file: ../_include/default_html_style.html
     format-links: false
@@ -73,7 +75,7 @@ format:
         \setkeys{Gin}{width=\linewidth,height=\textheight,keepaspectratio}
         \DeclareTOCStyleEntry[beforeskip=6pt]{default}{section}
         \DeclareTOCStyleEntry[beforeskip=0pt]{default}{subsection}
-        \input{./_include/_metadata.tex}        
+        \input{./_include/proposal_metadata.tex}        
         \makeatletter
         \def\@maketitle{
           {\scriptsize \texttt{\color{lightgray}\version} \par}
@@ -97,10 +99,9 @@ format:
 #| echo: false
 #| include: false
 #| context: local
-%run ../_include/_generate_metadata_tex.py --output ./_include/_metadata.tex --version_prefix 1
+%run ../_include/_generate_metadata_tex.py --output ./_include/proposal_metadata.tex --version_prefix 1
 ```
 
-{{< include ../_include/_title_meta_extension.qmd >}}
 
 ## The Problem We Face
 
