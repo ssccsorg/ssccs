@@ -26,7 +26,6 @@ import graphviz
 import contextlib, io
 from IPython.display import display
 from IPython.display import SVG
-from IPython.display import HTML
 
 def _extract_inner_dot(code):
     """Extract content inside the first '{' and last '}' if the code starts with 'digraph'."""
@@ -56,10 +55,7 @@ def dot(code):
         return display(src)
 
 def dot_svg(code, h="150px"):
-    inner = _extract_inner_dot(code)
-    src = graphviz.Source(f"digraph G {{ graph [ratio=shrink]; {inner} }}")
-    
+    src = graphviz.Source(code)
     svg_str = src.pipe(format='svg').decode('utf-8')
     styled_svg = svg_str.replace('<svg ', f'<svg style="height:{h}; width:auto;" ')
-    
-    return display(HTML(styled_svg))
+    return SVG(styled_svg)

@@ -350,8 +350,12 @@ def build_targets(
             results[target] = success
 
     # Summary of results
+    succeeded = [t for t, s in results.items() if s]
     failed = [t for t, s in results.items() if not s]
+    
     if failed:
+        if succeeded:
+            logger.info(f"Successful targets: {succeeded}")
         logger.error(f"Failed targets: {failed}")
         return False
 

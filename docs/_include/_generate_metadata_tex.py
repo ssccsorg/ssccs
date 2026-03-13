@@ -11,6 +11,7 @@ import argparse
 import hashlib
 import yaml
 from datetime import datetime
+import textwrap
 
 def extract_front_matter(qmd_path):
     """Extract YAML front matter from a QMD file."""
@@ -39,6 +40,8 @@ def main():
                         help='Output LaTeX metadata file path')
     parser.add_argument('--version_prefix', '-p', default='0.1',
                         help='Version prefix (e.g., 0.1)')
+    parser.add_argument('--versionmark', action='store_true',
+                        help='Include background version watermark in PDF')
     args = parser.parse_args()
 
     # ----- Determine input file path -----
@@ -92,7 +95,22 @@ def main():
         f.write(f"\\newcommand{{\\authorrole}}{{{author.get('role', '')}}}\n")
         f.write(f"\\newcommand{{\\orcid}}{{{author.get('orcid', '')}}}\n")
         f.write(f"\\newcommand{{\\filehash}}{{{file_hash}}}\n")
-
+        if args.versionmark:
+            f.write(textwrap.dedent("""
+                \\usepackage{xcolor}
+                \\usepackage{graphicx}
+                \\usepackage{background}
+                \\backgroundsetup{
+                    contents={\\rotatebox{90}{\\ttfamily\\color{lightgray}\\version}},
+                        angle=0,
+                        scale=1,
+                        opacity=1,
+                        position=current page.east,
+                        vshift=0pt,
+                        hshift=-20pt
+                }
+            \n"""))
+                
     print(f"Metadata written to {args.output}")
 
 if __name__ == '__main__':
