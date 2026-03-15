@@ -7,6 +7,34 @@ Behavior:
   - Multiple targets: runs in PARALLEL by default
   - Use --sequence/-s to force sequential execution
 
+Caching:
+  - Outputs of non‑deterministic formats (pdf, beamer, html) are cached based on
+    the SHA‑256 hash of the QMD source file only. This prevents unnecessary
+    re‑renders when the source is unchanged, even if the generated file would be
+    slightly different (e.g. due to timestamps). The rendered output hash is
+    still stored for the `snapshot` command, but it is not used to decide whether
+    to render.
+  - Cache entries are stored in a `{qmd_stem}_localstore/` directory adjacent to
+    each QMD file. If the QMD hash matches the cached one, the Quarto render
+    step is skipped.
+
+Snapshot:
+  - Use `./build.py snapshot` to refresh cache hashes for all targets.
+  - Specify individual targets: `./build.py snapshot whitepaper proposal`
+  - **Important:** Snapshot updates the cache only when the QMD hash has not changed
+    (i.e., the source is identical to when the cache was created). If the QMD hash
+    changed, the cache is removed, forcing a rebuild on the next build.
+  - This avoids recording stale outputs and eliminates reliance on file timestamps.
+
+Important:
+  - Formats are rendered one by one (each in a separate `quarto render` call)
+    to avoid a known Quarto issue where multiple `--to` flags may not update all formats.
+  - The script **never** guesses output filenames. It uses `quarto inspect` to obtain
+    the exact output path for each format. If that information is unavailable, the
+    build fails for that target.
+  - Destination filenames in post‑processing (e.g., `index.html`, `README.md`) are
+    hardcoded only as part of the target‑specific behavior defined in `SPECIAL_CONFIG`.
+
 Usage:
   ./build.py whitepaper                     # Single target
   ./build.py whitepaper readme              # Multiple -> parallel by default
@@ -14,17 +42,24 @@ Usage:
   ./build.py -s whitepaper proposal readme  # Force sequential execution
   ./build.py -j 2 whitepaper,proposal       # Parallel with 2 jobs
   ./build.py -o ./dist whitepaper proposal  # With output directory
+  ./build.py snapshot                       # Refresh cache for all targets
+  ./build.py snapshot whitepaper proposal   # Refresh cache for specific targets
 """
 
 import argparse
+import hashlib
+import json
 import logging
-import os
 import shutil
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import List, Optional, Dict, Callable, Tuple, Any
+from functools import lru_cache
+
+# Formats that are considered non‑deterministic (cached based on QMD hash only)
+NON_DETERMINISTIC_FORMATS = {"pdf", "beamer", "html"}
 
 # Configure logging
 logging.basicConfig(
@@ -33,6 +68,344 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger(__name__)
+
+
+@lru_cache(maxsize=128)
+def compute_file_hash(path: Path) -> str:
+    """Compute SHA-256 hash of a file."""
+    try:
+        with open(path, 'rb') as f:
+            return hashlib.file_digest(f, 'sha256').hexdigest()
+    except FileNotFoundError:
+        raise
+
+
+def target_produces_pdf(config: Dict[str, Any]) -> bool:
+    """
+    Return True if the target is expected to produce PDF/beamer output.
+    """
+    target_format = config.get("to")
+    if target_format in ("pdf", "beamer"):
+        return True
+    if target_format is None and config.get("copy_pdf"):
+        # No explicit format but copy_pdf suggests PDF will be generated
+        return True
+    return False
+
+
+@lru_cache(maxsize=128)
+def inspect_qmd(qmd_path: Path) -> Optional[Dict[str, Any]]:
+    """
+    Run `quarto inspect` on the QMD file and return the parsed JSON.
+    Returns None on failure.
+    """
+    try:
+        result = subprocess.run(
+            ["quarto", "inspect", str(qmd_path)],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return json.loads(result.stdout)
+    except Exception as e:
+        logger.warning(f"Failed to inspect {qmd_path}: {e}")
+        return None
+
+
+def get_formats_from_qmd(qmd_path: Path) -> List[str]:
+    """
+    Inspect the QMD file and return a list of output formats defined in its YAML.
+    Returns empty list on failure.
+    """
+    data = inspect_qmd(qmd_path)
+    if data is None:
+        return []
+    formats = data.get("formats", {})
+    return list(formats.keys())
+
+
+def get_format_output_path(qmd_path: Path, fmt: str) -> Optional[Path]:
+    """
+    Determine the output file path for a given format using quarto inspect.
+    Returns None if format not found or path cannot be determined.
+    """
+    data = inspect_qmd(qmd_path)
+    if data is None:
+        return None
+    formats = data.get("formats", {})
+    if fmt not in formats:
+        return None
+    # Look for output-file in pandoc section
+    pandoc = formats[fmt].get("pandoc", {})
+    output_file = pandoc.get("output-file")
+    if output_file:
+        # Path is relative to the QMD's parent directory
+        return qmd_path.parent / output_file
+    # If no explicit output-file, Quarto uses a default based on format.
+    # We do NOT guess; we return None because we cannot be certain.
+    # The caller must handle this as an error.
+    return None
+
+
+def get_moved_path_for_format(
+    qmd_path: Path,
+    fmt: str,
+    config: Dict[str, Any],
+    output_dir: Optional[Path],
+    docs_root: Path,
+    source_path: Path,  # the primary output path (must be known)
+) -> Optional[Path]:
+    """
+    Return the path where the output file for the given format is moved
+    after post‑processing, if any. Returns None if no move applies or if
+    the source path is unknown.
+    """
+    stem = qmd_path.stem
+    # PDF moves
+    if fmt in ("pdf", "beamer") and config.get("copy_pdf"):
+        dest_dir = output_dir.absolute() if output_dir else docs_root
+        return dest_dir / f"{stem}.pdf"
+    # HTML moves (manifesto) – note: the moved file is always 'index.html' in the dest dir
+    if fmt == "html" and config.get("copy_html"):
+        dest_dir = output_dir.absolute() if output_dir else docs_root
+        return dest_dir / "index.html"
+    # Markdown moves (manifesto) – moved file keeps stem name
+    if fmt in ("gfm", "markdown") and config.get("copy_md"):
+        dest_dir = output_dir.absolute() if output_dir else docs_root
+        return dest_dir / f"{stem}.md"
+    # README copy to project root (special case for 'readme' target)
+    if fmt == "gfm" and config.get("copy_to_root"):
+        return docs_root.parent / "README.md"
+    return None
+
+
+def find_existing_output(
+    qmd_path: Path,
+    fmt: str,
+    config: Optional[Dict[str, Any]],
+    output_dir: Optional[Path],
+) -> Optional[Path]:
+    """
+    Find an existing output file for the given format, considering possible
+    moved locations (copy_pdf, copy_html, copy_md, copy_to_root).
+    Returns the path if found, otherwise None.
+    """
+    # Primary output path (must be known)
+    primary = get_format_output_path(qmd_path, fmt)
+    if primary is None:
+        # Cannot determine output path – treat as missing.
+        return None
+
+    candidates = [primary]
+
+    # Add moved location if applicable
+    if config:
+        docs_root = Path(__file__).parent.absolute()
+        moved = get_moved_path_for_format(qmd_path, fmt, config, output_dir, docs_root, primary)
+        if moved and moved != primary:
+            candidates.append(moved)
+
+    # Return first existing candidate
+    for cand in candidates:
+        if cand.exists():
+            return cand
+    return None
+
+
+def get_cache_dir(qmd_path: Path) -> Path:
+    """Return the _localstore directory for a QMD file."""
+    return qmd_path.parent / f"{qmd_path.stem}_localstore"
+
+
+def get_cache_file(qmd_path: Path, fmt: str) -> Path:
+    """Return the cache file path for a given format."""
+    return get_cache_dir(qmd_path) / f"rendered_{fmt}.txt"
+
+
+def read_hash_pair(cache_file: Path) -> Optional[Tuple[str, str]]:
+    """
+    Read hash pair from cache file.
+    Returns (qmd_hash, output_hash) or None if missing/malformed.
+    """
+    if not cache_file.exists():
+        return None
+    try:
+        with open(cache_file, 'r') as f:
+            line = f.read().strip()
+        if '_' in line:
+            a, b = line.split('_', 1)
+            if len(a) == 64 and len(b) == 64:  # SHA-256 hex length
+                return (a, b)
+    except Exception:
+        pass
+    return None
+
+
+def write_hash_pair(cache_file: Path, qmd_hash: str, output_hash: str) -> None:
+    """Write hash pair to cache file."""
+    cache_file.parent.mkdir(parents=True, exist_ok=True)
+    with open(cache_file, 'w') as f:
+        f.write(f"{qmd_hash}_{output_hash}")
+
+
+def should_render_format(
+    qmd_path: Path,
+    fmt: str,
+    config: Optional[Dict[str, Any]] = None,
+    output_dir: Optional[Path] = None,
+) -> bool:
+    """
+    Determine whether a given format needs to be rendered based on cached QMD hash.
+    For non‑deterministic formats, we only compare the QMD hash; the output hash
+    is ignored to avoid unnecessary re‑renders when the generated file would be
+    slightly different (e.g. due to timestamps). Deterministic formats are always
+    rendered.
+    Returns True if render is needed, False if up‑to‑date.
+    """
+    # Only cache non‑deterministic formats; others always render
+    if fmt not in NON_DETERMINISTIC_FORMATS:
+        logger.info(f"{fmt} is considered deterministic, always render.")
+        return True
+
+    existing_output = find_existing_output(qmd_path, fmt, config, output_dir)
+
+    if existing_output is None:
+        logger.info(f"No {fmt} output found for {qmd_path.name}, need render.")
+        return True
+
+    qmd_hash = compute_file_hash(qmd_path)
+    logger.info(f"Checking cache for {qmd_path.name} ({fmt}): QMD hash {qmd_hash[:16]}...")
+    cache_file = get_cache_file(qmd_path, fmt)
+    pair = read_hash_pair(cache_file)
+    if pair is None:
+        logger.info(f"No cache file found for {qmd_path.name} ({fmt}), need render.")
+        return True
+    cached_qmd, _ = pair
+    if cached_qmd == qmd_hash:
+        logger.info(f"Cache matches for {qmd_path.name} (QMD unchanged), skipping {fmt} render.")
+        return False
+    logger.info(f"Cache mismatch for {qmd_path.name} ({fmt}) – QMD changed, need render.")
+    return True
+
+
+def should_render_pdf(
+    qmd_path: Path,
+    pdf_path: Path,
+    config: Optional[Dict[str, Any]] = None,
+    output_dir: Optional[Path] = None,
+) -> bool:
+    """
+    Determine whether PDF needs to be rendered based on cached hashes.
+    Returns True if render is needed, False if up‑to‑date.
+    """
+    # delegate to generic function with format='pdf'
+    return should_render_format(qmd_path, 'pdf', config, output_dir)
+
+
+def update_format_cache(qmd_path: Path, fmt: str, output_path: Path) -> None:
+    """Update cache after successful render of a specific format."""
+    qmd_hash = compute_file_hash(qmd_path)
+    output_hash = compute_file_hash(output_path)
+    logger.info(f"Updating {fmt} cache for {qmd_path.name}: output hash {output_hash[:16]}...")
+    cache_file = get_cache_file(qmd_path, fmt)
+    write_hash_pair(cache_file, qmd_hash, output_hash)
+
+
+def refresh_cache_for_target(target: str, output_dir: Optional[Path] = None) -> bool:
+    """
+    Refresh the cache entries for a given target.
+    Updates the cache only when the QMD hash has not changed (i.e., the source is
+    identical to when the cache was created). If the QMD hash changed, the cache
+    is removed to force a rebuild on the next build. This avoids recording stale
+    outputs and eliminates reliance on file timestamps.
+    Returns True on success, False on failure.
+    """
+    if target not in TARGET_CONFIG:
+        logger.error(f"Unknown target '{target}'")
+        return False
+    config = TARGET_CONFIG[target]
+    docs_root = Path(__file__).parent.absolute()
+    qmd_path = docs_root / config["qmd"]
+    if not qmd_path.exists():
+        logger.error(f"Qmd file not found: {qmd_path}")
+        return False
+
+    # Determine all formats defined in the QMD
+    formats = get_formats_from_qmd(qmd_path)
+    if not formats:
+        logger.info(f"Target {target} has no defined output formats, skipping cache refresh.")
+        return True
+
+    current_qmd_hash = compute_file_hash(qmd_path)
+
+    for fmt in formats:
+        cache_file = get_cache_file(qmd_path, fmt)
+        existing_cache = read_hash_pair(cache_file)
+
+        output_path = find_existing_output(qmd_path, fmt, config, output_dir)
+
+        if output_path and output_path.exists():
+            # Output exists
+            if existing_cache is not None and existing_cache[0] == current_qmd_hash:
+                # QMD unchanged – update cache (output may have changed due to non‑determinism)
+                update_format_cache(qmd_path, fmt, output_path)
+                logger.info(f"Updated {fmt} cache for {target}")
+            else:
+                # QMD changed or cache missing – we cannot trust the output; remove cache to force rebuild
+                if cache_file.exists():
+                    cache_file.unlink()
+                    logger.info(f"Removed cache file for {target} ({fmt}) – QMD changed or cache missing")
+                else:
+                    logger.info(f"No cache file for {target} ({fmt}) – will rebuild on next run")
+        else:
+            # No output file (or output path unknown), remove cache file for this format
+            if cache_file.exists():
+                cache_file.unlink()
+                logger.info(f"Removed cache file for {target} ({fmt} output missing)")
+            else:
+                logger.info(f"No cache file for {target} ({fmt} output missing)")
+    return True
+
+
+def clean_quarto_artifacts(docs_root: Path) -> bool:
+    """
+    Remove Quarto-generated directories matching the patterns:
+      **/*_files
+      **/*_output
+      **/*_extensions
+      **/*_localstore
+    """
+    patterns = [
+        "**/*_files",
+        "**/*_output",
+        "**/*_extensions",
+        "**/*_localstore",
+    ]
+    deleted = []
+    errors = []
+    for pattern in patterns:
+        for item in docs_root.glob(pattern):
+            if item.is_dir():
+                try:
+                    shutil.rmtree(item)
+                    deleted.append(str(item))
+                    logger.info(f"Deleted directory: {item}")
+                except Exception as e:
+                    errors.append(f"Failed to delete {item}: {e}")
+            elif item.is_file():
+                try:
+                    item.unlink()
+                    deleted.append(str(item))
+                    logger.info(f"Deleted file: {item}")
+                except Exception as e:
+                    errors.append(f"Failed to delete {item}: {e}")
+    if deleted:
+        logger.info(f"Cleaned {len(deleted)} items.")
+    if errors:
+        for err in errors:
+            logger.error(err)
+        return False
+    return True
 
 
 # Special target configurations
@@ -121,97 +494,6 @@ def get_target_config(docs_root: Path) -> Dict[str, Dict[str, Any]]:
     return discovered
 
 
-def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path] = None) -> bool:
-    """
-    Generic build function that renders a .qmd file and performs optional post‑processing.
-    """
-    logger.info(f"Building {target}...")
-    docs_root = Path(__file__).parent.absolute()
-    os.chdir(docs_root)
-    
-    qmd_path = Path(config["qmd"])
-    if not qmd_path.exists():
-        logger.error(f"Qmd file not found: {qmd_path}")
-        return False
-    
-    # Step 1: Quarto render
-    quarto_cmd = ["quarto", "render", str(qmd_path)]
-    if config.get("to"):
-        quarto_cmd.extend(["--to", config["to"]])
-    if not run_command(quarto_cmd):
-        logger.error(f"Quarto render failed for {target}.")
-        return False
-    
-    # Determine generated files
-    stem = qmd_path.stem
-    parent = qmd_path.parent
-    generated_pdf = parent / f"{stem}.pdf"
-    generated_html = parent / f"{stem}.html"
-    generated_md = parent / f"{stem}.md"
-    
-    # Step 2: C2PA signing (if enabled)
-    if config.get("c2pa") and generated_pdf.exists():
-        manifest_path = parent / f"{stem}.c2pa_manifest.json"
-        output_c2pa = parent / f"{stem}.c2pa"
-        sign_cmd = [
-            "python3", "_utils/sign_c2pa.py",
-            "--pdf", str(generated_pdf),
-            "--manifest", str(manifest_path),
-            "--output", str(output_c2pa),
-        ]
-        if not run_command(sign_cmd):
-            logger.warning(f"C2PA signing failed for {target}. Proceeding without signature.")
-    
-    # Step 3: Copy PDF to output_dir (if enabled)
-    if config.get("copy_pdf") and generated_pdf.exists():
-        dest_dir = Path(output_dir).absolute() if output_dir else docs_root
-        dest_dir.mkdir(parents=True, exist_ok=True)
-        dest_pdf = dest_dir / f"{stem}.pdf"
-        try:
-            shutil.move(str(generated_pdf), str(dest_pdf))
-            logger.info(f"Copied PDF to {dest_pdf}")
-        except Exception as e:
-            logger.error(f"Failed to copy PDF: {e}")
-            return False
-    
-    # Step 4: Copy to project root (if enabled)
-    if config.get("copy_to_root") and generated_md.exists():
-        root_path = docs_root.parent / "README.md"
-        if root_path.is_symlink() and root_path.resolve() == generated_md.resolve():
-            logger.info(f"Root README.md is a symlink; skipping copy.")
-        else:
-            try:
-                shutil.copy2(str(generated_md), str(root_path))
-                logger.info(f"Copied README.md to project root: {root_path}")
-            except Exception as e:
-                logger.error(f"Failed to copy README.md to root: {e}")
-                return False
-    
-    # Step 5: Copy HTML/Markdown to output_dir (if enabled)
-    if output_dir and (config.get("copy_html") or config.get("copy_md")):
-        dest_dir = Path(output_dir).absolute()
-        dest_dir.mkdir(parents=True, exist_ok=True)
-        if config.get("copy_html") and generated_html.exists():
-            dest_html = dest_dir / "index.html"
-            try:
-                shutil.copy2(str(generated_html), str(dest_html))
-                logger.info(f"Copied index.html to {dest_html}")
-            except Exception as e:
-                logger.error(f"Failed to copy index.html: {e}")
-                return False
-        if config.get("copy_md") and generated_md.exists():
-            dest_md = dest_dir / f"{stem}.md"
-            try:
-                shutil.copy2(str(generated_md), str(dest_md))
-                logger.info(f"Copied {stem}.md to {dest_md}")
-            except Exception as e:
-                logger.error(f"Failed to copy {stem}.md: {e}")
-                return False
-    
-    logger.info(f"{target} build completed successfully.")
-    return True
-
-
 def run_command(cmd: List[str], cwd: Optional[Path] = None) -> bool:
     """
     Run a shell command and log its output.
@@ -249,9 +531,160 @@ def run_command(cmd: List[str], cwd: Optional[Path] = None) -> bool:
         return False
 
 
+def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path] = None) -> bool:
+    """
+    Generic build function that renders a .qmd file and performs optional post‑processing.
+    Formats are rendered one by one (separate `quarto render` calls) to avoid Quarto's
+    multi‑format issues.
+    """
+    logger.info(f"Building {target}...")
+    docs_root = Path(__file__).parent.absolute()
+
+    qmd_path = docs_root / config["qmd"]
+    if not qmd_path.exists():
+        logger.error(f"Qmd file not found: {qmd_path}")
+        return False
+
+    # Determine generated files early for caching
+    stem = qmd_path.stem
+    parent = qmd_path.parent
+
+    # Determine formats to render
+    target_format = config.get("to")
+    if target_format is None:
+        # inspect the QMD to get all formats
+        formats = get_formats_from_qmd(qmd_path)
+        if not formats:
+            logger.error(f"Could not determine output formats for {qmd_path}. "
+                         f"Please specify a format in the target config or ensure 'quarto inspect' works.")
+            return False
+    else:
+        formats = [target_format]
+
+    # Validate that we can determine output paths for all formats
+    format_output_paths = {}  # fmt -> Path (expected output before moves)
+    for fmt in formats:
+        output_path = get_format_output_path(qmd_path, fmt)
+        if output_path is None:
+            logger.error(f"Cannot determine output path for format '{fmt}' of {qmd_path}. "
+                         f"Please ensure 'quarto inspect' provides an 'output-file' or that the format is properly defined.")
+            return False
+        format_output_paths[fmt] = output_path
+
+    # Determine which formats need rendering
+    formats_to_render = []
+    for fmt in formats:
+        if should_render_format(qmd_path, fmt, config, output_dir):
+            formats_to_render.append(fmt)
+
+    # Render each format separately
+    if formats_to_render:
+        for fmt in formats_to_render:
+            logger.info(f"Rendering format: {fmt}")
+            quarto_cmd = ["quarto", "render", str(qmd_path), "--to", fmt]
+            if not run_command(quarto_cmd, cwd=docs_root):
+                logger.error(f"Quarto render failed for {target} (format {fmt}).")
+                return False
+            # Update cache for this format (if non‑deterministic)
+            if fmt in NON_DETERMINISTIC_FORMATS:
+                output_path = format_output_paths[fmt]
+                if output_path.exists():
+                    update_format_cache(qmd_path, fmt, output_path)
+                else:
+                    logger.warning(f"Expected output {output_path} not found after render for {fmt}")
+    else:
+        logger.info(f"All formats for {target} are up‑to‑date, skipping render.")
+
+    # Step 2: C2PA signing (if enabled) – assumes PDF exists at format_output_paths['pdf'] or similar
+    if config.get("c2pa"):
+        pdf_path = format_output_paths.get('pdf') or format_output_paths.get('beamer')
+        if pdf_path and pdf_path.exists():
+            manifest_path = parent / f"{stem}.c2pa_manifest.json"
+            output_c2pa = parent / f"{stem}.c2pa"
+            sign_cmd = [
+                "python3", "_utils/sign_c2pa.py",
+                "--pdf", str(pdf_path),
+                "--manifest", str(manifest_path),
+                "--output", str(output_c2pa),
+            ]
+            if not run_command(sign_cmd, cwd=docs_root):
+                logger.warning(f"C2PA signing failed for {target}. Proceeding without signature.")
+        else:
+            logger.warning(f"C2PA signing requested but PDF output not found for {target}")
+
+    # Step 3: Copy PDF to output_dir (if enabled)
+    if config.get("copy_pdf"):
+        pdf_path = format_output_paths.get('pdf') or format_output_paths.get('beamer')
+        if pdf_path and pdf_path.exists():
+            dest_dir = Path(output_dir).absolute() if output_dir else docs_root
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            dest_pdf = dest_dir / f"{stem}.pdf"
+            # Avoid moving if source and destination are the same
+            if dest_pdf.resolve() != pdf_path.resolve():
+                try:
+                    shutil.move(str(pdf_path), str(dest_pdf))
+                    logger.info(f"Moved PDF to {dest_pdf}")
+                except Exception as e:
+                    logger.error(f"Failed to move PDF: {e}")
+                    return False
+            else:
+                logger.info("PDF already at destination, skipping move.")
+
+    # Step 4: Copy to project root (if enabled) – applies to 'readme' target which uses 'gfm' format
+    if config.get("copy_to_root"):
+        md_path = format_output_paths.get('gfm')
+        if md_path and md_path.exists():
+            root_path = docs_root.parent / "README.md"
+            if root_path.is_symlink() and root_path.resolve() == md_path.resolve():
+                logger.info(f"Root README.md is a symlink; skipping copy.")
+            else:
+                try:
+                    shutil.copy2(str(md_path), str(root_path))
+                    logger.info(f"Copied README.md to project root: {root_path}")
+                except Exception as e:
+                    logger.error(f"Failed to copy README.md to root: {e}")
+                    return False
+        else:
+            logger.warning(f"copy_to_root enabled but Markdown output not found for {target}")
+
+    # Step 5: Copy HTML/Markdown to output_dir (if enabled)
+    if output_dir:
+        if config.get("copy_html"):
+            html_path = format_output_paths.get('html')
+            if html_path and html_path.exists():
+                dest_dir = Path(output_dir).absolute()
+                dest_dir.mkdir(parents=True, exist_ok=True)
+                dest_html = dest_dir / "index.html"
+                try:
+                    shutil.copy2(str(html_path), str(dest_html))
+                    logger.info(f"Copied index.html to {dest_html}")
+                except Exception as e:
+                    logger.error(f"Failed to copy index.html: {e}")
+                    return False
+            else:
+                logger.warning(f"copy_html enabled but HTML output not found for {target}")
+        if config.get("copy_md"):
+            # Note: assumes Markdown format is either 'gfm' or 'markdown'
+            md_path = format_output_paths.get('gfm') or format_output_paths.get('markdown')
+            if md_path and md_path.exists():
+                dest_dir = Path(output_dir).absolute()
+                dest_dir.mkdir(parents=True, exist_ok=True)
+                dest_md = dest_dir / f"{stem}.md"
+                try:
+                    shutil.copy2(str(md_path), str(dest_md))
+                    logger.info(f"Copied {stem}.md to {dest_md}")
+                except Exception as e:
+                    logger.error(f"Failed to copy {stem}.md: {e}")
+                    return False
+            else:
+                logger.warning(f"copy_md enabled but Markdown output not found for {target}")
+
+    logger.info(f"{target} build completed successfully.")
+    return True
+
+
 DOCS_ROOT = Path(__file__).parent.absolute()
 TARGET_CONFIG = get_target_config(DOCS_ROOT)
-
 
 
 # Build function mapping per target (auto‑generated from TARGET_CONFIG)
@@ -316,10 +749,10 @@ def build_targets(
 ) -> bool:
     """
     Build multiple targets.
-    
+
     Behavior:
-      -If sequence_mode=True: run sequentially regardless of target count
-      -If sequence_mode=False and len(targets) > 1: run in parallel (default)
+      - If sequence_mode=True: run sequentially regardless of target count
+      - If sequence_mode=False and len(targets) > 1: run in parallel (default)
       - If sequence_mode=False and len(targets) == 1: run normally (no threading overhead)
     """
     if not targets:
@@ -352,7 +785,7 @@ def build_targets(
     # Summary of results
     succeeded = [t for t, s in results.items() if s]
     failed = [t for t, s in results.items() if not s]
-    
+
     if failed:
         if succeeded:
             logger.info(f"Successful targets: {succeeded}")
@@ -374,6 +807,17 @@ Behavior:
   - Multiple targets: runs in PARALLEL by default
   - Use --sequence/-s to force sequential execution
 
+Snapshot:
+  - Use `%(prog)s snapshot` to refresh cache hashes for all targets.
+  - Specify individual targets: `%(prog)s snapshot whitepaper proposal`
+  - Updates cache entries with current file hashes; missing PDFs cause cache removal.
+  - **Only updates if the QMD hash has not changed** – otherwise removes cache.
+
+Clean:
+  - Use `%(prog)s clean` to remove Quarto‑generated directories:
+      **/*_files, **/*_output, **/*_extensions, **/*_localstore
+  - Deletes all matching directories and files recursively.
+
 Examples:
   %(prog)s whitepaper                     # Single target
   %(prog)s whitepaper readme              # Multiple -> parallel by default
@@ -381,6 +825,9 @@ Examples:
   %(prog)s -s whitepaper proposal readme  # Force sequential execution
   %(prog)s -j 2 whitepaper,proposal       # Parallel with 2 jobs
   %(prog)s -o ./dist whitepaper proposal  # Specify output directory
+  %(prog)s snapshot                       # Refresh cache for all targets
+  %(prog)s snapshot whitepaper proposal   # Refresh cache for specific targets
+  %(prog)s clean                          # Remove Quarto artifacts
         """
     )
 
@@ -405,10 +852,38 @@ Examples:
         "targets",
         nargs="*",
         default=["all"],
-        help="Build targets: any discovered .qmd file (e.g., whitepaper, proposal, readme, legal, guide, manifesto, pt, ...) or 'all' (default: all)",
+        help="Build targets: any discovered .qmd file (e.g., whitepaper, proposal, readme, legal, guide, manifesto, pt, ...), 'all' (default: all), 'snapshot' to refresh cache hashes, or 'clean' to remove Quarto artifacts",
     )
 
     args = parser.parse_args()
+
+    # Clean special handling
+    if "clean" in args.targets:
+        docs_root = Path(__file__).parent.absolute()
+        success = clean_quarto_artifacts(docs_root)
+        sys.exit(0 if success else 1)
+
+    # Snapshot special handling
+    if "snapshot" in args.targets:
+        # Remove 'snapshot' from the list
+        snapshot_targets = [t for t in args.targets if t != "snapshot"]
+        # If no other targets, default to all targets
+        if not snapshot_targets:
+            snapshot_targets = list(BUILD_FUNCTIONS.keys())
+        else:
+            # Parse comma-separated and validate
+            snapshot_targets = parse_targets(snapshot_targets)
+            # Handle 'all' keyword
+            if "all" in snapshot_targets:
+                snapshot_targets = list(BUILD_FUNCTIONS.keys())
+            else:
+                snapshot_targets = validate_targets(snapshot_targets)
+        # Refresh cache for each target
+        success = True
+        for target in snapshot_targets:
+            if not refresh_cache_for_target(target, output_dir=args.output_dir):
+                success = False
+        sys.exit(0 if success else 1)
 
     # 'all' special handling
     if "all" in args.targets:

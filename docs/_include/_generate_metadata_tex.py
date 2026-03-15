@@ -113,5 +113,7 @@ def main():
                 
     print(f"Metadata written to {args.output}")
 
-if __name__ == '__main__':
+
+qmd_format = os.environ.get('QUARTO_FORMAT')
+if __name__ == '__main__' and (qmd_format == 'pdf' or qmd_format == 'beamer'):
     main()
