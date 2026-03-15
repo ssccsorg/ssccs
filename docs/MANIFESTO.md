@@ -1,8 +1,9 @@
-# Schema–Segment Composition Computing System
+# Manifesto
 
-2026-03-13
+2026-03-15
 
-- [Manifesto](#manifesto)
+- [Schema–Segment Composition Computing
+  System](#schemasegment-composition-computing-system)
   - [Part I — Ontological Break](#part-i--ontological-break)
     - [1. The End of Instruction](#1-the-end-of-instruction)
     - [2. Collapse as Computation](#2-collapse-as-computation)
@@ -30,7 +31,7 @@
     Pathway](#part-viii--transcendence-pathway)
   - [Final Declaration](#final-declaration)
 
-# Manifesto
+# Schema–Segment Composition Computing System
 
 Loops disappear into layout. A System where Structured Deployment is the
 Path, and Observed Synthesis is the Computation

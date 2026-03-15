@@ -39,9 +39,6 @@ format:
     include-in-header:
       file: ../_include/default_html_style.html
     format-links: false
-    title-meta-extension:
-      other-formats:
-        pdf: ../proposal.pdf
   pdf:
     geometry:
         - margin=16mm
@@ -68,33 +65,45 @@ format:
       text: |
         \usepackage{geometry}
         \geometry{bottom=1.6cm, footskip=1cm}
-        \input{./_include/proposal_metadata.tex}
-        
+        \input{./_include/proposal_metadata.tex}        
         \makeatletter
         \def\@maketitle{
           {\LARGE \bfseries \@title \par}
           \vspace{0.3em}
           {\large \@subtitle \par}
-            \vspace{2em}
-                \setlength{\tabcolsep}{20pt}
-                \begin{tabular}{@{} l l l}
-                    {\large \@author} & {\normalsize \affiliationname} & {\normalsize Whitepaper DOI} 
-                    \\[0.3em]
-                    {\normalsize \texttt{\href{mailto:\authoremail}{\authoremail}}} 
-                      & {\normalsize \texttt{\href{\affiliationurl}{\affiliationdomain}}}
-                      & {\normalsize \texttt{\href{https://doi.org/10.5281/zenodo.18759106}{10.5281/zenodo.18759106}}}
-                \end{tabular}
+          \vspace{2em}
         }
         \makeatother
 ---
 ```{python}
+title_meta_items = {
+    "pdf": [
+      {"title": "SSCCS Foundation", "link": "mailto:proposal@ssccs.org", "content": "proposal@ssccs.org"},
+      {"title": "SSCCS Foundation", "link": "https://ssccs.org", "content": "ssccs.org"},
+      {"title": "Other Formats", "link": "https://docs.ssccs.org/proposal", "content": "HTML"},
+      {"title": "View Slides", "link": "https://docs.ssccs.org/proposal/pt.pdf", "content": "PDF"},
+      {"title": "Concept Guide", "link": "https://github.com/ssccsorg/ssccs/blob/main/docs/GUIDE.md", "content": "GitHub"},      
+      {"title": "Whitepaper DOI", "link": "https://doi.org/10.5281/zenodo.18759106", "content": "10.5281/zenodo.18759106"},
+  ],
+  "html": [
+      {"title": "Other Formats", "link": "https://docs.ssccs.org/proposal.pdf", "content": "PDF", "content_class": "bi bi-file-pdf"},
+      {"title": "View Slides", "link": "https://docs.ssccs.org/proposal/pt.pdf", "content": "PDF", "content_class": "bi bi-file-pdf"},
+      {"title": "Whitepaper DOI", "link": "https://doi.org/10.5281/zenodo.18759106", "content": "10.5281/zenodo.18759106", "content_class": "bi bi-file-pdf"},
+      {"title": "Concept Guide", "link": "https://github.com/ssccsorg/ssccs/blob/main/docs/GUIDE.md", "content": "GitHub", "content_class": "bi bi-file-code"},      
+  ]
+}
+```
+
+```{python}
 #| echo: false
 #| include: false
 #| context: local
-%run ../_include/_generate_metadata_tex.py --output ./_include/proposal_metadata.tex --version_prefix 1.0 --versionmark
+%run ../_include/_generate_metadata_tex.py --output ./_include/proposal_metadata.tex --version_prefix 1.0 --version_mark
 ```
 
-{{< include ../_include/_title_meta_extension.qmd >}}
+{{< include ../_include/_title_meta_items_if_html.qmd >}}
+
+{{< include ../_include/_title_meta_items_if_pdf.qmd >}}
 
 ## The Problem We Face
 
@@ -163,6 +172,8 @@ Today, organizations compensate with redundant systems and lengthy certification
 ### A Different Approach
 
 We started from research on high-dimensional time-series data, where preserving structure across chaotic systems forced us to rethink what computation even is. The result is SSCCS (Schema–Segment Composition Computing System), built on a simple question: **what if data never moved at all?**
+
+SSCCS is an observation-driven, determistic computing model and its software compiler infrastructure by geometrically arranging data and observing structure under dynamic constraints without moving it.
 
 Instead of fetching and storing, SSCCS treats computation as the observation of stationary structure. Immutable units called Segments sit fixed in memory, arranged by geometric blueprints called Schemes. A mutable Field imposes constraints on these arrangements—like light casting shadows from a fixed sculpture. Computation happens when the Field triggers an Observation, collapsing the structure’s potential into a deterministic Projection.
 

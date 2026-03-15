@@ -2,6 +2,15 @@
 Taeho Lee
 February, 2026
 
+``` python
+title_meta_items = {
+   "html": [
+      {"title": "Other Formats", "link": "https://docs.ssccs.org/whitepaper.pdf", "content": "PDF", "content_class": "bi bi-file-pdf"},
+      {"title": "View Slides", "link": "https://docs.ssccs.org/proposal/pt.pdf", "content": "PDF", "content_class": "bi bi-file-pdf"},
+  ]
+}
+```
+
 ## Abstract
 
 SSCCS (Schema–Segment Composition Computing System) is an

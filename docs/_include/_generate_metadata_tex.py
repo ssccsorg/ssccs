@@ -40,7 +40,7 @@ def main():
                         help='Output LaTeX metadata file path')
     parser.add_argument('--version_prefix', '-p', default='0.1',
                         help='Version prefix (e.g., 0.1)')
-    parser.add_argument('--versionmark', action='store_true',
+    parser.add_argument('--version_mark', action='store_true',
                         help='Include background version watermark in PDF')
     args = parser.parse_args()
 
@@ -95,7 +95,7 @@ def main():
         f.write(f"\\newcommand{{\\authorrole}}{{{author.get('role', '')}}}\n")
         f.write(f"\\newcommand{{\\orcid}}{{{author.get('orcid', '')}}}\n")
         f.write(f"\\newcommand{{\\filehash}}{{{file_hash}}}\n")
-        if args.versionmark:
+        if args.version_mark:
             f.write(textwrap.dedent("""
                 \\usepackage{xcolor}
                 \\usepackage{graphicx}

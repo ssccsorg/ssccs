@@ -1,0 +1,42 @@
+::: {.content-visible when-format="html"}
+::: {.title-meta}
+```{python}
+#| echo: false
+
+items = title_meta_items['html']
+
+from IPython.display import HTML, display
+html_output = '<div class="title-meta-grid">\n'
+for item in items:
+    html_output += f'''
+    <div class="grid-item">
+        <div class="title-meta-label quarto-title-meta-heading">{item["title"]}</div>
+        <div class="title-meta-label quarto-title-meta-contents"><p><a href="{item["link"]}" class="title-meta-content {item["content_class"]}">{" "+item["content"]}</a></p></div>
+    </div>\n'''
+
+html_output += '</div>'
+display(HTML(html_output))
+```
+
+:::
+
+<style>
+.title-meta-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-column-gap: 1em;
+}
+
+.title-meta-label {
+  text-transform: uppercase;
+  font-size: 0.8em;
+  opacity: 0.8;
+  font-weight: 400;
+  margin-right: 0.3em;
+}
+
+.title-meta-content {
+  font-size: 0.9em;
+}
+</style>
+:::
