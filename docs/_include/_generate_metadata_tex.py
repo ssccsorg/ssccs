@@ -66,17 +66,32 @@ def main():
     date_short = datetime.now().strftime("%y%m%d")
     version_str = f"{args.version_prefix}-{date_short}-{file_hash[:6]}"
 
-    # ----- Extract YAML front matter -----
+    # ----- Extract YAML front matter (author/affiliations are optional) -----
     front = extract_front_matter(qmd_path)
-    if 'author' not in front or not isinstance(front['author'], list) or len(front['author']) == 0:
-        sys.exit("Error: Missing or invalid 'author' list in YAML")
-    author = front['author'][0]
 
-    # Affiliations
-    affiliations = author.get('affiliations')
-    if not affiliations or not isinstance(affiliations, list) or not affiliations[0].get('name'):
-        sys.exit("Error: Missing or invalid 'affiliations' in author")
-    aff = affiliations[0]  # use first affiliation
+    # Default empty values for all author and affiliation fields
+    author_name = ''
+    author_email = ''
+    author_role = ''
+    orcid = ''
+    affiliation_name = ''
+    affiliation_url = ''
+    affiliation_domain = ''
+
+    # Check if author information exists and is valid
+    if 'author' in front and isinstance(front['author'], list) and len(front['author']) > 0:
+        author = front['author'][0]
+        author_name = author.get('name', '')
+        author_email = author.get('email', '')
+        author_role = author.get('role', '')
+        orcid = author.get('orcid', '')
+
+        # Check for affiliations within the author
+        if 'affiliations' in author and isinstance(author['affiliations'], list) and len(author['affiliations']) > 0:
+            aff = author['affiliations'][0]
+            affiliation_name = aff.get('name', '')
+            affiliation_url = aff.get('url', '')
+            affiliation_domain = aff.get('domain', '')
 
     # ----- Ensure output directory -----
     os.makedirs(os.path.dirname(args.output), exist_ok=True)
@@ -85,15 +100,13 @@ def main():
     with open(args.output, 'w', encoding='utf-8') as f:
         f.write(f"\\newcommand{{\\version}}{{{version_str}}}\n")
         f.write(f"\\newcommand{{\\timestamp}}{{{datetime.now()}}}\n")
-        f.write(f"\\newcommand{{\\affiliationname}}{{{aff['name']}}}\n")
-        if 'url' in aff:
-            f.write(f"\\newcommand{{\\affiliationurl}}{{{aff['url']}}}\n")
-        if 'domain' in aff:
-            f.write(f"\\newcommand{{\\affiliationdomain}}{{{aff['domain']}}}\n")
-        f.write(f"\\newcommand{{\\authorname}}{{{author['name']}}}\n")
-        f.write(f"\\newcommand{{\\authoremail}}{{{author['email']}}}\n")
-        f.write(f"\\newcommand{{\\authorrole}}{{{author.get('role', '')}}}\n")
-        f.write(f"\\newcommand{{\\orcid}}{{{author.get('orcid', '')}}}\n")
+        f.write(f"\\newcommand{{\\affiliationname}}{{{affiliation_name}}}\n")
+        f.write(f"\\newcommand{{\\affiliationurl}}{{{affiliation_url}}}\n")
+        f.write(f"\\newcommand{{\\affiliationdomain}}{{{affiliation_domain}}}\n")
+        f.write(f"\\newcommand{{\\authorname}}{{{author_name}}}\n")
+        f.write(f"\\newcommand{{\\authoremail}}{{{author_email}}}\n")
+        f.write(f"\\newcommand{{\\authorrole}}{{{author_role}}}\n")
+        f.write(f"\\newcommand{{\\orcid}}{{{orcid}}}\n")
         f.write(f"\\newcommand{{\\filehash}}{{{file_hash}}}\n")
         if args.version_mark:
             f.write(textwrap.dedent("""
@@ -110,10 +123,8 @@ def main():
                         hshift=-20pt
                 }
             \n"""))
-                
+
     print(f"Metadata written to {args.output}")
 
-
-qmd_format = os.environ.get('QUARTO_FORMAT')
-if __name__ == '__main__' and (qmd_format == 'pdf' or qmd_format == 'beamer'):
+if __name__ == '__main__':
     main()

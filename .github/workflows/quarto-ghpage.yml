@@ -5,7 +5,14 @@ on:
   push:
     branches: ["main", "quarto-ghpage-test"]
     paths:
-      - 'docs/**'
+      - 'docs/**/*.py'
+      - 'docs/**/*.qmd'
+      - 'docs/**/*.txt'
+      - 'docs/**/*.yml'
+      - 'docs/**/*.txt'
+      - 'docs/**/*.svg'
+      - 'docs/**/*.bib'
+      - 'docs/**/*.csl'
       - '.github/workflows/quarto-ghpage.yml'
   workflow_dispatch:
 
@@ -22,7 +29,7 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           lfs: true
 
@@ -57,19 +64,36 @@ jobs:
           version: 1.9.35
           tinytex: false
 
-      - name: Install TinyTeX
+      - name: Install TinyTeX and required packages
+        id: tinytex
         run: |
           curl -sL "https://yihui.org/tinytex/install-bin-unix.sh" | sh
           echo "$HOME/bin" >> $GITHUB_PATH
           export PATH="$HOME/bin:$PATH"
           tlmgr path add
 
-      - name: Update TinyTeX packages and install basic collections
-        run: |
           tlmgr update --self --all
-          tlmgr install babel-english
-          tlmgr install collection-latexrecommended
-          
+          tlmgr install \
+            babel-english \
+            everypage \
+            background \
+            tcolorbox \
+            tikzfill \
+            pdfcol \
+            caption \
+            koma-script
+          tlmgr install beamer
+
+      - name: Cache TinyTeX
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.TinyTeX
+            ~/bin
+          key: ${{ runner.os }}-tinytex-${{ hashFiles('.github/workflows/quarto-ghpage.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-tinytex-
+                
       - name: Install c2patool
         run: |
           curl -L https://github.com/contentauth/c2patool/releases/download/v0.9.12/c2patool-v0.9.12-x86_64-unknown-linux-gnu.tar.gz -o /tmp/c2patool.tar.gz
@@ -88,10 +112,23 @@ jobs:
       - name: Gather output files
         run: |
           mkdir -p _site
-          rsync -avm --include='*/' --include='*.html' --include='*.pdf' --include='*.png' --include='*.jpg' --include='*.css' --include='*.js' --exclude='*' docs/ _site/
+          rsync -avm \
+            --exclude='*_files/' \
+            --exclude='*_output/' \
+            --exclude='*_extensions/' \
+            --include='*/' \
+            --include='*.html' \
+            --include='*.pdf' \
+            --include='*.png' \
+            --include='*.jpg' \
+            --include='*.css' \
+            --include='*.js' \
+            --include='*.c2pa' \
+            --exclude='*' \
+            docs/ _site/
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
         with:
           path: ./_site
 
