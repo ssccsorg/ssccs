@@ -1,0 +1,107 @@
+# Workflow for building Quarto site with Python and deploying to GitHub Pages
+name: Build and Deploy Quarto site
+
+on:
+  push:
+    branches: ["main", "quarto-ghpage-test"]
+    paths:
+      - 'docs/**'
+      - '.github/workflows/quarto-ghpage.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y graphviz librsvg2-bin
+
+      - name: Install Python dependencies
+        run: |
+          pip install \
+            PyYAML>=6.0 \
+            graphviz>=0.20 \
+            ipython>=8.0 \
+            plotly>=5.0 \
+            jupyter \
+            matplotlib>=3.0 \
+            numpy>=1.21 \
+            cairosvg
+
+      - name: Verify Python and Jupyter
+        run: |
+          python --version
+          python -m jupyter --version
+
+      - name: Setup Quarto (RC version)
+        uses: quarto-dev/quarto-actions/setup@v2
+        with:
+          version: 1.9.35
+          tinytex: false
+
+      - name: Install TinyTeX
+        run: |
+          curl -sL "https://yihui.org/tinytex/install-bin-unix.sh" | sh
+          echo "$HOME/bin" >> $GITHUB_PATH
+          export PATH="$HOME/bin:$PATH"
+          tlmgr path add
+
+      - name: Update TinyTeX packages and install basic collections
+        run: |
+          tlmgr update --self --all
+          tlmgr install babel-english
+          tlmgr install collection-latexrecommended
+          
+      - name: Install c2patool
+        run: |
+          curl -L https://github.com/contentauth/c2patool/releases/download/v0.9.12/c2patool-v0.9.12-x86_64-unknown-linux-gnu.tar.gz -o /tmp/c2patool.tar.gz
+          tar -xzf /tmp/c2patool.tar.gz -C /tmp
+          sudo mv /tmp/c2patool/c2patool /usr/local/bin/
+          chmod +x /usr/local/bin/c2patool
+          rm -rf /tmp/c2patool
+          c2patool --version
+
+      - name: Run build script
+        working-directory: docs
+        env:
+          QUARTO_PYTHON: python3
+        run: python build.py
+
+      - name: Gather output files
+        run: |
+          mkdir -p _site
+          rsync -avm --include='*/' --include='*.html' --include='*.pdf' --include='*.png' --include='*.jpg' --include='*.css' --include='*.js' --exclude='*' docs/ _site/
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./_site
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
