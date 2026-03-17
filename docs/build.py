@@ -369,17 +369,26 @@ def refresh_cache_for_target(target: str, output_dir: Optional[Path] = None) -> 
 
 def clean_quarto_artifacts(docs_root: Path) -> bool:
     """
-    Remove Quarto-generated directories matching the patterns:
-      **/*_files
-      **/*_output
-      **/*_extensions
-      **/*_locked
+    Remove Quarto-generated directories matching the patterns
     """
     patterns = [
         "**/*_files",
         "**/*_output",
         "**/*_extensions",
         "**/*_locked",
+
+        # quarto: final artifects
+        "**/*.tex",
+        "**/*.pdf",
+        "**/*.html",
+        "**/*.c2pa_identifier.svg",
+
+        # quarto: global
+        "**/*.quarto_ipynb",
+        "**/*.quarto",
+
+        # c2pa
+        "**/*.c2pa",
     ]
     deleted = []
     errors = []
