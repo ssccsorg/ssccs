@@ -13,55 +13,35 @@ date: 2026-03
 date-format: "MMMM, YYYY"
 date-modified: last-modified
 bibliography: ./_include/references.bib
-csl: ./../_include/ieee.csl
-link-citations: true
 colorlinks: true
 format:
   html:
     output-file: "index.html"
-    default-figure-format: "svg"
-    fig-format: "svg"
-    number-sections: false
-    execute:
-        eval: true
-        echo: false
-    embed-resources: true
-    self-contained-math: true 
-    minimal: true
-    theme: minimal
-    toc: true
-    toc-title: "Contents"
-    toc-expand: true
-    font-size: 11pt
-    page-layout: full
-    code-overflow: wrap
-    include-in-header:
-      file: ../_include/default_html_style.txt
-    format-links: false
   pdf:
+    mainfont: texgyreheros-regular.otf
+    mainfontoptions:
+      - BoldFont=texgyreheros-bold.otf
+      - ItalicFont=texgyreheros-italic.otf
+      - BoldItalicFont=texgyreheros-bolditalic.otf
     geometry:
         - margin=16mm
     default-figure-format: "pdf"
     fig-format: pdf
     fig-dpi: 300
-    number-sections: false
     toc-title: "Contents"
     execute:
         echo: false
-    papersize: a4
-    graphics: true
-    highlight-style: monochrome
     colorlinks: true
     linkcolor: darkgray
     citecolor: gray
     urlcolor: gray
     code-block-bg: false
     code-block-border-left: true
-    fig-pos: 'H'
-    fig-cap-location: bottom
     include-in-header:
       text: |
         \usepackage{geometry}
+        \usepackage{microtype}
+        \addtokomafont{disposition}{\rmfamily}
         \geometry{bottom=1.6cm, footskip=1cm}
         \input{./_files/proposal_metadata.tex}        
         \makeatletter

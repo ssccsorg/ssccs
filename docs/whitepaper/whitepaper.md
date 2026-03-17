@@ -882,6 +882,8 @@ dominates, this model offers a fundamentally different trade-off: one
 where verifiability, parallelism, and energy efficiency are not features
 to be added, but consequences of how computation is defined.
 
+
+
 ## References
 
 <div id="refs" class="references csl-bib-body" entry-spacing="0">
@@ -1214,9 +1216,9 @@ digraph SSFormat_Topology {
     rankdir=LR;
     nodesep=0.8;
     ranksep=1.0;
-    graph [fontname="Georgia", fontsize=11, pad=0.5];
-    node [fontname="Georgia", fontsize=10];
-    edge [fontname="Georgia", fontsize=9];
+    graph [fontsize=11, pad=0.5];
+    node [fontsize=10];
+    edge [fontsize=9];
     
     subgraph cluster_axes {
         label = "Axes (Dimensional Space)";
