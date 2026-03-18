@@ -101,32 +101,17 @@ jobs:
       - name: Add c2patool to PATH
         run: echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-      - name: Restore Quarto Execution Cache (_freeze)
-        id: restore-freeze
-        uses: actions/cache/restore@v4
-        with:
-          path: docs/_freeze
-          key: ${{ runner.os }}-quarto-freeze-${{ hashFiles('docs/**/*.py', 'docs/**/*.qmd', 'docs/**/*.txt', 'docs/**/*.css') }}
-          restore-keys: |
-            ${{ runner.os }}-quarto-freeze-
-
       - name: Run build script
         working-directory: docs
         env:
           QUARTO_PYTHON: python3
         run: python build.py
 
-      - name: Save Quarto Execution Cache (_freeze)
-        if: steps.restore-freeze.outputs.cache-hit != 'true' && hashFiles('docs/_freeze') != ''
-        uses: actions/cache/save@v4
-        with:
-          path: docs/_freeze
-          key: ${{ steps.restore-freeze.outputs.cache-primary-key }}
-
       - name: Gather output files
         run: |
           mkdir -p _site
           rsync -avm \
+            --exclude='.quarto/' \
             --exclude='*_files/' \
             --exclude='*_output/' \
             --exclude='*_extensions/' \
@@ -142,7 +127,7 @@ jobs:
             docs/ _site/
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
         with:
           path: ./_site
 
