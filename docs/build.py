@@ -27,8 +27,9 @@ Snapshot:
   - This avoids recording stale outputs and eliminates reliance on file timestamps.
 
 Important:
-  - Formats are rendered one by one (each in a separate `quarto render` call)
+  - Formats are rendered in parallel within each target (each in a separate `quarto render` call)
     to avoid a known Quarto issue where multiple `--to` flags may not update all formats.
+    Concurrency is limited to the number of formats per target.
   - The script **never** guesses output filenames. It uses `quarto inspect` to obtain
     the exact output path for each format. If that information is unavailable, the
     build fails for that target.
@@ -53,6 +54,7 @@ import logging
 import shutil
 import subprocess
 import sys
+import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import List, Optional, Dict, Callable, Tuple, Any
@@ -60,6 +62,19 @@ from functools import lru_cache
 
 # Formats that are considered non‑deterministic (cached based on QMD hash only)
 NON_DETERMINISTIC_FORMATS = {"pdf", "beamer", "html", "gfm"}
+
+# Per‑QMD locks to prevent concurrent Quarto renders on the same source file
+_QMD_LOCKS = {}
+_QMD_LOCKS_LOCK = threading.Lock()
+
+def _lock_for_qmd(qmd_path: Path) -> threading.Lock:
+    """Return a dedicated lock for the given QMD path."""
+    with _QMD_LOCKS_LOCK:
+        lock = _QMD_LOCKS.get(qmd_path)
+        if lock is None:
+            lock = threading.Lock()
+            _QMD_LOCKS[qmd_path] = lock
+        return lock
 
 # Configure logging
 logging.basicConfig(
@@ -585,21 +600,46 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
         if should_render_format(qmd_path, fmt, config, output_dir):
             formats_to_render.append(fmt)
 
-    # Render each format separately
+    # Render each format separately (parallel within target)
     if formats_to_render:
-        for fmt in formats_to_render:
+        logger.info(f"Rendering {len(formats_to_render)} format(s) for {target} in parallel")
+        # Define a worker function for a single format
+        def render_single_format(fmt):
             logger.info(f"Rendering format: {fmt}")
-            quarto_cmd = ["quarto", "render", str(qmd_path), "--to", fmt]
-            if not run_command(quarto_cmd, cwd=docs_root):
-                logger.error(f"Quarto render failed for {target} (format {fmt}).")
-                return False
-            # Update cache for this format (if non‑deterministic)
-            if fmt in NON_DETERMINISTIC_FORMATS:
-                output_path = format_output_paths[fmt]
-                if output_path.exists():
-                    update_format_cache(qmd_path, fmt, output_path)
+            # Acquire per‑QMD lock to avoid concurrent Quarto renders on the same source file
+            lock = _lock_for_qmd(qmd_path)
+            with lock:
+                quarto_cmd = ["quarto", "render", str(qmd_path), "--to", fmt]
+                if not run_command(quarto_cmd, cwd=docs_root):
+                    logger.error(f"Quarto render failed for {target} (format {fmt}).")
+                    return False
+                # Update cache for this format (if non‑deterministic)
+                if fmt in NON_DETERMINISTIC_FORMATS:
+                    output_path = format_output_paths[fmt]
+                    if output_path.exists():
+                        update_format_cache(qmd_path, fmt, output_path)
+                    else:
+                        logger.warning(f"Expected output {output_path} not found after render for {fmt}")
+            return True
+
+        # Use ThreadPoolExecutor to render formats in parallel
+        with ThreadPoolExecutor(max_workers=len(formats_to_render)) as executor:
+            futures = {executor.submit(render_single_format, fmt): fmt for fmt in formats_to_render}
+            success_count = 0
+            for future in as_completed(futures):
+                fmt = futures[future]
+                try:
+                    success = future.result()
+                except Exception as e:
+                    logger.error(f"Unexpected error while rendering {fmt}: {e}")
+                    success = False
+                if success:
+                    success_count += 1
                 else:
-                    logger.warning(f"Expected output {output_path} not found after render for {fmt}")
+                    logger.error(f"Format {fmt} failed, target may fail.")
+            if success_count != len(formats_to_render):
+                logger.error(f"One or more formats failed for {target}")
+                return False
     else:
         logger.info(f"All formats for {target} are up‑to‑date, skipping render.")
 
@@ -794,9 +834,9 @@ def main() -> None:
         formatter_class=argparse.RawTextHelpFormatter,
         epilog="""
 Behavior:
-  - Single target: runs normally
-  - Multiple targets: runs in PARALLEL by default
-  - Use --sequence/-s to force sequential execution
+  - Single target: formats are rendered in parallel within the target
+  - Multiple targets: runs in PARALLEL by default (targets parallel, formats parallel per target)
+  - Use --sequence/-s to force sequential execution across targets (formats remain parallel within each target)
 
 Snapshot:
   - Use `%(prog)s snapshot` to refresh cache hashes for all targets.
