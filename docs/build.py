@@ -8,28 +8,31 @@ Behavior:
   - Use --sequence/-s to force sequential execution
 
 Caching:
-  - Outputs of non‑deterministic formats (pdf, beamer, html) are cached based on
-    the SHA‑256 hash of the QMD source file only. This prevents unnecessary
-    re‑renders when the source is unchanged, even if the generated file would be
-    slightly different (e.g. due to timestamps). The rendered output hash is
-    still stored for the `snapshot` command, but it is not used to decide whether
-    to render.
+  - Outputs of non‑deterministic formats (pdf, beamer, html, gfm) are cached based on
+    a combined SHA‑256 hash that includes the QMD source file and all its dependencies
+    (included QMD files and Python files referenced by %run directives). This prevents
+    unnecessary re‑renders when the source or any dependency is unchanged, even if the
+    generated file would be slightly different (e.g. due to timestamps). The rendered
+    output hash is still stored for the `snapshot` command, but it is not used to decide
+    whether to render.
   - Cache entries are stored in a `{qmd_stem}_locked/` directory adjacent to
-    each QMD file. If the QMD hash matches the cached one, the Quarto render
+    each QMD file. If the combined hash matches the cached one, the Quarto render
     step is skipped.
 
 Snapshot:
   - Use `./build.py snapshot` to refresh cache hashes for all targets.
   - Specify individual targets: `./build.py snapshot whitepaper proposal`
-  - **Important:** Snapshot updates the cache only when the QMD hash has not changed
-    (i.e., the source is identical to when the cache was created). If the QMD hash
-    changed, the cache is removed, forcing a rebuild on the next build.
+  - **Important:** Snapshot updates the cache only when the combined source hash has not changed
+    (i.e., the source and its dependencies are identical to when the cache was created). If the
+    combined hash changed, the cache is removed, forcing a rebuild on the next build.
   - This avoids recording stale outputs and eliminates reliance on file timestamps.
 
 Important:
   - Formats are rendered in parallel within each target (each in a separate `quarto render` call)
     to avoid a known Quarto issue where multiple `--to` flags may not update all formats.
     Concurrency is limited to the number of formats per target.
+  - A per‑QMD lock ensures that concurrent Quarto renders on the same source file do not interfere
+    with each other (avoiding temporary‑directory collisions). This lock is transparent to the user.
   - The script **never** guesses output filenames. It uses `quarto inspect` to obtain
     the exact output path for each format. If that information is unavailable, the
     build fails for that target.
@@ -51,6 +54,7 @@ import argparse
 import hashlib
 import json
 import logging
+import re
 import shutil
 import subprocess
 import sys
@@ -93,6 +97,90 @@ def compute_file_hash(path: Path) -> str:
             return hashlib.file_digest(f, 'sha256').hexdigest()
     except FileNotFoundError:
         raise
+
+
+@lru_cache(maxsize=32)
+def compute_qmd_hash_with_deps(qmd_path: Path) -> str:
+    """
+    Compute a combined SHA‑256 hash that includes the QMD file itself and all
+    files it directly or indirectly includes (via `includeMap`) as well as
+    Python files referenced by `%run` directives in code cells.
+    """
+    visited = set()
+    # Helper to resolve relative paths relative to a base file
+    def resolve(base: Path, rel: str) -> Path:
+        # rel may be relative with '..' or '.'
+        return (base.parent / rel).resolve()
+
+    def collect(path: Path) -> None:
+        if path in visited:
+            return
+        visited.add(path)
+        data = inspect_qmd(path)
+        if data is None:
+            # If inspect fails, we still have the file itself; no further dependencies
+            return
+        fi = data.get("fileInformation", {})
+        # fi is a dict keyed by file path (absolute). Use the key that matches path
+        # (might be relative). We'll find the entry whose key ends with path.name
+        entry = None
+        for key, val in fi.items():
+            if Path(key).resolve() == path.resolve():
+                entry = val
+                break
+        if entry is None:
+            # No file information, treat as leaf
+            return
+        # Process includeMap
+        for inc in entry.get("includeMap", []):
+            target_rel = inc.get("target")
+            if target_rel:
+                target = resolve(path, target_rel)
+                # Only recurse into QMD files; other files are added as dependencies
+                if target.suffix.lower() == ".qmd":
+                    collect(target)
+                else:
+                    visited.add(target)
+        # Process codeCells for %run directives
+        for cell in entry.get("codeCells", []):
+            source = cell.get("source", "")
+            # Look for lines starting with %run
+            for line in source.splitlines():
+                line = line.strip()
+                if line.startswith("%run"):
+                    # Extract the first non‑whitespace token after %run
+                    parts = line.split()
+                    if len(parts) >= 2:
+                        run_path = parts[1]
+                        # Remove any trailing arguments (e.g., --output)
+                        run_path = run_path.split("--")[0].strip()
+                        if run_path:
+                            # Resolve relative to the cell's file (if given) else path
+                            cell_file = cell.get("file")
+                            base = Path(cell_file).parent if cell_file else path.parent
+                            try:
+                                dep = (base / run_path).resolve()
+                                if dep.exists():
+                                    visited.add(dep)
+                            except Exception:
+                                pass
+                    break  # only first %run per line? we'll continue scanning lines
+
+    # Start collection
+    collect(qmd_path.resolve())
+
+    # Compute combined hash
+    hasher = hashlib.sha256()
+    for dep in sorted(visited, key=lambda p: str(p)):
+        # Include each file's hash
+        try:
+            dep_hash = compute_file_hash(dep)
+            hasher.update(dep_hash.encode("utf-8"))
+        except FileNotFoundError:
+            # If a dependency disappears, we treat it as changed, causing a rebuild
+            # by including a placeholder.
+            hasher.update(b"<missing>")
+    return hasher.hexdigest()
 
 
 def target_produces_pdf(config: Dict[str, Any]) -> bool:
@@ -288,7 +376,7 @@ def should_render_format(
         logger.info(f"No {fmt} output found for {qmd_path.name}, need render.")
         return True
 
-    qmd_hash = compute_file_hash(qmd_path)
+    qmd_hash = compute_qmd_hash_with_deps(qmd_path)
     logger.info(f"Checking cache for {qmd_path.name} ({fmt}): QMD hash {qmd_hash[:16]}...")
     cache_file = get_cache_file(qmd_path, fmt)
     pair = read_hash_pair(cache_file)
@@ -319,7 +407,7 @@ def should_render_pdf(
 
 def update_format_cache(qmd_path: Path, fmt: str, output_path: Path) -> None:
     """Update cache after successful render of a specific format."""
-    qmd_hash = compute_file_hash(qmd_path)
+    qmd_hash = compute_qmd_hash_with_deps(qmd_path)
     output_hash = compute_file_hash(output_path)
     logger.info(f"Updating {fmt} cache for {qmd_path.name}: output hash {output_hash[:16]}...")
     cache_file = get_cache_file(qmd_path, fmt)
@@ -351,7 +439,7 @@ def refresh_cache_for_target(target: str, output_dir: Optional[Path] = None) -> 
         logger.info(f"Target {target} has no defined output formats, skipping cache refresh.")
         return True
 
-    current_qmd_hash = compute_file_hash(qmd_path)
+    current_qmd_hash = compute_qmd_hash_with_deps(qmd_path)
 
     for fmt in formats:
         cache_file = get_cache_file(qmd_path, fmt)
