@@ -91,7 +91,7 @@ SSCCS (Schema–Segment Composition Computing System) is an observation-driven c
 
 Computation is formalized as the deterministic projection of immutable Segments and Schemes within dynamic Fields. Acting as mutable constraint units, Fields enable recursive composition and allow governance logic to be encrypted or sandboxed at the binary level. The compiler performs structural mapping, embedding logic directly into hardware topology to ensure stationary data (Logic-at-Rest) and minimize movement. This design innovation mitigates data movement overhead and enables inherent parallelism, targeting dramatic improvements in performance and energy efficiency. Security and cryptographic auditability are geometrically natural consequences of this immutable structure, rather than added features.
 
-As a universal substrate, SSCCS provides a verifiable foundation for systems across domains—from AI to scientific computing to embedded systems. Driven by a software-first philosophy, this specification provides a roadmap where logical design dictates physical implementation, contrasting with current hardware advances that focus primarily on physical improvements. Ultimately, SSCCS aims to evolve into an open format[[-@sec-appendix-openformat]] at the language layer, transitioning logic into a transparent, accessible, and energy-efficient Intellectual Public Commons.
+As a universal substrate, SSCCS provides a verifiable foundation for systems across domains—from AI to scientific computing to embedded systems. Driven by a software-first philosophy, this specification provides a roadmap where logical design dictates physical implementation, contrasting with current hardware advances that focus primarily on physical improvements. Ultimately, SSCCS aims to evolve into an open format [*-@sec-appendix-openformat*] at the language layer, transitioning logic into a transparent, accessible, and energy-efficient Intellectual Public Commons.
 
 ## Philosophical Foundation {.unnumbered .unlisted}
 
@@ -536,7 +536,7 @@ Observation is deterministic: for identical $\Sigma$ and $F$, $\Omega$ always yi
 
 ## Compilation and Structural Mapping
 
-A key engineering contribution of SSCCS is that the compiler, rather than generating a sequence of instructions, performs structural mapping of the Schema onto the target hardware. The compiler analyses the adjacency relations and memory layout semantics declared in the Schema written in the open format(`.ss`)  [[@sec-appendix-openformat]] and produces a physical placement of Segments that maximises locality.
+A key engineering contribution of SSCCS is that the compiler, rather than generating a sequence of instructions, performs structural mapping of the Schema onto the target hardware. The compiler analyses the adjacency relations and memory layout semantics declared in the Schema written in the open format(`.ss`) [*-@sec-appendix-openformat*] and produces a physical placement of Segments that maximises locality.
 
 For example, if a Schema defines a two-dimensional grid of Segments with nearest-neighbour adjacency, the compiler can lay out those Segments in memory in row-major or column-major order such that adjacent Segments occupy adjacent cache lines. This is analogous to data layout optimisations performed manually in high-performance computing, but here it is automated and guaranteed by the Schema's specification.
 
@@ -607,7 +607,7 @@ The logical address space acts as a virtualisation layer, decoupling structural 
 
 Crucially, even on conventional von Neumann hardware, SSCCS overlays a structural interpretation: the compiler translates logical addresses into standard load/store operations, but the overall computation remains free of data movement because all necessary data is already resident where observation occurs.
 
-A detailed walkthrough of a concrete example of vector addition is provided in [[@sec-appendix-vector]], and the extension of higher-dimensional structures is elaborated in [[@sec-appendix-tensor]] and [[@sec-appendix-graph]].
+A detailed walkthrough of a concrete example of vector addition is provided in [*-@sec-appendix-vector*], and the extension of higher-dimensional structures is elaborated in [*-@sec-appendix-tensor*] and [*-@sec-appendix-graph*].
 
 ## Theoretical Performance & Scalability
 
@@ -751,81 +751,6 @@ While SSCCS can be implemented in software, its benefits are most pronounced wit
 - Processing-in-memory (PIM) for direct observation.
 - Spatial computation mapping adjacency to wiring.
 
-## Implementation Roadmap
-
-```{python}
-#| label: fig-roadmap
-#| fig-cap: "Implementation roadmap: three research phases"
-dot("""
-digraph Implementation_Roadmap {
-    rankdir=LR;
-    node [shape=rect];
-    Phase1 [label="Phase 1\\nSoftware Emulation\\n(Reference in Rust)"];
-    Phase2 [label="Phase 2\\nHardware Acceleration\\n(FPGA / PIM)"];
-    Phase3 [label="Phase 3\\nNative Observation-Centric Processors"];
-    Phase1 -> Phase2 [label="Validate"];
-    Phase2 -> Phase3 [label="Scale"];
-    subgraph cluster_goals {
-        label="Goals";
-        G1 [label="Structural Fidelity"];
-        G2 [label="Parallelism"];
-        G3 [label="Energy Efficiency"];
-    }
-    Phase1 -> G1;
-    Phase2 -> G2;
-    Phase3 -> G3;
-}
-"""
-)
-```
-
-### Phase 1: Software Emulation (Proof of Concept)
-
-- Rust reference implementation reading `.ss` specifications.
-- Validate model on small benchmarks.
-- Measure determinism, implicit parallelism, data movement reduction.
-
-### Phase 2: Hardware Acceleration (Transitional)
-
-- Map Schemes to FPGA fabrics.
-- Utilize PIM architectures as transitional substrate (UPMEM, Samsung FIM).
-- Develop compiler targeting CPUs (via SIMD) and FPGA/PIM.
-- Begin formal verification.
-
-### Phase 3: Native Observation-Centric Processors (Long-Term Research)
-
-- Design processor directly instantiating Schemes.
-- Integrate memory and logic in unified substrate (e.g., memristor arrays).
-- Evaluate energy efficiency for target domains.
-
-## Compiler as Migration Bridge
-
-The SSCCS compiler serves a dual purpose:
-
-1. **Adaptive Embedding (Phase 1-2):** Translate Schemes into von Neumann-compatible 
-   code (load/store, SIMD) or PIM primitives, accepting abstraction overhead.
-
-2. **Direct Instantiation (Phase 3):** Map Schemes directly to observation-centric 
-   hardware primitives, eliminating compatibility layers.
-
-This dual capability enables gradual migration without requiring a "flag day" 
-switchover. Organizations can adopt SSCCS incrementally, deploying on existing 
-infrastructure while preparing for native hardware.
-
-## Planned Validation Domains
-
-SSCCS is intended for validation across multiple domains.
-
-| Domain               | Traditional Challenge                                     | Expected Advantages              |
-|----------------------|-----------------------------------------------------------|------------------------------------------------------|
-| Climate modelling    | Massive state space, grid data movement                   | Constraint isolation, minimal data transfer |
-| Space systems        | Radiation-induced errors, power constraints               | Structural reproducibility, verifiable execution |
-| Protein folding      | Combinatorial explosion, long time scales                  | Massive parallel observation |
-| Swarm robotics       | Coordination overhead, limited communication              | Recursive composition, emergent coordination |
-| Financial modelling  | Real-time constraints, complex dependencies                | Deterministic projections, no race conditions |
-| Cryptographic systems| Side-channel attacks, verification complexity              | Immutable structure enables formal verification |
-| Autonomous vehicles  | Sensor fusion, real-time decision making                   | Constraint-based observation, deterministic response |
-
 ## Related Work
 
 Although SSCCS was developed without direct reference to prior work, its theoretical core reveals meaningful parallels with several established research domains:
@@ -857,9 +782,11 @@ SSCCS establishes five foundational principles:
 
 The most significant departure is the treatment of time as one coordinate among many, eliminating global sequentiality and enabling lock-free concurrency. The compiler's role correspondingly shifts from instruction scheduling to topological optimization—mapping logical adjacency directly onto physical locality.
 
-Open questions remain: formal treatment of nested Field dynamics, compiler infrastructure for geometric constraints at scale, and empirical validation of energy efficiency gains across target domains. Beyond engineering challenges, SSCCS invites a broader reconsideration of what computing is. If computation can be structured as the revelation of static potential rather than the execution of mutable instructions, then many assumptions about hardware design, programming languages, and system architecture become contingent rather than necessary. The open .ss format[[-@sec-appendix-openformat]] is a first step toward making these ideas concrete and composable.
+Open questions remain: formal treatment of nested Field dynamics, compiler infrastructure for geometric constraints at scale, and empirical validation of energy efficiency gains across target domains. Beyond engineering challenges, SSCCS invites a broader reconsideration of what computing is. If computation can be structured as the revelation of static potential rather than the execution of mutable instructions, then many assumptions about hardware design, programming languages, and system architecture become contingent rather than necessary. The open .ss format [*-@sec-appendix-openformat*] is a first step toward making these ideas concrete and composable.
 
-SSCCS is not proposed as a universal replacement for all computing. For problems inherently sequential or interaction-dominant, traditional models may remain appropriate. But for the growing class of data-intensive, parallel workloads where the von Neumann bottleneck dominates, this model offers a fundamentally different trade-off: one where verifiability, parallelism, and energy efficiency are not features to be added, but consequences of how computation is defined.
+SSCCS is not proposed as a universal replacement for all computing. For problems inherently sequential or interaction-dominant, traditional models may remain appropriate. But for the growing class of data-intensive, parallel workloads where the von Neumann bottleneck dominates, this model offers a fundamentally different trade-off: one where verifiability, parallelism, and energy efficiency are not features to be added, but consequences of how computation is defined. 
+
+For a detailed execution plan and phased development milestones, please refer to the Roadmap [*-@sec-appendix-roadmap*].
 
 {{< pagebreak >}}
 

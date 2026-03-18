@@ -1,15 +1,100 @@
+## Appendices {.unnumbered .appendix}
+
 ::: {.content-visible when-format="pdf"}
 \addtocontents{toc}{\protect\setcounter{tocdepth}{0}}
 \appendix
-\newpage
 \renewcommand{\thesection}{Appendix \Alph{section}}
 \renewcommand{\thesubsection}{\Alph{section}.\arabic{subsection}}
 :::
 
-::: {.content-visible when-format="html"}
-## Appendix {.unlisted .unnumbered include-in-toc="false"}
+## Project Roadmap {#sec-appendix-roadmap}
 
-:::
+SSCCS is designed for incremental adoption—start with software emulation
+today, transition to hardware acceleration as the technology matures, and ultimately
+deploy on native observation-centric processors. The open format ensures that
+investment in specification outlives any particular implementation.
+
+```{python}
+#| label: fig-roadmap
+#| fig-cap: "Implementation roadmap: three research phases"
+dot("""
+digraph Implementation_Roadmap {
+    rankdir=LR;
+    node [shape=rect];
+    Phase1 [label="Phase 1\\nSoftware Emulation\\n(Reference in Rust)"];
+    Phase2 [label="Phase 2\\nHardware Acceleration\\n(FPGA / PIM)"];
+    Phase3 [label="Phase 3\\nNative Observation-Centric Processors"];
+    Phase1 -> Phase2 [label="Validate"];
+    Phase2 -> Phase3 [label="Scale"];
+    subgraph cluster_goals {
+        label="Goals";
+        G1 [label="Structural Fidelity"];
+        G2 [label="Parallelism"];
+        G3 [label="Energy Efficiency"];
+    }
+    Phase1 -> G1;
+    Phase2 -> G2;
+    Phase3 -> G3;
+}
+"""
+)
+```
+
+### Implementation Phases
+
+#### Phase 1: Software Emulation (Proof of Concept)
+
+- Rust reference implementation reading the SS format specifications.
+- Validate model on small benchmarks.
+- Measure determinism, implicit parallelism, data movement reduction.
+
+#### Phase 2: Hardware Acceleration (Transitional)
+
+- Map Schemes to FPGA fabrics.
+- Utilize PIM architectures as transitional substrate (UPMEM, Samsung FIM).
+- Develop compiler targeting CPUs (via SIMD) and FPGA/PIM.
+- Begin formal verification.
+
+#### Phase 3: Native Observation-Centric Processors (Long-Term Research)
+
+- Design processor directly instantiating Schemes.
+- Integrate memory and logic in unified substrate (e.g., memristor arrays).
+- Evaluate energy efficiency for target domains.
+
+### Compiler Layer as Migration Bridge
+
+The SSCCS compiler serves a dual purpose:
+
+1. **Adaptive Embedding (Phase 1-2):** Translate Schemes into von Neumann-compatible 
+   code (load/store, SIMD) or PIM primitives, accepting abstraction overhead.
+   
+   *Example:* A climate model grid can be compiled to standard C + OpenMP today,
+   while retaining the same format specification for future hardware.
+
+2. **Direct Instantiation (Phase 3):** Map Schemes directly to observation-centric 
+   hardware primitives, eliminating compatibility layers.
+   
+   *Example:* The same scheme grid can later be synthesized directly onto a 
+   memristor array without rewriting.
+
+This dual capability enables gradual migration without requiring a "flag day" 
+switchover. Organizations can adopt SSCCS incrementally, deploying on existing 
+infrastructure while preparing for native hardware.
+
+### Domain Validations
+
+SSCCS is intended for validation across multiple domains.
+
+| Domain               | Traditional Challenge                                     | Expected Advantages              |
+|----------------------|-----------------------------------------------------------|------------------------------------------------------|
+| Climate modelling    | Massive state space, grid data movement                   | Constraint isolation, minimal data transfer |
+| Space systems        | Radiation-induced errors, power constraints               | Structural reproducibility, verifiable execution |
+| Protein folding      | Combinatorial explosion, long time scales                  | Massive parallel observation |
+| Swarm robotics       | Coordination overhead, limited communication              | Recursive composition, emergent coordination |
+| Financial modelling  | Real-time constraints, complex dependencies                | Deterministic projections, no race conditions |
+| Cryptographic systems| Side-channel attacks, verification complexity              | Immutable structure enables formal verification |
+| Autonomous vehicles  | Sensor fusion, real-time decision making                   | Constraint-based observation, deterministic response |
+
 
 ## Vector Addition Example {#sec-appendix-vector}
 

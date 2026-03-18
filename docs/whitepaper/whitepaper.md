@@ -44,10 +44,10 @@ systems. Driven by a software-first philosophy, this specification
 provides a roadmap where logical design dictates physical
 implementation, contrasting with current hardware advances that focus
 primarily on physical improvements. Ultimately, SSCCS aims to evolve
-into an open
-format\[<a href="#sec-appendix-openformat" class="quarto-xref">14</a>\]
-at the language layer, transitioning logic into a transparent,
-accessible, and energy-efficient Intellectual Public Commons.
+into an open format
+\[*<a href="#sec-appendix-openformat" class="quarto-xref">12</a>*\] at
+the language layer, transitioning logic into a transparent, accessible,
+and energy-efficient Intellectual Public Commons.
 
 ## Philosophical Foundation
 
@@ -430,8 +430,8 @@ than generating a sequence of instructions, performs structural mapping
 of the Schema onto the target hardware. The compiler analyses the
 adjacency relations and memory layout semantics declared in the Schema
 written in the open format(`.ss`)
-\[<a href="#sec-appendix-openformat" class="quarto-xref">Section 14</a>\]
-and produces a physical placement of Segments that maximises locality.
+\[*<a href="#sec-appendix-openformat" class="quarto-xref">12</a>*\] and
+produces a physical placement of Segments that maximises locality.
 
 For example, if a Schema defines a two-dimensional grid of Segments with
 nearest-neighbour adjacency, the compiler can lay out those Segments in
@@ -548,11 +548,10 @@ where observation occurs.
 
 A detailed walkthrough of a concrete example of vector addition is
 provided in
-\[<a href="#sec-appendix-vector" class="quarto-xref">Section 11</a>\],
-and the extension of higher-dimensional structures is elaborated in
-\[<a href="#sec-appendix-tensor" class="quarto-xref">Section 12</a>\]
-and
-\[<a href="#sec-appendix-graph" class="quarto-xref">Section 13</a>\].
+\[*<a href="#sec-appendix-vector" class="quarto-xref">9</a>*\], and the
+extension of higher-dimensional structures is elaborated in
+\[*<a href="#sec-appendix-tensor" class="quarto-xref">10</a>*\] and
+\[*<a href="#sec-appendix-graph" class="quarto-xref">11</a>*\].
 
 ## Theoretical Performance & Scalability
 
@@ -728,89 +727,6 @@ pronounced with hardware support:
 - Processing-in-memory (PIM) for direct observation.
 - Spatial computation mapping adjacency to wiring.
 
-## Implementation Roadmap
-
-<div id="fig-roadmap">
-
-``` python
-dot("""
-digraph Implementation_Roadmap {
-    rankdir=LR;
-    node [shape=rect];
-    Phase1 [label="Phase 1\\nSoftware Emulation\\n(Reference in Rust)"];
-    Phase2 [label="Phase 2\\nHardware Acceleration\\n(FPGA / PIM)"];
-    Phase3 [label="Phase 3\\nNative Observation-Centric Processors"];
-    Phase1 -> Phase2 [label="Validate"];
-    Phase2 -> Phase3 [label="Scale"];
-    subgraph cluster_goals {
-        label="Goals";
-        G1 [label="Structural Fidelity"];
-        G2 [label="Parallelism"];
-        G3 [label="Energy Efficiency"];
-    }
-    Phase1 -> G1;
-    Phase2 -> G2;
-    Phase3 -> G3;
-}
-"""
-)
-```
-
-Figure 6
-
-</div>
-
-### Phase 1: Software Emulation (Proof of Concept)
-
-- Rust reference implementation reading `.ss` specifications.
-- Validate model on small benchmarks.
-- Measure determinism, implicit parallelism, data movement reduction.
-
-### Phase 2: Hardware Acceleration (Transitional)
-
-- Map Schemes to FPGA fabrics.
-- Utilize PIM architectures as transitional substrate (UPMEM, Samsung
-  FIM).
-- Develop compiler targeting CPUs (via SIMD) and FPGA/PIM.
-- Begin formal verification.
-
-### Phase 3: Native Observation-Centric Processors (Long-Term Research)
-
-- Design processor directly instantiating Schemes.
-- Integrate memory and logic in unified substrate (e.g., memristor
-  arrays).
-- Evaluate energy efficiency for target domains.
-
-## Compiler as Migration Bridge
-
-The SSCCS compiler serves a dual purpose:
-
-1.  **Adaptive Embedding (Phase 1-2):** Translate Schemes into von
-    Neumann-compatible code (load/store, SIMD) or PIM primitives,
-    accepting abstraction overhead.
-
-2.  **Direct Instantiation (Phase 3):** Map Schemes directly to
-    observation-centric hardware primitives, eliminating compatibility
-    layers.
-
-This dual capability enables gradual migration without requiring a “flag
-day” switchover. Organizations can adopt SSCCS incrementally, deploying
-on existing infrastructure while preparing for native hardware.
-
-## Planned Validation Domains
-
-SSCCS is intended for validation across multiple domains.
-
-| Domain | Traditional Challenge | Expected Advantages |
-|----|----|----|
-| Climate modelling | Massive state space, grid data movement | Constraint isolation, minimal data transfer |
-| Space systems | Radiation-induced errors, power constraints | Structural reproducibility, verifiable execution |
-| Protein folding | Combinatorial explosion, long time scales | Massive parallel observation |
-| Swarm robotics | Coordination overhead, limited communication | Recursive composition, emergent coordination |
-| Financial modelling | Real-time constraints, complex dependencies | Deterministic projections, no race conditions |
-| Cryptographic systems | Side-channel attacks, verification complexity | Immutable structure enables formal verification |
-| Autonomous vehicles | Sensor fusion, real-time decision making | Constraint-based observation, deterministic response |
-
 ## Related Work
 
 Although SSCCS was developed without direct reference to prior work, its
@@ -870,9 +786,9 @@ of what computing is. If computation can be structured as the revelation
 of static potential rather than the execution of mutable instructions,
 then many assumptions about hardware design, programming languages, and
 system architecture become contingent rather than necessary. The open
-.ss
-format\[<a href="#sec-appendix-openformat" class="quarto-xref">14</a>\]
-is a first step toward making these ideas concrete and composable.
+.ss format
+\[*<a href="#sec-appendix-openformat" class="quarto-xref">12</a>*\] is a
+first step toward making these ideas concrete and composable.
 
 SSCCS is not proposed as a universal replacement for all computing. For
 problems inherently sequential or interaction-dominant, traditional
@@ -881,6 +797,10 @@ data-intensive, parallel workloads where the von Neumann bottleneck
 dominates, this model offers a fundamentally different trade-off: one
 where verifiability, parallelism, and energy efficiency are not features
 to be added, but consequences of how computation is defined.
+
+For a detailed execution plan and phased development milestones, please
+refer to the Roadmap
+\[*<a href="#sec-appendix-roadmap" class="quarto-xref">8</a>*\].
 
 
 
@@ -947,6 +867,106 @@ arXiv:2512.24880*, 2025, Available:
 </div>
 
 
+
+## Appendices
+
+## Project Roadmap
+
+SSCCS is designed for incremental adoption—start with software emulation
+today, transition to hardware acceleration as the technology matures,
+and ultimately deploy on native observation-centric processors. The open
+format ensures that investment in specification outlives any particular
+implementation.
+
+<div id="fig-roadmap">
+
+``` python
+dot("""
+digraph Implementation_Roadmap {
+    rankdir=LR;
+    node [shape=rect];
+    Phase1 [label="Phase 1\\nSoftware Emulation\\n(Reference in Rust)"];
+    Phase2 [label="Phase 2\\nHardware Acceleration\\n(FPGA / PIM)"];
+    Phase3 [label="Phase 3\\nNative Observation-Centric Processors"];
+    Phase1 -> Phase2 [label="Validate"];
+    Phase2 -> Phase3 [label="Scale"];
+    subgraph cluster_goals {
+        label="Goals";
+        G1 [label="Structural Fidelity"];
+        G2 [label="Parallelism"];
+        G3 [label="Energy Efficiency"];
+    }
+    Phase1 -> G1;
+    Phase2 -> G2;
+    Phase3 -> G3;
+}
+"""
+)
+```
+
+Figure 6
+
+</div>
+
+### Implementation Phases
+
+#### Phase 1: Software Emulation (Proof of Concept)
+
+- Rust reference implementation reading the SS format specifications.
+- Validate model on small benchmarks.
+- Measure determinism, implicit parallelism, data movement reduction.
+
+#### Phase 2: Hardware Acceleration (Transitional)
+
+- Map Schemes to FPGA fabrics.
+- Utilize PIM architectures as transitional substrate (UPMEM, Samsung
+  FIM).
+- Develop compiler targeting CPUs (via SIMD) and FPGA/PIM.
+- Begin formal verification.
+
+#### Phase 3: Native Observation-Centric Processors (Long-Term Research)
+
+- Design processor directly instantiating Schemes.
+- Integrate memory and logic in unified substrate (e.g., memristor
+  arrays).
+- Evaluate energy efficiency for target domains.
+
+### Compiler Layer as Migration Bridge
+
+The SSCCS compiler serves a dual purpose:
+
+1.  **Adaptive Embedding (Phase 1-2):** Translate Schemes into von
+    Neumann-compatible code (load/store, SIMD) or PIM primitives,
+    accepting abstraction overhead.
+
+    *Example:* A climate model grid can be compiled to standard C +
+    OpenMP today, while retaining the same format specification for
+    future hardware.
+
+2.  **Direct Instantiation (Phase 3):** Map Schemes directly to
+    observation-centric hardware primitives, eliminating compatibility
+    layers.
+
+    *Example:* The same scheme grid can later be synthesized directly
+    onto a memristor array without rewriting.
+
+This dual capability enables gradual migration without requiring a “flag
+day” switchover. Organizations can adopt SSCCS incrementally, deploying
+on existing infrastructure while preparing for native hardware.
+
+### Domain Validations
+
+SSCCS is intended for validation across multiple domains.
+
+| Domain | Traditional Challenge | Expected Advantages |
+|----|----|----|
+| Climate modelling | Massive state space, grid data movement | Constraint isolation, minimal data transfer |
+| Space systems | Radiation-induced errors, power constraints | Structural reproducibility, verifiable execution |
+| Protein folding | Combinatorial explosion, long time scales | Massive parallel observation |
+| Swarm robotics | Coordination overhead, limited communication | Recursive composition, emergent coordination |
+| Financial modelling | Real-time constraints, complex dependencies | Deterministic projections, no race conditions |
+| Cryptographic systems | Side-channel attacks, verification complexity | Immutable structure enables formal verification |
+| Autonomous vehicles | Sensor fusion, real-time decision making | Constraint-based observation, deterministic response |
 
 ## Vector Addition Example
 
