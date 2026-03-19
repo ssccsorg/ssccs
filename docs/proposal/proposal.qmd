@@ -1,6 +1,6 @@
 ---
-title: "A New Foundation for Energy-Efficient and Trustworthy Computing"
-subtitle: "SSCCS: Observation-Driven Computation beyond the Von Neumann Model"
+title: "A Foundation for Energy-Efficient and Trustworthy Computing"
+subtitle: "SSCCS: Observation-Driven Computing That Eliminates Data Movement"
 author:
   - name: SSCCS Foundation
     corresponding: true 
@@ -19,12 +19,13 @@ format:
     output-file: "index.html"
   pdf:
     mainfont: texgyreheros-regular.otf
+    fontsize: 10pt
     mainfontoptions:
       - BoldFont=texgyreheros-bold.otf
       - ItalicFont=texgyreheros-italic.otf
       - BoldItalicFont=texgyreheros-bolditalic.otf
     geometry:
-        - margin=16mm
+        - margin=14mm
     default-figure-format: "pdf"
     fig-format: pdf
     fig-dpi: 300
@@ -42,7 +43,7 @@ format:
         \usepackage{geometry}
         \usepackage{microtype}
         \addtokomafont{disposition}{\rmfamily}
-        \geometry{bottom=1.6cm, footskip=1cm}
+        \geometry{bottom=1.2cm, footskip=1cm}
         \input{./_files/proposal_metadata.tex}        
         \makeatletter
         \def\@maketitle{
@@ -76,6 +77,9 @@ title_meta_items = {
 #| echo: false
 #| include: false
 %run ../_include/_generate_metadata_tex.py --output ./_files/proposal_metadata.tex --version_prefix 1.0 --version_mark
+
+import matplotlib.pyplot as plt
+import numpy as np
 ```
 
 {{< include ../_include/_title_meta_items_if_html.qmd >}}
@@ -84,18 +88,89 @@ title_meta_items = {
 
 ## The Problem We Face
 
-For eighty years, computing has followed the same pattern: fetch an instruction, move data from memory to processor, execute, store the result back. This worked when processors and memory ran at comparable speeds. It no longer does.
+For eighty years, computing has followed the same pattern: fetch an instruction, move data from memory to processor, execute, store the result back. This worked when processors and memory ran at comparable speeds. It no longer does. **Today, data movement consumes 60–80% of energy in modern AI accelerators [@eyeriss2016].** As models grow to hundreds of billions of parameters, this “data movement wall”[@wulf1995hitting] [@horowitz2014computing] [@ieee2023performancewalls] becomes insurmountable. Each NVIDIA H100 accelerator draws 700W continuously under load, and AI data centers are projected to consume 68 GW by 2027 nearly matching California’s entire power capacity [@ieee2025; @omdia2025]. 
 
-Today, data movement consumes 60–80% of energy in modern AI accelerators [@eyeriss2016]. As models grow to hundreds of billions of parameters, this “data movement wall”[@wulf1995hitting] [@horowitz2014computing] becomes insurmountable. Each NVIDIA H100 accelerator draws 700W continuously under load, and AI data centers are projected to consume 68 GW by 2027 nearly matching California’s entire power capacity [@ieee2025; @omdia2025]. 
+::: {layout-ncol=2}
+
+```{python}
+#| echo: false
+#| fig-cap: "The widening processor-memory performance gap (illustrative based on literature). Source: Wulf & McKee 1995, Horowitz 2014. [@wulf1995hitting] , [@horowitz2014computing]"
+#| label: fig-memory-wall-real
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+years_mem = [1980, 1985, 1990, 1995, 2000, 2005, 2010, 2015, 2020]
+proc_perf_est = [1, 5, 25, 100, 400, 1200, 3000, 6000, 10000]
+mem_perf_est = [1, 1.2, 1.5, 1.8, 2.1, 2.4, 2.7, 3.0, 3.3]
+
+fig, ax1 = plt.subplots(figsize=(10, 6))
+ax2 = ax1.twinx()
+
+# Use only the color keyword argument, not the format string color
+line1 = ax1.plot(years_mem, proc_perf_est, 'o-', linewidth=2.5, markersize=6,
+                 label='Processor Performance', color='#c0392b')
+ax1.set_xlabel('Year', fontsize=12)
+ax1.set_ylabel('Relative Processor Performance (log scale)', fontsize=12)
+ax1.tick_params(axis='y', labelcolor='#c0392b')  # match line color
+ax1.set_yscale('log')
+ax1.grid(True, alpha=0.3, linestyle='--')
+
+line2 = ax2.plot(years_mem, mem_perf_est, 's-', linewidth=2.5, markersize=6,
+                 label='Memory Performance', color='#2980b9')
+ax2.set_ylabel('Relative Memory Performance', fontsize=12)
+ax2.tick_params(axis='y', labelcolor='#2980b9')  # match line color
+
+# Annotation for the "Memory Wall"
+ax1.annotate('"Memory Wall"', xy=(2005, 1000), xytext=(1990, 3000),
+             arrowprops=dict(arrowstyle='->', color='gray', lw=1.5),
+             fontsize=12, fontweight='bold', color='gray')
+
+plt.title('The Widening "Memory Wall": Processor Outpaces Memory', fontsize=14, fontweight='bold')
+
+lines = line1 + line2
+labels = [l.get_label() for l in lines]
+ax1.legend(lines, labels, loc='upper left', fontsize=11)
+
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+#| echo: false
+#| fig-cap: "Share of US electricity consumption by data centers (EPRI 2026) [@epri2026]."
+#| label: fig-epri-forecast
+
+years = ['2024', '2026', '2028', '2030']
+low = [4, 6, 8, 9]
+high = [4, 8, 13, 17]
+
+plt.figure(figsize=(8, 5))
+plt.plot(years, low, 'o-', label='Low-growth scenario')
+plt.plot(years, high, 's-', label='High-growth scenario')
+plt.fill_between(years, low, high, alpha=0.2)
+for i, (y, l, h) in enumerate(zip(years, low, high)):
+    plt.text(i, l-1.2, f'{l}%', ha='center', fontsize=10, fontweight='bold', color='#2980b9')
+    plt.text(i, h+1.2, f'{h}%', ha='center', fontsize=10, fontweight='bold', color='#c0392b')
+plt.ylabel('Share of US Electricity Consumption (%)')
+plt.title('Data Center Power Demand Forecast (EPRI 2026)')
+plt.grid(True, alpha=0.3)
+plt.legend()
+plt.tight_layout()
+plt.show()
+```
+
+:::
+
+
+Industry analysts warn data center power could surge 165% from AI workloads alone [@mrl2025]. EPRI projects data centers may account for 9–17% of US electricity by 2030 [@epri2026]; Gartner forecasts AI-optimized server investments at 3–4× traditional servers, with power doubling in four years [@gartner2026]. These fundamental limitations have been recognized for decades [@borkar2011future], with data movement among the top exascale challenges [@lucas2014top].
+
 
 ::: {layout-ncol=2}
 ```{python}
 #| echo: false
 #| fig-cap: "Relative energy cost of various operations (normalized to arithmetic). Data from Eyeriss (ISCA 2016) [@eyeriss2016]."
 #| label: fig-energy-breakdown
-
-import matplotlib.pyplot as plt
-import numpy as np
 
 categories = ['Arithmetic', 'Register File', 'SRAM', 'DRAM']
 energy_cost = [1, 6, 20, 200]  # from Eyeriss
@@ -114,29 +189,31 @@ for bar, val in zip(bars, energy_cost):
 plt.tight_layout()
 plt.show()
 ``` 
+ 
+
 ```{python}
 #| echo: false
-#| fig-cap: "Share of US electricity consumption by data centers (EPRI 2026) [@epri2026]."
-#| label: fig-epri-forecast
+#| fig-cap: "Cumulative documented damages from AI incidents (RAIDS AI 2025). Total exceeds $100 billion. [@raiids2025] "
+#| label: fig-ai-damages-real
 
-years = ['2024', '2026', '2028', '2030']
-low = [4, 6, 8, 9]
-high = [4, 8, 13, 17]
+years_damage = ['2020-2023', '2024', '2025']
+cumulative_damage = [45, 70, 105]  
 
-plt.figure(figsize=(8, 5))
-plt.plot(years, low, 'o-', label='Low-growth scenario')
-plt.plot(years, high, 's-', label='High-growth scenario')
-plt.fill_between(years, low, high, alpha=0.2)
-plt.ylabel('Share of US Electricity Consumption (%)')
-plt.title('Data Center Power Demand Forecast (EPRI 2026)')
-plt.grid(True, alpha=0.3)
-plt.legend()
+plt.figure(figsize=(10, 6))
+bars = plt.bar(years_damage, cumulative_damage, color=['#95a5a6', '#f39c12', '#e74c3c'])
+
+for bar, val in zip(bars, cumulative_damage):
+    plt.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 2, f'${val}B',
+             ha='center', va='bottom', fontweight='bold', fontsize=12)
+
+plt.ylabel('Cumulative Damages (Billion USD)', fontsize=12)
+plt.title('AI-Related Incident Damages (RAIDS AI 2025)', fontsize=14)
+plt.grid(True, axis='y', alpha=0.3, linestyle='--')
+plt.ylim(0, 120)
 plt.tight_layout()
 plt.show()
 ```
 :::
-
-Industry analysts warn data center power could surge 165% from AI workloads alone [@mrl2025]. EPRI projects data centers may account for 9–17% of US electricity by 2030 [@epri2026]; Gartner forecasts AI-optimized server investments at 3–4× traditional servers, with power doubling in four years [@gartner2026]. These fundamental limitations have been recognized for decades [@borkar2011future], with data movement among the top exascale challenges [@lucas2014top].
 
 But the problem goes beyond energy. Machine learning models remain black boxes with no verifiable path from input to result. For critical applications, this lack of verifiability creates unacceptable risk:
 
@@ -144,7 +221,8 @@ But the problem goes beyond energy. Machine learning models remain black boxes w
 - An AI diagnostic system misses early-stage cancer while AI matches or exceeds human accuracy in controlled settings, the lack of explainability makes accountability impossible when errors occur [@yang2025pathology].
 - A financial algorithm triggers a flash crash as in 2010, where a single automated sell program contributed to a 600-point Dow plunge, yet regulators could not deterministically reconstruct the precise decision chain [@nanex2010flash; @sec2010flash].
 
-Today, organizations compensate with redundant systems and lengthy certification costing billions annually. Total documented damage from AI-related incidents already exceeds $100 billion [@raiids2025]. We need a foundation where trust is built in, not bolted on.
+Today, organizations compensate with redundant systems and lengthy certification costing billions annually. Total documented damage from AI-related incidents already **exceeds $100 billion [@raiids2025], and 346 reported cases.** We need a foundation where trust is built in, not bolted on.
+ 
 
 ### A Different Approach
 
@@ -178,22 +256,20 @@ The same structural principles driving recent advances in AI—such as manifold-
 
 ::: {tbl-colwidths="[20, 80]"}
 
-
 | Aspect | Current Status |
 |--------|----------------|
-| **Founder structure** | Solo founder; Berlin-based |
-| **Legal entity** | Preparing non-profit in Berlin, globally oriented |
+| **Founder** | Solo founder; Berlin-based (German Permanent Residency, South Korean); Open to move globally |
+| **Legal entity** | A pre-incorporation phase; initial non-profit based open-core dual licencing roadmap; Strategic pivot-ready |
 | **Project nature** | Long-term research loop: philosophy <-> technical validation |
 | **Initial declaration** | Whitepaper on CERN/Zenodo |
 | **PoC** | Rust (meta-programming, memory control, low-level system); early primitives in progress, evolving with research |
 | **Research output** | Topic papers (arXiv) -> insights folded back into core |
-| **Partnership scope** | EU(Germany, France, ...), South Korea, and any nation with aligned public-interest programs |
-| **Operating principle** | Research + implementation + partnership – in parallel, without borders |
+| **Partnership scope** | US, EU(Germany, France, ...), Singapore, China or South Korea in East Asia, and any nation with aligned public-interest programs |
+| **Operating principle** | Research + implementation + partnership – in parallel |
 
 :::
 
-I’m building SSCCS from Berlin, preparing a local non-profit while keeping the project global—if the right opportunity comes from elsewhere, we’ll go there. This isn’t a startup chasing quick returns; it’s a long-term effort to test philosophical ideas through real code. The first whitepaper is out, the Rust PoC is in early stages, and research will branch into multiple threads, each published and then consolidated. At the same time, we’re talking to potential partners—public-interest institutions anywhere that share our mission. Research, implementation, and partnerships move together, not in sequence.
-
+This project is a long-term endeavor to validate philosophical frameworks through high-performance Rust primitives. We are currently in **a pre-incorporation phase, prioritizing mission-alignment over fixed locations.** While a local non-profit in Berlin is under consideration, the legal structure remains secondary to global impact; we will establish our presence wherever the most strategic opportunity for public-interest partnership arises.
 
 ## What We Ask
 
