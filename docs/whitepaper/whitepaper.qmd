@@ -46,8 +46,6 @@ format:
         \usepackage{microtype}
         \setkeys{Gin}{width=\linewidth,height=\textheight,keepaspectratio}
         \addtokomafont{disposition}{\rmfamily}
-        \DeclareTOCStyleEntry[beforeskip=6pt]{default}{section}
-        \DeclareTOCStyleEntry[beforeskip=0pt]{default}{subsection}
         \input{./_files/_metadata.tex}        
         \makeatletter
         \def\@maketitle{
@@ -607,7 +605,11 @@ The logical address space acts as a virtualisation layer, decoupling structural 
 
 Crucially, even on conventional von Neumann hardware, SSCCS overlays a structural interpretation: the compiler translates logical addresses into standard load/store operations, but the overall computation remains free of data movement because all necessary data is already resident where observation occurs.
 
-A detailed walkthrough of a concrete example of vector addition is provided in [*-@sec-appendix-vector*], and the extension of higher-dimensional structures is elaborated in [*-@sec-appendix-tensor*] and [*-@sec-appendix-graph*].
+### Implementation Cases
+
+- **Vector Addition Example [*-@sec-appendix-vector*]**: A concrete walkthrough of vector addition in SSCCS, demonstrating zero data movement and implicit parallelism.
+- **Scaling to N‑Dimensional Tensors [*-@sec-appendix-tensor*]**: Extension of principles to higher‑dimensional structures, featuring zero‑copy reshaping and logical adjacency.
+- **Complex Graph Processing [*-@sec-appendix-graph*]**: Application of graph algorithms, eliminating pointer chasing through parallel observation.
 
 ## Theoretical Performance & Scalability
 
@@ -770,6 +772,10 @@ a universal, structure-defined architecture.
 
 These references contextualize SSCCS within the broader intellectual landscape. In each domain, the shift from execution to observation is expected to offer advantages that incremental optimization cannot provide.
 
+## Development Roadmap and milestones
+
+The development roadmap follows a three-phase progression from Rust-based software emulation to native observation-centric hardware, utilizing a dual-layer compiler to bridge the transition from existing von Neumann architectures. This incremental strategy targets empirical validation across high-performance domains to demonstrate energy efficiency and deterministic execution through structural observation. For a detailed execution plan and phased development milestones, please refer to this appendix for the Roadmap: [*-@sec-appendix-roadmap*].
+
 ## Conclusion and Future Work
 
 SSCCS establishes five foundational principles:
@@ -786,9 +792,6 @@ Open questions remain: formal treatment of nested Field dynamics, compiler infra
 
 SSCCS is not proposed as a universal replacement for all computing. For problems inherently sequential or interaction-dominant, traditional models may remain appropriate. But for the growing class of data-intensive, parallel workloads where the von Neumann bottleneck dominates, this model offers a fundamentally different trade-off: one where verifiability, parallelism, and energy efficiency are not features to be added, but consequences of how computation is defined. 
 
-For a detailed execution plan and phased development milestones, please refer to the Roadmap [*-@sec-appendix-roadmap*].
-
-{{< pagebreak >}}
 
 ## References {.unnumbered .unlisted}
 
