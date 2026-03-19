@@ -45,7 +45,7 @@ provides a roadmap where logical design dictates physical
 implementation, contrasting with current hardware advances that focus
 primarily on physical improvements. Ultimately, SSCCS aims to evolve
 into an open format
-\[*<a href="#sec-appendix-openformat" class="quarto-xref">12</a>*\] at
+\[*<a href="#sec-appendix-openformat" class="quarto-xref">13</a>*\] at
 the language layer, transitioning logic into a transparent, accessible,
 and energy-efficient Intellectual Public Commons.
 
@@ -309,10 +309,10 @@ of Fields govern what can be observed and when.
 
 ### Segment: Atomic Coordinate Existence
 
-A Segment is the minimal unit of potential. Formally, a Segment $s$ is a
-tuple $(c, id)$ where $c \in \mathbb{R}^d$ represents coordinates in a
-$d$-dimensional possibility space, and $id = H(c)$ is a cryptographic
-hash providing a unique identifier.
+Let $\mathcal{S}$ denote the set of all Segments. A Segment
+$s \in \mathcal{S}$ is a tuple $(c, id)$ where $c \in \mathbb{R}^d$
+represents coordinates in a $d$-dimensional possibility space, and
+$id = H(c)$ is a cryptographic hash providing a unique identifier.
 
 Its properties are: **Immutability** (once created, a Segment cannot be
 modified), **Statelessness** (contains no values, only coordinates and
@@ -323,49 +323,83 @@ is uniquely identifiable.
 
 ### Scheme: Structural Blueprint
 
-If Segment is existence, Scheme is structure. A Scheme is an immutable
-blueprint that defines dimensional axes, adjacency relations, memory
-layout semantics, and observation rules.
-
-A Scheme defines a geometric arrangement of Segments, not a sequence of
+A Scheme $\Sigma$ is an immutable blueprint that defines the structural
+relationships-a geometric arrangement of Segments, not a sequence of
 operations. Segment relationships are spatial rather than temporal.
 During compilation, the compiler maps these spatial relationships
-directly to hardware addresses, ensuring that Segments which are
-structurally adjacent become physically adjacent. This design makes
-locality an inherent property of the specification, eliminating the need
-for runtime optimizations.
+directly to hardware addresses, ensuring that structurally adjacent
+Segments become physically adjacent. This design makes locality an
+inherent property of the specification, eliminating the need for runtime
+optimizations.
+
+Formally, $\Sigma = (A, R, L, O)$ where:
+
+- $A = \{a_1, \dots, a_k\}$ is a set of axes, each axis
+  $a_i = (\text{name}_i, \text{type}_i)$ with
+  $\text{type}_i \in \{\text{Discrete}, \text{Continuous}, \text{Cyclic}, \text{Categorical}, \text{Relational}, \text{WithUnit}\}$.
+- $R \subseteq \mathcal{S} \times \mathcal{S} \times \mathcal{T}$ is a
+  set of structural relations, where $\mathcal{T}$ denotes relation
+  types (Adjacency, Hierarchy, Dependency, Equivalence, Custom).
+- $L: \mathbb{R}^d \to \mathcal{L}$ is a memory‑layout mapping that
+  assigns each coordinate a logical address.
+- $O = (\text{resolution}, \text{triggers}, \text{priority}, \text{context})$
+  are observation rules that govern how observations are resolved,
+  triggered, prioritized, and contextualized.
 
 ### Field: Dynamic Constraint Substrate
 
 The Field $F$ is the only mutable layer, but it does not store values.
 Instead, it stores admissibility conditions that dynamically constrain
 which configurations of Segments are possible at any given time.
+Formally, $F = (C, T)$ where:
 
-Formally, $F$ is a set of admissibility predicates over the
-configuration space defined by $\Sigma$. Mutating $F$ changes which
-configurations are possible, but does not modify any Segment.
+- $C: \mathcal{S} \to \mathbb{B}$ is a constraint predicate (or a set of
+  admissible coordinates).
+- $T: \mathcal{S} \times \mathcal{S} \to \mathbb{R}$ is a transition
+  matrix that assigns weights to possible transitions between Segments.
+
+Mutating $F$ changes which configurations are possible, but does not
+modify any Segment.
 
 ### Observation and Projection
 
-$$ P = \Omega(\Sigma, F) $$
+The observation operator $\Omega$ is the single active event that
+produces a projection from a Scheme and a Field:
 
-Observation $\Omega$ is the single active event. Where $\Sigma$ is the
-set of Segments and their Scheme, $F$ is the current Field state, $P$ is
-the resulting Projection. Observation occurs when the structure and
-Field together create an instability—i.e., multiple admissible
-configurations. $\Omega$ deterministically selects one configuration and
-returns it as $P$. No data is moved during observation; Segments remain
-in place.
+$$P = \Omega(\Sigma, F).$$
+
+Let
+$\mathcal{A}(\Sigma, F) = \{ s \in \mathcal{S} \mid C(s) = \text{true} \}$
+be the set of Segments admissible under the Field’s constraints. The
+observation operator selects a projection $P$ according to the
+resolution strategy specified in $O$. For each admissible segment $s$,
+the projection $P(s)$ is given by a projector $\pi$ that encodes the
+semantic interpretation of the Field and Segment:
+
+$$P(s) = \pi(s, F) \quad \text{for } s \in \mathcal{A}(\Sigma, F).$$
+
+If the resolution strategy is deterministic, $\Omega$ is a function; if
+probabilistic, it samples from a distribution defined by the transition
+weights $T$. Observation occurs when the structure and Field together
+create an instability—i.e., multiple admissible configurations. $\Omega$
+deterministically selects one configuration and returns it as $P$. No
+data is moved during observation; Segments remain in place.
 
 ### Structural Isolation
 
 Security properties emerge from the immutable structure rather than
 being added features. Since Segments cannot be modified, concurrent
-observations are naturally isolated. Every Segment and Scheme has a
-unique cryptographic hash, enabling identity-based boundaries where
-computations can only access Segments for which they hold valid
-references. This provides inherent structural isolation against
-interference without requiring additional security mechanisms.
+observations are naturally isolated. Formally, for any two disjoint sets
+of Segments $S_1$ and $S_2$,
+
+$$\Omega(S_1 \cup S_2, F) = \Omega(S_1, F) \times \Omega(S_2, F),$$
+
+where $\times$ denotes independent composition of projections. Every
+Segment and Scheme has a unique cryptographic hash, enabling
+identity‑based boundaries where computations can only access Segments
+for which they hold valid references. This provides inherent structural
+isolation against interference without requiring additional security
+mechanisms.
 
 ### Relationship with Traditional Concepts
 
@@ -383,17 +417,19 @@ interference without requiring additional security mechanisms.
 
 ### Energy Model
 
-A simplified energy model for SSCCS is:
+A formal energy model for SSCCS can be expressed as:
 
-$$E_{\text{total}} = E_{\text{observation}} \times N_{\text{obs}} + E_{\text{field-update}} \times N_{\text{update}}$$
+$$E_{\text{total}} = E_{\text{obs}} \cdot N_{\text{obs}} + E_{\text{update}} \cdot N_{\text{update}},$$
 
-Where $E_{\text{observation}}$ is the energy to perform one observation,
-and $E_{\text{field-update}}$ is the energy to modify the Field. There
-is no term for moving data between memory and processor, because
-Segments are stationary. This model predicts that energy consumption
-scales with the number of observations and field updates, but not with
-data movement, which is a key source of energy inefficiency in
-traditional architectures [\[1\]](#ref-horowitz2014computing).
+where $E_{\text{obs}}$ is the energy required to perform a single
+observation, $E_{\text{update}}$ is the energy required to mutate the
+Field, $N_{\text{obs}}$ is the number of observations, and
+$N_{\text{update}}$ is the number of field updates. There is no term for
+moving data between memory and processor, because Segments are
+stationary. This model predicts that energy consumption scales with the
+number of observations and field updates, but not with data movement,
+which is a key source of energy inefficiency in traditional
+architectures [\[1\]](#ref-horowitz2014computing).
 
 ### Immutability and Concurrency
 
@@ -401,27 +437,36 @@ Because Segments are immutable, any number of observations can be
 performed simultaneously without interference. Formally, if $S_1$ and
 $S_2$ are disjoint sets of Segments, then:
 
-$$ \Omega(S_1 \cup S_2, F) = \Omega(S_1, F) \times \Omega(S_2, F) $$
+$$\Omega(S_1 \cup S_2, F) = \Omega(S_1, F) \times \Omega(S_2, F)$$
 
-Where $\times$ denotes independent composition of projections. This
-property enables inherent parallelism without any programmer effort or
-runtime synchronisation.
+where $\times$ denotes independent composition of projections. This
+property follows directly from the absence of shared mutable state:
+since Segments cannot be modified, observations on disjoint sets have no
+side‑effects that could affect each other. Consequently, SSCCS enables
+inherent parallelism without any programmer effort or runtime
+synchronisation.
 
 ### Time as a Coordinate
 
-Time is treated as one coordinate axis among many. Temporal ordering is
-expressed by comparing coordinates along that axis. Observations do not
-have a global temporal order unless explicitly defined. This eliminates
-the notion of a “program counter” and the associated assumption that
-computation must proceed in sequence.
+Time is treated as one coordinate axis among many. Let
+$t \in \mathbb{R}$ be a coordinate along the time axis; the Scheme may
+define $t$ as a continuous axis or as a cyclic axis with period $\tau$
+(i.e., $t \equiv t \mod \tau$). Temporal ordering is expressed by
+comparing coordinates along that axis. Observations do not have a global
+temporal order unless explicitly defined. This eliminates the notion of
+a “program counter” and the associated assumption that computation must
+proceed in sequence.
 
 ### Determinism and Auditability
 
 Observation is deterministic: for identical $\Sigma$ and $F$, $\Omega$
-always yields the same $P$. This enables auditability as a secondary
-benefit: every projection is a verifiable trace from blueprint to
-output. However, this is a consequence of the core structural
-properties, not a primary design goal.
+always yields the same $P$. This follows from the definition of $\Omega$
+as a function of $\Sigma$ and $F$; any non‑determinism must be
+explicitly introduced through the resolution strategy in $O$.
+Determinism enables auditability as a secondary benefit: every
+projection is a verifiable trace from blueprint to output. However, this
+is a consequence of the core structural properties, not a primary design
+goal.
 
 ## Compilation and Structural Mapping
 
@@ -430,7 +475,7 @@ than generating a sequence of instructions, performs structural mapping
 of the Schema onto the target hardware. The compiler analyses the
 adjacency relations and memory layout semantics declared in the Schema
 written in the open format(`.ss`)
-\[*<a href="#sec-appendix-openformat" class="quarto-xref">12</a>*\] and
+\[*<a href="#sec-appendix-openformat" class="quarto-xref">13</a>*\] and
 produces a physical placement of Segments that maximises locality.
 
 For example, if a Schema defines a two-dimensional grid of Segments with
@@ -546,12 +591,18 @@ into standard load/store operations, but the overall computation remains
 free of data movement because all necessary data is already resident
 where observation occurs.
 
-A detailed walkthrough of a concrete example of vector addition is
-provided in
-\[*<a href="#sec-appendix-vector" class="quarto-xref">9</a>*\], and the
-extension of higher-dimensional structures is elaborated in
-\[*<a href="#sec-appendix-tensor" class="quarto-xref">10</a>*\] and
-\[*<a href="#sec-appendix-graph" class="quarto-xref">11</a>*\].
+### Implementation Cases
+
+- **Vector Addition Example**: A concrete walkthrough of vector addition
+  in SSCCS, demonstrating zero data movement and implicit parallelism.
+  \[*<a href="#sec-appendix-vector" class="quarto-xref">10</a>*\]
+- **Scaling to N‑Dimensional Tensors**: Extension of principles to
+  higher‑dimensional structures, featuring zero‑copy reshaping and
+  logical adjacency.
+  \[*<a href="#sec-appendix-tensor" class="quarto-xref">11</a>*\]
+- **Complex Graph Processing**: Application of graph algorithms,
+  eliminating pointer chasing through parallel observation.
+  \[*<a href="#sec-appendix-graph" class="quarto-xref">12</a>*\]
 
 ## Theoretical Performance & Scalability
 
@@ -762,6 +813,18 @@ landscape. In each domain, the shift from execution to observation is
 expected to offer advantages that incremental optimization cannot
 provide.
 
+## Development Roadmap and milestones
+
+The development roadmap follows a three-phase progression from
+Rust-based software emulation to native observation-centric hardware,
+utilizing a dual-layer compiler to bridge the transition from existing
+von Neumann architectures. This incremental strategy targets empirical
+validation across high-performance domains to demonstrate energy
+efficiency and deterministic execution through structural observation.
+For a detailed execution plan and phased development milestones, please
+refer to this appendix for the Roadmap:
+\[*<a href="#sec-appendix-roadmap" class="quarto-xref">9</a>*\].
+
 ## Conclusion and Future Work
 
 SSCCS establishes five foundational principles:
@@ -787,7 +850,7 @@ of static potential rather than the execution of mutable instructions,
 then many assumptions about hardware design, programming languages, and
 system architecture become contingent rather than necessary. The open
 .ss format
-\[*<a href="#sec-appendix-openformat" class="quarto-xref">12</a>*\] is a
+\[*<a href="#sec-appendix-openformat" class="quarto-xref">13</a>*\] is a
 first step toward making these ideas concrete and composable.
 
 SSCCS is not proposed as a universal replacement for all computing. For
@@ -797,12 +860,6 @@ data-intensive, parallel workloads where the von Neumann bottleneck
 dominates, this model offers a fundamentally different trade-off: one
 where verifiability, parallelism, and energy efficiency are not features
 to be added, but consequences of how computation is defined.
-
-For a detailed execution plan and phased development milestones, please
-refer to the Roadmap
-\[*<a href="#sec-appendix-roadmap" class="quarto-xref">8</a>*\].
-
-
 
 ## References
 
