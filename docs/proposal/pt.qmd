@@ -1,6 +1,6 @@
 ---
-title: "A Foundation for Energy-Efficient and Trustworthy Computing"
-subtitle: "SSCCS: Observation-Driven Computing That Eliminates Data Movement"
+title: "A New Foundation for Efficient and Trustworthy Computing"
+subtitle: "SSCCS: Schema–Segment Composition Computing System"
 institute: "SSCCS Foundation"
 email: "proposal@ssccs.org"
 website: "https://ssccs.org"
@@ -45,52 +45,51 @@ format:
 **Taeho Lee, Founder & Engineering Architect** ([lee@ssccs.org](mailto:lee@ssccs.org))
 
 - **Full proposal document**: [docs.ssccs.org/proposal](https://ssccs.org/proposal)
-- **Comprehensive Guide of Core Concepts**: [ssccs.org/guide](https://ssccs.org/guide)
+- **A Comprehensive Guide of Core Concepts**: [ssccs.org/guide](https://ssccs.org/guide)
 
 ### 
 
 ### SSCCS is
 
-A deterministic computing model and software compiler infrastructure that geometrically arranges data and observes structure under dynamic constraints – **without moving data**.
+A determistic computing model-based software compiler infrastructure by geometrically arranging data and observing structure under dynamic constraints without moving it.
 
-- Von Neumann: dynamic data, static logic.
-- SSCCS: static geometry, dynamic constraints; data emerges as projection.
+- Von Neumann: dynamic data, static logic. 
+- SSCCS: static geometry, dynamic constraints: data emerges as projection.
 
 ---
 
 ## Current Status
 
-| Founder         | Solo, Berlin-based (global strategic alignment)            |
-|-----------------|------------------------------------------------------------|
-| Legal           | Pre‑incorporation; transitioning to open‑core dual‑track   |
-| Project         | Long‑term research–implementation loop                     |
-| Initial         | Whitepaper on CERN/Zenodo (DOI 10.5281/zenodo.18759106)    |
-| PoC             | Rust – early primitives in progress                        |
-| Research        | Topic papers (arXiv) → insights feed back to core          |
-| Partners        | US, EU (Germany, France), Singapore, South Korea, any aligned public‑interest |
-| Operating principle | Research + implementation + partnership in parallel      |
-| Mission         | Establish presence where strategic opportunities for public‑interest alignment are strongest |
+| Founder         | Solo, Berlin-based                          |
+|-----------------|---------------------------------------------|
+| Legal           | Non-profit (in preparation), global scope   |
+| Project         | Long-term research + technical validation   |
+| Initial         | Whitepaper on CERN/Zenodo                   |
+| PoC             | Rust – early primitives in progress         |
+| Research        | Topic papers → insights feed back to core   |
+| Partners        | EU, South Korea, any aligned public-interest|
+| Operating principle | Research + implementation + partnership in parallel |
+
 
 ---
 
-## The Problem: Data Movement Dominates Energy
+## The Problem We Face: Data movement dominates energy
 
-- Moving data consumes **60–80% of AI accelerator energy** – a **200× cost** over arithmetic
-- The “data movement wall” has been a known bottleneck for decades
-- AI data centers could draw **68 GW by 2027** – nearly California’s entire grid
-- By 2030, data centers may use **9–17% of US power**, with **3–4× server costs**
+- Moving data consumes **60–80% of AI accelerator energy** – a **200× cost** over arithmetic  
+- The “data movement wall” has been a known bottleneck for decades  
+- AI data centers could draw **68 GW by 2027** – nearly **California’s entire grid**, By 2030, data centers may use **9–17% of US power**, with **3–4× server costs**
 
 ```{python}
 #| echo: false
 #| layout-ncol: 2
 #| fig-cap: 
-#|   - "Relative energy cost of various operations (normalized to arithmetic). Data from Eyeriss (ISCA 2016)."
-#|   - "Share of US electricity consumption by data centers (EPRI 2026)."
+#|   - "Relative energy cost of various operations (normalized to arithmetic). Data from Eyeriss (ISCA 2016) [@]."
+#|   - "Share of US electricity consumption by data centers (EPRI 2026) [@epri2026]."
 
 import matplotlib.pyplot as plt
 import numpy as np
 
-# Energy cost graph
+# 첫 번째 그래프
 categories = ['Arithmetic', 'Register', 'SRAM', 'DRAM']
 energy_cost = [1, 6, 20, 200]
 
@@ -108,7 +107,7 @@ for bar, val in zip(bars, energy_cost):
 plt.tight_layout()
 plt.show()
 
-# EPRI forecast graph
+# 두 번째 그래프
 years = ['2024', '2026', '2028', '2030']
 low = [4, 6, 8, 9]
 high = [4, 8, 13, 17]
@@ -127,7 +126,7 @@ plt.show()
 
 ---
 
-## But the Problem Goes Beyond Energy
+## But the problem goes beyond energy
 
 - AI models are black boxes – **no verifiable path** from input to result
 - **Unacceptable risk** in critical applications:
@@ -136,32 +135,7 @@ plt.show()
   - **Healthcare**: AI diagnostic systems miss cancers; accountability impossible when errors occur
   - **Finance**: 2010 Flash Crash – single automated sell program plunged Dow 600 points; regulators could not reconstruct the decision chain
 
----
-
-- Documented damage from AI incidents already exceeds **$100 billion** (RAIDS AI 2025)
-
-```{python}
-#| echo: false
-#| fig-cap: "Cumulative documented damages from AI incidents (RAIDS AI 2025)."
-#| label: fig-ai-damages-pt
-
-years_damage = ['2020-2023', '2024', '2025']
-cumulative_damage = [45, 70, 105]  
-
-plt.figure(figsize=(8, 5))
-bars = plt.bar(years_damage, cumulative_damage, color=['#95a5a6', '#f39c12', '#e74c3c'])
-
-for bar, val in zip(bars, cumulative_damage):
-    plt.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 2, f'${val}B',
-             ha='center', va='bottom', fontweight='bold', fontsize=12)
-
-plt.ylabel('Cumulative Damages (Billion USD)', fontsize=12)
-plt.title('AI-Related Incident Damages (RAIDS AI 2025)', fontsize=14)
-plt.grid(True, axis='y', alpha=0.3, linestyle='--')
-plt.ylim(0, 120)
-plt.tight_layout()
-plt.show()
-```
+- Documented damage from AI incidents already exceeds **$100 billion**
 
 ---
 
@@ -171,7 +145,7 @@ plt.show()
 
 SSCCS emerged from research on high‑dimensional time‑series data, where preserving structure across chaotic systems forced us to rethink computation.
 
-Instead of fetching and storing, SSCCS treats computation as **observation of stationary structure**.
+Instead of fetching and storing, SSCCS treats computation as observation of stationary structure.
 
 ---
 
@@ -185,8 +159,7 @@ Instead of fetching and storing, SSCCS treats computation as **observation of st
 \end{center}
 ```
 
-**Loops disappear into layout. Data, or state, is the shadow cast by collapsed possibility.**  
-A System where Structured Deployment is the Path, and Observed Synthesis is the Computation.
+**Loops disappear into layout. Data, or state, is the shadow cast by collapsed possibility.** A System where Structured Deployment is the Path, and Observed Synthesis is the Computation
 
 ---
 
@@ -200,7 +173,7 @@ A System where Structured Deployment is the Path, and Observed Synthesis is the 
 **SSCCS:**  
 - No intrinsic data/state – only **static geometric structure** (Segments + Scheme)  
 - Constraints (Field) are **dynamic**  
-- Computation = applying dynamic constraints to static geometry → **projects ephemeral data/state** as results
+- Computation = applying dynamic constraints to static geometry → **projects ephemeral data/state** as results  
 
 ---
 
@@ -260,8 +233,8 @@ digraph MapAnalogy {
 
 ```{python}
 #| echo: false
-#| fig-cap: "1+1=2 under SSCCS"
-#| label: fig-1plus1-pt
+#| fig-cap: "1+1=2"
+#| label: fig-1plus1-memory
 dot_svg("""
 digraph OnePlusOneMemory {
     rankdir=LR;
@@ -336,7 +309,6 @@ digraph OnePlusOneMemory {
 - **AI at scale**: Keep weights stationary, observe them in place.
 - **Climate modeling**: Encode grid dependencies as geometry.
 - **Autonomous systems**: Verifiable real‑time decisions.
-- **Scientific computing**: I/O energy and latency dominate runtime; SSCCS eliminates redundant movement.
 
 ---
 
@@ -349,7 +321,6 @@ digraph OnePlusOneMemory {
 
 All outputs remain open‑source, in the public commons.
 
----
 
 ## Conclusion
 
