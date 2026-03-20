@@ -49,7 +49,11 @@ jobs:
 
       - name: Run Clippy
         working-directory: ./poc
-        run: cargo clippy -- -D warnings
+        run: cargo clippy --workspace -- -D warnings
+
+      - name: Run Tests
+        working-directory: ./poc
+        run: cargo test --workspace
 
       - name: Build and Run
         working-directory: ./poc

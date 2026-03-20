@@ -1,4 +1,4 @@
-use ssccs_poc::core::{Field, Projector, Segment, SpaceCoordinates};
+use ssccs_core::{Field, Projector, Segment, SpaceCoordinates};
 
 #[derive(Debug, Clone)]
 pub struct IntegerProjector {

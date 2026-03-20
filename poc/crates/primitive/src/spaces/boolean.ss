@@ -3,7 +3,7 @@
 //! Represents boolean values as 1D coordinates:
 //! - false → coordinate [0]
 //! - true  → coordinate [1]
-use crate::core::{Segment, SpaceCoordinates};
+use ssccs_core::{Segment, SpaceCoordinates};
 use std::ops::Deref;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

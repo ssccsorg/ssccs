@@ -14,9 +14,10 @@ pub use projector::*;
 pub mod scheme;
 pub use scheme::*;
 
-use ssccs_poc::core::{Field, Projector, Segment, SpaceCoordinates};
-use ssccs_poc::spaces::{arithmetic::IntegerSpace, boolean::BooleanSpace};
-use ssccs_poc::*;
+use ssccs_core::*;
+use ssccs_core::{Field, Projector, Segment, SpaceCoordinates};
+use ssccs_primitive::spaces::arithmetic::IntegerSpace;
+use ssccs_primitive::spaces::boolean::BooleanSpace;
 
 // Type alias for test function signature to reduce type complexity
 type TestFn = fn() -> Result<(), String>;

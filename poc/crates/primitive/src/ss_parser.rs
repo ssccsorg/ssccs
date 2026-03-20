@@ -7,8 +7,8 @@
 //! This module provides a `parse` function that reads a binary blob and
 //! reconstructs a `Scheme` instance.
 
-use crate::core::Segment;
 use crate::scheme::abstract_scheme::{Axis, AxisType, Scheme, SchemeBuilder};
+use ssccs_core::Segment;
 use std::collections::HashMap;
 use std::io::{Read, Seek};
 

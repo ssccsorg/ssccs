@@ -1,5 +1,5 @@
 //! An integer space: single‑axis.
-use crate::core::{Segment, SpaceCoordinates};
+use ssccs_core::{Segment, SpaceCoordinates};
 use std::ops::Deref;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

@@ -2,7 +2,7 @@
 
 //! Scheme abstraction layer -defines structural relationships without physical memory implementation
 
-use crate::core::{Constraint, Segment, SegmentId, SpaceCoordinates};
+use ssccs_core::{Constraint, Segment, SegmentId, SpaceCoordinates};
 
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;

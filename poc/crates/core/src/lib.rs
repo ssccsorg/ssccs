@@ -1,8 +1,5 @@
 pub mod core;
-pub mod scheme;
-pub mod ss_parser;
-use crate::core::{Constraint, Field, Projector, Segment, SpaceCoordinates};
-use std::fmt::Debug;
+pub use core::*;
 
 // ==================== CONSTRAINT IMPLEMENTATIONS ====================
 
@@ -83,16 +80,3 @@ pub fn possible_next_coordinates<P: Projector>(
     candidates.retain(|c| field.allows(c));
     candidates
 }
-
-// ==================== MODULE STRUCTURE ====================
-
-pub mod spaces {
-    // integer.ss
-    #[path = "../spaces/integer.ss"]
-    pub mod arithmetic;
-
-    // boolean.ss
-    #[path = "../spaces/boolean.ss"]
-    pub mod boolean;
-}
-pub use spaces::*;

@@ -5,7 +5,7 @@
 pub mod abstract_scheme;
 pub use abstract_scheme::*;
 
-use crate::core::{Segment, SegmentId, SpaceCoordinates};
+use ssccs_core::{Segment, SegmentId, SpaceCoordinates};
 use std::collections::HashMap;
 use std::sync::Arc;
 
