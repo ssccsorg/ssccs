@@ -30,6 +30,8 @@ format:
     code-block-border-left: true
     include-in-header:
       text: |
+        \input{./_files/diagnosis_metadata.tex}        
+
         \usepackage{geometry}
         \usepackage{microtype}
         \addtokomafont{disposition}{\rmfamily}
@@ -49,11 +51,14 @@ format:
 #| include: false
 %run ../_include/_generate_metadata_tex.py --output ./_files/diagnosis_metadata.tex --version_prefix 1.0 --version_mark
 
+from datetime import datetime
+datestr = datetime.now().strftime("%Y-%m-%d")
 title_meta_items = {
-    "pdf": [
+  "pdf": [
       {"title": "SSCCS Foundation", "link": "https://ssccs.org", "content": "ssccs.org"},
       {"title": "Other Formats", "link": "https://docs.ssccs.org/report", "content": "HTML"},
       {"title": "Repository", "link": "https://github.com/ssccsorg/ssccs", "content": "GitHub"},
+      {"title": "Last Updated", "link": "https://github.com/ssccsorg/ssccs/commits/main/", "content": datestr},
   ],
   "html": [
       {"title": "Other Formats", "link": "https://docs.ssccs.org/report/diagnosis.pdf", "content": "PDF", "content_class": "bi bi-file-pdf"},
