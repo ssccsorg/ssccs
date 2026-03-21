@@ -520,6 +520,32 @@ def clean_quarto_artifacts(docs_root: Path) -> bool:
     return True
 
 
+def ensure_quarto_artifact_directories(docs_root: Path) -> None:
+    """
+    Ensure that Quarto artifact directories (*_files, *_output, *_extensions)
+    exist for all QMD files before rendering, preventing Quarto's internal
+    walk function from failing with NotFound errors when directories are missing.
+    """
+    exclude_suffixes = ["_include", "_extensions", "_utils", "_output", "_files", "_locked"]
+    exclude_dirs = set()
+    for suffix in exclude_suffixes:
+        pattern = f"**/*{suffix}"
+        for item in docs_root.glob(pattern):
+            if item.is_dir():
+                exclude_dirs.add(item.resolve())
+
+    for qmd_path in docs_root.rglob("*.qmd"):
+        qmd_resolved = qmd_path.resolve()
+        if any(qmd_resolved.is_relative_to(ex_dir) for ex_dir in exclude_dirs):
+            continue
+        stem = qmd_path.stem
+        parent = qmd_path.parent
+        # Create directories if they don't exist
+        for suffix in ["_files", "_output", "_extensions"]:
+            dir_path = parent / f"{stem}{suffix}"
+            dir_path.mkdir(exist_ok=True)
+
+
 # Special target configurations
 SPECIAL_CONFIG: Dict[str, Dict[str, Any]] = {
     "whitepaper": {
@@ -1010,6 +1036,9 @@ Examples:
     else:
         targets = parse_targets(args.targets)
         targets = validate_targets(targets)
+
+    # Ensure Quarto artifact directories exist before parallel rendering
+    ensure_quarto_artifact_directories(DOCS_ROOT)
 
     # Run build
     success = build_targets(
