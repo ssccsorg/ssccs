@@ -1,6 +1,6 @@
 # Manifesto
-
-2026-03-17
+SSCCS Foundation
+February, 2026
 
 - [Schema–Segment Composition Computing
   System](#schemasegment-composition-computing-system)

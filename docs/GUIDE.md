@@ -1,5 +1,5 @@
 # SSCCS Core Concepts: A Comprehensive Guide
-
+SSCCS Foundation
 
 - [What is SSCCS?](#what-is-ssccs)
 - [A Deeper Analogy: Maps and Satellite

@@ -964,7 +964,7 @@ Examples:
     parser.add_argument(
         "--jobs", "-j",
         type=int,
-        default=4,
+        default=5,
         help="Max number of parallel jobs (default: 4, only used in parallel mode)",
     )
     parser.add_argument(
