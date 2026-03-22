@@ -719,20 +719,20 @@ def _render_formats(
     formats: List[str],
     format_output_paths: Dict[str, Path],
     docs_root: Path,
-    single_render: bool
+    single_command: bool
 ) -> bool:
     """Dispatch to the appropriate rendering strategy."""
-    if single_render:
+    if single_command:
         return _render_formats_single(qmd_path, formats, format_output_paths, docs_root)
     else:
         return _render_formats_parallel(qmd_path, formats, format_output_paths, docs_root)
 
 
-def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path] = None, single_render: bool = False) -> bool:
+def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path] = None, single_command: bool = False) -> bool:
     """
     Generic build function that renders a .qmd file and performs optional post‑processing.
     Formats are rendered either in parallel (separate commands) or in a single command
-    depending on the `single_render` flag.
+    depending on the `single_command` flag.
     """
     logger.info(f"Building {target}...")
     docs_root = Path(__file__).parent.absolute()
@@ -777,7 +777,7 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
     # Render
     if formats_to_render:
         logger.info(f"Rendering {len(formats_to_render)} format(s) for {target}")
-        if not _render_formats(qmd_path, formats_to_render, format_output_paths, docs_root, single_render):
+        if not _render_formats(qmd_path, formats_to_render, format_output_paths, docs_root, single_command):
             return False
     else:
         logger.info(f"All formats for {target} are up‑to‑date, skipping render.")
@@ -862,8 +862,8 @@ BUILD_FUNCTIONS: Dict[str, Callable[..., bool]] = {}
 for target, config in TARGET_CONFIG.items():
     # Create a closure that captures target and config
     def make_builder(tgt, cfg):
-        def builder(output_dir: Optional[Path] = None, single_render: bool = False) -> bool:
-            return build_generic(tgt, cfg, output_dir, single_render)
+        def builder(output_dir: Optional[Path] = None, single_command: bool = False) -> bool:
+            return build_generic(tgt, cfg, output_dir, single_command)
         return builder
     BUILD_FUNCTIONS[target] = make_builder(target, config)
 
@@ -895,15 +895,15 @@ def validate_targets(targets: List[str]) -> List[str]:
     return targets
 
 
-def build_single_target(target: str, output_dir: Optional[Path], single_render: bool) -> Tuple[str, bool]:
+def build_single_target(target: str, output_dir: Optional[Path], single_command: bool) -> Tuple[str, bool]:
     """Wrapper to run a single build function and return (target_name, success)."""
     logger.info(f"Starting build: {target}")
     func = BUILD_FUNCTIONS[target]
     try:
         if target in OUTPUT_DIR_TARGETS:
-            success = func(output_dir=output_dir, single_render=single_render)
+            success = func(output_dir=output_dir, single_command=single_command)
         else:
-            success = func(single_render=single_render)
+            success = func(single_command=single_command)
         logger.info(f"Finished build: {target} -> {'✓' if success else '✗'}")
         return target, success
     except Exception as e:
@@ -916,7 +916,7 @@ def build_targets(
     output_dir: Optional[Path],
     sequence_mode: bool,
     max_jobs: int,
-    single_render: bool
+    single_command: bool
 ) -> bool:
     """
     Build multiple targets.
@@ -939,7 +939,7 @@ def build_targets(
         logger.info(f"Running {len(targets)} targets in parallel (max_jobs={max_jobs})")
         with ThreadPoolExecutor(max_workers=max_jobs) as executor:
             futures = {
-                executor.submit(build_single_target, t, output_dir, single_render): t
+                executor.submit(build_single_target, t, output_dir, single_command): t
                 for t in targets
             }
             for future in as_completed(futures):
@@ -950,7 +950,7 @@ def build_targets(
         if len(targets) > 1:
             logger.info(f"Running {len(targets)} targets sequentially (--sequence mode)")
         for target in targets:
-            _, success = build_single_target(target, output_dir, single_render)
+            _, success = build_single_target(target, output_dir, single_command)
             results[target] = success
 
     # Summary of results
@@ -1077,7 +1077,7 @@ Examples:
         output_dir=args.output_dir,
         sequence_mode=args.sequence,
         max_jobs=args.jobs,
-        single_render=args.single_render,
+        single_command=args.single_command,
     )
 
     sys.exit(0 if success else 1)
