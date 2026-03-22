@@ -28,9 +28,9 @@ Snapshot:
   - This avoids recording stale outputs and eliminates reliance on file timestamps.
 
 Important:
-  - Formats are rendered in parallel within each target (each in a separate `quarto render` call)
-    to avoid a known Quarto issue where multiple `--to` flags may not update all formats.
-    Concurrency is limited to the number of formats per target.
+  - Formats can be rendered either in parallel (each in a separate `quarto render` call)
+    or in a single command (with `--to format1,format2`) depending on the `--single-command` flag.
+    Concurrency is limited to the number of formats per target when parallel mode is used.
   - A per‑QMD lock ensures that concurrent Quarto renders on the same source file do not interfere
     with each other (avoiding temporary‑directory collisions). This lock is transparent to the user.
   - The script **never** guesses output filenames. It uses `quarto inspect` to obtain
@@ -48,6 +48,7 @@ Usage:
   ./build.py -o ./dist whitepaper proposal  # With output directory
   ./build.py snapshot                       # Refresh cache for all targets
   ./build.py snapshot whitepaper proposal   # Refresh cache for specific targets
+  ./build.py --single-command whitepaper     # Use single Quarto command for all formats
 """
 
 import argparse
@@ -165,6 +166,12 @@ def compute_qmd_hash_with_deps(qmd_path: Path) -> str:
                             except Exception:
                                 pass
                     break  # only first %run per line? we'll continue scanning lines
+
+        # Add config files
+        for config_path in data.get("config", []):
+            visited.add(Path(config_path).resolve())
+        for resource_path in data.get("configResources", []):
+            visited.add(Path(resource_path).resolve())
 
     # Start collection
     collect(qmd_path.resolve())
@@ -531,6 +538,7 @@ SPECIAL_CONFIG: Dict[str, Dict[str, Any]] = {
         "output_dir": True,
         "c2pa": True,
         "copy_pdf": True,
+        "copy_html": True,
     },
 }
 
@@ -642,11 +650,89 @@ def run_command(cmd: List[str], cwd: Optional[Path] = None) -> bool:
         return False
 
 
-def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path] = None) -> bool:
+def _render_formats_parallel(
+    qmd_path: Path,
+    formats: List[str],
+    format_output_paths: Dict[str, Path],
+    docs_root: Path
+) -> bool:
+    """Render each format in its own Quarto command, running in parallel threads."""
+    def render_single_format(fmt: str) -> bool:
+        lock = _lock_for_qmd(qmd_path)
+        with lock:
+            quarto_cmd = ["quarto", "render", str(qmd_path), "--to", fmt]
+            if not run_command(quarto_cmd, cwd=docs_root):
+                logger.error(f"Quarto render failed for {qmd_path.name} (format {fmt}).")
+                return False
+            if fmt in NON_DETERMINISTIC_FORMATS:
+                output_path = format_output_paths[fmt]
+                if output_path.exists():
+                    update_format_cache(qmd_path, fmt, output_path)
+                else:
+                    logger.warning(f"Expected output {output_path} not found after render for {fmt}")
+            return True
+
+    with ThreadPoolExecutor(max_workers=len(formats)) as executor:
+        futures = {executor.submit(render_single_format, fmt): fmt for fmt in formats}
+        success_count = 0
+        for future in as_completed(futures):
+            fmt = futures[future]
+            try:
+                success = future.result()
+            except Exception as e:
+                logger.error(f"Unexpected error while rendering {fmt}: {e}")
+                success = False
+            if success:
+                success_count += 1
+            else:
+                logger.error(f"Format {fmt} failed.")
+        return success_count == len(formats)
+
+
+def _render_formats_single(
+    qmd_path: Path,
+    formats: List[str],
+    format_output_paths: Dict[str, Path],
+    docs_root: Path
+) -> bool:
+    """Render all formats using a single Quarto command (--to fmt1,fmt2)."""
+    lock = _lock_for_qmd(qmd_path)
+    with lock:
+        formats_str = ",".join(formats)
+        quarto_cmd = ["quarto", "render", str(qmd_path), "--to", formats_str]
+        if not run_command(quarto_cmd, cwd=docs_root):
+            logger.error(f"Quarto render failed for {qmd_path.name} (formats {formats_str}).")
+            return False
+        # Update cache for each rendered format
+        for fmt in formats:
+            if fmt in NON_DETERMINISTIC_FORMATS:
+                output_path = format_output_paths[fmt]
+                if output_path.exists():
+                    update_format_cache(qmd_path, fmt, output_path)
+                else:
+                    logger.warning(f"Expected output {output_path} not found after render for {fmt}")
+        return True
+
+
+def _render_formats(
+    qmd_path: Path,
+    formats: List[str],
+    format_output_paths: Dict[str, Path],
+    docs_root: Path,
+    single_render: bool
+) -> bool:
+    """Dispatch to the appropriate rendering strategy."""
+    if single_render:
+        return _render_formats_single(qmd_path, formats, format_output_paths, docs_root)
+    else:
+        return _render_formats_parallel(qmd_path, formats, format_output_paths, docs_root)
+
+
+def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path] = None, single_render: bool = False) -> bool:
     """
     Generic build function that renders a .qmd file and performs optional post‑processing.
-    Formats are rendered one by one (separate `quarto render` calls) to avoid Quarto's
-    multi‑format issues.
+    Formats are rendered either in parallel (separate commands) or in a single command
+    depending on the `single_render` flag.
     """
     logger.info(f"Building {target}...")
     docs_root = Path(__file__).parent.absolute()
@@ -688,46 +774,11 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
         if should_render_format(qmd_path, fmt, config, output_dir):
             formats_to_render.append(fmt)
 
-    # Render each format separately (parallel within target)
+    # Render
     if formats_to_render:
-        logger.info(f"Rendering {len(formats_to_render)} format(s) for {target} in parallel")
-        # Define a worker function for a single format
-        def render_single_format(fmt):
-            logger.info(f"Rendering format: {fmt}")
-            # Acquire per‑QMD lock to avoid concurrent Quarto renders on the same source file
-            lock = _lock_for_qmd(qmd_path)
-            with lock:
-                quarto_cmd = ["quarto", "render", str(qmd_path), "--to", fmt]
-                if not run_command(quarto_cmd, cwd=docs_root):
-                    logger.error(f"Quarto render failed for {target} (format {fmt}).")
-                    return False
-                # Update cache for this format (if non‑deterministic)
-                if fmt in NON_DETERMINISTIC_FORMATS:
-                    output_path = format_output_paths[fmt]
-                    if output_path.exists():
-                        update_format_cache(qmd_path, fmt, output_path)
-                    else:
-                        logger.warning(f"Expected output {output_path} not found after render for {fmt}")
-            return True
-
-        # Use ThreadPoolExecutor to render formats in parallel
-        with ThreadPoolExecutor(max_workers=len(formats_to_render)) as executor:
-            futures = {executor.submit(render_single_format, fmt): fmt for fmt in formats_to_render}
-            success_count = 0
-            for future in as_completed(futures):
-                fmt = futures[future]
-                try:
-                    success = future.result()
-                except Exception as e:
-                    logger.error(f"Unexpected error while rendering {fmt}: {e}")
-                    success = False
-                if success:
-                    success_count += 1
-                else:
-                    logger.error(f"Format {fmt} failed, target may fail.")
-            if success_count != len(formats_to_render):
-                logger.error(f"One or more formats failed for {target}")
-                return False
+        logger.info(f"Rendering {len(formats_to_render)} format(s) for {target}")
+        if not _render_formats(qmd_path, formats_to_render, format_output_paths, docs_root, single_render):
+            return False
     else:
         logger.info(f"All formats for {target} are up‑to‑date, skipping render.")
 
@@ -811,8 +862,8 @@ BUILD_FUNCTIONS: Dict[str, Callable[..., bool]] = {}
 for target, config in TARGET_CONFIG.items():
     # Create a closure that captures target and config
     def make_builder(tgt, cfg):
-        def builder(output_dir: Optional[Path] = None) -> bool:
-            return build_generic(tgt, cfg, output_dir)
+        def builder(output_dir: Optional[Path] = None, single_render: bool = False) -> bool:
+            return build_generic(tgt, cfg, output_dir, single_render)
         return builder
     BUILD_FUNCTIONS[target] = make_builder(target, config)
 
@@ -844,15 +895,15 @@ def validate_targets(targets: List[str]) -> List[str]:
     return targets
 
 
-def build_single_target(target: str, output_dir: Optional[Path]) -> Tuple[str, bool]:
+def build_single_target(target: str, output_dir: Optional[Path], single_render: bool) -> Tuple[str, bool]:
     """Wrapper to run a single build function and return (target_name, success)."""
     logger.info(f"Starting build: {target}")
     func = BUILD_FUNCTIONS[target]
     try:
         if target in OUTPUT_DIR_TARGETS:
-            success = func(output_dir=output_dir)
+            success = func(output_dir=output_dir, single_render=single_render)
         else:
-            success = func()
+            success = func(single_render=single_render)
         logger.info(f"Finished build: {target} -> {'✓' if success else '✗'}")
         return target, success
     except Exception as e:
@@ -864,7 +915,8 @@ def build_targets(
     targets: List[str],
     output_dir: Optional[Path],
     sequence_mode: bool,
-    max_jobs: int
+    max_jobs: int,
+    single_render: bool
 ) -> bool:
     """
     Build multiple targets.
@@ -887,7 +939,7 @@ def build_targets(
         logger.info(f"Running {len(targets)} targets in parallel (max_jobs={max_jobs})")
         with ThreadPoolExecutor(max_workers=max_jobs) as executor:
             futures = {
-                executor.submit(build_single_target, t, output_dir): t
+                executor.submit(build_single_target, t, output_dir, single_render): t
                 for t in targets
             }
             for future in as_completed(futures):
@@ -898,7 +950,7 @@ def build_targets(
         if len(targets) > 1:
             logger.info(f"Running {len(targets)} targets sequentially (--sequence mode)")
         for target in targets:
-            _, success = build_single_target(target, output_dir)
+            _, success = build_single_target(target, output_dir, single_render)
             results[target] = success
 
     # Summary of results
@@ -922,9 +974,11 @@ def main() -> None:
         formatter_class=argparse.RawTextHelpFormatter,
         epilog="""
 Behavior:
-  - Single target: formats are rendered in parallel within the target
+  - Single target: formats are rendered either in parallel or in a single Quarto command.
   - Multiple targets: runs in PARALLEL by default (targets parallel, formats parallel per target)
-  - Use --sequence/-s to force sequential execution across targets (formats remain parallel within each target)
+    unless --single-command is used.
+  - Use --sequence/-s to force sequential execution across targets.
+  - Use --single-command to render all formats of a target in one Quarto command.
 
 Snapshot:
   - Use `%(prog)s snapshot` to refresh cache hashes for all targets.
@@ -947,6 +1001,7 @@ Examples:
   %(prog)s snapshot                       # Refresh cache for all targets
   %(prog)s snapshot whitepaper proposal   # Refresh cache for specific targets
   %(prog)s clean                          # Remove Quarto artifacts
+  %(prog)s --single-command whitepaper     # Use single Quarto command for all formats
         """
     )
 
@@ -966,6 +1021,11 @@ Examples:
         type=int,
         default=5,
         help="Max number of parallel jobs (default: 4, only used in parallel mode)",
+    )
+    parser.add_argument(
+        "--single-command",
+        action="store_true",
+        help="Render all formats in a single Quarto command (--to fmt1,fmt2) instead of separate commands",
     )
     parser.add_argument(
         "targets",
@@ -1017,6 +1077,7 @@ Examples:
         output_dir=args.output_dir,
         sequence_mode=args.sequence,
         max_jobs=args.jobs,
+        single_render=args.single_render,
     )
 
     sys.exit(0 if success else 1)
