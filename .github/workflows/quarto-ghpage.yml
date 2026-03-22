@@ -1,19 +1,14 @@
 # Workflow for building Quarto site with Python and deploying to GitHub Pages
 name: Build and Deploy Quarto site
 
+# Define the path pattern once (top-level anchor)
+x-path-pattern: &path_pattern '{docs/**/*.{py,qmd,txt,yml,svg,bib,csl},.github/workflows/quarto-ghpage.yml}'
+
 on:
   push:
     branches: ["main", "quarto-ghpage-test"]
     paths:
-      - 'docs/**/*.py'
-      - 'docs/**/*.qmd'
-      - 'docs/**/*.txt'
-      - 'docs/**/*.yml'
-      - 'docs/**/*.txt'
-      - 'docs/**/*.svg'
-      - 'docs/**/*.bib'
-      - 'docs/**/*.csl'
-      - '.github/workflows/quarto-ghpage.yml'
+      - *path_pattern
   workflow_dispatch:
 
 permissions:
@@ -33,12 +28,14 @@ jobs:
       C2PA_VER: "0.9.12"
       REQUIREMENTS_TXT: 'docs/requirements.txt'
       TEX_PACKAGES_TXT: 'docs/tex-packages.txt'
+      TARGET_PATHS: *path_pattern
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout source repository
         uses: actions/checkout@v6
         with:
           lfs: true
+          fetch-depth: 0
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -114,7 +111,8 @@ jobs:
           QUARTO_PYTHON: python3
         run: python build.py
 
-      - name: Gather output files
+      # Prepare site for Pages deployment
+      - name: Prepare Pages artifact
         run: |
           mkdir -p _site
           rsync -avm \
@@ -133,10 +131,34 @@ jobs:
             --exclude='*' \
             docs/ _site/
 
-      - name: Upload artifact
+      - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
         with:
           path: ./_site
+
+      # Prepare filtered source files for sync (only .md, excludes legal/, whitepaper/, README.md)
+      - name: Prepare www-docs artifact
+        run: |
+          mkdir -p www-docs
+          rsync -avm --delete \
+            --exclude='.quarto/' \
+            --exclude='*_files/' \
+            --exclude='*_output/' \
+            --exclude='*_extensions/' \
+            --exclude='legal/*' \
+            --exclude='whitepaper/*' \
+            --exclude="**/README.md" \
+            --include='*/' \
+            --include='*.md' \
+            --exclude='*' \
+            docs/ www-docs/
+
+      - name: Upload sync artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-for-sync
+          path: ./www-docs
+          retention-days: 1
 
   deploy:
     environment:
@@ -149,45 +171,34 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
-  sync-docs:
+  sync-www-docs:
     runs-on: ubuntu-latest
-    needs: deploy
+    needs: build
     env:
-      TARGET_REPO: git@github.com:ssccsorg/ssccs-www.git
       TARGET_BRANCH: main
     steps:
-      - name: Checkout source repository
-        uses: actions/checkout@v6
+      - name: Download sync artifact
+        uses: actions/download-artifact@v4
         with:
-          lfs: true
-          fetch-depth: 0
+          name: source-for-sync
+          path: ./source
 
-      - name: Checkout target repository
+      - name: Checkout target repository (ssccs-www)
         uses: actions/checkout@v6
         with:
           repository: ssccsorg/ssccs-www
           token: ${{ secrets.WWW_WRITE }}
-          path: ../ssccs-www
+          # Absolute path outside the current workspace to avoid scope errors
+          path: ${{ github.workspace }}/cloned-ssccs-www
           ref: main
           fetch-depth: 0
 
-      - name: Sync docs directory
-        run: |
-          rsync -avm --delete \
-            --exclude='.quarto/' \
-            --exclude='*_files/' \
-            --exclude='*_output/' \
-            --exclude='*_extensions/' \
-            --exclude='legal/*' \
-            --exclude='whitepaper/*' \
-            --exclude="**/README.md" \
-            --include='*/' \
-            --include='*.md' \
-            --exclude='*' \
-            docs/ ../ssccs-www/docs/
+      # Source is already filtered; just mirror it to target docs/
+      - name: Sync docs to target repository
+        run: rsync -avm --delete source/ ${{ github.workspace }}/cloned-ssccs-www/docs/
 
       - name: Commit and push changes
-        working-directory: ../ssccs-www
+        working-directory: ${{ github.workspace }}/cloned-ssccs-www
         run: |
           git config user.name "SSCCS Admin"
           git config user.email "admin@ssccs.org"
@@ -195,6 +206,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "No changes to commit."
           else
-            git commit -m "Sync docs from ssccs/ssccs@${{ github.sha }}"
-            git push origin $TARGET_BRANCH
+            git commit -m "Sync docs from ssccsorg/ssccs/docs@${{ github.sha }}"
+            git push origin ${{ env.TARGET_BRANCH }}
           fi
