@@ -2,35 +2,6 @@
 SSCCS Foundation
 February, 2026
 
-- [Schema–Segment Composition Computing
-  System](#schemasegment-composition-computing-system)
-  - [Part I — Ontological Break](#part-i--ontological-break)
-    - [1. The End of Instruction](#1-the-end-of-instruction)
-    - [2. Collapse as Computation](#2-collapse-as-computation)
-    - [3. The De-privileging of Time](#3-the-de-privileging-of-time)
-  - [Part II — The Structural
-    Ontology](#part-ii--the-structural-ontology)
-  - [4. Segment — Atomic Coordinate
-    Existence](#4-segment--atomic-coordinate-existence)
-  - [5. Scheme — Structural Blueprint](#5-scheme--structural-blueprint)
-    - [5.1 Compilation Reinterpreted](#51-compilation-reinterpreted)
-  - [6. Field — Dynamic Constraint
-    Substrate](#6-field--dynamic-constraint-substrate)
-  - [Part III — Observation Formalism](#part-iii--observation-formalism)
-    - [7. Observation — The Sole Active
-      Event](#7-observation--the-sole-active-event)
-    - [8. Projection — Ephemeral
-      Actuality](#8-projection--ephemeral-actuality)
-  - [Part IV — Collapse Theory of
-    Computation](#part-iv--collapse-theory-of-computation)
-  - [Part V — Engineering
-    Consequences](#part-v--engineering-consequences)
-  - [Part VI — Hardware Horizon](#part-vi--hardware-horizon)
-  - [Part VII — Validation Domains](#part-vii--validation-domains)
-  - [Part VIII — Transcendence
-    Pathway](#part-viii--transcendence-pathway)
-  - [Final Declaration](#final-declaration)
-
 # Schema–Segment Composition Computing System
 
 Loops disappear into layout. A System where Structured Deployment is the

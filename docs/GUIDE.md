@@ -1,22 +1,6 @@
 # SSCCS Core Concepts: A Comprehensive Guide
 SSCCS Foundation
 
-- [What is SSCCS?](#what-is-ssccs)
-- [A Deeper Analogy: Maps and Satellite
-  Imagery](#a-deeper-analogy-maps-and-satellite-imagery)
-- [The Five Core Ideas](#the-five-core-ideas)
-- [Segment in Depth](#segment-in-depth)
-- [The Simplest Example: 1 + 1 = 2](#the-simplest-example-1--1--2)
-- [What Does a Developer Do?](#what-does-a-developer-do)
-- [Concrete Examples](#concrete-examples)
-- [Example 1: Adding Two Vectors](#example-1-adding-two-vectors)
-- [Example 2: Sum of a 2D Grid](#example-2-sum-of-a-2d-grid)
-- [Example 3: The Ultimate Simple Case — 1 + 1 =
-  2](#example-3-the-ultimate-simple-case--1--1--2)
-- [Why This Matters](#why-this-matters)
-- [In a Nutshell: How to Explain
-  SSCCS](#in-a-nutshell-how-to-explain-ssccs)
-
 ## What is SSCCS?
 
 SSCCS (Schema–Segment Composition Computing System) is a new way of
