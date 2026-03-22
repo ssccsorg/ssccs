@@ -1,14 +1,19 @@
 # Workflow for building Quarto site with Python and deploying to GitHub Pages
 name: Build and Deploy Quarto site
 
-# Define the path pattern once (top-level anchor)
-x-path-pattern: &path_pattern '{docs/**/*.{py,qmd,txt,yml,svg,bib,csl},.github/workflows/quarto-ghpage.yml}'
-
 on:
   push:
     branches: ["main", "quarto-ghpage-test"]
     paths:
-      - *path_pattern
+      - 'docs/**/*.py'
+      - 'docs/**/*.qmd'
+      - 'docs/**/*.txt'
+      - 'docs/**/*.yml'
+      - 'docs/**/*.txt'
+      - 'docs/**/*.svg'
+      - 'docs/**/*.bib'
+      - 'docs/**/*.csl'
+      - '.github/workflows/quarto-ghpage.yml'
   workflow_dispatch:
 
 permissions:
@@ -28,14 +33,12 @@ jobs:
       C2PA_VER: "0.9.12"
       REQUIREMENTS_TXT: 'docs/requirements.txt'
       TEX_PACKAGES_TXT: 'docs/tex-packages.txt'
-      TARGET_PATHS: *path_pattern
 
     steps:
       - name: Checkout source repository
         uses: actions/checkout@v6
         with:
           lfs: true
-          fetch-depth: 0
 
       - name: Setup Python
         uses: actions/setup-python@v5
