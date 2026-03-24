@@ -6,6 +6,10 @@ author:
     orcid: 0009-0006-8767-8069
     email: lee@ssccs.org
     role: "Founder \\& Engineering Architect"
+    affiliations:
+      - name: SSCCS Foundation
+        domain: ssccs.org
+        url: https://ssccs.org
 date: 2026-02
 date-format: "MMMM, YYYY"
 bibliography: ./_include/references.bib
@@ -486,6 +490,136 @@ The Field $F$ is the only mutable layer, but it does not store values. Instead, 
 - $T: \mathcal{S} \times \mathcal{S} \to \mathbb{R}$ is a transition matrix that assigns weights to possible transitions between Segments.
 
 Mutating $F$ changes which configurations are possible, but does not modify any Segment.
+
+#### Composition
+
+Field composition refers to the combination of two or more Fields to produce a new Field whose constraints and transition matrices are derived from the constituent Fields. Given Fields $F_1 = (C_1, T_1)$ and $F_2 = (C_2, T_2)$, a composition operator $\odot$ yields $F = F_1 \odot F_2 = (C, T)$ where $C$ and $T$ are defined according to the semantics of the composition.
+
+Fields support three fundamental binary operations:
+
+1. **Union** ($\cup$): $F = F_1 \cup F_2$ with $C(s) = C_1(s) \lor C_2(s)$ and $T(s_1, s_2) = \max(T_1(s_1, s_2), T_2(s_1, s_2))$.  
+   The union broadens the admissible set, allowing any Segment admissible in either Field. Observation under the union yields projections that satisfy at least one of the original constraints. Because the transition matrix entries can be interpreted as preference weights, taking the maximum corresponds to choosing the higher preference when either Field admits the transition.
+
+2. **Intersection** ($\cap$): $F = F_1 \cap F_2$ with $C(s) = C_1(s) \land C_2(s)$ and $T(s_1, s_2) = \min(T_1(s_1, s_2), T_2(s_1, s_2))$.  
+   Intersection restricts admissibility to Segments that satisfy both constraints, producing a more constrained projection. Using the minimum of the preference weights reflects that a transition is only as strong as its weaker constituent.
+
+3. **Product** ($\times$): $F = F_1 \times F_2$ where the resulting Field operates over the Cartesian product of Segment sets, with constraints and transitions defined componentwise:  
+   $C((s_1, s_2)) = C_1(s_1) \land C_2(s_2)$ and  
+   $T((s_1, s_2), (s'_1, s'_2)) = T_1(s_1, s'_1) \cdot T_2(s_2, s'_2)$.  
+   This product enables independent parallel observation of distinct subspaces—for example, when the two Fields govern disjoint coordinate axes (e.g., time and frequency). The overall projection becomes an ordered pair of the individual projections.
+
+Implementing these operations efficiently requires careful handling of constraint representations. Union and intersection can be realized via Boolean satisfiability (SAT) solvers or constraint‑propagation engines; the product operation, which expands the state space, may benefit from symbolic techniques (e.g., binary decision diagrams) to avoid exponential blow‑up. In hardware, dedicated units for max/min and multiplication can accelerate transition‑matrix computations.
+
+```{python}
+#| label: fig-field-composition
+#| fig-cap: "Field composition operations: union, intersection, and product"
+dot("""
+digraph FieldComposition {
+    rankdir=LR;
+    node [shape=rect, style=rounded];
+    
+    // Input Fields
+    F1 [label="F₁\\n(C₁, T₁)"];
+    F2 [label="F₂\\n(C₂, T₂)"];
+    
+    // Operators
+    Union [label="Union (∪)", shape=ellipse];
+    Intersection [label="Intersection (∩)", shape=ellipse];
+    Product [label="Product (×)", shape=ellipse];
+    
+    // Output Fields
+    F_union [label="F₁ ∪ F₂\\n(C₁ ∨ C₂, max(T₁,T₂))"];
+    F_inter [label="F₁ ∩ F₂\\n(C₁ ∧ C₂, min(T₁,T₂))"];
+    F_prod [label="F₁ × F₂\\n(product)"];
+    
+    // Edges
+    F1 -> Union;
+    F2 -> Union;
+    Union -> F_union;
+    
+    F1 -> Intersection;
+    F2 -> Intersection;
+    Intersection -> F_inter;
+    
+    F1 -> Product;
+    F2 -> Product;
+    Product -> F_prod;
+}
+""")
+```
+
+Beyond binary operations, Fields can also be composed in three higher‑level ways: hierarchical, sequential, and parallel.
+
+- **Hierarchical composition**: Fields can be nested to create hierarchical structures. A parent Field $F_{\text{parent}}$ may contain child Fields $F_{\text{child}}$ that govern subspaces of the coordinate space. The effective constraints are the conjunction of parent and child constraints, enabling modular refinement of governance. This nesting naturally aligns with modular hardware design (e.g., nested processing units) but adds depth to constraint evaluation, potentially increasing latency.
+
+- **Parallel composition**: Independent Fields may observe the same Segment simultaneously. Because Segments are immutable, concurrent observations do not interfere. The resulting projections are independent and can be combined via product or other combinators. Parallel composition embodies the inherent concurrency of SSCCS: multiple observers can safely read the same coordinate space without synchronization.
+
+- **Sequential composition (Extension)**: Fields can be applied in a temporal order: first $F_A$, then $F_B$. Because SSCCS treats time as one coordinate among many, sequential composition can be understood as applying Fields over adjacent time intervals. One interpretation models functional composition of constraint predicates: $C(s) = C_B(C_A(s))$ (where each predicate is viewed as a selector of admissible states) and convolution of transition matrices: $T(s_1, s_2) = \sum_{s'} T_A(s_1, s') \cdot T_B(s', s_2)$. This models processes where constraints evolve over time, such as multi‑stage pipelines or state machines. Sequential composition requires ordering guarantees that can be enforced through hardware scheduling or explicit synchronization primitives. It can be presented **as an optional extension;** the core model does not depend on global sequentiality.
+
+The immutability of Segments eliminates data‑race hazards, making parallel composition naturally scalable across many cores. However, coordinating the distribution of Fields and collecting projections may introduce overhead. Hardware support for atomic broadcast of Segment addresses and gather‑scatter of projection results can mitigate this overhead, enabling efficient many‑observer systems.
+
+#### Recursive Logical Constraints as Executable Binaries
+
+Beyond purely logical combination, Field composition also serves as a communication primitive in the physical runtime. Fields can be encrypted, signed, or sandboxed at the binary level, enabling secure composition across trust boundaries. This dual nature—logical composition and physical communication unit—makes Fields a unifying abstraction that bridges the logical specification and the hardware‑executable representation.
+
+Fields can be grouped into logical units (for constraint management) and execution units (for hardware mapping), as illustrated in the diagram below. The recursive edge in the diagram shows that a Field can contain itself, enabling self‑similar composition—a key property of the ribosome‑like model where the same structural pattern repeats at different scales.
+
+```{python}
+#| label: fig-field-nested-recursive
+#| fig-cap: "Nested and recursive structure of Field composition: fields can be freely grouped into logical and execution units, enabling hierarchical and self‑similar composition akin to a ribosome model."
+dot("""
+digraph field_nested_recursive {
+    rankdir=LR;
+    node [shape=box, style=rounded];
+    edge [arrowhead=vee];
+
+    // Root field
+    Field [shape=ellipse, fontsize=16];
+
+    // First‑level fields
+    Field_A [label="Field A"];
+    Field_B [label="Field B"];
+    Field_C [label="Field C"];
+
+    // Subfields
+    Subfield_A1 [label="Subfield A1"];
+    Subfield_A2 [label="Subfield A2"];
+    Subfield_B1 [label="Subfield B1"];
+    Subfield_C1 [label="Subfield C1"];
+    Subfield_C2 [label="Subfield C2"];
+
+    // Edges showing hierarchical composition
+    Field -> { Field_A Field_B Field_C };
+    Field_A -> { Subfield_A1 Subfield_A2 };
+    Field_B -> Subfield_B1;
+    Field_C -> { Subfield_C1 Subfield_C2 };
+
+    // Recursive edge (self‑similarity)
+    Subfield_A2 -> Field_A [label="recursive", style=dashed];
+
+    // Logical group cluster
+    subgraph cluster_logical {
+        label = "Logical Group";
+        style = rounded;
+        Field_A; Field_B; Subfield_A1; Subfield_B1;
+    }
+
+    // Execution group cluster
+    subgraph cluster_execution {
+        label = "Execution Group";
+        style = rounded;
+        Field_C; Subfield_C1; Subfield_C2;
+    }
+
+    // Additional grouping edge (optional)
+    Field_A -> Field_B [label="logical link"];
+    Field_C -> Subfield_C1 [label="execution link"];
+}
+""")
+```
+
+The recursive edge in the diagram illustrates that Fields can contain themselves, enabling self‑similar composition—a property reminiscent of biological ribosomes that translate code into structure, and then reuse that structure as new code. A detailed worked example illustrating the intersection of a similarity‑constraint Field and a position‑constraint Field is provided in **[*-@sec-appendix-field-composition-example*].**
+
 
 ### Observation and Projection
 

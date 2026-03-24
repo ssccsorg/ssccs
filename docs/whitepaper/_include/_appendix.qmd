@@ -447,3 +447,91 @@ Defines how a Field’s dynamic constraints interact with the static Scheme to p
 A Schema’s identity is derived solely from its topological properties. Changing a physical implementation detail (e.g., cache‑line alignment) does **not** affect the `SchemeId`. However, altering the connectivity or the metric space produces a new, distinct identity:
 
 $$SchemeId = H(\text{Axes} + \text{Segments} + \text{Relations} + \text{ObservationRules})$$
+
+
+## Field Composition Example {#sec-appendix-field-composition-example}
+
+This appendix provides a detailed worked example of Field composition, illustrating the intersection of a similarity‑constraint Field and a position‑constraint Field as referenced in [Section 3.3](#sec-field-composition) of the main whitepaper. The example is drawn from a typical AI‑frontline scenario: selecting relevant tokens in a transformer‑based model using both semantic similarity and positional filtering.
+
+### Fields Definition
+
+Let $F_{\text{similarity}}$ be a Field whose constraint $C_{\text{similarity}}(i)$ admits Segments (tokens) whose embedding vector $\mathbf{e}_i$ has a cosine similarity with a query vector $\mathbf{q}$ above a threshold $\theta$. Formally:
+
+$$
+C_{\text{similarity}}(i) = \frac{\mathbf{e}_i \cdot \mathbf{q}}{\|\mathbf{e}_i\|\,\|\mathbf{q}\|} > \theta.
+$$
+
+Let $F_{\text{position}}$ be a Field whose constraint $C_{\text{position}}(i)$ admits Segments whose token index $i$ lies within a prescribed interval $[L,R]$:
+
+$$
+C_{\text{position}}(i) = L \le i \le R.
+$$
+
+Both Fields are assumed to have trivial transition matrices $T_{\text{similarity}} = T_{\text{position}} = \mathbf{I}$ (identity) for simplicity.
+
+### Intersection Composition
+
+The intersection of the two Fields, $F_{\text{combined}} = F_{\text{similarity}} \cap F_{\text{position}}$, yields a new Field whose constraint is the conjunction of the individual constraints:
+
+$$
+C_{\text{combined}}(i) = C_{\text{similarity}}(i) \land C_{\text{position}}(i).
+$$
+
+The transition matrix of the combined Field is the element‑wise minimum of the two transition matrices (as defined in the algebraic‑operations subsection). With identity matrices this remains $\mathbf{I}$. The following diagram visualises the composition process:
+
+```{python}
+#| label: fig-field-composition-example
+#| fig-cap: "Intersection composition of a similarity‑constraint Field and a position‑constraint Field"
+dot("""
+digraph FieldCompositionExample {
+    rankdir=LR;
+    node [shape=rect, style=rounded];
+    
+    // Input Fields
+    Fsimilarity [label="F_similarity\\n(C_similarity, I)"];
+    Fposition [label="F_position\\n(C_position, I)"];
+    
+    // Intersection operator
+    Intersection [label="Intersection (∩)", shape=ellipse];
+    
+    // Output Field
+    Fcombined [label="F_combined\\n(C_similarity ∧ C_position, I)"];
+    
+    // Edges
+    Fsimilarity -> Intersection;
+    Fposition -> Intersection;
+    Intersection -> Fcombined;
+}
+""")
+```
+
+### Concrete Example: Composing Fields with Geometric and Positional Constraints
+
+Consider a Scheme $\Sigma$ consisting of ten token Segments $S_0, S_1, \dots, S_9$ with pre‑computed embedding vectors $\mathbf{e}_i$ (normalised to unit length) and a query vector $\mathbf{q} = (1,0,0,0)$. We set a similarity threshold $\theta = 0.8$ and a position interval $[L,R] = [2,7]$. The admissible Segments under each Field are:
+
+\begin{itemize}
+  \item $F_{\text{similarity}}$ admits tokens whose embedding’s first component exceeds $0.8$:
+  $$
+  \mathcal{A}(\Sigma, F_{\text{similarity}}) = \{ S_1, S_3, S_5, S_8 \}.
+  $$
+  \item $F_{\text{position}}$ admits tokens whose index lies in $[2,7]$:
+  $$
+  \mathcal{A}(\Sigma, F_{\text{position}}) = \{ S_2, S_3, S_4, S_5, S_6, S_7 \}.
+  $$
+\end{itemize}
+
+The combined Field $F_{\text{combined}} = F_{\text{similarity}} \land F_{\text{position}}$ (logical AND) admits only Segments satisfying \textbf{both} constraints:
+
+$$
+\mathcal{A}(\Sigma, F_{\text{combined}}) = \{ S_3, S_5 \}.
+$$
+
+This example demonstrates how distinct constraint types (geometric similarity and positional ordering) can be composed as independent Fields and combined via logical operations. The resulting Field $F_{\text{combined}}$ acts as a single executable unit, illustrating the recursive, composable nature of Fields in SSCCS: each Field is itself a binary‑level constraint module that can be nested or merged to form more complex selection criteria. The same composition mechanism scales to arbitrary numbers of Fields and arbitrary logical combinations (AND, OR, NOT, etc.), enabling the construction of sophisticated, verifiable computational structures directly from declarative building blocks.
+
+### Observation Semantics
+
+When an observation $\Omega$ is performed with the combined Field, only the Segments in $\mathcal{A}(\Sigma, F_{\text{combined}})$ contribute to the projection. Because the transition matrix is identity, the projection $P$ simply returns the admissible Segments unchanged (or, depending on the projector $\pi$, extracts some property). The observation is deterministic and requires no data movement: the Scheme’s Segments stay in place while the Field’s constraints filter the coordinate space.
+
+### Extensions
+
+This example can be extended to illustrate sequential composition (first apply $F_{\text{similarity}}$, then $F_{\text{position}}$) or parallel composition (both Fields observe the same Segment simultaneously). The dot diagram above can be augmented to show those variants, but the core principle remains: Field composition merges constraints and transition matrices, producing a new Field that refines the observation semantics without altering the underlying Scheme.
