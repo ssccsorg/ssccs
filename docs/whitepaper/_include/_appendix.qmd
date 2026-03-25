@@ -535,3 +535,125 @@ When an observation $\Omega$ is performed with the combined Field, only the Segm
 ### Extensions
 
 This example can be extended to illustrate sequential composition (first apply $F_{\text{similarity}}$, then $F_{\text{position}}$) or parallel composition (both Fields observe the same Segment simultaneously). The dot diagram above can be augmented to show those variants, but the core principle remains: Field composition merges constraints and transition matrices, producing a new Field that refines the observation semantics without altering the underlying Scheme.
+
+## Detailed Enumerations of Scheme Components {#sec-appendix-scheme-enumerations}
+
+This appendix provides exhaustive listings of the axis types, structural‑relation categories, memory‑layout types, and observation‑rule options that are part of the Scheme abstraction. These enumerations are referenced from Section 3.2 of the main whitepaper.
+
+### Axis Types {#sec-appendix-axis-types}
+
+The axis type can be one of the following variants:
+
+- **Discrete**: Represents integer‑valued coordinates, suitable for countable steps (e.g., array indices, enumerations). No physical unit is implied; the axis is purely ordinal.
+
+- **Continuous**: Represents real‑valued coordinates, suitable for physical quantities that vary smoothly (e.g., spatial positions, time). The actual resolution is determined by the implementation, which may quantize the axis according to hardware constraints.
+
+- **Cyclic**: Defines a periodic axis with an optional period $\tau$ (e.g., angles modulo $2\pi$, hours of the day). Coordinates are taken modulo $\tau$, enabling wraparound adjacency and eliminating boundary effects.
+
+- **Categorical**: Represents unordered categories (e.g., colors, labels). The axis values are symbols without an intrinsic ordering; adjacency can be defined via custom predicates.
+
+- **Relational**: Indicates that the axis is defined relative to another axis. The axis parameter names the related axis (e.g., “time‑offset”), enabling dependent coordinate systems.
+
+- **WithUnit**: Associates a physical unit (e.g., “meters”, “seconds”) with the axis. The unit string is used for dimensional analysis and conversion but does not affect the underlying coordinate representation.
+
+These axis types are purely semantic; they guide the interpretation of coordinates and the admissible relations between Segments, but do not prescribe a particular physical representation.
+
+### Structural Relations {#sec-appendix-structural-relations}
+
+The relation set $R \subseteq \mathcal{S} \times \mathcal{S} \times \mathcal{T}$ captures the topological connections between Segments. Each relation is typed according to one of five fundamental categories, each with its own sub‑types:
+
+1. **Adjacency**: Spatial or conceptual proximity.
+   - Euclidean: Segments within a Euclidean‑distance threshold.
+   - Manhattan: Segments within a Manhattan‑distance (L1) threshold.
+   - Grid: Neighbors on a regular lattice (four‑connected, eight‑connected, hexagonal, triangular, or custom offsets).
+   - Graph: Arbitrary connectivity defined by an explicit graph topology.
+   - Spatiotemporal: Adjacency that combines spatial and temporal dimensions.
+   - Conceptual: Semantic similarity measured by a custom metric.
+
+2. **Hierarchy**: Parent–child relationships.
+   - Containment: One Segment is spatially or logically contained within another.
+   - Inheritance: A Segment inherits properties from a parent (similar to class inheritance).
+   - Composition: A Segment is composed of other Segments (aggregation).
+   - Specialization: A Segment is a specialized variant of a more general Segment.
+
+3. **Dependency**: Directed influence between Segments.
+   - Data‑Flow: A Segment’s value depends on the output of another.
+   - Control‑Flow: Execution or observation ordering constraints.
+   - Temporal: Dependence along the time axis.
+   - Causal: One Segment causally influences another.
+   - Resource: Shared resource constraints (e.g., memory bandwidth).
+
+4. **Equivalence**: Symmetric or asymmetric equivalence classes.
+   - Symmetric: Two‑way equivalence (both directions).
+   - Asymmetric: One‑way equivalence (e.g., subsumption).
+   - Reflexive: Self‑equivalence (identity).
+   - Transitive: Equivalence that propagates across chains.
+
+   Equivalence relations denote logical equivalence; each Segment remains a distinct entity.
+
+5. **Custom**: User‑defined predicates that encode arbitrary relationships. A custom relation consists of a name and a predicate function that evaluates to true when the relation holds.
+
+Relations are immutable once the Scheme is created; they define the static topology that the compiler maps onto hardware.
+
+### Memory‑Layout Abstraction {#sec-appendix-memory-layout}
+
+The mapping $L: \mathbb{R}^d \to \mathcal{L}$ assigns each coordinate a logical address, decoupling the Scheme’s geometric structure from the physical memory hierarchy. The `MemoryLayout` is specified by a `layout_type` and a mapping function.
+
+Available layout types include:
+
+- **Linear**: Coordinates are mapped in monotonic order along a single dimension.
+- **Row‑Major**: For multi‑dimensional grids, coordinates are traversed row‑wise (last axis varies fastest).
+- **Column‑Major**: Column‑wise traversal (first axis varies fastest).
+- **Space‑Filling Curve**: Coordinates are linearized according to a locality‑preserving curve (Z‑order, Hilbert, Gray, Peano, or custom). These curves maintain spatial adjacency in the linearized address space, improving cache efficiency.
+- **Hierarchical**: A multi‑level layout that reflects a tree‑like decomposition of the coordinate space.
+- **Graph‑Based**: The logical address order follows a graph traversal (e.g., breadth‑first or depth‑first).
+- **Custom**: A user‑defined mapping function that can encode arbitrary layout policies.
+
+The logical address $\ell = L(c)$ consists of a space identifier and an offset within that space. It serves as an intermediate representation that the compiler later translates to physical addresses according to the target hardware’s memory hierarchy. The choice of layout type is a critical optimization: it determines how structurally adjacent Segments are placed in physical memory, thereby minimizing data movement during observation.
+
+### Observation Rules {#sec-appendix-observation-rules}
+
+The observation rules $O = (\text{resolution}, \text{triggers}, \text{priority}, \text{context})$ govern how the observation operator $\Omega$ is applied to the Scheme.
+
+- **Resolution strategies** determine how a single projection is selected when multiple configurations are admissible:
+  - Deterministic: A fixed algorithm (e.g., first‑admissible, lexicographic) picks a unique projection.
+  - Probabilistic: A weighted distribution (uniform, Boltzmann, etc.) samples a projection.
+  - Energy minimization: The projection that minimizes a specified energy function is chosen.
+  - Entropy maximization: The projection that maximizes Shannon entropy is selected.
+  - External: An external resolver (e.g., a runtime module) decides the projection.
+
+  For deterministic reproducibility—a core principle of SSCCS—a deterministic resolution strategy (e.g., first‑admissible, lexicographic, energy minimization with a unique minimum) must be used. Non‑deterministic strategies (probabilistic, external) are permitted only when strict reproducibility is not required.
+
+- **Triggers** define when observation occurs:
+  - On‑demand: Observation is initiated by an explicit request.
+  - Periodic: Observation repeats at a fixed time interval.
+  - Threshold: Observation triggers when a monitored value crosses a threshold.
+  - Structural change: Observation follows a modification of the Field.
+  - Dependency satisfied: All required dependencies are met.
+  - External event: A named external event signals observation.
+
+- **Priority** indicates the urgency of the observation:
+  - *Critical*, *High*, *Normal*, *Low*, *Background*.
+
+- **Context** provides additional meta‑constraints:
+  - Allowed observers: A set of identities that may perform the observation.
+  - Constraints: A list of extra logical conditions that must hold.
+  - Metadata: Key‑value pairs for arbitrary annotation.
+
+Observation rules are part of the Scheme’s immutable specification; they enable fine‑grained control over the observation process, allowing the designer to trade off determinism against other desiderata.
+
+## Pre‑defined Scheme Templates (Draft) {#sec-appendix-scheme-templates}
+
+To illustrate how a Scheme can be constructed, SSCCS provides several canonical templates that capture common topological patterns. These templates are idiomatic combinations of the axis, relation, and layout abstractions; they are not separate language constructs. Developers can extend them or create entirely new Schemes by composing the same primitive elements.
+
+### 2D Grid
+
+A regular two‑dimensional lattice with discrete axes $x$ and $y$. Adjacency is defined via a grid topology (four‑ or eight‑connected). The memory layout is typically row‑major or column‑major, but space‑filling curves can also be used to preserve locality. This template is suitable for image processing, stencil computations, and cellular automata.
+
+### Integer Line
+
+A one‑dimensional discrete axis representing integer coordinates. Adjacency is Euclidean with distance 1 (nearest‑neighbor). The layout is linear, mapping each integer coordinate to a consecutive logical address. The integer line serves as a building block for sequences, time series, and vector operations.
+
+### Graph
+
+A set of Segments with arbitrary connectivity expressed as graph adjacency. The axis may be categorical (node labels) or relational (edge references). The layout can be graph‑based (e.g., sorted by degree) or custom. This template supports graph algorithms, social networks, and dependency graphs.

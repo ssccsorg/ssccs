@@ -482,6 +482,32 @@ Formally, $\Sigma = (A, R, L, O)$ where:
 - $L: \mathbb{R}^d \to \mathcal{L}$ is a memory‑layout mapping that assigns each coordinate a logical address.
 - $O = (\text{resolution}, \text{triggers}, \text{priority}, \text{context})$ are observation rules that govern how observations are resolved, triggered, prioritized, and contextualized.
 
+#### Axis Types
+
+The axis set $A = \{a_1, \dots, a_k\}$ defines the dimensional structure of a Scheme. Each axis $a_i = (\text{name}_i, \text{type}_i)$ where $\text{type}_i$ belongs to a variant set that includes Discrete, Continuous, Cyclic, Categorical, Relational, and WithUnit axes. Each variant carries distinct semantic meaning (e.g., Discrete for integer coordinates, Continuous for real‑valued quantities, Cyclic for periodic dimensions). These axis types are purely semantic; they guide the interpretation of coordinates and the admissible relations between Segments, but do not prescribe a particular physical representation. The compiler uses the axis types to select appropriate layout strategies and to validate structural constraints. (See *-@sec-appendix-scheme-enumerations* [*-@sec-appendix-axis-types*] for more details.)
+
+#### Structural Relations
+
+The relation set $R \subseteq \mathcal{S} \times \mathcal{S} \times \mathcal{T}$ captures the topological connections between Segments. Each relation is typed according to one of five fundamental categories: **Adjacency** (spatial or conceptual proximity), **Hierarchy** (parent–child relationships), **Dependency** (directed influence), **Equivalence** (symmetric or asymmetric equivalence classes), and **Custom** (user‑defined predicates). Each category encompasses a range of sub‑types that define precise topological relationships (e.g., Euclidean and Manhattan adjacency, containment and inheritance hierarchy, data‑flow and control‑flow dependency). Equivalence relations denote logical equivalence; each Segment remains a distinct entity.
+
+Relations are immutable once the Scheme is created; they define the static topology that the compiler maps onto hardware. The compiler uses the relation types to extract independent sub‑graphs, optimize locality, and generate observation code that respects the structural dependencies. (See *-@sec-appendix-scheme-enumerations* [*-@sec-appendix-structural-relations*] for more details.)
+
+#### Memory‑Layout Abstraction
+
+The mapping $L: \mathbb{R}^d \to \mathcal{L}$ assigns each coordinate a logical address, decoupling the Scheme’s geometric structure from the physical memory hierarchy. The `MemoryLayout` is specified by a `layout_type` and a mapping function. Available layout types include Linear, Row‑Major, Column‑Major, Space‑Filling Curve, Hierarchical, Graph‑Based, and Custom layouts, each mapping coordinates to logical addresses in a distinct manner.
+
+The logical address $\ell = L(c)$ consists of a space identifier and an offset within that space. It serves as an intermediate representation that the compiler later translates to physical addresses according to the target hardware’s memory hierarchy. The choice of layout type is a critical optimization: it determines how structurally adjacent Segments are placed in physical memory, thereby minimizing data movement during observation. (See *-@sec-appendix-scheme-enumerations* [*-@sec-appendix-memory-layout*] for more details.)
+
+#### Observation Rules
+
+The observation rules $O = (\text{resolution}, \text{triggers}, \text{priority}, \text{context})$ govern how the observation operator $\Omega$ is applied to the Scheme. Resolution strategies (deterministic, probabilistic, energy minimization, entropy maximization, external), triggers (on‑demand, periodic, threshold, structural change, dependency satisfied, external event), priority levels, and context meta‑constraints together enable fine‑grained control over the observation process. For deterministic reproducibility—a core principle of SSCCS—a deterministic resolution strategy must be used; non‑deterministic strategies are permitted only when strict reproducibility is not required.
+
+Observation rules are part of the Scheme’s immutable specification; they enable fine‑grained control over the observation process, allowing the designer to trade off determinism against other desiderata. (See *-@sec-appendix-scheme-enumerations* [*-@sec-appendix-observation-rules*] for more details.)
+
+#### Pre‑defined Scheme Templates
+
+SSCCS provides a set of canonical Scheme templates that capture common topological patterns, such as regular grids, integer lines, and arbitrary graphs. These templates are idiomatic combinations of axis, relation, and layout abstractions, serving as starting points for developers to construct custom Schemes. Detailed descriptions of each template are provided in the [*-@sec-appendix-scheme-templates*].
+
 ### Field: Dynamic Constraint Substrate
 
 The Field $F$ is the only mutable layer, but it does not store values. Instead, it stores admissibility conditions that dynamically constrain which configurations of Segments are possible at any given time. Formally, $F = (C, T)$ where:
@@ -618,7 +644,7 @@ digraph field_nested_recursive {
 """)
 ```
 
-The recursive edge in the diagram illustrates that Fields can contain themselves, enabling self‑similar composition—a property reminiscent of biological ribosomes that translate code into structure, and then reuse that structure as new code. A detailed worked example illustrating the intersection of a similarity‑constraint Field and a position‑constraint Field is provided in **[*-@sec-appendix-field-composition-example*].**
+The recursive edge in the diagram illustrates that Fields can contain themselves, enabling self‑similar composition—a property reminiscent of biological ribosomes that translate code into structure, and then reuse that structure as new code. A detailed worked example illustrating the intersection of a similarity‑constraint Field and a position‑constraint Field is provided in [*-@sec-appendix-field-composition-example*].
 
 
 ### Observation and Projection
