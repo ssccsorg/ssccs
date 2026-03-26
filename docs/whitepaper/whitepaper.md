@@ -93,8 +93,6 @@ cryptographic authenticity.
 
 ## Introduction
 
-### Primitives
-
 SSCCS redefines computation through four primitives: **Segments**
 (immutable points), **Schemes** (immutable blueprints), **Fields**
 (mutable constraints), and **Observation** (the active event). This
@@ -159,8 +157,6 @@ Figure 1
 
 </div>
 
-### The Data Movement Wall
-
 For decades, computation has been defined by the von Neumann model:
 
 This formulation rests on several assumptions: data exists as intrinsic
@@ -172,8 +168,6 @@ and time in conventional systems is spent on data movement rather than
 logic—a symptom known as the “data-movement wall”
 [\[1\]](#ref-horowitz2014computing), [\[2\]](#ref-wulf1995hitting),
 [\[3\]](#ref-borkar2011future), [\[4\]](#ref-lucas2014top).
-
-### Structural Observation
 
 While new hardware-side paradigms attempt to mitigate this, they remain
 localized optimizations within the same sequential paradigm. SSCCS
