@@ -16,8 +16,8 @@
 //! The pipeline is deterministic: given the same Scheme and hardware profile,
 //! it always produces the same output.
 
-use crate::core::SegmentId;
 use crate::scheme::abstract_scheme::{LogicalAddress, Scheme};
+use ssccs_core::SegmentId;
 use std::collections::HashMap;
 
 /// Target hardware profile.

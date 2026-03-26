@@ -11,6 +11,20 @@ The PoC demonstrates the core ontological layers of SSCCS:
 
 The implementation is written in Rust and serves as a reference for the software‑emulation phase (Phase 1) of the SSCCS roadmap.
 
+## Workspace Structure
+
+The PoC is organized as a **Rust workspace** with five crates, enabling independent development of distinct research tracks while sharing a common core.
+
+| Crate | Purpose |
+|-------|---------|
+| **`ssccs‑core`** | Core SSCCS types (`Segment`, `SpaceCoordinates`, `Constraint`, `Field`, `TransitionMatrix`, `Projector` trait) and observation functions. |
+| **`ssccs‑primitive`** | Scheme abstraction layer, projector implementations, compiler‑pipeline skeleton, `.ss` parser stub, Boolean and Integer spaces, and the ten constitutional concept tests. |
+| **`ssccs‑field‑synthesis`** | Placeholder for research on Field composition algebra and synthesis techniques. |
+| **`ssccs‑hardware‑mapping`** | Placeholder for research on mapping Schemes to hardware (CPU, FPGA, PIM). |
+| **`ssccs‑compiler‑opt`** | Placeholder for research on compiler optimisations and open‑format‑to‑machine‑code compilation. |
+
+All crates reside under `poc/crates/`. The workspace configuration is defined in `poc/Cargo.toml`.
+
 ## Rust Environment Setup
 
 ### 1. Install Rust
@@ -42,8 +56,10 @@ cd ssccs/poc
 
 ### Build the Project
 ```bash
-cargo build --release
+cargo build --release --workspace
 ```
+
+To build a specific crate, e.g., `cargo build --release -p ssccs-primitive`.
 
 ### Run the Example Program
 The PoC includes ten constitutional‑concept tests that validate the SSCCS model:
@@ -57,24 +73,28 @@ This executes the `main` function, which runs the same ten tests and prints a su
 #### Run Unittests
 
 ```bash
-cargo test -- --nocapture
+cargo test --workspace -- --nocapture
 ```
+
+To test only a specific crate, e.g., `cargo test -p ssccs-primitive`.
 
 The output will show each test (Segment, Field, Projector, Scheme, etc.) passing.
 
 
 ### Linting and Formatting
-The code adheres to Rust’s best practices. To check for warnings:
+The code adheres to Rust’s best practices. To check for warnings across the whole workspace:
 
 ```bash
-cargo clippy -- -D warnings
+cargo clippy --workspace -- -D warnings
 ```
 
-To enforce consistent formatting:
+To enforce consistent formatting across all crates:
 
 ```bash
-cargo fmt --check
+cargo fmt --check --workspace
 ```
+
+To lint or format a specific crate, use `-p` (e.g., `cargo clippy -p ssccs-primitive`).
 
 ## Why Rust Was Chosen for the PoC
 
@@ -107,14 +127,14 @@ In summary, Rust provides the right combination of **immutability guarantees**, 
 
 The following development milestones have been completed, each documented in the `docs/` directory and reflected in the codebase.
 
-### 1. Core Library (`src/core.rs`)
+### 1. Core Library (`crates/core/src/core.rs`)
 - **Segment** struct with coordinates and cryptographic `SegmentId` (BLAKE3 hash).
 - **SpaceCoordinates** as a generic multi‑dimensional coordinate vector.
 - **Constraint** trait and `ConstraintSet` for defining admissibility conditions.
 - **Field** struct that holds constraints and a `TransitionMatrix` for relational topology.
 - **Projector** trait with `project` and `possible_next_coordinates` methods.
 
-### 2. Scheme Abstraction Layer (`src/scheme/`)
+### 2. Scheme Abstraction Layer (`crates/primitive/src/scheme/`)
 - **`abstract_scheme.rs`** (970 lines) – defines `Scheme`, `Axis`, `RelationGraph`, `MemoryLayout`, `ObservationContext`, and `SchemeBuilder`.
   - Type aliases `PredicateFn` and `MappingFn` for complex closure types.
   - Comprehensive enumeration of structural relations (`Adjacency`, `Hierarchy`, `Dependency`, `Equivalence`).
@@ -124,28 +144,28 @@ The following development milestones have been completed, each documented in the
   - `CompositeScheme` with composition rules and conflict resolution.
   - `TransformedScheme` with geometric transformations (translation, rotation, scaling).
 
-### 3. Compiler Pipeline (`src/compiler_pipeline.rs`)
+### 3. Compiler Pipeline (`crates/primitive/src/compiler_pipeline.rs`)
 - Four‑stage pipeline: parsing, structural analysis, memory‑layout resolution, hardware mapping.
 - `HardwareProfile` enum (`GenericCPU`, `FPGA`, `PIM`, `Custom`).
 - `CompiledScheme` struct that holds the final hardware‑mapped layout and generated observation code.
 - Placeholder implementations for each stage, ready for extension.
 
-### 4. `.ss` Binary Parser (`src/ss_parser.rs`)
+### 4. `.ss` Binary Parser (`crates/primitive/src/ss_parser.rs`)
 - Basic parser for the open `.ss` binary format.
 - Validates header magic and version.
 - Reads SchemeId, axes, segment table, relation graph, memory‑layout closure, and observation rules.
 - Returns a dummy `Scheme` for demonstration; serves as a skeleton for future elaboration.
 
-### 5. Projector Implementations (`src/projector.rs`)
+### 5. Projector Implementations (`crates/primitive/src/projector.rs`)
 - `IntegerProjector` – extracts a coordinate along a given axis.
 - `ArithmeticProjector` – defines adjacency through arithmetic operations (`+1`, `-1`, `*2`, `/2`).
 - `ParityProjector` – classifies coordinates as "even" or "odd" strings.
 
-### 6. Space Implementations (`src/spaces/`)
+### 6. Space Implementations (`crates/primitive/src/spaces/`)
 - **`boolean.ss`** – `BooleanSpace` for representing true/false values as 1D coordinates (0 = false, 1 = true).
 - **`integer.ss`** – `IntegerSpace` for single‑axis integer values with convenient constructors.
 
-### 7. Constitutional Concept Tests (`src/main.rs`)
+### 7. Constitutional Concept Tests (`crates/primitive/src/main.rs`)
 Ten tests verify that the SSCCS model satisfies its foundational principles:
 
 1. **Segment Concept** – immutability and cryptographic identity.
@@ -161,23 +181,32 @@ Ten tests verify that the SSCCS model satisfies its foundational principles:
 
 All ten tests pass, confirming that the PoC correctly embodies the SSCCS ontology.
 
-### 8. Code Quality and Maintenance
+### 8. Research Crates (Placeholder)
+
+- **`ssccs‑field‑synthesis`** (`crates/field‑synthesis`) – exploration of Field composition algebra, synthesis techniques, and constraint‑based generation of admissible configurations.
+- **`ssccs‑hardware‑mapping`** (`crates/hardware‑mapping`) – research on mapping Schemes to hardware (CPU, FPGA, PIM) with realistic cache‑line, bank‑interleaving, and memory‑hierarchy considerations.
+- **`ssccs‑compiler‑opt`** (`crates/compiler‑opt`) – research on compiler optimisations and open‑format‑to‑machine‑code compilation, focusing on the SSCCS compiler pipeline.
+
+These crates currently contain only a minimal `lib.rs` stub; they are ready to be populated with research‑specific code while reusing the core SSCCS types from `ssccs‑core`.
+
+### 9. Code Quality and Maintenance
 - **Clippy linting** – resolved 10 warnings (type‑complexity, unnecessary‑map‑or, large‑enum‑variant, needless‑borrow, clone‑on‑copy) by introducing type aliases, boxing large variants, and removing redundant operations.
 - **Formatting** – module order adjusted to satisfy `cargo fmt`.
 - **Documentation** – inline doc comments and references to the whitepaper.
 
-### 9. Whitepaper Synchronization
+### 10. Whitepaper Synchronization
 The implementation stays aligned with the conceptual description in `docs/whitepaper.qmd`:
 - Ontological layers (Segment, Scheme, Field, Observation, Projection) match the code.
 - Compiler‑pipeline section (Section 5.1) corresponds to `compiler_pipeline.rs`.
 - Memory‑layout abstraction (Section 5.2) is realized as `MemoryLayout` in `abstract_scheme.rs`.
 - Open `.ss` format (Section 6) is stubbed in `ss_parser.rs`.
 
-### 10. Next Steps (Immediate)
+### 11. Next Steps (Immediate)
 - Extend the `.ss` parser to fully deserialize a Scheme.
 - Implement the hardware‑mapping stage with concrete cache‑line and bank‑interleaving logic.
 - Add more realistic projectors (e.g., floating‑point operations, image‑pixel interpretation).
 - Benchmark data‑movement reduction against a traditional vector‑addition loop.
+
 
 ## License
 

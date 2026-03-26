@@ -1,12 +1,18 @@
-[package]
-name = "ssccs_poc"
-version = "0.1.0"
-edition = "2024"
+[workspace]
+resolver = "2"
+members = [
+    "crates/core",
+    "crates/primitive",
+    "crates/field-synthesis",
+    "crates/hardware-mapping",
+    "crates/compiler-opt",
+]
 
-[dependencies]
-dyn-clone = "1"
-blake3 = "1.5"
+[workspace.dependencies]
+# Common dependencies shared across workspace crates
+blake3 = "1.8.3"
 hex = "0.4.3"
 serde = { version = "1", features = ["derive"] }
 bincode = "1"
-thiserror = "1"
+thiserror = "2.0.18"
+dyn-clone = "1"

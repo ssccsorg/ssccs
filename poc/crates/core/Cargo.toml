@@ -1,0 +1,16 @@
+[package]
+name = "ssccs-core"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+blake3 = { workspace = true }
+hex = { workspace = true }
+serde = { workspace = true, optional = true }  # optional for serialization
+bincode = { workspace = true, optional = true }
+thiserror = { workspace = true, optional = true }
+dyn-clone = { workspace = true, optional = true }
+
+[features]
+default = []
+serde = ["dep:serde", "dep:bincode"]
