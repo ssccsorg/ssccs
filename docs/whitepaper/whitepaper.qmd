@@ -685,9 +685,9 @@ where $\times$ denotes independent composition of projections. Every Segment and
 | Program counter       | Coordinate dimension       | Time as coordinate             |
 | Algorithm             | Geometry                   | Structure determines observation|
 
-## Formal Properties
+### Formal Properties
 
-### Energy Model
+#### Energy Model
 
 A formal energy model for SSCCS can be expressed as:
 
@@ -697,7 +697,7 @@ $$
 
 where $E_{\text{obs}}$ is the energy required to perform a single observation, $E_{\text{update}}$ is the energy required to mutate the Field, $N_{\text{obs}}$ is the number of observations, and $N_{\text{update}}$ is the number of field updates. There is no term for moving data between memory and processor, because Segments are stationary. This model predicts that energy consumption scales with the number of observations and field updates, but not with data movement, which is a key source of energy inefficiency in traditional architectures [@horowitz2014computing].
 
-### Immutability and Concurrency
+#### Immutability and Concurrency
 
 Because Segments are immutable, any number of observations can be performed simultaneously without interference. Formally, if $S_1$ and $S_2$ are disjoint sets of Segments, then:
 
@@ -707,11 +707,11 @@ $$
 
 where $\times$ denotes independent composition of projections. This property follows directly from the absence of shared mutable state: since Segments cannot be modified, observations on disjoint sets have no side‑effects that could affect each other. Consequently, SSCCS enables inherent parallelism without any programmer effort or runtime synchronisation.
 
-### Time as a Coordinate
+#### Time as a Coordinate
 
 Time is treated as one coordinate axis among many. Let $t \in \mathbb{R}$ be a coordinate along the time axis; the Scheme may define $t$ as a continuous axis or as a cyclic axis with period $\tau$ (i.e., $t \equiv t \mod \tau$). Temporal ordering is expressed by comparing coordinates along that axis. Observations do not have a global temporal order unless explicitly defined. This eliminates the notion of a “program counter” and the associated assumption that computation must proceed in sequence.
 
-### Determinism and Auditability
+#### Determinism and Auditability
 
 Observation is deterministic: for identical $\Sigma$ and $F$, $\Omega$ always yields the same $P$. This follows from the definition of $\Omega$ as a function of $\Sigma$ and $F$; any non‑determinism must be explicitly introduced through the resolution strategy in $O$. Determinism enables auditability as a secondary benefit: every projection is a verifiable trace from blueprint to output. However, this is a consequence of the core structural properties, not a primary design goal.
 

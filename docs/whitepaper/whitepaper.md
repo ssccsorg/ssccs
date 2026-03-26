@@ -45,7 +45,7 @@ provides a roadmap where logical design dictates physical
 implementation, contrasting with current hardware advances that focus
 primarily on physical improvements. Ultimately, SSCCS aims to evolve
 into an open format
-\[*<a href="#sec-appendix-openformat" class="quarto-xref">13</a>*\] at
+\[*<a href="#sec-appendix-openformat" class="quarto-xref">12</a>*\] at
 the language layer, transitioning logic into a transparent, accessible,
 and energy-efficient Intellectual Public Commons.
 
@@ -359,8 +359,8 @@ interpretation of coordinates and the admissible relations between
 Segments, but do not prescribe a particular physical representation. The
 compiler uses the axis types to select appropriate layout strategies and
 to validate structural constraints. (See
-*<a href="#sec-appendix-scheme-enumerations" class="quarto-xref">15</a>*
-\[*<a href="#sec-appendix-axis-types" class="quarto-xref">15.1</a>*\]
+*<a href="#sec-appendix-scheme-enumerations" class="quarto-xref">14</a>*
+\[*<a href="#sec-appendix-axis-types" class="quarto-xref">14.1</a>*\]
 for more details.)
 
 #### Structural Relations
@@ -383,9 +383,9 @@ static topology that the compiler maps onto hardware. The compiler uses
 the relation types to extract independent sub‑graphs, optimize locality,
 and generate observation code that respects the structural dependencies.
 (See
-*<a href="#sec-appendix-scheme-enumerations" class="quarto-xref">15</a>*
+*<a href="#sec-appendix-scheme-enumerations" class="quarto-xref">14</a>*
 \[*<a href="#sec-appendix-structural-relations"
-class="quarto-xref">15.2</a>*\] for more details.)
+class="quarto-xref">14.2</a>*\] for more details.)
 
 #### Memory‑Layout Abstraction
 
@@ -404,8 +404,8 @@ the target hardware’s memory hierarchy. The choice of layout type is a
 critical optimization: it determines how structurally adjacent Segments
 are placed in physical memory, thereby minimizing data movement during
 observation. (See
-*<a href="#sec-appendix-scheme-enumerations" class="quarto-xref">15</a>*
-\[*<a href="#sec-appendix-memory-layout" class="quarto-xref">15.3</a>*\]
+*<a href="#sec-appendix-scheme-enumerations" class="quarto-xref">14</a>*
+\[*<a href="#sec-appendix-memory-layout" class="quarto-xref">14.3</a>*\]
 for more details.)
 
 #### Observation Rules
@@ -425,8 +425,8 @@ when strict reproducibility is not required.
 Observation rules are part of the Scheme’s immutable specification; they
 enable fine‑grained control over the observation process, allowing the
 designer to trade off determinism against other desiderata. (See
-*<a href="#sec-appendix-scheme-enumerations" class="quarto-xref">15</a>*
-\[*<a href="#sec-appendix-observation-rules" class="quarto-xref">15.4</a>*\]
+*<a href="#sec-appendix-scheme-enumerations" class="quarto-xref">14</a>*
+\[*<a href="#sec-appendix-observation-rules" class="quarto-xref">14.4</a>*\]
 for more details.)
 
 #### Pre‑defined Scheme Templates
@@ -437,7 +437,7 @@ arbitrary graphs. These templates are idiomatic combinations of axis,
 relation, and layout abstractions, serving as starting points for
 developers to construct custom Schemes. Detailed descriptions of each
 template are provided in the
-\[*<a href="#sec-appendix-scheme-templates" class="quarto-xref">16</a>*\].
+\[*<a href="#sec-appendix-scheme-templates" class="quarto-xref">15</a>*\].
 
 ### Field: Dynamic Constraint Substrate
 
@@ -667,7 +667,7 @@ that structure as new code. A detailed worked example illustrating the
 intersection of a similarity‑constraint Field and a position‑constraint
 Field is provided in
 \[*<a href="#sec-appendix-field-composition-example"
-class="quarto-xref">14</a>*\].
+class="quarto-xref">13</a>*\].
 
 ### Observation and Projection
 
@@ -721,9 +721,9 @@ mechanisms.
 | Program counter | Coordinate dimension | Time as coordinate |
 | Algorithm | Geometry | Structure determines observation |
 
-## Formal Properties
+### Formal Properties
 
-### Energy Model
+#### Energy Model
 
 A formal energy model for SSCCS can be expressed as:
 
@@ -739,7 +739,7 @@ number of observations and field updates, but not with data movement,
 which is a key source of energy inefficiency in traditional
 architectures [\[1\]](#ref-horowitz2014computing).
 
-### Immutability and Concurrency
+#### Immutability and Concurrency
 
 Because Segments are immutable, any number of observations can be
 performed simultaneously without interference. Formally, if $S_1$ and
@@ -754,7 +754,7 @@ side‑effects that could affect each other. Consequently, SSCCS enables
 inherent parallelism without any programmer effort or runtime
 synchronisation.
 
-### Time as a Coordinate
+#### Time as a Coordinate
 
 Time is treated as one coordinate axis among many. Let
 $t \in \mathbb{R}$ be a coordinate along the time axis; the Scheme may
@@ -765,7 +765,7 @@ temporal order unless explicitly defined. This eliminates the notion of
 a “program counter” and the associated assumption that computation must
 proceed in sequence.
 
-### Determinism and Auditability
+#### Determinism and Auditability
 
 Observation is deterministic: for identical $\Sigma$ and $F$, $\Omega$
 always yields the same $P$. This follows from the definition of $\Omega$
@@ -783,7 +783,7 @@ than generating a sequence of instructions, performs structural mapping
 of the Schema onto the target hardware. The compiler analyses the
 adjacency relations and memory layout semantics declared in the Schema
 written in the open format(`.ss`)
-\[*<a href="#sec-appendix-openformat" class="quarto-xref">13</a>*\] and
+\[*<a href="#sec-appendix-openformat" class="quarto-xref">12</a>*\] and
 produces a physical placement of Segments that maximises locality.
 
 For example, if a Schema defines a two-dimensional grid of Segments with
@@ -903,14 +903,14 @@ where observation occurs.
 
 - **Vector Addition Example**: A concrete walkthrough of vector addition
   in SSCCS, demonstrating zero data movement and implicit parallelism.
-  \[*<a href="#sec-appendix-vector" class="quarto-xref">10</a>*\]
+  \[*<a href="#sec-appendix-vector" class="quarto-xref">9</a>*\]
 - **Scaling to N‑Dimensional Tensors**: Extension of principles to
   higher‑dimensional structures, featuring zero‑copy reshaping and
   logical adjacency.
-  \[*<a href="#sec-appendix-tensor" class="quarto-xref">11</a>*\]
+  \[*<a href="#sec-appendix-tensor" class="quarto-xref">10</a>*\]
 - **Complex Graph Processing**: Application of graph algorithms,
   eliminating pointer chasing through parallel observation.
-  \[*<a href="#sec-appendix-graph" class="quarto-xref">12</a>*\]
+  \[*<a href="#sec-appendix-graph" class="quarto-xref">11</a>*\]
 
 ## Theoretical Performance & Scalability
 
@@ -1131,7 +1131,7 @@ validation across high-performance domains to demonstrate energy
 efficiency and deterministic execution through structural observation.
 For a detailed execution plan and phased development milestones, please
 refer to this appendix for the Roadmap:
-\[*<a href="#sec-appendix-roadmap" class="quarto-xref">9</a>*\].
+\[*<a href="#sec-appendix-roadmap" class="quarto-xref">8</a>*\].
 
 ## Conclusion and Future Work
 
@@ -1158,7 +1158,7 @@ of static potential rather than the execution of mutable instructions,
 then many assumptions about hardware design, programming languages, and
 system architecture become contingent rather than necessary. The open
 .ss format
-\[*<a href="#sec-appendix-openformat" class="quarto-xref">13</a>*\] is a
+\[*<a href="#sec-appendix-openformat" class="quarto-xref">12</a>*\] is a
 first step toward making these ideas concrete and composable.
 
 SSCCS is not proposed as a universal replacement for all computing. For
@@ -2077,63 +2077,6 @@ templates are idiomatic combinations of the axis, relation, and layout
 abstractions; they are not separate language constructs. Developers can
 extend them or create entirely new Schemes by composing the same
 primitive elements.
-
-<div id="fig-scheme-templates">
-
-``` python
-dot("""
-digraph SchemeTemplates {
-    rankdir=LR;
-    node [shape=circle, width=0.6];
-    edge [arrowhead=none];
-
-    // 2D Grid
-    subgraph cluster_grid {
-        label="2D Grid";
-        style=dashed;
-        G1 [label="(0,0)"];
-        G2 [label="(1,0)"];
-        G3 [label="(0,1)"];
-        G4 [label="(1,1)"];
-        G1 -> G2;
-        G1 -> G3;
-        G2 -> G4;
-        G3 -> G4;
-        G2 -> G3 [style=invis];
-    }
-
-    // Integer Line
-    subgraph cluster_line {
-        label="Integer Line";
-        style=dashed;
-        L1 [label="0"];
-        L2 [label="1"];
-        L3 [label="2"];
-        L4 [label="3"];
-        L1 -> L2 -> L3 -> L4;
-    }
-
-    // Graph
-    subgraph cluster_graph {
-        label="Graph";
-        style=dashed;
-        N1 [label="A"];
-        N2 [label="B"];
-        N3 [label="C"];
-        N4 [label="D"];
-        N1 -> N2;
-        N1 -> N3;
-        N2 -> N4;
-        N3 -> N4;
-        N2 -> N3 [style=dashed];
-    }
-}
-""")
-```
-
-Figure 13
-
-</div>
 
 ### 2D Grid
 
