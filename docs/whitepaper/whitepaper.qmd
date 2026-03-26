@@ -29,6 +29,8 @@ format:
       eval: false
       echo: true
   pdf:
+    geometry:
+        - margin=18mm   
     keep-tex: true
     number-sections: true
     toc-title: "Contents"
@@ -44,6 +46,7 @@ format:
       text: |
         \usepackage{xcolor}
         \usepackage{microtype}
+        \geometry{bottom=1.2cm, footskip=1cm}
         \setkeys{Gin}{width=\linewidth,height=\textheight,keepaspectratio}
         \addtokomafont{disposition}{\rmfamily}
         \input{./_files/_metadata.tex}        
@@ -132,7 +135,9 @@ Beneath immutable segments and schemes, observation momentarily activates the Fi
 
 ## Introduction
 
-SSCCS redefines computation through four primitives: **Segments** (immutable points), **Schemes** (immutable blueprints), **Fields** (mutable constraints), and **Observation** (the active event). This redefinition yields deterministic reproducibility: because the structure is fixed and observation is deterministic, every computation produces a verifiable trace from blueprint to projection. 
+### Primitives
+
+SSCCS redefines computation through four primitives: **Segments** (immutable points), **Schemes** (immutable blueprints), **Fields** (mutable constraints), and **Observation** (the active event). This redefinition yields deterministic reproducibility: because the structure is fixed and observation is deterministic, every computation produces a verifiable trace from blueprint to projection.
 
 ```{python}
 #| label: fig-ontology
@@ -189,6 +194,8 @@ digraph SSCCS_Ontology {
 ```
 
 
+
+### The Data Movement Wall
 
 For decades, computation has been defined by the von Neumann model:
 
@@ -251,6 +258,8 @@ digraph VonNeumann {
 ```
 
 This formulation rests on several assumptions: data exists as intrinsic values in memory, programs are instruction sequences, and execution involves moving data between memory and processor across a sequential timeline. These assumptions are not fundamental laws but consequences of a specific architectural choice. Consequently, the majority of energy and time in conventional systems is spent on data movement rather than logic—a symptom known as the "data-movement wall" [@wulf1995hitting; @borkar2011future; @lucas2014top; @horowitz2014computing]. 
+
+### Structural Observation
 
 While new hardware-side paradigms attempt to mitigate this, they remain localized optimizations within the same sequential paradigm. SSCCS proposes a shift from procedural execution to **structural observation**:
 
@@ -464,6 +473,8 @@ digraph SSCCS_MultiField {
 Through immutable Segments and Schemes, SSCCS achieves emergent parallelism without locks, eliminates data movement via structural mapping, and ensures deterministic results. Observation events can occur concurrently without temporal ordering, and the resulting projections are independent. **Time is not a fundamental dimension that governs state changes**; instead, the structure of Schemes and the constraints of Fields govern what can be observed and when.
 
 {{< include _include/_ontology3d.qmd >}}
+
+## Definition of Primitives
 
 ### Segment: Atomic Coordinate Existence
 
@@ -715,7 +726,9 @@ Time is treated as one coordinate axis among many. Let $t \in \mathbb{R}$ be a c
 
 Observation is deterministic: for identical $\Sigma$ and $F$, $\Omega$ always yields the same $P$. This follows from the definition of $\Omega$ as a function of $\Sigma$ and $F$; any non‑determinism must be explicitly introduced through the resolution strategy in $O$. Determinism enables auditability as a secondary benefit: every projection is a verifiable trace from blueprint to output. However, this is a consequence of the core structural properties, not a primary design goal.
 
-## Compilation and Structural Mapping
+## System Architecture and Compilation
+
+### Compiler: Topology Optimizer
 
 A key engineering contribution of SSCCS is that the compiler, rather than generating a sequence of instructions, performs structural mapping of the Schema onto the target hardware. The compiler analyses the adjacency relations and memory layout semantics declared in the Schema written in the open format(`.ss`) [*-@sec-appendix-openformat*] and produces a physical placement of Segments that maximises locality.
 
@@ -766,7 +779,9 @@ The SSCCS compiler transforms a high-level schema into a hardware-specific layou
 
 The entire pipeline is deterministic and reproducible: given the same specification and target hardware profile, the compiler always produces the same layout and observation code.
 
-### Memory Mapping Logic
+### Hardware Topology Embedding
+
+#### Logical Address Virtualization Layer
 
 The compiler's ability to eliminate data movement hinges on the `MemoryLayout` abstraction. A `MemoryLayout` consists of a `layout_type` (e.g., `RowMajor`, `SpaceFillingCurve`), a `mapping` function, and `metadata`.
 
@@ -777,7 +792,7 @@ $$f(x, y) = (\text{grid\_id},\; y \cdot \text{width} + x)$$
 
 The compiler evaluates this function for every coordinate in the Schema, producing a complete logical-address map.
 
-### Embedding Schema into Hardware Topologies
+#### Target‑Hardware Mapping Strategies
 
 The logical address space acts as a virtualisation layer, decoupling structural description from physical implementation. The same Schema can be embedded into vastly different hardware substrates:
 
@@ -787,6 +802,77 @@ The logical address space acts as a virtualisation layer, decoupling structural 
 - **Emerging Non-volatile Memories (ReRAM, PCM)**: SSCCS treats the physical array as a static coordinate manifold, enabling direct structural projection.
 
 Crucially, even on conventional von Neumann hardware, SSCCS overlays a structural interpretation: the compiler translates logical addresses into standard load/store operations, but the overall computation remains free of data movement because all necessary data is already resident where observation occurs.
+
+### System Stack and Runtime
+
+SSCCS inserts a runtime layer between application and hardware that translates observation requests into hardware-specific memory mappings.
+
+```{python}
+#| label: fig-system-stack
+#| fig-cap: "SSCCS system stack"
+dot("""
+digraph SystemStack {
+    rankdir=TB;
+    node [shape=rect, style=rounded];
+    
+    // Application Layer
+    App [label="Application"];
+    
+    // Runtime Layer
+    subgraph cluster_runtime {
+        label="SSCCS Runtime (Observation Manager)";
+        style=rounded;
+        Runtime [label="Runtime Core\n(Observation Manager)"];
+        LayoutCache [label="Layout Cache\n(pre-computed)", style=dashed];
+        Projector [label="Projector\n(Ω)"];
+    }
+    
+    // Hardware Layer
+    CPU [label="CPU / ISA"];
+    RAM [label="RAM / Cache"];
+    PIM [label="PIM Unit\n(optional)"];
+    
+    // Compiler (separate phase)
+    subgraph cluster_compiler {
+        label="Compiler (Build Time)";
+        style=dashed;
+        Compiler [label="SSCCS Compiler\n(Structural Mapping)", shape=rect];
+    }
+    
+    // Application to Runtime
+    App -> Runtime [label="observe(scheme, field)"];
+    
+    // Runtime internal
+    Runtime -> LayoutCache [label="load layout", style=dashed];
+    Runtime -> Projector [label="execute Ω"];
+    
+    // Runtime to Hardware
+    Projector -> CPU [label="observation micro-ops", style=dashed];
+    Projector -> PIM [label="in-memory observation", style=dashed];
+    
+    // Hardware memory access
+    CPU -> RAM [label="load/store (minimal)"];
+    PIM -> RAM [label="direct access"];
+    
+    // Compiler output
+    Compiler -> LayoutCache [label="emit layout", style=dashed];
+    Compiler -> Projector [label="emit observation code", style=dashed];
+    
+    // Optional: Compiler reads hardware profiles
+    Compiler -> CPU [label="target profile", style=dashed, constraint=false];
+    Compiler -> PIM [label="target profile", style=dashed, constraint=false];
+}
+"""
+)
+```
+
+#### Future Hardware Considerations
+
+While SSCCS can be implemented in software, its benefits are most pronounced with hardware support:
+
+- No instruction fetch unit; observation triggered structurally.
+- Processing-in-memory (PIM) for direct observation.
+- Spatial computation mapping adjacency to wiring.
 
 ### Implementation Cases
 
@@ -865,76 +951,6 @@ As demonstrated in the emergence of State-Space Models (SSMs) [@gu2023mamba] and
 1. **Stationary Topology**: By fixing the Segments in a k-dimensional `MemoryLayout`, SSCCS allows the hardware to perform "Observation" as a near-instantaneous mapping.
 2. **Implicit Parallelism**: Unlike threads or warps that require explicit management, SSCCS parallelism is implicit—it is a property of the structure itself.
 
-## System Stack and Instruction-Set Interaction
-
-SSCCS inserts a runtime layer between application and hardware that translates observation requests into hardware-specific memory mappings.
-
-```{python}
-#| label: fig-system-stack
-#| fig-cap: "SSCCS system stack"
-dot("""
-digraph SystemStack {
-    rankdir=TB;
-    node [shape=rect, style=rounded];
-    
-    // Application Layer
-    App [label="Application"];
-    
-    // Runtime Layer
-    subgraph cluster_runtime {
-        label="SSCCS Runtime (Observation Manager)";
-        style=rounded;
-        Runtime [label="Runtime Core\n(Observation Manager)"];
-        LayoutCache [label="Layout Cache\n(pre-computed)", style=dashed];
-        Projector [label="Projector\n(Ω)"];
-    }
-    
-    // Hardware Layer
-    CPU [label="CPU / ISA"];
-    RAM [label="RAM / Cache"];
-    PIM [label="PIM Unit\n(optional)"];
-    
-    // Compiler (separate phase)
-    subgraph cluster_compiler {
-        label="Compiler (Build Time)";
-        style=dashed;
-        Compiler [label="SSCCS Compiler\n(Structural Mapping)", shape=rect];
-    }
-    
-    // Application to Runtime
-    App -> Runtime [label="observe(scheme, field)"];
-    
-    // Runtime internal
-    Runtime -> LayoutCache [label="load layout", style=dashed];
-    Runtime -> Projector [label="execute Ω"];
-    
-    // Runtime to Hardware
-    Projector -> CPU [label="observation micro-ops", style=dashed];
-    Projector -> PIM [label="in-memory observation", style=dashed];
-    
-    // Hardware memory access
-    CPU -> RAM [label="load/store (minimal)"];
-    PIM -> RAM [label="direct access"];
-    
-    // Compiler output
-    Compiler -> LayoutCache [label="emit layout", style=dashed];
-    Compiler -> Projector [label="emit observation code", style=dashed];
-    
-    // Optional: Compiler reads hardware profiles
-    Compiler -> CPU [label="target profile", style=dashed, constraint=false];
-    Compiler -> PIM [label="target profile", style=dashed, constraint=false];
-}
-"""
-)
-```
-
-### Future Hardware Considerations
-
-While SSCCS can be implemented in software, its benefits are most pronounced with hardware support:
-
-- No instruction fetch unit; observation triggered structurally.
-- Processing-in-memory (PIM) for direct observation.
-- Spatial computation mapping adjacency to wiring.
 
 ## Related Work
 

@@ -93,6 +93,8 @@ cryptographic authenticity.
 
 ## Introduction
 
+### Primitives
+
 SSCCS redefines computation through four primitives: **Segments**
 (immutable points), **Schemes** (immutable blueprints), **Fields**
 (mutable constraints), and **Observation** (the active event). This
@@ -157,6 +159,8 @@ Figure 1
 
 </div>
 
+### The Data Movement Wall
+
 For decades, computation has been defined by the von Neumann model:
 
 This formulation rests on several assumptions: data exists as intrinsic
@@ -168,6 +172,8 @@ and time in conventional systems is spent on data movement rather than
 logic—a symptom known as the “data-movement wall”
 [\[1\]](#ref-horowitz2014computing), [\[2\]](#ref-wulf1995hitting),
 [\[3\]](#ref-borkar2011future), [\[4\]](#ref-lucas2014top).
+
+### Structural Observation
 
 While new hardware-side paradigms attempt to mitigate this, they remain
 localized optimizations within the same sequential paradigm. SSCCS
@@ -306,6 +312,8 @@ concurrently without temporal ordering, and the resulting projections
 are independent. **Time is not a fundamental dimension that governs
 state changes**; instead, the structure of Schemes and the constraints
 of Fields govern what can be observed and when.
+
+## Definition of Primitives
 
 ### Segment: Atomic Coordinate Existence
 
@@ -776,7 +784,9 @@ projection is a verifiable trace from blueprint to output. However, this
 is a consequence of the core structural properties, not a primary design
 goal.
 
-## Compilation and Structural Mapping
+## System Architecture and Compilation
+
+### Compiler: Topology Optimizer
 
 A key engineering contribution of SSCCS is that the compiler, rather
 than generating a sequence of instructions, performs structural mapping
@@ -860,7 +870,9 @@ The entire pipeline is deterministic and reproducible: given the same
 specification and target hardware profile, the compiler always produces
 the same layout and observation code.
 
-### Memory Mapping Logic
+### Hardware Topology Embedding
+
+#### Logical Address Virtualization Layer
 
 The compiler’s ability to eliminate data movement hinges on the
 `MemoryLayout` abstraction. A `MemoryLayout` consists of a `layout_type`
@@ -879,7 +891,7 @@ $$f(x, y) = (\text{grid\_id},\; y \cdot \text{width} + x)$$
 The compiler evaluates this function for every coordinate in the Schema,
 producing a complete logical-address map.
 
-### Embedding Schema into Hardware Topologies
+#### Target‑Hardware Mapping Strategies
 
 The logical address space acts as a virtualisation layer, decoupling
 structural description from physical implementation. The same Schema can
@@ -899,117 +911,7 @@ into standard load/store operations, but the overall computation remains
 free of data movement because all necessary data is already resident
 where observation occurs.
 
-### Implementation Cases
-
-- **Vector Addition Example**: A concrete walkthrough of vector addition
-  in SSCCS, demonstrating zero data movement and implicit parallelism.
-  \[*<a href="#sec-appendix-vector" class="quarto-xref">9</a>*\]
-- **Scaling to N‑Dimensional Tensors**: Extension of principles to
-  higher‑dimensional structures, featuring zero‑copy reshaping and
-  logical adjacency.
-  \[*<a href="#sec-appendix-tensor" class="quarto-xref">10</a>*\]
-- **Complex Graph Processing**: Application of graph algorithms,
-  eliminating pointer chasing through parallel observation.
-  \[*<a href="#sec-appendix-graph" class="quarto-xref">11</a>*\]
-
-## Theoretical Performance & Scalability
-
-The SSCCS architecture derives its efficiency not from incremental
-hardware acceleration, but from a fundamental shift in computational
-complexity.
-
-### Architectural Expectations of Time-Space Complexity
-
-Traditional procedural models are constrained by the linear relationship
-between data volume ($N$) and execution cycles. SSCCS decouples this
-relationship by utilizing the concurrent propagation of a Field across a
-pre-defined Topology.
-
-<div id="fig-complexity">
-
-``` python
-import matplotlib.pyplot as plt
-import numpy as np
-
-N = np.geomspace(1, 1024, 100)
-latency_procedural = N * 1.2 + 5
-latency_ssccs = np.log2(N) + 2
-movement_procedural = N**1.15
-movement_ssccs = np.ones_like(N) * 10 + (N * 0.1)
-
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
-ax1.plot(N, latency_procedural, color='gray', linestyle='--', label=r'Procedural: $O(N)$')
-ax1.plot(N, latency_ssccs, color='gray', linewidth=2, label=r'SSCCS: $O(\log N)$')
-ax1.set_xscale('log')
-ax1.set_yscale('log')
-ax1.set_title('Execution Latency (Time)', fontweight='bold')
-ax1.set_xlabel(r'Scale of Data ($N$)')
-ax1.set_ylabel('Cycles (Log Scale)')
-ax1.legend()
-
-ax2.plot(N, movement_procedural, color='gray', linestyle='--', label=r'Procedural: $O(N \cdot D)$')
-ax2.plot(N, movement_ssccs, color='black', linewidth=2, label=r'SSCCS: $O(Projection)$')
-ax2.set_xscale('log')
-ax2.set_yscale('log')
-ax2.set_title('Data Movement (Energy/Space)', fontweight='bold')
-ax2.set_xlabel(r'Scale of Data ($N$)')
-ax2.set_ylabel('Transfer Volume (Log Scale)')
-ax2.legend()
-
-plt.tight_layout()
-plt.show()
-```
-
-Figure 6
-
-</div>
-
-#### Temporal Complexity (Latency)
-
-In a von Neumann environment, latency scales at $O(N)$ or $O(N/k)$ due
-to instruction dispatch and synchronization.
-
-- **SSCCS Latency**: Defined by the physical propagation delay of the
-  Field across the Scheme. The observation of the result theoretically
-  approaches $O(1)$ in emerging hardware paradigms such as
-  Processing-In-Memory (PIM).
-
-#### Data Movement Complexity (Spatial/Energy Cost)
-
-The primary energy sink in modern computing is the movement of operands
-from memory to logic units.
-
-- **Procedural Cost**: $O(N \cdot D)$.
-- **SSCCS Cost (Logic-at-Rest)**: $O(Projection)$. Since the input
-  Segments remain stationary, the energy expenditure is strictly limited
-  to the transmission of the resulting Projection.
-
-### Comparative Complexity Matrix
-
-| Metric | Sequential | Parallel (SIMD/GPU) | SSCCS (Structural) |
-|----|----|----|----|
-| Instruction Overhead | High ($O(N)$) | Moderate ($O(N/k)$) | Minimal (Field-based) |
-| Data Locality | Managed (Cache) | Explicit (SRAM/Tiling) | Intrinsic (Scheme-defined) |
-| Execution Latency | $O(N)$ | $O(N/k) + \text{sync}$ | $O(\log N)$ or $O(1)$ |
-| Data Movement | $O(N)$ | $O(N)$ | $O(\text{Output Only})$ |
-| Scalability Limit | Amdahl’s Law | Memory Bandwidth | Physical Propagation Delay |
-
-### Scalability in High-Dimensional AI Workloads
-
-As demonstrated in the emergence of State-Space Models (SSMs)
-[\[5\]](#ref-gu2023mamba) and manifold-constrained learning
-[\[6\]](#ref-deepseek2025manifold), the ability to process
-high-dimensional representations without exhaustive data shuffling is
-critical.
-
-1.  **Stationary Topology**: By fixing the Segments in a k-dimensional
-    `MemoryLayout`, SSCCS allows the hardware to perform “Observation”
-    as a near-instantaneous mapping.
-2.  **Implicit Parallelism**: Unlike threads or warps that require
-    explicit management, SSCCS parallelism is implicit—it is a property
-    of the structure itself.
-
-## System Stack and Instruction-Set Interaction
+### System Stack and Runtime
 
 SSCCS inserts a runtime layer between application and hardware that
 translates observation requests into hardware-specific memory mappings.
@@ -1073,11 +975,11 @@ digraph SystemStack {
 )
 ```
 
-Figure 7
+Figure 6
 
 </div>
 
-### Future Hardware Considerations
+#### Future Hardware Considerations
 
 While SSCCS can be implemented in software, its benefits are most
 pronounced with hardware support:
@@ -1085,6 +987,116 @@ pronounced with hardware support:
 - No instruction fetch unit; observation triggered structurally.
 - Processing-in-memory (PIM) for direct observation.
 - Spatial computation mapping adjacency to wiring.
+
+### Implementation Cases
+
+- **Vector Addition Example**: A concrete walkthrough of vector addition
+  in SSCCS, demonstrating zero data movement and implicit parallelism.
+  \[*<a href="#sec-appendix-vector" class="quarto-xref">9</a>*\]
+- **Scaling to N‑Dimensional Tensors**: Extension of principles to
+  higher‑dimensional structures, featuring zero‑copy reshaping and
+  logical adjacency.
+  \[*<a href="#sec-appendix-tensor" class="quarto-xref">10</a>*\]
+- **Complex Graph Processing**: Application of graph algorithms,
+  eliminating pointer chasing through parallel observation.
+  \[*<a href="#sec-appendix-graph" class="quarto-xref">11</a>*\]
+
+## Theoretical Performance & Scalability
+
+The SSCCS architecture derives its efficiency not from incremental
+hardware acceleration, but from a fundamental shift in computational
+complexity.
+
+### Architectural Expectations of Time-Space Complexity
+
+Traditional procedural models are constrained by the linear relationship
+between data volume ($N$) and execution cycles. SSCCS decouples this
+relationship by utilizing the concurrent propagation of a Field across a
+pre-defined Topology.
+
+<div id="fig-complexity">
+
+``` python
+import matplotlib.pyplot as plt
+import numpy as np
+
+N = np.geomspace(1, 1024, 100)
+latency_procedural = N * 1.2 + 5
+latency_ssccs = np.log2(N) + 2
+movement_procedural = N**1.15
+movement_ssccs = np.ones_like(N) * 10 + (N * 0.1)
+
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+ax1.plot(N, latency_procedural, color='gray', linestyle='--', label=r'Procedural: $O(N)$')
+ax1.plot(N, latency_ssccs, color='gray', linewidth=2, label=r'SSCCS: $O(\log N)$')
+ax1.set_xscale('log')
+ax1.set_yscale('log')
+ax1.set_title('Execution Latency (Time)', fontweight='bold')
+ax1.set_xlabel(r'Scale of Data ($N$)')
+ax1.set_ylabel('Cycles (Log Scale)')
+ax1.legend()
+
+ax2.plot(N, movement_procedural, color='gray', linestyle='--', label=r'Procedural: $O(N \cdot D)$')
+ax2.plot(N, movement_ssccs, color='black', linewidth=2, label=r'SSCCS: $O(Projection)$')
+ax2.set_xscale('log')
+ax2.set_yscale('log')
+ax2.set_title('Data Movement (Energy/Space)', fontweight='bold')
+ax2.set_xlabel(r'Scale of Data ($N$)')
+ax2.set_ylabel('Transfer Volume (Log Scale)')
+ax2.legend()
+
+plt.tight_layout()
+plt.show()
+```
+
+Figure 7
+
+</div>
+
+#### Temporal Complexity (Latency)
+
+In a von Neumann environment, latency scales at $O(N)$ or $O(N/k)$ due
+to instruction dispatch and synchronization.
+
+- **SSCCS Latency**: Defined by the physical propagation delay of the
+  Field across the Scheme. The observation of the result theoretically
+  approaches $O(1)$ in emerging hardware paradigms such as
+  Processing-In-Memory (PIM).
+
+#### Data Movement Complexity (Spatial/Energy Cost)
+
+The primary energy sink in modern computing is the movement of operands
+from memory to logic units.
+
+- **Procedural Cost**: $O(N \cdot D)$.
+- **SSCCS Cost (Logic-at-Rest)**: $O(Projection)$. Since the input
+  Segments remain stationary, the energy expenditure is strictly limited
+  to the transmission of the resulting Projection.
+
+### Comparative Complexity Matrix
+
+| Metric | Sequential | Parallel (SIMD/GPU) | SSCCS (Structural) |
+|----|----|----|----|
+| Instruction Overhead | High ($O(N)$) | Moderate ($O(N/k)$) | Minimal (Field-based) |
+| Data Locality | Managed (Cache) | Explicit (SRAM/Tiling) | Intrinsic (Scheme-defined) |
+| Execution Latency | $O(N)$ | $O(N/k) + \text{sync}$ | $O(\log N)$ or $O(1)$ |
+| Data Movement | $O(N)$ | $O(N)$ | $O(\text{Output Only})$ |
+| Scalability Limit | Amdahl’s Law | Memory Bandwidth | Physical Propagation Delay |
+
+### Scalability in High-Dimensional AI Workloads
+
+As demonstrated in the emergence of State-Space Models (SSMs)
+[\[5\]](#ref-gu2023mamba) and manifold-constrained learning
+[\[6\]](#ref-deepseek2025manifold), the ability to process
+high-dimensional representations without exhaustive data shuffling is
+critical.
+
+1.  **Stationary Topology**: By fixing the Segments in a k-dimensional
+    `MemoryLayout`, SSCCS allows the hardware to perform “Observation”
+    as a near-instantaneous mapping.
+2.  **Implicit Parallelism**: Unlike threads or warps that require
+    explicit management, SSCCS parallelism is implicit—it is a property
+    of the structure itself.
 
 ## Related Work
 
