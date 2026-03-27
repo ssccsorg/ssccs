@@ -7,9 +7,9 @@
 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![License: CC BY-NC-ND
 4.0](https://img.shields.io/badge/License-CC_BY--NC--ND_4.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-nd/4.0/)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18759106.svg)](https://doi.org/10.5281/zenodo.18759106)
+[![DOI](https://img.shields.io/badge/DOI-10.5281/zenodo.18759106-blue)](https://doi.org/10.5281/zenodo.18759106)
 [![SSCCS
-Foundation](https://img.shields.io/badge/Foundation-Non--Profit-8A2BE2.png)](https://ssccs.org/legal)
+Foundation](https://img.shields.io/badge/Foundation-Non--Profit-8A2BE2)](https://ssccs.org/legal)
 
 SSCCS (Schema–Segment Composition Computing System) is an
 observation-driven computing model that defines deterministic

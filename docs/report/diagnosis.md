@@ -61,18 +61,34 @@ ontology:
 - Projection: ephemeral result revealed, not stored.
 
 The paper includes a formal energy model, a compiler‑pipeline
-description, and an open‑format specification (`.ss` binary format). It
-is written in Quarto, rendered to PDF/HTML, and signed with C2PA for
-provenance.
+description, and an open‑format specification (`.ss` binary format).
+Recent enhancements have expanded the compiler‑pipeline description with
+concrete mapping functions for memory‑layout resolution (row‑major,
+column‑major, space‑filling curve, hierarchical, graph‑based),
+hardware‑mapping strategies for CPU, FPGA, HBM, and PIM, and a detailed
+observation‑code generation subsection targeting CPU SIMD loops, FPGA
+Verilog netlists, and PIM commands. It is written in Quarto, rendered to
+PDF/HTML, and signed with C2PA for provenance.
 
-Gaps identified:
+Gaps identified (updated 2026-03-27):
 
-- Lack of detailed mathematical formalism for Field composition and
-  composition protocols.
-- Under‑specified axis types, structural relations, memory‑layout
-  abstraction, and observation rules.
-- Missing discussion of how the PoC implementation realises the abstract
-  concepts.
+- **Field composition**: A concrete example of intersection composition
+  is now provided in the appendix, but a full algebraic formalism for
+  arbitrary composition protocols is still missing.
+- **Axis types and structural relations**: Remain under‑specified; the
+  whitepaper lists categories but lacks a formal definition of their
+  semantics.
+- **Memory‑layout abstraction**: Recently enhanced with concrete mapping
+  functions (row‑major, column‑major, space‑filling curve, hierarchical,
+  graph‑based) and examples of logical‑address generation.
+- **Observation rules**: Detailed in the new appendix section
+  “Observation‑Code Generation Methodology”, which describes
+  target‑specific code generation (CPU SIMD loops, FPGA Verilog
+  netlists, PIM commands).
+- **PoC realisation**: The whitepaper now includes a discussion of how
+  the compiler pipeline maps to existing toolchains (LLVM/MLIR, FPGA
+  toolchains), but a direct mapping from PoC code to abstract concepts
+  is still implicit.
 
 ### 1.2 Proof‑of‑Concept Implementation (Software Layer)
 
