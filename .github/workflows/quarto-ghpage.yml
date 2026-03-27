@@ -144,7 +144,6 @@ jobs:
         run: |
           mkdir -p www-docs
           rsync -avm --delete \
-            --include='/README.md' \
             --exclude='.quarto/' \
             --exclude='*_files/' \
             --exclude='*_output/' \
@@ -175,7 +174,7 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
-  sync-www-docs:
+  deploy-ssccs-www-docs:
     runs-on: ubuntu-latest
     needs: build
     env:
