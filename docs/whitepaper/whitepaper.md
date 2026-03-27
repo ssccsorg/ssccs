@@ -361,8 +361,8 @@ interpretation of coordinates and the admissible relations between
 Segments, but do not prescribe a particular physical representation. The
 compiler uses the axis types to select appropriate layout strategies and
 to validate structural constraints. (See
-*<a href="#sec-appendix-scheme-enumerations" class="quarto-xref">14</a>*
-\[*<a href="#sec-appendix-axis-types" class="quarto-xref">14.1</a>*\]
+*<a href="#sec-appendix-scheme-enumerations" class="quarto-xref">15</a>*
+\[*<a href="#sec-appendix-axis-types" class="quarto-xref">15.1</a>*\]
 for more details.)
 
 #### Structural Relations
@@ -385,9 +385,9 @@ static topology that the compiler maps onto hardware. The compiler uses
 the relation types to extract independent sub‑graphs, optimize locality,
 and generate observation code that respects the structural dependencies.
 (See
-*<a href="#sec-appendix-scheme-enumerations" class="quarto-xref">14</a>*
+*<a href="#sec-appendix-scheme-enumerations" class="quarto-xref">15</a>*
 \[*<a href="#sec-appendix-structural-relations"
-class="quarto-xref">14.2</a>*\] for more details.)
+class="quarto-xref">15.2</a>*\] for more details.)
 
 #### Memory‑Layout Abstraction
 
@@ -406,8 +406,8 @@ the target hardware’s memory hierarchy. The choice of layout type is a
 critical optimization: it determines how structurally adjacent Segments
 are placed in physical memory, thereby minimizing data movement during
 observation. (See
-*<a href="#sec-appendix-scheme-enumerations" class="quarto-xref">14</a>*
-\[*<a href="#sec-appendix-memory-layout" class="quarto-xref">14.3</a>*\]
+*<a href="#sec-appendix-scheme-enumerations" class="quarto-xref">15</a>*
+\[*<a href="#sec-appendix-memory-layout" class="quarto-xref">15.3</a>*\]
 for more details.)
 
 #### Observation Rules
@@ -427,8 +427,8 @@ when strict reproducibility is not required.
 Observation rules are part of the Scheme’s immutable specification; they
 enable fine‑grained control over the observation process, allowing the
 designer to trade off determinism against other desiderata. (See
-*<a href="#sec-appendix-scheme-enumerations" class="quarto-xref">14</a>*
-\[*<a href="#sec-appendix-observation-rules" class="quarto-xref">14.4</a>*\]
+*<a href="#sec-appendix-scheme-enumerations" class="quarto-xref">15</a>*
+\[*<a href="#sec-appendix-observation-rules" class="quarto-xref">15.4</a>*\]
 for more details.)
 
 #### Pre‑defined Scheme Templates
@@ -439,7 +439,7 @@ arbitrary graphs. These templates are idiomatic combinations of axis,
 relation, and layout abstractions, serving as starting points for
 developers to construct custom Schemes. Detailed descriptions of each
 template are provided in the
-\[*<a href="#sec-appendix-scheme-templates" class="quarto-xref">15</a>*\].
+\[*<a href="#sec-appendix-scheme-templates" class="quarto-xref">16</a>*\].
 
 ### Field: Dynamic Constraint Substrate
 
@@ -669,7 +669,7 @@ that structure as new code. A detailed worked example illustrating the
 intersection of a similarity‑constraint Field and a position‑constraint
 Field is provided in
 \[*<a href="#sec-appendix-field-composition-example"
-class="quarto-xref">13</a>*\].
+class="quarto-xref">14</a>*\].
 
 ### Observation and Projection
 
@@ -920,7 +920,7 @@ adjacency relations declared in the Scheme.
 
 Each layout type is defined in the Schema’s `MemoryLayout` specification
 (see
-\[*<a href="#sec-appendix-memory-layout" class="quarto-xref">14.3</a>*\]).
+\[*<a href="#sec-appendix-memory-layout" class="quarto-xref">15.3</a>*\]).
 The compiler evaluates the corresponding mapping function for every
 coordinate, producing a deterministic logical‑address map that is then
 passed to the hardware‑mapping stage.
@@ -964,12 +964,12 @@ into standard load/store operations, but the overall computation remains
 free of data movement because all necessary data is already resident
 where observation occurs.
 
-### Observation‑Code Generation: Target‑Specific Output
+### Observation‑Code Generation
 
-The fifth pipeline stage, **Observation‑Code Generation**, emits
-executable code that implements the observation operator $\Omega$ for
-each independent sub‑graph identified during structural analysis. The
-form of the generated code depends on the target hardware:
+The fifth pipeline stage emits executable code that implements the
+observation operator $\Omega$ for each independent sub‑graph identified
+during structural analysis. The form of the generated code depends on
+the target hardware:
 
 - **CPU targets**: The compiler emits SIMD loops that iterate over the
   logical‑address ranges produced by the layout stage. Each iteration
@@ -990,7 +990,9 @@ form of the generated code depends on the target hardware:
 The generated code is deterministic and reproducible: given the same
 Scheme and hardware profile, the compiler emits identical observation
 code every time. This property enables ahead‑of‑time verification and
-eliminates runtime compilation overhead.
+eliminates runtime compilation overhead. A detailed methodology for
+observation‑code generation is provided in
+\[*<a href="#sec-appendix-observation-code-gen" class="quarto-xref">13</a>*\].
 
 ### System Stack and Runtime
 
@@ -1873,6 +1875,143 @@ does **not** affect the `SchemeId`. However, altering the connectivity
 or the metric space produces a new, distinct identity:
 
 $$SchemeId = H(\text{Axes} + \text{Segments} + \text{Relations} + \text{ObservationRules})$$
+
+## Observation‑Code Generation Methodology
+
+This appendix expands on the observation‑code generation stage described
+in [Section 3.5](#sec-observation-code-gen) of the whitepaper, providing
+concrete implementation techniques for CPU, FPGA, and PIM targets. It
+illustrates how the SSCCS compiler lowers the high‑level structural
+description to executable native code while preserving determinism and
+reproducibility.
+
+### Lowering to LLVM/MLIR
+
+The SSCCS front‑end translates a Scheme and its associated Field into an
+intermediate representation (IR) expressed in a custom MLIR dialect
+named `ssccs`. This dialect captures the topological relationships,
+coordinate mapping, and observation semantics as MLIR operations. The
+following snippet illustrates a simplified `ssccs.observation`
+operation:
+
+``` mlir
+func.func @observe_vector(
+  %scheme: !ssccs.scheme, 
+  %field: !ssccs.field
+) -> tensor<8xf32> {
+  %result = ssccs.observation %scheme, %field
+           {layout = #ssccs.layout<row_major>,
+            projector = #ssccs.projector<add>}
+           : (!ssccs.scheme, !ssccs.field) -> tensor<8xf32>
+  return %result : tensor<8xf32>
+}
+```
+
+The `ssccs` dialect is then lowered to standard MLIR dialects (e.g.,
+`affine`, `scf`, `vector`) via a series of progressive rewrites,
+ultimately emitting LLVM IR. This approach leverages the existing LLVM
+optimisation pipeline for generic CPU targets.
+
+### CPU Target: SIMD Loop Generation
+
+For CPU execution, the compiler emits C/C++ loops that iterate over the
+logical‑address ranges produced by the layout stage. The loops are
+automatically vectorised using LLVM’s auto‑vectorisation or explicit
+SIMD intrinsics. The following pseudocode shows the kernel generated for
+a simple vector‑addition observation:
+
+``` c
+void observe_vector(
+  float* projection, 
+  const float* segment_a, 
+  const float* segment_b, 
+  size_t N
+) {
+  #pragma omp simd aligned(projection, segment_a, segment_b: 64)
+  for (size_t i = 0; i < N; i += 8) {
+    __m256 a = _mm256_load_ps(segment_a + i);
+    __m256 b = _mm256_load_ps(segment_b + i);
+    __m256 sum = _mm256_add_ps(a, b);
+    _mm256_store_ps(projection + i, sum);
+  }
+}
+```
+
+The compiler ensures cache‑line alignment, loop unrolling, and proper
+use of prefetch instructions according to the target micro‑architecture.
+The generated code is deterministic: the same Scheme and hardware
+profile produce identical binary loops every time.
+
+### FPGA Target: Verilog Netlist Generation
+
+For FPGA targets, the compiler bypasses instruction‑based execution and
+directly synthesises a hardware circuit that implements the observation
+operator. The logical‑address map is turned into a hardwired address
+decoder; each Segment coordinate becomes a static connection to a
+Block‑RAM location. The observation operator is expressed as a
+combinatorial or pipelined data‑path. A simplified Verilog example:
+
+``` verilog
+module observe_vector (
+  input wire [31:0] segment_a [0:7],
+  input wire [31:0] segment_b [0:7],
+  output wire [31:0] projection [0:7]
+);
+  generate
+    for (genvar i = 0; i < 8; i = i + 1) begin
+      assign projection[i] = segment_a[i] + segment_b[i];
+    end
+  endgenerate
+endmodule
+```
+
+The compiler uses high‑level synthesis (HLS) tools (e.g., Xilinx Vitis
+HLS, Intel HLS) or direct RTL generation, depending on the backend. The
+resulting netlist can be placed and routed on the target FPGA,
+delivering zero‑overhead observation with deterministic latency.
+
+### PIM Target: Command‑Sequence Generation
+
+When targeting processing‑in‑memory (PIM) substrates (e.g., UPMEM DPUs,
+Samsung FIM), the compiler emits a sequence of PIM commands that are
+sent directly to the memory controller. Each command triggers an
+observation within a memory bank, eliminating data movement between
+memory and CPU. The command sequence is derived from the logical‑address
+map and the observation operator. An example using a hypothetical PIM
+SDK:
+
+``` c
+PIMCommand cmd = {
+  .op = PIM_OP_OBSERVE,
+  .bank = 0,
+  .address = LOGICAL_TO_PHYSICAL(segment_a),
+  .operator = PIM_OPERATOR_ADD,
+  .operand = LOGICAL_TO_PHYSICAL(segment_b)
+};
+pim_submit_command(cmd);
+pim_wait_completion();
+```
+
+The compiler leverages vendor‑specific SDKs to generate optimal command
+sequences that maximise bank‑level parallelism and minimise
+synchronisation overhead. Because PIM commands are deterministic, the
+same observation always yields the same result.
+
+### Integration with Existing Toolchains
+
+SSCCS deliberately builds upon established compiler and hardware
+toolchains to reduce implementation risk:
+
+- **LLVM/MLIR**: Provides mature optimisation passes, code generation
+  for a wide range of CPUs, and a flexible dialect infrastructure.
+- **Verilator & vendor HLS tools**: Enable FPGA target simulation and
+  synthesis.
+- **PIM SDKs** (UPMEM, Samsung, etc.) offer a direct path to in‑memory
+  execution.
+
+By reusing these ecosystems, SSCCS focuses innovation on the structural
+abstraction rather than on low‑level code generation, ensuring that the
+novel paradigm can be validated on available hardware today.
 
 ## Field Composition Example
 

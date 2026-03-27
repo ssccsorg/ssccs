@@ -448,6 +448,99 @@ A Schema’s identity is derived solely from its topological properties. Changin
 
 $$SchemeId = H(\text{Axes} + \text{Segments} + \text{Relations} + \text{ObservationRules})$$
 
+## Observation‑Code Generation Methodology {#sec-appendix-observation-code-gen}
+
+This appendix expands on the observation‑code generation stage described in [Section 3.5](#sec-observation-code-gen) of the whitepaper, providing concrete implementation techniques for CPU, FPGA, and PIM targets. It illustrates how the SSCCS compiler lowers the high‑level structural description to executable native code while preserving determinism and reproducibility.
+
+### Lowering to LLVM/MLIR
+
+The SSCCS front‑end translates a Scheme and its associated Field into an intermediate representation (IR) expressed in a custom MLIR dialect named `ssccs`. This dialect captures the topological relationships, coordinate mapping, and observation semantics as MLIR operations. The following snippet illustrates a simplified `ssccs.observation` operation:
+
+```mlir
+func.func @observe_vector(
+  %scheme: !ssccs.scheme, 
+  %field: !ssccs.field
+) -> tensor<8xf32> {
+  %result = ssccs.observation %scheme, %field
+           {layout = #ssccs.layout<row_major>,
+            projector = #ssccs.projector<add>}
+           : (!ssccs.scheme, !ssccs.field) -> tensor<8xf32>
+  return %result : tensor<8xf32>
+}
+```
+
+The `ssccs` dialect is then lowered to standard MLIR dialects (e.g., `affine`, `scf`, `vector`) via a series of progressive rewrites, ultimately emitting LLVM IR. This approach leverages the existing LLVM optimisation pipeline for generic CPU targets.
+
+### CPU Target: SIMD Loop Generation
+
+For CPU execution, the compiler emits C/C++ loops that iterate over the logical‑address ranges produced by the layout stage. The loops are automatically vectorised using LLVM’s auto‑vectorisation or explicit SIMD intrinsics. The following pseudocode shows the kernel generated for a simple vector‑addition observation:
+
+```c
+void observe_vector(
+  float* projection, 
+  const float* segment_a, 
+  const float* segment_b, 
+  size_t N
+) {
+  #pragma omp simd aligned(projection, segment_a, segment_b: 64)
+  for (size_t i = 0; i < N; i += 8) {
+    __m256 a = _mm256_load_ps(segment_a + i);
+    __m256 b = _mm256_load_ps(segment_b + i);
+    __m256 sum = _mm256_add_ps(a, b);
+    _mm256_store_ps(projection + i, sum);
+  }
+}
+```
+
+The compiler ensures cache‑line alignment, loop unrolling, and proper use of prefetch instructions according to the target micro‑architecture. The generated code is deterministic: the same Scheme and hardware profile produce identical binary loops every time.
+
+### FPGA Target: Verilog Netlist Generation
+
+For FPGA targets, the compiler bypasses instruction‑based execution and directly synthesises a hardware circuit that implements the observation operator. The logical‑address map is turned into a hardwired address decoder; each Segment coordinate becomes a static connection to a Block‑RAM location. The observation operator is expressed as a combinatorial or pipelined data‑path. A simplified Verilog example:
+
+```verilog
+module observe_vector (
+  input wire [31:0] segment_a [0:7],
+  input wire [31:0] segment_b [0:7],
+  output wire [31:0] projection [0:7]
+);
+  generate
+    for (genvar i = 0; i < 8; i = i + 1) begin
+      assign projection[i] = segment_a[i] + segment_b[i];
+    end
+  endgenerate
+endmodule
+```
+
+The compiler uses high‑level synthesis (HLS) tools (e.g., Xilinx Vitis HLS, Intel HLS) or direct RTL generation, depending on the backend. The resulting netlist can be placed and routed on the target FPGA, delivering zero‑overhead observation with deterministic latency.
+
+### PIM Target: Command‑Sequence Generation
+
+When targeting processing‑in‑memory (PIM) substrates (e.g., UPMEM DPUs, Samsung FIM), the compiler emits a sequence of PIM commands that are sent directly to the memory controller. Each command triggers an observation within a memory bank, eliminating data movement between memory and CPU. The command sequence is derived from the logical‑address map and the observation operator. An example using a hypothetical PIM SDK:
+
+```c
+PIMCommand cmd = {
+  .op = PIM_OP_OBSERVE,
+  .bank = 0,
+  .address = LOGICAL_TO_PHYSICAL(segment_a),
+  .operator = PIM_OPERATOR_ADD,
+  .operand = LOGICAL_TO_PHYSICAL(segment_b)
+};
+pim_submit_command(cmd);
+pim_wait_completion();
+```
+
+The compiler leverages vendor‑specific SDKs to generate optimal command sequences that maximise bank‑level parallelism and minimise synchronisation overhead. Because PIM commands are deterministic, the same observation always yields the same result.
+
+### Integration with Existing Toolchains
+
+SSCCS deliberately builds upon established compiler and hardware toolchains to reduce implementation risk:
+
+- **LLVM/MLIR**: Provides mature optimisation passes, code generation for a wide range of CPUs, and a flexible dialect infrastructure.
+- **Verilator & vendor HLS tools**: Enable FPGA target simulation and synthesis.
+- **PIM SDKs** (UPMEM, Samsung, etc.) offer a direct path to in‑memory execution.
+
+By reusing these ecosystems, SSCCS focuses innovation on the structural abstraction rather than on low‑level code generation, ensuring that the novel paradigm can be validated on available hardware today.
 
 ## Field Composition Example {#sec-appendix-field-composition-example}
 

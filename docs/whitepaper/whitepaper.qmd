@@ -812,7 +812,7 @@ Where processing‑in‑memory (PIM) capabilities are available, the compiler of
 
 Crucially, even on conventional von Neumann hardware, SSCCS overlays a structural interpretation: the compiler translates logical addresses into standard load/store operations, but the overall computation remains free of data movement because all necessary data is already resident where observation occurs.
 
-### Observation‑Code Generation
+### Observation‑Code Generation {#sec-observation-code-gen}
 
 The fifth pipeline stage emits executable code that implements the observation operator $\Omega$ for each independent sub‑graph identified during structural analysis. The form of the generated code depends on the target hardware:
 
@@ -822,7 +822,7 @@ The fifth pipeline stage emits executable code that implements the observation o
 
 - **PIM targets**: For processing‑in‑memory substrates, the compiler produces a sequence of PIM commands that are sent directly to the memory controller. Each command triggers an observation within a bank, eliminating data movement altogether.
 
-The generated code is deterministic and reproducible: given the same Scheme and hardware profile, the compiler emits identical observation code every time. This property enables ahead‑of‑time verification and eliminates runtime compilation overhead.
+The generated code is deterministic and reproducible: given the same Scheme and hardware profile, the compiler emits identical observation code every time. This property enables ahead‑of‑time verification and eliminates runtime compilation overhead. A detailed methodology for observation‑code generation is provided in [*-@sec-appendix-observation-code-gen*].
 
 ### System Stack and Runtime
 
