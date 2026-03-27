@@ -477,32 +477,32 @@ Formally, $\Sigma = (A, R, L, O)$ where:
 
 - $A = \{a_1, \dots, a_k\}$ is a set of axes, each axis $a_i = (\text{name}_i, \text{type}_i)$ with $\text{type}_i \in \{\text{Discrete}, \text{Continuous}, \text{Cyclic}, \text{Categorical}, \text{Relational}, \text{WithUnit}\}$.
 - $R \subseteq \mathcal{S} \times \mathcal{S} \times \mathcal{T}$ is a set of structural relations, where $\mathcal{T}$ denotes relation types (Adjacency, Hierarchy, Dependency, Equivalence, Custom).
-- $L: \mathbb{R}^d \to \mathcal{L}$ is a memory‑layout mapping that assigns each coordinate a logical address.
+- $L: \mathbb{R}^d \to \mathcal{L}$ is a memory-layout mapping that assigns each coordinate a logical address.
 - $O = (\text{resolution}, \text{triggers}, \text{priority}, \text{context})$ are observation rules that govern how observations are resolved, triggered, prioritized, and contextualized.
 
 #### Axis Types
 
-The axis set $A = \{a_1, \dots, a_k\}$ defines the dimensional structure of a Scheme. Each axis $a_i = (\text{name}_i, \text{type}_i)$ where $\text{type}_i$ belongs to a variant set that includes Discrete, Continuous, Cyclic, Categorical, Relational, and WithUnit axes. Each variant carries distinct semantic meaning (e.g., Discrete for integer coordinates, Continuous for real‑valued quantities, Cyclic for periodic dimensions). These axis types are purely semantic; they guide the interpretation of coordinates and the admissible relations between Segments, but do not prescribe a particular physical representation. The compiler uses the axis types to select appropriate layout strategies and to validate structural constraints. (See *-@sec-appendix-scheme-enumerations* [*-@sec-appendix-axis-types*] for more details.)
+The axis set $A = \{a_1, \dots, a_k\}$ defines the dimensional structure of a Scheme. Each axis $a_i = (\text{name}_i, \text{type}_i)$ where $\text{type}_i$ belongs to a variant set that includes Discrete, Continuous, Cyclic, Categorical, Relational, and WithUnit axes. Each variant carries distinct semantic meaning (e.g., Discrete for integer coordinates, Continuous for real-valued quantities, Cyclic for periodic dimensions). These axis types are purely semantic; they guide the interpretation of coordinates and the admissible relations between Segments, but do not prescribe a particular physical representation. The compiler uses the axis types to select appropriate layout strategies and to validate structural constraints. (See *-@sec-appendix-scheme-enumerations* [*-@sec-appendix-axis-types*] for more details.)
 
 #### Structural Relations
 
-The relation set $R \subseteq \mathcal{S} \times \mathcal{S} \times \mathcal{T}$ captures the topological connections between Segments. Each relation is typed according to one of five fundamental categories: **Adjacency** (spatial or conceptual proximity), **Hierarchy** (parent–child relationships), **Dependency** (directed influence), **Equivalence** (symmetric or asymmetric equivalence classes), and **Custom** (user‑defined predicates). Each category encompasses a range of sub‑types that define precise topological relationships (e.g., Euclidean and Manhattan adjacency, containment and inheritance hierarchy, data‑flow and control‑flow dependency). Equivalence relations denote logical equivalence; each Segment remains a distinct entity.
+The relation set $R \subseteq \mathcal{S} \times \mathcal{S} \times \mathcal{T}$ captures the topological connections between Segments. Each relation is typed according to one of five fundamental categories: **Adjacency** (spatial or conceptual proximity), **Hierarchy** (parent–child relationships), **Dependency** (directed influence), **Equivalence** (symmetric or asymmetric equivalence classes), and **Custom** (user-defined predicates). Each category encompasses a range of sub-types that define precise topological relationships (e.g., Euclidean and Manhattan adjacency, containment and inheritance hierarchy, data-flow and control-flow dependency). Equivalence relations denote logical equivalence; each Segment remains a distinct entity.
 
-Relations are immutable once the Scheme is created; they define the static topology that the compiler maps onto hardware. The compiler uses the relation types to extract independent sub‑graphs, optimize locality, and generate observation code that respects the structural dependencies. (See *-@sec-appendix-scheme-enumerations* [*-@sec-appendix-structural-relations*] for more details.)
+Relations are immutable once the Scheme is created; they define the static topology that the compiler maps onto hardware. The compiler uses the relation types to extract independent sub-graphs, optimize locality, and generate observation code that respects the structural dependencies. (See *-@sec-appendix-scheme-enumerations* [*-@sec-appendix-structural-relations*] for more details.)
 
-#### Memory‑Layout Abstraction
+#### Memory-Layout Abstraction
 
-The mapping $L: \mathbb{R}^d \to \mathcal{L}$ assigns each coordinate a logical address, decoupling the Scheme’s geometric structure from the physical memory hierarchy. The `MemoryLayout` is specified by a `layout_type` and a mapping function. Available layout types include Linear, Row‑Major, Column‑Major, Space‑Filling Curve, Hierarchical, Graph‑Based, and Custom layouts, each mapping coordinates to logical addresses in a distinct manner.
+The mapping $L: \mathbb{R}^d \to \mathcal{L}$ assigns each coordinate a logical address, decoupling the Scheme’s geometric structure from the physical memory hierarchy. The `MemoryLayout` is specified by a `layout_type` and a mapping function. Available layout types include Linear, Row-Major, Column-Major, Space-Filling Curve, Hierarchical, Graph-Based, and Custom layouts, each mapping coordinates to logical addresses in a distinct manner.
 
 The logical address $\ell = L(c)$ consists of a space identifier and an offset within that space. It serves as an intermediate representation that the compiler later translates to physical addresses according to the target hardware’s memory hierarchy. The choice of layout type is a critical optimization: it determines how structurally adjacent Segments are placed in physical memory, thereby minimizing data movement during observation. (See *-@sec-appendix-scheme-enumerations* [*-@sec-appendix-memory-layout*] for more details.)
 
 #### Observation Rules
 
-The observation rules $O = (\text{resolution}, \text{triggers}, \text{priority}, \text{context})$ govern how the observation operator $\Omega$ is applied to the Scheme. Resolution strategies (deterministic, probabilistic, energy minimization, entropy maximization, external), triggers (on‑demand, periodic, threshold, structural change, dependency satisfied, external event), priority levels, and context meta‑constraints together enable fine‑grained control over the observation process. For deterministic reproducibility—a core principle of SSCCS—a deterministic resolution strategy must be used; non‑deterministic strategies are permitted only when strict reproducibility is not required.
+The observation rules $O = (\text{resolution}, \text{triggers}, \text{priority}, \text{context})$ govern how the observation operator $\Omega$ is applied to the Scheme. Resolution strategies (deterministic, probabilistic, energy minimization, entropy maximization, external), triggers (on-demand, periodic, threshold, structural change, dependency satisfied, external event), priority levels, and context meta-constraints together enable fine-grained control over the observation process. For deterministic reproducibility—a core principle of SSCCS—a deterministic resolution strategy must be used; non-deterministic strategies are permitted only when strict reproducibility is not required.
 
-Observation rules are part of the Scheme’s immutable specification; they enable fine‑grained control over the observation process, allowing the designer to trade off determinism against other desiderata. (See *-@sec-appendix-scheme-enumerations* [*-@sec-appendix-observation-rules*] for more details.)
+Observation rules are part of the Scheme’s immutable specification; they enable fine-grained control over the observation process, allowing the designer to trade off determinism against other desiderata. (See *-@sec-appendix-scheme-enumerations* [*-@sec-appendix-observation-rules*] for more details.)
 
-#### Pre‑defined Scheme Templates
+#### Pre-defined Scheme Templates
 
 SSCCS provides a set of canonical Scheme templates that capture common topological patterns, such as regular grids, integer lines, and arbitrary graphs. These templates are idiomatic combinations of axis, relation, and layout abstractions, serving as starting points for developers to construct custom Schemes. Detailed descriptions of each template are provided in the [*-@sec-appendix-scheme-templates*].
 
@@ -532,7 +532,7 @@ Fields support three fundamental binary operations:
    $T((s_1, s_2), (s'_1, s'_2)) = T_1(s_1, s'_1) \cdot T_2(s_2, s'_2)$.  
    This product enables independent parallel observation of distinct subspaces—for example, when the two Fields govern disjoint coordinate axes (e.g., time and frequency). The overall projection becomes an ordered pair of the individual projections.
 
-Implementing these operations efficiently requires careful handling of constraint representations. Union and intersection can be realized via Boolean satisfiability (SAT) solvers or constraint‑propagation engines; the product operation, which expands the state space, may benefit from symbolic techniques (e.g., binary decision diagrams) to avoid exponential blow‑up. In hardware, dedicated units for max/min and multiplication can accelerate transition‑matrix computations.
+Implementing these operations efficiently requires careful handling of constraint representations. Union and intersection can be realized via Boolean satisfiability (SAT) solvers or constraint-propagation engines; the product operation, which expands the state space, may benefit from symbolic techniques (e.g., binary decision diagrams) to avoid exponential blow-up. In hardware, dedicated units for max/min and multiplication can accelerate transition-matrix computations.
 
 ```{python}
 #| label: fig-field-composition
@@ -572,25 +572,25 @@ digraph FieldComposition {
 """)
 ```
 
-Beyond binary operations, Fields can also be composed in three higher‑level ways: hierarchical, sequential, and parallel.
+Beyond binary operations, Fields can also be composed in three higher-level ways: hierarchical, sequential, and parallel.
 
 - **Hierarchical composition**: Fields can be nested to create hierarchical structures. A parent Field $F_{\text{parent}}$ may contain child Fields $F_{\text{child}}$ that govern subspaces of the coordinate space. The effective constraints are the conjunction of parent and child constraints, enabling modular refinement of governance. This nesting naturally aligns with modular hardware design (e.g., nested processing units) but adds depth to constraint evaluation, potentially increasing latency.
 
 - **Parallel composition**: Independent Fields may observe the same Segment simultaneously. Because Segments are immutable, concurrent observations do not interfere. The resulting projections are independent and can be combined via product or other combinators. Parallel composition embodies the inherent concurrency of SSCCS: multiple observers can safely read the same coordinate space without synchronization.
 
-- **Sequential composition (Extension)**: Fields can be applied in a temporal order: first $F_A$, then $F_B$. Because SSCCS treats time as one coordinate among many, sequential composition can be understood as applying Fields over adjacent time intervals. One interpretation models functional composition of constraint predicates: $C(s) = C_B(C_A(s))$ (where each predicate is viewed as a selector of admissible states) and convolution of transition matrices: $T(s_1, s_2) = \sum_{s'} T_A(s_1, s') \cdot T_B(s', s_2)$. This models processes where constraints evolve over time, such as multi‑stage pipelines or state machines. Sequential composition requires ordering guarantees that can be enforced through hardware scheduling or explicit synchronization primitives. It can be presented **as an optional extension;** the core model does not depend on global sequentiality.
+- **Sequential composition (Extension)**: Fields can be applied in a temporal order: first $F_A$, then $F_B$. Because SSCCS treats time as one coordinate among many, sequential composition can be understood as applying Fields over adjacent time intervals. One interpretation models functional composition of constraint predicates: $C(s) = C_B(C_A(s))$ (where each predicate is viewed as a selector of admissible states) and convolution of transition matrices: $T(s_1, s_2) = \sum_{s'} T_A(s_1, s') \cdot T_B(s', s_2)$. This models processes where constraints evolve over time, such as multi-stage pipelines or state machines. Sequential composition requires ordering guarantees that can be enforced through hardware scheduling or explicit synchronization primitives. It can be presented **as an optional extension;** the core model does not depend on global sequentiality.
 
-The immutability of Segments eliminates data‑race hazards, making parallel composition naturally scalable across many cores. However, coordinating the distribution of Fields and collecting projections may introduce overhead. Hardware support for atomic broadcast of Segment addresses and gather‑scatter of projection results can mitigate this overhead, enabling efficient many‑observer systems.
+The immutability of Segments eliminates data-race hazards, making parallel composition naturally scalable across many cores. However, coordinating the distribution of Fields and collecting projections may introduce overhead. Hardware support for atomic broadcast of Segment addresses and gather-scatter of projection results can mitigate this overhead, enabling efficient many-observer systems.
 
 #### Recursive Logical Constraints as Executable Binaries
 
-Beyond purely logical combination, Field composition also serves as a communication primitive in the physical runtime. Fields can be encrypted, signed, or sandboxed at the binary level, enabling secure composition across trust boundaries. This dual nature—logical composition and physical communication unit—makes Fields a unifying abstraction that bridges the logical specification and the hardware‑executable representation.
+Beyond purely logical combination, Field composition also serves as a communication primitive in the physical runtime. Fields can be encrypted, signed, or sandboxed at the binary level, enabling secure composition across trust boundaries. This dual nature—logical composition and physical communication unit—makes Fields a unifying abstraction that bridges the logical specification and the hardware-executable representation.
 
-Fields can be grouped into logical units (for constraint management) and execution units (for hardware mapping), as illustrated in the diagram below. The recursive edge in the diagram shows that a Field can contain itself, enabling self‑similar composition—a key property of the ribosome‑like model where the same structural pattern repeats at different scales.
+Fields can be grouped into logical units (for constraint management) and execution units (for hardware mapping), as illustrated in the diagram below. The recursive edge in the diagram shows that a Field can contain itself, enabling self-similar composition—a key property of the ribosome-like model where the same structural pattern repeats at different scales.
 
 ```{python}
 #| label: fig-field-nested-recursive
-#| fig-cap: "Nested and recursive structure of Field composition: fields can be freely grouped into logical and execution units, enabling hierarchical and self‑similar composition akin to a ribosome model."
+#| fig-cap: "Nested and recursive structure of Field composition: fields can be freely grouped into logical and execution units, enabling hierarchical and self-similar composition akin to a ribosome model."
 dot("""
 digraph field_nested_recursive {
     rankdir=LR;
@@ -600,7 +600,7 @@ digraph field_nested_recursive {
     // Root field
     Field [shape=ellipse, fontsize=16];
 
-    // First‑level fields
+    // First-level fields
     Field_A [label="Field A"];
     Field_B [label="Field B"];
     Field_C [label="Field C"];
@@ -618,7 +618,7 @@ digraph field_nested_recursive {
     Field_B -> Subfield_B1;
     Field_C -> { Subfield_C1 Subfield_C2 };
 
-    // Recursive edge (self‑similarity)
+    // Recursive edge (self-similarity)
     Subfield_A2 -> Field_A [label="recursive", style=dashed];
 
     // Logical group cluster
@@ -642,7 +642,7 @@ digraph field_nested_recursive {
 """)
 ```
 
-The recursive edge in the diagram illustrates that Fields can contain themselves, enabling self‑similar composition—a property reminiscent of biological ribosomes that translate code into structure, and then reuse that structure as new code. A detailed worked example illustrating the intersection of a similarity‑constraint Field and a position‑constraint Field is provided in [*-@sec-appendix-field-composition-example*].
+The recursive edge in the diagram illustrates that Fields can contain themselves, enabling self-similar composition—a property reminiscent of biological ribosomes that translate code into structure, and then reuse that structure as new code. A detailed worked example illustrating the intersection of a similarity-constraint Field and a position-constraint Field is provided in [*-@sec-appendix-field-composition-example*].
 
 
 ### Observation and Projection
@@ -669,7 +669,7 @@ $$
 \Omega(S_1 \cup S_2, F) = \Omega(S_1, F) \times \Omega(S_2, F),
 $$
 
-where $\times$ denotes independent composition of projections. Every Segment and Scheme has a unique cryptographic hash, enabling identity‑based boundaries where computations can only access Segments for which they hold valid references. This provides inherent structural isolation against interference without requiring additional security mechanisms.
+where $\times$ denotes independent composition of projections. Every Segment and Scheme has a unique cryptographic hash, enabling identity-based boundaries where computations can only access Segments for which they hold valid references. This provides inherent structural isolation against interference without requiring additional security mechanisms.
 
 ### Relationship with Traditional Concepts
 
@@ -703,7 +703,7 @@ $$
 \Omega(S_1 \cup S_2, F) = \Omega(S_1, F) \times \Omega(S_2, F)
 $$
 
-where $\times$ denotes independent composition of projections. This property follows directly from the absence of shared mutable state: since Segments cannot be modified, observations on disjoint sets have no side‑effects that could affect each other. Consequently, SSCCS enables inherent parallelism without any programmer effort or runtime synchronisation.
+where $\times$ denotes independent composition of projections. This property follows directly from the absence of shared mutable state: since Segments cannot be modified, observations on disjoint sets have no side-effects that could affect each other. Consequently, SSCCS enables inherent parallelism without any programmer effort or runtime synchronisation.
 
 #### Time as a Coordinate
 
@@ -711,7 +711,7 @@ Time is treated as one coordinate axis among many. Let $t \in \mathbb{R}$ be a c
 
 #### Determinism and Auditability
 
-Observation is deterministic: for identical $\Sigma$ and $F$, $\Omega$ always yields the same $P$. This follows from the definition of $\Omega$ as a function of $\Sigma$ and $F$; any non‑determinism must be explicitly introduced through the resolution strategy in $O$. Determinism enables auditability as a secondary benefit: every projection is a verifiable trace from blueprint to output. However, this is a consequence of the core structural properties, not a primary design goal.
+Observation is deterministic: for identical $\Sigma$ and $F$, $\Omega$ always yields the same $P$. This follows from the definition of $\Omega$ as a function of $\Sigma$ and $F$; any non-determinism must be explicitly introduced through the resolution strategy in $O$. Determinism enables auditability as a secondary benefit: every projection is a verifiable trace from blueprint to output. However, this is a consequence of the core structural properties, not a primary design goal.
 
 ## System Architecture and Compilation
 
@@ -761,18 +761,18 @@ The SSCCS compiler transforms a high-level schema into a hardware-specific layou
 1. **Parsing and Validation**: The `.ss` file is parsed into an intermediate representation (IR). Cryptographic identities (SchemaId, SegmentId) are computed and verified.
 2. **Structural Analysis**: The compiler extracts adjacency and dependency relations. It identifies independent sub-graphs that can be observed concurrently.
 3. **Memory-Layout Resolution**: Using the Schema's `MemoryLayout` specification, the compiler resolves the mapping from coordinate space to logical addresses. This stage produces a logical address map that preserves locality.
-4. **Hardware Mapping**: The logical address map is projected onto the target hardware's physical memory hierarchy. The compiler considers cache-line boundaries and, **where available**, processing-in-memory (PIM) capabilities to place Segments such that structurally adjacent Segments reside in physically proximate storage locations. This mapping strategy applies across conventional von Neumann hardware (Phase 1-2) and native observation-centric processors (Phase 3), with PIM treated as an optional transitional substrate.
+4. **Hardware Mapping**: The logical address map is projected onto the target hardware's physical memory hierarchy. The compiler arranges Segments so that structurally adjacent Segments reside in physically proximate storage locations—e.g., the same cache line, adjacent memory banks, or custom address decoder regions. This strategy applies uniformly across conventional CPU/GPU targets and, where supported, emerging memory-centric architectures, but does not require any specific hardware capability.
 5. **Observation-Code Generation**: For each sub-graph, the compiler emits native code that implements the observation operator `Ω`.
 
 The entire pipeline is deterministic and reproducible: given the same specification and target hardware profile, the compiler always produces the same layout and observation code.
 
 ### Structural Analysis: Algorithm Overview
 
-The second pipeline stage, **Structural Analysis**, extracts adjacency and dependency relations from the Scheme’s relation set $R$. The compiler performs a graph‑theoretic analysis to identify **independent sub‑graphs** that can be observed concurrently.
+The second pipeline stage, **Structural Analysis**, extracts adjacency and dependency relations from the Scheme’s relation set $R$. The compiler performs a graph-theoretic analysis to identify **independent sub-graphs** that can be observed concurrently.
 
-Concretely, the compiler constructs a directed graph where vertices are Segments and edges are relations of type *Dependency*. **Strongly connected components (SCCs)** of this dependency graph are identified; each SCC forms a candidate for sequential observation because dependencies within a component create cyclic constraints. Sub‑graphs with no edges between them are marked as **independent** and can be scheduled in parallel. For relations of type *Adjacency* and *Hierarchy*, the compiler uses them to guide locality optimization in later stages, but they do not impose observation ordering.
+Concretely, the compiler constructs a directed graph where vertices are Segments and edges are relations of type *Dependency*. **Strongly connected components (SCCs)** of this dependency graph are identified; each SCC forms a candidate for sequential observation because dependencies within a component create cyclic constraints. Sub-graphs with no edges between them are marked as **independent** and can be scheduled in parallel. For relations of type *Adjacency* and *Hierarchy*, the compiler uses them to guide locality optimization in later stages, but they do not impose observation ordering.
 
-This analysis is purely structural and does not depend on runtime values, ensuring deterministic parallelism. The output of this stage is a partition of the Scheme into observation units, each with its own logical‑address map and observation code.
+This analysis is purely structural and does not depend on runtime values, ensuring deterministic parallelism. The output of this stage is a partition of the Scheme into observation units, each with its own logical-address map and observation code.
 
 ### Hardware Topology Embedding
 
@@ -782,42 +782,34 @@ The compiler's ability to eliminate data movement hinges on the `MemoryLayout` a
 
 A logical address is an intermediate representation: a segment identifier and an offset within that segment's conceptual address space. It is not a physical address; rather, it serves as an intermediate coordinate that the hardware mapper later translates to concrete physical locations.
 
-Example: For a 2D grid with row‑major layout:
+Example: For a 2D grid with row-major layout:
 $$f(x, y) = (\text{grid\_id},\; y \cdot \text{width} + x)$$
 
-The compiler evaluates this function for every coordinate in the Schema, producing a complete logical‑address map. This mapping preserves row‑wise adjacency: for a $3\times 3$ grid, the logical addresses are $(0,0)\to0$, $(1,0)\to1$, $(2,0)\to2$, $(0,1)\to3$, etc.
+The compiler evaluates this function for every coordinate in the Schema, producing a complete logical-address map. This mapping preserves row-wise adjacency: for a $3\times 3$ grid, the logical addresses are $(0,0)\to0$, $(1,0)\to1$, $(2,0)\to2$, $(0,1)\to3$, etc.
 
-Other layout types are handled analogously. For a **column‑major** layout the mapping becomes $f(x, y) = x \cdot \text{height} + y$; for a **space‑filling curve** (e.g., Z‑order) the compiler interleaves the bits of the coordinates. **Hierarchical** layouts recursively apply a base layout within each block, enabling multi‑level locality. **Graph‑based** layouts assign logical addresses according to a graph‑traversal order (e.g., breadth‑first search) that respects the adjacency relations declared in the Scheme.
+Other layout types are handled analogously. For a **column-major** layout the mapping becomes $f(x, y) = x \cdot \text{height} + y$; for a **space-filling curve** (e.g., Z-order) the compiler interleaves the bits of the coordinates. **Hierarchical** layouts recursively apply a base layout within each block, enabling multi-level locality. **Graph-based** layouts assign logical addresses according to a graph-traversal order (e.g., breadth-first search) that respects the adjacency relations declared in the Scheme.
 
-Each layout type is defined in the Schema’s `MemoryLayout` specification (see [*-@sec-appendix-memory-layout*]). The compiler evaluates the corresponding mapping function for every coordinate, producing a deterministic logical‑address map that is then passed to the hardware‑mapping stage.
+Each layout type is defined in the Schema’s `MemoryLayout` specification (see [*-@sec-appendix-memory-layout*]). The compiler evaluates the corresponding mapping function for every coordinate, producing a deterministic logical-address map that is then passed to the hardware-mapping stage.
 
-#### Target‑Hardware Mapping Strategies
+#### Target-Hardware Mapping Strategies
 
-The logical address space acts as a virtualisation layer, decoupling structural description from physical implementation. The same Schema can be embedded into vastly different hardware substrates:
+The logical address space acts as a virtualization layer, decoupling structural description from physical implementation. The same Schema can be embedded into vastly different hardware substrates while preserving the core principle: structurally adjacent Segments reside in physically proximate storage locations.
 
-- **CPU Caches/DRAM**: High‑adjacency Segments map to contiguous cache lines. The compiler ensures **cache‑line alignment** by grouping structurally adjacent Segments and padding the logical‑address map so that each group starts at a cache‑line boundary (e.g., 64‑byte alignment). This guarantees that a single cache line fetch retrieves all Segments needed for a local observation.
+Rather than prescribing a fixed hardware target, the compiler adapts the logical-address map to the memory hierarchy and parallelism available on the underlying substrate. On cache-based CPUs, the compiler groups adjacent Segments into cache-line-aligned blocks, ensuring that a single fetch retrieves all data needed for a local observation. For architectures with explicit spatial parallelism (e.g., reconfigurable fabrics), the mapping can be hardwired into address-decode logic, turning observation into a combinatorial propagation. High-bandwidth memory systems allow Segments to be distributed across independent channels, overlapping accesses to maximize throughput. Emerging non-volatile memories can be treated as a static coordinate manifold, enabling direct structural projection without address translation.
 
-- **FPGA Block RAM**: The mapping becomes a hardwired address decoder. The compiler generates a Verilog netlist that directly connects Segment coordinates to Block‑RAM addresses, eliminating any address‑calculation overhead.
+Where hardware capabilities allow (e.g., processing-in-memory or other memory-centric computing), the compiler may offload entire observation units to the memory substrate, translating the logical map into device-specific commands that perform observation without moving data. Crucially, even on conventional von Neumann hardware, SSCCS **overlays a structural interpretation**: the compiler translates logical addresses into standard load/store operations, but the overall computation remains free of data movement because all necessary data is already resident where observation occurs.
 
-- **HBM**: Segments distribute across independent memory channels based on their logical‑address hash, maximizing bandwidth utilization. The compiler schedules observations to overlap accesses across channels.
+### Observation-Code Generation {#sec-observation-code-gen}
 
-- **Emerging Non‑volatile Memories (ReRAM, PCM)**: SSCCS treats the physical array as a static coordinate manifold, enabling direct structural projection. The compiler can place Segments in a 2D grid that matches the physical crossbar layout, turning each memory cell into an observation point.
+The fifth pipeline stage emits executable code that implements the observation operator $\Omega$ for each independent sub-graph identified during structural analysis. The form of the generated code adapts to the target hardware’s capabilities:
 
-Where processing‑in‑memory (PIM) capabilities are available, the compiler offloads entire observation units to PIM cores. The logical‑address map is translated into PIM‑specific commands that perform the observation without moving data to the CPU.
+- **Conventional CPUs**: The compiler emits SIMD loops that iterate over the logical-address ranges produced by the layout stage. Each iteration evaluates the projector $\pi$ for a Segment and accumulates the result into a projection buffer. The loops are automatically vectorised and unrolled according to the hardware’s SIMD width.
 
-Crucially, even on conventional von Neumann hardware, SSCCS overlays a structural interpretation: the compiler translates logical addresses into standard load/store operations, but the overall computation remains free of data movement because all necessary data is already resident where observation occurs.
+- **Reconfigurable fabrics**: For architectures that support spatial computation, the compiler can generate a netlist that hardwires the address mapping into the interconnect fabric. The observation operator becomes a combinatorial propagation, eliminating fetch-execute overhead.
 
-### Observation‑Code Generation {#sec-observation-code-gen}
+- **Processing-in-memory substrates**: Where memory-centric compute units are available, the compiler produces a sequence of its commands that are sent directly to the memory controller. Each command triggers an observation within a memory bank, removing data movement between memory and processing unit.
 
-The fifth pipeline stage emits executable code that implements the observation operator $\Omega$ for each independent sub‑graph identified during structural analysis. The form of the generated code depends on the target hardware:
-
-- **CPU targets**: The compiler emits SIMD loops that iterate over the logical‑address ranges produced by the layout stage. Each iteration evaluates the projector $\pi$ for a Segment and accumulates the result into a projection buffer. The loops are automatically vectorised and unrolled according to the hardware’s SIMD width.
-
-- **FPGA targets**: The compiler generates a Verilog netlist where the address mapping is hardwired into the interconnect fabric. The observation operator becomes a simple signal propagation through a combinatorial circuit; no fetch‑execute cycle is involved.
-
-- **PIM targets**: For processing‑in‑memory substrates, the compiler produces a sequence of PIM commands that are sent directly to the memory controller. Each command triggers an observation within a bank, eliminating data movement altogether.
-
-The generated code is deterministic and reproducible: given the same Scheme and hardware profile, the compiler emits identical observation code every time. This property enables ahead‑of‑time verification and eliminates runtime compilation overhead. A detailed methodology for observation‑code generation is provided in [*-@sec-appendix-observation-code-gen*].
+The generated code is deterministic and reproducible: given the same Scheme and hardware profile, the compiler emits identical observation code every time. This property enables ahead-of-time verification and eliminates runtime compilation overhead. A detailed methodology for observation-code generation is provided in [*-@sec-appendix-observation-code-gen*].
 
 ### System Stack and Runtime
 
@@ -846,7 +838,7 @@ digraph SystemStack {
     // Hardware Layer
     CPU [label="CPU / ISA"];
     RAM [label="RAM / Cache"];
-    PIM [label="PIM Unit\n(optional)"];
+    Accelerator [label="Memory-Side Compute\n(optional)"];
     
     // Compiler (separate phase)
     subgraph cluster_compiler {
@@ -864,11 +856,11 @@ digraph SystemStack {
     
     // Runtime to Hardware
     Projector -> CPU [label="observation micro-ops", style=dashed];
-    Projector -> PIM [label="in-memory observation", style=dashed];
+    Projector -> Accelerator [label="in-memory observation", style=dashed];
     
     // Hardware memory access
     CPU -> RAM [label="load/store (minimal)"];
-    PIM -> RAM [label="direct access"];
+    Accelerator -> RAM [label="direct access"];
     
     // Compiler output
     Compiler -> LayoutCache [label="emit layout", style=dashed];
@@ -876,28 +868,28 @@ digraph SystemStack {
     
     // Optional: Compiler reads hardware profiles
     Compiler -> CPU [label="target profile", style=dashed, constraint=false];
-    Compiler -> PIM [label="target profile", style=dashed, constraint=false];
+    Compiler -> Accelerator [label="target profile", style=dashed, constraint=false];
 }
 """
 )
 ```
 
-Upon receiving an `observe(scheme, field)` call, the runtime loads the pre‑computed memory layout from the layout cache, invokes the projector, and returns the resulting projection. The projector translates the logical addresses produced by the compiler into hardware‑specific memory accesses, using PIM instructions when available. This decouples the structural mapping (done at compile time) from the dynamic observation (done at runtime), enabling portable performance across heterogeneous hardware.
+Upon receiving an `observe(scheme, field)` call, the runtime loads the pre-computed memory layout from the layout cache, invokes the projector, and returns the resulting projection. The projector translates the logical addresses produced by the compiler into hardware-specific memory accesses, using dedicated observation instructions when available. This decouples the structural mapping (done at compile time) from the dynamic observation (done at runtime), enabling portable performance across heterogeneous hardware.
 
 #### Future Hardware Considerations
 
 While SSCCS can be implemented in software, its benefits are most pronounced with hardware support:
 
 - No instruction fetch unit; observation triggered structurally.
-- Processing-in-memory (PIM) for direct observation.
+- Direct observation support in the memory hierarchy.
 - Spatial computation mapping adjacency to wiring.
 
 ### Implementation Cases
 
-The appendix examples below demonstrate how the compiler pipeline (parsing, structural analysis, memory‑layout resolution, hardware mapping, and observation‑code generation) translates high‑level specifications into hardware‑specific layouts.
+The appendix examples below demonstrate how the compiler pipeline (parsing, structural analysis, memory-layout resolution, hardware mapping, and observation-code generation) translates high-level specifications into hardware-specific layouts.
 
 - **Vector Addition Example**: A concrete walkthrough of vector addition in SSCCS, demonstrating zero data movement and implicit parallelism. [*-@sec-appendix-vector*]
-- **Scaling to N‑Dimensional Tensors**: Extension of principles to higher‑dimensional structures, featuring zero‑copy reshaping and logical adjacency. [*-@sec-appendix-tensor*]
+- **Scaling to N-Dimensional Tensors**: Extension of principles to higher-dimensional structures, featuring zero-copy reshaping and logical adjacency. [*-@sec-appendix-tensor*]
 - **Complex Graph Processing**: Application of graph algorithms, eliminating pointer chasing through parallel observation. [*-@sec-appendix-graph*]
 
 ## Theoretical Performance & Scalability
@@ -946,7 +938,7 @@ plt.show()
 #### Temporal Complexity (Latency)
 In a von Neumann environment, latency scales at $O(N)$ or $O(N/k)$ due to instruction dispatch and synchronization.
 
-- **SSCCS Latency**: Defined by the physical propagation delay of the Field across the Scheme. The observation of the result theoretically approaches $O(1)$ in emerging hardware paradigms such as Processing-In-Memory (PIM).
+- **SSCCS Latency**: Defined by the physical propagation delay of the Field across the Scheme. The observation of the result theoretically approaches near-$O(1)$ in emerging hardware paradigms (e.g. Processing-In-Memory (PIM)).
 
 #### Data Movement Complexity (Spatial/Energy Cost)
 The primary energy sink in modern computing is the movement of operands from memory to logic units.
@@ -978,7 +970,7 @@ Although SSCCS was developed without direct reference to prior work, its theoret
 
 - **Dataflow architectures** treat programs as graphs where nodes fire when inputs are available.
 - **Functional programming** emphasizes immutability and referential transparency.
-- **Processing-in-memory (PIM)** research addresses the data movement problem within the von Neumann paradigm.
+- **Processing-in-memory (PIM)** research addresses the data movement problem within the von Neumann paradigm. [*-@sec-appendix-integration-existing-toolchains*]
 
 Recent work in AI demonstrates the growing relevance of structural constraints:
 

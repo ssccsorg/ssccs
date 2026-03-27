@@ -532,13 +532,13 @@ pim_wait_completion();
 
 The compiler leverages vendor‑specific SDKs to generate optimal command sequences that maximise bank‑level parallelism and minimise synchronisation overhead. Because PIM commands are deterministic, the same observation always yields the same result.
 
-### Integration with Existing Toolchains
+### Integration with Existing Toolchains {#sec-appendix-integration-existing-toolchains}
 
 SSCCS deliberately builds upon established compiler and hardware toolchains to reduce implementation risk:
 
 - **LLVM/MLIR**: Provides mature optimisation passes, code generation for a wide range of CPUs, and a flexible dialect infrastructure.
 - **Verilator & vendor HLS tools**: Enable FPGA target simulation and synthesis.
-- **PIM SDKs** (UPMEM, Samsung, etc.) offer a direct path to in‑memory execution.
+- **PIM SDKs** (e.g., UPMEM, Cerebras, Samsung/SK Hynix, Mythic) provide the software toolchains needed to program near‑memory compute units. They typically include libraries for data movement, runtime APIs for launching parallel kernels, and debugging/profiling tools. Open‑source and research frameworks (PIMSys, DaPPA, SimplePIM, gem5‑based simulators) further facilitate PIM software development.
 
 By reusing these ecosystems, SSCCS focuses innovation on the structural abstraction rather than on low‑level code generation, ensuring that the novel paradigm can be validated on available hardware today.
 
