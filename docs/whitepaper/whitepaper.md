@@ -864,6 +864,28 @@ The entire pipeline is deterministic and reproducible: given the same
 specification and target hardware profile, the compiler always produces
 the same layout and observation code.
 
+### Structural Analysis: Algorithm Overview
+
+The second pipeline stage, **Structural Analysis**, extracts adjacency
+and dependency relations from the Scheme’s relation set $R$. The
+compiler performs a graph‑theoretic analysis to identify **independent
+sub‑graphs** that can be observed concurrently.
+
+Concretely, the compiler constructs a directed graph where vertices are
+Segments and edges are relations of type *Dependency*. **Strongly
+connected components (SCCs)** of this dependency graph are identified;
+each SCC forms a candidate for sequential observation because
+dependencies within a component create cyclic constraints. Sub‑graphs
+with no edges between them are marked as **independent** and can be
+scheduled in parallel. For relations of type *Adjacency* and
+*Hierarchy*, the compiler uses them to guide locality optimization in
+later stages, but they do not impose observation ordering.
+
+This analysis is purely structural and does not depend on runtime
+values, ensuring deterministic parallelism. The output of this stage is
+a partition of the Scheme into observation units, each with its own
+logical‑address map and observation code.
+
 ### Hardware Topology Embedding
 
 #### Logical Address Virtualization Layer
@@ -879,11 +901,29 @@ It is not a physical address; rather, it serves as an intermediate
 coordinate that the hardware mapper later translates to concrete
 physical locations.
 
-Example: For a 2D grid with row-major layout:
+Example: For a 2D grid with row‑major layout:
 $$f(x, y) = (\text{grid\_id},\; y \cdot \text{width} + x)$$
 
 The compiler evaluates this function for every coordinate in the Schema,
-producing a complete logical-address map.
+producing a complete logical‑address map. This mapping preserves
+row‑wise adjacency: for a $3\times 3$ grid, the logical addresses are
+$(0,0)\to0$, $(1,0)\to1$, $(2,0)\to2$, $(0,1)\to3$, etc.
+
+Other layout types are handled analogously. For a **column‑major**
+layout the mapping becomes $f(x, y) = x \cdot \text{height} + y$; for a
+**space‑filling curve** (e.g., Z‑order) the compiler interleaves the
+bits of the coordinates. **Hierarchical** layouts recursively apply a
+base layout within each block, enabling multi‑level locality.
+**Graph‑based** layouts assign logical addresses according to a
+graph‑traversal order (e.g., breadth‑first search) that respects the
+adjacency relations declared in the Scheme.
+
+Each layout type is defined in the Schema’s `MemoryLayout` specification
+(see
+\[*<a href="#sec-appendix-memory-layout" class="quarto-xref">14.3</a>*\]).
+The compiler evaluates the corresponding mapping function for every
+coordinate, producing a deterministic logical‑address map that is then
+passed to the hardware‑mapping stage.
 
 #### Target‑Hardware Mapping Strategies
 
@@ -891,19 +931,66 @@ The logical address space acts as a virtualisation layer, decoupling
 structural description from physical implementation. The same Schema can
 be embedded into vastly different hardware substrates:
 
-- **CPU Caches/DRAM**: High-adjacency Segments map to contiguous cache
-  lines.
+- **CPU Caches/DRAM**: High‑adjacency Segments map to contiguous cache
+  lines. The compiler ensures **cache‑line alignment** by grouping
+  structurally adjacent Segments and padding the logical‑address map so
+  that each group starts at a cache‑line boundary (e.g., 64‑byte
+  alignment). This guarantees that a single cache line fetch retrieves
+  all Segments needed for a local observation.
+
 - **FPGA Block RAM**: The mapping becomes a hardwired address decoder.
-- **HBM**: Segments distribute across independent memory channels.
-- **Emerging Non-volatile Memories (ReRAM, PCM)**: SSCCS treats the
+  The compiler generates a Verilog netlist that directly connects
+  Segment coordinates to Block‑RAM addresses, eliminating any
+  address‑calculation overhead.
+
+- **HBM**: Segments distribute across independent memory channels based
+  on their logical‑address hash, maximizing bandwidth utilization. The
+  compiler schedules observations to overlap accesses across channels.
+
+- **Emerging Non‑volatile Memories (ReRAM, PCM)**: SSCCS treats the
   physical array as a static coordinate manifold, enabling direct
-  structural projection.
+  structural projection. The compiler can place Segments in a 2D grid
+  that matches the physical crossbar layout, turning each memory cell
+  into an observation point.
+
+Where processing‑in‑memory (PIM) capabilities are available, the
+compiler offloads entire observation units to PIM cores. The
+logical‑address map is translated into PIM‑specific commands that
+perform the observation without moving data to the CPU.
 
 Crucially, even on conventional von Neumann hardware, SSCCS overlays a
 structural interpretation: the compiler translates logical addresses
 into standard load/store operations, but the overall computation remains
 free of data movement because all necessary data is already resident
 where observation occurs.
+
+### Observation‑Code Generation: Target‑Specific Output
+
+The fifth pipeline stage, **Observation‑Code Generation**, emits
+executable code that implements the observation operator $\Omega$ for
+each independent sub‑graph identified during structural analysis. The
+form of the generated code depends on the target hardware:
+
+- **CPU targets**: The compiler emits SIMD loops that iterate over the
+  logical‑address ranges produced by the layout stage. Each iteration
+  evaluates the projector $\pi$ for a Segment and accumulates the result
+  into a projection buffer. The loops are automatically vectorised and
+  unrolled according to the hardware’s SIMD width.
+
+- **FPGA targets**: The compiler generates a Verilog netlist where the
+  address mapping is hardwired into the interconnect fabric. The
+  observation operator becomes a simple signal propagation through a
+  combinatorial circuit; no fetch‑execute cycle is involved.
+
+- **PIM targets**: For processing‑in‑memory substrates, the compiler
+  produces a sequence of PIM commands that are sent directly to the
+  memory controller. Each command triggers an observation within a bank,
+  eliminating data movement altogether.
+
+The generated code is deterministic and reproducible: given the same
+Scheme and hardware profile, the compiler emits identical observation
+code every time. This property enables ahead‑of‑time verification and
+eliminates runtime compilation overhead.
 
 ### System Stack and Runtime
 
@@ -973,6 +1060,15 @@ Figure 6
 
 </div>
 
+Upon receiving an `observe(scheme, field)` call, the runtime loads the
+pre‑computed memory layout from the layout cache, invokes the projector,
+and returns the resulting projection. The projector translates the
+logical addresses produced by the compiler into hardware‑specific memory
+accesses, using PIM instructions when available. This decouples the
+structural mapping (done at compile time) from the dynamic observation
+(done at runtime), enabling portable performance across heterogeneous
+hardware.
+
 #### Future Hardware Considerations
 
 While SSCCS can be implemented in software, its benefits are most
@@ -983,6 +1079,11 @@ pronounced with hardware support:
 - Spatial computation mapping adjacency to wiring.
 
 ### Implementation Cases
+
+The appendix examples below demonstrate how the compiler pipeline
+(parsing, structural analysis, memory‑layout resolution, hardware
+mapping, and observation‑code generation) translates high‑level
+specifications into hardware‑specific layouts.
 
 - **Vector Addition Example**: A concrete walkthrough of vector addition
   in SSCCS, demonstrating zero data movement and implicit parallelism.
