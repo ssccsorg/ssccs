@@ -516,6 +516,22 @@ The Field $F$ is the only mutable layer, but it does not store values. Instead, 
 
 Mutating $F$ changes which configurations are possible, but does not modify any Segment.
 
+### Constraint Types
+
+The constraint predicate $C(s)$ of a Field can express a wide variety of admissibility conditions. To aid systematic design, constraints can be categorized into five fundamental types based on their mathematical structure:
+
+1. **Dimensional constraints** restrict the coordinate values of a Segment along one or more axes. They are expressed as inequalities or membership in intervals, e.g., $x \in [a,b]$ or $\|c\| \leq r$. Dimensional constraints are the simplest form of geometric filtering and correspond to traditional bounding‑box or range queries.
+
+2. **Topological constraints** govern the relational structure between Segments. While the Scheme defines static adjacency and dependency relations, a Field can impose dynamic topological requirements—for example, that two Segments must be adjacent, or that a path of a certain length must exist between them. Topological constraints are naturally expressed using the relation set $R$ of the Scheme and can be seen as predicates over the Scheme's graph.
+
+3. **Algebraic constraints** involve equations or inequalities that combine coordinate values with arithmetic operations. Examples include linear equalities $a_1x_1 + \dots + a_kx_k = b$, quadratic forms $c^TQc \leq \epsilon$, or more general polynomial constraints. Algebraic constraints enable rich geometric shapes (spheres, ellipsoids, hyperplanes) and are essential for modelling physical laws.
+
+4. **Logical constraints** are Boolean combinations of other constraints, realized through Field composition. The union ($\cup$), intersection ($\cap$), and product ($\times$) operations allow arbitrary logical connectives (AND, OR, NOT) to be applied across multiple Fields. Logical constraints provide the compositional power needed to build complex admissibility conditions from simpler ones.
+
+5. **Physical constraints** encode real‑world limitations such as energy budgets, timing deadlines, or thermal thresholds. These quantities can be represented as additional coordinate axes (e.g., an energy axis $e$, a latency axis $\tau$) within the Segment's possibility space, or as auxiliary dimensions defined in the Scheme's axis set. Physical constraints are then expressed as inequalities on those axes, e.g., $e \leq E_{\text{max}}$, and can influence the transition matrix $T$ to reflect preferences among admissible Segments.
+
+This taxonomy is not mutually exclusive; a single Field may contain constraints of several types. The classification serves as a conceptual tool for designers, helping them choose the appropriate constraint representation and composition strategy for a given problem. In practice, the compiler may exploit the structural properties of each type to optimize observation code—for instance, dimensional constraints can be evaluated via range‑check circuits, while algebraic constraints may require dedicated arithmetic units. (See [*-@sec-appendix-axis-types*] for a detailed listing of axis types and [*-@sec-appendix-structural-relations*] for relation categories.)
+
 ### Composition
 
 Field composition refers to the combination of two or more Fields to produce a new Field whose constraints and transition matrices are derived from the constituent Fields. Given Fields $F_1 = (C_1, T_1)$ and $F_2 = (C_2, T_2)$, a composition operator $\odot$ yields $F = F_1 \odot F_2 = (C, T)$ where $C$ and $T$ are defined according to the semantics of the composition.

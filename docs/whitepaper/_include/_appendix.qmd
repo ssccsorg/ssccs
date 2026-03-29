@@ -628,6 +628,22 @@ When an observation $\Omega$ is performed with the combined Field, only the Segm
 
 This example can be extended to illustrate sequential composition (first apply $F_{\text{similarity}}$, then $F_{\text{position}}$) or parallel composition (both Fields observe the same Segment simultaneously). The dot diagram above can be augmented to show those variants, but the core principle remains: Field composition merges constraints and transition matrices, producing a new Field that refines the observation semantics without altering the underlying Scheme.
 
+## Examples of Constraint Types
+
+The classification introduced in §3.3.1 can be illustrated with concrete instances:
+
+1. **Dimensional constraint**: $C_{\text{dim}}(s) = (x \ge 0) \land (x \le 10)$, where $x$ is the first coordinate of Segment $s$. This admits Segments whose x‑coordinate lies in the interval $[0,10]$.
+
+2. **Topological constraint**: Let the Scheme contain an adjacency relation $R_{\text{adj}}$. A Field can impose that a Segment $s$ is adjacent to a specific anchor Segment $s_{\text{anchor}}$: $C_{\text{topo}}(s) = R_{\text{adj}}(s, s_{\text{anchor}})$.
+
+3. **Algebraic constraint**: $C_{\text{alg}}(s) = x^2 + y^2 \le r^2$, where $(x,y)$ are the first two coordinates of $s$. This admits Segments inside a circle of radius $r$.
+
+4. **Logical constraint**: The union of two Fields, $F_{\text{dim}} \cup F_{\text{alg}}$, yields a constraint $C_{\text{dim}}(s) \lor C_{\text{alg}}(s)$ that admits Segments satisfying either the dimensional or the algebraic condition.
+
+5. **Physical constraint**: Suppose each Segment carries an extra coordinate $e$ representing energy consumption. A Field can enforce an energy budget $E_{\text{max}}$ via $C_{\text{phys}}(s) = e \le E_{\text{max}}$.
+
+These examples show how each constraint type can be expressed as a predicate $C(s)$ and combined through Field composition.
+
 # Detailed Enumerations of Scheme Components {#sec-appendix-scheme-enumerations}
 
 This appendix provides exhaustive listings of the axis types, structural‑relation categories, memory‑layout types, and observation‑rule options that are part of the Scheme abstraction. These enumerations are referenced from Section 3.2 of the main whitepaper.
