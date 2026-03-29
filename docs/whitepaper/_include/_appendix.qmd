@@ -541,6 +541,65 @@ SSCCS deliberately builds upon established compiler and hardware toolchains to r
 
 By reusing these ecosystems, SSCCS focuses innovation on the structural abstraction rather than on low‑level code generation, ensuring that the novel paradigm can be validated on available hardware today.
 
+# Hardware Profile Variants and Mapping Strategy {#sec-appendix-hardware-profile}
+
+The SSCCS compiler adapts the structural description of a Scheme to concrete hardware through a set of **hardware profiles**. Each profile defines a class of hardware substrates (e.g., conventional CPUs, reconfigurable fabrics, processing‑in‑memory units, or custom accelerators) and provides a mapping strategy that transforms the logical‑address map produced by the layout stage into hardware‑specific memory accesses or direct physical connections. This appendix details the four canonical profiles—CPU, FPGA, PIM, and Custom—and explains how the compiler implements the mapping strategy for each.
+
+## CPU Profile
+
+The CPU profile targets conventional von Neumann processors equipped with multi‑level caches, SIMD units, and virtual memory. The mapping strategy focuses on **maximizing locality** and **exploiting data‑parallelism** while minimizing data movement across the memory hierarchy.
+
+- **Cache‑line alignment**: Segments are grouped into blocks that fit exactly into a cache line (typically 64 bytes). The compiler ensures that structurally adjacent Segments reside in the same cache line, allowing a single fetch to retrieve all data needed for a local observation.
+- **Multi‑core parallelism**: Independent sub‑graphs identified during structural analysis are scheduled across available cores via OpenMP or a lightweight runtime scheduler.
+- **Vectorized observation loops**: The compiler automatically generates SIMD loops that iterate over the logical‑address ranges, leveraging the target’s SIMD width (e.g., AVX‑512, NEON). Details of observation‑code generation for CPUs are provided in [*-@sec-appendix-observation-code-gen*].
+
+The CPU profile relies on the standard load/store paradigm; however, because Segments are stationary, the only data movement is the transmission of the resulting projection. This profile is the fallback for any hardware that lacks specialised acceleration.
+
+## FPGA Profile
+
+The FPGA profile targets reconfigurable fabrics that can hardwire the topological relations of a Scheme into the interconnect fabric. Mapping is spatial rather than sequential: each Segment coordinate becomes a static connection to a Block‑RAM location, and the observation operator is implemented as a combinatorial or pipelined data‑path.
+
+- **Netlist synthesis**: The compiler generates a Verilog (or VHDL) netlist that directly instantiates the logical‑address map as an address decoder and the projector as a hardware circuit.
+- **Scalability**: Large Schemes are partitioned across multiple FPGA tiles, with inter‑tile communication following the Scheme’s adjacency relations.
+- **Zero‑overhead observation**: Once the circuit is placed and routed, observation occurs in a single clock cycle (combinatorial) or a short pipeline, eliminating fetch‑execute overhead. For a concrete example of FPGA netlist generation, see the FPGA‑target subsection of [*-@sec-appendix-observation-code-gen*].
+
+The FPGA profile delivers deterministic, low‑latency observation for fixed‑topology computations, making it ideal for streaming applications and real‑time signal processing.
+
+## PIM (Processing‑In‑Memory) Profile
+
+The PIM profile leverages memory‑centric compute units that reside inside or near memory banks. Mapping transforms the logical‑address map into a sequence of **PIM commands** that are executed directly by the memory controller, eliminating data movement between memory and a separate processor.
+
+- **Command‑sequence generation**: For each observation unit, the compiler emits a series of vendor‑specific commands (e.g., `PIM_OP_OBSERVE`) that specify the operator, bank addresses, and operand locations.
+- **Bank‑level parallelism**: Commands are scheduled across independent memory banks to maximise throughput.
+- **Deterministic execution**: PIM commands are deterministic; the same observation always yields the same result, enabling verifiable computation inside the memory subsystem. The PIM‑target subsection of [*-@sec-appendix-observation-code-gen*] provides a detailed command‑sequence example.
+
+The PIM profile is particularly beneficial for data‑intensive workloads where the von Neumann bottleneck would otherwise dominate energy consumption.
+
+## Custom Profile
+
+The Custom profile allows hardware designers to define their own mapping strategy through a plugin interface. A custom profile consists of a **mapping function** that translates logical addresses to physical addresses and an **observation‑code generator** that emits target‑specific instructions or configuration bitstreams.
+
+- **Plugin architecture**: The compiler loads a dynamic library (or a Rust crate) that implements the `HardwareProfile` trait, providing methods for address translation and code generation.
+- **Arbitrary hardware**: This profile can target emerging substrates such as memristor arrays, optical interconnects, or quantum‑inspired accelerators.
+- **Experimentation**: Researchers can prototype novel hardware mappings without modifying the core compiler.
+
+The Custom profile ensures that SSCCS remains extensible as new hardware paradigms emerge.
+
+## Summary of Mapping Strategies
+
+| Profile | Target Hardware | Key Mapping Strategy | Data Movement | Latency Characteristic |
+|---------|----------------|----------------------|---------------|------------------------|
+| CPU | Conventional processors with caches & SIMD | Cache‑line alignment, vectorized loops | Projection only | $O(N)$ (but vectorised) |
+| FPGA | Reconfigurable fabrics (Xilinx, Intel) | Netlist synthesis, spatial wiring | None (combinatorial) | $O(1)$ after placement |
+| PIM | Memory‑side compute units (UPMEM, Samsung FIM) | PIM command sequences | None (in‑memory) | $O(\text{bank access})$ |
+| Custom | User‑defined accelerators | Plugin‑defined translation | Plugin‑defined | Plugin‑defined |
+
+## Integration with the Compiler Pipeline
+
+The hardware profile is selected at compile time via a command‑line flag (e.g., `--profile cpu`). The compiler’s hardware‑mapping stage consults the profile to decide how to lower the logical‑address map and generate observation code. The same Scheme can be compiled for different profiles, yielding functionally identical projections but with performance and energy characteristics tailored to the underlying substrate.
+
+Detailed examples of observation‑code generation for each profile are given in [*-@sec-appendix-observation-code-gen*]. The mapping strategies described here are referenced from the main whitepaper’s discussion of target‑hardware mapping (see [Section 3.4.2](#sec-target-hardware-mapping)).
+
 # Field Composition Example {#sec-appendix-field-composition-example}
 
 This appendix provides a detailed worked example of Field composition, illustrating the intersection of a similarity‑constraint Field and a position‑constraint Field as referenced in [Section 3.3](#sec-field-composition) of the main whitepaper. The example is drawn from a typical AI‑frontline scenario: selecting relevant tokens in a transformer‑based model using both semantic similarity and positional filtering.
