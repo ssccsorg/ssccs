@@ -1,4 +1,4 @@
-## Appendices {.unnumbered .appendix}
+# Appendices {.unnumbered}
 
 ::: {.content-visible when-format="pdf"}
 \addtocontents{toc}{\protect\setcounter{tocdepth}{0}}
@@ -7,7 +7,7 @@
 \renewcommand{\thesubsection}{\Alph{section}.\arabic{subsection}}
 :::
 
-## Project Roadmap {#sec-appendix-roadmap}
+# Project Roadmap {#sec-appendix-roadmap}
 
 SSCCS is designed for incremental adoption—start with software emulation
 today, transition to hardware acceleration as the technology matures, and ultimately
@@ -40,28 +40,28 @@ digraph Implementation_Roadmap {
 )
 ```
 
-### Implementation Phases
+## Implementation Phases
 
-#### Phase 1: Software Emulation (Proof of Concept)
+### Phase 1: Software Emulation (Proof of Concept)
 
 - Rust reference implementation reading the SS format specifications.
 - Validate model on small benchmarks.
 - Measure determinism, implicit parallelism, data movement reduction.
 
-#### Phase 2: Hardware Acceleration (Transitional)
+### Phase 2: Hardware Acceleration (Transitional)
 
 - Map Schemes to FPGA fabrics.
 - Utilize PIM architectures as transitional substrate (UPMEM, Samsung FIM).
 - Develop compiler targeting CPUs (via SIMD) and FPGA/PIM.
 - Begin formal verification.
 
-#### Phase 3: Native Observation-Centric Processors (Long-Term Research)
+### Phase 3: Native Observation-Centric Processors (Long-Term Research)
 
 - Design processor directly instantiating Schemes.
 - Integrate memory and logic in unified substrate (e.g., memristor arrays).
 - Evaluate energy efficiency for target domains.
 
-### Compiler Layer as Migration Bridge
+## Compiler Layer as Migration Bridge
 
 The SSCCS compiler serves a dual purpose:
 
@@ -81,7 +81,7 @@ This dual capability enables gradual migration without requiring a "flag day"
 switchover. Organizations can adopt SSCCS incrementally, deploying on existing 
 infrastructure while preparing for native hardware.
 
-### Domain Validations
+## Domain Validations
 
 SSCCS is intended for validation across multiple domains.
 
@@ -96,11 +96,11 @@ SSCCS is intended for validation across multiple domains.
 | Autonomous vehicles  | Sensor fusion, real-time decision making                   | Constraint-based observation, deterministic response |
 
 
-## Vector Addition Example {#sec-appendix-vector}
+# Vector Addition Example {#sec-appendix-vector}
 
 Consider the addition of two vectors of length $N$.
 
-### Traditional Approach 
+## Traditional Approach 
 
 In a traditional architecture, a loop iterates over indices, loading each element from memory into registers, performing the addition, and storing the result back.
 
@@ -119,7 +119,7 @@ fn add_vectors(a: &[f64], b: &[f64]) -> Vec<f64> {
 - **Sequential Dependency**: Loop-carried dependencies limit parallelisation.
 - **Cache Behaviour**: Performance is highly dependent on memory layout; random access or misalignment causes cache misses.
 
-### SSCCS Approach 
+## SSCCS Approach 
 
 A Scheme defines a set of Segments representing the vectors. The compiler lays out the Segments consecutively in memory. An observation of the entire structure yields a projection that is the sum vector.
 
@@ -135,7 +135,7 @@ let sum = observe(scheme, field);
 - **Parallelism**: Structural independence allows all element pairs to be observed concurrently without explicit synchronisation or partitioning.
 - **Locality**: Enforced by the compiler's topological mapping, treating memory as an active topology rather than passive storage.
 
-#### Comparison Table 
+### Comparison Table 
 
 | Aspect | Traditional (Procedural) | SSCCS (Structural) |
 | --- | --- | --- |
@@ -146,11 +146,11 @@ let sum = observe(scheme, field);
 | Memory Role | Passive storage | Active topology |
 | Auditability | Requires external tracing | Intrinsic to Specification |
 
-## Scaling to N-Dimensional Tensors and Graphs {#sec-appendix-tensor}
+# Scaling to N-Dimensional Tensors and Graphs {#sec-appendix-tensor}
 
 The structural principles of SSCCS extend beyond linear vectors to higher-dimensional and non-linear data structures.
 
-### N-Dimensional Tensors
+## N-Dimensional Tensors
 
 In SSCCS, an $N$-dimensional tensor is represented as a set of Segments where adjacency relations are defined across multiple axes within the Scheme.
 
@@ -200,7 +200,7 @@ digraph TensorReshaping {
 - **Zero-Copy Reshaping**: Traditional systems require physical data movement ($O(N)$ or $O(N^2)$) to perform operations like transposition or reshaping. In SSCCS, reshaping is a metadata-only operation. By reorienting the Field's observation path over stationary Segments, the dimensionality of the Projection changes without moving a single bit in memory ($O(1)$).
 - **Logical Adjacency**: For operations like matrix multiplication, the compiler maps Segments to ensure that the required operands for a specific Field are physically co-located. This transforms what would be complex indexing logic in a CPU into a direct physical property of the memory topology.
 
-## Complex Graph Processing {#sec-appendix-graph}
+# Complex Graph Processing {#sec-appendix-graph}
 
 Graph algorithms (e.g., PageRank, GNNs) are traditionally bottlenecked by "Pointer Chasing," which causes severe cache thrashing and memory latency.
 
@@ -284,7 +284,7 @@ digraph Graph_Cluster_Detailed {
 - **Field-based Traversal**: A Field propagates across the entire Scheme in a single observation cycle. Instead of "visiting" nodes, the observer captures the emergent state of the entire graph simultaneously.
 - **Concurrency**: This eliminates vertex-centric synchronization (locks/mutexes). All nodes update their state in parallel as a deterministic consequence of the Field's interaction with the Scheme's topology.
 
-### Comparison: Computational Density at Scale
+## Comparison: Computational Density at Scale
 
 | Computational Task | Traditional Bottleneck | SSCCS Solution |
 | --- | --- | --- |
@@ -295,11 +295,11 @@ digraph Graph_Cluster_Detailed {
 
 The scaling of SSCCS addresses the Curse of Dimensionality by decoupling the logical structure of data from the physical cost of its traversal. While traditional architectures expend energy moving data to accommodate logic, SSCCS modifies the Field to accommodate the stationary structure. 
  
-## Open Format Specification (Draft) {#sec-appendix-openformat}
+# Open Format Specification (Draft) {#sec-appendix-openformat}
 
 The `.ss` format is a declarative language for specifying the **topological structure** of an SSCCS computation. It describes the geometric and relational properties of a computational space, leaving all physical mapping decisions to the hardware‑specific compiler backend. The format captures *what* the structure is; not *how* to execute it.
 
-### Core Components
+## Core Components
 
 The following diagram illustrates how the four core components of a `.ss` description relate to each other. Notice that no memory layout or instruction flow appears – only the static topology of the computation.
 
@@ -410,16 +410,16 @@ digraph SSFormat_Topology {
 """)
 ```
 
-### Component Details
+## Component Details
 
-#### Axes
+### Axes
 Define the coordinate space: names, ranges (discrete or continuous), and optional manifold properties (e.g., toroidal, bounded). They establish the dimensional foundation upon which Segments are placed.
 
-#### Segments
+### Segments
 
 Atomic coordinate points. Each Segment is identified by its coordinates $(x, y, z, \dots)$ and a cryptographic hash derived from them. Segments are immutable and stateless – they carry no values, only position.
 
-#### Relations
+### Relations
 
 Relations replace traditional control flow (loops, conditionals) with a static description of connectivity and proximity. The topological fabric that connects Segments. This block encodes:
 
@@ -427,7 +427,7 @@ Relations replace traditional control flow (loops, conditionals) with a static d
 - **Metric Space**: The distance function $d(s_i, s_j)$ that governs interaction strength (e.g., Manhattan, Euclidean, graph distance).
 - **Boundary Conditions**: The shape of the manifold (e.g., `Periodic` for a torus, `Fixed` for a finite grid). 
 
-#### Observation
+### Observation
 
 Defines how a Field’s dynamic constraints interact with the static Scheme to produce a Projection. It includes:
 
@@ -435,24 +435,24 @@ Defines how a Field’s dynamic constraints interact with the static Scheme to p
 - **Resolution Strategy**: How multi‑segment interactions are resolved into a single output (e.g., summation, maximum, tensor contraction).
 - **Projection Format**: The mathematical type of the result (e.g., scalar, vector, tensor).
 
-### Key characteristics
+## Key characteristics
 
 1. **Non‑linear addressing** – Segments are identified by coordinate tuples, not memory offsets.
 2. **Relation‑defined computation** – What traditional code expresses as loops and conditionals is encoded in the connectivity and metric of the `Relations` block.
 3. **Observation as collapse** – The `Observation` block specifies how a Field’s constraints resolve the Scheme’s potential into a deterministic Projection.
 4. **Deferred physical mapping** – No memory layout or instruction sequence is included; the compiler backend maps the topology to concrete hardware (SRAM, DRAM, HBM, etc.) based solely on the declared relations.
 
-### Cryptographic Identity
+## Cryptographic Identity
 
 A Schema’s identity is derived solely from its topological properties. Changing a physical implementation detail (e.g., cache‑line alignment) does **not** affect the `SchemeId`. However, altering the connectivity or the metric space produces a new, distinct identity:
 
 $$SchemeId = H(\text{Axes} + \text{Segments} + \text{Relations} + \text{ObservationRules})$$
 
-## Observation‑Code Generation Methodology {#sec-appendix-observation-code-gen}
+# Observation‑Code Generation Methodology {#sec-appendix-observation-code-gen}
 
 This appendix expands on the observation‑code generation stage described in [Section 3.5](#sec-observation-code-gen) of the whitepaper, providing concrete implementation techniques for CPU, FPGA, and PIM targets. It illustrates how the SSCCS compiler lowers the high‑level structural description to executable native code while preserving determinism and reproducibility.
 
-### Lowering to LLVM/MLIR
+## Lowering to LLVM/MLIR
 
 The SSCCS front‑end translates a Scheme and its associated Field into an intermediate representation (IR) expressed in a custom MLIR dialect named `ssccs`. This dialect captures the topological relationships, coordinate mapping, and observation semantics as MLIR operations. The following snippet illustrates a simplified `ssccs.observation` operation:
 
@@ -471,7 +471,7 @@ func.func @observe_vector(
 
 The `ssccs` dialect is then lowered to standard MLIR dialects (e.g., `affine`, `scf`, `vector`) via a series of progressive rewrites, ultimately emitting LLVM IR. This approach leverages the existing LLVM optimisation pipeline for generic CPU targets.
 
-### CPU Target: SIMD Loop Generation
+## CPU Target: SIMD Loop Generation
 
 For CPU execution, the compiler emits C/C++ loops that iterate over the logical‑address ranges produced by the layout stage. The loops are automatically vectorised using LLVM’s auto‑vectorisation or explicit SIMD intrinsics. The following pseudocode shows the kernel generated for a simple vector‑addition observation:
 
@@ -494,7 +494,7 @@ void observe_vector(
 
 The compiler ensures cache‑line alignment, loop unrolling, and proper use of prefetch instructions according to the target micro‑architecture. The generated code is deterministic: the same Scheme and hardware profile produce identical binary loops every time.
 
-### FPGA Target: Verilog Netlist Generation
+## FPGA Target: Verilog Netlist Generation
 
 For FPGA targets, the compiler bypasses instruction‑based execution and directly synthesises a hardware circuit that implements the observation operator. The logical‑address map is turned into a hardwired address decoder; each Segment coordinate becomes a static connection to a Block‑RAM location. The observation operator is expressed as a combinatorial or pipelined data‑path. A simplified Verilog example:
 
@@ -514,7 +514,7 @@ endmodule
 
 The compiler uses high‑level synthesis (HLS) tools (e.g., Xilinx Vitis HLS, Intel HLS) or direct RTL generation, depending on the backend. The resulting netlist can be placed and routed on the target FPGA, delivering zero‑overhead observation with deterministic latency.
 
-### PIM Target: Command‑Sequence Generation
+## PIM Target: Command‑Sequence Generation
 
 When targeting processing‑in‑memory (PIM) substrates (e.g., UPMEM DPUs, Samsung FIM), the compiler emits a sequence of PIM commands that are sent directly to the memory controller. Each command triggers an observation within a memory bank, eliminating data movement between memory and CPU. The command sequence is derived from the logical‑address map and the observation operator. An example using a hypothetical PIM SDK:
 
@@ -532,7 +532,7 @@ pim_wait_completion();
 
 The compiler leverages vendor‑specific SDKs to generate optimal command sequences that maximise bank‑level parallelism and minimise synchronisation overhead. Because PIM commands are deterministic, the same observation always yields the same result.
 
-### Integration with Existing Toolchains {#sec-appendix-integration-existing-toolchains}
+## Integration with Existing Toolchains {#sec-appendix-integration-existing-toolchains}
 
 SSCCS deliberately builds upon established compiler and hardware toolchains to reduce implementation risk:
 
@@ -542,11 +542,11 @@ SSCCS deliberately builds upon established compiler and hardware toolchains to r
 
 By reusing these ecosystems, SSCCS focuses innovation on the structural abstraction rather than on low‑level code generation, ensuring that the novel paradigm can be validated on available hardware today.
 
-## Field Composition Example {#sec-appendix-field-composition-example}
+# Field Composition Example {#sec-appendix-field-composition-example}
 
 This appendix provides a detailed worked example of Field composition, illustrating the intersection of a similarity‑constraint Field and a position‑constraint Field as referenced in [Section 3.3](#sec-field-composition) of the main whitepaper. The example is drawn from a typical AI‑frontline scenario: selecting relevant tokens in a transformer‑based model using both semantic similarity and positional filtering.
 
-### Fields Definition
+## Fields Definition
 
 Let $F_{\text{similarity}}$ be a Field whose constraint $C_{\text{similarity}}(i)$ admits Segments (tokens) whose embedding vector $\mathbf{e}_i$ has a cosine similarity with a query vector $\mathbf{q}$ above a threshold $\theta$. Formally:
 
@@ -562,7 +562,7 @@ $$
 
 Both Fields are assumed to have trivial transition matrices $T_{\text{similarity}} = T_{\text{position}} = \mathbf{I}$ (identity) for simplicity.
 
-### Intersection Composition
+## Intersection Composition
 
 The intersection of the two Fields, $F_{\text{combined}} = F_{\text{similarity}} \cap F_{\text{position}}$, yields a new Field whose constraint is the conjunction of the individual constraints:
 
@@ -598,7 +598,7 @@ digraph FieldCompositionExample {
 """)
 ```
 
-### Concrete Example: Composing Fields with Geometric and Positional Constraints
+## Concrete Example: Composing Fields with Geometric and Positional Constraints
 
 Consider a Scheme $\Sigma$ consisting of ten token Segments $S_0, S_1, \dots, S_9$ with pre‑computed embedding vectors $\mathbf{e}_i$ (normalised to unit length) and a query vector $\mathbf{q} = (1,0,0,0)$. We set a similarity threshold $\theta = 0.8$ and a position interval $[L,R] = [2,7]$. The admissible Segments under each Field are:
 
@@ -621,19 +621,19 @@ $$
 
 This example demonstrates how distinct constraint types (geometric similarity and positional ordering) can be composed as independent Fields and combined via logical operations. The resulting Field $F_{\text{combined}}$ acts as a single executable unit, illustrating the recursive, composable nature of Fields in SSCCS: each Field is itself a binary‑level constraint module that can be nested or merged to form more complex selection criteria. The same composition mechanism scales to arbitrary numbers of Fields and arbitrary logical combinations (AND, OR, NOT, etc.), enabling the construction of sophisticated, verifiable computational structures directly from declarative building blocks.
 
-### Observation Semantics
+## Observation Semantics
 
 When an observation $\Omega$ is performed with the combined Field, only the Segments in $\mathcal{A}(\Sigma, F_{\text{combined}})$ contribute to the projection. Because the transition matrix is identity, the projection $P$ simply returns the admissible Segments unchanged (or, depending on the projector $\pi$, extracts some property). The observation is deterministic and requires no data movement: the Scheme’s Segments stay in place while the Field’s constraints filter the coordinate space.
 
-### Extensions
+## Extensions
 
 This example can be extended to illustrate sequential composition (first apply $F_{\text{similarity}}$, then $F_{\text{position}}$) or parallel composition (both Fields observe the same Segment simultaneously). The dot diagram above can be augmented to show those variants, but the core principle remains: Field composition merges constraints and transition matrices, producing a new Field that refines the observation semantics without altering the underlying Scheme.
 
-## Detailed Enumerations of Scheme Components {#sec-appendix-scheme-enumerations}
+# Detailed Enumerations of Scheme Components {#sec-appendix-scheme-enumerations}
 
 This appendix provides exhaustive listings of the axis types, structural‑relation categories, memory‑layout types, and observation‑rule options that are part of the Scheme abstraction. These enumerations are referenced from Section 3.2 of the main whitepaper.
 
-### Axis Types {#sec-appendix-axis-types}
+## Axis Types {#sec-appendix-axis-types}
 
 The axis type can be one of the following variants:
 
@@ -651,7 +651,7 @@ The axis type can be one of the following variants:
 
 These axis types are purely semantic; they guide the interpretation of coordinates and the admissible relations between Segments, but do not prescribe a particular physical representation.
 
-### Structural Relations {#sec-appendix-structural-relations}
+## Structural Relations {#sec-appendix-structural-relations}
 
 The relation set $R \subseteq \mathcal{S} \times \mathcal{S} \times \mathcal{T}$ captures the topological connections between Segments. Each relation is typed according to one of five fundamental categories, each with its own sub‑types:
 
@@ -688,7 +688,7 @@ The relation set $R \subseteq \mathcal{S} \times \mathcal{S} \times \mathcal{T}$
 
 Relations are immutable once the Scheme is created; they define the static topology that the compiler maps onto hardware.
 
-### Memory‑Layout Abstraction {#sec-appendix-memory-layout}
+## Memory‑Layout Abstraction {#sec-appendix-memory-layout}
 
 The mapping $L: \mathbb{R}^d \to \mathcal{L}$ assigns each coordinate a logical address, decoupling the Scheme’s geometric structure from the physical memory hierarchy. The `MemoryLayout` is specified by a `layout_type` and a mapping function.
 
@@ -704,7 +704,7 @@ Available layout types include:
 
 The logical address $\ell = L(c)$ consists of a space identifier and an offset within that space. It serves as an intermediate representation that the compiler later translates to physical addresses according to the target hardware’s memory hierarchy. The choice of layout type is a critical optimization: it determines how structurally adjacent Segments are placed in physical memory, thereby minimizing data movement during observation.
 
-### Observation Rules {#sec-appendix-observation-rules}
+## Observation Rules {#sec-appendix-observation-rules}
 
 The observation rules $O = (\text{resolution}, \text{triggers}, \text{priority}, \text{context})$ govern how the observation operator $\Omega$ is applied to the Scheme.
 
@@ -735,18 +735,18 @@ The observation rules $O = (\text{resolution}, \text{triggers}, \text{priority},
 
 Observation rules are part of the Scheme’s immutable specification; they enable fine‑grained control over the observation process, allowing the designer to trade off determinism against other desiderata.
 
-## Pre‑defined Scheme Templates (Draft) {#sec-appendix-scheme-templates}
+# Pre‑defined Scheme Templates (Draft) {#sec-appendix-scheme-templates}
 
 To illustrate how a Scheme can be constructed, SSCCS provides several canonical templates that capture common topological patterns. These templates are idiomatic combinations of the axis, relation, and layout abstractions; they are not separate language constructs. Developers can extend them or create entirely new Schemes by composing the same primitive elements.
 
-### 2D Grid
+## 2D Grid
 
 A regular two‑dimensional lattice with discrete axes $x$ and $y$. Adjacency is defined via a grid topology (four‑ or eight‑connected). The memory layout is typically row‑major or column‑major, but space‑filling curves can also be used to preserve locality. This template is suitable for image processing, stencil computations, and cellular automata.
 
-### Integer Line
+## Integer Line
 
 A one‑dimensional discrete axis representing integer coordinates. Adjacency is Euclidean with distance 1 (nearest‑neighbor). The layout is linear, mapping each integer coordinate to a consecutive logical address. The integer line serves as a building block for sequences, time series, and vector operations.
 
-### Graph
+## Graph
 
 A set of Segments with arbitrary connectivity expressed as graph adjacency. The axis may be categorical (node labels) or relational (edge references). The layout can be graph‑based (e.g., sorted by degree) or custom. This template supports graph algorithms, social networks, and dependency graphs.
