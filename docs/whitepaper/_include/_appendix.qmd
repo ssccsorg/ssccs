@@ -1,9 +1,8 @@
 # Appendices {.unnumbered}
 
 ::: {.content-visible when-format="pdf"}
-\addtocontents{toc}{\protect\setcounter{tocdepth}{0}}
 \appendix
-\renewcommand{\thesection}{Appendix \Alph{section}}
+\renewcommand{\thesection}{\Alph{section}}
 \renewcommand{\thesubsection}{\Alph{section}.\arabic{subsection}}
 :::
 
@@ -402,7 +401,7 @@ digraph SSFormat_Topology {
     obs -> proj [style=solid, color=black, penwidth=1.5, label="P"];
     
     node [shape=plaintext, fontsize=9, fontcolor=gray];
-    hw_note [label="Physical mapping deferred to hardware backend"];
+    hw_note [label="Hardware Mapping"];
     
     edge [style=dashed, color=gray, penwidth=0.5, arrowhead=none];
     proj -> hw_note;
@@ -692,15 +691,19 @@ Relations are immutable once the Scheme is created; they define the static topol
 
 The mapping $L: \mathbb{R}^d \to \mathcal{L}$ assigns each coordinate a logical address, decoupling the Scheme’s geometric structure from the physical memory hierarchy. The `MemoryLayout` is specified by a `layout_type` and a mapping function.
 
-Available layout types include:
+::: {tbl-colwidths="[20, 30, 50]"}
 
-- **Linear**: Coordinates are mapped in monotonic order along a single dimension.
-- **Row‑Major**: For multi‑dimensional grids, coordinates are traversed row‑wise (last axis varies fastest).
-- **Column‑Major**: Column‑wise traversal (first axis varies fastest).
-- **Space‑Filling Curve**: Coordinates are linearized according to a locality‑preserving curve (Z‑order, Hilbert, Gray, Peano, or custom). These curves maintain spatial adjacency in the linearized address space, improving cache efficiency.
-- **Hierarchical**: A multi‑level layout that reflects a tree‑like decomposition of the coordinate space.
-- **Graph‑Based**: The logical address order follows a graph traversal (e.g., breadth‑first or depth‑first).
-- **Custom**: A user‑defined mapping function that can encode arbitrary layout policies.
+| Layout Type | Use Case | Description |
+|----|----|----|
+| **Linear** | 1D arrays, vectors. | Coordinates mapped monotonically along a single dimension. |
+| **Row‑Major** | Matrices, images. | Multi‑dimensional grids traversed row‑wise (last axis varies fastest). |
+| **Column‑Major** | Fortran‑style arrays. | Column‑wise traversal (first axis varies fastest). |
+| **Space‑Filling Curve** | Spatial data structures, cache‑optimized layouts. | Coordinates linearized via locality‑preserving curves (Z‑order, Hilbert). |
+| **Hierarchical** | Quad‑trees, oct‑trees, nested grids. | Multi‑level layout reflecting a tree decomposition. |
+| **Graph‑Based** | Irregular graphs, sparse matrices. | Logical address order follows a graph traversal (BFS, DFS). |
+| **Custom** | Domain‑specific layouts. | User‑defined mapping function. |
+
+:::
 
 The logical address $\ell = L(c)$ consists of a space identifier and an offset within that space. It serves as an intermediate representation that the compiler later translates to physical addresses according to the target hardware’s memory hierarchy. The choice of layout type is a critical optimization: it determines how structurally adjacent Segments are placed in physical memory, thereby minimizing data movement during observation.
 
