@@ -95,6 +95,75 @@ SSCCS is intended for validation across multiple domains.
 | Autonomous vehicles  | Sensor fusion, real-time decision making                   | Constraint-based observation, deterministic response |
 
 
+# PoC Implementation Notes {#sec-appendix-poc-notes}
+
+The SSCCS Proof of Concept (PoC) is a Rust‑based reference implementation that validates the core ontological layers of the model. It serves as the software‑emulation phase (Phase 1) of the SSCCS roadmap, demonstrating that the abstract primitives—Segment, Scheme, Field, Observation, and Projection—can be realized as concrete, executable code. This appendix documents key implementation details that complement the open‑format specification and illustrate how the theoretical model translates into a working system.
+
+## Why Rust
+
+Rust’s design philosophy aligns closely with the SSCCS model: immutability by default, zero‑cost abstractions, concurrency without data races, cryptographic primitives, a strong type system for structural invariants, and fine‑grained control over memory layout. These features make Rust the natural language for prototyping a system where deterministic observation, structural safety, and performance are paramount.
+
+## Core Types
+
+### Segment
+
+A `Segment` is an immutable coordinate point in a multi‑dimensional possibility space. Its identity is a BLAKE3 cryptographic hash derived from its coordinates, guaranteeing uniqueness and verifiability.
+
+```rust
+pub struct Segment {
+    coordinates: SpaceCoordinates,
+    id: SegmentId,
+}
+```
+
+## Scheme Abstraction Layer
+
+The Scheme abstraction captures the static topological blueprint of a computation. It consists of:
+
+- **Axes** – dimensional definitions (`Discrete`, `Continuous`, `Cyclic`, `Categorical`, `Relational`, `WithUnit`).
+- **Structural Relations** – adjacency, hierarchy, dependency, equivalence, and custom predicates.
+- **Memory‑Layout** – mapping from coordinate space to logical addresses (`Linear`, `RowMajor`, `ColumnMajor`, `SpaceFillingCurve`, `Hierarchical`, `Graph‑Based`, `Custom`).
+- **Observation Rules** – resolution strategies, triggers, priority, and context.
+
+The layer provides ready‑to‑use templates (`Grid2DTemplate`, `IntegerLineTemplate`, `GraphTemplate`) that combine these elements into common topological patterns.
+
+
+### Field
+
+A `Field` holds dynamic constraints (`ConstraintSet`) and a `TransitionMatrix` that encodes weighted directed‑graph relationships between Segments. The constraints determine which Segments are admissible; the transition matrix influences how observation propagates across the topology.
+
+### Projector Trait
+
+The `Projector` trait defines the semantic interpretation of a Segment–Field pair, producing a projection (the observable “value”). It also optionally specifies possible next coordinates, enabling adjacency to be defined through the projector itself.
+
+```rust
+pub trait Projector {
+    type Output;
+    fn project(&self, field: &Field, segment: &Segment) -> Option<Self::Output>;
+    fn possible_next_coordinates(
+      &self, 
+      coords: &SpaceCoordinates
+    ) -> Vec<SpaceCoordinates> { vec![] }
+}
+```
+
+Three example projectors are:
+
+- **`IntegerProjector`** – extracts a coordinate along a given axis.
+- **`ArithmeticProjector`** – defines adjacency through arithmetic operations (`+1`, `-1`, `*2`, `/2`).
+- **`ParityProjector`** – classifies coordinates as `"even"` or `"odd"` strings.
+
+## Compiler Pipeline
+
+A four‑stage compiler pipeline translates a high‑level Scheme into hardware‑specific layouts:
+
+1. **Parsing and Validation** – reads the `.ss` binary and builds an intermediate representation.
+2. **Structural Analysis** – extracts adjacency and dependency relations, identifies independent sub‑graphs for parallel observation.
+3. **Memory‑Layout Resolution** – applies the Scheme’s `MemoryLayout` to map coordinates to logical addresses.
+4. **Hardware Mapping** – projects logical addresses onto the target hardware’s physical memory hierarchy (CPU caches, FPGA Block‑RAM, PIM banks).
+
+The pipeline is generic over a `HardwareProfile` (`GenericCPU`, `FPGA`, `PIM`, `Custom`), allowing the same Scheme to be optimized for different substrates.
+
 # Vector Addition Example {#sec-appendix-vector}
 
 Consider the addition of two vectors of length $N$.
