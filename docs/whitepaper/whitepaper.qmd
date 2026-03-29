@@ -824,13 +824,9 @@ where $E_{\text{obs}}$ is the energy required to perform a single observation, $
 
 ### Immutability and Concurrency
 
-Because Segments are immutable, any number of observations can be performed simultaneously without interference. Formally, if $S_1$ and $S_2$ are disjoint sets of Segments, then:
+Because Segments are immutable, any number of observations can be performed simultaneously without interference. This property follows directly from the absence of shared mutable state: since Segments cannot be modified, observations on disjoint sets have no side-effects that could affect each other. Consequently, SSCCS enables inherent parallelism without any programmer effort or runtime synchronisation.
 
-$$
-\Omega(S_1 \cup S_2, F) = \Omega(S_1, F) \times \Omega(S_2, F)
-$$
-
-where $\times$ denotes independent composition of projections. This property follows directly from the absence of shared mutable state: since Segments cannot be modified, observations on disjoint sets have no side-effects that could affect each other. Consequently, SSCCS enables inherent parallelism without any programmer effort or runtime synchronisation.
+See the [Structural Isolation](#structural-isolation) section for a formal statement.
 
 ### Time as a Coordinate
 
