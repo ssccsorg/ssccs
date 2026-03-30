@@ -7,7 +7,6 @@ on:
     paths:
       - 'docs/**/*.py'
       - 'docs/**/*.qmd'
-      - 'docs/**/*.txt'
       - 'docs/**/*.yml'
       - 'docs/**/*.txt'
       - 'docs/**/*.svg'
@@ -139,30 +138,6 @@ jobs:
         with:
           path: ./_site
 
-      # Prepare filtered source files for sync (only .md, excludes legal/, whitepaper/, README.md)
-      - name: Prepare www-docs artifact
-        run: |
-          mkdir -p www-docs
-          rsync -avm --delete \
-            --exclude='.quarto/' \
-            --exclude='*_files/' \
-            --exclude='*_output/' \
-            --exclude='*_extensions/' \
-            --exclude='legal/*' \
-            --exclude='whitepaper/*' \
-            --exclude="**/README.md" \
-            --include='*/' \
-            --include='*.md' \
-            --exclude='*' \
-            docs/ www-docs/
-
-      - name: Upload sync artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: source-for-sync
-          path: ./www-docs
-          retention-days: 1
-
   deploy:
     environment:
       name: github-pages
@@ -173,42 +148,3 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-
-  deploy-ssccs-www-docs:
-    runs-on: ubuntu-latest
-    needs: build
-    env:
-      TARGET_BRANCH: main
-    steps:
-      - name: Download sync artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: source-for-sync
-          path: ./source
-
-      - name: Checkout target repository (ssccs-www)
-        uses: actions/checkout@v6
-        with:
-          repository: ssccsorg/ssccs-www
-          token: ${{ secrets.WWW_WRITE }}
-          # Absolute path outside the current workspace to avoid scope errors
-          path: ${{ github.workspace }}/cloned-ssccs-www
-          ref: main
-          fetch-depth: 0
-
-      # Source is already filtered; just mirror it to target docs/
-      - name: Sync docs to target repository
-        run: rsync -avm --delete source/ ${{ github.workspace }}/cloned-ssccs-www/docs/
-
-      - name: Commit and push changes
-        working-directory: ${{ github.workspace }}/cloned-ssccs-www
-        run: |
-          git config user.name "SSCCS Admin"
-          git config user.email "admin@ssccs.org"
-          git add .
-          if git diff --cached --quiet; then
-            echo "No changes to commit."
-          else
-            git commit -m "Sync docs from ssccsorg/ssccs/docs@${{ github.sha }}"
-            git push origin ${{ env.TARGET_BRANCH }}
-          fi
