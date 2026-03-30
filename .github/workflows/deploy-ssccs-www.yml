@@ -1,0 +1,71 @@
+# Workflow to sync filtered Markdown documentation to the public www repository
+name: Sync Markdown Docs to SSCCS‑WWW
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/**/*.md'
+      - '!**/README.md'
+      - '.github/workflows/deploy-ssccs-www.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sync-docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sync-docs:
+    runs-on: ubuntu-latest
+    env:
+      TARGET_BRANCH: main
+    steps:
+      - name: Checkout source repository
+        uses: actions/checkout@v6
+        with:
+          lfs: true
+
+      - name: Filter Markdown files
+        run: |
+          mkdir -p www-docs
+          rsync -avm --delete \
+            --exclude='.quarto/' \
+            --exclude='*_files/' \
+            --exclude='*_output/' \
+            --exclude='*_extensions/' \
+            --exclude='legal/*' \
+            --exclude='whitepaper/*' \
+            --exclude="**/README.md" \
+            --include='*/' \
+            --include='*.md' \
+            --exclude='*' \
+            docs/ www-docs/
+
+      - name: Checkout target repository (ssccs-www)
+        uses: actions/checkout@v6
+        with:
+          repository: ssccsorg/ssccs-www
+          token: ${{ secrets.WWW_WRITE }}
+          path: ${{ github.workspace }}/cloned-ssccs-www
+          ref: main
+          fetch-depth: 0
+
+      - name: Sync docs to target repository
+        run: rsync -avm --delete www-docs/ ${{ github.workspace }}/cloned-ssccs-www/docs/
+
+      - name: Commit and push changes
+        working-directory: ${{ github.workspace }}/cloned-ssccs-www
+        run: |
+          git config user.name "SSCCS Admin"
+          git config user.email "admin@ssccs.org"
+          git add .
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Sync docs from ssccsorg/ssccs/docs@${{ github.sha }}"
+            git push origin ${{ env.TARGET_BRANCH }}
+          fi
