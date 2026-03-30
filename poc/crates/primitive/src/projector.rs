@@ -59,3 +59,19 @@ impl Projector for ParityProjector {
         }
     }
 }
+
+// A projector that sums coordinates for 3D tensor.
+#[derive(Debug, Clone)]
+pub struct CoordinateSumProjector;
+
+impl Projector for CoordinateSumProjector {
+    type Output = i64;
+
+    fn project(&self, _field: &Field, segment: &Segment) -> Option<Self::Output> {
+        let coords = segment.coordinates();
+        let sum = coords.get_axis(0).unwrap_or(0)
+            + coords.get_axis(1).unwrap_or(0)
+            + coords.get_axis(2).unwrap_or(0);
+        Some(sum)
+    }
+}
