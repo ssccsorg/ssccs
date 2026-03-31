@@ -1,4 +1,4 @@
-# SSCCS Core Concepts: A Comprehensive Guide
+# Core Concepts Guide
 SSCCS Foundation
 
 ## What is SSCCS?

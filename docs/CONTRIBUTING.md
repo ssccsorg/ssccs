@@ -1,21 +1,19 @@
-# Contributing to SSCCS
+# Contributing
 
 Thank you for your interest in SSCCS.  
 Our goal is to achieve the highest level of technical innovation with minimal communication overhead. If you wish to contribute, please carefully internalize the philosophy and guidelines below.
 
----
-
-## 0. Overarching Principle: Human Life Comes First
+## Overarching Principle: Human Life Comes First
 This project exists to help us live better lives. Code, debate, and technical superiority are means, not ends in themselves. Therefore, rules and discussions must never devolve into unnecessary stress or “moral posturing” that exerts pressure on contributors. We focus on efficiently generating results within an atmosphere of objective, mutual respect.
 
-## 1. Our Mission: Beyond Boundaries, Toward a New Paradigm
+## Our Mission: Beyond Boundaries, Toward a New Paradigm
 We are a collective united to architect a completely new computing paradigm. We recognize that even the platforms hosting this repository are bound by centralized corporate infrastructures and legacy cultural frameworks. 
 
 We demand, as our highest priority, a culture that encourages breaking the mold and thinking differently—provided it does not hinder the activity of other contributors. We aim to build a culture where even the boundaries surrounding us are treated as objects of innovation.
 
-Rapid Technology Adoption: We aggressively adopt any technology that advances computing paradigms faster and with less energy. We do not delay adoption due to unproven traditions or institutional conservatism when a tool’s efficacy and safety are established.
+We aggressively adopt any technology that advances computing paradigms faster and with less energy. We do not delay adoption due to unproven traditions or institutional conservatism when a tool’s efficacy and safety are established.
 
-## 2. Core Philosophy: Results and Pragmatism
+## Core Philosophy: Results and Pragmatism
 
 - Results-Oriented: The "pedigree" of how code was written matters less than whether it works, remains maintainable, and positively impacts the system.
 - Efficiency: We bypass unnecessary bureaucracy and exhausting debates. Prove your point with code.
@@ -23,7 +21,7 @@ Rapid Technology Adoption: We aggressively adopt any technology that advances co
 - Realistic Approach to Equality and Diversity: We support equal opportunity regardless of background. However, we recognize that human psychology does not always align with abstract ideals. We ensure that enforcing “equality” or “righteousness” does not itself become a new form of oppression. Complex social issues are addressed through a healthy project culture and merit-based consensus, not rigid policing.
 - Clarity of Responsibility: Every commit must be GPG-signed. PR authors and reviewers bear 100% responsibility for the integrity of the code they submit.
 
-## 3. AI Tooling Policy: Tools as Standard
+## AI Tooling Policy: Tools as Standard
 
 As of 2026, using AI (LLMs, etc.) for engineering is as standard as using a compiler or an IDE.
 
@@ -32,7 +30,7 @@ As of 2026, using AI (LLMs, etc.) for engineering is as standard as using a comp
 - Evaluation Criteria: Reviewers evaluate only architectural consistency, logical correctness, security, and test compliance. Low-quality code that lacks proper human direction and validation will be rejected regardless of its origin.
 - Extended Use of AI: AI can be actively utilized in areas difficult to codify, such as cultural synthesis or streamlining communication. We encourage using AI as an aid to improve decision-making and efficiency.
 
-## 4. Communication Guidelines
+## Communication Guidelines
 
 Keep communication lean, clear, and "dry."
 
@@ -41,11 +39,11 @@ Keep communication lean, clear, and "dry."
 - Self-Eliminating Non-Technical Discussions: Topics unrelated to technical goals will naturally go unnoticed and die out. Persistent attempts to steer the project toward external social agendas will result in a natural loss of influence.
 - LLM-Enabled Global Collaboration: English is our common tongue, but not everyone's native language. We strongly encourage using powerful LLM models for translation and drafting to bridge communication gaps.
 
-## 5. Contribution Process
-### 5.1 Commit Signing (GPG)
+## Contribution Process
+### Commit Signing (GPG)
 Every commit must be GPG-signed. This provides technical provenance and clarifies accountability. Unsigned commits will be automatically rejected by the CI.
 
-### 5.2 Pull Request (PR) Criteria
+### Pull Request (PR) Criteria
 - Atomic Changes: A single PR should contain one logical change.
 - Self-Review: Validate your logic before submission. If AI assisted you, double-check its edge cases and logic.
 - Test-Driven: New features and bug fixes must include automated tests. PRs that fail CI will not be reviewed.
@@ -56,17 +54,17 @@ Before merging, a PR must:
 - Receive approval from at least one reviewer.
 - Have no merge conflicts.
 
-### 5.3 Code Style and Quality
+### Code Style and Quality
 - For Rust: Adhere to `rustfmt` and `clippy` conventions.
 - General: Comply with the linter configurations in the repository root.
 - Documentation: Public APIs must include clear documentation comments.
 
-## 6. Decision Making
+## Decision Making
 - Routine Changes: Decided via peer review and CI success.
 - Major Architecture (RFC): Significant changes are discussed in a dedicated RFC issue with a 7-day window. Decisions are made by core contributors or maintainer judgment.
 - Progress Over Consensus: In the event of a deadlock, maintainers will make the final call. We prioritize momentum over perfect agreement.
 
-## 7. Culture and System Protection
+## Culture and System Protection
 We maintain a community of professionals focused on technical productivity.
 
 ### Cultural Self-Purification
@@ -81,5 +79,6 @@ We reserve the right to immediately block malicious technical actions that physi
 Maintainers may restrict access or report to platform providers solely to ensure the continued operation of the system.
 
 ---
-We speak with code and prove ourselves with results. All contributions that move SSCCS forward are sincerely welcome.
+
+All contributions that move SSCCS forward are sincerely welcome.
  
