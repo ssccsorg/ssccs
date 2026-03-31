@@ -1,9 +1,7 @@
 //! Graph-based Scheme Template
 
 use ssccs_core::Segment;
-use ssccs_primitive::{
-    AdjacencyType, Axis, AxisType, Scheme, SchemeBuilder, StructuralRelation,
-};
+use ssccs_primitive::{AdjacencyType, Axis, AxisType, Scheme, SchemeBuilder, StructuralRelation};
 use std::collections::HashMap;
 
 /// Graph-based Scheme Template
@@ -40,9 +38,7 @@ impl GraphTemplate {
 
         // Add edge relationships
         for (from_idx, to_idx, weight) in self.edges {
-            if let (Some(from_seg), Some(to_seg)) =
-                (segments.get(from_idx), segments.get(to_idx))
-            {
+            if let (Some(from_seg), Some(to_seg)) = (segments.get(from_idx), segments.get(to_idx)) {
                 builder = builder.add_relation(
                     *from_seg.id(),
                     *to_seg.id(),

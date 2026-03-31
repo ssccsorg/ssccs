@@ -100,15 +100,15 @@ impl Tensor3DTemplate {
                             && nz < self.depth
                         {
                             if let Some(&to_id) = coord_to_id.get(&(nx, ny, nz)) {
-                            builder = builder.add_relation(
-                                from_id,
-                                to_id,
-                                StructuralRelation::Adjacency {
-                                    relation_type: self.adjacency_type.clone(),
-                                    weight: Some(1.0),
-                                    metadata: HashMap::new(),
-                                },
-                            );
+                                builder = builder.add_relation(
+                                    from_id,
+                                    to_id,
+                                    StructuralRelation::Adjacency {
+                                        relation_type: self.adjacency_type.clone(),
+                                        weight: Some(1.0),
+                                        metadata: HashMap::new(),
+                                    },
+                                );
                             }
                         }
                     }

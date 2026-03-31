@@ -1,9 +1,7 @@
 //! Composite and Transformed Scheme extensions
 
 use ssccs_core::{Segment, SegmentId, SpaceCoordinates};
-use ssccs_primitive::{
-    Axis, LogicalAddress, SchemeId, SchemeTrait, SchemeImpl,
-};
+use ssccs_primitive::{Axis, LogicalAddress, SchemeId, SchemeImpl, SchemeTrait};
 use std::collections::HashMap;
 use std::sync::Arc;
 

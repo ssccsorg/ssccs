@@ -148,6 +148,48 @@ To enforce consistent formatting across all crates:
 cargo fmt --check --workspace
 ```
 
+## Local CI Validation with Act
+
+You can run the same CI workflow locally using [act](https://github.com/nektos/act), a tool that executes GitHub Actions workflows on your local machine.
+
+### Prerequisites
+1. Install `act`:
+   ```bash
+   # macOS (using Homebrew)
+   brew install act
+
+   # Linux (using the installation script)
+   curl -s https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash
+   ```
+2. Ensure Docker is running.
+
+### Running the Validation Job
+To run the `rust-check` job defined in `.github/workflows/rust-poc-ci.yml`:
+```bash
+cd /path/to/ssccs/poc
+act -j rust-check -P ubuntu-latest=catthehacker/ubuntu:act-latest
+```
+
+This will:
+- Spin up a Docker container with the Ubuntu latest image
+- Install the Rust toolchain, clippy, and rustfmt
+- Cache dependencies
+- Run the complete validation suite (`poc/run.sh`)
+
+The validation script (`poc/run.sh`) performs the following checks in order:
+1. **Formatting** – `cargo fmt --check`
+2. **Linting** – `cargo clippy --workspace -- -D warnings`
+3. **Build** – `cargo build --workspace --release`
+4. **Tests** – `cargo test --workspace --all-targets --release`
+5. **Binary execution** – Automatically discovers and runs all binary crates (the 10 constitutional concept tests)
+
+If any step fails, the workflow stops and reports the error. A successful run ends with "ALL VALIDATIONS PASSED".
+
+### Notes
+- The first run will take longer due to Docker image downloads and dependency caching.
+- Subsequent runs benefit from cached Docker layers and the Rust cache.
+- The `catthehacker/ubuntu:act-latest` image is recommended for `act` because it includes common tools (including `jq`) that the validation script expects.
+
 ## Why Rust Was Chosen for the PoC
 
 Rust was selected for several reasons:

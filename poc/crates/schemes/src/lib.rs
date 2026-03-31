@@ -5,10 +5,10 @@
 //! - Composite and Transformed Scheme extensions
 //! - Developer input types (BooleanSpace, IntegerSpace)
 
-pub mod templates;
 pub mod composite;
 pub mod spaces;
+pub mod templates;
 
-pub use templates::*;
 pub use composite::*;
 pub use spaces::*;
+pub use templates::*;

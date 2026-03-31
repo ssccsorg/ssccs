@@ -1,9 +1,7 @@
 //! 2D Grid Scheme Template
 
 use ssccs_core::Segment;
-use ssccs_primitive::{
-    Axis, AxisType, GridTopology, Scheme, SchemeBuilder,
-};
+use ssccs_primitive::{Axis, AxisType, GridTopology, Scheme, SchemeBuilder};
 
 /// 2D Grid Scheme Template
 pub struct Grid2DTemplate {
