@@ -1,24 +1,35 @@
 #!/bin/bash
 #
 # SSCCS POC Full Validation Script
-# Runs all checks, tests, and binary executions in a single workflow
 #
 
-set -e  # Stop immediately when an error occurs
+set -e 
 
-echo "╔════════════════════════════════════════════════════════════╗"
-echo "║        SSCCS POC - Complete Validation Suite               ║"
-echo "╚════════════════════════════════════════════════════════════╝"
+MODE="run"
 
-# Go to script location
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        --validation) MODE="validation" ;;
+        --run) MODE="run" ;;
+        *) echo "Unknown parameter: $1"; exit 1 ;;
+    esac
+    shift
+done
 
-# ===========================================================================
-# Step 1: Code Formatting Check
-# ===========================================================================
 echo "─────────────────────────────────────────────────────────────"
-echo "Step 1: Checking code formatting (cargo fmt --check)..."
+echo "SSCCS POC - Mode: $(echo $MODE | tr '[:lower:]' '[:upper:]')"
+echo "─────────────────────────────────────────────────────────────"
+# ===========================================================================
+# Step 1: Code Formatting (Mode-dependent)
+# ===========================================================================
+
+if [ "$MODE" = "run" ]; then
+    echo "Applying formatting (cargo fmt --all)..."
+    cargo fmt --all
+    echo " Code formatted"
+fi
+
+echo "Step 1: Checking formatting (cargo fmt --check)..."
 cargo fmt --check
 echo " Formatting check passed"
 
