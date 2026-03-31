@@ -8,7 +8,7 @@ use ssccs_schemes::Tensor3DTemplate;
 
 /// Integrated workflow test - demonstrates complete SSCCS pipeline
 fn test_integrated_workflow() -> Result<(), String> {
-    println!("=== Integrated Workflow with 3D Tensor Scheme ===");
+    println!("Integrated Workflow with 3D Tensor Scheme");
 
     // 1. Create a 3D tensor scheme (2x2x2)
     let scheme = Tensor3DTemplate::new(2, 2, 2).build();

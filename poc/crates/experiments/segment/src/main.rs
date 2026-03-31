@@ -5,9 +5,7 @@
 use ssccs_core::{Segment, SpaceCoordinates};
 
 fn main() {
-    println!("╔════════════════════════════════════════════════════════════╗");
-    println!("║        Experiment: Segment Concept                      ║");
-    println!("╚════════════════════════════════════════════════════════════╝\n");
+    println!("Experiment: Segment Concept                      ");
 
     match test_segment_concept() {
         Ok(_) => println!("\nSegment Concept PASSED"),
@@ -46,9 +44,9 @@ fn test_segment_concept() -> Result<(), String> {
 
     // 4. Immutability verification
     println!("4. Immutability verified:");
-    println!("- Segment coordinates are read-only");
-    println!("- Segment ID is computed once and immutable");
-    println!("- Clone creates independent copy with same ID");
+    println!("Segment coordinates are read-only");
+    println!("Segment ID is computed once and immutable");
+    println!("Clone creates independent copy with same ID");
 
     // 5. Convenience constructors
     let single_val = Segment::from_value(42);

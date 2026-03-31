@@ -5,9 +5,7 @@
 use ssccs_core::{Field, SpaceCoordinates};
 
 fn main() {
-    println!("╔════════════════════════════════════════════════════════════╗");
-    println!("║        Experiment: Transition Matrix                    ║");
-    println!("╚════════════════════════════════════════════════════════════╝\n");
+    println!("Experiment: Transition Matrix                    ");
 
     match test_transition_matrix() {
         Ok(_) => println!("\nTransition Matrix PASSED"),
@@ -55,9 +53,9 @@ fn test_transition_matrix() -> Result<(), String> {
     }
 
     println!("2. Transition matrix verified:");
-    println!("- Weighted directed graph structure");
-    println!("- Multiple transitions from single source");
-    println!("- Target retrieval working (weights managed internally)");
+    println!("Weighted directed graph structure");
+    println!("Multiple transitions from single source");
+    println!("Target retrieval working (weights managed internally)");
 
     Ok(())
 }

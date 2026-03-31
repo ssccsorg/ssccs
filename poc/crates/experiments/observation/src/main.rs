@@ -6,9 +6,7 @@ use ssccs_core::{observe, possible_next_coordinates, Field, Segment};
 use ssccs_examples::{ArithmeticProjector, IntegerProjector, RangeConstraint};
 
 fn main() {
-    println!("╔════════════════════════════════════════════════════════════╗");
-    println!("║        Experiment: Observation Concept                  ║");
-    println!("╚════════════════════════════════════════════════════════════╝\n");
+    println!("Experiment: Observation Concept                  ");
 
     match test_observation_concept() {
         Ok(_) => println!("\nObservation Concept PASSED"),
@@ -50,10 +48,10 @@ fn test_observation_concept() -> Result<(), String> {
     }
 
     println!("2. Observation properties verified:");
-    println!("- Field constraints filter observations");
-    println!("- Projection is ephemeral (not cached)");
-    println!("- Re-observation required for same result");
-    println!("- No state mutation during observation");
+    println!("Field constraints filter observations");
+    println!("Projection is ephemeral (not cached)");
+    println!("Re-observation required for same result");
+    println!("No state mutation during observation");
 
     // Test possible_next_coordinates function
     let next_coords = possible_next_coordinates(&field, &segment, &ArithmeticProjector);

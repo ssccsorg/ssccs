@@ -129,9 +129,7 @@ fn traditional_matrix_sum(rows: i64, cols: i64) -> i64 {
 }
 
 fn main() {
-    println!("╔════════════════════════════════════════════════════════════╗");
-    println!("║  Experiment: Observation-Centric Data Processing with Rust ║");
-    println!("╚════════════════════════════════════════════════════════════╝\n");
+    println!("Experiment: Observation-Centric Data Processing with Rust ");
 
     // Parameters for our matrix
     let rows = 3;
@@ -141,7 +139,7 @@ fn main() {
     println!("Value at position (i,j) = i + j (for demonstration)\n");
 
     // === Traditional Imperative Approach ===
-    println!("=== Traditional Imperative Approach ===");
+    println!("Traditional Imperative Approach");
     let traditional_start = std::time::Instant::now();
     let traditional_result = traditional_matrix_sum(rows, cols);
     let traditional_duration = traditional_start.elapsed();
@@ -149,7 +147,7 @@ fn main() {
     println!("Time: {:?}\n", traditional_duration);
 
     // === SSCCS Observation-Centric Approach ===
-    println!("=== SSCCS Observation-Centric Approach ===");
+    println!("SSCCS Observation-Centric Approach");
 
     let ssccs_start = std::time::Instant::now();
 
@@ -191,28 +189,16 @@ fn main() {
     println!("Time: {:?}\n", ssccs_duration);
 
     // === Comparison ===
-    println!("=== Comparison ===");
+    println!("Comparison");
     println!("Traditional result: {}", traditional_result);
     println!("SSCCS result: {}", ssccs_result);
 
     let diff = traditional_result.abs_diff(ssccs_result);
     if diff == 0 {
-        println!(" Results match exactly");
+        println!("Results match exactly");
     } else {
-        println!(" Results differ by {}", diff);
+        println!("Results differ by {}", diff);
     }
-
-    println!("\n=== Key Insights ===");
-    println!("1. In SSCCS, computation is framed as observation of structure under constraints");
-    println!("2. The Scheme defines the fixed structure (matrix grid)");
-    println!("3. The Field defines dynamic constraints (matrix boundaries)");
-    println!("4. The Projector defines how to interpret/process each segment");
-    println!("5. Observation combines all three to produce results");
-    println!("6. No explicit loops in the SSCCS approach - iteration is implicit in observation");
-    println!("7. The same pattern can be extended to more complex operations (filtering, transformations, etc.)");
-
-    // Demonstrate additional SSCCS capabilities
-    println!("\n=== Advanced SSCCS Features Demonstrated ===");
 
     // Show constraint validation
     let valid_coords = SpaceCoordinates::new(vec![1, 2]);
@@ -251,7 +237,7 @@ fn main() {
     }
 
     field.add_constraint(EvenRowConstraint);
-    println!("- Added EvenRowConstraint");
+    println!("Added EvenRowConstraint");
     println!("- New constraints: {}", field.describe_constraints());
 
     // Show filtered observation with new constraint
@@ -267,7 +253,7 @@ fn main() {
         }
     }
 
-    println!("- Filtered observation (only even rows):");
+    println!("Filtered observation (only even rows):");
     println!(
         "  Observed {} segments, sum = {}",
         filtered_count, filtered_sum
@@ -276,9 +262,7 @@ fn main() {
     // ============================================
     // Large‑Scale Benchmark (100×100 matrix)
     // ============================================
-    println!("\n╔════════════════════════════════════════════════════════════╗");
-    println!("║        Large‑Scale Benchmark (100×100 random matrix)       ║");
-    println!("╚════════════════════════════════════════════════════════════╝");
+    println!("Large‑Scale Benchmark (100×100 random matrix)       ");
 
     let large_rows = 100;
     let large_cols = 100;

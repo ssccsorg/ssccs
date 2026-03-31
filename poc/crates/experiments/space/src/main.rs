@@ -6,9 +6,7 @@ use ssccs_core::{Segment, SpaceCoordinates};
 use ssccs_schemes::{BooleanSpace, IntegerSpace};
 
 fn main() {
-    println!("╔════════════════════════════════════════════════════════════╗");
-    println!("║        Experiment: Space Concept                        ║");
-    println!("╚════════════════════════════════════════════════════════════╝\n");
+    println!("Experiment: Space Concept                        ");
 
     match test_space_concept() {
         Ok(_) => println!("\nSpace Concept PASSED"),

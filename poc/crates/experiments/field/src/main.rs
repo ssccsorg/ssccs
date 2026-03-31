@@ -6,9 +6,7 @@ use ssccs_core::{Field, SpaceCoordinates};
 use ssccs_examples::{EvenConstraint, RangeConstraint};
 
 fn main() {
-    println!("╔════════════════════════════════════════════════════════════╗");
-    println!("║        Experiment 02: Field Concept                        ║");
-    println!("╚════════════════════════════════════════════════════════════╝\n");
+    println!("Experiment 02: Field Concept                        ");
 
     match test_field_concept() {
         Ok(_) => println!("\nField Concept PASSED"),
@@ -64,7 +62,7 @@ fn test_field_concept() -> Result<(), String> {
     field.add_transition(from_coords.clone(), to_coords.clone(), 1.0);
 
     println!("3. Transition rules added:");
-    println!("- From [1, 2, 3] → [2, 2, 3] with weight 1.0");
+    println!("From [1, 2, 3] → [2, 2, 3] with weight 1.0");
 
     let transitions = field.transition_targets(&from_coords);
     println!(
@@ -81,9 +79,9 @@ fn test_field_concept() -> Result<(), String> {
 
     // 4. Field mutability demonstration
     println!("4. Field mutability demonstrated:");
-    println!("- Constraints can be added after creation");
-    println!("- Transition rules can be added dynamically");
-    println!("- Field does not own Segments (separation of concerns)");
+    println!("Constraints can be added after creation");
+    println!("Transition rules can be added dynamically");
+    println!("Field does not own Segments (separation of concerns)");
 
     Ok(())
 }

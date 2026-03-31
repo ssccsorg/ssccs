@@ -6,9 +6,7 @@ use ssccs_core::{Field, Projector, Segment};
 use ssccs_examples::{ArithmeticProjector, IntegerProjector, ParityProjector};
 
 fn main() {
-    println!("╔════════════════════════════════════════════════════════════╗");
-    println!("║        Experiment: Projector Concept                    ║");
-    println!("╚════════════════════════════════════════════════════════════╝\n");
+    println!("Experiment: Projector Concept                    ");
 
     match test_projector_concept() {
         Ok(_) => println!("\nProjector Concept PASSED"),
@@ -61,9 +59,9 @@ fn test_projector_concept() -> Result<(), String> {
 
     // Verify different semantic interpretations
     println!("6. Semantic interpretation verified:");
-    println!("- Same coordinates → Different meanings");
-    println!("- Meaning emerges from projector, not coordinates");
-    println!("- Projector defines adjacency semantics");
+    println!("Same coordinates → Different meanings");
+    println!("Meaning emerges from projector, not coordinates");
+    println!("Projector defines adjacency semantics");
 
     Ok(())
 }

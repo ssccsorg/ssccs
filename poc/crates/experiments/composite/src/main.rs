@@ -11,9 +11,7 @@ use ssccs_schemes::{
 use std::collections::HashMap;
 
 fn main() {
-    println!("╔════════════════════════════════════════════════════════════╗");
-    println!("║        Experiment: Composite & Transformed Schemes      ║");
-    println!("╚════════════════════════════════════════════════════════════╝\n");
+    println!("Experiment: Composite & Transformed Schemes      ");
 
     match test_composite_and_transformed_schemes() {
         Ok(_) => println!("\nComposite & Transformed Schemes PASSED"),
@@ -49,7 +47,7 @@ fn test_composite_and_transformed_schemes() -> Result<(), String> {
     let test_coords = SpaceCoordinates::new(vec![0, 0]);
     let test_segment = Segment::new(test_coords.clone());
     assert!(composite.contains_segment(test_segment.id()));
-    println!("- Contains segment at (0, 0)");
+    println!("Contains segment at (0, 0)");
 
     // Verify composite trait delegation works
     let axes = composite.axes();
@@ -84,9 +82,9 @@ fn test_composite_and_transformed_schemes() -> Result<(), String> {
     );
 
     println!("\n3. Enhanced scheme features verified:");
-    println!("- Composite schemes combine multiple scheme components");
-    println!("- Transformed schemes apply geometric transformations");
-    println!("- Cryptographic IDs reflect composition/transformation");
+    println!("Composite schemes combine multiple scheme components");
+    println!("Transformed schemes apply geometric transformations");
+    println!("Cryptographic IDs reflect composition/transformation");
 
     Ok(())
 }

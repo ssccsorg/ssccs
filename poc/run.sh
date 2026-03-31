@@ -26,12 +26,12 @@ echo "────────────────────────�
 if [ "$MODE" = "run" ]; then
     echo "Applying formatting (cargo fmt --all)..."
     cargo fmt --all
-    echo " Code formatted"
+    echo "Code formatted"
 fi
 
 echo "Step 1: Checking formatting (cargo fmt --check)..."
 cargo fmt --check
-echo " Formatting check passed"
+echo "Formatting check passed"
 
 # ===========================================================================
 # Step 2: Linting (Clippy)
@@ -39,7 +39,7 @@ echo " Formatting check passed"
 echo "─────────────────────────────────────────────────────────────"
 echo "Step 2: Running clippy (cargo clippy --workspace)..."
 cargo clippy --workspace -- -D warnings
-echo " Clippy passed (no warnings)"
+echo "Clippy passed (no warnings)"
 
 # ===========================================================================
 # Step 3: Build workspace
@@ -47,7 +47,7 @@ echo " Clippy passed (no warnings)"
 echo "─────────────────────────────────────────────────────────────"
 echo "Step 3: Building workspace (release mode)..."
 cargo build --workspace --release
-echo " Build successful"
+echo "Build successful"
 
 # ===========================================================================
 # Step 4: Run all tests
@@ -55,7 +55,7 @@ echo " Build successful"
 echo "─────────────────────────────────────────────────────────────"
 echo "Step 4: Running all tests (cargo test --workspace)..."
 cargo test --workspace --all-targets --release
-echo " All tests passed"
+echo "All tests passed"
 
 # ===========================================================================
 # Step 5: Discover and run all binary crates
@@ -88,7 +88,7 @@ fi
 
 echo "Discovered binary crates:"
 echo "$BIN_CRATES" | while read crate; do
-    echo "  - $crate"
+    echo "- $crate"
 done
 echo ""
 
@@ -100,10 +100,10 @@ for crate in $BIN_CRATES; do
     TOTAL=$((TOTAL + 1))
     # --quiet: Reduce cargo's own logs and focus on binary output
     if cargo run --release --bin "$crate" --quiet; then
-        echo " $crate: SUCCESS"
+        echo "$crate: SUCCESS"
         PASSED=$((PASSED + 1))
     else
-        echo " $crate: FAILED"
+        echo "$crate: FAILED"
         FAILED+=("$crate")
     fi
     echo ""
@@ -112,27 +112,25 @@ done
 # ===========================================================================
 # Final Summary
 # ===========================================================================
-echo "╔════════════════════════════════════════════════════════════╗"
-echo "║  Validation Summary                                        ║"
-echo "╚════════════════════════════════════════════════════════════╝"
+echo "  Validation Summary                                        "
 echo ""
-echo "  Formatting:    PASSED"
-echo "  Clippy:        PASSED"
-echo "  Build:         PASSED"
-echo "  Tests:         PASSED"
-echo "  Binary crates: $PASSED/$TOTAL passed"
+echo "Formatting:    PASSED"
+echo "Clippy:        PASSED"
+echo "Build:         PASSED"
+echo "Tests:         PASSED"
+echo "Binary crates: $PASSED/$TOTAL passed"
 echo ""
 
 if [ ${#FAILED[@]} -eq 0 ]; then
-    echo "  ALL VALIDATIONS PASSED!"
+    echo "ALL VALIDATIONS PASSED!"
     echo ""
     exit 0
 else
-    echo "  SOME VALIDATIONS FAILED!"
+    echo "SOME VALIDATIONS FAILED!"
     echo ""
-    echo "  Failed crates:"
+    echo "Failed crates:"
     for failed in "${FAILED[@]}"; do
-        echo "    - $failed"
+        echo "- $failed"
     done
     echo ""
     exit 1

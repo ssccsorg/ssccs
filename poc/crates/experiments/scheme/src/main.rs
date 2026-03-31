@@ -7,9 +7,7 @@ use ssccs_primitive::scheme::GridTopology;
 use ssccs_schemes::{Grid2DTemplate, IntegerLineTemplate};
 
 fn main() {
-    println!("╔════════════════════════════════════════════════════════════╗");
-    println!("║        Experiment: Scheme Concept                       ║");
-    println!("╚════════════════════════════════════════════════════════════╝\n");
+    println!("Experiment: Scheme Concept                       ");
 
     match test_scheme_concept() {
         Ok(_) => println!("\nScheme Concept PASSED"),
@@ -64,9 +62,9 @@ fn test_scheme_concept() -> Result<(), String> {
     }
 
     println!("4. Scheme immutability verified:");
-    println!("- Scheme ID is cryptographic hash of structure");
-    println!("- Segments cannot be modified after creation");
-    println!("- Adjacency relations are fixed");
+    println!("Scheme ID is cryptographic hash of structure");
+    println!("Segments cannot be modified after creation");
+    println!("Adjacency relations are fixed");
 
     Ok(())
 }

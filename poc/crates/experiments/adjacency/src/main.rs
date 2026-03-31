@@ -11,9 +11,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 fn main() {
-    println!("╔════════════════════════════════════════════════════════════╗");
-    println!("║        Experiment: Adjacency & Memory Layout            ║");
-    println!("╚════════════════════════════════════════════════════════════╝\n");
+    println!("Experiment: Adjacency & Memory Layout            ");
 
     match test_adjacency_memory() {
         Ok(_) => println!("\nAdjacency & Memory Layout PASSED"),
@@ -92,9 +90,9 @@ fn test_adjacency_memory() -> Result<(), String> {
     }
 
     println!("2. Adjacency & memory layout verified:");
-    println!("- Structural relations define adjacency semantics");
-    println!("- Memory layout maps coordinates to logical addresses");
-    println!("- Scheme ID incorporates adjacency and layout");
+    println!("Structural relations define adjacency semantics");
+    println!("Memory layout maps coordinates to logical addresses");
+    println!("Scheme ID incorporates adjacency and layout");
 
     Ok(())
 }
