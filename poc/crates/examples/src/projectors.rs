@@ -1,5 +1,8 @@
+//! Projector implementations for SSCCS examples and experiments.
+
 use ssccs_core::{Field, Projector, Segment, SpaceCoordinates};
 
+/// A projector that extracts a coordinate along a given axis.
 #[derive(Debug, Clone)]
 pub struct IntegerProjector {
     axis: usize,
@@ -21,7 +24,7 @@ impl Projector for IntegerProjector {
     // No intrinsic adjacency for this projector.
 }
 
-// A projector that performs arithmetic operations to generate neighbours.
+/// A projector that performs arithmetic operations to generate neighbours.
 #[derive(Debug, Clone)]
 pub struct ArithmeticProjector;
 
@@ -43,7 +46,7 @@ impl Projector for ArithmeticProjector {
     }
 }
 
-// A projector that returns a string based on parity.
+/// A projector that returns a string based on parity.
 #[derive(Debug, Clone)]
 pub struct ParityProjector;
 
@@ -60,7 +63,7 @@ impl Projector for ParityProjector {
     }
 }
 
-// A projector that sums coordinates for 3D tensor.
+/// A projector that sums coordinates for 3D tensor.
 #[derive(Debug, Clone)]
 pub struct CoordinateSumProjector;
 

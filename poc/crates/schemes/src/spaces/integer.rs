@@ -1,4 +1,5 @@
 //! An integer space: single‑axis.
+
 use ssccs_core::{Segment, SpaceCoordinates};
 use std::ops::Deref;
 

@@ -9,21 +9,65 @@ The PoC demonstrates the core ontological layers of SSCCS:
 - **Projector** – semantic interpreter that observes a combination of Field and Segment to produce a projection.
 - **Observation** – the sole active event that collapses admissible configurations into a deterministic projection.
 
-The implementation is written in Rust and serves as a reference for the software‑emulation phase (Phase 1) of the SSCCS roadmap.
+The implementation is written in Rust and serves as a reference for the software‑emulation phase (Phase 1) of the SSCCS roadmap.
 
 ## Workspace Structure
 
-The PoC is organized as a **Rust workspace** with five crates, enabling independent development of distinct research tracks while sharing a common core.
+The PoC is organized as a **Rust workspace** with multiple crates, enabling independent development of distinct research tracks while sharing a common core.
+
+### Core Infrastructure Crates
 
 | Crate | Purpose |
 |-------|---------|
-| **`ssccs‑core`** | Core SSCCS types (`Segment`, `SpaceCoordinates`, `Constraint`, `Field`, `TransitionMatrix`, `Projector` trait) and observation functions. |
-| **`ssccs‑primitive`** | Scheme abstraction layer, projector implementations, compiler‑pipeline skeleton, `.ss` parser stub, Boolean and Integer spaces, and the ten constitutional concept tests. |
-| **`ssccs‑field‑synthesis`** | Placeholder for research on Field composition algebra and synthesis techniques. |
-| **`ssccs‑hardware‑mapping`** | Placeholder for research on mapping Schemes to hardware (CPU, FPGA, PIM). |
-| **`ssccs‑compiler‑opt`** | Placeholder for research on compiler optimisations and open‑format‑to‑machine‑code compilation. |
+| **`ssccs-core`** | Absolute primitives: `Segment`, `SpaceCoordinates`, `Constraint`, `Field`, `TransitionMatrix`, `Projector` trait, and observation functions. |
+| **`ssccs-primitive`** | Scheme abstraction layer: `Scheme`, `SchemeBuilder`, `SchemeTrait`, structural relations, constraints, observation rules, and memory layout abstractions. |
+| **`ssccs-schemes`** | Concrete Scheme implementations and developer input types: `Grid2DTemplate`, `IntegerLineTemplate`, `GraphTemplate`, `Tensor3DTemplate`, `CompositeScheme`, `TransformedScheme`, `BooleanSpace`, `IntegerSpace`. |
+| **`ssccs-examples`** | Shared utilities for experiments: projector implementations (`IntegerProjector`, `ArithmeticProjector`, `ParityProjector`, `CoordinateSumProjector`), compiler pipeline, `.ss` binary parser, and test constraints. |
 
-All crates reside under `poc/crates/`. The workspace configuration is defined in `poc/Cargo.toml`.
+### Experiment Crates (Constitutional Concept Tests)
+
+Each experiment crate contains an independent constitutional concept test that can be run, tested, and evolved separately:
+
+| Crate | Test |
+|-------|------|
+| **`experiment-01-segment`** | Segment concept - immutable coordinate points with cryptographic identity |
+| **`experiment-02-field`** | Field concept - mutable constraint container with transitions |
+| **`experiment-03-projector`** | Projector concept - semantic interpretation of Segment-Field pairs |
+| **`experiment-04-observation`** | Observation concept - active event collapsing potential to projection |
+| **`experiment-05-space`** | Space concept - developer input types (Boolean, Integer) |
+| **`experiment-06-scheme`** | Scheme concept - structural blueprint with axes and relations |
+| **`experiment-07-adjacency`** | Adjacency memory - structural neighbor relationships |
+| **`experiment-08-composite`** | Composite & Transformed Schemes - scheme composition and geometric transformation |
+| **`experiment-09-transition`** | Transition Matrix - weighted directed graph for relational topology |
+| **`experiment-10-integrated`** | Integrated Workflow - complete SSCCS pipeline demonstration |
+
+### Research Placeholder Crates
+
+| Crate | Purpose |
+|-------|---------|
+| **`ssccs-field-synthesis`** | Placeholder for research on Field composition algebra and synthesis techniques. |
+| **`ssccs-hardware-mapping`** | Placeholder for research on mapping Schemes to hardware (CPU, FPGA, PIM). |
+| **`ssccs-compiler-opt`** | Placeholder for research on compiler optimisations and open-format-to-machine-code compilation. |
+
+All crates reside under `poc/crates/`. The experiment crates are organized under `poc/crates/experiments/`. The workspace configuration is defined in `poc/Cargo.toml`.
+
+## Dependency Graph
+
+```
+ssccs-core (no internal dependencies - absolute primitives)
+    │
+    ▼
+ssccs-primitive (depends on ssccs-core)
+    │
+    ├──────────────┐
+    ▼              ▼
+ssccs-schemes   ssccs-examples (both depend on ssccs-primitive + ssccs-core)
+    │              │
+    └──────┬───────┘
+           │
+           ▼
+    experiment-* crates (under crates/experiments/, depend on ssccs-schemes, ssccs-examples, ssccs-primitive, ssccs-core)
+```
 
 ## Rust Environment Setup
 
@@ -59,30 +103,40 @@ cd ssccs/poc
 cargo build --release --workspace
 ```
 
-To build a specific crate, e.g., `cargo build --release -p ssccs-primitive`.
+To build a specific crate, e.g., `cargo build --release -p ssccs-schemes`.
 
-### Run the Example Program
-The PoC includes ten constitutional‑concept tests that validate the SSCCS model:
+### Run Individual Experiments
+
+Each constitutional concept test is a separate binary:
 
 ```bash
-cargo run --release
+# Run all experiments
+cargo run --bin experiment-01-segment
+cargo run --bin experiment-02-field
+cargo run --bin experiment-03-projector
+cargo run --bin experiment-04-observation
+cargo run --bin experiment-05-space
+cargo run --bin experiment-06-scheme
+cargo run --bin experiment-07-adjacency
+cargo run --bin experiment-08-composite
+cargo run --bin experiment-09-transition
+cargo run --bin experiment-10-integrated
+
+# Or run the integrated workflow (demonstrates complete pipeline)
+cargo run --bin experiment-10-integrated
 ```
 
-This executes the `main` function, which runs the same ten tests and prints a summary.
-
-#### Run Unittests
+### Run Unittests
 
 ```bash
 cargo test --workspace -- --nocapture
 ```
 
-To test only a specific crate, e.g., `cargo test -p ssccs-primitive`.
-
-The output will show each test (Segment, Field, Projector, Scheme, etc.) passing.
-
+To test only a specific crate, e.g., `cargo test -p ssccs-core`.
 
 ### Linting and Formatting
-The code adheres to Rust’s best practices. To check for warnings across the whole workspace:
+
+The code adheres to Rust's best practices. To check for warnings across the whole workspace:
 
 ```bash
 cargo clippy --workspace -- -D warnings
@@ -94,128 +148,121 @@ To enforce consistent formatting across all crates:
 cargo fmt --check --workspace
 ```
 
-To lint or format a specific crate, use `-p` (e.g., `cargo clippy -p ssccs-primitive`).
-
 ## Why Rust Was Chosen for the PoC
 
-Rust’s design philosophy aligns closely with the SSCCS model, making it the natural language for this proof of concept.
+Rust was selected for several reasons:
 
-### 1. Immutability by Default
-SSCCS requires that Segments and Schemes be **immutable**. Rust’s ownership system enforces immutability unless explicit mutability is declared (`mut`). This guarantees that the core SSCCS structures cannot be accidentally mutated, matching the ontological requirement that “structure is fixed.”
+1. **Memory Safety Without Garbage Collection** – SSCCS relies on precise control over memory layout and immutability guarantees that Rust's ownership system provides at compile time.
 
-### 2. Zero‑Cost Abstractions
-SSCCS aims to turn structural specification into efficient hardware mapping. Rust’s zero‑cost abstractions allow high‑level descriptions (e.g., `RelationGraph`, `MemoryLayout`) to compile to machine code with no runtime overhead, preserving the performance needed for future hardware acceleration.
+2. **Zero-Cost Abstractions** – The Scheme abstraction layer and Projector traits introduce no runtime overhead compared to hand-written code.
 
-### 3. Concurrency Without Data Races
-Because Segments are immutable, they can be observed concurrently without synchronization. Rust’s borrow checker statically guarantees that immutable references can be shared freely across threads, while mutable references are exclusive. This eliminates data races **at compile time**, which is exactly the concurrency model SSCCS intends to exploit.
+3. **Immutability by Default** – Segments and Schemes are immutable by design, aligning with Rust's emphasis on immutable data structures.
 
-### 4. Cryptographic Primitives and Performance
-Segment and Scheme identities are derived from BLAKE3 hashes. Rust’s `blake3` crate provides fast, safe, and well‑audited cryptographic hashing, enabling the verifiable identity system that underpins SSCCS’s auditability.
+4. **Type System Expressiveness** – Rust's type system enables encoding SSCCS ontological distinctions (Segment vs. Scheme vs. Field) at the type level, preventing category errors at compile time.
 
-### 5. Strong Type System for Structural Invariants
-The Scheme abstraction layer uses Rust’s enum and trait system to encode **axis types**, **relation types**, **layout types**, and **observation rules** as compile‑time types. This ensures that invalid structural configurations cannot be represented, catching many logical errors before runtime.
+5. **Cryptographic Primitives** – The BLAKE3 hashing library provides efficient cryptographic identity computation for Segments and Schemes.
 
-### 6. Ecosystem for Systems Programming
-As a systems language, Rust gives fine‑grained control over memory layout (via `#[repr(C)]`, packed structs, etc.), which is essential for implementing the `MemoryLayout` mapping that translates coordinate spaces to hardware addresses.
+## Architecture Overview
 
-### 7. Safety and Auditability
-SSCCS emphasizes transparency and verifiability. Rust’s memory‑safety guarantees (no undefined behavior, no use‑after‑free, no buffer overflows) reduce the risk of hidden bugs that could compromise the deterministic observation process. This aligns with the SSCCS goal of “computation as auditable trace.”
+### ssccs-core
 
-In summary, Rust provides the right combination of **immutability guarantees**, **performance control**, **concurrency safety**, and **cryptographic support** to faithfully prototype the SSCCS model while laying a foundation for future hardware‑acceleration phases.
+Contains absolute primitives that cannot be decomposed further:
 
-## Detailed Work Log
+- **`SpaceCoordinates`** – A vector of axis values representing a point in possibility space.
+- **`Segment`** – An immutable wrapper around `SpaceCoordinates` with a BLAKE3-derived identity.
+- **`SegmentId`** – Cryptographic identifier for a Segment.
+- **`Constraint`** – Trait for dynamic constraints that can be attached to a Field.
+- **`ConstraintSet`** – Collection of constraints indexed by name.
+- **`Field`** – Mutable container holding constraints and transition matrices.
+- **`TransitionMatrix`** – Weighted directed graph encoding relational topology between coordinates.
+- **`Projector`** – Trait for semantic interpreters that observe Segment-Field pairs.
+- **`observe`** – Function that performs observation by applying a Projector to a Segment-Field pair.
+- **`possible_next_coordinates`** – Function that computes admissible next coordinates based on Field transitions.
 
-The following development milestones have been completed, each documented in the `docs/` directory and reflected in the codebase.
+### ssccs-primitive
 
-### 1. Core Library (`crates/core/src/core.rs`)
-- **Segment** struct with coordinates and cryptographic `SegmentId` (BLAKE3 hash).
-- **SpaceCoordinates** as a generic multi‑dimensional coordinate vector.
-- **Constraint** trait and `ConstraintSet` for defining admissibility conditions.
-- **Field** struct that holds constraints and a `TransitionMatrix` for relational topology.
-- **Projector** trait with `project` and `possible_next_coordinates` methods.
+Provides the Scheme abstraction layer:
 
-### 2. Scheme Abstraction Layer (`crates/primitive/src/scheme/`)
-- **`abstract_scheme.rs`** (970 lines) – defines `Scheme`, `Axis`, `RelationGraph`, `MemoryLayout`, `ObservationContext`, and `SchemeBuilder`.
-  - Type aliases `PredicateFn` and `MappingFn` for complex closure types.
-  - Comprehensive enumeration of structural relations (`Adjacency`, `Hierarchy`, `Dependency`, `Equivalence`).
-  - Memory‑layout types (`Linear`, `RowMajor`, `ColumnMajor`, `SpaceFillingCurve`, etc.).
-  - Ready‑to‑use templates: `Grid2DTemplate`, `IntegerLineTemplate`, `GraphTemplate`.
-- **`mod.rs`** (437 lines) – defines `SchemeImpl` enum (`Basic`, `Composite`, `Transformed`) and the `SchemeTrait` with methods for identity, axes, segments, validation, and logical‑address mapping.
-  - `CompositeScheme` with composition rules and conflict resolution.
-  - `TransformedScheme` with geometric transformations (translation, rotation, scaling).
+- **`Scheme`** – Immutable structural blueprint containing axes, segments, relations, memory layout, and observation rules.
+- **`SchemeBuilder`** – Builder pattern for constructing Schemes with fluent API.
+- **`SchemeTrait`** – Trait defining the Scheme interface (id, axes, segments, validation, etc.).
+- **`Axis`** – Definition of a structural dimension with name, type, and metadata.
+- **`StructuralRelation`** – Enum for adjacency, hierarchy, dependency, and equivalence relations.
+- **`MemoryLayout`** – Abstraction for mapping coordinates to logical addresses.
+- **`ObservationRules`** – Configuration for observation behavior and conflict resolution.
 
-### 3. Compiler Pipeline (`crates/primitive/src/compiler_pipeline.rs`)
-- Four‑stage pipeline: parsing, structural analysis, memory‑layout resolution, hardware mapping.
-- `HardwareProfile` enum (`GenericCPU`, `FPGA`, `PIM`, `Custom`).
-- `CompiledScheme` struct that holds the final hardware‑mapped layout and generated observation code.
-- Placeholder implementations for each stage, ready for extension.
+### ssccs-schemes
 
-### 4. `.ss` Binary Parser (`crates/primitive/src/ss_parser.rs`)
-- Basic parser for the open `.ss` binary format.
-- Validates header magic and version.
-- Reads SchemeId, axes, segment table, relation graph, memory‑layout closure, and observation rules.
-- Returns a dummy `Scheme` for demonstration; serves as a skeleton for future elaboration.
+Concrete Scheme implementations and developer input types:
 
-### 5. Projector Implementations (`crates/primitive/src/projector.rs`)
-- `IntegerProjector` – extracts a coordinate along a given axis.
-- `ArithmeticProjector` – defines adjacency through arithmetic operations (`+1`, `-1`, `*2`, `/2`).
-- `ParityProjector` – classifies coordinates as "even" or "odd" strings.
+- **`Grid2DTemplate`** – 2D grid Scheme with configurable topology (4-connected, 8-connected, toroidal).
+- **`IntegerLineTemplate`** – 1D linear Scheme for integer arithmetic.
+- **`GraphTemplate`** – Graph-based Scheme with arbitrary node-edge structure.
+- **`Tensor3DTemplate`** – 3D tensor Scheme for multi-dimensional computation.
+- **`CompositeScheme`** – Composition of multiple Schemes with combination rules.
+- **`TransformedScheme`** – Geometric transformation (rotation, scaling, translation) applied to a base Scheme.
+- **`BooleanSpace`** – Developer input type for boolean values.
+- **`IntegerSpace`** – Developer input type for single-axis integer values.
 
-### 6. Space Implementations (`crates/primitive/src/spaces/`)
-- **`boolean.ss`** – `BooleanSpace` for representing true/false values as 1D coordinates (0 = false, 1 = true).
-- **`integer.ss`** – `IntegerSpace` for single‑axis integer values with convenient constructors.
+### ssccs-examples
 
-### 7. Constitutional Concept Tests (`crates/primitive/src/main.rs`)
-Ten tests verify that the SSCCS model satisfies its foundational principles:
+Shared utilities for experiments and examples:
 
-1. **Segment Concept** – immutability and cryptographic identity.
-2. **Field Concept** – constraint admissibility and transition topology.
-3. **Projector Concept** – semantic interpretation of Segment‑Field pairs.
-4. **Observation Concept** – deterministic projection via `observe` function.
-5. **Space Concept** – coordinate dimensionality and axis access, including `BooleanSpace` (true/false values) and `IntegerSpace` (single‑axis integer values).
-6. **Scheme Concept** – structural blueprint with Grid2D and IntegerLine templates.
-7. **Adjacency Memory** – memory‑layout mapping for a 2D grid.
-8. **Composite and Transformed Schemes** – composition and geometric transformation.
-9. **Transition Matrix** – weighted directed‑graph relationships.
-10. **Integrated Workflow** – end‑to‑end observation of a simple computational scenario.
+- **`IntegerProjector`** – Extracts a coordinate along a given axis.
+- **`ArithmeticProjector`** – Generates neighbors via arithmetic operations (+1, -1).
+- **`ParityProjector`** – Classifies values as "even" or "odd".
+- **`CoordinateSumProjector`** – Sums coordinates for 3D tensor observation.
+- **`CompilerPipeline`** – Skeleton for compiling Schemes to hardware targets.
+- **`HardwareProfile`** – Enum for CPU, FPGA, or PIM targets.
+- **`.ss` Parser** – Binary format parser for Scheme serialization.
+- **`RangeConstraint`** – Test constraint that checks if a value is within a range.
+- **`EvenConstraint`** – Test constraint that checks if a value is even.
 
-All ten tests pass, confirming that the PoC correctly embodies the SSCCS ontology.
+## Crate Responsibilities
 
-### 8. Research Crates (Placeholder)
+### What Belongs in ssccs-core
 
-- **`ssccs‑field‑synthesis`** (`crates/field‑synthesis`) – exploration of Field composition algebra, synthesis techniques, and constraint‑based generation of admissible configurations.
-- **`ssccs‑hardware‑mapping`** (`crates/hardware‑mapping`) – research on mapping Schemes to hardware (CPU, FPGA, PIM) with realistic cache‑line, bank‑interleaving, and memory‑hierarchy considerations.
-- **`ssccs‑compiler‑opt`** (`crates/compiler‑opt`) – research on compiler optimisations and open‑format‑to‑machine‑code compilation, focusing on the SSCCS compiler pipeline.
+Only absolute primitives that cannot be decomposed further:
+- Core ontological types (Segment, SpaceCoordinates, Field, Constraint)
+- The Projector trait (not implementations)
+- Observation functions
+- Transition matrix
 
-These crates currently contain only a minimal `lib.rs` stub; they are ready to be populated with research‑specific code while reusing the core SSCCS types from `ssccs‑core`.
+### What Belongs in ssccs-primitive
 
-### 9. Code Quality and Maintenance
-- **Clippy linting** – resolved 10 warnings (type‑complexity, unnecessary‑map‑or, large‑enum‑variant, needless‑borrow, clone‑on‑copy) by introducing type aliases, boxing large variants, and removing redundant operations.
-- **Formatting** – module order adjusted to satisfy `cargo fmt`.
-- **Documentation** – inline doc comments and references to the whitepaper.
+Scheme abstraction layer:
+- Scheme struct and builder
+- SchemeTrait definition
+- Structural relations and constraints
+- Memory layout abstractions
+- Observation rules
 
-### 10. Whitepaper Synchronization
-The implementation stays aligned with the conceptual description in `docs/whitepaper.qmd`:
-- Ontological layers (Segment, Scheme, Field, Observation, Projection) match the code.
-- Compiler‑pipeline section (Section 5.1) corresponds to `compiler_pipeline.rs`.
-- Memory‑layout abstraction (Section 5.2) is realized as `MemoryLayout` in `abstract_scheme.rs`.
-- Open `.ss` format (Section 6) is stubbed in `ss_parser.rs`.
+### What Belongs in ssccs-schemes
 
-### 11. Next Steps (Immediate)
-- Extend the `.ss` parser to fully deserialize a Scheme.
-- Implement the hardware‑mapping stage with concrete cache‑line and bank‑interleaving logic.
-- Add more realistic projectors (e.g., floating‑point operations, image‑pixel interpretation).
-- Benchmark data‑movement reduction against a traditional vector‑addition loop.
+Concrete implementations and developer input:
+- Scheme templates (Grid2D, IntegerLine, Graph, Tensor3D)
+- Composite and Transformed Scheme extensions
+- Spaces (BooleanSpace, IntegerSpace) as developer conveniences
 
+### What Belongs in ssccs-examples
+
+Shared utilities for experimentation:
+- Projector implementations
+- Compiler pipeline
+- Parser implementations
+- Test constraints
+
+### What Belongs in Experiment Crates
+
+Individual constitutional tests that:
+- Demonstrate a specific SSCCS concept
+- Can evolve independently
+- May be refactored or replaced as the model evolves
 
 ## License
 
-This PoC is released under the **Apache License 2.0**. See the [LICENSE](../LICENSE) file for details.
+This project is licensed under the same terms as the main SSCCS repository.
 
-The accompanying whitepaper (`docs/whitepaper.qmd`) is licensed under **CC BY‑NC‑ND 4.0**.
+## Contributing
 
-## Acknowledgments
-
-SSCCS Foundation a non‑profit research initiative. The PoC was developed as a reference implementation to validate the model’s feasibility and to invite collaboration from the open‑source and research communities.
-
-For more information, visit the [SSCCS GitHub organization](https://github.com/ssccsorg/ssccs) or read the full whitepaper in `docs/whitepaper.pdf`.
+See the main repository's [CONTRIBUTING.md](../CONTRIBUTING.md) for guidelines.
