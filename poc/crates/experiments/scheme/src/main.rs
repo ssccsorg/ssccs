@@ -1,4 +1,4 @@
-//! Experiment 06: Scheme Concept
+//! Experiment: Scheme Concept
 //!
 //! Tests the Scheme concept - structural blueprint with Grid2D and IntegerLine templates.
 
@@ -8,7 +8,7 @@ use ssccs_schemes::{Grid2DTemplate, IntegerLineTemplate};
 
 fn main() {
     println!("╔════════════════════════════════════════════════════════════╗");
-    println!("║        Experiment 06: Scheme Concept                       ║");
+    println!("║        Experiment: Scheme Concept                       ║");
     println!("╚════════════════════════════════════════════════════════════╝\n");
 
     match test_scheme_concept() {

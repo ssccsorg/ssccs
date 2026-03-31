@@ -1,4 +1,4 @@
-//! Experiment 07: Adjacency & Memory Layout
+//! Experiment: Adjacency & Memory Layout
 //!
 //! Tests structural relations and memory layout semantics.
 
@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 fn main() {
     println!("╔════════════════════════════════════════════════════════════╗");
-    println!("║        Experiment 07: Adjacency & Memory Layout            ║");
+    println!("║        Experiment: Adjacency & Memory Layout            ║");
     println!("╚════════════════════════════════════════════════════════════╝\n");
 
     match test_adjacency_memory() {

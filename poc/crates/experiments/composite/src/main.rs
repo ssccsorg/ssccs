@@ -1,4 +1,4 @@
-//! Experiment 08: Composite & Transformed Schemes
+//! Experiment: Composite & Transformed Schemes
 //!
 //! Tests scheme composition and geometric transformation.
 
@@ -12,7 +12,7 @@ use std::collections::HashMap;
 
 fn main() {
     println!("╔════════════════════════════════════════════════════════════╗");
-    println!("║        Experiment 08: Composite & Transformed Schemes      ║");
+    println!("║        Experiment: Composite & Transformed Schemes      ║");
     println!("╚════════════════════════════════════════════════════════════╝\n");
 
     match test_composite_and_transformed_schemes() {

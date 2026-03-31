@@ -1,4 +1,4 @@
-//! Experiment 09: Transition Matrix
+//! Experiment: Transition Matrix
 //!
 //! Tests the Transition Matrix - relational topology as weighted directed graph.
 
@@ -6,7 +6,7 @@ use ssccs_core::{Field, SpaceCoordinates};
 
 fn main() {
     println!("╔════════════════════════════════════════════════════════════╗");
-    println!("║        Experiment 09: Transition Matrix                    ║");
+    println!("║        Experiment: Transition Matrix                    ║");
     println!("╚════════════════════════════════════════════════════════════╝\n");
 
     match test_transition_matrix() {

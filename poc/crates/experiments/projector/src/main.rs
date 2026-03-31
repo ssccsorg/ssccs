@@ -1,4 +1,4 @@
-//! Experiment 03: Projector Concept
+//! Experiment: Projector Concept
 //!
 //! Tests the Projector concept - semantic interpretation of Segment-Field pairs.
 
@@ -7,7 +7,7 @@ use ssccs_examples::{ArithmeticProjector, IntegerProjector, ParityProjector};
 
 fn main() {
     println!("╔════════════════════════════════════════════════════════════╗");
-    println!("║        Experiment 03: Projector Concept                    ║");
+    println!("║        Experiment: Projector Concept                    ║");
     println!("╚════════════════════════════════════════════════════════════╝\n");
 
     match test_projector_concept() {

@@ -1,4 +1,4 @@
-//! Experiment 01: Segment Concept
+//! Experiment: Segment Concept
 //!
 //! Tests the Segment concept - immutable coordinate existence and cryptographic identity.
 
@@ -6,7 +6,7 @@ use ssccs_core::{Segment, SpaceCoordinates};
 
 fn main() {
     println!("╔════════════════════════════════════════════════════════════╗");
-    println!("║        Experiment 01: Segment Concept                      ║");
+    println!("║        Experiment: Segment Concept                      ║");
     println!("╚════════════════════════════════════════════════════════════╝\n");
 
     match test_segment_concept() {

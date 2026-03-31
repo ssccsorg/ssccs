@@ -1,4 +1,4 @@
-//! Experiment 04: Observation Concept
+//! Experiment: Observation Concept
 //!
 //! Tests the Observation concept - the sole active event that produces actuality.
 
@@ -7,7 +7,7 @@ use ssccs_examples::{ArithmeticProjector, IntegerProjector, RangeConstraint};
 
 fn main() {
     println!("╔════════════════════════════════════════════════════════════╗");
-    println!("║        Experiment 04: Observation Concept                  ║");
+    println!("║        Experiment: Observation Concept                  ║");
     println!("╚════════════════════════════════════════════════════════════╝\n");
 
     match test_observation_concept() {
