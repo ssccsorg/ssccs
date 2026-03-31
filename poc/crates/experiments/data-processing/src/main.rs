@@ -57,6 +57,65 @@ impl Projector for MatrixSumProjector {
     }
 }
 
+/// A projector that looks up pre‑computed values for each matrix element
+#[derive(Debug)]
+struct MatrixValueProjector {
+    rows: i64,
+    cols: i64,
+    values: Vec<i64>, // row‑major storage: values[(row * cols) + col]
+}
+
+impl MatrixValueProjector {
+    fn new(rows: i64, cols: i64, values: Vec<i64>) -> Self {
+        assert_eq!(values.len(), (rows * cols) as usize);
+        Self { rows, cols, values }
+    }
+
+    fn get(&self, row: i64, col: i64) -> Option<i64> {
+        if row >= 0 && row < self.rows && col >= 0 && col < self.cols {
+            let idx = (row * self.cols + col) as usize;
+            Some(self.values[idx])
+        } else {
+            None
+        }
+    }
+}
+
+impl Projector for MatrixValueProjector {
+    type Output = i64;
+
+    fn project(&self, _field: &Field, segment: &ssccs_core::Segment) -> Option<Self::Output> {
+        let coords = segment.coordinates();
+        if coords.raw.len() == 2 {
+            let row = coords.raw[0];
+            let col = coords.raw[1];
+            self.get(row, col)
+        } else {
+            None
+        }
+    }
+}
+
+/// Generate a matrix of random i64 values
+fn generate_random_matrix(rows: i64, cols: i64) -> Vec<i64> {
+    use rand::Rng;
+    let mut rng = rand::thread_rng();
+    let size = (rows * cols) as usize;
+    (0..size).map(|_| rng.gen_range(0..1000)).collect()
+}
+
+/// Traditional imperative summation of a pre‑computed value matrix
+fn traditional_matrix_sum_with_values(rows: i64, cols: i64, values: &[i64]) -> i64 {
+    let mut sum = 0;
+    for i in 0..rows {
+        for j in 0..cols {
+            let idx = (i * cols + j) as usize;
+            sum += values[idx];
+        }
+    }
+    sum
+}
+
 /// Traditional imperative approach to matrix summation
 fn traditional_matrix_sum(rows: i64, cols: i64) -> i64 {
     let mut sum = 0;
@@ -212,6 +271,51 @@ fn main() {
     println!(
         "  Observed {} segments, sum = {}",
         filtered_count, filtered_sum
+    );
+
+    // ============================================
+    // Large‑Scale Benchmark (100×100 matrix)
+    // ============================================
+    println!("\n╔════════════════════════════════════════════════════════════╗");
+    println!("║        Large‑Scale Benchmark (100×100 random matrix)       ║");
+    println!("╚════════════════════════════════════════════════════════════╝");
+
+    let large_rows = 100;
+    let large_cols = 100;
+
+    // Generate random values
+    let large_values = generate_random_matrix(large_rows, large_cols);
+
+    // Traditional approach
+    let traditional_start = std::time::Instant::now();
+    let traditional_sum = traditional_matrix_sum_with_values(large_rows, large_cols, &large_values);
+    let traditional_duration = traditional_start.elapsed();
+
+    // SSCCS approach
+    let ssccs_start = std::time::Instant::now();
+    let scheme = Grid2DTemplate::new(large_rows, large_cols, GridTopology::EightConnected).build();
+    let mut field = Field::new();
+    field.add_constraint(MatrixBoundaryConstraint::new(large_rows, large_cols));
+    let projector = MatrixValueProjector::new(large_rows, large_cols, large_values.clone());
+
+    let mut ssccs_sum = 0;
+    for segment in scheme.segments() {
+        if field.allows(segment.coordinates()) {
+            if let Some(value) = projector.project(&field, segment) {
+                ssccs_sum += value;
+            }
+        }
+    }
+    let ssccs_duration = ssccs_start.elapsed();
+
+    println!(
+        "Traditional sum: {} (time: {:?})",
+        traditional_sum, traditional_duration
+    );
+    println!("SSCCS sum: {} (time: {:?})", ssccs_sum, ssccs_duration);
+    println!(
+        "Speed ratio: {:.2}x",
+        traditional_duration.as_secs_f64() / ssccs_duration.as_secs_f64()
     );
 
     println!("\n Experiment completed successfully!");

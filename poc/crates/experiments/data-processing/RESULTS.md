@@ -68,6 +68,27 @@ Field mutability demonstration:
 
 **Note**: The SSCCS overhead includes scheme construction, field setup, and generic observation loop. In real‑world scenarios where the same scheme/field is reused for many observations, this overhead becomes negligible.
 
+### Large‑Scale Benchmark (100×100 Random Matrix)
+To evaluate scalability, we extended the experiment to a 100×100 matrix with random integer values (0–999). The results demonstrate correctness and performance at scale:
+
+**Execution Output**:
+```
+Traditional sum: 5000129 (time: 77.5µs)
+SSCCS sum: 5000129 (time: 47.82075ms)
+```
+
+**Performance Summary**:
+| Approach | Execution Time | Relative Slowdown |
+|----------|----------------|-------------------|
+| Traditional | 77.5 µs | 1× (baseline) |
+| SSCCS | 47.82 ms | ~617× |
+
+**Interpretation**:
+- **Correctness**: Both methods produce identical sums (5,000,129), confirming SSCCS computes the same result as traditional iteration.
+- **Performance**: The SSCCS observation loop is ≈617× slower due to the cost of abstraction layers, segment iteration, and dynamic constraint checking.
+- **Scalability**: The experiment successfully handles 10,000 segments, demonstrating that SSCCS can scale to moderately large datasets.
+- **Optimization Potential**: The current PoC is unoptimized; performance could be improved by pre‑compiling observation patterns, parallelizing segment processing, and reducing per‑segment overhead.
+
 ### Key Insights
 1. **Conceptual Alignment**: SSCCS cleanly separates structure (Scheme), constraints (Field), and interpretation (Projector).
 2. **Implicit Iteration**: The observation loop is implicit – the programmer declares *what* to compute, not *how* to iterate.
@@ -98,7 +119,7 @@ Field mutability demonstration:
 ### Limitations
 1. **Toy Example**: The “value” of each segment is synthetic (i+j). A real use‑case would associate external data with segments.
 2. **Performance Overhead**: The current PoC is not optimized; the observation loop is interpreted rather than compiled.
-3. **Scalability**: The experiment uses a small 3×4 matrix; larger datasets need performance evaluation.
+3. **Scalability**: The experiment now includes a 100×100 matrix benchmark, showing SSCCS can handle larger datasets but with significant performance overhead (≈617× slowdown). Further optimizations are needed for production‑scale workloads.
 
 ### Potential Extensions
 1. **Real‑World Data Processing**: Connect to CSV/Parquet datasets, using segments as row/column indices.
