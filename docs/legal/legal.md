@@ -1,4 +1,4 @@
-# Foundational Charter and Statute
+# Charter and Statute
 SSCCS Foundation
 February, 2026
 

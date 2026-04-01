@@ -178,7 +178,7 @@ This roadmap focuses exclusively on the technical evolution of the PoC, strippin
 
 *References*:
 
-- Whitepaper Appendix: [`docs/whitepaper/_include/_appendix.qmd`](docs/whitepaper/_include/_appendix.qmd)
-- Main Whitepaper: [`docs/whitepaper/whitepaper.qmd`](docs/whitepaper/whitepaper.qmd)
-- Diagnosis Report: [`docs/report/diagnosis.qmd`](docs/report/diagnosis.qmd)
+- Whitepaper Appendix: [`docs/whitepaper/_include/_appendix.qmd`](/docs/whitepaper/_include/_appendix.qmd)
+- Main Whitepaper: [`docs/whitepaper/whitepaper.qmd`](/docs/whitepaper/whitepaper.qmd)
+- Diagnosis Report: [`docs/report/diagnosis.qmd`](/docs/report/diagnosis.qmd)
 - PoC Workspace: [`poc/`](poc/)

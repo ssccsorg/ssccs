@@ -30,7 +30,7 @@ the Whitepaper [PDF](https://ssccs.org/wp)
 ## Proof of Concept
 
 The Rust PoC demonstrates the core ontological layers. See
-[poc/README.md](poc/README.md) for detailed build and run instructions.
+[poc/README.md](/poc/README.md) for detailed build and run instructions.
 
 ``` bash
 git clone https://github.com/ssccsorg/ssccs.git
@@ -48,25 +48,24 @@ enthusiasts.
 
 - Official Website: <https://ssccs.org>
 - GitHub Repository: <https://github.com/ssccsorg>
-- Discussion Forum: [GitHub
-  Discussions](https://github.com/ssccsorg/ssccs/discussions)
-- Legal Charter: <https://ssccs.org/legal>
+- Discussion Forum: [GitHub Discussions](https://github.com/ssccsorg/ssccs/discussions)
+- [Legal Charter](/docs/legal/legal.md)
 
 ## Documentation
 
 The SSCCS documentation suite consists of several formal documents:
 
-- **[Whitepaper](docs/whitepaper.pdf)**: The core technical
+- **[Whitepaper](/docs/whitepaper.pdf)**: The core technical
   specification, available as PDF and HTML.
-- **[Proposal](docs/proposal.pdf)**: A companion document focusing on
+- **[Proposal](/docs/proposal.pdf)**: A companion document focusing on
   practical implementation and sustainability.
-- **[Manifesto](docs/MANIFESTO.md)**: The high‑level philosophical and
+- **[Manifesto](/docs/MANIFESTO.md)**: The high‑level philosophical and
   technical introduction.
-- **[Guide](docs/GUIDE.md)**: A comprehensive guide to SSCCS core
+- **[Guide](/docs/GUIDE.md)**: A comprehensive guide to SSCCS core
   concepts.
-- **[Legal documents](docs/legal/legal.md)**: The foundation’s charter
+- **[Legal documents](/docs/legal/legal.md)**: The foundation’s charter
   and statutes.
-- **[Research notes](docs/research)**: Informal technical explorations.
+- **[Research notes](/docs/research)**: Informal technical explorations.
 
 All major documents are authored in Quarto (`.qmd`) and can be rendered
 to PDF, HTML, and Markdown using the centralized build script
@@ -74,7 +73,7 @@ to PDF, HTML, and Markdown using the centralized build script
 PDFs), and copying outputs to the appropriate locations.
 
 For detailed prerequisites and advanced rendering options, see
-[docs/whitepaper/README.md](docs/whitepaper/README.md).
+[docs/whitepaper/README.md](/docs/whitepaper/README.md).
 
 ## Governance
 
@@ -98,7 +97,7 @@ We invite contributions of all kinds:
 - Outreach: Blog posts, conference talks, educational material.
 
 Please read
-[CONTRIBUTING.md](https://github.com/ssccsorg/ssccs/blob/main/CONTRIBUTING.md)
+[CONTRIBUTING.md](/docs/CONTRIBUTING.md)
 (to be created) for guidelines on pull requests, code style, and
 licensing.
 
