@@ -1,4 +1,4 @@
-# Direction
+# Project Direction
 
 Toward a New Computational Paradigm Verifiable by Open Hardware, and Regionally Informed Global Engagement
 
