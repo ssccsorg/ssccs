@@ -11,19 +11,54 @@ metadata-files:
   - ../_include/format.html.yml
 format:
   html: default
-  pdf: default
+  pdf: 
+    include-in-header:
+      text: |
+        \usepackage{geometry}
+        \usepackage{microtype}
+        \addtokomafont{disposition}{\rmfamily}
+        \input{./_files/riscv_metadata.tex}        
+        \makeatletter
+        \def\@maketitle{
+          {\LARGE \bfseries \@title \par}
+          \vspace{0.3em}
+          {\large \@subtitle \par}
+          \vspace{2em}
+        }
+        \makeatother
 abstract: |
   This research report explores the integration of SSCCS (Schema–Segment Composition Computing System) across the RISC‑V ecosystem, using the OpenHW Foundation as a central validation platform. SSCCS redefines computation as structural observation rather than instruction sequencing, eliminating the von Neumann bottleneck at the logical layer. Through the RISC‑V eXtension Interface (XIF) and other custom instruction mechanisms, we investigate implementing observation primitives as coprocessor extensions, validating energy efficiency and verifiability claims on real silicon. The report outlines a research pathway spanning software emulation, hardware prototyping, eFPGA integration, and community contribution, positioning SSCCS as open public infrastructure for sustainable, accountable computing across the RISC‑V landscape.
 ---
+
 
 ```{python}
 #| echo: false
 #| include: false
 #| context: local
+
+title_meta_items = {
+    "pdf": [
+      {"title": "SSCCS Foundation", "link": "https://ssccs.org", "content": "ssccs.org"},
+      {"title": "Other Formats", "link": "https://docs.ssccs.org/research/riscv.html", "content": "HTML"},
+  ],
+  "html": [
+      {"title": "Other Formats", "link": "https://docs.ssccs.org/research/riscv.pdf", "content": "PDF", "content_class": "bi bi-file-pdf"},
+  ]
+}
+
+%run ../_include/_graphviz.py
+%run ../_include/_generate_metadata_tex.py --output ./_files/riscv_metadata.tex --version_prefix 0.1 --version_mark
+
 import matplotlib
 matplotlib.use('Agg')
-%run ../_include/_graphviz.py
 ```
+
+{{< include ../_include/_title_meta_items_if_html.qmd >}}
+
+{{< include ../_include/_title_meta_items_if_pdf.qmd >}}
+
+
+---
 
 # Introduction
 
@@ -512,7 +547,6 @@ SSCCS offers a unique opportunity to bring paradigm‑shifting research into the
 Throughout all phases, the `.ss` blueprint remains unchanged, preserving investment [@lee2026]. The ultimate goal is to establish SSCCS as foundational infrastructure for sustainable, accountable computing—transitioning logic into a transparent, verifiable, and accessible **Intellectual Public Commons**.
 
 
-
 # Glossary
 
 | Term | Definition |
@@ -528,12 +562,13 @@ Throughout all phases, the `.ss` blueprint remains unchanged, preserving investm
 | **PIM** | Processing-In-Memory; computation within memory substrate |
 | **UVM** | Universal Verification Methodology for hardware verification |
  
- ---
-
-{{< include ../_include/_license.qmd >}}
 
 # References {.unnumbered .unlisted}
 
 ::: {#refs}
 :::
+
+ ---
+
+{{< include ../_include/_license.qmd >}}
 
