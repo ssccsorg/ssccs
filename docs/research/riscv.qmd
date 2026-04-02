@@ -27,7 +27,7 @@ format:
         }
         \makeatother
 abstract: |
-  This research report explores the integration of SSCCS (Schema–Segment Composition Computing System) across the RISC‑V ecosystem, using the OpenHW Foundation as a central validation platform. SSCCS redefines computation as structural observation rather than instruction sequencing, eliminating the von Neumann bottleneck at the logical layer. Through the RISC‑V eXtension Interface (XIF) and other custom instruction mechanisms, we investigate implementing observation primitives as coprocessor extensions, validating energy efficiency and verifiability claims on real silicon. The report outlines a research pathway spanning software emulation, hardware prototyping, eFPGA integration, and community contribution, positioning SSCCS as open public infrastructure for sustainable, accountable computing across the RISC‑V landscape.
+  This research report explores the integration of SSCCS (Schema–Segment Composition Computing System) across the RISC‑V ecosystem, using the OpenHW Foundation as a central validation platform. SSCCS redefines computation as structural observation rather than instruction sequencing, addressing the von Neumann bottleneck at the logical layer. Through the RISC‑V eXtension Interface (XIF) and other custom instruction mechanisms, we investigate implementing observation primitives as coprocessor extensions, evaluating energy efficiency and verifiability characteristics on real silicon. The report outlines a research pathway spanning software emulation, hardware prototyping, eFPGA integration, and community contribution, positioning SSCCS as open public infrastructure for sustainable, accountable computing across the RISC‑V landscape.
 ---
 
 
@@ -70,7 +70,8 @@ For eighty years, computing has been defined by the von Neumann model: instructi
 2.  **Limited Concurrency**: Explicit synchronization and lock management constrain parallel scaling.
 3.  **Lack of Verifiability**: Machine learning models operate as black boxes with no auditable computation trails.
 
-SSCCS (Schema–Segment Composition Computing System) addresses these barriers at the logical layer by redefining computation as **structural observation** rather than procedural execution [@lee2026]. Computation emerges from the deterministic projection of immutable Segments within a dynamic constraint framework (Field), eliminating most data movement and making every computation cryptographically auditable by design.
+SSCCS (Schema–Segment Composition Computing System) addresses these barriers at the logical layer by redefining computation as **structural observation** rather than procedural execution [@lee2026]. Computation emerges from the deterministic projection of immutable Segments within a dynamic constraint framework (Field), reducing redundant data movement through stationary data primitives and making computation traces auditable at the logical model level.
+
 ## Why OpenHW as a Central Platform?
 
 The OpenHW Foundation provides a robust, open‑source hardware ecosystem that serves as an ideal platform for validating SSCCS across the broader RISC‑V landscape:
@@ -78,18 +79,17 @@ The OpenHW Foundation provides a robust, open‑source hardware ecosystem that s
 | Requirement | OpenHW Capability | SSCCS Benefit |
 |-------------|-------------------|---------------|
 | **Custom Instructions** | CORE-V XIF enables tightly coupled coprocessors without modifying core RTL [@openhw2025xif] | Observation primitives as custom XIF extensions |
-| **Open Verification** | CORE-V-VERIF uses RVVI methodology and Imperas reference models [@openhw2026verif] | Deterministic observation simplifies verification |
+| **Open Verification** | CORE-V-VERIF uses RVVI methodology and Imperas reference models [@openhw2026verif] | Structured observation can simplify verification at the logical model level |
 | **Rapid Prototyping** | CORE-V MCU DevKit with QuickLogic eFPGA [@openhw2025mcu] | Hardware acceleration without ASIC commitment |
 | **Software Stack** | CORE-V SDK with GCC, FreeRTOS, drivers [@corev2026sdk] | Seamless integration with existing toolchains |
-| **Industry Alignment** | Members include NXP, Silicon Labs, Thales [@openhw2026members] | Security, safety, efficiency priorities match SSCCS |
-
+| **Industry Alignment** | Members include NXP, Silicon Labs, Thales [@openhw2026members] | Security, safety, efficiency priorities match SSCCS research focus |
 
 ## Research Objectives
 
 This research aims to:
 
 1.  **Demonstrate** SSCCS on RISC‑V processors, using OpenHW CORE‑V as a primary platform.
-2.  **Validate** performance and energy efficiency claims on real silicon across the RISC‑V ecosystem.
+2.  **Evaluate** performance and energy efficiency characteristics on real silicon across the RISC‑V ecosystem.
 3.  **Contribute** verification infrastructure and programming models to the RISC‑V ecosystem, starting with OpenHW.
 
 ```{python}
@@ -113,7 +113,6 @@ digraph Executive_Overview {
 }
 """)
 ```
-
 
 
 # SSCCS Architecture Overview
@@ -168,19 +167,19 @@ where:
 - $\Omega$: Observation operator (computation event)
 - $P$: Resulting Projection (computational output)
 
-This formulation ensures that for identical $\Sigma$ and $F$, $\Omega$ always yields the same $P$, providing deterministic reproducibility essential for safety-critical verification [@smith2025].
+This formulation ensures that for identical $\Sigma$ and $F$, $\Omega$ yields the same $P$ under idealized conditions at the logical model level, providing deterministic reproducibility essential for safety-critical verification approaches [@smith2025]. Hardware validation will measure and characterize deviations due to physical effects (timing variations, temperature, memory contention).
 
-### Energy Model
+### Energy Model: Conceptual Framework
 
-A simplified energy model for SSCCS [@lee2026]:
+A simplified conceptual energy model for SSCCS [@lee2026]:
 
 $$E_{total} = E_{observation} \times N_{obs} + E_{field-update} \times N_{update}$$
 
-Notably, there is **no term for data movement** between memory and processor, because Segments remain stationary. This contrasts with the von Neumann model where:
+Note: This model focuses on logical operation costs. $E_{observation}$ includes the cost of writing back the projection via the XIF result interface and implicit memory access costs for Segment/Field retrieval. The model emphasizes that Segments remain stationary during observation, reducing redundant data movement compared to von Neumann architectures where:
 
 $$E_{vonNeumann} = E_{compute} + E_{memory-access} \times N_{access}$$
 
-where $E_{memory-access}$ dominates at 60–80% of total energy [@horowitz2014].
+and $E_{memory-access}$ often dominates at 60–80% of total energy [@horowitz2014]. Actual energy measurements will be obtained through hardware profiling.
 
 ## Core Components
 
@@ -195,7 +194,7 @@ where $c \in \mathbb{R}^d$ (or discrete lattice) represents coordinates in a d-d
 **Properties:**
 - **Immutability**: Once created, a Segment cannot be modified; it can only be referenced.
 - **Statelessness**: Contains no values, strings, or data structures—only coordinates and identity.
-- **Concurrency**: Any number of observations can occur simultaneously without synchronization.
+- **Concurrency**: Any number of observations can occur simultaneously without synchronization at the logical model level.
 
 ### Scheme: Structural Blueprint
 
@@ -209,7 +208,7 @@ A Scheme defines the geometric arrangement of Segments [@lee2026]:
 
 ### Field: Dynamic Constraint Substrate
 
-The Field $F$ is the only mutable layer, but it does not store values [@lee2026]. Instead, it stores admissibility conditions that dynamically constrain which configurations of Segments are possible at any given time:
+The Field $F$ is the only mutable layer, but it does not store computational values [@lee2026]. Instead, it stores admissibility conditions that dynamically constrain which configurations of Segments are possible at any given time:
 
 $$F = \{ \text{admissibility predicates over configuration space defined by } \Sigma \}$$
 
@@ -221,8 +220,7 @@ Observation $\Omega$ is the single active event in SSCCS [@lee2026]:
 
 $$P = \Omega(\Sigma, F)$$
 
-Observation occurs when the structure and Field together create an instability—i.e., multiple admissible configurations. $\Omega$ deterministically selects one configuration and returns it as $P$. No data is moved during observation; Segments remain in place.
-
+Observation occurs when the structure and Field together create an instability—i.e., multiple admissible configurations. $\Omega$ deterministically selects one configuration and returns it as $P$. Segments remain stationary; the projection result is written back via XIF. Actual hardware behavior may exhibit variations due to physical implementation factors.
 
 
 # Compiler Pipeline and Structural Mapping
@@ -280,22 +278,25 @@ Traditional manual optimizations become automatic consequences of structural spe
 | Cache alignment | Adjacency relations determine physical proximity |
 | SIMD vectorization | Independent subgraphs imply vectorizable operations |
 | Thread scheduling | Parallel structure maps to independent cores |
-| Lock management | Immutability eliminates need for locks |
+| Lock management | Immutability eliminates need for locks at logical model level |
 | Execution strategy selection | Observation rules and structural independence guide parallel execution |
 
 
-
 # RISC‑V Ecosystem Integration Analysis
+
+::: {tbl-colwidths="[20, 35, 65]"}
 
 ## Alignment with RISC‑V Ecosystem
 
 | Feature | RISC‑V Ecosystem (OpenHW CORE‑V) | SSCCS Value Add |
 |---------|----------------------------------|-----------------|
 | **Custom Instruction Support** | CORE-V XIF enables tightly coupled coprocessors without modifying core RTL [@openhw2025xif] | SSCCS implements **observation instructions** as custom XIF coprocessor extensions |
-| **Open-Source Verification** | CORE-V-VERIF testbench uses RVVI methodology and Imperas reference models [@openhw2026verif] | SSCCS provides **verifiable execution model** – observation results are deterministic by design |
+| **Open-Source Verification** | CORE-V-VERIF testbench uses RVVI methodology and Imperas reference models [@openhw2026verif] | SSCCS provides **structured execution model** – observation results follow deterministic rules at the logical model level, potentially simplifying verification |
 | **Hardware Platform** | CORE-V MCU DevKit (CV32E40P core + QuickLogic eFPGA) [@openhw2025mcu] | eFPGA allows rapid prototyping of SSCCS custom hardware accelerators alongside the core |
-| **Software Ecosystem** | CORE-V SDK with GCC, FreeRTOS, and peripheral drivers [@corev2026sdk] | SSCCS compiler can target the SDK, enabling seamless integration of SSCCS-optimized libraries |
-| **Security & Safety** | Members (Thales, NXP, Silicon Labs) emphasize functional safety and security [@openhw2026members] | SSCCS deterministic dataflow prevents speculative execution leaks and memory corruption by design |
+| **Software Ecosystem** | CORE-V SDK with GCC, FreeRTOS, and peripheral drivers [@corev2026sdk] | SSCCS compiler can target the SDK, enabling integration of SSCCS-optimized libraries |
+| **Security & Safety** | Members (Thales, NXP, Silicon Labs) emphasize functional safety and security [@openhw2026members] | SSCCS structured dataflow and immutability primitives can help reduce certain classes of vulnerabilities when properly integrated |
+
+::: 
 
 ## XIF Interface Architecture
 
@@ -370,13 +371,15 @@ digraph XIF_Interface {
 **Opcode:** `custom1` (0x0B) or `custom2` (0x2B)  
 **Function:** `OBSERVE rs1, rs2, rs3` → Load Scheme ID, Field ID, and Observation Rule
 
-### Stateless Coprocessor Design
+### Structured Coprocessor Design
 
-The SSCCS coprocessor implements a **stateless architecture** to ensure no side effects on core pipeline state [@openhw2025cva6]:
+The SSCCS coprocessor implements a **structured architecture** to minimize side effects on core pipeline state [@openhw2025cva6]:
 
-- The observation operator $\Omega$ computes projections from stationary Segments without maintaining internal state between observations
-- This eliminates pipeline stalls and speculation-related vulnerabilities
-- Direct write-back through XIF result interface ensures returned data follows standard pipeline forwarding paths without conflict with core register file operations [@openhw2025xifguide]
+- The observation operator $\Omega$ computes projections from stationary Segments following rules defined by the Scheme, **without maintaining operational state between observations** (all mutable state resides in the Field stored in main memory).
+- This design aims to reduce pipeline stalls and simplify interaction with core speculation mechanisms.
+- Direct write‑back through the XIF result interface ensures returned data follows standard pipeline forwarding paths, with careful coordination to avoid conflicts with core register‑file operations [@openhw2025xifguide].
+
+
 # Research Roadmap
   
 ## Phase 1: Software Emulation
@@ -409,7 +412,7 @@ The SSCCS coprocessor implements a **stateless architecture** to ensure no side 
 
 - OpenHW CORE‑V‑VERIF extension module for SSCCS instructions
 - Verification coverage report demonstrating compliance with RISC‑V extension verification methodology
-- **Success Metric:** Achieve 100% instruction coverage for SSCCS custom opcodes in UVM environment, with documented verification patterns reusable across the RISC‑V ecosystem
+- **Success Metric:** Achieve structural instruction coverage targets for SSCCS custom opcodes in UVM environment, with documented verification patterns reusable across the RISC‑V ecosystem. Note: Instruction coverage is a structural baseline; functional correctness requires additional behavioral testing.
 
 ## Phase 2: XIF Coprocessor Prototype
 
@@ -419,7 +422,7 @@ The SSCCS coprocessor implements a **stateless architecture** to ensure no side 
 
 - Design a **XIF coprocessor module** that receives custom instructions from the CV32E40P core via the issue interface, performs the observation, and returns results via the result interface [@openhw2025xifguide]
 - Support up to **three source registers** (`X_NUM_RS = 3`) to accommodate complex structural operations [@openhw2025xif]
-- Implement **stateless coprocessor architecture** to ensure no side effects on core pipeline state [@openhw2025cva6]
+- Implement **structured coprocessor architecture** with no operational state to avoid side effects on core pipeline state [@openhw2025cva6]
 - Use the **commit interface** to ensure deterministic execution without speculation [@openhw2025cva6]
 - Implement **direct write-back strategy** through XIF result interface [@openhw2025xifguide]
 - Target the **OpenHW CORE‑V MCU DevKit** or a compatible FPGA platform (e.g., Nexys A7) for prototyping [@openhw2025mcu], with documentation for adaptation to other RISC‑V cores
@@ -429,7 +432,7 @@ The SSCCS coprocessor implements a **stateless architecture** to ensure no side 
 - Verilog/VHDL implementation of the SSCCS coprocessor compatible with RISC‑V XIF specification
 - Integration guide for RISC‑V users, with OpenHW‑specific examples
 - Benchmark results comparing SSCCS vs. standard RISC-V implementations for key workloads
-- **Success Metric:** Demonstrate ≥3× energy reduction on vector addition vs. baseline RISC-V on OpenHW CORE‑V platform
+- **Success Metric:** Evaluate energy characteristics with a target of ≥3× reduction on vector addition vs. baseline RISC-V on OpenHW CORE‑V platform (to be validated and measured during the phase, with baseline methodology documented)
 
 ## Phase 3: eFPGA Integration and MCU Validation
 
@@ -439,15 +442,15 @@ The SSCCS coprocessor implements a **stateless architecture** to ensure no side 
 
 - Map the observation logic into the **QuickLogic ArticPro 2 eFPGA** fabric integrated in the OpenHW CORE‑V MCU [@openhw2025mcu], [@quicklogic2024]
 - Use the APB interface from the CV32E40P core to configure the eFPGA with SSCCS accelerators dynamically [@quicklogic2024]
-- Develop a demonstration application (e.g., real-time sensor processing on the DevKit's Himax camera) that uses SSCCS to achieve measurable energy and latency gains [@himax2023]
+- Develop a demonstration application (e.g., real-time sensor processing on the DevKit's Himax camera) that uses SSCCS to evaluate energy and latency characteristics [@himax2023]
 - Document the methodology for adapting SSCCS acceleration to other RISC‑V MCU platforms with eFPGA capabilities
 
 **Expected Outcomes:**
 
 - Open-source eFPGA bitstream and configuration code targeting OpenHW CORE‑V MCU
 - Demonstration video and user guide showcasing SSCCS acceleration on RISC‑V
-- Performance report quantifying data-movement reduction and verifiability advantages, with comparative analysis against other RISC‑V MCU platforms
-- **Success Metric:** Achieve <10ms end-to-end latency on Himax camera pipeline with ≥2× energy gain on OpenHW CORE‑V MCU DevKit
+- Performance report quantifying data-movement reduction and verifiability characteristics, with comparative analysis against other RISC‑V MCU platforms
+- **Success Metric:** Evaluate end-to-end latency on Himax camera pipeline with a target of <10ms and hypothesized ≥2× energy gain (to be validated on OpenHW CORE‑V MCU DevKit, with workload specifications documented)
 
 ## Phase 4: Community Integration and Contribution
 
@@ -456,15 +459,14 @@ The SSCCS coprocessor implements a **stateless architecture** to ensure no side 
 **Methodology:**
 
 - Contribute the SSCCS coprocessor design to the **CORE‑V‑VERIF** testbench as an example of custom extension verification [@openhw2026verif]
-- Propose a new **OpenHW Task Group** focused on structural programming models, with cross‑ecosystem engagement
+- Explore proposing a new **OpenHW Task Group** focused on structural programming models, with cross‑ecosystem engagement
 - Participate in OpenHW and broader RISC‑V community events (e.g., RISC‑V Summit, workshops) to gather feedback and attract contributors
 
 **Expected Outcomes:**
 
-- Pull requests accepted into OpenHW repositories, serving as a reference for other RISC‑V implementations
+- Pull requests submitted to OpenHW repositories, serving as a reference for other RISC‑V implementations
 - Documentation and tutorials for OpenHW members and the wider RISC‑V community to replicate the SSCCS integration
-- **Success Metric:** Merge ≥2 PRs into CORE‑V‑VERIF; onboard ≥3 external contributors from the RISC‑V ecosystem
-
+- **Success Metric:** Submit ≥2 PRs to CORE‑V‑VERIF; engage ≥3 external contributors from the RISC‑V ecosystem. Note: Community adoption metrics will be tracked separately from contribution metrics.
 
 
 # Validation Domains and Expected Benefits
@@ -473,34 +475,40 @@ The SSCCS coprocessor implements a **stateless architecture** to ensure no side 
 
 | Domain | Traditional Challenge | SSCCS Expected Advantage |
 |--------|----------------------|-------------------------|
-| **Climate Modeling** | Massive state space, grid data movement | Constraint isolation, deterministic observation, minimal data transfer |
+| **Climate Modeling** | Massive state space, grid data movement | Constraint isolation, structured observation, reduced redundant data transfer |
 | **AI/ML Inference** | Memory bandwidth bottleneck for large models | Stationary weights, observation in place |
-| **Autonomous Systems** | Sensor fusion, real-time decision making | Constraint-based observation, deterministic response, auditable decisions |
-| **Scientific Computing** | I/O energy and latency dominate runtime | Structural mapping eliminates redundant data movement |
-| **Graph Analytics** | Pointer chasing causes cache thrashing | Distributed parallel observation without iteration |
-| **Cryptographic Systems** | Side-channel attacks, verification complexity | Immutable structure enables formal verification, no intermediate state |
+| **Autonomous Systems** | Sensor fusion, real-time decision making | Constraint-based observation, structured response, auditable decision traces at logical level |
+| **Scientific Computing** | I/O energy and latency dominate runtime | Structural mapping aims to reduce redundant data movement |
+| **Graph Analytics** | Pointer chasing causes cache thrashing | Structured parallel observation patterns |
+| **Cryptographic Systems** | Side-channel attacks, verification complexity | Immutable structure enables formal verification approaches at logical model level |
 
-## Complexity Comparison
+## Complexity Considerations
 
 | Metric | Sequential | Parallel (SIMD/GPU) | SSCCS (Structural) |
 |--------|------------|---------------------|-------------------|
-| **Instruction Overhead** | High (O(N)) | Moderate (O(N/k)) | Minimal (Field-based) |
-| **Data Locality** | Managed (Cache) | Explicit (SRAM/Tiling) | Intrinsic (Scheme-defined) |
-| **Execution Latency** | O(N) | O(N/k) + sync | O(log N) or O(1) |
-| **Data Movement** | O(N) | O(N) | O(Output Only) |
-| **Scalability Limit** | Amdahl's Law | Memory Bandwidth | Physical Propagation Delay |
+| **Instruction Overhead** | High (O(N)) | Moderate (O(N/k)) | Field‑based primitives |
+| **Data Locality** | Managed (Cache) | Explicit (SRAM/Tiling) | Scheme‑defined structure |
+| **Execution Latency** | O(N) | O(N/k) + sync | Depends on Scheme structure and observation pattern (e.g., local grid observation: O(1); global pattern matching: O(N)) |
+| **Data Movement** | O(N) | O(N) | Reduced through stationary data primitives (result write‑back still required) |
+| **Scalability Considerations** | Amdahl's Law | Memory Bandwidth | Physical constraints and structural complexity |
+
+*Note: The above complexity estimates are idealized and depend on specific Scheme definitions and observation patterns. Hardware validation will provide empirical measurements across representative workloads.*
 
 ## Benefits for RISC‑V Ecosystem (with OpenHW as Central Platform)
+
+::: {tbl-colwidths="[20, 80]"}
 
 | Benefit | Description |
 |---------|-------------|
 | **Novel Programming Model** | Adds "structural observation" to the RISC‑V software stack, with OpenHW CORE‑V serving as a reference implementation, differentiating open‑source RISC‑V cores from proprietary alternatives |
-| **Enhanced Verifiability** | SSCCS's deterministic execution simplifies verification – a core concern for high-volume production SoCs [@smith2025]; OpenHW's verification infrastructure provides a trusted validation baseline for the wider ecosystem |
-| **Energy Efficiency Demonstration** | SSCCS's data-movement elimination can be showcased on OpenHW hardware, providing compelling evidence for energy-conscious designs across the RISC‑V ecosystem [@horowitz2014] |
-| **Security Enhancement** | Deterministic dataflow prevents speculative execution leaks and side-channel attacks. Immutability eliminates memory corruption vulnerabilities, benefiting all RISC‑V implementations |
-| **Functional Safety Support** | Observation determinism enables ISO 26262-compliant traceability for automotive and industrial applications [@openhw2026members]; OpenHW's safety‑oriented community accelerates adoption |
+| **Enhanced Verifiability** | SSCCS's structured execution model may simplify verification at the logical model level – a core concern for high-volume production SoCs [@smith2025]; OpenHW's verification infrastructure provides a trusted validation baseline for the wider ecosystem |
+| **Energy Efficiency Exploration** | SSCCS's data‑movement reduction approach can be evaluated on OpenHW hardware, contributing evidence for energy‑conscious designs across the RISC‑V ecosystem [@horowitz2014] |
+| **Security Enhancement** | Structured dataflow and immutability primitives can help reduce certain vulnerability classes (e.g., buffer overflows) when properly integrated. Observation operations at the coprocessor level exhibit deterministic behavior, potentially reducing certain speculative execution vulnerability classes. |
+| **Functional Safety Support** | Observation structure enables traceability approaches for ISO 26262-compliant systems [@openhw2026members]; OpenHW's safety‑oriented community accelerates adoption |
 | **Ecosystem Growth** | Attracts researchers and developers interested in foundational computing paradigms to the RISC‑V community, with OpenHW as a central collaboration hub |
-| **Aligned with Member Interests** | OpenHW members (e.g., NXP, Silicon Labs, Thales) emphasize security, safety, and efficiency – all central to SSCCS [@openhw2026members]; these values resonate across the broader RISC‑V ecosystem |
+| **Aligned with Member Interests** | OpenHW members (e.g., NXP, Silicon Labs, Thales) emphasize security, safety, and efficiency – all central to SSCCS research [@openhw2026members]; these values resonate across the broader RISC‑V ecosystem |
+
+::: 
 
 # Research Team and Resource Considerations
 
@@ -510,11 +518,13 @@ This work will be led by Taeho Lee (Founder, SSCCS Foundation), with contributio
 
 - **Compiler Engineering:** Backend development for `.ss` to RISC-V translation, leveraging experience in LLVM and GCC toolchains
 - **FPGA Architecture:** XIF coprocessor implementation and eFPGA integration, with prior work on RISC-V acceleration
-- **Formal Verification:** Academic advisors providing expertise in deterministic system verification and cryptographic auditability
+- **Formal Verification:** Academic advisors providing expertise in structured system verification
 
 We anticipate collaboration with OpenHW members on technical tasks and co-authorship of deliverables.
 
 ## Resource Considerations
+
+::: {tbl-colwidths="[20, 80]"}
 
 | Resource Type | Description |
 |--------------|-------------|
@@ -523,24 +533,33 @@ We anticipate collaboration with OpenHW members on technical tasks and co-author
 | **Technical Collaboration** | Mentorship from OpenHW members experienced in XIF integration, eFPGA programming, and verification |
 | **Community Engagement** | Opportunities to present SSCCS at OpenHW events and workshops (e.g., OpenHW TV, technical meetings) |
 
+:::
+
 ## Risk Mitigation
 
 | Risk | Mitigation Strategy |
 |------|---------------------|
 | **XIF interface complexity** | Start with minimal instruction set (2–3 primitives); expand iteratively based on validation feedback [@openhw2025xif] |
 | **eFPGA resource constraints** | Prioritize observation logic over storage; leverage external DRAM for large Schemes [@quicklogic2024] |
-| **Verification overhead** | Leverage SSCCS's deterministic model to reduce test-case explosion; contribute test vectors back to CORE-V-VERIF [@openhw2026verif] |
+| **Verification overhead** | Leverage SSCCS's structured model to potentially reduce test-case complexity; contribute test vectors back to CORE-V-VERIF [@openhw2026verif] |
 | **Community adoption** | Co-develop tutorials with OpenHW documentation team; host joint webinar post-Phase 2 |
-
-
-
+| **Model-to-hardware gap** | Explicitly document assumptions and limitations of the logical model; validate deviations through empirical measurement |
 
 
 # Conclusion
 
 ## Summary
 
-SSCCS offers a unique opportunity to bring paradigm‑shifting research into the RISC‑V ecosystem, using the OpenHW Foundation as a central validation platform. By leveraging the **OpenHW CORE‑V XIF interface** and the **CORE‑V MCU DevKit**, we can demonstrate how structural observation can complement conventional RISC‑V cores, delivering improved verifiability and energy efficiency. This collaboration aligns with OpenHW's mission to drive innovation in open‑source hardware and provides a reference implementation for the broader RISC‑V community [@openhw2026mission].
+SSCCS offers a unique opportunity to bring paradigm‑shifting research into the RISC‑V ecosystem, using the OpenHW Foundation as a central validation platform. By leveraging the **OpenHW CORE‑V XIF interface** and the **CORE‑V MCU DevKit**, we can explore how structural observation can complement conventional RISC‑V cores, with potential benefits for verifiability and energy efficiency. This collaboration aligns with OpenHW's mission to drive innovation in open‑source hardware and provides a reference implementation for the broader RISC‑V community [@openhw2026mission].
+
+## Limitations and Assumptions
+
+This research report presents a conceptual framework and research pathway. Key assumptions include:
+
+- The SSCCS logical model operates under idealized conditions; hardware implementations may exhibit variations due to physical constraints.
+- Performance and energy claims are targets to be validated through empirical measurement, not guaranteed outcomes.
+- Security benefits apply primarily at the coprocessor level for observation operations; system-level security requires comprehensive analysis.
+- Verification simplification refers to structural coverage at the logical model level; functional correctness requires additional behavioral testing.
 
 ## Long-Term Vision
 
@@ -555,7 +574,7 @@ Throughout all phases, the `.ss` blueprint remains unchanged, preserving investm
 | **Scheme** | Structural blueprint defining Segment relationships and adjacency |
 | **Field** | Mutable constraint substrate that governs what can be observed |
 | **Observation (Ω)** | Active computation event that reveals Projection from Structure + Field |
-| **Projection** | Ephemeral, deterministic output of an Observation |
+| **Projection** | Ephemeral, deterministic output of an Observation at the logical model level |
 | **XIF** | CORE-V eXtension Interface for tightly coupled coprocessors |
 | **CORE-V-VERIF** | OpenHW verification framework using UVM and RVVI methodology |
 | **eFPGA** | Embedded FPGA fabric for rapid hardware prototyping |
@@ -568,7 +587,6 @@ Throughout all phases, the `.ss` blueprint remains unchanged, preserving investm
 ::: {#refs}
 :::
 
- ---
+---
 
-{{< include ../_include/_license.qmd >}}
-
+{{< include ../_include/_license.qmd >}} 
