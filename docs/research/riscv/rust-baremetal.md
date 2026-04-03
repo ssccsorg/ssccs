@@ -428,6 +428,8 @@ composition computing system whitepaper.” DOI: 10.5281/zenodo.18759106,
 
 </div>
 
+------------------------------------------------------------------------
+
 © 2026 [SSCCS Foundation](https://ssccs.org) — A non-profit research and
 engineering initiative building a computing model and compiler
 infrastructure.
