@@ -40,6 +40,8 @@ cargo build --release
 cargo run --release
 ```
 
+If you use SSCCS in your research, please cite the software using the metadata provided in [CITATION.cff](/CITATION.cff).
+
 ## Community & Collaboration
 
 SSCCS is developed as a public‑good, community‑driven project. We
@@ -50,6 +52,8 @@ enthusiasts.
 - GitHub Repository: <https://github.com/ssccsorg>
 - Discussion Forum: [GitHub Discussions](https://github.com/ssccsorg/ssccs/discussions)
 - [Legal Charter](/docs/legal/legal.md)
+- [Code of Conduct](/docs/CODE_OF_CONDUCT.md)
+- [Contributing Guidelines](/docs/CONTRIBUTING.md)
 
 ## Documentation
 
@@ -59,6 +63,7 @@ The SSCCS documentation suite consists of several formal documents:
   specification, available as PDF and HTML.
 - **[Proposal](/docs/proposal.pdf)**: A companion document focusing on
   practical implementation and sustainability.
+- **[Project Direction](/docs/DIRECTION.md)**: Strategic orientation and regional engagement for the SSCCS initiative.
 - **[Manifesto](/docs/MANIFESTO.md)**: The high‑level philosophical and
   technical introduction.
 - **[Guide](/docs/GUIDE.md)**: A comprehensive guide to SSCCS core
@@ -96,10 +101,7 @@ We invite contributions of all kinds:
 - Research: Formal analysis, performance benchmarks, security audits.
 - Outreach: Blog posts, conference talks, educational material.
 
-Please read
-[CONTRIBUTING.md](/docs/CONTRIBUTING.md)
-(to be created) for guidelines on pull requests, code style, and
-licensing.
+Please read [CONTRIBUTING.md](/docs/CONTRIBUTING.md) for guidelines on pull requests, code style, and licensing.
 
 ## Acknowledgments
 
