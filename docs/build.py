@@ -323,12 +323,39 @@ def find_existing_output(
 
 
 def get_cache_dir(qmd_path: Path) -> Path:
-    """Return the _locked directory for a QMD file."""
+    """
+    Return the _locked directory for a QMD file.
+    Uses the QMD file stem for the cache directory name.
+    """
+    return qmd_path.parent / f"{qmd_path.stem}_locked"
+
+
+def get_cache_dir_for_target(qmd_path: Path, target_name: str) -> Path:
+    """
+    Return the _locked directory considering target naming rules.
+    For index.qmd files, the cache dir uses the parent folder name.
+    For other files, uses the file stem.
+    
+    This ensures backward compatibility when target names change.
+    """
+    if qmd_path.stem.lower() == "index":
+        # For index.qmd, use parent folder name for cache dir
+        parent_name = qmd_path.parent.name
+        if parent_name and parent_name != ".":
+            return qmd_path.parent / f"{parent_name}_locked"
+    # Default: use file stem
     return qmd_path.parent / f"{qmd_path.stem}_locked"
 
 
 def get_cache_file(qmd_path: Path, fmt: str) -> Path:
-    """Return the cache file path for a given format."""
+    """
+    Return the cache file path for a given format.
+    For index.qmd files, uses the parent folder name for cache directory.
+    """
+    if qmd_path.stem.lower() == "index":
+        parent_name = qmd_path.parent.name
+        if parent_name and parent_name != ".":
+            return qmd_path.parent / f"{parent_name}_locked" / f"rendered_{fmt}.txt"
     return get_cache_dir(qmd_path) / f"rendered_{fmt}.txt"
 
 
@@ -482,10 +509,17 @@ def clean_quarto_artifacts(docs_root: Path) -> bool:
     Remove Quarto-generated directories matching the patterns
     """
     patterns = [
+        "**/__pycache__",
+        "**/*.pyc",
+        "**/*.pyd",
+
+        "**/*.log",
+
         "**/*_files",
         "**/*_output",
         "**/*_extensions",
         "**/*_locked",
+        "**/*_libs",
 
         # quarto: final artifects
         "**/*.tex",
@@ -530,15 +564,10 @@ def clean_quarto_artifacts(docs_root: Path) -> bool:
 # Special target configurations
 SPECIAL_CONFIG: Dict[str, Dict[str, Any]] = {
     "whitepaper": {
-        "output_dir": True,
         "c2pa": True,
-        "copy_pdf": True,
     },
     "proposal": {
-        "output_dir": True,
         "c2pa": True,
-        "copy_pdf": True,
-        "copy_html": True,
     },
 }
 
@@ -548,8 +577,12 @@ def discover_qmd_targets(docs_root: Path) -> Dict[str, Dict[str, Any]]:
     Excludes directories matching the patterns:
       **/*_include, **/*_extensions, **/*_utils, **/*_output, **/*_files, **/*_locked
     (i.e., any directory whose name ends with one of these suffixes, at any depth)
+    
+    Target naming rules:
+      - folder/index.qmd -> target name is 'folder'
+      - folder/name.qmd -> target name is 'name' (or 'folder_name' if conflict)
     """
-    exclude_suffixes = ["_include", "_extensions", "_utils", "_output", "_files", "_locked"]
+    exclude_suffixes = ["_include", "_extensions", "_utils", "_output", "_files", "_locked", "_libs"]
     exclude_dirs = set()
     for suffix in exclude_suffixes:
         pattern = f"**/*{suffix}"
@@ -564,12 +597,25 @@ def discover_qmd_targets(docs_root: Path) -> Dict[str, Dict[str, Any]]:
             continue
 
         rel_path = qmd_path.relative_to(docs_root)
-        target_name = rel_path.stem.lower()
+        
+        # Determine target name based on file name
+        if rel_path.stem.lower() == "index":
+            # index.qmd -> use parent folder name as target
+            parent = rel_path.parent.name
+            if parent and parent != ".":
+                target_name = parent.lower()
+            else:
+                # Root level index.qmd -> use 'index'
+                target_name = "index"
+        else:
+            # Regular file -> use stem as target name
+            target_name = rel_path.stem.lower()
 
+        # Handle name conflicts
         if target_name in targets:
             parent = rel_path.parent.name
-            if parent:
-                target_name = f"{target_name}_{parent}"
+            if parent and parent != ".":
+                target_name = f"{parent}_{target_name}"
             else:
                 suffix = 2
                 while f"{target_name}_{suffix}" in targets:
@@ -602,12 +648,21 @@ def get_target_config(docs_root: Path) -> Dict[str, Dict[str, Any]]:
             sys.exit(1)
         # Update discovered config with special config, preserving missing keys
         discovered[target].update(config)
-        # Validate that qmd stem matches target name (case-insensitive)
+        # Validate that qmd path matches target name
+        # For index.qmd files, target name should match parent folder
+        # For other files, target name should match file stem
         qmd_path = Path(discovered[target]["qmd"])
-        if qmd_path.stem.lower() != target.lower():
+        if qmd_path.stem.lower() == "index":
+            # index.qmd -> target should match parent folder name
+            expected = qmd_path.parent.name.lower()
+        else:
+            # Regular file -> target should match file stem
+            expected = qmd_path.stem.lower()
+        
+        if target.lower() != expected:
             logger.error(
-                f"Target name '{target}' does not match QMD file stem '{qmd_path.stem}' "
-                f"(expected '{target}.qmd' or similar)"
+                f"Target name '{target}' does not match QMD file path '{qmd_path}' "
+                f"(expected target name '{expected}')"
             )
             sys.exit(1)
     return discovered
@@ -743,7 +798,13 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
         return False
 
     # Determine generated files early for caching
-    stem = qmd_path.stem
+    # For index.qmd files, use parent folder name for output files (e.g., whitepaper.pdf)
+    # For other files, use the file stem
+    if qmd_path.stem.lower() == "index":
+        parent_name = qmd_path.parent.name
+        stem = parent_name if parent_name and parent_name != "." else qmd_path.stem
+    else:
+        stem = qmd_path.stem
     parent = qmd_path.parent
 
     # Determine formats to render
@@ -786,8 +847,11 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
     if config.get("c2pa"):
         pdf_path = format_output_paths.get('pdf') or format_output_paths.get('beamer')
         if pdf_path and pdf_path.exists():
-            manifest_path = parent / f"{stem}.c2pa_manifest.json"
-            output_c2pa = parent / f"{stem}.c2pa"
+            # For index.qmd files, use the QMD file stem (index) for C2PA files
+            # since the manifest is named after the QMD file, not the target
+            c2pa_stem = qmd_path.stem
+            manifest_path = parent / f"{c2pa_stem}.c2pa_manifest.json"
+            output_c2pa = parent / f"{c2pa_stem}.c2pa"
             sign_cmd = [
                 "python3", "_utils/sign_c2pa.py",
                 "--pdf", str(pdf_path),

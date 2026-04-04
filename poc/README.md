@@ -218,4 +218,4 @@ The accompanying whitepaper (`docs/whitepaper.qmd`) is licensed under **CC BY‑
 
 SSCCS Foundation a non‑profit research initiative. The PoC was developed as a reference implementation to validate the model’s feasibility and to invite collaboration from the open‑source and research communities.
 
-For more information, visit the [SSCCS GitHub organization](https://github.com/ssccsorg/ssccs) or read the full whitepaper in `docs/whitepaper.pdf`.
+For more information, visit the [SSCCS GitHub organization](https://github.com/ssccsorg/ssccs) or read the full whitepaper in `https://docs.ssccs.org/whitepaper`.
