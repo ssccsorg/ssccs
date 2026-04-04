@@ -1,3 +1,4 @@
+# Initial Scheme Alignments
 
 ```rust
 // qs-core/poc/src/scheme/abstract.rs
@@ -994,7 +995,7 @@ pub struct Matrix<T>(Vec<Vec<T>>);
 ```
 The Scheme abstraction layer is now complete. Key features:
 
-## 🔑 **Key Design Principles**
+## **Key Design Principles**
 
 1. **Physical implementation independence**
    -Define only `LogicalAddress`, physical address will be implemented later
@@ -1016,7 +1017,7 @@ The Scheme abstraction layer is now complete. Key features:
    -Generate unique ID with structural attribute-based hash
    -Guaranteed immutability
 
-## 🏗️ **Use example**
+## **Use example**
 
 ```rust
 // 1. Create a basic scheme

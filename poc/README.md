@@ -152,3 +152,9 @@ This project is licensed under the same terms as the main SSCCS repository.
 ## Contributing
 
 See the main repository's [CONTRIBUTING.md](../CONTRIBUTING.md) for guidelines.
+
+## Acknowledgments
+
+SSCCS Foundation a non‑profit research initiative. The PoC was developed as a reference implementation to validate the model’s feasibility and to invite collaboration from the open‑source and research communities.
+
+For more information, visit the [SSCCS GitHub organization](https://github.com/ssccsorg/ssccs) or read the full whitepaper in `https://docs.ssccs.org/whitepaper`.
