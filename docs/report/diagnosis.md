@@ -24,7 +24,7 @@ By following this plan, SSCCS will transform from a philosophical whitepaper int
 
 ### 1.1 Whitepaper Foundation (Conceptual Layer)
 
-The whitepaper (`docs/whitepaper/whitepaper.qmd`) defines the SSCCS ontology:
+The whitepaper (`https://ssccs.org/wp`) defines the SSCCS ontology:
 
 - Segment: immutable coordinate point with cryptographic identity (BLAKE3 hash).
 - Scheme: immutable structural blueprint (axes, relations, memory layout, observation rules).
