@@ -291,7 +291,7 @@ SSCCS offers an opportunity to bring research into the OpenHW ecosystem. By leve
 [15] A. M. G. Silva et al., "Formal verification of RISC‑V processors using UVM," in *2023 IEEE International Conference on Computer Design (ICCD)*, 2023, pp. 123–130.
 
 <a id="ref-16"></a>
-[16] SSCCS Foundation, "[RISC‑V Integration Research](https://docs.ssccs.org/research/riscv)," 2026. 
+[16] SSCCS Foundation, "[RISC‑V Integration Research](https://docs.ssccs.org/research/riscv.html)," 2026. 
 
 
 ---
