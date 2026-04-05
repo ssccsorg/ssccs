@@ -6,6 +6,7 @@ Behavior:
   - Single target: runs normally
   - Multiple targets: runs in PARALLEL by default
   - Use --sequence/-s to force sequential execution
+  - Use --website to enable website mode (adds --profile website to quarto render)
 
 Caching:
   - Outputs of non‑deterministic formats (pdf, beamer, html, gfm) are cached based on
@@ -27,6 +28,34 @@ Snapshot:
     combined hash changed, the cache is removed, forcing a rebuild on the next build.
   - This avoids recording stale outputs and eliminates reliance on file timestamps.
 
+Website Mode (--website):
+  - Adds `--profile website` to all quarto render commands.
+  - In parallel mode, each target gets a **complete isolated copy** of the docs folder
+    in a temp directory. This prevents resource conflicts (site_libs, .quarto cache)
+    that occur when multiple quarto website renders share the same project directory.
+  - Architecture:
+      base_temp/
+      ├── whitepaper/          ← full docs copy
+      │   └── _site/           ← quarto render output
+      ├── proposal/            ← full docs copy
+      │   └── _site/           ← quarto render output
+      └── research/            ← full docs copy
+          └── _site/           ← quarto render output
+  - After all targets complete, their `_site` directories are merged into the final
+    `docs/_site` using `merge_dirs()`.
+  - Temp directories are automatically cleaned up after the build.
+  - **Note:** Website mode requires more disk space (N x docs size for N parallel jobs).
+    Use `-j` to limit parallelism if disk space is constrained.
+
+Parallel Execution:
+  - Default `--jobs` (-j) is set to **estimated physical CPU cores** (`os.cpu_count() // 2`).
+    This accounts for hyperthreading on Intel/AMD CPUs, where logical cores = 2x physical.
+    Quarto rendering (LuaLaTeX) is CPU-intensive, so physical core count gives better
+    performance per watt and avoids memory pressure from excessive parallelism.
+  - Override with `-j N` for manual control.
+  - Formats within a target can also be rendered in parallel (separate quarto calls)
+    or in a single command (`--single-command` with `--to format1,format2`).
+
 Important:
   - Formats can be rendered either in parallel (each in a separate `quarto render` call)
     or in a single command (with `--to format1,format2`) depending on the `--single-command` flag.
@@ -46,24 +75,35 @@ Usage:
   ./build.py -s whitepaper proposal readme  # Force sequential execution
   ./build.py -j 2 whitepaper,proposal       # Parallel with 2 jobs
   ./build.py -o ./dist whitepaper proposal  # With output directory
+  ./build.py --website                      # Website mode (parallel with isolated docs)
+  ./build.py --website -j 3                 # Website mode with 3 parallel jobs
   ./build.py snapshot                       # Refresh cache for all targets
   ./build.py snapshot whitepaper proposal   # Refresh cache for specific targets
   ./build.py --single-command whitepaper     # Use single Quarto command for all formats
+  ./build.py clean                          # Remove Quarto artifacts
 """
 
 import argparse
 import hashlib
 import json
 import logging
+import os
 import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import List, Optional, Dict, Callable, Tuple, Any
 from functools import lru_cache
+
+try:
+    import yaml
+    YAML_AVAILABLE = True
+except ImportError:
+    YAML_AVAILABLE = False
 
 # Formats that are considered non‑deterministic (cached based on QMD hash only)
 NON_DETERMINISTIC_FORMATS = {"pdf", "beamer", "html", "gfm"}
@@ -520,6 +560,7 @@ def clean_quarto_artifacts(docs_root: Path) -> bool:
         "**/*_extensions",
         "**/*_locked",
         "**/*_libs",
+        "**/_site",
 
         # quarto: final artifects
         "**/*.tex",
@@ -561,8 +602,8 @@ def clean_quarto_artifacts(docs_root: Path) -> bool:
     return True
 
 
-# Special target configurations
-SPECIAL_CONFIG: Dict[str, Dict[str, Any]] = {
+# Default special target configurations (can be overridden by external config)
+DEFAULT_TARGET_CONFIG: Dict[str, Dict[str, Any]] = {
     "whitepaper": {
         "c2pa": True,
     },
@@ -571,97 +612,235 @@ SPECIAL_CONFIG: Dict[str, Dict[str, Any]] = {
     },
 }
 
-def discover_qmd_targets(docs_root: Path) -> Dict[str, Dict[str, Any]]:
+# Default exclude patterns (gitignore-style)
+DEFAULT_EXCLUDE_PATTERNS: List[str] = []
+
+
+def load_external_config(config_path: Optional[Path]) -> Dict[str, Any]:
     """
-    Scan docs_root for .qmd files and return target configurations.
-    Excludes directories matching the patterns:
-      **/*_include, **/*_extensions, **/*_utils, **/*_output, **/*_files, **/*_locked
-    (i.e., any directory whose name ends with one of these suffixes, at any depth)
+    Load external configuration from YAML file.
+    Returns empty dict if file doesn't exist or YAML is not available.
+    """
+    if config_path is None or not config_path.exists():
+        return {}
+    
+    if not YAML_AVAILABLE:
+        logger.warning(f"YAML support not available (install PyYAML). Using default config.")
+        return {}
+    
+    try:
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
+        logger.info(f"Loaded external config from {config_path}")
+        return config or {}
+    except Exception as e:
+        logger.warning(f"Failed to load config from {config_path}: {e}. Using default config.")
+        return {}
+
+
+def get_exclude_patterns(external_config: Dict[str, Any]) -> List[str]:
+    """Get exclude patterns from external config or use defaults."""
+    return external_config.get('exclude', DEFAULT_EXCLUDE_PATTERNS)
+
+
+def get_target_config_from_external(external_config: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+    """Get target configurations from external config or use defaults."""
+    # Note: YAML uses 'target_config' key (not 'target')
+    target_config = external_config.get('target_config', {})
+    # Merge with defaults (external config takes precedence)
+    merged = DEFAULT_TARGET_CONFIG.copy()
+    for target, config in target_config.items():
+        if target in merged:
+            merged[target].update(config)
+        else:
+            merged[target] = config
+    return merged
+
+
+def matches_gitignore_pattern(rel_path: Path, patterns: List[str]) -> bool:
+    """
+    Check if a relative path matches any of the gitignore-style patterns.
+    
+    Supports:
+    - Glob patterns: **/*.md, **/README.md
+    - Directory patterns: **/_include/, **/*_libs/ (trailing slash for directories)
+    - Simple patterns: README.md, CONTRIBUTING.md
+    
+    Pattern matching rules (gitignore-style):
+    - "**/" at start matches any directory depth
+    - "*" matches any characters except "/"
+    - "?" matches single character except "/"
+    - Trailing "/" indicates directory-only match
+    - Pattern without "/" matches filename at any level
+    """
+    import fnmatch
+    
+    path_str = str(rel_path)
+    path_str_forward = path_str.replace('\\', '/')  # Normalize to forward slashes
+    name = rel_path.name
+    
+    for pattern in patterns:
+        # Normalize pattern
+        pattern = pattern.strip()
+        if not pattern:
+            continue
+            
+        # Check if pattern is for directories only (trailing slash)
+        is_dir_only = pattern.endswith('/')
+        if is_dir_only:
+            pattern = pattern[:-1]
+            # For directory patterns, check if path is under a matching directory
+            # Match against each directory component
+            parts = path_str_forward.split('/')
+            for i, part in enumerate(parts[:-1]):  # Exclude filename
+                if fnmatch.fnmatch(part, pattern) or fnmatch.fnmatch(parts[i], pattern.split('/')[-1] if '/' in pattern else pattern):
+                    return True
+            continue
+        
+        # Check full path match
+        if fnmatch.fnmatch(path_str_forward, pattern):
+            return True
+        if fnmatch.fnmatch(path_str, pattern):
+            return True
+            
+        # Check filename-only match (for patterns without directory separators)
+        if '/' not in pattern and '\\' not in pattern:
+            if fnmatch.fnmatch(name, pattern):
+                return True
+        
+        # Check if pattern starts with **/ (matches any depth)
+        if pattern.startswith('**/'):
+            subpattern = pattern[3:]
+            # Match against filename
+            if fnmatch.fnmatch(name, subpattern):
+                return True
+            # Match against any suffix of the path
+            parts = path_str_forward.split('/')
+            for i in range(len(parts)):
+                suffix = '/'.join(parts[i:])
+                if fnmatch.fnmatch(suffix, subpattern):
+                    return True
+        
+        # Check if pattern ends with /** (matches anything under directory)
+        if pattern.endswith('/**'):
+            dirpattern = pattern[:-3]
+            if path_str_forward.startswith(dirpattern + '/') or path_str.startswith(dirpattern + '/'):
+                return True
+    
+    return False
+
+
+def discover_qmd_targets(docs_root: Path, exclude_patterns: Optional[List[str]] = None) -> Dict[str, Dict[str, Any]]:
+    """
+    Scan docs_root for .qmd and .md files and return target configurations.
+    Excludes files/directories matching gitignore-style patterns.
     
     Target naming rules:
-      - folder/index.qmd -> target name is 'folder'
-      - folder/name.qmd -> target name is 'name' (or 'folder_name' if conflict)
+      - folder/index.qmd or folder/index.md -> target name is 'folder'
+      - folder/name.qmd or folder/name.md -> target name is 'name' (or 'folder_name' if conflict)
+    
+    Args:
+        docs_root: Root directory to scan
+        exclude_patterns: List of gitignore-style patterns for files/dirs to exclude
     """
-    exclude_suffixes = ["_include", "_extensions", "_utils", "_output", "_files", "_locked", "_libs"]
-    exclude_dirs = set()
-    for suffix in exclude_suffixes:
-        pattern = f"**/*{suffix}"
-        for item in docs_root.glob(pattern):
-            if item.is_dir():
-                exclude_dirs.add(item.resolve())
+    if exclude_patterns is None:
+        exclude_patterns = DEFAULT_EXCLUDE_PATTERNS
 
     targets = {}
-    for qmd_path in docs_root.rglob("*.qmd"):
-        qmd_resolved = qmd_path.resolve()
-        if any(qmd_resolved.is_relative_to(ex_dir) for ex_dir in exclude_dirs):
-            continue
-
-        rel_path = qmd_path.relative_to(docs_root)
-        
-        # Determine target name based on file name
-        if rel_path.stem.lower() == "index":
-            # index.qmd -> use parent folder name as target
-            parent = rel_path.parent.name
-            if parent and parent != ".":
-                target_name = parent.lower()
+    # Process .qmd files first, then .md files
+    for ext in ("*.qmd", "*.md"):
+        for file_path in docs_root.rglob(ext):
+            file_resolved = file_path.resolve()
+            
+            rel_path = file_path.relative_to(docs_root)
+            
+            # Check exclude patterns (gitignore-style)
+            if matches_gitignore_pattern(rel_path, exclude_patterns):
+                logger.info(f"Ignoring {rel_path} (matches exclude pattern)")
+                continue
+            
+            # Determine target name based on file name
+            if rel_path.stem.lower() == "index":
+                # index.qmd / index.md -> use parent folder name as target
+                parent = rel_path.parent.name
+                if parent and parent != ".":
+                    target_name = parent.lower()
+                else:
+                    # Root level index -> use 'index'
+                    target_name = "index"
             else:
-                # Root level index.qmd -> use 'index'
-                target_name = "index"
-        else:
-            # Regular file -> use stem as target name
-            target_name = rel_path.stem.lower()
+                # Regular file -> use stem as target name
+                # Sanitize: replace spaces and special chars with underscores
+                target_name = rel_path.stem.lower()
+                # Replace spaces and multiple spaces with single underscore
+                target_name = re.sub(r'\s+', '_', target_name)
+                # Replace other special chars that might cause issues
+                target_name = re.sub(r'[^a-z0-9_]', '', target_name)
 
-        # Handle name conflicts
-        if target_name in targets:
-            parent = rel_path.parent.name
-            if parent and parent != ".":
-                target_name = f"{parent}_{target_name}"
-            else:
-                suffix = 2
-                while f"{target_name}_{suffix}" in targets:
-                    suffix += 1
-                target_name = f"{target_name}_{suffix}"
+            # Handle name conflicts
+            if target_name in targets:
+                parent = rel_path.parent.name
+                if parent and parent != ".":
+                    target_name = f"{parent}_{target_name}"
+                else:
+                    suffix = 2
+                    while f"{target_name}_{suffix}" in targets:
+                        suffix += 1
+                    target_name = f"{target_name}_{suffix}"
 
-        config = {
-            "qmd": str(rel_path),
-            "output_dir": False,
-            "c2pa": False,
-            "copy_pdf": False,
-            "copy_to_root": False,
-            "to": None,
-            "copy_html": False,
-            "copy_md": False,
-        }
-        targets[target_name] = config
+            config = {
+                "qmd": str(rel_path),
+                "output_dir": False,
+                "c2pa": False,
+                "copy_pdf": False,
+                "copy_to_root": False,
+                "to": None,
+                "copy_html": False,
+                "copy_md": False,
+            }
+            targets[target_name] = config
     return targets
 
 
-def get_target_config(docs_root: Path) -> Dict[str, Dict[str, Any]]:
+def get_target_config(docs_root: Path, external_config: Optional[Dict[str, Any]] = None) -> Dict[str, Dict[str, Any]]:
     """
-    Return merged configuration: special config updates discovered defaults.
+    Return merged configuration: target_config updates discovered defaults.
+    
+    Note: target_config in YAML is optional - targets not listed still get built with defaults.
+    
+    Args:
+        docs_root: Root directory of documentation
+        external_config: Optional external configuration dictionary
     """
-    discovered = discover_qmd_targets(docs_root)
-    # Merge special config (updates discovered entries)
-    for target, config in SPECIAL_CONFIG.items():
+    if external_config is None:
+        external_config = {}
+    
+    exclude_patterns = get_exclude_patterns(external_config)
+    target_config = get_target_config_from_external(external_config)
+    
+    discovered = discover_qmd_targets(docs_root, exclude_patterns)
+    # Merge target config (updates discovered entries)
+    # Note: Unlike before, missing targets in config are NOT errors - they just use defaults
+    for target, config in target_config.items():
         if target not in discovered:
-            logger.error(f"Target '{target}' not found in discovered .qmd files")
-            sys.exit(1)
-        # Update discovered config with special config, preserving missing keys
+            logger.warning(f"Target '{target}' from config not found in discovered files (may be excluded by pattern)")
+            continue
+        # Update discovered config with target config, preserving missing keys
         discovered[target].update(config)
-        # Validate that qmd path matches target name
-        # For index.qmd files, target name should match parent folder
-        # For other files, target name should match file stem
+    
+    # Validate target names for configured targets only
+    for target, config in target_config.items():
+        if target not in discovered:
+            continue
         qmd_path = Path(discovered[target]["qmd"])
         if qmd_path.stem.lower() == "index":
-            # index.qmd -> target should match parent folder name
             expected = qmd_path.parent.name.lower()
         else:
-            # Regular file -> target should match file stem
             expected = qmd_path.stem.lower()
         
         if target.lower() != expected:
             logger.error(
-                f"Target name '{target}' does not match QMD file path '{qmd_path}' "
+                f"Target name '{target}' does not match source file path '{qmd_path}' "
                 f"(expected target name '{expected}')"
             )
             sys.exit(1)
@@ -709,13 +888,18 @@ def _render_formats_parallel(
     qmd_path: Path,
     formats: List[str],
     format_output_paths: Dict[str, Path],
-    docs_root: Path
+    docs_root: Path,
+    website: bool = False
 ) -> bool:
     """Render each format in its own Quarto command, running in parallel threads."""
     def render_single_format(fmt: str) -> bool:
         lock = _lock_for_qmd(qmd_path)
         with lock:
             quarto_cmd = ["quarto", "render", str(qmd_path), "--to", fmt]
+            if website:
+                quarto_cmd.append("--profile")
+                quarto_cmd.append("website")
+                quarto_cmd.append("--no-clean")
             if not run_command(quarto_cmd, cwd=docs_root):
                 logger.error(f"Quarto render failed for {qmd_path.name} (format {fmt}).")
                 return False
@@ -748,13 +932,18 @@ def _render_formats_single(
     qmd_path: Path,
     formats: List[str],
     format_output_paths: Dict[str, Path],
-    docs_root: Path
+    docs_root: Path,
+    website: bool = False
 ) -> bool:
     """Render all formats using a single Quarto command (--to fmt1,fmt2)."""
     lock = _lock_for_qmd(qmd_path)
     with lock:
         formats_str = ",".join(formats)
         quarto_cmd = ["quarto", "render", str(qmd_path), "--to", formats_str]
+        if website:
+            quarto_cmd.append("--profile")
+            quarto_cmd.append("website")
+            quarto_cmd.append("--no-clean")
         if not run_command(quarto_cmd, cwd=docs_root):
             logger.error(f"Quarto render failed for {qmd_path.name} (formats {formats_str}).")
             return False
@@ -774,29 +963,77 @@ def _render_formats(
     formats: List[str],
     format_output_paths: Dict[str, Path],
     docs_root: Path,
-    single_command: bool
+    single_command: bool,
+    website: bool = False
 ) -> bool:
     """Dispatch to the appropriate rendering strategy."""
     if single_command:
-        return _render_formats_single(qmd_path, formats, format_output_paths, docs_root)
+        return _render_formats_single(qmd_path, formats, format_output_paths, docs_root, website)
     else:
-        return _render_formats_parallel(qmd_path, formats, format_output_paths, docs_root)
+        return _render_formats_parallel(qmd_path, formats, format_output_paths, docs_root, website)
 
 
-def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path] = None, single_command: bool = False) -> bool:
+def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path] = None, single_command: bool = False, website: bool = False, docs_root: Optional[Path] = None) -> bool:
     """
-    Generic build function that renders a .qmd file and performs optional post‑processing.
+    Generic build function that renders a .qmd or .md file and performs optional post‑processing.
     Formats are rendered either in parallel (separate commands) or in a single command
     depending on the `single_command` flag.
+    If `website` is True, adds `--profile website` to Quarto render commands.
+    
+    Important: In website mode, formats are NOT rendered individually. Instead, quarto render
+    is called without --to to let Quarto handle all formats defined in the document's YAML.
+    This is required because website mode uses a shared project configuration.
+    
+    For .md files without explicit format configuration, quarto render is called without --to
+    to let Quarto handle the file natively.
+    
+    If `docs_root` is provided, use it as the docs directory (for isolated mode).
     """
     logger.info(f"Building {target}...")
-    docs_root = Path(__file__).parent.absolute()
+    if docs_root is None:
+        docs_root = Path(__file__).parent.absolute()
 
-    qmd_path = docs_root / config["qmd"]
-    if not qmd_path.exists():
-        logger.error(f"Qmd file not found: {qmd_path}")
+    source_path = docs_root / config["qmd"]
+    if not source_path.exists():
+        logger.error(f"Source file not found: {source_path}")
         return False
 
+    # Check if this is a .md file (not .qmd)
+    is_md_file = source_path.suffix.lower() == ".md"
+    
+    # For .md files without explicit 'to' config, render directly without format inspection
+    if is_md_file and config.get("to") is None:
+        # Simple render: quarto render file.md [--profile website]
+        logger.info(f"Rendering {source_path.name} as native Markdown (no format inspection)")
+        quarto_cmd = ["quarto", "render", str(source_path)]
+        if website:
+            quarto_cmd.append("--profile")
+            quarto_cmd.append("website")
+            if output_dir:
+                quarto_cmd.extend(["--output-dir", str(output_dir)])
+        if not run_command(quarto_cmd, cwd=docs_root):
+            logger.error(f"Quarto render failed for {source_path.name}.")
+            return False
+        logger.info(f"{target} build completed successfully (native Markdown).")
+        return True
+
+    # In website mode, render without --to to let Quarto handle all formats from YAML
+    # This is required because website mode uses shared project configuration
+    # Use --no-clean to prevent Quarto from automatically cleaning site_libs
+    if website:
+        logger.info(f"Rendering {source_path.name} in website mode (no --to, all formats from YAML)")
+        quarto_cmd = ["quarto", "render", str(source_path), "--profile", "website", "--no-clean"]
+        if output_dir:
+            quarto_cmd.extend(["--output-dir", str(output_dir)])
+        if not run_command(quarto_cmd, cwd=docs_root):
+            logger.error(f"Quarto render failed for {source_path.name} (website mode).")
+            return False
+        logger.info(f"{target} build completed successfully (website mode).")
+        return True
+
+    # For .qmd files or .md with explicit 'to' config (non-website mode), use full format handling
+    qmd_path = source_path
+    
     # Determine generated files early for caching
     # For index.qmd files, use parent folder name for output files (e.g., whitepaper.pdf)
     # For other files, use the file stem
@@ -838,7 +1075,7 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
     # Render
     if formats_to_render:
         logger.info(f"Rendering {len(formats_to_render)} format(s) for {target}")
-        if not _render_formats(qmd_path, formats_to_render, format_output_paths, docs_root, single_command):
+        if not _render_formats(qmd_path, formats_to_render, format_output_paths, docs_root, single_command, website):
             return False
     else:
         logger.info(f"All formats for {target} are up‑to‑date, skipping render.")
@@ -918,21 +1155,29 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
 
 
 DOCS_ROOT = Path(__file__).parent.absolute()
-TARGET_CONFIG = get_target_config(DOCS_ROOT)
-
-
-# Build function mapping per target (auto‑generated from TARGET_CONFIG)
+EXTERNAL_CONFIG: Dict[str, Any] = {}
+TARGET_CONFIG: Dict[str, Dict[str, Any]] = {}
 BUILD_FUNCTIONS: Dict[str, Callable[..., bool]] = {}
-for target, config in TARGET_CONFIG.items():
-    # Create a closure that captures target and config
-    def make_builder(tgt, cfg):
-        def builder(output_dir: Optional[Path] = None, single_command: bool = False) -> bool:
-            return build_generic(tgt, cfg, output_dir, single_command)
-        return builder
-    BUILD_FUNCTIONS[target] = make_builder(target, config)
+OUTPUT_DIR_TARGETS: set = set()
 
-# list of targets that receive output_dir argument (those with output_dir=True in config)
-OUTPUT_DIR_TARGETS = {t for t, cfg in TARGET_CONFIG.items() if cfg.get("output_dir")}
+def initialize_config(config_path: Optional[Path]) -> None:
+    """Initialize global configuration from external file."""
+    global EXTERNAL_CONFIG, TARGET_CONFIG, BUILD_FUNCTIONS, OUTPUT_DIR_TARGETS
+    EXTERNAL_CONFIG = load_external_config(config_path)
+    TARGET_CONFIG = get_target_config(DOCS_ROOT, EXTERNAL_CONFIG)
+    
+    # Build function mapping per target (auto-generated from TARGET_CONFIG)
+    BUILD_FUNCTIONS = {}
+    for target, config in TARGET_CONFIG.items():
+        # Create a closure that captures target and config
+        def make_builder(tgt, cfg):
+            def builder(output_dir: Optional[Path] = None, single_command: bool = False, website: bool = False, docs_root: Optional[Path] = None) -> bool:
+                return build_generic(tgt, cfg, output_dir, single_command, website, docs_root)
+            return builder
+        BUILD_FUNCTIONS[target] = make_builder(target, config)
+    
+    # list of targets that receive output_dir argument (those with output_dir=True in config)
+    OUTPUT_DIR_TARGETS = {t for t, cfg in TARGET_CONFIG.items() if cfg.get("output_dir")}
 
 
 def parse_targets(targets_arg: List[str]) -> List[str]:
@@ -959,15 +1204,15 @@ def validate_targets(targets: List[str]) -> List[str]:
     return targets
 
 
-def build_single_target(target: str, output_dir: Optional[Path], single_command: bool) -> Tuple[str, bool]:
+def build_single_target(target: str, output_dir: Optional[Path], single_command: bool, website: bool = False) -> Tuple[str, bool]:
     """Wrapper to run a single build function and return (target_name, success)."""
     logger.info(f"Starting build: {target}")
     func = BUILD_FUNCTIONS[target]
     try:
         if target in OUTPUT_DIR_TARGETS:
-            success = func(output_dir=output_dir, single_command=single_command)
+            success = func(output_dir=output_dir, single_command=single_command, website=website)
         else:
-            success = func(single_command=single_command)
+            success = func(single_command=single_command, website=website)
         logger.info(f"Finished build: {target} -> {'✓' if success else '✗'}")
         return target, success
     except Exception as e:
@@ -975,12 +1220,58 @@ def build_single_target(target: str, output_dir: Optional[Path], single_command:
         return target, False
 
 
+def merge_dirs(src: Path, dst: Path) -> bool:
+    """
+    Merge contents of src directory into dst directory.
+    Overwrites existing files, creates missing directories.
+    """
+    try:
+        for item in src.iterdir():
+            src_item = item
+            dst_item = dst / item.name
+            if item.is_dir():
+                if dst_item.exists():
+                    merge_dirs(src_item, dst_item)
+                else:
+                    shutil.copytree(src_item, dst_item)
+            else:
+                shutil.copy2(src_item, dst_item)
+        return True
+    except Exception as e:
+        logger.error(f"Failed to merge {src} into {dst}: {e}")
+        return False
+
+
+def _render_target_isolated(target: str, output_dir: Optional[Path], single_command: bool, website: bool, temp_docs: Path) -> bool:
+    """
+    Render a single target in isolation using a complete copy of the docs folder.
+    This prevents resource conflicts when running multiple quarto renders in parallel.
+    """
+    logger.info(f"Rendering {target} in isolated docs directory {temp_docs}")
+    
+    try:
+        # Build in the isolated docs directory
+        func = BUILD_FUNCTIONS.get(target)
+        if func is None:
+            logger.error(f"Unknown target: {target}")
+            return False
+        
+        # For isolated mode, we run the build in the temp_docs directory
+        # The output will go to temp_docs/_site
+        success = func(output_dir=temp_docs / "_site", single_command=single_command, website=website, docs_root=temp_docs)
+        return success
+    except Exception as e:
+        logger.error(f"Exception while rendering {target}: {e}")
+        return False
+
+
 def build_targets(
     targets: List[str],
     output_dir: Optional[Path],
     sequence_mode: bool,
     max_jobs: int,
-    single_command: bool
+    single_command: bool,
+    website: bool = False
 ) -> bool:
     """
     Build multiple targets.
@@ -989,6 +1280,10 @@ def build_targets(
       - If sequence_mode=True: run sequentially regardless of target count
       - If sequence_mode=False and len(targets) > 1: run in parallel (default)
       - If sequence_mode=False and len(targets) == 1: run normally (no threading overhead)
+      - If website=True and parallel: use isolated temp directories for each target, then merge
+    
+    In website mode with parallel execution, each target renders to its own temp directory
+    to avoid site_libs conflicts, then results are merged into the final _site directory.
     """
     if not targets:
         logger.info("No targets specified. Nothing to build.")
@@ -996,14 +1291,83 @@ def build_targets(
 
     results: Dict[str, bool] = {}
 
-    # Decide execution mode: parallel only if NOT sequence_mode AND multiple targets
+    # In website mode with parallel execution:
+    # Each target gets a complete copy of the docs folder in a temp directory
+    # This ensures complete isolation of Quarto's project resources
+    if website and (not sequence_mode) and (len(targets) > 1):
+        logger.info("Website mode: using isolated docs copies for parallel rendering...")
+        
+        # Create base temp directory
+        base_temp = Path(tempfile.mkdtemp(prefix="quarto_website_"))
+        target_temp_dirs: Dict[str, Path] = {}
+        
+        try:
+            # Copy entire docs folder for each target
+            for t in targets:
+                temp_docs = base_temp / t
+                logger.info(f"Copying docs to {temp_docs} for {t}...")
+                shutil.copytree(DOCS_ROOT, temp_docs)
+                target_temp_dirs[t] = temp_docs
+            
+            # Render all targets in parallel, each in its own isolated docs copy
+            with ThreadPoolExecutor(max_workers=max_jobs) as executor:
+                futures = {
+                    executor.submit(
+                        _render_target_isolated, t, output_dir, single_command, website, target_temp_dirs[t]
+                    ): t
+                    for t in targets
+                }
+                for future in as_completed(futures):
+                    target = futures[future]
+                    try:
+                        success = future.result()
+                        results[target] = success
+                    except Exception as e:
+                        logger.error(f"Exception while rendering {target}: {e}")
+                        results[target] = False
+            
+            # Merge all successful _site directories into final output
+            final_output = output_dir if output_dir else (DOCS_ROOT / "_site")
+            final_output.mkdir(parents=True, exist_ok=True)
+            
+            logger.info(f"Merging {len([t for t, s in results.items() if s])} successful targets into {final_output}...")
+            for target in targets:
+                if results.get(target, False):
+                    temp_docs = target_temp_dirs[target]
+                    temp_site = temp_docs / "_site"
+                    if temp_site.exists():
+                        if not merge_dirs(temp_site, final_output):
+                            logger.warning(f"Failed to merge {target} output into {final_output}")
+                            results[target] = False
+            
+            # Summary
+            succeeded = [t for t, s in results.items() if s]
+            failed = [t for t, s in results.items() if not s]
+            if failed:
+                if succeeded:
+                    logger.info(f"Successful targets: {succeeded}")
+                logger.error(f"Failed targets: {failed}")
+                return False
+            
+            logger.info(f"All targets completed successfully: {list(results.keys())}")
+            return True
+            
+        finally:
+            # Clean up temp directory
+            logger.info(f"Cleaning up temp directory {base_temp}")
+            try:
+                shutil.rmtree(base_temp)
+            except Exception as e:
+                logger.warning(f"Failed to clean up temp dir {base_temp}: {e}")
+
+    # Non-website or sequential mode: use standard execution
     use_parallel = (not sequence_mode) and (len(targets) > 1)
 
     if use_parallel:
         logger.info(f"Running {len(targets)} targets in parallel (max_jobs={max_jobs})")
         with ThreadPoolExecutor(max_workers=max_jobs) as executor:
             futures = {
-                executor.submit(build_single_target, t, output_dir, single_command): t
+                executor.submit(build_single_target, t, output_dir, single_command, website): t
                 for t in targets
             }
             for future in as_completed(futures):
@@ -1014,7 +1378,7 @@ def build_targets(
         if len(targets) > 1:
             logger.info(f"Running {len(targets)} targets sequentially (--sequence mode)")
         for target in targets:
-            _, success = build_single_target(target, output_dir, single_command)
+            _, success = build_single_target(target, output_dir, single_command, website)
             results[target] = success
 
     # Summary of results
@@ -1043,6 +1407,13 @@ Behavior:
     unless --single-command is used.
   - Use --sequence/-s to force sequential execution across targets.
   - Use --single-command to render all formats of a target in one Quarto command.
+  - Use --website to enable website mode (--profile website) with isolated parallel docs.
+
+Website Mode:
+  - Each target gets a complete isolated copy of the docs folder in a temp directory.
+  - After rendering, all _site directories are merged into the final output.
+  - Prevents resource conflicts (site_libs, .quarto cache) in parallel website builds.
+  - Requires more disk space (N x docs size for N parallel jobs).
 
 Snapshot:
   - Use `%(prog)s snapshot` to refresh cache hashes for all targets.
@@ -1052,7 +1423,7 @@ Snapshot:
 
 Clean:
   - Use `%(prog)s clean` to remove Quarto‑generated directories:
-      **/*_files, **/*_output, **/*_extensions, **/*_locked
+      **/*_files, **/*_output, **/*_extensions, **/*_locked, **/_site
   - Deletes all matching directories and files recursively.
 
 Examples:
@@ -1062,10 +1433,14 @@ Examples:
   %(prog)s -s whitepaper proposal readme  # Force sequential execution
   %(prog)s -j 2 whitepaper,proposal       # Parallel with 2 jobs
   %(prog)s -o ./dist whitepaper proposal  # Specify output directory
+  %(prog)s --website                      # Website mode (parallel with isolated docs)
+  %(prog)s --website -j 3                 # Website mode with 3 parallel jobs
   %(prog)s snapshot                       # Refresh cache for all targets
   %(prog)s snapshot whitepaper proposal   # Refresh cache for specific targets
   %(prog)s clean                          # Remove Quarto artifacts
   %(prog)s --single-command whitepaper     # Use single Quarto command for all formats
+  %(prog)s --config build.yml whitepaper   # Use external configuration file
+  %(prog)s -c ./custom-config.yml whitepaper  # Specify custom config path
         """
     )
 
@@ -1080,16 +1455,33 @@ Examples:
         action="store_true",
         help="Force sequential execution even with multiple targets",
     )
+    # Default max_jobs to physical core count for optimal parallel performance.
+    # Uses multiprocessing to get logical cores, then estimates physical cores
+    # by dividing by 2 (accounts for hyperthreading on Intel/AMD CPUs).
+    # Falls back to os.cpu_count() if multiprocessing is unavailable.
+    _logical_cores = os.cpu_count() or 4
+    _default_jobs = max(1, _logical_cores // 2)
     parser.add_argument(
         "--jobs", "-j",
         type=int,
-        default=5,
-        help="Max number of parallel jobs (default: 4, only used in parallel mode)",
+        default=_default_jobs,
+        help=f"Max number of parallel jobs (default: {_default_jobs} = estimated physical cores, only used in parallel mode)",
     )
     parser.add_argument(
         "--single-command",
         action="store_true",
         help="Render all formats in a single Quarto command (--to fmt1,fmt2) instead of separate commands",
+    )
+    parser.add_argument(
+        "--website",
+        action="store_true",
+        help="Use Quarto website profile (adds --profile website to render commands)",
+    )
+    parser.add_argument(
+        "--config", "-c",
+        type=Path,
+        default=None,
+        help="Path to external YAML configuration file (default: build.yml in docs root)",
     )
     parser.add_argument(
         "targets",
@@ -1099,6 +1491,16 @@ Examples:
     )
 
     args = parser.parse_args()
+
+    # Initialize configuration from external file
+    config_path = args.config
+    if config_path is None:
+        # Default: look for build.yml in docs root
+        default_config = DOCS_ROOT / "build.yml"
+        if default_config.exists():
+            config_path = default_config
+    
+    initialize_config(config_path)
 
     # Clean special handling
     if "clean" in args.targets:
@@ -1142,6 +1544,7 @@ Examples:
         sequence_mode=args.sequence,
         max_jobs=args.jobs,
         single_command=args.single_command,
+        website=args.website,
     )
 
     sys.exit(0 if success else 1)
