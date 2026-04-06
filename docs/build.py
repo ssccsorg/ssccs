@@ -124,12 +124,12 @@ IGNORING_ARTIFACT_PATTERNS = [
     "**/*.tex",
     "**/*.pdf",
     "**/*.html",
-    "**/*.c2pa_identifier.svg",
     # quarto: global
     "**/*.quarto_ipynb",
     "**/*.quarto",
     # c2pa
     "**/*.c2pa",
+    "**/*.c2pa_identifier.svg",
 ]
 
 def ignore_quarto_artifacts() -> Callable[[str, List[str]], List[str]]:
@@ -1055,18 +1055,7 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
         logger.info(f"{target} build completed successfully (native Markdown).")
         return True
 
-    # In website mode, render without --to to let Quarto handle all formats from YAML
-    # This is required because website mode uses shared project configuration
-    if website:
-        logger.info(f"Rendering {source_path.name} in website mode (no --to, all formats from YAML)")
-        quarto_cmd = ["quarto", "render", str(source_path), "--profile", "website"]
-        if not run_command(quarto_cmd, cwd=docs_root):
-            logger.error(f"Quarto render failed for {source_path.name} (website mode).")
-            return False
-        logger.info(f"{target} build completed successfully (website mode).")
-        return True
-
-    # For .qmd files or .md with explicit 'to' config (non-website mode), use full format handling
+    # For .qmd files or .md with explicit 'to' config, use full format handling
     qmd_path = source_path
     
     # Determine generated files early for caching
@@ -1101,29 +1090,64 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
             return False
         format_output_paths[fmt] = output_path
 
-    # Determine which formats need rendering
+    # Determine which formats need rendering (only for non‑website mode)
     formats_to_render = []
-    for fmt in formats:
-        if should_render_format(qmd_path, fmt, config, output_dir):
-            formats_to_render.append(fmt)
+    if not website:
+        for fmt in formats:
+            if should_render_format(qmd_path, fmt, config, output_dir):
+                formats_to_render.append(fmt)
 
-    # Render
-    if formats_to_render:
-        logger.info(f"Rendering {len(formats_to_render)} format(s) for {target}")
-        if not _render_formats(qmd_path, formats_to_render, format_output_paths, docs_root, single_command, website):
+    # In website mode, render without --to to let Quarto handle all formats from YAML
+    # This is required because website mode uses shared project configuration
+    if website:
+        logger.info(f"Rendering {source_path.name} in website mode (no --to, all formats from YAML)")
+        quarto_cmd = ["quarto", "render", str(source_path), "--profile", "website"]
+        if not run_command(quarto_cmd, cwd=docs_root):
+            logger.error(f"Quarto render failed for {source_path.name} (website mode).")
             return False
     else:
-        logger.info(f"All formats for {target} are up‑to‑date, skipping render.")
+        if formats_to_render:
+            logger.info(f"Rendering {len(formats_to_render)} format(s) for {target}")
+            if not _render_formats(qmd_path, formats_to_render, format_output_paths, docs_root, single_command, website):
+                return False
+        else:
+            logger.info(f"All formats for {target} are up‑to‑date, skipping render.")
 
     # Step 2: C2PA signing (if enabled) – assumes PDF exists at format_output_paths['pdf'] or similar
+    logger.info(f"format_output_paths keys: {list(format_output_paths.keys())}")
     if config.get("c2pa"):
-        pdf_path = format_output_paths.get('pdf') or format_output_paths.get('beamer')
+        # Determine possible PDF paths
+        candidates = []
+        primary = format_output_paths.get('pdf') or format_output_paths.get('beamer')
+        if primary:
+            candidates.append(primary)
+            if website:
+                # Website output goes to _site subdirectory
+                try:
+                    rel = primary.relative_to(docs_root)
+                    candidates.append(docs_root / "_site" / rel)
+                except ValueError:
+                    pass
+        # Also consider moved location via copy_pdf (if config has copy_pdf)
+        if config.get("copy_pdf") and output_dir:
+            dest_dir = Path(output_dir).absolute() if output_dir else docs_root
+            candidates.append(dest_dir / f"{stem}.pdf")
+        # Try each candidate
+        pdf_path = None
+        for cand in candidates:
+            if cand and cand.exists():
+                pdf_path = cand
+                break
+        logger.info(f"pdf_path candidates: {candidates}, selected: {pdf_path}, exists: {pdf_path.exists() if pdf_path else False}")
         if pdf_path and pdf_path.exists():
             # For index.qmd files, use the QMD file stem (index) for C2PA files
             # since the manifest is named after the QMD file, not the target
             c2pa_stem = qmd_path.stem
             manifest_path = parent / f"{c2pa_stem}.c2pa_manifest.json"
-            output_c2pa = parent / f"{c2pa_stem}.c2pa"
+            # Place .c2pa file next to the PDF (so it appears in the same output directory)
+            output_c2pa = pdf_path.parent / f"{c2pa_stem}.c2pa"
+            # Ensure parent directory exists
+            output_c2pa.parent.mkdir(parents=True, exist_ok=True)
             sign_cmd = [
                 "python3", "_utils/sign_c2pa.py",
                 "--pdf", str(pdf_path),
@@ -1137,7 +1161,24 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
 
     # Step 3: Copy PDF to output_dir (if enabled)
     if config.get("copy_pdf"):
-        pdf_path = format_output_paths.get('pdf') or format_output_paths.get('beamer')
+        # Determine possible PDF paths (same logic as signing)
+        candidates = []
+        primary = format_output_paths.get('pdf') or format_output_paths.get('beamer')
+        if primary:
+            candidates.append(primary)
+            if website:
+                # Website output goes to _site subdirectory
+                try:
+                    rel = primary.relative_to(docs_root)
+                    candidates.append(docs_root / "_site" / rel)
+                except ValueError:
+                    pass
+        # Try each candidate
+        pdf_path = None
+        for cand in candidates:
+            if cand and cand.exists():
+                pdf_path = cand
+                break
         if pdf_path and pdf_path.exists():
             dest_dir = Path(output_dir).absolute() if output_dir else docs_root
             dest_dir.mkdir(parents=True, exist_ok=True)
