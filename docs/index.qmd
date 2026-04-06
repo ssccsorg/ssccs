@@ -1,0 +1,189 @@
+---
+title: "SSCCS Documentation"
+subtitle: "Open Documentation and Knowledge Base Infrastructure"
+author: "SSCCS Foundation"
+format:
+  html: default
+---
+
+## Overview
+
+This documentation system is a verifiable knowledge infrastructure designed for technical consistency, AI integration, and open collaboration. Every design decision serves the broader goal of making the project’s knowledge base machine-readable, cryptographically verifiable, and accessible across contexts.
+
+## Key Documents
+
+| Document | Description | Formats |
+|----------|-------------|---------|
+| [Whitepaper](whitepaper/whitepaper.html) | Core technical claims, architecture, and computational model | PDF, HTML |
+| [Proposal](proposal/proposal.html) | Open hardware integration plan and validation targets | PDF, HTML, Beamer |
+| [Research](research/research.html) | Technical analyses, alignment studies, and exploratory work | HTML |
+| [Legal](legal/) | Licensing, governance, and contribution terms | HTML |
+| [Guide](guide/guide.html) | Build system documentation and contributor guide | HTML |
+| [Manifesto](manifesto/manifesto.html) | Project principles and public commitments | HTML |
+
+## Direction
+
+**Documentation‑First and Knowledge‑Base Infrastructure.** The system is designed to become a structured knowledge base for LLM/RAG integration—an Observable Knowledge Graph (OKG)—with deterministic output paths, C2PA provenance, and Markdown‑first GFM output.
+
+The documentation‑first approach represents a fundamental shift: it transforms the project's accumulated knowledge into a verifiable, machine‑readable corpus that enables AI systems to explore, reason about, and extend the underlying computational paradigm. By ensuring that every concept, design decision, and implementation detail is captured in a structured, provenance‑tracked form, we create a platform for emergent discovery—where AI agents can identify connections and opportunities that human researchers might overlook. In this sense, the documentation system is not just a publishing tool; it is the engine of radical, self‑accelerating project growth. The project's documentation system is itself a core technical artifact: not just a publishing tool, but the foundation for knowledge management, AI integration, and public communication.
+
+---
+
+## Technical Guide
+
+### Build Pipeline
+
+```
+docs/
+├── build.py              # Build orchestrator (Python 3)
+├── build.yml             # External configuration (targets, exclusions)
+├── _quarto.yml           # Quarto project configuration
+├── _quarto-website.yml   # Website profile configuration
+├── *.qmd                 # Source documents
+├── _include/             # Shared fragments (headers, formats, references)
+├── _utils/               # Build utilities (C2PA signing, path helpers)
+└── _site/                # Generated output (git-ignored)
+```
+
+**Execution flow:**
+
+```bash
+# Build all targets in parallel (default: physical core count jobs)
+python3 build.py --website
+
+# Build specific targets
+python3 build.py whitepaper proposal
+
+# Sequential execution
+python3 build.py -s whitepaper proposal
+
+# Limited parallelism
+python3 build.py -j 3 --website
+
+# Refresh cache hashes
+python3 build.py snapshot
+
+# Clean generated artifacts
+python3 build.py clean
+```
+
+### Parallel Website Mode: Isolated Rendering
+
+The `--website` mode implements a novel approach to parallel document generation. Each target is rendered in a fully isolated temporary directory that contains a complete copy of the source tree. This allows each render process to operate independently, with its own cache and output paths, while still enabling the build system to merge outputs into a single cohesive website. The `merge_dirs()` function intelligently combines the `_site/` directories from each target, ensuring that all generated pages are included without conflicts. This approach maximizes parallelism while maintaining the integrity of the final output.
+
+
+```
+base_temp/
+├── whitepaper/          ← Complete copy of docs/
+│   └── _site/           ← quarto render --profile website
+├── proposal/            ← Complete copy of docs/
+│   └── _site/           ← quarto render --profile website
+├── research/            ← Complete copy of docs/
+│   └── _site/           ← quarto render --profile website
+└── ...
+         ↓ merge_dirs()
+docs/_site/              ← Final merged output
+```
+
+
+### Caching System
+
+The build system implements intelligent caching to avoid unnecessary rebuilds:
+
+- **Cache key**: Combined SHA-256 hash of source file + all includes + all referenced scripts.
+- **Cache storage**: `{document_stem}_locked/rendered_{format}.txt` adjacent to each source.
+- **Cache validation**: If the combined hash matches the cached hash, the render step is skipped entirely.
+- **Snapshot command**: `build.py snapshot` updates cache entries when source is unchanged, or removes cache when source has changed (forcing rebuild).
+
+This means that modifying a single included fragment triggers rebuilds only for documents that actually include it—not the entire site.
+
+### External Configuration
+
+Build parameters are externalised to `build.yml`, separating policy from mechanism:
+
+```yaml
+# Target-specific overrides
+target_config:
+  whitepaper:
+    c2pa: true          # Enable C2PA signing
+  proposal:
+    c2pa: true
+
+# Exclusion patterns (gitignore-style)
+exclude:
+  - "**/README.md"      # Exclude all README files
+  - "**/_include/"      # Exclude include directories
+```
+
+This allows collaborators to adjust build behavior without modifying the build script itself—essential for collaborative governance.
+
+## Toward AI-Integrated Knowledge Management
+
+This documentation system is designed as the foundation for a **structured knowledge base** that AI systems can query, reason over, and extend.
+
+### RAG Readiness
+
+| Feature | Purpose |
+|---------|---------|
+| Deterministic output paths | Reliable indexing by crawlers and embedding pipelines |
+| Dependency graph (SHA-256 hashes) | Explicit document relationship map for contextual retrieval |
+| GFM (GitHub Flavored Markdown) output | Clean, parseable text for embedding models |
+| C2PA provenance | Trust verification for AI-generated summaries and derivatives |
+| Consistent YAML metadata | Structured fields for metadata-aware retrieval |
+
+### Future Integration Points
+
+- **Knowledge Graph Extraction**: The dependency graph computed during builds can be exported as RDF/JSON-LD, enabling graph-based reasoning over document relationships.
+- **Vector Database Indexing**: GFM outputs provide clean text for embedding models (e.g., text-embedding-3-small, nomic-embed). Combined with YAML metadata, this enables hybrid semantic + metadata filtering.
+- **AI Consistency Checking**: An LLM can be prompted to detect contradictions between documents (e.g., whitepaper claims vs. research findings) using the dependency graph as context.
+- **Automated Summarisation**: The structured nature of outputs enables reliable extraction of abstracts, key claims, and technical specifications for downstream consumption.
+
+### Open Source Documentation as Public Infrastructure
+
+This system is designed to serve as a reference implementation for open-source project documentation:
+
+- **No vendor lock-in**: Built on Quarto (open-source), Python (open-source), and standard file formats (Markdown, PDF, HTML).
+- **Reproducible builds**: Given the same source tree and build command, outputs are deterministic (modulo timestamps in PDF metadata).
+- **Contributor-friendly**: Source files are plain Markdown with YAML frontmatter. No proprietary editors or formats required.
+- **Machine-readable**: The build system's internal state (dependency hashes, target configurations) can be exported for external tooling.
+
+
+## Getting Started
+
+### For Readers
+
+- Browse documents using the sidebar navigation.
+- PDF versions are available for offline reading and academic citation.
+- All documents link to their source files in the repository.
+
+### For Contributors
+
+1. **Clone the repository**: `git clone https://github.com/ssccsorg/ssccs3.git`
+2. **Install dependencies**: `pip install -r docs/requirements.txt`
+3. **Install Quarto**: <https://quarto.org/docs/get-started/>
+4. **Build the site**: `cd docs && python3 build.py --website`
+5. **Preview locally**: Open `docs/_site/index.html` in your browser.
+
+### Build Requirements
+
+| Tool | Purpose | Minimum Version |
+|------|---------|-----------------|
+| Python 3 | Build orchestrator | 3.8+ |
+| Quarto | Document rendering | 1.5+ |
+| LaTeX (TinyTeX) | PDF generation | Included with Quarto |
+| rsync (optional) | Efficient directory merging | Any |
+
+---
+
+## Provenance and Licensing
+
+- **Code**: Apache 2.0 License
+- **Documents**: CC BY-NC-ND 4.0 (whitepaper), Apache 2.0 (technical docs)
+- **Authentication**: GPG-signed commits (`BCCB196BADF50C99`)
+- **Certification**: C2PA manifests for all major outputs
+
+---
+
+::: {.callout-note}
+**This site is auto-generated.** Every page is built from version-controlled source files. To suggest changes, edit the `.md` or `.qmd` files and submit a pull request.
+:::
