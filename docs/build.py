@@ -1012,15 +1012,46 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
     
     # For .md files without explicit 'to' config, render directly without format inspection
     if is_md_file and config.get("to") is None:
-        # Simple render: quarto render file.md [--profile website]
-        logger.info(f"Rendering {source_path.name} as native Markdown (no format inspection)")
-        quarto_cmd = ["quarto", "render", str(source_path)]
+        # In website mode, we keep the simple render (no caching) because output location differs
         if website:
-            quarto_cmd.append("--profile")
-            quarto_cmd.append("website")
+            logger.info(f"Rendering {source_path.name} as native Markdown (website mode, no caching)")
+            quarto_cmd = ["quarto", "render", str(source_path), "--profile", "website"]
+            if not run_command(quarto_cmd, cwd=docs_root):
+                logger.error(f"Quarto render failed for {source_path.name}.")
+                return False
+            logger.info(f"{target} build completed successfully (native Markdown, website).")
+            return True
+        
+        # Non‑website mode: apply _locked cache policy
+        # Determine formats via inspect_qmd (may be empty)
+        formats = get_formats_from_qmd(source_path)
+        if not formats:
+            # No YAML formats, assume default HTML
+            formats = ["html"]
+        
+        # Determine which formats need rendering
+        formats_to_render = []
+        for fmt in formats:
+            if should_render_format(source_path, fmt, config, output_dir):
+                formats_to_render.append(fmt)
+        
+        if not formats_to_render:
+            logger.info(f"All formats for {target} are up‑to‑date, skipping render.")
+            return True
+        
+        # Render all formats with a single quarto render (no --to)
+        logger.info(f"Rendering {source_path.name} as native Markdown (formats: {', '.join(formats)})")
+        quarto_cmd = ["quarto", "render", str(source_path)]
         if not run_command(quarto_cmd, cwd=docs_root):
             logger.error(f"Quarto render failed for {source_path.name}.")
             return False
+        
+        # Update cache for each format that was rendered
+        for fmt in formats:
+            output_path = get_format_output_path(source_path, fmt)
+            if output_path and output_path.exists():
+                update_format_cache(source_path, fmt, output_path)
+        
         logger.info(f"{target} build completed successfully (native Markdown).")
         return True
 
