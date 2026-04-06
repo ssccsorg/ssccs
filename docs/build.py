@@ -1394,12 +1394,29 @@ def build_targets(
         target_temp_dirs: Dict[str, Path] = {}
         
         try:
-            # Copy entire docs folder for each target
-            for t in targets:
+            # Copy entire docs folder for each target in parallel
+            def copy_for_target(t: str) -> Tuple[str, Path]:
                 temp_docs = base_temp / t
                 logger.info(f"Copying docs to {temp_docs} for {t}...")
                 shutil.copytree(DOCS_ROOT, temp_docs, ignore=ignore_quarto_artifacts())
-                target_temp_dirs[t] = temp_docs
+                return t, temp_docs
+
+            target_temp_dirs = {}
+            with ThreadPoolExecutor(max_workers=max_jobs) as executor:
+                future_to_target = {executor.submit(copy_for_target, t): t for t in targets}
+                for future in as_completed(future_to_target):
+                    target = future_to_target[future]
+                    try:
+                        t, temp_docs = future.result()
+                        target_temp_dirs[t] = temp_docs
+                    except Exception as e:
+                        logger.error(f"Failed to copy docs for {target}: {e}")
+                        # Clean up any already copied directories
+                        for td in target_temp_dirs.values():
+                            if td.exists():
+                                shutil.rmtree(td, ignore_errors=True)
+                        shutil.rmtree(base_temp, ignore_errors=True)
+                        return False
             
             # Render all targets in parallel, each in its own isolated docs copy
             with ThreadPoolExecutor(max_workers=max_jobs) as executor:
