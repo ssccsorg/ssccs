@@ -1,0 +1,40 @@
+# SSCCS Documentation Build Configuration
+# This file externalizes target-specific configurations and exclude patterns.
+
+# Target-specific configurations (optional)
+# These settings override defaults for specific targets.
+# If a target is not listed here, it will still be built with default settings.
+target_config:
+  whitepaper:
+    c2pa: true 
+
+  proposal:
+    c2pa: true
+
+  # Example: target with HTML copy enabled
+  # manifesto:
+  #   c2pa: false
+  #   copy_html: true
+  #   copy_pdf: false
+  #   copy_md: false
+  #   output_dir: false
+  #   to: null
+
+# Exclude patterns (gitignore-style)
+# Files and directories matching these patterns will be excluded from target discovery.
+# Supports:
+#   - Glob patterns: **/*.md, **/README.md
+#   - Directory patterns: **/_include/, **/*_libs/
+#   - Simple patterns: README.md, CONTRIBUTING.md
+exclude:
+  # File patterns
+  - "**/README.md"
+  
+  # Directory patterns (trailing slash indicates directory)
+  - "**/_include/"
+  - "**/_extensions/"
+  - "**/_utils/"
+  - "**/*_output/"
+  - "**/*_files/"
+  - "**/*_locked/"
+  - "**/*_libs/"

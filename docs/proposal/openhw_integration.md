@@ -3,8 +3,9 @@
 April 2026, [SSCCS Foundation](https://ssccs.org) 
 
 **For technical details, see:** 
-- [RISC‑V integration research report](https://docs.ssccs.org/research/riscv.html)
-- [SSCCS Whitepaper](https://docs.ssccs.org/whitepaper)
+
+- [RISC‑V integration research report](/research/riscv.html)
+- [SSCCS Whitepaper](/whitepaper)
 
 ---
 
@@ -190,7 +191,7 @@ These analytical considerations will be evaluated on OpenHW CORE‑V hardware, p
 
 ## Benefits for OpenHW and the CORE-V Ecosystem
 
-*These benefits are examined in detail, with comparative analysis across the RISC‑V ecosystem, in the companion research report [RISC‑V Integration Research](https://docs.ssccs.org/research/riscv.html) <a href="#ref-16">[16]</a>.*
+*These benefits are examined in detail, with comparative analysis across the RISC‑V ecosystem, in the companion research report [RISC‑V Integration Research](/research/riscv.html) <a href="#ref-16">[16]</a>.*
 
 | Benefit | Description |
 |---------|-------------|
@@ -290,7 +291,7 @@ SSCCS offers an opportunity to bring research into the OpenHW ecosystem. By leve
 [15] A. M. G. Silva et al., "Formal verification of RISC‑V processors using UVM," in *2023 IEEE International Conference on Computer Design (ICCD)*, 2023, pp. 123–130.
 
 <a id="ref-16"></a>
-[16] SSCCS Foundation, "RISC‑V Integration Research," 2026. [https://docs.ssccs.org/research/riscv.html](https://docs.ssccs.org/research/riscv.html)
+[16] SSCCS Foundation, "[RISC‑V Integration Research](https://docs.ssccs.org/research/riscv.html)," 2026. 
 
 
 ---

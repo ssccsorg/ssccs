@@ -88,6 +88,15 @@ Throughout all engagements, we maintain consistent principles:
 - Beyond immediate profitability: Market fit is secondary to reshaping computation. We prioritise partners who respect this long‑term perspective.
 - Open to serious collaboration, closed to superficial evaluation: We welcome scrutiny of our technical decisions and consensus‑based governance. We invest time only where there is genuine interest in our unconventional, early‑stage idea.
 
+## Documentation-First and Self‑Growing Knowledge Base Infrastructure
+
+The system is designed to become a structured knowledge base for LLM/RAG integration—an Observable Knowledge Graph (OKG)—with deterministic output paths, C2PA provenance, and Markdown-first GFM output.
+
+The documentation‑first approach represents a fundamental shift: it transforms the project's accumulated knowledge into a verifiable, machine‑readable corpus that enables AI systems to explore, reason about, and extend the underlying computational paradigm. By ensuring that every concept, design decision, and implementation detail is captured in a structured, provenance‑tracked form, we create a platform for emergent discovery—where AI agents can identify connections and opportunities that human researchers might overlook. In this sense, the documentation system is not just a publishing tool; it is the engine of radical, self‑accelerating project growth. The project's documentation system is itself a core technical artifact: not just a publishing tool, but the foundation for knowledge management, AI integration, and public communication.
+
+ See the [Documentation Home](/index.html) for technical details.
+
+
 ## Immediate Action Plan
 
 ### Technical Integration (Cross‑Regional)
@@ -119,6 +128,7 @@ Recognising the need to fund the transition to FPGA validation:
 - In‑Kind Support: Prioritise partnerships offering FPGA cloud access or engineering time.
 - Lean Operations: Maintain a lean model to bridge the initial prototyping phase independently.
 
+
 ## Long‑Term Vision & Success Metrics
 
 The goal: Establish a new computational foundation where structure is the primitive, expressed through open‑source software and eventually adopted by hardware designers.
@@ -134,7 +144,7 @@ Success is measured by adoption, not grant size. If future core designers consid
 
 SSCCS is at its core a technological project. Its value lies not in the number of proposals submitted, but in the quality of its ideas and the clarity with which they are demonstrated. The current global momentum around open instruction set architectures offers a unique opportunity to embed SSCCS into a living ecosystem where new hardware is being built.
 
-Not only application‑centric funding channels, but we focus on direct technical engagement with hardware designers and system builders, we turn the project’s strength—its foundational nature—into its primary asset. We will approach each region with respect, seeking win‑win relationships with partners willing to engage seriously with our nascent idea. The immediate goal is no longer to write another proposal, but to produce a tangible, open‑source artifact that the community can see, run, and build upon.
+Not only application‑centric funding channels, but we focus on direct technical engagement with hardware designers and system builders, we turn the project's strength—its foundational nature—into its primary asset. We will approach each region with respect, seeking win‑win relationships with partners willing to engage seriously with our nascent idea. The immediate goal is no longer to write another proposal, but to produce a tangible, open‑source artifact that the community can see, run, and build upon.
 
 ---
 
