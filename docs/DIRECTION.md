@@ -2,9 +2,7 @@
 
 ## Toward a New Computational Paradigm
 
-SSCCS is not an incremental improvement to existing systems. It is a redefinition of what computation is.
-
-For decades, computation has been defined by the von Neumann model: data and instructions stored in memory, fetched sequentially, executed by a processor, with results written back. The majority of energy and time in such systems is spent on data movement rather than logic—the well-known "data-movement wall." SSCCS proposes a shift from procedural execution to structural observation. These are not features to be added, but consequences of how computation is defined. For details, see:
+For decades, computation has been defined by the von Neumann model: data and instructions stored in memory, fetched sequentially, executed by a processor, with results written back. The majority of energy and time in such systems is spent on data movement rather than logic—the well-known "data-movement wall." SSCCS proposes a shift from procedural execution to structural observation, as a redefinition of what computation is. For details, see:
 
 - [Whitepaper](/whitepaper/whitepaper.html)
 - [Guide](/guide.html)
