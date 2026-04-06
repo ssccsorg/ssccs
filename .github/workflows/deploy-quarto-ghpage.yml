@@ -3,10 +3,11 @@ name: Build and Deploy Quarto site
 
 on:
   push:
-    branches: ["main", "quarto-ghpage-test"]
+    branches: ["main", "8-docs-net"]
     paths:
       - 'docs/**/*.py'
       - 'docs/**/*.qmd'
+      - 'docs/**/*.md'
       - 'docs/**/*.yml'
       - 'docs/**/*.txt'
       - 'docs/**/*.svg'
@@ -111,27 +112,7 @@ jobs:
         working-directory: docs
         env:
           QUARTO_PYTHON: python3
-        run: python build.py --single-command
-
-      # Prepare site for Pages deployment
-      - name: Prepare Pages artifact
-        run: |
-          mkdir -p _site
-          rsync -avm \
-            --exclude='.quarto/' \
-            --exclude='*_files/' \
-            --exclude='*_output/' \
-            --exclude='*_extensions/' \
-            --include='*/' \
-            --include='*.html' \
-            --include='*.pdf' \
-            --include='*.png' \
-            --include='*.jpg' \
-            --include='*.css' \
-            --include='*.js' \
-            --include='*.c2pa' \
-            --exclude='*' \
-            docs/ _site/
+        run: python build.py --website
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
