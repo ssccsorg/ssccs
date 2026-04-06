@@ -4,12 +4,16 @@ on:
   push:
     branches: [develop, main]
     paths:
-      - '.devcontainer/**'
-      - '!.devcontainer/**/*.md'
+      - '.devcontainer/devcontainer.json'
+      - '.devcontainer/Dockerfile'
+      - '.devcontainer/setup_docs.sh'
+      - '.github/workflows/verify-devcontainer.yml'
   pull_request:
     paths:
-      - '.devcontainer/**'
-      - '!.devcontainer/**/*.md'
+      - '.devcontainer/devcontainer.json'
+      - '.devcontainer/Dockerfile'
+      - '.devcontainer/setup_docs.sh'
+      - '.github/workflows/verify-devcontainer.yml'
   workflow_dispatch:
     inputs:
       test_scope:
