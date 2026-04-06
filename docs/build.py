@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Top-level build manager for SSCCS documentation.
+SSCCS Documentation Builder
 
 Behavior:
   - Single target: runs normally
@@ -107,6 +107,43 @@ except ImportError:
 
 # Formats that are considered non‑deterministic (cached based on QMD hash only)
 NON_DETERMINISTIC_FORMATS = {"pdf", "beamer", "html", "gfm"}
+
+# Patterns that match Quarto‑generated artifacts (used by clean_quarto_artifacts and copy ignore)
+IGNORING_ARTIFACT_PATTERNS = [
+    "**/__pycache__",
+    "**/*.pyc",
+    "**/*.pyd",
+    "**/*.log",
+    "**/*_files",
+    "**/*_output",
+    "**/*_extensions",
+    "**/*_locked",
+    "**/*_libs",
+    "**/_site",
+    # quarto: final artifacts
+    "**/*.tex",
+    "**/*.pdf",
+    "**/*.html",
+    "**/*.c2pa_identifier.svg",
+    # quarto: global
+    "**/*.quarto_ipynb",
+    "**/*.quarto",
+    # c2pa
+    "**/*.c2pa",
+]
+
+def ignore_quarto_artifacts() -> Callable[[str, List[str]], List[str]]:
+    """
+    Return an ignore function suitable for shutil.copytree that excludes
+    Quarto-generated artifacts.
+    """
+    # Convert glob patterns to basename patterns (strip leading '**/')
+    basename_patterns = []
+    for pat in IGNORING_ARTIFACT_PATTERNS:
+        if pat.startswith('**/'):
+            pat = pat[3:]
+        basename_patterns.append(pat)
+    return shutil.ignore_patterns(*basename_patterns)
 
 # Per‑QMD locks to prevent concurrent Quarto renders on the same source file
 _QMD_LOCKS = {}
@@ -548,33 +585,7 @@ def clean_quarto_artifacts(docs_root: Path) -> bool:
     """
     Remove Quarto-generated directories matching the patterns
     """
-    patterns = [
-        "**/__pycache__",
-        "**/*.pyc",
-        "**/*.pyd",
-
-        "**/*.log",
-
-        "**/*_files",
-        "**/*_output",
-        "**/*_extensions",
-        "**/*_locked",
-        "**/*_libs",
-        "**/_site",
-
-        # quarto: final artifects
-        "**/*.tex",
-        "**/*.pdf",
-        "**/*.html",
-        "**/*.c2pa_identifier.svg",
-
-        # quarto: global
-        "**/*.quarto_ipynb",
-        "**/*.quarto",
-
-        # c2pa
-        "**/*.c2pa",
-    ]
+    patterns = IGNORING_ARTIFACT_PATTERNS
     deleted = []
     errors = []
     for pattern in patterns:
@@ -1315,7 +1326,7 @@ def build_targets(
             for t in targets:
                 temp_docs = base_temp / t
                 logger.info(f"Copying docs to {temp_docs} for {t}...")
-                shutil.copytree(DOCS_ROOT, temp_docs)
+                shutil.copytree(DOCS_ROOT, temp_docs, ignore=ignore_quarto_artifacts())
                 target_temp_dirs[t] = temp_docs
             
             # Render all targets in parallel, each in its own isolated docs copy
