@@ -48,10 +48,10 @@ SSCCS is developed as a public‑good, community‑driven project. We
 welcome contributions from researchers, engineers, legal experts, and
 enthusiasts.
 
-- Official Website: <https://ssccs.org>
-- GitHub Repository: <https://github.com/ssccsorg>
-- Discussion Forum: [GitHub Discussions](https://github.com/ssccsorg/ssccs/discussions)
-- [Legal Charter](/docs/legal/legal.md)
+- [Official Website](https://ssccs.org)
+- [Documentation](https://docs.ssccs.org)
+- [GitHub Discussions](https://github.com/ssccsorg/ssccs/discussions)
+- [Legal Charter](/docs/legal/index.qmd)
 - [Code of Conduct](/docs/CODE_OF_CONDUCT.md)
 - [Contributing Guidelines](/docs/CONTRIBUTING.md)
 
@@ -68,7 +68,7 @@ The SSCCS documentation suite consists of several formal documents:
   technical introduction.
 - **[Guide](/docs/GUIDE.md)**: A comprehensive guide to SSCCS core
   concepts.
-- **[Legal documents](/docs/legal/legal.md)**: The foundation’s charter
+- **[Legal documents](/docs/legal/index.qmd)**: The foundation’s charter
   and statutes.
 - **[Research notes](/docs/research)**: Informal technical explorations.
 
