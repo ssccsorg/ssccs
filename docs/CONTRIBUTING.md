@@ -7,6 +7,7 @@ Thank you for your interest. This document outlines the technical procedures and
 - Read the [Code of Conduct](/docs/CODE_OF_CONDUCT.md) to understand our community philosophy.
 - All commits must be **GPG‑signed**. Unsigned commits will be rejected by CI.
 - Install the Rust toolchain: `rustup` (see `rust-toolchain.toml` for the required version).
+- For documentation contributions, a DevContainer configuration is provided to ensure a consistent build environment; see [.devcontainer/README.md](docs/.devcontainer/README.md).
 
 ## Contribution Process
 
