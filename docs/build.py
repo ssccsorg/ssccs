@@ -899,7 +899,6 @@ def _render_formats_parallel(
             if website:
                 quarto_cmd.append("--profile")
                 quarto_cmd.append("website")
-                quarto_cmd.append("--no-clean")
             if not run_command(quarto_cmd, cwd=docs_root):
                 logger.error(f"Quarto render failed for {qmd_path.name} (format {fmt}).")
                 return False
@@ -943,7 +942,6 @@ def _render_formats_single(
         if website:
             quarto_cmd.append("--profile")
             quarto_cmd.append("website")
-            quarto_cmd.append("--no-clean")
         if not run_command(quarto_cmd, cwd=docs_root):
             logger.error(f"Quarto render failed for {qmd_path.name} (formats {formats_str}).")
             return False
@@ -1009,8 +1007,6 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
         if website:
             quarto_cmd.append("--profile")
             quarto_cmd.append("website")
-            if output_dir:
-                quarto_cmd.extend(["--output-dir", str(output_dir)])
         if not run_command(quarto_cmd, cwd=docs_root):
             logger.error(f"Quarto render failed for {source_path.name}.")
             return False
@@ -1019,12 +1015,9 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
 
     # In website mode, render without --to to let Quarto handle all formats from YAML
     # This is required because website mode uses shared project configuration
-    # Use --no-clean to prevent Quarto from automatically cleaning site_libs
     if website:
         logger.info(f"Rendering {source_path.name} in website mode (no --to, all formats from YAML)")
-        quarto_cmd = ["quarto", "render", str(source_path), "--profile", "website", "--no-clean"]
-        if output_dir:
-            quarto_cmd.extend(["--output-dir", str(output_dir)])
+        quarto_cmd = ["quarto", "render", str(source_path), "--profile", "website"]
         if not run_command(quarto_cmd, cwd=docs_root):
             logger.error(f"Quarto render failed for {source_path.name} (website mode).")
             return False
@@ -1224,8 +1217,11 @@ def merge_dirs(src: Path, dst: Path) -> bool:
     """
     Merge contents of src directory into dst directory.
     Overwrites existing files, creates missing directories.
+    Does NOT delete files in dst that don't exist in src
+    (because we're merging multiple sources, not mirroring one).
     """
     try:
+        dst.mkdir(parents=True, exist_ok=True)
         for item in src.iterdir():
             src_item = item
             dst_item = dst / item.name
@@ -1284,12 +1280,25 @@ def build_targets(
     
     In website mode with parallel execution, each target renders to its own temp directory
     to avoid site_libs conflicts, then results are merged into the final _site directory.
+    
+    Important: The _site output directory is cleaned before building to ensure no stale files remain.
     """
     if not targets:
         logger.info("No targets specified. Nothing to build.")
         return True
 
     results: Dict[str, bool] = {}
+    
+    # Clean _site directory before building to ensure no stale files remain
+    final_site = output_dir if output_dir else (DOCS_ROOT / "_site")
+    if final_site.exists():
+        logger.info(f"Cleaning existing _site directory: {final_site}")
+        try:
+            shutil.rmtree(final_site)
+            logger.info(f"Removed existing _site directory")
+        except Exception as e:
+            logger.error(f"Failed to remove existing _site directory: {e}")
+            return False
 
     # In website mode with parallel execution:
     # Each target gets a complete copy of the docs folder in a temp directory
@@ -1328,17 +1337,30 @@ def build_targets(
             
             # Merge all successful _site directories into final output
             final_output = output_dir if output_dir else (DOCS_ROOT / "_site")
+            
+            # Determine which targets succeeded before merging
+            succeeded = [t for t, s in results.items() if s]
+            failed = [t for t, s in results.items() if not s]
+            
+            # Clean the output directory once before merging (ensures freshness)
+            if final_output.exists():
+                logger.info(f"Cleaning existing output directory {final_output}")
+                shutil.rmtree(final_output)
+            
             final_output.mkdir(parents=True, exist_ok=True)
             
-            logger.info(f"Merging {len([t for t, s in results.items() if s])} successful targets into {final_output}...")
-            for target in targets:
-                if results.get(target, False):
-                    temp_docs = target_temp_dirs[target]
-                    temp_site = temp_docs / "_site"
-                    if temp_site.exists():
-                        if not merge_dirs(temp_site, final_output):
-                            logger.warning(f"Failed to merge {target} output into {final_output}")
-                            results[target] = False
+            logger.info(f"Merging {len(succeeded)} successful targets into {final_output}...")
+            # Sort succeeded so that 'index' target is merged last (its index.html should prevail)
+            sorted_succeeded = sorted(succeeded, key=lambda x: (x == 'index', x))
+            # Iterate over a copy because we may modify results
+            for target in sorted_succeeded:
+                temp_docs = target_temp_dirs[target]
+                temp_site = temp_docs / "_site"
+                if temp_site.exists():
+                    if not merge_dirs(temp_site, final_output):
+                        logger.warning(f"Failed to merge {target} output into {final_output}")
+                        results[target] = False
+            
             
             # Summary
             succeeded = [t for t, s in results.items() if s]
@@ -1347,6 +1369,10 @@ def build_targets(
                 if succeeded:
                     logger.info(f"Successful targets: {succeeded}")
                 logger.error(f"Failed targets: {failed}")
+                # Clean up partial merge results
+                if final_output.exists():
+                    logger.info(f"Cleaning partial output directory {final_output} due to failures")
+                    shutil.rmtree(final_output)
                 return False
             
             logger.info(f"All targets completed successfully: {list(results.keys())}")
