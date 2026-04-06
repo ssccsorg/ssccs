@@ -11,45 +11,67 @@ The PoC demonstrates the core ontological layers of SSCCS:
 
 The implementation is written in Rust and serves as a reference for the software‑emulation phase (Phase 1) of the SSCCS roadmap.
 
-## Workspace Structure
+## Quick Start
 
-The PoC is organized as a **Rust workspace** with multiple crates, enabling independent development of distinct research tracks while sharing a common core.
+### Prerequisites
 
-### Core Infrastructure Crates
+- Rust toolchain (stable) with [rustup](https://rustup.rs/)
+- For bare-metal RISC-V development: `rustup target add riscv32imac-unknown-none-elf`
 
-| Crate | Purpose |
-|-------|---------|
-| **`ssccs-core`** | Absolute primitives: `Segment`, `SpaceCoordinates`, `Constraint`, `Field`, `TransitionMatrix`, `Projector` trait, and observation functions. |
-| **`ssccs-primitive`** | Scheme abstraction layer: `Scheme`, `SchemeBuilder`, `SchemeTrait`, structural relations, constraints, observation rules, and memory layout abstractions. |
-| **`ssccs-schemes`** | Concrete Scheme implementations and developer input types: `Grid2DTemplate`, `IntegerLineTemplate`, `GraphTemplate`, `Tensor3DTemplate`, `CompositeScheme`, `TransformedScheme`, `BooleanSpace`, `IntegerSpace`. |
-| **`ssccs-examples`** | Shared utilities for experiments: projector implementations (`IntegerProjector`, `ArithmeticProjector`, `ParityProjector`, `CoordinateSumProjector`), compiler pipeline, `.ss` binary parser, and test constraints. |
+### Build and Run
 
-### Experiment Crates (Constitutional Concept Tests)
+```bash
+# Navigate to poc directory
+cd poc
 
-Each experiment crate contains an independent constitutional concept test that can be run, tested, and evolved separately:
+# Build all workspaces
+./run.sh --validation
 
-| Crate | Test |
-|-------|------|
-| **`experiment-01-segment`** | Segment concept - immutable coordinate points with cryptographic identity |
-| **`experiment-02-field`** | Field concept - mutable constraint container with transitions |
-| **`experiment-03-projector`** | Projector concept - semantic interpretation of Segment-Field pairs |
-| **`experiment-04-observation`** | Observation concept - active event collapsing potential to projection |
-| **`experiment-05-space`** | Space concept - developer input types (Boolean, Integer) |
-| **`experiment-06-scheme`** | Scheme concept - structural blueprint with axes and relations |
-| **`experiment-07-adjacency`** | Adjacency memory - structural neighbor relationships |
-| **`experiment-08-composite`** | Composite & Transformed Schemes - scheme composition and geometric transformation |
-| **`experiment-09-transition`** | Transition Matrix - weighted directed graph for relational topology |
-| **`experiment-10-integrated`** | Integrated Workflow - complete SSCCS pipeline demonstration |
+# Or run in development mode (applies formatting first)
+./run.sh --run
+```
 
-### Research Placeholder Crates
+### Validation Script
 
-| Crate | Purpose |
-|-------|---------|
-| **`ssccs-field-synthesis`** | Placeholder for research on Field composition algebra and synthesis techniques. |
-| **`ssccs-hardware-mapping`** | Placeholder for research on mapping Schemes to hardware (CPU, FPGA, PIM). |
-| **`ssccs-compiler-opt`** | Placeholder for research on compiler optimisations and open-format-to-machine-code compilation. |
+The `run.sh` script automatically discovers all Rust workspaces and standalone crates, then performs:
 
-All crates reside under `poc/crates/`. The experiment crates are organized under `poc/crates/experiments/`. The workspace configuration is defined in `poc/Cargo.toml`.
+1. **Formatting check** (`cargo fmt --check`)
+2. **Linting** (`cargo clippy --workspace -- -D warnings`) - skips bare-metal
+3. **Build** (`cargo build --workspace --release`) - skips bare-metal
+4. **Tests** (`cargo test --workspace --all-targets --release`)
+5. **Binary execution** - discovers and runs all binary crates
+
+```bash
+# Validation mode (recommended for CI)
+./run.sh --validation
+
+# Development mode (applies formatting)
+./run.sh --run
+```
+
+## Workspaces
+
+### `standard/` - Standard Workspace
+
+The main workspace containing all host-compatible (std) crates:
+
+| Category | Crates |
+|----------|--------|
+| **Core Infrastructure** | `core`, `primitive`, `schemes`, `examples` |
+| **Research Placeholders** | `hardware-mapping`, `field-synthesis`, `compiler-opt` |
+| **Experiments** | `experiment-01-segment` through `experiment-10-integrated`, `data-processing` |
+
+See [`standard/README.md`](standard/README.md) for detailed documentation.
+
+### `baremetal_riscv/` - Bare-Metal RISC-V Crate
+
+A standalone crate for RISC-V bare-metal hardware integration:
+
+- **Target**: `riscv32imac-unknown-none-elf`
+- **Features**: `no_std`, custom RISC-V instructions (`custom1`/`custom2`)
+- **Purpose**: SSCCS observation primitives for OpenHW CORE-V ecosystem
+
+See [`baremetal_riscv/README.md`](baremetal_riscv/README.md) for detailed documentation.
 
 ## Dependency Graph
 
@@ -66,129 +88,8 @@ ssccs-schemes   ssccs-examples (both depend on ssccs-primitive + ssccs-core)
     └──────┬───────┘
            │
            ▼
-    experiment-* crates (under crates/experiments/, depend on ssccs-schemes, ssccs-examples, ssccs-primitive, ssccs-core)
+    experiment-* crates (depend on ssccs-schemes, ssccs-examples, ssccs-primitive, ssccs-core)
 ```
-
-## Rust Environment Setup
-
-### 1. Install Rust
-If you do not have Rust installed, use [rustup](https://rustup.rs/):
-
-```bash
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-```
-
-Make sure the toolchain is up to date:
-
-```bash
-rustup update
-```
-
-### 2. Verify Installation
-```bash
-rustc --version
-cargo --version
-```
-
-### 3. Clone the Repository
-```bash
-git clone https://github.com/ssccsorg/ssccs.git
-cd ssccs/poc
-```
-
-## Building and Running
-
-### Build the Project
-```bash
-cargo build --release --workspace
-```
-
-To build a specific crate, e.g., `cargo build --release -p ssccs-schemes`.
-
-### Run Individual Experiments
-
-Each constitutional concept test is a separate binary:
-
-```bash
-# Run all experiments
-cargo run --bin experiment-01-segment
-cargo run --bin experiment-02-field
-cargo run --bin experiment-03-projector
-cargo run --bin experiment-04-observation
-cargo run --bin experiment-05-space
-cargo run --bin experiment-06-scheme
-cargo run --bin experiment-07-adjacency
-cargo run --bin experiment-08-composite
-cargo run --bin experiment-09-transition
-cargo run --bin experiment-10-integrated
-
-# Or run the integrated workflow (demonstrates complete pipeline)
-cargo run --bin experiment-10-integrated
-```
-
-### Run Unittests
-
-```bash
-cargo test --workspace -- --nocapture
-```
-
-To test only a specific crate, e.g., `cargo test -p ssccs-core`.
-
-### Linting and Formatting
-
-The code adheres to Rust's best practices. To check for warnings across the whole workspace:
-
-```bash
-cargo clippy --workspace -- -D warnings
-```
-
-To enforce consistent formatting across all crates:
-
-```bash
-cargo fmt --check --workspace
-```
-
-## Local CI Validation with Act
-
-You can run the same CI workflow locally using [act](https://github.com/nektos/act), a tool that executes GitHub Actions workflows on your local machine.
-
-### Prerequisites
-1. Install `act`:
-   ```bash
-   # macOS (using Homebrew)
-   brew install act
-
-   # Linux (using the installation script)
-   curl -s https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash
-   ```
-2. Ensure Docker is running.
-
-### Running the Validation Job
-To run the `rust-check` job defined in `.github/workflows/rust-poc-ci.yml`:
-```bash
-cd /path/to/ssccs/poc
-act -j rust-check -P ubuntu-latest=catthehacker/ubuntu:act-latest
-```
-
-This will:
-- Spin up a Docker container with the Ubuntu latest image
-- Install the Rust toolchain, clippy, and rustfmt
-- Cache dependencies
-- Run the complete validation suite (`poc/run.sh`)
-
-The validation script (`poc/run.sh`) performs the following checks in order:
-1. **Formatting** – `cargo fmt --check`
-2. **Linting** – `cargo clippy --workspace -- -D warnings`
-3. **Build** – `cargo build --workspace --release`
-4. **Tests** – `cargo test --workspace --all-targets --release`
-5. **Binary execution** – Automatically discovers and runs all binary crates (the 10 constitutional concept tests)
-
-If any step fails, the workflow stops and reports the error. A successful run ends with "ALL VALIDATIONS PASSED".
-
-### Notes
-- The first run will take longer due to Docker image downloads and dependency caching.
-- Subsequent runs benefit from cached Docker layers and the Rust cache.
-- The `catthehacker/ubuntu:act-latest` image is recommended for `act` because it includes common tools (including `jq`) that the validation script expects.
 
 ## Why Rust Was Chosen for the PoC
 
@@ -204,102 +105,45 @@ Rust was selected for several reasons:
 
 5. **Cryptographic Primitives** – The BLAKE3 hashing library provides efficient cryptographic identity computation for Segments and Schemes.
 
+6. **Bare-Metal Support** – Rust's `no_std` ecosystem enables seamless transition from host simulation to embedded RISC-V targets.
+
 ## Architecture Overview
 
-### ssccs-core
+### Core Ontological Layers
 
-Contains absolute primitives that cannot be decomposed further:
+| Layer | Description | Crate |
+|-------|-------------|-------|
+| **Segment** | Immutable coordinate point with cryptographic identity | `ssccs-core` |
+| **Field** | Mutable container of dynamic constraints | `ssccs-core` |
+| **Scheme** | Immutable structural blueprint | `ssccs-primitive` |
+| **Projector** | Semantic interpreter for Segment-Field pairs | `ssccs-core` (trait), `ssccs-examples` (implementations) |
+| **Observation** | Active event that collapses potential to projection | `ssccs-core` |
 
-- **`SpaceCoordinates`** – A vector of axis values representing a point in possibility space.
-- **`Segment`** – An immutable wrapper around `SpaceCoordinates` with a BLAKE3-derived identity.
-- **`SegmentId`** – Cryptographic identifier for a Segment.
-- **`Constraint`** – Trait for dynamic constraints that can be attached to a Field.
-- **`ConstraintSet`** – Collection of constraints indexed by name.
-- **`Field`** – Mutable container holding constraints and transition matrices.
-- **`TransitionMatrix`** – Weighted directed graph encoding relational topology between coordinates.
-- **`Projector`** – Trait for semantic interpreters that observe Segment-Field pairs.
-- **`observe`** – Function that performs observation by applying a Projector to a Segment-Field pair.
-- **`possible_next_coordinates`** – Function that computes admissible next coordinates based on Field transitions.
+### Scheme Templates
 
-### ssccs-primitive
+| Template | Description | Use Case |
+|----------|-------------|----------|
+| `Grid2DTemplate` | 2D grid with configurable topology | Spatial computation, cellular automata |
+| `IntegerLineTemplate` | 1D linear scheme | Integer arithmetic, sequences |
+| `GraphTemplate` | Arbitrary node-edge structure | Network analysis, relational data |
+| `Tensor3DTemplate` | 3D tensor scheme | Multi-dimensional computation |
+| `CompositeScheme` | Composition of multiple schemes | Complex hierarchical structures |
+| `TransformedScheme` | Geometric transformations | Rotation, scaling, translation |
 
-Provides the Scheme abstraction layer:
+## Local CI Validation with Act
 
-- **`Scheme`** – Immutable structural blueprint containing axes, segments, relations, memory layout, and observation rules.
-- **`SchemeBuilder`** – Builder pattern for constructing Schemes with fluent API.
-- **`SchemeTrait`** – Trait defining the Scheme interface (id, axes, segments, validation, etc.).
-- **`Axis`** – Definition of a structural dimension with name, type, and metadata.
-- **`StructuralRelation`** – Enum for adjacency, hierarchy, dependency, and equivalence relations.
-- **`MemoryLayout`** – Abstraction for mapping coordinates to logical addresses.
-- **`ObservationRules`** – Configuration for observation behavior and conflict resolution.
+You can run the same CI workflow locally using [act](https://github.com/nektos/act):
 
-### ssccs-schemes
+```bash
+# Install act
+brew install act  # macOS
+# or
+curl -s https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash  # Linux
 
-Concrete Scheme implementations and developer input types:
-
-- **`Grid2DTemplate`** – 2D grid Scheme with configurable topology (4-connected, 8-connected, toroidal).
-- **`IntegerLineTemplate`** – 1D linear Scheme for integer arithmetic.
-- **`GraphTemplate`** – Graph-based Scheme with arbitrary node-edge structure.
-- **`Tensor3DTemplate`** – 3D tensor Scheme for multi-dimensional computation.
-- **`CompositeScheme`** – Composition of multiple Schemes with combination rules.
-- **`TransformedScheme`** – Geometric transformation (rotation, scaling, translation) applied to a base Scheme.
-- **`BooleanSpace`** – Developer input type for boolean values.
-- **`IntegerSpace`** – Developer input type for single-axis integer values.
-
-### ssccs-examples
-
-Shared utilities for experiments and examples:
-
-- **`IntegerProjector`** – Extracts a coordinate along a given axis.
-- **`ArithmeticProjector`** – Generates neighbors via arithmetic operations (+1, -1).
-- **`ParityProjector`** – Classifies values as "even" or "odd".
-- **`CoordinateSumProjector`** – Sums coordinates for 3D tensor observation.
-- **`CompilerPipeline`** – Skeleton for compiling Schemes to hardware targets.
-- **`HardwareProfile`** – Enum for CPU, FPGA, or PIM targets.
-- **`.ss` Parser** – Binary format parser for Scheme serialization.
-- **`RangeConstraint`** – Test constraint that checks if a value is within a range.
-- **`EvenConstraint`** – Test constraint that checks if a value is even.
-
-## Crate Responsibilities
-
-### What Belongs in ssccs-core
-
-Only absolute primitives that cannot be decomposed further:
-- Core ontological types (Segment, SpaceCoordinates, Field, Constraint)
-- The Projector trait (not implementations)
-- Observation functions
-- Transition matrix
-
-### What Belongs in ssccs-primitive
-
-Scheme abstraction layer:
-- Scheme struct and builder
-- SchemeTrait definition
-- Structural relations and constraints
-- Memory layout abstractions
-- Observation rules
-
-### What Belongs in ssccs-schemes
-
-Concrete implementations and developer input:
-- Scheme templates (Grid2D, IntegerLine, Graph, Tensor3D)
-- Composite and Transformed Scheme extensions
-- Spaces (BooleanSpace, IntegerSpace) as developer conveniences
-
-### What Belongs in ssccs-examples
-
-Shared utilities for experimentation:
-- Projector implementations
-- Compiler pipeline
-- Parser implementations
-- Test constraints
-
-### What Belongs in Experiment Crates
-
-Individual constitutional tests that:
-- Demonstrate a specific SSCCS concept
-- Can evolve independently
-- May be refactored or replaced as the model evolves
+# Run the validation job
+cd poc
+act -j rust-check -P ubuntu-latest=catthehacker/ubuntu:act-latest
+```
 
 ## License
 

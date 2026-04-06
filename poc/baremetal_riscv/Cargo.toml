@@ -1,0 +1,35 @@
+[package]
+name = "ssccs-baremetal-riscv"
+version = "0.1.0"
+edition = "2021"
+description = "Bare-metal RISC-V hardware integration for SSCCS"
+
+[lib]
+crate-type = ["staticlib", "cdylib"]
+
+[dependencies]
+# Core SSCCS types from the standard workspace
+ssccs-core = { path = "../standard/crates/core" }
+ssccs-primitive = { path = "../standard/crates/primitive" }
+
+# Bare-metal dependencies
+riscv = "0.12"
+riscv-rt = "0.14"
+panic-halt = "0.2"
+cortex-m = "0.7"
+
+[features]
+default = []
+no_std = []
+
+[package.metadata.rust-analyzer]
+rustc = { target = "riscv32imac-unknown-none-elf" }
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+opt-level = "s"
+lto = true
+codegen-units = 1
