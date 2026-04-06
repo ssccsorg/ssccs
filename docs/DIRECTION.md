@@ -88,7 +88,7 @@ Throughout all engagements, we maintain consistent principles:
 - Beyond immediate profitability: Market fit is secondary to reshaping computation. We prioritise partners who respect this long‑term perspective.
 - Open to serious collaboration, closed to superficial evaluation: We welcome scrutiny of our technical decisions and consensus‑based governance. We invest time only where there is genuine interest in our unconventional, early‑stage idea.
 
-## Documentation-First and Knowledge Base Infrastructure
+## Documentation-First and Self‑Growing Knowledge Base Infrastructure
 
 The system is designed to become a structured knowledge base for LLM/RAG integration—an Observable Knowledge Graph (OKG)—with deterministic output paths, C2PA provenance, and Markdown-first GFM output.
 

@@ -8,30 +8,13 @@ format:
 
 ## Overview
 
-This documentation system is a verifiable knowledge infrastructure designed for technical consistency, AI integration, and open collaboration. Every design decision serves the broader goal of making the project’s knowledge base machine-readable, cryptographically verifiable, and accessible across contexts.
+Welcome to the SSCCS Documentation! This site serves as the central hub for all official documentation related to the SSCCS project, including our whitepaper, technical specifications, research findings, and governance documents.
 
-## Key Documents
+**Documentation‑First** approach: Our goal is to transform documentation from passive records into a blueprint for a self-evolving smart knowledge infrastructure. By structuring every decision and implementation detail into version-controlled, traceable data, we build an Observable Knowledge Graph (OKG) that both humans and AI can navigate and reason upon. This serves as an LLM/RAG-optimized foundation, ensuring that knowledge stays integrated and self-accumulating to accelerate project growth.
 
-| Document | Description | Formats |
-|----------|-------------|---------|
-| [Whitepaper](whitepaper/whitepaper.html) | Core technical claims, architecture, and computational model | PDF, HTML |
-| [Proposal](proposal/proposal.html) | Open hardware integration plan and validation targets | PDF, HTML, Beamer |
-| [Research](research/research.html) | Technical analyses, alignment studies, and exploratory work | HTML |
-| [Legal](legal/) | Licensing, governance, and contribution terms | HTML |
-| [Guide](guide/guide.html) | Build system documentation and contributor guide | HTML |
-| [Manifesto](manifesto/manifesto.html) | Project principles and public commitments | HTML |
+## Documentation Artifact Build System 
 
-## Direction
-
-**Documentation‑First and Knowledge‑Base Infrastructure.** The system is designed to become a structured knowledge base for LLM/RAG integration—an Observable Knowledge Graph (OKG)—with deterministic output paths, C2PA provenance, and Markdown‑first GFM output.
-
-The documentation‑first approach represents a fundamental shift: it transforms the project's accumulated knowledge into a verifiable, machine‑readable corpus that enables AI systems to explore, reason about, and extend the underlying computational paradigm. By ensuring that every concept, design decision, and implementation detail is captured in a structured, provenance‑tracked form, we create a platform for emergent discovery—where AI agents can identify connections and opportunities that human researchers might overlook. In this sense, the documentation system is not just a publishing tool; it is the engine of radical, self‑accelerating project growth. The project's documentation system is itself a core technical artifact: not just a publishing tool, but the foundation for knowledge management, AI integration, and public communication.
-
----
-
-## Technical Guide
-
-### Build Pipeline
+### Structure and Execution
 
 ```
 docs/
@@ -67,10 +50,9 @@ python3 build.py snapshot
 python3 build.py clean
 ```
 
-### Parallel Website Mode: Isolated Rendering
+### Website Rendering
 
-The `--website` mode implements a novel approach to parallel document generation. Each target is rendered in a fully isolated temporary directory that contains a complete copy of the source tree. This allows each render process to operate independently, with its own cache and output paths, while still enabling the build system to merge outputs into a single cohesive website. The `merge_dirs()` function intelligently combines the `_site/` directories from each target, ensuring that all generated pages are included without conflicts. This approach maximizes parallelism while maintaining the integrity of the final output.
-
+Because `quarto render` only supports single‑threaded execution, the `--website` mode implements a parallel rendering strategy. Each target is rendered in a fully isolated temporary directory that contains a complete copy of the source tree. This allows each render process to operate independently, with its own cache and output paths, while still enabling the build system to merge outputs into a single cohesive website. The `merge_dirs()` function intelligently combines the `_site/` directories from each target, ensuring that all generated pages are included without conflicts. This approach maximizes parallelism while maintaining the integrity of the final output.
 
 ```
 base_temp/
