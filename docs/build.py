@@ -8,6 +8,18 @@ Behavior:
   - Use --sequence/-s to force sequential execution
   - Use --website to enable website mode (adds --profile website to quarto render)
 
+Project Structure:
+  The build system orchestrates the Quarto documents in the `docs/` directory:
+      docs/
+      ├── build.py              # Build orchestrator (Python 3)
+      ├── build.yml             # External configuration (targets, exclusions)
+      ├── _quarto.yml           # Quarto project configuration
+      ├── _quarto-website.yml   # Website profile configuration
+      ├── *.qmd                 # Source documents
+      ├── _include/             # Shared fragments (headers, formats, references)
+      ├── _utils/               # Build utilities (C2PA signing, path helpers)
+      └── _site/                # Generated output (git-ignored)
+
 Caching:
   - Outputs of non‑deterministic formats (pdf, beamer, html, gfm) are cached based on
     a combined SHA‑256 hash that includes the QMD source file and all its dependencies
@@ -16,9 +28,11 @@ Caching:
     generated file would be slightly different (e.g. due to timestamps). The rendered
     output hash is still stored for the `snapshot` command, but it is not used to decide
     whether to render.
-  - Cache entries are stored in a `{qmd_stem}_locked/` directory adjacent to
-    each QMD file. If the combined hash matches the cached one, the Quarto render
-    step is skipped.
+  - Cache entries are stored in a `{document_stem}_locked/` directory adjacent to
+    each QMD file, with each format saved as `rendered_{format}.txt`. If the combined
+    hash matches the cached one, the Quarto render step is skipped.
+  - Because the hash includes all dependencies, modifying a single included fragment
+    triggers rebuilds only for documents that actually include it—not the entire site.
 
 Snapshot:
   - Use `./build.py snapshot` to refresh cache hashes for all targets.
@@ -28,11 +42,26 @@ Snapshot:
     combined hash changed, the cache is removed, forcing a rebuild on the next build.
   - This avoids recording stale outputs and eliminates reliance on file timestamps.
 
+External Configuration:
+  - Build parameters are externalised to `docs/build.yml`, separating policy from mechanism.
+  - The configuration supports target‑specific overrides (e.g., enabling C2PA signing)
+    and exclusion patterns (gitignore‑style) to omit certain files from processing.
+  - Example:
+        target_config:
+          whitepaper:
+            c2pa: true          # Enable C2PA signing
+          proposal:
+            c2pa: true
+        exclude:
+          - "**/README.md"
+          - "**/_include/"
+  - C2PA signing is performed by `docs/_utils/sign_c2pa.py` when enabled.
+
 Website Mode (--website):
   - Adds `--profile website` to all quarto render commands.
-  - In parallel mode, each target gets a **complete isolated copy** of the docs folder
-    in a temp directory. This prevents resource conflicts (site_libs, .quarto cache)
-    that occur when multiple quarto website renders share the same project directory.
+  - Because `quarto render` only supports single‑threaded execution, the `--website` mode
+    implements a parallel rendering strategy. Each target is rendered in a fully isolated
+    temporary directory that contains a complete copy of the source tree.
   - Architecture:
       base_temp/
       ├── whitepaper/          ← full docs copy
