@@ -146,16 +146,16 @@ def ignore_quarto_artifacts() -> Callable[[str, List[str]], List[str]]:
     return shutil.ignore_patterns(*basename_patterns)
 
 # Per‑QMD locks to prevent concurrent Quarto renders on the same source file
-_QMD_LOCKS = {}
-_QMD_LOCKS_LOCK = threading.Lock()
+_QUARTO_FILE_LOCKS = {}
+_QUARTO_FILE_LOCKS_LOCK = threading.Lock()
 
-def _lock_for_qmd(qmd_path: Path) -> threading.Lock:
+def _lock_for_quarto_file(qmd_path: Path) -> threading.Lock:
     """Return a dedicated lock for the given QMD path."""
-    with _QMD_LOCKS_LOCK:
-        lock = _QMD_LOCKS.get(qmd_path)
+    with _QUARTO_FILE_LOCKS_LOCK:
+        lock = _QUARTO_FILE_LOCKS.get(qmd_path)
         if lock is None:
             lock = threading.Lock()
-            _QMD_LOCKS[qmd_path] = lock
+            _QUARTO_FILE_LOCKS[qmd_path] = lock
         return lock
 
 # Configure logging
@@ -178,7 +178,7 @@ def compute_file_hash(path: Path) -> str:
 
 
 @lru_cache(maxsize=32)
-def compute_qmd_hash_with_deps(qmd_path: Path) -> str:
+def compute_quarto_file_hash_with_deps(file_path: Path) -> str:
     """
     Compute a combined SHA‑256 hash that includes the QMD file itself and all
     files it directly or indirectly includes (via `includeMap`) as well as
@@ -194,7 +194,7 @@ def compute_qmd_hash_with_deps(qmd_path: Path) -> str:
         if path in visited:
             return
         visited.add(path)
-        data = inspect_qmd(path)
+        data = inspect_quarto_file(path)
         if data is None:
             # If inspect fails, we still have the file itself; no further dependencies
             return
@@ -251,7 +251,7 @@ def compute_qmd_hash_with_deps(qmd_path: Path) -> str:
             visited.add(Path(resource_path).resolve())
 
     # Start collection
-    collect(qmd_path.resolve())
+    collect(file_path.resolve())
 
     # Compute combined hash
     hasher = hashlib.sha256()
@@ -281,42 +281,42 @@ def target_produces_pdf(config: Dict[str, Any]) -> bool:
 
 
 @lru_cache(maxsize=128)
-def inspect_qmd(qmd_path: Path) -> Optional[Dict[str, Any]]:
+def inspect_quarto_file(file_path: Path) -> Optional[Dict[str, Any]]:
     """
     Run `quarto inspect` on the QMD file and return the parsed JSON.
     Returns None on failure.
     """
     try:
         result = subprocess.run(
-            ["quarto", "inspect", str(qmd_path)],
+            ["quarto", "inspect", str(file_path)],
             capture_output=True,
             text=True,
             check=True,
         )
         return json.loads(result.stdout)
     except Exception as e:
-        logger.warning(f"Failed to inspect {qmd_path}: {e}")
+        logger.warning(f"Failed to inspect {file_path}: {e}")
         return None
 
 
-def get_formats_from_qmd(qmd_path: Path) -> List[str]:
+def get_formats_from_quarto_file(file_path: Path) -> List[str]:
     """
     Inspect the QMD file and return a list of output formats defined in its YAML.
     Returns empty list on failure.
     """
-    data = inspect_qmd(qmd_path)
+    data = inspect_quarto_file(file_path)
     if data is None:
         return []
     formats = data.get("formats", {})
     return list(formats.keys())
 
 
-def get_format_output_path(qmd_path: Path, fmt: str) -> Optional[Path]:
+def get_format_output_path(file_path: Path, fmt: str) -> Optional[Path]:
     """
     Determine the output file path for a given format using quarto inspect.
     Returns None if format not found or path cannot be determined.
     """
-    data = inspect_qmd(qmd_path)
+    data = inspect_quarto_file(file_path)
     if data is None:
         return None
     formats = data.get("formats", {})
@@ -327,7 +327,7 @@ def get_format_output_path(qmd_path: Path, fmt: str) -> Optional[Path]:
     output_file = pandoc.get("output-file")
     if output_file:
         # Path is relative to the QMD's parent directory
-        return qmd_path.parent / output_file
+        return file_path.parent / output_file
     # If no explicit output-file, Quarto uses a default based on format.
     # We do NOT guess; we return None because we cannot be certain.
     # The caller must handle this as an error.
@@ -463,7 +463,7 @@ def write_hash_pair(cache_file: Path, qmd_hash: str, output_hash: str) -> None:
 
 
 def should_render_format(
-    qmd_path: Path,
+    file_path: Path,
     fmt: str,
     config: Optional[Dict[str, Any]] = None,
     output_dir: Optional[Path] = None,
@@ -481,29 +481,29 @@ def should_render_format(
         logger.info(f"{fmt} is considered deterministic, always render.")
         return True
 
-    existing_output = find_existing_output(qmd_path, fmt, config, output_dir)
+    existing_output = find_existing_output(file_path, fmt, config, output_dir)
 
     if existing_output is None:
-        logger.info(f"No {fmt} output found for {qmd_path.name}, need render.")
+        logger.info(f"No {fmt} output found for {file_path.name}, need render.")
         return True
 
-    qmd_hash = compute_qmd_hash_with_deps(qmd_path)
-    logger.info(f"Checking cache for {qmd_path.name} ({fmt}): QMD hash {qmd_hash[:16]}...")
-    cache_file = get_cache_file(qmd_path, fmt)
+    qmd_hash = compute_quarto_file_hash_with_deps(file_path)
+    logger.info(f"Checking cache for {file_path.name} ({fmt}): QMD hash {qmd_hash[:16]}...")
+    cache_file = get_cache_file(file_path, fmt)
     pair = read_hash_pair(cache_file)
     if pair is None:
-        logger.info(f"No cache file found for {qmd_path.name} ({fmt}), need render.")
+        logger.info(f"No cache file found for {file_path.name} ({fmt}), need render.")
         return True
     cached_qmd, _ = pair
     if cached_qmd == qmd_hash:
-        logger.info(f"Cache matches for {qmd_path.name} (QMD unchanged), skipping {fmt} render.")
+        logger.info(f"Cache matches for {file_path.name} (QMD unchanged), skipping {fmt} render.")
         return False
-    logger.info(f"Cache mismatch for {qmd_path.name} ({fmt}) – QMD changed, need render.")
+    logger.info(f"Cache mismatch for {file_path.name} ({fmt}) – QMD changed, need render.")
     return True
 
 
 def should_render_pdf(
-    qmd_path: Path,
+    file_path: Path,
     pdf_path: Path,
     config: Optional[Dict[str, Any]] = None,
     output_dir: Optional[Path] = None,
@@ -516,12 +516,12 @@ def should_render_pdf(
     return should_render_format(qmd_path, 'pdf', config, output_dir)
 
 
-def update_format_cache(qmd_path: Path, fmt: str, output_path: Path) -> None:
+def update_format_cache(file_path: Path, fmt: str, output_path: Path) -> None:
     """Update cache after successful render of a specific format."""
-    qmd_hash = compute_qmd_hash_with_deps(qmd_path)
+    qmd_hash = compute_quarto_file_hash_with_deps(file_path)
     output_hash = compute_file_hash(output_path)
-    logger.info(f"Updating {fmt} cache for {qmd_path.name}: output hash {output_hash[:16]}...")
-    cache_file = get_cache_file(qmd_path, fmt)
+    logger.info(f"Updating {fmt} cache for {file_path.name}: output hash {output_hash[:16]}...")
+    cache_file = get_cache_file(file_path, fmt)
     write_hash_pair(cache_file, qmd_hash, output_hash)
 
 
@@ -545,12 +545,12 @@ def refresh_cache_for_target(target: str, output_dir: Optional[Path] = None) -> 
         return False
 
     # Determine all formats defined in the QMD
-    formats = get_formats_from_qmd(qmd_path)
+    formats = get_formats_from_quarto_file(qmd_path)
     if not formats:
         logger.info(f"Target {target} has no defined output formats, skipping cache refresh.")
         return True
 
-    current_qmd_hash = compute_qmd_hash_with_deps(qmd_path)
+    current_qmd_hash = compute_quarto_file_hash_with_deps(qmd_path)
 
     for fmt in formats:
         cache_file = get_cache_file(qmd_path, fmt)
@@ -741,7 +741,7 @@ def matches_gitignore_pattern(rel_path: Path, patterns: List[str]) -> bool:
     return False
 
 
-def discover_qmd_targets(docs_root: Path, exclude_patterns: Optional[List[str]] = None) -> Dict[str, Dict[str, Any]]:
+def discover_quarto_targets(docs_root: Path, exclude_patterns: Optional[List[str]] = None) -> Dict[str, Dict[str, Any]]:
     """
     Scan docs_root for .qmd and .md files and return target configurations.
     Excludes files/directories matching gitignore-style patterns.
@@ -829,7 +829,7 @@ def get_target_config(docs_root: Path, external_config: Optional[Dict[str, Any]]
     exclude_patterns = get_exclude_patterns(external_config)
     target_config = get_target_config_from_external(external_config)
     
-    discovered = discover_qmd_targets(docs_root, exclude_patterns)
+    discovered = discover_quarto_targets(docs_root, exclude_patterns)
     # Merge target config (updates discovered entries)
     # Note: Unlike before, missing targets in config are NOT errors - they just use defaults
     for target, config in target_config.items():
@@ -904,7 +904,7 @@ def _render_formats_parallel(
 ) -> bool:
     """Render each format in its own Quarto command, running in parallel threads."""
     def render_single_format(fmt: str) -> bool:
-        lock = _lock_for_qmd(qmd_path)
+        lock = _lock_for_quarto_file(qmd_path)
         with lock:
             quarto_cmd = ["quarto", "render", str(qmd_path), "--to", fmt]
             if website:
@@ -946,7 +946,7 @@ def _render_formats_single(
     website: bool = False
 ) -> bool:
     """Render all formats using a single Quarto command (--to fmt1,fmt2)."""
-    lock = _lock_for_qmd(qmd_path)
+    lock = _lock_for_quarto_file(qmd_path)
     with lock:
         formats_str = ",".join(formats)
         quarto_cmd = ["quarto", "render", str(qmd_path), "--to", formats_str]
@@ -1023,8 +1023,8 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
             return True
         
         # Non‑website mode: apply _locked cache policy
-        # Determine formats via inspect_qmd (may be empty)
-        formats = get_formats_from_qmd(source_path)
+        # Determine formats via inspect_quarto_file (may be empty)
+        formats = get_formats_from_quarto_file(source_path)
         if not formats:
             # No YAML formats, assume default HTML
             formats = ["html"]
@@ -1083,7 +1083,7 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
     target_format = config.get("to")
     if target_format is None:
         # inspect the QMD to get all formats
-        formats = get_formats_from_qmd(qmd_path)
+        formats = get_formats_from_quarto_file(qmd_path)
         if not formats:
             logger.error(f"Could not determine output formats for {qmd_path}. "
                          f"Please specify a format in the target config or ensure 'quarto inspect' works.")
