@@ -1,18 +1,14 @@
-name: Devcontainer Rigorous Check
+name: Devcontainer Check
 
 on:
   push:
     branches: [develop, main]
     paths:
-      - '.devcontainer/devcontainer.json'
-      - '.devcontainer/Dockerfile'
-      - '.devcontainer/setup_docs.sh'
+      - '.devcontainer/**'
       - '.github/workflows/verify-devcontainer.yml'
   pull_request:
     paths:
-      - '.devcontainer/devcontainer.json'
-      - '.devcontainer/Dockerfile'
-      - '.devcontainer/setup_docs.sh'
+      - '.devcontainer/**'
       - '.github/workflows/verify-devcontainer.yml'
   workflow_dispatch:
     inputs:
@@ -29,8 +25,12 @@ jobs:
       - name: Build and Run Validation
         uses: devcontainers/ci@v0.3
         with:
+          imageName: ssccs-devcontainer
+          cacheFrom: ghcr.io/${{ github.repository }}/devcontainer
           push: never
           runCmd: |
-            chmod +x .devcontainer/setup_docs.sh
-            ./.devcontainer/setup_docs.sh
+            set -e
+            quarto --version
+            python --version
+            c2patool --version
             echo "Environment Validation Complete"

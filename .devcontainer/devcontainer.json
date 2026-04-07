@@ -3,28 +3,7 @@
   "build": {
     "dockerfile": "Dockerfile"
   },
-  "features": {
-    "ghcr.io/devcontainers/features/python:1": {
-      "version": "3.11"
-    }
-  },
-  "workspaceFolder": "${localWorkspaceFolder}",
-  "workspaceMount": "source=${localWorkspaceFolder},target=${localWorkspaceFolder},type=bind",
   "postCreateCommand": "bash .devcontainer/setup_docs.sh",
-  "customizations": {
-    "vscode": {
-      "extensions": [
-        "quarto.quarto",
-        "ms-python.python",
-        "ms-python.vscode-pylance",
-        "ms-toolsai.jupyter"
-      ],
-      "settings": {
-        "quarto.render.previewType": "external",
-        "editor.wordWrap": "on"
-      }
-    }
-  },
   "remoteEnv": {
     "QUARTO_PYTHON": "python3",
     "PATH": "/opt/quarto/bin:/home/vscode/.local/bin:${containerEnv:PATH}"
