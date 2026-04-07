@@ -1,0 +1,32 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/core",
+    "crates/primitive",
+    "crates/schemes",
+    "crates/examples",
+    "crates/field-synthesis",
+    "crates/hardware-mapping",
+    "crates/compiler-opt",
+    # Experiment crates - each constitutional concept test
+    "crates/experiments/segment",
+    "crates/experiments/field",
+    "crates/experiments/projector",
+    "crates/experiments/observation",
+    "crates/experiments/space",
+    "crates/experiments/scheme",
+    "crates/experiments/adjacency",
+    "crates/experiments/composite",
+    "crates/experiments/transition",
+    "crates/experiments/integrated",
+    "crates/experiments/data-processing",
+]
+
+[workspace.dependencies]
+# Common dependencies shared across workspace crates
+blake3 = "1.8.3"
+hex = "0.4.3"
+serde = { version = "1", features = ["derive"] }
+bincode = "1"
+thiserror = "2.0.18"
+dyn-clone = "1"
