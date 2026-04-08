@@ -1,11 +1,8 @@
 {
-  "name": "SSCCS Devcontainer",
+  "name": "Docs Devcontainer",
   "build": {
-    "dockerfile": "Dockerfile"
+    "dockerfile": "../docs/Dockerfile",
+    "context": ".."
   },
-  "postCreateCommand": "bash .devcontainer/setup_docs.sh",
-  "remoteEnv": {
-    "QUARTO_PYTHON": "python3",
-    "PATH": "/opt/quarto/bin:/home/vscode/.local/bin:${containerEnv:PATH}"
-  }
+  "postCreateCommand": "bash .devcontainer/post-create-command.sh"
 }

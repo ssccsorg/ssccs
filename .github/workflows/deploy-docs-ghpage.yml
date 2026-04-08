@@ -1,5 +1,4 @@
-# Workflow for building Quarto site with Python and deploying to GitHub Pages
-name: Build and Deploy Quarto site
+name: Deploy Docs to GitHub Pages
 
 on:
   push:
@@ -14,7 +13,8 @@ on:
       - 'docs/**/*.bib'
       - 'docs/**/*.csl'
       - 'docs/**/*.c2pa_manifest.json'
-      - '.github/workflows/deploy-quarto-ghpage.yml'
+      - 'docs/**/Dockerfile'
+      - '.github/workflows/deploy-docs-ghpage.yml'
       - '!docs/**/README.md'
   workflow_dispatch:
   pull_request:
@@ -29,7 +29,8 @@ on:
       - 'docs/**/*.bib'
       - 'docs/**/*.csl'
       - 'docs/**/*.c2pa_manifest.json'
-      - '.github/workflows/deploy-quarto-ghpage.yml'
+      - 'docs/**/Dockerfile'
+      - '.github/workflows/deploy-docs-ghpage.yml'
       - '!docs/**/README.md'
 
 permissions:
@@ -47,14 +48,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build and run devcontainer
-        uses: devcontainers/ci@v0.3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and cache Docker image
+        uses: docker/build-push-action@v5
         with:
-          imageName: ghcr.io/${{ github.repository }}/devcontainer
-          cacheFrom: ghcr.io/${{ github.repository }}/devcontainer
-          push: never
-          runCmd: python docs/build.py --website
-          
+          context: .
+          file: docs/Dockerfile
+          tags: dockerimg-docs
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run documentation build
+        run: |
+          docker run --rm \
+            -v ${{ github.workspace }}:/work \
+            -w /work \
+            -e QUARTO_PYTHON=python3 \
+            dockerimg-docs \
+            python docs/build.py --website   
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
         with:

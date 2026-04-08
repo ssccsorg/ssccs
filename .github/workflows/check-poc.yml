@@ -6,7 +6,7 @@ on:
       - 'poc/Cargo.*'
       - 'poc/**/*.rs'
       - 'poc/rust-toolchain*'
-      - '.github/workflows/rust-poc-ci.yml'
+      - '.github/workflows/check-poc.yml'
   pull_request:
     branches:
       - main
@@ -14,7 +14,7 @@ on:
       - 'poc/Cargo.*'
       - 'poc/**/*.rs'
       - 'poc/rust-toolchain*'
-      - '.github/workflows/rust-poc-ci.yml'
+      - '.github/workflows/check-poc.yml'
 
 permissions:
   contents: read
@@ -24,7 +24,7 @@ env:
   RUSTFLAGS: "-D warnings"
 
 jobs:
-  rust-check:
+  check-poc:
     runs-on: ubuntu-latest
 
     steps:
