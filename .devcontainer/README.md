@@ -30,19 +30,19 @@ This environment is not limited to documentation. As the project grows (e.g., Ru
 - Additional compilers or embedded toolchains
 - Custom test frameworks
 
-To extend the environment, edit `.devcontainer/Dockerfile` or `setup.sh` accordingly.
+To extend the environment, edit `docs/Dockerfile` or `.devcontainer/post-create-command.sh` accordingly.
 
 ## Key Paths
 
 - Workspace root = repository root
 - Documentation source = `docs/`
 - Build script = `docs/build.py`
-- Python dependencies = `docs/requirements.txt`
-- LaTeX packages = `docs/tex-packages.txt`
+- Python dependencies = installed directly in the Dockerfile via `uv pip`
+- LaTeX packages = installed directly in the Dockerfile via `tlmgr`
 
 ## Notes
 
-- The documentation build environment **exactly mirrors** the GitHub Actions workflow (`.github/workflows/quarto-ghpage.yml`).
+- The documentation build environment **exactly mirrors** the GitHub Actions workflow (`.github/workflows/deploy-docs-ghpage.yml`).
 - If you modify dependencies, rebuild the container (`Rebuild Container` from the command palette).
 - For Rust or other languages, consider using devcontainer features (`ghcr.io/devcontainers/features/rust:1`).
 

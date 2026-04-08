@@ -82,12 +82,12 @@ This system serves as a reference implementation for open‑source project docum
 
 ### For Contributors (developers, technical writers)
 1. **Clone the repository**: `git clone https://github.com/ssccsorg/ssccs3.git`
-2. **Install dependencies**: `pip install -r docs/requirements.txt`
+2. **Install dependencies**: Use the preconfigured DevContainer (recommended) or install dependencies manually via `uv pip` (see `docs/Dockerfile` for the exact list). The legacy `requirements.txt` has been integrated into the Docker image.
 3. **Install Quarto**: <https://quarto.org/docs/get-started/>
 4. **Build the site**: `cd docs && python3 build.py --website`
 5. **Preview locally**: Open `docs/_site/index.html` in your browser.
 
-> A preconfigured DevContainer (`.devcontainer/devcontainer.json`) provides a complete, reproducible environment with all dependencies (Python 3.11, Quarto 1.9.35, TinyTeX, c2patool 0.9.12, graphviz, librsvg2‑bin) already installed. Use it for consistent builds across platforms.
+> A preconfigured DevContainer (`.devcontainer/devcontainer.json`) provides a complete, reproducible environment with all dependencies already installed. Use it for consistent builds across platforms. The same Docker image can also be run standalone for headless builds, e.g., `docker build -f docs/Dockerfile -t ssccs-docs .`.
 
 
 ## Provenance and Licensing
