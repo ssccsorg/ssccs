@@ -1,0 +1,88 @@
+name: Deploy Docs to GitHub Pages
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - 'docs/**/*.py'
+      - 'docs/**/*.qmd'
+      - 'docs/**/*.md'
+      - 'docs/**/*.yml'
+      - 'docs/**/*.txt'
+      - 'docs/**/*.svg'
+      - 'docs/**/*.bib'
+      - 'docs/**/*.csl'
+      - 'docs/**/*.c2pa_manifest.json'
+      - 'docs/**/Dockerfile'
+      - '.github/workflows/deploy-docs-ghpage.yml'
+      - '!docs/**/README.md'
+  workflow_dispatch:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - 'docs/**/*.py'
+      - 'docs/**/*.qmd'
+      - 'docs/**/*.md'
+      - 'docs/**/*.yml'
+      - 'docs/**/*.txt'
+      - 'docs/**/*.svg'
+      - 'docs/**/*.bib'
+      - 'docs/**/*.csl'
+      - 'docs/**/*.c2pa_manifest.json'
+      - 'docs/**/Dockerfile'
+      - '.github/workflows/deploy-docs-ghpage.yml'
+      - '!docs/**/README.md'
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and cache Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docs/Dockerfile
+          tags: dockerimg-docs
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run documentation build
+        run: |
+          docker run --rm \
+            -v ${{ github.workspace }}:/work \
+            -w /work \
+            -e QUARTO_PYTHON=python3 \
+            dockerimg-docs \
+            python docs/build.py --website   
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: docs/_site
+
+  deploy:
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

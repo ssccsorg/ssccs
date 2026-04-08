@@ -5,23 +5,29 @@ on:
     paths:
       - 'poc/Cargo.*'
       - 'poc/**/*.rs'
+      - 'poc/rust-toolchain*'
+      - '.github/workflows/check-poc.yml'
       - 'poc/run.sh'
-      - '.github/workflows/rust-poc-ci.yml'
   pull_request:
-    branches: [ main ]
+    branches:
+      - main
     paths:
       - 'poc/Cargo.*'
       - 'poc/**/*.rs'
+      - 'poc/rust-toolchain*'
+      - '.github/workflows/check-poc.yml'
       - 'poc/run.sh'
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 env:
   CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
 
 jobs:
-  validate:
+  check-poc:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
