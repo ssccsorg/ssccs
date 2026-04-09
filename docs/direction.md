@@ -58,7 +58,7 @@ Our engagement is guided by three principles:
 
 Where funding is required, we view it as a catalyst for our mission rather than a primary objective. Our approach is guided by a clear priority: focusing on tangible progress and substantive research over administrative complexity. While our methods remain flexible to respect local industrial cultures and collaboration norms, our core commitments are steadfast. We prioritise technical depth, long-term vision, and mutual partnership as the foundations of our work. By streamlining our engagement and focusing on direct technical merit, we ensure that our energy remains dedicated to innovation.
 
-Our goal is to build a computational commons that is open to everyone, regardless of geography or institutional background. We invite those who share this vision to join us in shaping this new foundation for computation. For collaboration details, see our [Code of Conduct](/CODE_OF_CONDUCT.html) and [Contributing](/CONTRIBUTING.html)
+Our goal is to build a computational commons that is open to everyone, regardless of geography or institutional background. We invite those who share this vision to join us in shaping this new foundation for computation. For collaboration details, see our [Code of Conduct](/code_of_conduct.html) and [Contributing](/contributing.html)
 
 ## Technical Strategy: Hardware as Implementation Media
 

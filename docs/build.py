@@ -94,7 +94,7 @@ Important:
   - The script **never** guesses output filenames. It uses `quarto inspect` to obtain
     the exact output path for each format. If that information is unavailable, the
     build fails for that target.
-  - Destination filenames in post‑processing (e.g., `index.html`, `README.md`) are
+  - Destination filenames in post‑processing (e.g., index.html`, `README.md`) are
     hardcoded only as part of the target‑specific behavior defined in `SPECIAL_CONFIG`.
 
 Usage:
@@ -704,7 +704,7 @@ def matches_gitignore_pattern(rel_path: Path, patterns: List[str]) -> bool:
     Supports:
     - Glob patterns: **/*.md, **/README.md
     - Directory patterns: **/_include/, **/*_libs/ (trailing slash for directories)
-    - Simple patterns: README.md, CONTRIBUTING.md
+    - Simple patterns: README.md, contributing.md
     
     Pattern matching rules (gitignore-style):
     - "**/" at start matches any directory depth
@@ -776,7 +776,7 @@ def discover_quarto_targets(docs_root: Path, exclude_patterns: Optional[List[str
     Excludes files/directories matching gitignore-style patterns.
     
     Target naming rules:
-      - folder/index.qmd or folder/index.md -> target name is 'folder'
+      - folder/index.qmd or folder/index.qmd -> target name is 'folder'
       - folder/name.qmd or folder/name.md -> target name is 'name' (or 'folder_name' if conflict)
     
     Args:
@@ -801,7 +801,7 @@ def discover_quarto_targets(docs_root: Path, exclude_patterns: Optional[List[str
             
             # Determine target name based on file name
             if rel_path.stem.lower() == "index":
-                # index.qmd / index.md -> use parent folder name as target
+                # index.qmd / index.qmd -> use parent folder name as target
                 parent = rel_path.parent.name
                 if parent and parent != ".":
                     target_name = parent.lower()

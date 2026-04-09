@@ -4,7 +4,7 @@ Thank you for your interest. This document outlines the technical procedures and
 
 ## Prerequisites
 
-- Read the [Code of Conduct](/docs/CODE_OF_CONDUCT.md) to understand our community philosophy.
+- Read the [Code of Conduct](/docs/code_of_conduct.md) to understand our community philosophy.
 - All commits must be **GPG‑signed**. Unsigned commits will be rejected by CI.
 - Install the Rust toolchain: `rustup` (see `rust-toolchain.toml` for the required version).
 - For documentation contributions, a DevContainer configuration is provided to ensure a consistent build environment; see [.devcontainer/README.md](/.devcontainer/README.md).
@@ -39,7 +39,7 @@ All contributions must follow the coding conventions, style guides, and testing 
 - **Documentation:** Public APIs must be clearly documented, explaining their purpose, parameters, and behavior. Use the documentation style appropriate for the language (e.g., doc comments in Rust, Javadoc in Java, etc.).
 - **Testing:** New features and bug fixes must include corresponding automated tests. The CI pipeline enforces that all tests pass before a PR can be merged.
 - **Clean Code:** Write code that is readable, maintainable, and adheres to the principles of modularity and clarity. Avoid unnecessary complexity.
-- **AI Usage:** Use of AI tools is encouraged as a standard. No disclosure is required, but the human engineer remains 100% accountable for the signed code. See the [Code of Conduct](/docs/CODE_OF_CONDUCT.md) for more details.
+- **AI Usage:** Use of AI tools is encouraged as a standard. No disclosure is required, but the human engineer remains 100% accountable for the signed code. See the [Code of Conduct](/docs/code_of_conduct.md) for more details.
 
 ## Decision Making
 

@@ -52,8 +52,8 @@ enthusiasts.
 - [Documentation](https://docs.ssccs.org)
 - [GitHub Discussions](https://github.com/ssccsorg/ssccs/discussions)
 - [Legal Charter](/docs/legal/index.qmd)
-- [Code of Conduct](/docs/CODE_OF_CONDUCT.md)
-- [Contributing Guidelines](/docs/CONTRIBUTING.md)
+- [Code of Conduct](/docs/code_of_conduct.md)
+- [Contributing Guidelines](/docs/contributing.md)
 
 ## Documentation
 
@@ -63,10 +63,10 @@ The SSCCS documentation suite consists of several formal documents:
   specification, available as PDF and HTML.
 - **[Proposal](https://ssccs.org/proposal)**: A companion document focusing on
   practical implementation and sustainability.
-- **[Project Direction](/docs/DIRECTION.md)**: Strategic orientation and regional engagement for the SSCCS initiative.
-- **[Manifesto](/docs/MANIFESTO.md)**: The high‑level philosophical and
+- **[Project Direction](/docs/direction.md)**: Strategic orientation and regional engagement for the SSCCS initiative.
+- **[Manifesto](/docs/manifesto.qmd)**: The high‑level philosophical and
   technical introduction.
-- **[Guide](/docs/GUIDE.md)**: A comprehensive guide to SSCCS core
+- **[Guide](/docs/guide.md)**: A comprehensive guide to SSCCS core
   concepts.
 - **[Legal documents](/docs/legal/index.qmd)**: The foundation’s charter
   and statutes.
@@ -103,7 +103,7 @@ We invite contributions of all kinds:
 - Research: Formal analysis, performance benchmarks, security audits.
 - Outreach: Blog posts, conference talks, educational material.
 
-Please read [CONTRIBUTING.md](/docs/CONTRIBUTING.md) for guidelines on pull requests, code style, and licensing.
+Please read [contributing.md](/docs/contributing.md) for guidelines on pull requests, code style, and licensing.
 
 ## Acknowledgments
 
