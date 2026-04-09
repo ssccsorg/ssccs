@@ -58,8 +58,8 @@ jobs:
           file: docs/Dockerfile
           tags: dockerimg-docs
           load: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=shared-docs
+          cache-to: type=gha,mode=max,scope=shared-docs
 
       - name: Run documentation build
         run: |
