@@ -164,8 +164,8 @@ let result = profile.issue_observation(0x01, 0x02, 0x03);
 
 ## Links
 
-- [SSCCS RISC-V Integration Research](../../docs/research/riscv.qmd)
-- [OpenHW Integration Proposal](../../docs/proposal/openhw_integration.md)
+- [SSCCS RISC-V Integration Research](/docs/research/riscv.qmd)
+- [OpenHW Integration Proposal](/docs/proposal/openhw_integration.md)
 - [OpenHW Group](https://www.openhwgroup.org/)
 - [CORE-V XIF Specification](https://github.com/openhwgroup/core-v-xif)
 - [Rust Embedded Book](https://docs.rust-embedded.org/book/)

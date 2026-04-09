@@ -5,7 +5,7 @@ April 2026, [SSCCS Foundation](https://ssccs.org)
 **For technical details, see:** 
 
 - [RISC‑V integration research report](/research/riscv.html)
-- [SSCCS Whitepaper](/whitepaper)
+- [SSCCS Whitepaper](/whitepaper/whitepaper.html)
 
 ---
 

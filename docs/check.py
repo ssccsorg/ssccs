@@ -16,6 +16,10 @@ import requests
 from pathlib import Path
 from urllib.parse import urlparse
 from typing import Dict, List, Tuple, Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from threading import Lock
+import fnmatch
+import threading
 
 # ============================================================
 # Configuration
@@ -203,45 +207,74 @@ def sync_all_links(target_dir: str):
 
 
 # ============================================================
-# Validation function with progress indicator
+# Validation function with Quarto awareness
 # ============================================================
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from threading import Lock
-import time
-
-import fnmatch
-
-
 def should_ignore_url(url: str) -> bool:
     for pattern in IGNORE_URL_PATTERNS:
         if fnmatch.fnmatch(url, pattern):
             return True
     return False
 
-
-def find_source_candidates(root: Path, base_path: Path) -> List[Path]:
+def is_valid_quarto_link(link_path: str, source_file: Path, root: Path) -> bool:
     """
-    Given a path (possibly with .html/.pdf extension), return a list of candidate
-    source files that could generate it.
+    Return True if `link_path` will exist after Quarto rendering.
+    Rules:
+      - .html links: valid if corresponding .qmd/.md exists.
+      - directory/ links: valid if directory contains index.qmd/index.md.
+      - bare names (no extension, no trailing slash): valid only if a .qmd/.md
+        file of that exact name exists (otherwise broken).
     """
-    candidates = []
-    # If the path already exists, it's valid
-    if base_path.exists():
-        candidates.append(base_path)
-    
-    # Check for source extensions
-    source_exts = SOURCE_EXTENSIONS | {".ipynb"}
-    for ext in source_exts:
-        candidate = base_path.with_suffix(ext)
-        if candidate.exists():
-            candidates.append(candidate)
-    
-    # Also check without extension (directory)
-    if base_path.is_dir():
-        candidates.append(base_path)
-    
-    return candidates
+    # List of possible source subdirectories (e.g., 'docs', 'content')
+    source_subdirs = ['', 'docs', 'src', 'content']
 
+    def check_exact_file(base: Path) -> bool:
+        """Check if base.qmd or base.md exists."""
+        return (base.with_suffix('.qmd').exists() or 
+                base.with_suffix('.md').exists())
+
+    def check_directory_index(dir_path: Path) -> bool:
+        """Check if dir_path/index.qmd or index.md exists."""
+        return ((dir_path / 'index.qmd').exists() or 
+                (dir_path / 'index.md').exists())
+
+    # Normalize the link (remove fragment/query)
+    clean = link_path.split('#')[0].split('?')[0]
+
+    # Determine if the link ends with .html or a trailing slash
+    is_html = clean.endswith('.html')
+    is_dir_slash = clean.endswith('/')
+
+    # For each possible source base directory
+    for sub in source_subdirs:
+        if clean.startswith('/'):
+            target = root / sub / clean.lstrip('/')
+        else:
+            # Relative link: resolve from source file's parent
+            target = (source_file.parent / clean).resolve()
+            if not str(target).startswith(str(root)):
+                continue
+
+        if is_html:
+            # .html link: look for .qmd/.md with same name
+            if check_exact_file(target.with_suffix('')):
+                return True
+        elif is_dir_slash:
+            # Directory link (ends with /): look for index file inside
+            if check_directory_index(target):
+                return True
+        else:
+            # Bare name (no .html, no trailing slash): exact .qmd/.md required
+            if check_exact_file(target):
+                return True
+            # Also try under source subdirectories for absolute links
+            for alt_sub in source_subdirs:
+                if alt_sub == sub:
+                    continue
+                alt_target = root / alt_sub / clean.lstrip('/')
+                if check_exact_file(alt_target):
+                    return True
+
+    return False
 
 def validate_all_links(target_dir: str, verbose: bool = False, max_workers: int = 8):
     root = Path(target_dir).resolve()
@@ -256,7 +289,7 @@ def validate_all_links(target_dir: str, verbose: bool = False, max_workers: int 
     md_link_pattern = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
     html_link_pattern = re.compile(r'(?:href|src)=["\']([^"\']+)["\']', re.IGNORECASE)
 
-    # List of files to collect
+    # List of files to check
     files_to_check = []
     for file_path in root.rglob("*"):
         if file_path.suffix not in VALID_EXTENSIONS:
@@ -293,8 +326,6 @@ def validate_all_links(target_dir: str, verbose: bool = False, max_workers: int 
                     end="",
                     flush=True,
                 )
-
-    import threading
 
     reporter_thread = threading.Thread(target=status_reporter, daemon=True)
     reporter_thread.start()
@@ -374,29 +405,7 @@ def validate_all_links(target_dir: str, verbose: bool = False, max_workers: int 
                         (file_path.relative_to(root), url, "Connection Error", line)
                     )
             elif clean_url:
-                bases = [root]
-                if clean_url.startswith("/"):
-                    # Also consider parent directory (project root)
-                    if root.parent.exists():
-                        bases.append(root.parent)
-                candidates_found = False
-                for base in bases:
-                    if clean_url.startswith("/"):
-                        target = base / clean_url.lstrip("/")
-                    else:
-                        target = file_path.parent / clean_url
-                    try:
-                        target = target.resolve()
-                        # Allow traversal up to base
-                        if not str(target).startswith(str(base)):
-                            continue
-                        # Check if target exists or has a source file
-                        if find_source_candidates(base, target):
-                            candidates_found = True
-                            break
-                    except Exception:
-                        continue
-                if not candidates_found:
+                if not is_valid_quarto_link(clean_url, file_path, root):
                     file_broken_local.append(
                         (file_path.relative_to(root), url, "Not Found", line)
                     )
