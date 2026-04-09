@@ -252,7 +252,7 @@ SSCCS offers an opportunity to bring research into the OpenHW ecosystem. By leve
 [2] OpenHW Group, "CORE-V-VERIF Verification Methodology," 2026. [https://github.com/openhwgroup/core-v-verif](https://github.com/openhwgroup/core-v-verif)
 
 <a id="ref-3"></a>
-[3] QuickLogic, "ArticPro 2 eFPGA Architecture Manual," 2024. [https://www.quicklogic.com/products/efpga/arcticpro-family/](https://www.quicklogic.com/products/efpga/arcticpro-family/)
+[3] QuickLogic, "ArticPro 2 eFPGA Architecture Manual," 2024. [https://support.arctic.de/en/m2-pro-series](https://support.arctic.de/en/m2-pro-series)
 
 <a id="ref-4"></a>
 [4] Imperas Software, "riscvOVPsimCOREV Reference Simulator Documentation," 2025. [https://www.imperas.com/riscvovpsimcorev](https://www.imperas.com/riscvovpsimcorev)

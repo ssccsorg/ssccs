@@ -168,7 +168,7 @@ The whitepaper’s energy model predicts that SSCCS can reduce energy consumptio
 
 ## Sub-Project: RISC-V Hardware Integration
 
-A parallel research track investigates Rust bare-metal programming for RISC-V targets as a foundation for SSCCS hardware integration. See [`docs/research/riscv/rust_baremetal.qmd`](/docs/research/riscv/rust_baremetal.qmd) for details on leveraging the Rust embedded ecosystem to accelerate SSCCS validation on OpenHW CORE-V and other RISC-V platforms.
+A parallel research track investigates Rust bare-metal programming for RISC-V targets as a foundation for SSCCS hardware integration. See [`docs/research/rust_baremetal.qmd`](https://github.com/ssccsorg/ssccs/blob/main/docs/research/rust_baremetal.qmd) for details on leveraging the Rust embedded ecosystem to accelerate SSCCS validation on OpenHW CORE-V and other RISC-V platforms.
 
 ## Immediate Next Actions
 
