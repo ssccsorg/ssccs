@@ -1,7 +1,6 @@
 ---
-title: "SSCCS Documentation"
-subtitle: "Open Documentation and Knowledge Base Infrastructure"
-author: "SSCCS Foundation"
+title: "SSCCS Documentation Nexus"
+subtitle: "Networked Knowledge Base Infrastructure"
 format:
   html: default
 ---
@@ -17,114 +16,108 @@ Welcome to the SSCCS Documentation. This site serves as the central hub for all 
   </video>
 </div>
 
-We are developing a Documentation Infrastructure that functions as a Networked Knowledge Base. Our mission is to evolve documentation from static records into a blueprint for a self-evolving, intelligent knowledge ecosystem. By converting every decision and implementation detail into version-controlled, traceable data, we create an Observable Knowledge Graph (OKG). This graph provides an LLM/RAG-optimized foundation, allowing both humans and AI to navigate and reason through integrated, self-accumulating knowledge that accelerates project growth.
+Beyond a static archive, the project's central nervous infrastructure—a Networked Knowledge Base designed as an Observable Knowledge Graph (OKG). It is the primary artifact of SSCCS, ensuring that every assertion, technical decision, and implementation detail is version-controlled, machine-readable, and cryptographically traceable. All documents are cross-referenced and built from plain Markdown (.md / .qmd) sources. The Graph grows with the code and research—it is the foundation, not an afterthought.
 
 
-## Why Documentation is Our Core Growth Engine
+## Documentation as Dynamic Data Infrastructure
 
-Documentation is not a byproduct — it is the **central nervous system** of the SSCCS project. Every technical decision, research finding, and governance record becomes a node in a machine-readable knowledge graph. This graph enables:
+By converting static records into structured, interconnected data, the project achieves:
 
-- **Faster onboarding**: New contributors understand past discussions in 15 minutes (vs. days of reading).
-- **AI-driven R&D**: LLMs answer "What was the conclusion about X?" with exact citations and provenance.
-- **Auditable transparency**: C2PA-signed outputs allow financial or regulatory audits without manual verification.
+### Observable Knowledge Graph (OKG)
+Every document is a node in a versioned graph, enabling clear provenance, dependency tracking, and multi-hop reasoning across technical specifications, research notes, and governance records.
 
+### Accelerated Onboarding
+The networked structure reduces the time required for new contributors to understand complex technical histories — from days of reading to minutes of navigation.
 
-## AI-Integrated Knowledge Management
-
-This documentation system is built as a **structured knowledge base** that AI systems can directly query, reason over, and extend. Every output is designed to be machine‑readable, enabling concrete AI‑assisted workflows for research, consistency checking, summarization, and semantic search.
-
-- **AI‑Assisted Research**: LLM agents can retrieve context from the documentation using the dependency graph, answering technical questions with precise references.
-- **Automated Consistency Checking**: LLMs are prompted to detect contradictions between documents (e.g., whitepaper claims vs. research findings), using the explicit relationship map as retrieval context.
-- **Semantic Search & Retrieval**: Clean markdown outputs are embedded with models then indexed in vector databases for hybrid semantic + metadata filtering.
-- **Automated Summarisation**: The structured nature of outputs enables reliable extraction of abstracts, key claims, and technical specifications for downstream consumption (e.g., generating project overviews for new contributors).
-- **Graph‑Based Reasoning**: The dependency graph can be exported as RDF/JSON‑LD, allowing graph databases to perform multi‑hop reasoning over document relationships.
-
-### Structured Outputs for Pipelines
-
-| Feature | How AI Pipelines Use It |
-|---------|-------------------------|
-| Deterministic output paths | Reliable indexing by crawlers and embedding pipelines; predictable URLs for automated ingestion. |
-| Dependency graph (SHA‑256 hashes) | Explicit document relationship map for contextual retrieval; enables graph‑aware RAG. |
-| Markdown output | Clean, parseable text for embedding models; no HTML clutter or layout noise. |
-| Consistent YAML metadata | Structured fields for metadata‑aware retrieval (e.g., filter by author, date, document type). |
-| C2PA provenance | Trust verification for AI‑generated summaries and derivatives; cryptographically signed origins. |
-
-### Integration with AI/ML Ecosystems
-
-The documentation’s outputs are compatible with common AI/ML pipelines and frameworks:
-
-- **LLM orchestration frameworks**: Load documents via standard file‑system loaders; the YAML frontmatter is automatically parsed into document metadata.
-- **Vector databases and retrieval pipelines**: Index document text with metadata filters; leverage the dependency graph for enriched retrieval.
-- **Custom embedding pipelines**: The build system can export a manifest of all documents with their SHA‑256 hashes and paths, enabling incremental updates of vector indices.
-- **CI/CD for AI‑readiness**: Each build generates machine‑readable artifacts (dependency graph, metadata catalog) that can be consumed by downstream AI pipelines.
-
-### Open‑Source Foundation
-
-This system serves as a reference implementation for open‑source project documentation that is AI‑ready by design:
-
-- **No vendor lock‑in**: Built on Quarto (open‑source), Python, and standard file formats (Markdown, PDF, HTML).
-- **Reproducible builds**: Given the same source tree and build command, outputs are deterministic (see build system details for full implementation).
-- **Contributor‑friendly**: Source files are plain Markdown with YAML frontmatter; no proprietary editors or formats required.
-- **Machine‑readable internals**: The build system’s internal state (dependency hashes, target configurations) can be exported as JSON for external tooling.
+### Auditable Transparency
+Integration of C2PA-signed outputs and GPG-authenticated commits enables automated regulatory and financial auditing without manual intervention.
 
 
-## Getting Started by Role
 
-### For Readers (everyone)
-- Browse all documents using the sidebar navigation.
-- PDF versions are available for offline reading and academic citation – click the PDF button on any page.
-- All documents link to their source files in the repository for full transparency.
+## Machine-Readable by Design
 
-### For Researchers
-- Use the AI‑ready outputs (markdown + metadata) for your own LLM/RAG experiments.
-- The dependency graph can be exported to RDF/JSON‑LD for graph database analysis.
-- Contact us for bulk access or custom query endpoints (via GitHub issue with label `data-request`).
+The infrastructure is built to support both human readers and automated tooling. Outputs are structured for reliable indexing, retrieval, and integration.
 
-### For Contributors (developers, technical writers)
-1. **Clone the repository**: `git clone https://github.com/ssccsorg/ssccs3.git`
-2. **Install dependencies**: Use the preconfigured DevContainer (recommended) or install dependencies manually via `uv pip` (see `docs/Dockerfile` for the exact list). The legacy `requirements.txt` has been integrated into the Docker image.
-3. **Install Quarto**: <https://quarto.org/docs/get-started/>
-4. **Build the site**: `cd docs && python3 build.py --website`
-5. **Preview locally**: Open `docs/_site/index.html` in your browser.
+### Structured Output Features
 
-> A preconfigured DevContainer (`.devcontainer/devcontainer.json`) provides a complete, reproducible environment with all dependencies already installed. Use it for consistent builds across platforms. The same Docker image can also be run standalone for headless builds, e.g., `docker build -f docs/Dockerfile -t ssccs-docs .`.
+| Feature | Purpose |
+| :--- | :--- |
+| Deterministic Paths | Predictable URLs and file structures for reliable indexing and linking. |
+| Dependency Mapping | SHA-256 hashes map document relationships for accurate change propagation. |
+| Clean Markdown | Minimalist, parseable output optimized for embedding and downstream processing. |
+| YAML Metadata | Standardized frontmatter (author, date, type) enables metadata-aware filtering. |
+| C2PA Provenance | Cryptographic verification of origin and integrity for key artifacts. |
 
+### Export & Integration
+- Outputs available in HTML, PDF, and plain Markdown
+- Dependency graphs exportable as RDF/JSON-LD for graph database integration
+- Machine-readable manifests support incremental indexing and CI/CD pipelines
+
+
+
+## Build and Contribute
+
+All documentation is written in plain Markdown (`.md` / `.qmd`) with YAML frontmatter. The build is orchestrated by `docs/build.py` using [Quarto](https://quarto.org).
+
+### Environment Setup (Recommended)
+
+Use the provided Docker environment or DevContainer for a reproducible build state:
+
+```bash
+docker build -f docs/Dockerfile -t ssccs-docs .
+docker run --rm -v $(pwd):/workspace ssccs-docs python3 docs/build.py
+```
+
+### Local Build (Without Docker)
+
+> See `.devcontainer/devcontainer.json` and `docs/Dockerfile` for the complete environment specification. A preconfigured DevContainer provides all dependencies pre-installed for consistent development across platforms.
+
+```bash
+cd docs
+python3 build.py
+```
+ 
 
 ## Provenance and Licensing
 
-- **Code**: Apache 2.0 License
-- **Documents**: CC BY-NC-ND 4.0 (whitepaper), Apache 2.0 (technical docs)
-- **Authentication**: GPG-signed commits (`BCCB196BADF50C99`)
-- **Certification**: C2PA manifests for all major outputs
+| Component | License | Authentication |
+| :--- | :--- | :--- |
+| Source Code | Apache 2.0 | GPG-signed commits (`BCCB196BADF50C99`) |
+| Technical Documentation | Apache 2.0 | C2PA-certified |
+| Whitepaper & Proposals | CC BY-NC-ND 4.0 | C2PA-certified |
+| Build System | Apache 2.0 | Version-controlled source |
 
+All major outputs include cryptographic provenance metadata. Source commits are signed; published artifacts carry C2PA manifests for verifiable authenticity.
 
-## For Developers: Build System Details (Optional)
+ 
+
+## For Developers: Build System Details 
 
 <details>
 <summary>Click to expand – detailed build system guide (parallel caching, C2PA signing, etc.)</summary>
 
 The SSCCS documentation build system orchestrates Quarto renders with intelligent caching and parallelism, enabling fast, reproducible builds of multi‑format outputs. It is designed to handle complex documentation projects with many interdependent files while minimising redundant work.
 
-**Key features**
+Key features
 
-- **Parallel rendering**: Multiple Quarto documents are rendered concurrently, using physical CPU cores for optimal performance.
-- **Intelligent caching**: Each document’s hash (including all dependencies) determines whether a rebuild is needed; modifying an included fragment triggers rebuilds only for documents that actually include it.
-- **External configuration**: Build parameters are externalised in `docs/build.yml`, allowing target‑specific overrides (e.g., C2PA signing) and exclusion patterns without modifying the build script.
-- **C2PA provenance**: Selected outputs can be signed with C2PA manifests, providing cryptographic proof of authorship and integrity.
-- **Website‑mode isolation**: For website profiles, each target is rendered in a fully isolated temporary directory, preventing resource conflicts and enabling true parallel website generation.
+- Parallel rendering: Multiple Quarto documents are rendered concurrently, using physical CPU cores for optimal performance.
+- Intelligent caching: Each document’s hash (including all dependencies) determines whether a rebuild is needed; modifying an included fragment triggers rebuilds only for documents that actually include it.
+- External configuration: Build parameters are externalised in `docs/build.yml`, allowing target‑specific overrides (e.g., C2PA signing) and exclusion patterns without modifying the build script.
+- C2PA provenance: Selected outputs can be signed with C2PA manifests, providing cryptographic proof of authorship and integrity.
+- Website‑mode isolation: For website profiles, each target is rendered in a fully isolated temporary directory, preventing resource conflicts and enabling true parallel website generation.
 
-**Quick start**
+Quick start
 
 ```bash
 python3 build.py # generate all targets for local use in parallel
 python3 build.py --website # generate website‑optimized outputs
 ```
 
-This command builds all website targets in parallel. For other usage examples and a complete description of the system, see the top‑level comment in [`docs/build.py`](docs/build.py).
+This command builds all website targets in parallel. For other usage examples and a complete description of the system, see the top‑level comment in `docs/build.py`.
 
 </details>
 
 
 ::: {.callout-note}
-**This site is auto-generated.** Every page is built from version-controlled source files. To suggest changes, edit the `.md` or `.qmd` files and submit a pull request.
+This site is auto-generated. Every page is built from version-controlled source files. To suggest changes, edit the `.md` or `.qmd` files and submit a pull request.
 ::: 
