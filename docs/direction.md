@@ -36,6 +36,8 @@ We recognise that even the platforms hosting this repository are bound by centra
 
 ## Partnership, Collaboration, and Support
 
+SSCCS does not await institutional validation to proceed. But we engage directly with academia, industry, open‑hardware communities, and independent researchers, guided by technical merit and reciprocal contribution. We seek collaborators, not patrons; co‑creators, not auditors.
+
 We have engaged with funding bodies, research institutions, and open‑source initiatives across multiple regions. These dialogues have been instrumental in clarifying our vision and refining our documentation, yet they have also revealed a structural mismatch between conventional funding mechanisms and a project like SSCCS.
 
 Most established programmes are optimised for predictability. They typically support:
@@ -47,8 +49,6 @@ Most established programmes are optimised for predictability. They typically sup
 SSCCS does not iterate within an established stack; it reimagines the substrate of computation itself. Because it questions foundational assumptions about hardware, software, and information flow, it is inherently too early‑stage and too conceptually disruptive for mechanisms that reward narrow, near‑term deliverables. Institutional risk‑aversion and paradigm‑shifting research are, by design, misaligned.
 
 This reality shapes our posture. Rather than retrofitting our work to fit funding templates, we prioritise collaboration grounded in technical substance, epistemic openness, and long‑term vision. Genuine innovation does not emerge from centralised approval; it crystallises through iterative contribution within an open ecosystem. The technological foundations we rely on today were not mandated by sovereign committees. They emerged from a borderless, decentralised commons—built by countless contributors who treated code as a shared inheritance. To now frame foundational progress through the lens of technological sovereignty is to confuse geopolitical strategy with the actual mechanics of innovation.
-
-SSCCS does not await institutional validation to proceed. We engage directly with academia, industry, open‑hardware communities, and independent researchers, guided by technical merit and reciprocal contribution. We seek collaborators, not patrons; co‑creators, not auditors.
 
 Our engagement is guided by three principles:
 
