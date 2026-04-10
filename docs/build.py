@@ -453,6 +453,90 @@ def get_cache_dir_for_target(qmd_path: Path, target_name: str) -> Path:
     return qmd_path.parent / f"{qmd_path.stem}_locked"
 
 
+def get_cache_base() -> Path:
+    """
+    Return the base directory for the new cache system (_locked).
+    """
+    return Path(__file__).parent.parent / "_locked"
+
+
+def format_to_extension(fmt: str) -> str:
+    """
+    Map a Quarto format to a file extension.
+    """
+    mapping = {
+        "pdf": "pdf",
+        "beamer": "pdf",
+        "html": "html",
+        "gfm": "md",
+        "markdown": "md",
+    }
+    return mapping.get(fmt, fmt)
+
+
+def get_cached_artifact_path(target_name: str, hash_str: str, fmt: str) -> Path:
+    """
+    Return the path to a cached artifact file for the given target, hash, and format.
+    """
+    ext = format_to_extension(fmt)
+    return get_cache_base() / target_name / hash_str / f"{target_name}.{ext}"
+
+
+def find_cached_artifact(target_name: str, hash_str: str, fmt: str) -> Optional[Path]:
+    """
+    Return the cached artifact path if it exists, otherwise None.
+    """
+    path = get_cached_artifact_path(target_name, hash_str, fmt)
+    if path.exists():
+        return path
+    return None
+
+
+def cache_site_directory(target_name: str, hash_str: str, site_dir: Path) -> bool:
+    """
+    Cache the entire _site directory for a target (including site_libs).
+    The directory is copied to _locked/{target}/{hash}/site/.
+    Returns True on success, False on error.
+    """
+    if not site_dir.exists():
+        logger.warning(f"Site directory {site_dir} does not exist, nothing to cache.")
+        return False
+    cache_base = get_cache_base() / target_name / hash_str / "site"
+    if cache_base.exists():
+        # Remove existing cache to ensure clean copy
+        shutil.rmtree(cache_base, ignore_errors=True)
+    try:
+        shutil.copytree(site_dir, cache_base)
+        logger.info(f"Cached site directory for {target_name} at {cache_base}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to cache site directory for {target_name}: {e}")
+        return False
+
+
+def restore_site_directory(target_name: str, hash_str: str, dest_dir: Path) -> bool:
+    """
+    Restore a cached site directory to dest_dir (should be the _site directory).
+    Returns True on success, False if cache missing or error.
+    """
+    cache_dir = get_cache_base() / target_name / hash_str / "site"
+    if not cache_dir.exists():
+        logger.debug(f"No cached site directory for {target_name} ({hash_str})")
+        return False
+    # Ensure destination parent exists
+    dest_dir.parent.mkdir(parents=True, exist_ok=True)
+    if dest_dir.exists():
+        # Remove existing destination to avoid conflicts
+        shutil.rmtree(dest_dir, ignore_errors=True)
+    try:
+        shutil.copytree(cache_dir, dest_dir)
+        logger.info(f"Restored cached site directory for {target_name} to {dest_dir}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to restore cached site directory for {target_name}: {e}")
+        return False
+
+
 def get_cache_file(qmd_path: Path, fmt: str) -> Path:
     """
     Return the cache file path for a given format.
@@ -494,6 +578,7 @@ def write_hash_pair(cache_file: Path, qmd_hash: str, output_hash: str) -> None:
 def should_render_format(
     file_path: Path,
     fmt: str,
+    target_name: str,
     config: Optional[Dict[str, Any]] = None,
     output_dir: Optional[Path] = None,
 ) -> bool:
@@ -510,46 +595,56 @@ def should_render_format(
         logger.info(f"{fmt} is considered deterministic, always render.")
         return True
 
-    existing_output = find_existing_output(file_path, fmt, config, output_dir)
-
-    if existing_output is None:
-        logger.info(f"No {fmt} output found for {file_path.name}, need render.")
-        return True
-
     qmd_hash = compute_quarto_file_hash_with_deps(file_path)
-    logger.info(f"Checking cache for {file_path.name} ({fmt}): QMD hash {qmd_hash[:16]}...")
-    cache_file = get_cache_file(file_path, fmt)
-    pair = read_hash_pair(cache_file)
-    if pair is None:
-        logger.info(f"No cache file found for {file_path.name} ({fmt}), need render.")
-        return True
-    cached_qmd, _ = pair
-    if cached_qmd == qmd_hash:
-        logger.info(f"Cache matches for {file_path.name} (QMD unchanged), skipping {fmt} render.")
+    logger.info(f"Checking cache for {target_name} ({fmt}): QMD hash {qmd_hash[:16]}...")
+    
+    # Check if cached artifact exists
+    cached = find_cached_artifact(target_name, qmd_hash, fmt)
+    if cached is not None:
+        # Cache hit: copy the artifact to the output location
+        output_path = get_format_output_path(file_path, fmt)
+        if output_path is None:
+            logger.warning(f"Cannot determine output path for {target_name} ({fmt}), proceeding with render.")
+            return True
+        # Ensure parent directory exists
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            shutil.copy2(cached, output_path)
+            logger.info(f"Cache hit for {target_name} ({fmt}), copied cached artifact to {output_path}")
+        except Exception as e:
+            logger.warning(f"Failed to copy cached artifact for {target_name} ({fmt}): {e}, proceeding with render.")
+            return True
+        # Also update the old-style cache file for compatibility (optional)
+        # For now, we skip updating the old cache.
         return False
-    logger.info(f"Cache mismatch for {file_path.name} ({fmt}) – QMD changed, need render.")
+    
+    # Cache miss: need render
+    logger.info(f"Cache miss for {target_name} ({fmt}) – QMD hash {qmd_hash[:16]}...")
     return True
 
 
-def should_render_pdf(
-    file_path: Path,
-    pdf_path: Path,
-    config: Optional[Dict[str, Any]] = None,
-    output_dir: Optional[Path] = None,
-) -> bool:
-    """
-    Determine whether PDF needs to be rendered based on cached hashes.
-    Returns True if render is needed, False if up‑to‑date.
-    """
-    # delegate to generic function with format='pdf'
-    return should_render_format(qmd_path, 'pdf', config, output_dir)
 
 
-def update_format_cache(file_path: Path, fmt: str, output_path: Path) -> None:
+def update_format_cache(file_path: Path, fmt: str, output_path: Path, target_name: Optional[str] = None) -> None:
     """Update cache after successful render of a specific format."""
     qmd_hash = compute_quarto_file_hash_with_deps(file_path)
     output_hash = compute_file_hash(output_path)
     logger.info(f"Updating {fmt} cache for {file_path.name}: output hash {output_hash[:16]}...")
+    
+    # New cache system: store artifact file in _locked/{target_name}/{hash}/{target_name}.{ext}
+    if target_name is not None:
+        cache_dir = get_cache_base() / target_name / qmd_hash
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        ext = format_to_extension(fmt)
+        artifact_name = f"{target_name}.{ext}"
+        artifact_path = cache_dir / artifact_name
+        try:
+            shutil.copy2(output_path, artifact_path)
+            logger.info(f"Cached artifact for {target_name} ({fmt}) at {artifact_path}")
+        except Exception as e:
+            logger.warning(f"Failed to cache artifact for {target_name} ({fmt}): {e}")
+    
+    # Legacy cache system: keep hash pair file for compatibility
     cache_file = get_cache_file(file_path, fmt)
     write_hash_pair(cache_file, qmd_hash, output_hash)
 
@@ -591,7 +686,7 @@ def refresh_cache_for_target(target: str, output_dir: Optional[Path] = None) -> 
             # Output exists
             if existing_cache is not None and existing_cache[0] == current_qmd_hash:
                 # QMD unchanged – update cache (output may have changed due to non‑determinism)
-                update_format_cache(qmd_path, fmt, output_path)
+                update_format_cache(qmd_path, fmt, output_path, target_name=target)
                 logger.info(f"Updated {fmt} cache for {target}")
             else:
                 # QMD changed or cache missing – we cannot trust the output; remove cache to force rebuild
@@ -600,6 +695,13 @@ def refresh_cache_for_target(target: str, output_dir: Optional[Path] = None) -> 
                     logger.info(f"Removed cache file for {target} ({fmt}) – QMD changed or cache missing")
                 else:
                     logger.info(f"No cache file for {target} ({fmt}) – will rebuild on next run")
+                # Also remove new cache system directory if exists
+                if existing_cache is not None:
+                    old_hash = existing_cache[0]
+                    old_cache_dir = get_cache_base() / target / old_hash
+                    if old_cache_dir.exists():
+                        shutil.rmtree(old_cache_dir)
+                        logger.info(f"Removed new cache directory for {target} ({fmt}) – QMD changed")
         else:
             # No output file (or output path unknown), remove cache file for this format
             if cache_file.exists():
@@ -929,7 +1031,8 @@ def _render_formats_parallel(
     formats: List[str],
     format_output_paths: Dict[str, Path],
     docs_root: Path,
-    website: bool = False
+    website: bool = False,
+    target_name: Optional[str] = None
 ) -> bool:
     """Render each format in its own Quarto command, running in parallel threads."""
     def render_single_format(fmt: str) -> bool:
@@ -945,7 +1048,7 @@ def _render_formats_parallel(
             if fmt in NON_DETERMINISTIC_FORMATS:
                 output_path = format_output_paths[fmt]
                 if output_path.exists():
-                    update_format_cache(qmd_path, fmt, output_path)
+                    update_format_cache(qmd_path, fmt, output_path, target_name=target_name)
                 else:
                     logger.warning(f"Expected output {output_path} not found after render for {fmt}")
             return True
@@ -972,7 +1075,8 @@ def _render_formats_single(
     formats: List[str],
     format_output_paths: Dict[str, Path],
     docs_root: Path,
-    website: bool = False
+    website: bool = False,
+    target_name: Optional[str] = None
 ) -> bool:
     """Render all formats using a single Quarto command (--to fmt1,fmt2)."""
     lock = _lock_for_quarto_file(qmd_path)
@@ -990,7 +1094,7 @@ def _render_formats_single(
             if fmt in NON_DETERMINISTIC_FORMATS:
                 output_path = format_output_paths[fmt]
                 if output_path.exists():
-                    update_format_cache(qmd_path, fmt, output_path)
+                    update_format_cache(qmd_path, fmt, output_path, target_name=target_name)
                 else:
                     logger.warning(f"Expected output {output_path} not found after render for {fmt}")
         return True
@@ -1002,13 +1106,14 @@ def _render_formats(
     format_output_paths: Dict[str, Path],
     docs_root: Path,
     single_command: bool,
-    website: bool = False
+    website: bool = False,
+    target_name: Optional[str] = None
 ) -> bool:
     """Dispatch to the appropriate rendering strategy."""
     if single_command:
-        return _render_formats_single(qmd_path, formats, format_output_paths, docs_root, website)
+        return _render_formats_single(qmd_path, formats, format_output_paths, docs_root, website, target_name)
     else:
-        return _render_formats_parallel(qmd_path, formats, format_output_paths, docs_root, website)
+        return _render_formats_parallel(qmd_path, formats, format_output_paths, docs_root, website, target_name)
 
 
 def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path] = None, single_command: bool = False, website: bool = False, docs_root: Optional[Path] = None) -> bool:
@@ -1043,11 +1148,50 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
     if is_md_file and config.get("to") is None:
         # In website mode, we keep the simple render (no caching) because output location differs
         if website:
-            logger.info(f"Rendering {source_path.name} as native Markdown (website mode, no caching)")
+            fmt = "html"
+            qmd_hash = compute_quarto_file_hash_with_deps(source_path)
+            if not should_render_format(source_path, fmt, target, config, output_dir):
+                logger.info(f"Cache hit for {target} ({fmt}), skipping website render.")
+                # Copy cached artifact to _site subdirectory if different
+                output_path = get_format_output_path(source_path, fmt)
+                if docs_root and output_path:
+                    try:
+                        rel = source_path.relative_to(docs_root)
+                        site_path = docs_root / "_site" / rel.with_suffix('.html')
+                        if site_path != output_path and not site_path.exists():
+                            cached = find_cached_artifact(target, qmd_hash, fmt)
+                            if cached:
+                                site_path.parent.mkdir(parents=True, exist_ok=True)
+                                shutil.copy2(cached, site_path)
+                    except ValueError:
+                        pass
+                # Restore cached site directory (including site_libs)
+                site_dir = docs_root / "_site"
+                restore_site_directory(target, qmd_hash, site_dir)
+                logger.info(f"{target} build completed successfully (native Markdown, website).")
+                return True
+            logger.info(f"Rendering {source_path.name} as native Markdown (website mode)")
             quarto_cmd = ["quarto", "render", str(source_path), "--profile", "website"]
             if not run_command(quarto_cmd, cwd=docs_root):
                 logger.error(f"Quarto render failed for {source_path.name}.")
                 return False
+            # Cache the rendered HTML artifact
+            output_path = get_format_output_path(source_path, fmt)
+            if output_path and output_path.exists():
+                update_format_cache(source_path, fmt, output_path, target_name=target)
+            else:
+                # Try under _site subdirectory
+                if docs_root:
+                    try:
+                        rel = source_path.relative_to(docs_root)
+                        site_path = docs_root / "_site" / rel.with_suffix('.html')
+                        if site_path.exists():
+                            update_format_cache(source_path, fmt, site_path, target_name=target)
+                    except ValueError:
+                        pass
+            # Cache the entire _site directory for future reuse
+            site_dir = docs_root / "_site"
+            cache_site_directory(target, qmd_hash, site_dir)
             logger.info(f"{target} build completed successfully (native Markdown, website).")
             return True
         
@@ -1061,7 +1205,7 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
         # Determine which formats need rendering
         formats_to_render = []
         for fmt in formats:
-            if should_render_format(source_path, fmt, config, output_dir):
+            if should_render_format(source_path, fmt, target, config, output_dir):
                 formats_to_render.append(fmt)
         
         if not formats_to_render:
@@ -1079,7 +1223,7 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
         for fmt in formats:
             output_path = get_format_output_path(source_path, fmt)
             if output_path and output_path.exists():
-                update_format_cache(source_path, fmt, output_path)
+                update_format_cache(source_path, fmt, output_path, target_name=target)
         
         logger.info(f"{target} build completed successfully (native Markdown).")
         return True
@@ -1123,21 +1267,72 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
     formats_to_render = []
     if not website:
         for fmt in formats:
-            if should_render_format(qmd_path, fmt, config, output_dir):
+            if should_render_format(qmd_path, fmt, target, config, output_dir):
                 formats_to_render.append(fmt)
 
     # In website mode, render without --to to let Quarto handle all formats from YAML
     # This is required because website mode uses shared project configuration
     if website:
-        logger.info(f"Rendering {source_path.name} in website mode (no --to, all formats from YAML)")
-        quarto_cmd = ["quarto", "render", str(source_path), "--profile", "website"]
-        if not run_command(quarto_cmd, cwd=docs_root):
-            logger.error(f"Quarto render failed for {source_path.name} (website mode).")
-            return False
+        qmd_hash = compute_quarto_file_hash_with_deps(qmd_path)
+        all_cached = True
+        for fmt in formats:
+            if find_cached_artifact(target, qmd_hash, fmt) is None:
+                all_cached = False
+                break
+        if all_cached:
+            logger.info(f"All formats for {target} are cached, skipping website render.")
+            # Copy cached artifacts to output locations
+            for fmt in formats:
+                cached = find_cached_artifact(target, qmd_hash, fmt)
+                if cached:
+                    output_path = format_output_paths.get(fmt)
+                    if output_path:
+                        output_path.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(cached, output_path)
+                    # Also copy to _site subdirectory if different
+                    if docs_root and output_path:
+                        try:
+                            rel = output_path.relative_to(docs_root)
+                            site_path = docs_root / "_site" / rel
+                            if site_path != output_path and not site_path.exists():
+                                site_path.parent.mkdir(parents=True, exist_ok=True)
+                                shutil.copy2(cached, site_path)
+                        except ValueError:
+                            pass
+            # Skip the actual Quarto render but continue with post‑processing
+            # Restore cached site directory (including site_libs)
+            site_dir = docs_root / "_site"
+            restore_site_directory(target, qmd_hash, site_dir)
+            pass
+        else:
+            # Not all formats cached, proceed with render
+            logger.info(f"Rendering {source_path.name} in website mode (no --to, all formats from YAML)")
+            quarto_cmd = ["quarto", "render", str(source_path), "--profile", "website"]
+            if not run_command(quarto_cmd, cwd=docs_root):
+                logger.error(f"Quarto render failed for {source_path.name} (website mode).")
+                return False
+            # Cache artifacts for each format
+            for fmt in formats:
+                output_path = format_output_paths.get(fmt)
+                if output_path and output_path.exists():
+                    update_format_cache(qmd_path, fmt, output_path, target_name=target)
+                else:
+                    # Try under _site subdirectory
+                    if docs_root:
+                        try:
+                            rel = output_path.relative_to(docs_root)
+                            site_path = docs_root / "_site" / rel
+                            if site_path.exists():
+                                update_format_cache(qmd_path, fmt, site_path, target_name=target)
+                        except (ValueError, AttributeError):
+                            pass
+            # Cache the entire _site directory for future reuse
+            site_dir = docs_root / "_site"
+            cache_site_directory(target, qmd_hash, site_dir)
     else:
         if formats_to_render:
             logger.info(f"Rendering {len(formats_to_render)} format(s) for {target}")
-            if not _render_formats(qmd_path, formats_to_render, format_output_paths, docs_root, single_command, website):
+            if not _render_formats(qmd_path, formats_to_render, format_output_paths, docs_root, single_command, website, target_name=target):
                 return False
         else:
             logger.info(f"All formats for {target} are up‑to‑date, skipping render.")
