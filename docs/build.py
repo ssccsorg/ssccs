@@ -3,9 +3,10 @@
 SSCCS Documentation Builder
 
 Behavior:
-  - Single target: runs normally
-  - Multiple targets: runs in PARALLEL by default
-  - Use --sequence/-s to force sequential execution
+  - Single target: formats are rendered in a single Quarto command by default.
+  - Multiple targets: runs in PARALLEL by default (targets parallel, formats per target in single command)
+  - Use --sequence/-s to force sequential execution across targets.
+  - Use --parallel-formats to render each format in a separate Quarto command (parallel per format).
   - Use --website to enable website mode (adds --profile website to quarto render)
 
 Project Structure:
@@ -75,6 +76,7 @@ Website Mode (--website):
   - Temp directories are automatically cleaned up after the build.
   - **Note:** Website mode requires more disk space (N x docs size for N parallel jobs).
     Use `-j` to limit parallelism if disk space is constrained.
+  - **Important:** When switching between `--website` mode and regular mode, run `./build.py clean` to avoid conflicts between Quarto artifacts.
 
 Parallel Execution:
   - Default `--jobs` (-j) is set to **estimated physical CPU cores** (`os.cpu_count() // 2`).
@@ -82,12 +84,12 @@ Parallel Execution:
     Quarto rendering (LuaLaTeX) is CPU-intensive, so physical core count gives better
     performance per watt and avoids memory pressure from excessive parallelism.
   - Override with `-j N` for manual control.
-  - Formats within a target can also be rendered in parallel (separate quarto calls)
-    or in a single command (`--single-command` with `--to format1,format2`).
+  - Formats within a target are rendered in a single Quarto command by default.
+    Use `--parallel-formats` to render each format in separate commands (parallel per format).
 
 Important:
-  - Formats can be rendered either in parallel (each in a separate `quarto render` call)
-    or in a single command (with `--to format1,format2`) depending on the `--single-command` flag.
+  - Formats are rendered in a single Quarto command by default. Use `--parallel-formats`
+    to render each format in separate `quarto render` calls (parallel per format).
     Concurrency is limited to the number of formats per target when parallel mode is used.
   - A per‑QMD lock ensures that concurrent Quarto renders on the same source file do not interfere
     with each other (avoiding temporary‑directory collisions). This lock is transparent to the user.
@@ -108,7 +110,7 @@ Usage:
   ./build.py --website -j 3                 # Website mode with 3 parallel jobs
   ./build.py snapshot                       # Refresh cache for all targets
   ./build.py snapshot whitepaper proposal   # Refresh cache for specific targets
-  ./build.py --single-command whitepaper     # Use single Quarto command for all formats
+  ./build.py --parallel-formats whitepaper     # Render each format in separate Quarto commands
   ./build.py clean                          # Remove Quarto artifacts
 """
 
@@ -148,6 +150,7 @@ IGNORING_ARTIFACT_PATTERNS = [
     "**/*_output",
     "**/*_extensions",
     "**/*_cached",
+    "../_cached",
     "**/*_libs",
     "**/_site",
     # quarto: final artifacts
@@ -1318,11 +1321,11 @@ def _render_formats(
         return _render_formats_parallel(qmd_path, formats, format_output_paths, docs_root, website, target_name)
 
 
-def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path] = None, single_command: bool = False, website: bool = False, docs_root: Optional[Path] = None, build_targets_set: Optional[set] = None) -> bool:
+def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path] = None, single_command: bool = True, website: bool = False, docs_root: Optional[Path] = None, build_targets_set: Optional[set] = None) -> bool:
     """
     Generic build function that renders a .qmd or .md file and performs optional post‑processing.
-    Formats are rendered either in parallel (separate commands) or in a single command
-    depending on the `single_command` flag.
+    Formats are rendered in a single command by default. Set `single_command=False`
+    to render each format in separate commands (parallel per format).
     If `website` is True, adds `--profile website` to Quarto render commands.
     
     Important: In website mode, formats are NOT rendered individually. Instead, quarto render
@@ -1756,7 +1759,7 @@ def initialize_config(config_path: Optional[Path]) -> None:
     for target, config in TARGET_CONFIG.items():
         # Create a closure that captures target and config
         def make_builder(tgt, cfg):
-            def builder(output_dir: Optional[Path] = None, single_command: bool = False, website: bool = False, docs_root: Optional[Path] = None, build_targets_set: Optional[set] = None) -> bool:
+            def builder(output_dir: Optional[Path] = None, single_command: bool = True, website: bool = False, docs_root: Optional[Path] = None, build_targets_set: Optional[set] = None) -> bool:
                 return build_generic(tgt, cfg, output_dir, single_command, website, docs_root, build_targets_set)
             return builder
         BUILD_FUNCTIONS[target] = make_builder(target, config)
@@ -2088,11 +2091,11 @@ def main() -> None:
         formatter_class=argparse.RawTextHelpFormatter,
         epilog="""
 Behavior:
-  - Single target: formats are rendered either in parallel or in a single Quarto command.
-  - Multiple targets: runs in PARALLEL by default (targets parallel, formats parallel per target)
-    unless --single-command is used.
+  - Single target: formats are rendered in a single Quarto command by default.
+  - Multiple targets: runs in PARALLEL by default (targets parallel, formats per target in single command)
+    unless --parallel-formats is used.
   - Use --sequence/-s to force sequential execution across targets.
-  - Use --single-command to render all formats of a target in one Quarto command.
+  - Use --parallel-formats to render each format in a separate Quarto command (parallel per format).
   - Use --website to enable website mode (--profile website) with isolated parallel docs.
 
 Website Mode:
@@ -2124,7 +2127,7 @@ Examples:
   %(prog)s snapshot                       # Refresh cache for all targets
   %(prog)s snapshot whitepaper proposal   # Refresh cache for specific targets
   %(prog)s clean                          # Remove Quarto artifacts
-  %(prog)s --single-command whitepaper     # Use single Quarto command for all formats
+  %(prog)s --parallel-formats whitepaper     # Render each format in separate Quarto command
   %(prog)s --config build.yml whitepaper   # Use external configuration file
   %(prog)s -c ./custom-config.yml whitepaper  # Specify custom config path
         """
@@ -2154,9 +2157,9 @@ Examples:
         help=f"Max number of parallel jobs (default: {_default_jobs} = estimated physical cores, only used in parallel mode)",
     )
     parser.add_argument(
-        "--single-command",
+        "--parallel-formats",
         action="store_true",
-        help="Render all formats in a single Quarto command (--to fmt1,fmt2) instead of separate commands",
+        help="Render each format in a separate Quarto command (parallel per format) instead of a single command",
     )
     parser.add_argument(
         "--website",
@@ -2229,7 +2232,7 @@ Examples:
         output_dir=args.output_dir,
         sequence_mode=args.sequence,
         max_jobs=args.jobs,
-        single_command=args.single_command,
+        single_command=not args.parallel_formats,
         website=args.website,
     )
 
