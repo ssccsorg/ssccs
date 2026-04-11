@@ -511,6 +511,39 @@ def find_cached_artifact(target_name: str, hash_str: str, fmt: str) -> Optional[
     return None
 
 
+# Global: snapshot of cached target names captured before build starts
+_INITIAL_CACHED_TARGETS: Optional[set] = None
+
+
+def capture_initial_cached_targets() -> None:
+    """
+    Capture the set of cached target names before build starts.
+    This is used to detect if the document set has changed during the build.
+    """
+    global _INITIAL_CACHED_TARGETS
+    cache_base = get_cache_base()
+    if not cache_base.exists():
+        _INITIAL_CACHED_TARGETS = set()
+    else:
+        _INITIAL_CACHED_TARGETS = {d.name for d in cache_base.iterdir() if d.is_dir()}
+
+
+def get_initial_cached_targets() -> set:
+    """Return the snapshot of cached target names captured before build starts."""
+    if _INITIAL_CACHED_TARGETS is None:
+        return set()
+    return _INITIAL_CACHED_TARGETS
+
+
+def should_rerender_for_sidebar(build_targets: set) -> bool:
+    """
+    Check if HTML must be re-rendered to update sidebar.
+    Returns True if any target in the build set is not yet cached.
+    """
+    cached_targets = get_initial_cached_targets()
+    return not build_targets.issubset(cached_targets)
+
+
 def cache_site_directory(target_name: str, hash_str: str, site_dir: Path) -> bool:
     """
     Cache the entire _site directory for a target (including site_libs).
@@ -1135,7 +1168,7 @@ def _render_formats(
         return _render_formats_parallel(qmd_path, formats, format_output_paths, docs_root, website, target_name)
 
 
-def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path] = None, single_command: bool = False, website: bool = False, docs_root: Optional[Path] = None) -> bool:
+def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path] = None, single_command: bool = False, website: bool = False, docs_root: Optional[Path] = None, build_targets_set: Optional[set] = None) -> bool:
     """
     Generic build function that renders a .qmd or .md file and performs optional post‑processing.
     Formats are rendered either in parallel (separate commands) or in a single command
@@ -1170,27 +1203,15 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
             fmt = "html"
             qmd_hash = compute_quarto_file_hash_with_deps(source_path)
             if not should_render_format(source_path, fmt, target, config, output_dir):
-                logger.info(f"Cache hit for {target} ({fmt}), skipping website render.")
-                # Copy cached artifact to _site subdirectory if different
-                output_path = get_format_output_path(source_path, fmt)
-                if docs_root and output_path:
-                    try:
-                        rel = source_path.relative_to(docs_root)
-                        site_path = docs_root / "_site" / rel.with_suffix('.html')
-                        if site_path != output_path and not site_path.exists():
-                            cached = find_cached_artifact(target, qmd_hash, fmt)
-                            if cached:
-                                site_path.parent.mkdir(parents=True, exist_ok=True)
-                                shutil.copy2(cached, site_path)
-                    except ValueError:
-                        pass
-                # Restore cached site directory (including site_libs)
-                site_dir = docs_root / "_site"
-                restore_site_directory(target, qmd_hash, site_dir)
-                logger.info(f"{target} build completed successfully (native Markdown, website).")
-                return True
-            logger.info(f"Rendering {source_path.name} as native Markdown (website mode)")
-            quarto_cmd = ["quarto", "render", str(source_path), "--profile", "website"]
+                if not should_rerender_for_sidebar(build_targets_set or set()):
+                    logger.info(f"Cache hit for {target} ({fmt}), document set unchanged, using cached version.")
+                    site_dir = docs_root / "_site"
+                    restore_site_directory(target, qmd_hash, site_dir)
+                    logger.info(f"{target} build completed successfully (native Markdown, website).")
+                    return True
+                logger.info(f"Cache hit for {target} ({fmt}), document set changed, re-rendering HTML to update sidebar.")
+            logger.info(f"Rendering {source_path.name} as native Markdown (website mode, HTML only)")
+            quarto_cmd = ["quarto", "render", str(source_path), "--to", "html", "--profile", "website"]
             if not run_command(quarto_cmd, cwd=docs_root):
                 logger.error(f"Quarto render failed for {source_path.name}.")
                 return False
@@ -1299,30 +1320,76 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
                 all_cached = False
                 break
         if all_cached:
-            logger.info(f"All formats for {target} are cached, skipping website render.")
-            # Copy cached artifacts to output locations
-            for fmt in formats:
-                cached = find_cached_artifact(target, qmd_hash, fmt)
-                if cached:
-                    output_path = format_output_paths.get(fmt)
-                    if output_path:
-                        output_path.parent.mkdir(parents=True, exist_ok=True)
-                        shutil.copy2(cached, output_path)
-                    # Also copy to _site subdirectory if different
-                    if docs_root and output_path:
+            if "html" in formats:
+                if not should_rerender_for_sidebar(build_targets_set or set()):
+                    logger.info(f"All formats for {target} are cached, document set unchanged, using cached version.")
+                    for fmt in formats:
+                        cached = find_cached_artifact(target, qmd_hash, fmt)
+                        if cached:
+                            output_path = format_output_paths.get(fmt)
+                            if output_path:
+                                output_path.parent.mkdir(parents=True, exist_ok=True)
+                                shutil.copy2(cached, output_path)
+                    site_dir = docs_root / "_site"
+                    restore_site_directory(target, qmd_hash, site_dir)
+                    return True
+                logger.info(f"All formats for {target} are cached, document set changed, re-rendering HTML to update sidebar.")
+                # Copy non-HTML cached artifacts to output locations
+                for fmt in formats:
+                    if fmt == "html":
+                        continue
+                    cached = find_cached_artifact(target, qmd_hash, fmt)
+                    if cached:
+                        output_path = format_output_paths.get(fmt)
+                        if output_path:
+                            output_path.parent.mkdir(parents=True, exist_ok=True)
+                            shutil.copy2(cached, output_path)
+                        # Also copy to _site subdirectory if different
+                        if docs_root and output_path:
+                            try:
+                                rel = output_path.relative_to(docs_root)
+                                site_path = docs_root / "_site" / rel
+                                if site_path != output_path and not site_path.exists():
+                                    site_path.parent.mkdir(parents=True, exist_ok=True)
+                                    shutil.copy2(cached, site_path)
+                            except ValueError:
+                                pass
+                # Re-render HTML only with --to html to avoid re-rendering PDF/beamer
+                logger.info(f"Re-rendering {source_path.name} in website mode (HTML only, to update sidebar)")
+                quarto_cmd = ["quarto", "render", str(source_path), "--to", "html", "--profile", "website"]
+                if not run_command(quarto_cmd, cwd=docs_root):
+                    logger.error(f"Quarto render failed for {source_path.name} (website mode, HTML refresh).")
+                    return False
+                # Cache the updated HTML artifact
+                output_path = format_output_paths.get("html")
+                if output_path and output_path.exists():
+                    update_format_cache(qmd_path, "html", output_path, target_name=target)
+                else:
+                    # Try under _site subdirectory
+                    if docs_root:
                         try:
                             rel = output_path.relative_to(docs_root)
                             site_path = docs_root / "_site" / rel
-                            if site_path != output_path and not site_path.exists():
-                                site_path.parent.mkdir(parents=True, exist_ok=True)
-                                shutil.copy2(cached, site_path)
-                        except ValueError:
+                            if site_path.exists():
+                                update_format_cache(qmd_path, "html", site_path, target_name=target)
+                        except (ValueError, AttributeError):
                             pass
-            # Skip the actual Quarto render but continue with post‑processing
-            # Restore cached site directory (including site_libs)
-            site_dir = docs_root / "_site"
-            restore_site_directory(target, qmd_hash, site_dir)
-            pass
+                # Cache the entire _site directory for future reuse
+                site_dir = docs_root / "_site"
+                cache_site_directory(target, qmd_hash, site_dir)
+            else:
+                # No HTML format defined – restore all cached artifacts, no re-render needed
+                logger.info(f"All formats for {target} are cached (no HTML), restoring from cache.")
+                for fmt in formats:
+                    cached = find_cached_artifact(target, qmd_hash, fmt)
+                    if cached:
+                        output_path = format_output_paths.get(fmt)
+                        if output_path:
+                            output_path.parent.mkdir(parents=True, exist_ok=True)
+                            shutil.copy2(cached, output_path)
+                # Restore cached site directory
+                site_dir = docs_root / "_site"
+                restore_site_directory(target, qmd_hash, site_dir)
         else:
             # Not all formats cached, proceed with render
             logger.info(f"Rendering {source_path.name} in website mode (no --to, all formats from YAML)")
@@ -1490,8 +1557,8 @@ def initialize_config(config_path: Optional[Path]) -> None:
     for target, config in TARGET_CONFIG.items():
         # Create a closure that captures target and config
         def make_builder(tgt, cfg):
-            def builder(output_dir: Optional[Path] = None, single_command: bool = False, website: bool = False, docs_root: Optional[Path] = None) -> bool:
-                return build_generic(tgt, cfg, output_dir, single_command, website, docs_root)
+            def builder(output_dir: Optional[Path] = None, single_command: bool = False, website: bool = False, docs_root: Optional[Path] = None, build_targets_set: Optional[set] = None) -> bool:
+                return build_generic(tgt, cfg, output_dir, single_command, website, docs_root, build_targets_set)
             return builder
         BUILD_FUNCTIONS[target] = make_builder(target, config)
     
@@ -1523,15 +1590,15 @@ def validate_targets(targets: List[str]) -> List[str]:
     return targets
 
 
-def build_single_target(target: str, output_dir: Optional[Path], single_command: bool, website: bool = False) -> Tuple[str, bool]:
+def build_single_target(target: str, output_dir: Optional[Path], single_command: bool, website: bool = False, build_targets_set: Optional[set] = None) -> Tuple[str, bool]:
     """Wrapper to run a single build function and return (target_name, success)."""
     logger.info(f"Starting build: {target}")
     func = BUILD_FUNCTIONS[target]
     try:
         if target in OUTPUT_DIR_TARGETS:
-            success = func(output_dir=output_dir, single_command=single_command, website=website)
+            success = func(output_dir=output_dir, single_command=single_command, website=website, build_targets_set=build_targets_set)
         else:
-            success = func(single_command=single_command, website=website)
+            success = func(single_command=single_command, website=website, build_targets_set=build_targets_set)
         logger.info(f"Finished build: {target} -> {'✓' if success else '✗'}")
         return target, success
     except Exception as e:
@@ -1610,7 +1677,7 @@ def merge_dirs(src: Path, dst: Path) -> bool:
         return False
 
 
-def _render_target_isolated(target: str, output_dir: Optional[Path], single_command: bool, website: bool, temp_docs: Path) -> bool:
+def _render_target_isolated(target: str, output_dir: Optional[Path], single_command: bool, website: bool, temp_docs: Path, build_targets_set: Optional[set] = None) -> bool:
     """
     Render a single target in isolation using a complete copy of the docs folder.
     This prevents resource conflicts when running multiple quarto renders in parallel.
@@ -1626,7 +1693,7 @@ def _render_target_isolated(target: str, output_dir: Optional[Path], single_comm
         
         # For isolated mode, we run the build in the temp_docs directory
         # The output will go to temp_docs/_site
-        success = func(output_dir=temp_docs / "_site", single_command=single_command, website=website, docs_root=temp_docs)
+        success = func(output_dir=temp_docs / "_site", single_command=single_command, website=website, docs_root=temp_docs, build_targets_set=build_targets_set)
         return success
     except Exception as e:
         logger.error(f"Exception while rendering {target}: {e}")
@@ -1658,6 +1725,9 @@ def build_targets(
     if not targets:
         logger.info("No targets specified. Nothing to build.")
         return True
+
+    # Capture the initial cache state before building starts
+    capture_initial_cached_targets()
 
     results: Dict[str, bool] = {}
     
@@ -1708,10 +1778,11 @@ def build_targets(
                         return False
             
             # Render all targets in parallel, each in its own isolated docs copy
+            build_targets_set = set(targets)
             with ThreadPoolExecutor(max_workers=max_jobs) as executor:
                 futures = {
                     executor.submit(
-                        _render_target_isolated, t, output_dir, single_command, website, target_temp_dirs[t]
+                        _render_target_isolated, t, output_dir, single_command, website, target_temp_dirs[t], build_targets_set
                     ): t
                     for t in targets
                 }
@@ -1777,12 +1848,13 @@ def build_targets(
 
     # Non-website or sequential mode: use standard execution
     use_parallel = (not sequence_mode) and (len(targets) > 1)
+    build_targets_set = set(targets)
 
     if use_parallel:
         logger.info(f"Running {len(targets)} targets in parallel (max_jobs={max_jobs})")
         with ThreadPoolExecutor(max_workers=max_jobs) as executor:
             futures = {
-                executor.submit(build_single_target, t, output_dir, single_command, website): t
+                executor.submit(build_single_target, t, output_dir, single_command, website, build_targets_set): t
                 for t in targets
             }
             for future in as_completed(futures):
@@ -1793,7 +1865,7 @@ def build_targets(
         if len(targets) > 1:
             logger.info(f"Running {len(targets)} targets sequentially (--sequence mode)")
         for target in targets:
-            _, success = build_single_target(target, output_dir, single_command, website)
+            _, success = build_single_target(target, output_dir, single_command, website, build_targets_set)
             results[target] = success
 
     # Summary of results
