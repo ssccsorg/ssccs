@@ -1539,6 +1539,49 @@ def build_single_target(target: str, output_dir: Optional[Path], single_command:
         return target, False
 
 
+def _merge_search_json(src_path: Path, dst_path: Path) -> bool:
+    """
+    Merge two search.json files by concatenating their arrays and deduplicating by objectID.
+    If dst_path does not exist, simply copy src_path to dst_path.
+    Returns True on success, False on error.
+    """
+    try:
+        import json
+        # Read source
+        with open(src_path, 'r', encoding='utf-8') as f:
+            src_data = json.load(f)
+        # If destination doesn't exist, copy
+        if not dst_path.exists():
+            shutil.copy2(src_path, dst_path)
+            return True
+        # Read destination
+        with open(dst_path, 'r', encoding='utf-8') as f:
+            dst_data = json.load(f)
+        # Ensure both are lists
+        if not isinstance(src_data, list) or not isinstance(dst_data, list):
+            logger.warning(f"search.json does not contain a JSON array, overwriting with source.")
+            shutil.copy2(src_path, dst_path)
+            return True
+        # Merge: concatenate
+        merged = src_data + dst_data
+        # Deduplicate by objectID
+        seen = {}
+        unique = []
+        for item in merged:
+            obj_id = item.get("objectID")
+            if obj_id not in seen:
+                seen[obj_id] = True
+                unique.append(item)
+        # Write back
+        with open(dst_path, 'w', encoding='utf-8') as f:
+            json.dump(unique, f, ensure_ascii=False, indent=2)
+        logger.debug(f"Merged search.json from {src_path} into {dst_path}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to merge search.json {src_path} -> {dst_path}: {e}")
+        return False
+
+
 def merge_dirs(src: Path, dst: Path) -> bool:
     """
     Merge contents of src directory into dst directory.
@@ -1557,7 +1600,10 @@ def merge_dirs(src: Path, dst: Path) -> bool:
                 else:
                     shutil.copytree(src_item, dst_item)
             else:
-                shutil.copy2(src_item, dst_item)
+                if item.name == "search.json" and dst_item.exists() and dst_item.is_file():
+                    _merge_search_json(src_item, dst_item)
+                else:
+                    shutil.copy2(src_item, dst_item)
         return True
     except Exception as e:
         logger.error(f"Failed to merge {src} into {dst}: {e}")
