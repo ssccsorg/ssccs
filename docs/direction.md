@@ -4,8 +4,8 @@
 
 For decades, computation has been defined by the von Neumann model: data and instructions stored in memory, fetched sequentially, executed by a processor, with results written back. The majority of energy and time in such systems is spent on data movement rather than logic—the well-known "data-movement wall." SSCCS proposes a shift from procedural execution to structural observation, as a redefinition of what computation is. For details, see:
 
-- [Whitepaper](/whitepaper/whitepaper.html)
 - [Guide](/guide.html)
+- [Whitepaper](/whitepaper/whitepaper.html)
 - [Public Proposal](/proposal/proposal.html)
 
 This document outlines how SSCCS translates its philosophical and technical foundations into a concrete engineering trajectory, how we organise our work culturally, and how we engage with the global ecosystem to realise this paradigm in practice.
@@ -14,25 +14,20 @@ This document outlines how SSCCS translates its philosophical and technical foun
 
 ## Cultural Foundations
 
-SSCCS is a human endeavour first. Our culture is shaped by the following principles, which govern all technical and collaborative decisions.
-
-### Human Life Comes First
-
-This project exists to help us live better lives. Code, debate, and technical superiority are means, not ends. Rules and discussions must never devolve into unnecessary stress or moral posturing that exerts pressure on contributors. We focus on efficiently generating results within an atmosphere of objective, mutual respect.
+### Human Comes First
+All tools—rules, processes, methodologies, AI, automation, workflows—exist solely to support the goal of project, contributor's work and life. They are means, never ends. If a procedure causes unnecessary stress, fatigue, or alienation, the procedure is wrong—not the human. Our project goal and technology exists to help people live better, not despite it. Conversely, even claims of moral superiority cannot precede the project or its members. No ideology or virtue signaling stands above the wellbeing of the people doing the work.
 
 ### Results-Oriented Pragmatism
-
-The pedigree of how code was written matters less than whether it works, remains maintainable, and positively impacts the system. We bypass unnecessary bureaucracy and exhausting debates. Prove your point with code. Discussions are limited to software engineering, architecture, and performance. Ideological or social agendas unrelated to the project are noise; such behaviour will naturally lose relevance within this community.
-
-These principles are complementary: we pursue results through sustainable collaboration, not at its expense. Rigorous technical debate is welcome; personal pressure is not.
+Code quality, maintainability, and system impact matter more than how the code was written. We bypass bureaucracy and exhausting debates. Prove your point with code. Discussions are limited to software engineering, architecture, and performance. Unrelated ideological or social agendas will be ignored.
 
 ### Clarity of Responsibility
-
-Every contributor bears 100% responsibility for the integrity of their contributions. Tools (including AI) are aids, but the human engineer is ultimately accountable. As of 2026, using AI for engineering is as standard as using a compiler or an IDE. We do not mandate disclosure of AI usage; we evaluate only architectural consistency, logical correctness, security, and test compliance.
+Every contributor bears 100% responsibility for their contributions. Tools (including AI) are aids; the human engineer remains accountable. In 2026, AI use is as standard as a compiler. We do not mandate disclosure—only evaluate correctness, security, and test compliance. We encourage its use if it supports our project's healthy growth.
 
 ### Beyond Boundaries
+We acknowledge that even our hosting platforms operate within centralized constraints. Where possible, we choose open, decentralized alternatives. We encourage bold ideas that challenge conventional computing—provided they do not block other contributors.
 
-We recognise that even the platforms hosting this repository are bound by centralized corporate infrastructures and legacy cultural frameworks. We demand a culture that encourages breaking the mold and thinking differently—provided it does not hinder the activity of other contributors. We aggressively adopt any technology that advances computing paradigms faster and with less energy.
+These principles are complementary: we pursue results through sustainable collaboration, not at its expense. Rigorous technical debate is welcome; personal pressure is not. See more at [Code of Conduct](/code_of_conduct.html)
+
 
 ## Partnership, Collaboration, and Support
 
