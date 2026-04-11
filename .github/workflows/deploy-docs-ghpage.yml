@@ -66,15 +66,15 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build and cache Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: docs/Dockerfile
-          tags: dockerimg-docs
-          load: true
-          cache-from: type=gha,scope=shared-docs
-          cache-to: type=gha,mode=max,scope=shared-docs
+      - name: Build and load Docker image (direct buildx)
+        run: |
+          docker buildx build \
+            --load \
+            --file docs/Dockerfile \
+            --tag dockerimg-docs \
+            --cache-from type=gha,scope=shared-docs \
+            --cache-to type=gha,mode=max,scope=shared-docs \
+            .
 
       - name: Run documentation build
         run: |
