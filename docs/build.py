@@ -127,6 +127,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import List, Optional, Dict, Callable, Tuple, Any
 from functools import lru_cache
+from dataclasses import dataclass, field
 
 try:
     import yaml
@@ -493,19 +494,130 @@ def format_to_extension(fmt: str) -> str:
     return mapping.get(fmt, fmt)
 
 
-def get_cached_artifact_path(target_name: str, hash_str: str, fmt: str) -> Path:
+# ---------------------------------------------------------------------------
+# Linked Artifact System
+# ---------------------------------------------------------------------------
+# Linked artifacts are files generated alongside a primary output (e.g. PDF)
+# that should be cached and restored together.  Each handler is responsible
+# for:
+#   1. Declaring which primary formats it applies to
+#   2. Returning the linked file extension
+#   3. Generating the linked file (e.g. C2PA signing)
+#   4. Returning the path to the generated file
+
+@dataclass
+class LinkedArtifactHandler:
+    """Base class for linked artifact handlers."""
+    name: str
+    # Map of primary format -> linked file extension
+    extensions: Dict[str, str] = field(default_factory=dict)
+    # Config key to check if this handler is enabled
+    config_key: str = ""
+
+    def is_enabled(self, config: Dict[str, Any]) -> bool:
+        """Check if this handler is enabled for the given config."""
+        if not self.config_key:
+            return True
+        return bool(config.get(self.config_key, False))
+
+    def get_extension(self, fmt: str) -> Optional[str]:
+        """Return the linked file extension for the given primary format."""
+        return self.extensions.get(fmt)
+
+    def generate(
+        self,
+        qmd_path: Path,
+        fmt: str,
+        primary_path: Path,
+        docs_root: Path,
+        config: Dict[str, Any],
+    ) -> Optional[Path]:
+        """
+        Generate the linked artifact file.
+        Returns the path to the generated file, or None if generation failed.
+        Subclasses should override this.
+        """
+        return None
+
+
+class C2PAArtifactHandler(LinkedArtifactHandler):
+    """C2PA signing handler for PDF/HTML outputs."""
+
+    def __init__(self):
+        super().__init__(
+            name="c2pa",
+            extensions={"pdf": "c2pa", "beamer": "c2pa", "html": "c2pa"},
+            config_key="c2pa",
+        )
+
+    def generate(
+        self,
+        qmd_path: Path,
+        fmt: str,
+        primary_path: Path,
+        docs_root: Path,
+        config: Dict[str, Any],
+    ) -> Optional[Path]:
+        c2pa_stem = qmd_path.stem
+        manifest_path = qmd_path.parent / f"{c2pa_stem}.c2pa_manifest.json"
+        output_c2pa = primary_path.parent / f"{c2pa_stem}.c2pa"
+        output_c2pa.parent.mkdir(parents=True, exist_ok=True)
+        sign_cmd = [
+            "python3", str(docs_root / "_utils" / "sign_c2pa.py"),
+            "--pdf", str(primary_path),
+            "--manifest", str(manifest_path),
+            "--output", str(output_c2pa),
+        ]
+        if run_command(sign_cmd, cwd=docs_root):
+            return output_c2pa
+        logger.warning(f"C2PA signing failed for {qmd_path.name}.")
+        return None
+
+
+# Registry of linked artifact handlers
+LINKED_ARTIFACT_HANDLERS: List[LinkedArtifactHandler] = [
+    C2PAArtifactHandler(),
+]
+
+
+def get_linked_artifact_extensions(fmt: str, config: Dict[str, Any]) -> List[str]:
+    """
+    Return a list of linked artifact extensions for the given primary format.
+    Only returns extensions for enabled handlers.
+    """
+    result = []
+    for handler in LINKED_ARTIFACT_HANDLERS:
+        if handler.is_enabled(config):
+            ext = handler.get_extension(fmt)
+            if ext:
+                result.append(ext)
+    return result
+
+
+def get_enabled_handlers(config: Dict[str, Any]) -> List[LinkedArtifactHandler]:
+    """Return list of enabled handlers for the given config."""
+    return [h for h in LINKED_ARTIFACT_HANDLERS if h.is_enabled(config)]
+
+
+def get_cached_artifact_path(
+    target_name: str, hash_str: str, fmt: str, linked_ext: Optional[str] = None
+) -> Path:
     """
     Return the path to a cached artifact file for the given target, hash, and format.
+    If linked_ext is provided, returns the path for the linked artifact file.
     """
-    ext = format_to_extension(fmt)
+    ext = linked_ext if linked_ext else format_to_extension(fmt)
     return get_cache_base() / target_name / hash_str / f"{target_name}.{ext}"
 
 
-def find_cached_artifact(target_name: str, hash_str: str, fmt: str) -> Optional[Path]:
+def find_cached_artifact(
+    target_name: str, hash_str: str, fmt: str, linked_ext: Optional[str] = None
+) -> Optional[Path]:
     """
     Return the cached artifact path if it exists, otherwise None.
+    If linked_ext is provided, looks for the linked artifact file.
     """
-    path = get_cached_artifact_path(target_name, hash_str, fmt)
+    path = get_cached_artifact_path(target_name, hash_str, fmt, linked_ext=linked_ext)
     if path.exists():
         return path
     return None
@@ -666,6 +778,18 @@ def should_render_format(
         except Exception as e:
             logger.warning(f"Failed to copy cached artifact for {target_name} ({fmt}): {e}, proceeding with render.")
             return True
+        # Also restore linked artifacts if they exist
+        cfg = config or {}
+        for linked_ext in get_linked_artifact_extensions(fmt, cfg):
+            cached_linked = find_cached_artifact(target_name, qmd_hash, fmt, linked_ext=linked_ext)
+            if cached_linked is not None:
+                linked_stem = file_path.stem
+                linked_output_path = output_path.parent / f"{linked_stem}.{linked_ext}"
+                try:
+                    shutil.copy2(cached_linked, linked_output_path)
+                    logger.info(f"Restored cached linked artifact ({linked_ext}) to {linked_output_path}")
+                except Exception as e:
+                    logger.warning(f"Failed to copy cached linked artifact for {target_name} ({fmt}): {e}")
         # Also update the old-style cache file for compatibility (optional)
         # For now, we skip updating the old cache.
         return False
@@ -677,8 +801,22 @@ def should_render_format(
 
 
 
-def update_format_cache(file_path: Path, fmt: str, output_path: Path, target_name: Optional[str] = None) -> None:
-    """Update cache after successful render of a specific format."""
+def update_format_cache(
+    file_path: Path,
+    fmt: str,
+    output_path: Path,
+    target_name: Optional[str] = None,
+    linked_artifacts: Optional[Dict[str, Path]] = None,
+) -> None:
+    """Update cache after successful render of a specific format.
+    
+    Args:
+        file_path: Path to the source QMD file
+        fmt: Output format (pdf, html, etc.)
+        output_path: Path to the rendered output file
+        target_name: Name of the build target
+        linked_artifacts: Dict mapping linked file extension -> path to the linked artifact file
+    """
     qmd_hash = compute_quarto_file_hash_with_deps(file_path)
     output_hash = compute_file_hash(output_path)
     logger.info(f"Updating {fmt} cache for {file_path.name}: output hash {output_hash[:16]}...")
@@ -695,6 +833,18 @@ def update_format_cache(file_path: Path, fmt: str, output_path: Path, target_nam
             logger.info(f"Cached artifact for {target_name} ({fmt}) at {artifact_path}")
         except Exception as e:
             logger.warning(f"Failed to cache artifact for {target_name} ({fmt}): {e}")
+        
+        # Cache linked artifacts if they exist
+        if linked_artifacts:
+            for linked_ext, linked_path in linked_artifacts.items():
+                if linked_path is not None and linked_path.exists():
+                    linked_cache_name = f"{target_name}.{linked_ext}"
+                    linked_cache_path = cache_dir / linked_cache_name
+                    try:
+                        shutil.copy2(linked_path, linked_cache_path)
+                        logger.info(f"Cached linked artifact ({linked_ext}) for {target_name} ({fmt}) at {linked_cache_path}")
+                    except Exception as e:
+                        logger.warning(f"Failed to cache linked artifact ({linked_ext}) for {target_name} ({fmt}): {e}")
     
     # Legacy cache system: keep hash pair file for compatibility
     cache_file = get_cache_file(file_path, fmt)
@@ -1330,6 +1480,18 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
                             if output_path:
                                 output_path.parent.mkdir(parents=True, exist_ok=True)
                                 shutil.copy2(cached, output_path)
+                        # Also restore linked artifacts if they exist
+                        for linked_ext in get_linked_artifact_extensions(fmt, config):
+                            cached_linked = find_cached_artifact(target, qmd_hash, fmt, linked_ext=linked_ext)
+                            if cached_linked is not None:
+                                linked_stem = qmd_path.stem
+                                linked_output_path = output_path.parent / f"{linked_stem}.{linked_ext}" if output_path else None
+                                if linked_output_path:
+                                    try:
+                                        shutil.copy2(cached_linked, linked_output_path)
+                                        logger.info(f"Restored cached linked artifact ({linked_ext}) to {linked_output_path}")
+                                    except Exception as e:
+                                        logger.warning(f"Failed to copy cached linked artifact for {target} ({fmt}): {e}")
                     site_dir = docs_root / "_site"
                     restore_site_directory(target, qmd_hash, site_dir)
                     return True
@@ -1387,6 +1549,18 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
                         if output_path:
                             output_path.parent.mkdir(parents=True, exist_ok=True)
                             shutil.copy2(cached, output_path)
+                        # Also restore linked artifacts if they exist
+                        for linked_ext in get_linked_artifact_extensions(fmt, config):
+                            cached_linked = find_cached_artifact(target, qmd_hash, fmt, linked_ext=linked_ext)
+                            if cached_linked is not None:
+                                linked_stem = qmd_path.stem
+                                linked_output_path = output_path.parent / f"{linked_stem}.{linked_ext}" if output_path else None
+                                if linked_output_path:
+                                    try:
+                                        shutil.copy2(cached_linked, linked_output_path)
+                                        logger.info(f"Restored cached linked artifact ({linked_ext}) to {linked_output_path}")
+                                    except Exception as e:
+                                        logger.warning(f"Failed to copy cached linked artifact for {target} ({fmt}): {e}")
                 # Restore cached site directory
                 site_dir = docs_root / "_site"
                 restore_site_directory(target, qmd_hash, site_dir)
@@ -1412,9 +1586,6 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
                                 update_format_cache(qmd_path, fmt, site_path, target_name=target)
                         except (ValueError, AttributeError):
                             pass
-            # Cache the entire _site directory for future reuse
-            site_dir = docs_root / "_site"
-            cache_site_directory(target, qmd_hash, site_dir)
     else:
         if formats_to_render:
             logger.info(f"Rendering {len(formats_to_render)} format(s) for {target}")
@@ -1423,86 +1594,114 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
         else:
             logger.info(f"All formats for {target} are up‑to‑date, skipping render.")
 
-    # Step 2: C2PA signing (if enabled) – assumes PDF exists at format_output_paths['pdf'] or similar
+    # Step 2: Generate linked artifacts (e.g. C2PA signing)
+    # Linked artifacts are generated alongside primary outputs and must be cached together.
+    # If a linked artifact is missing from cache, the generation step must run.
     logger.info(f"format_output_paths keys: {list(format_output_paths.keys())}")
-    if config.get("c2pa"):
-        # Determine possible PDF paths
-        candidates = []
-        primary = format_output_paths.get('pdf') or format_output_paths.get('beamer')
-        if primary:
-            candidates.append(primary)
-            if website:
-                # Website output goes to _site subdirectory
-                try:
-                    rel = primary.relative_to(docs_root)
-                    candidates.append(docs_root / "_site" / rel)
-                except ValueError:
-                    pass
-        # Also consider moved location via copy_pdf (if config has copy_pdf)
-        if config.get("copy_pdf") and output_dir:
-            dest_dir = Path(output_dir).absolute() if output_dir else docs_root
-            candidates.append(dest_dir / f"{stem}.pdf")
-        # Try each candidate
-        pdf_path = None
-        for cand in candidates:
-            if cand and cand.exists():
-                pdf_path = cand
-                break
-        logger.info(f"pdf_path candidates: {candidates}, selected: {pdf_path}, exists: {pdf_path.exists() if pdf_path else False}")
-        if pdf_path and pdf_path.exists():
-            # For index.qmd files, use the QMD file stem (index) for C2PA files
-            # since the manifest is named after the QMD file, not the target
-            c2pa_stem = qmd_path.stem
-            manifest_path = parent / f"{c2pa_stem}.c2pa_manifest.json"
-            # Place .c2pa file next to the PDF (so it appears in the same output directory)
-            output_c2pa = pdf_path.parent / f"{c2pa_stem}.c2pa"
-            # Ensure parent directory exists
-            output_c2pa.parent.mkdir(parents=True, exist_ok=True)
-            sign_cmd = [
-                "python3", "_utils/sign_c2pa.py",
-                "--pdf", str(pdf_path),
-                "--manifest", str(manifest_path),
-                "--output", str(output_c2pa),
-            ]
-            if not run_command(sign_cmd, cwd=docs_root):
-                logger.warning(f"C2PA signing failed for {target}. Proceeding without signature.")
-        else:
-            logger.warning(f"C2PA signing requested but PDF output not found for {target}")
+    enabled_handlers = get_enabled_handlers(config)
+    if enabled_handlers:
+        # Determine primary paths for each format that may have linked artifacts
+        primary_paths: Dict[str, Path] = {}
+        for fmt in formats:
+            path = format_output_paths.get(fmt)
+            if path:
+                if website:
+                    # Website output goes to _site subdirectory
+                    try:
+                        rel = path.relative_to(docs_root)
+                        primary_paths[fmt] = docs_root / "_site" / rel
+                    except ValueError:
+                        primary_paths[fmt] = path
+                else:
+                    primary_paths[fmt] = path
+            # Also consider moved location via copy_pdf (if config has copy_pdf)
+            if config.get("copy_pdf") and output_dir and fmt in ("pdf", "beamer"):
+                dest_dir = Path(output_dir).absolute() if output_dir else docs_root
+                primary_paths[fmt] = dest_dir / f"{stem}.{format_to_extension(fmt)}"
 
-    # Step 3: Copy PDF to output_dir (if enabled)
+        # Generate linked artifacts for each primary format
+        linked_artifacts: Dict[str, Dict[str, Path]] = {}  # fmt -> {ext: path}
+        for fmt, primary_path in primary_paths.items():
+            if not primary_path.exists():
+                continue
+            linked_artifacts[fmt] = {}
+            for handler in enabled_handlers:
+                ext = handler.get_extension(fmt)
+                if ext is None:
+                    continue
+                # Check if linked artifact already exists (from cache restoration)
+                linked_stem = qmd_path.stem
+                existing_linked = primary_path.parent / f"{linked_stem}.{ext}"
+                if existing_linked.exists():
+                    linked_artifacts[fmt][ext] = existing_linked
+                    logger.info(f"Linked artifact ({ext}) already exists at {existing_linked}, skipping generation.")
+                    continue
+                # Generate the linked artifact
+                generated_path = handler.generate(qmd_path, fmt, primary_path, docs_root, config)
+                if generated_path:
+                    linked_artifacts[fmt][ext] = generated_path
+                    logger.info(f"Generated linked artifact ({ext}) for {fmt} at {generated_path}")
+                else:
+                    logger.warning(f"Failed to generate linked artifact ({ext}) for {fmt}")
+
+        # Update cache with linked artifacts
+        for fmt, artifacts in linked_artifacts.items():
+            if artifacts:
+                primary_path = primary_paths.get(fmt)
+                if primary_path and primary_path.exists():
+                    update_format_cache(qmd_path, fmt, primary_path, target_name=target, linked_artifacts=artifacts)
+
+        # In website mode, cache site directory AFTER linked artifact generation
+        if website:
+            site_dir = docs_root / "_site"
+            cache_site_directory(target, qmd_hash, site_dir)
+
+    # Step 3: Move primary output and linked artifacts to output_dir (if enabled)
     if config.get("copy_pdf"):
-        # Determine possible PDF paths (same logic as signing)
+        # Determine possible primary output paths
         candidates = []
         primary = format_output_paths.get('pdf') or format_output_paths.get('beamer')
         if primary:
             candidates.append(primary)
             if website:
-                # Website output goes to _site subdirectory
                 try:
                     rel = primary.relative_to(docs_root)
                     candidates.append(docs_root / "_site" / rel)
                 except ValueError:
                     pass
         # Try each candidate
-        pdf_path = None
+        primary_path = None
         for cand in candidates:
             if cand and cand.exists():
-                pdf_path = cand
+                primary_path = cand
                 break
-        if pdf_path and pdf_path.exists():
+        if primary_path and primary_path.exists():
             dest_dir = Path(output_dir).absolute() if output_dir else docs_root
             dest_dir.mkdir(parents=True, exist_ok=True)
-            dest_pdf = dest_dir / f"{stem}.pdf"
+            primary_ext = format_to_extension('pdf' if 'pdf' in format_output_paths else 'beamer')
+            dest_primary = dest_dir / f"{stem}.{primary_ext}"
+            # Determine linked artifact paths (uses QMD stem)
+            linked_stem = qmd_path.stem
+            source_linked = {}
+            dest_linked = {}
+            for linked_ext in get_linked_artifact_extensions('pdf' if 'pdf' in format_output_paths else 'beamer', config):
+                source_linked[linked_ext] = primary_path.parent / f"{linked_stem}.{linked_ext}"
+                dest_linked[linked_ext] = dest_dir / f"{linked_stem}.{linked_ext}"
             # Avoid moving if source and destination are the same
-            if dest_pdf.resolve() != pdf_path.resolve():
+            if dest_primary.resolve() != primary_path.resolve():
                 try:
-                    shutil.move(str(pdf_path), str(dest_pdf))
-                    logger.info(f"Moved PDF to {dest_pdf}")
+                    shutil.move(str(primary_path), str(dest_primary))
+                    logger.info(f"Moved primary output ({primary_ext}) to {dest_primary}")
+                    # Also move linked artifacts if they exist
+                    for linked_ext, src_path in source_linked.items():
+                        if src_path.exists():
+                            shutil.move(str(src_path), str(dest_linked[linked_ext]))
+                            logger.info(f"Moved linked artifact ({linked_ext}) to {dest_linked[linked_ext]}")
                 except Exception as e:
-                    logger.error(f"Failed to move PDF: {e}")
+                    logger.error(f"Failed to move primary output: {e}")
                     return False
             else:
-                logger.info("PDF already at destination, skipping move.")
+                logger.info("Primary output already at destination, skipping move.")
 
     # Step 5: Copy HTML/Markdown to output_dir (if enabled)
     if output_dir:
