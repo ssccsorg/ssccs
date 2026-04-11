@@ -28,7 +28,7 @@ Caching:
     generated file would be slightly different (e.g. due to timestamps). The rendered
     output hash is still stored for the `snapshot` command, but it is not used to decide
     whether to render.
-  - Cache entries are stored in a `{document_stem}_locked/` directory adjacent to
+  - Cache entries are stored in a `{document_stem}_cached/` directory adjacent to
     each QMD file, with each format saved as `rendered_{format}.txt`. If the combined
     hash matches the cached one, the Quarto render step is skipped.
   - Because the hash includes all dependencies, modifying a single included fragment
@@ -147,7 +147,7 @@ IGNORING_ARTIFACT_PATTERNS = [
     "**/*_files",
     "**/*_output",
     "**/*_extensions",
-    "**/*_locked",
+    "**/*_cached",
     "**/*_libs",
     "**/_site",
     # quarto: final artifacts
@@ -450,15 +450,15 @@ def find_existing_output(
 
 def get_cache_dir(qmd_path: Path) -> Path:
     """
-    Return the _locked directory for a QMD file.
+    Return the _cached directory for a QMD file.
     Uses the QMD file stem for the cache directory name.
     """
-    return qmd_path.parent / f"{qmd_path.stem}_locked"
+    return qmd_path.parent / f"{qmd_path.stem}_cached"
 
 
 def get_cache_dir_for_target(qmd_path: Path, target_name: str) -> Path:
     """
-    Return the _locked directory considering target naming rules.
+    Return the _cached directory considering target naming rules.
     For index.qmd files, the cache dir uses the parent folder name.
     For other files, uses the file stem.
     
@@ -468,16 +468,16 @@ def get_cache_dir_for_target(qmd_path: Path, target_name: str) -> Path:
         # For index.qmd, use parent folder name for cache dir
         parent_name = qmd_path.parent.name
         if parent_name and parent_name != ".":
-            return qmd_path.parent / f"{parent_name}_locked"
+            return qmd_path.parent / f"{parent_name}_cached"
     # Default: use file stem
-    return qmd_path.parent / f"{qmd_path.stem}_locked"
+    return qmd_path.parent / f"{qmd_path.stem}_cached"
 
 
 def get_cache_base() -> Path:
     """
-    Return the base directory for the new cache system (_locked).
+    Return the base directory for the new cache system (_cached).
     """
-    return Path(__file__).parent.parent / "_locked"
+    return Path(__file__).parent.parent / "_cached"
 
 
 def format_to_extension(fmt: str) -> str:
@@ -659,7 +659,7 @@ def should_rerender_for_sidebar(build_targets: set) -> bool:
 def cache_site_directory(target_name: str, hash_str: str, site_dir: Path) -> bool:
     """
     Cache the entire _site directory for a target (including site_libs).
-    The directory is copied to _locked/{target}/{hash}/site/.
+    The directory is copied to _cached/{target}/{hash}/site/.
     Returns True on success, False on error.
     """
     if not site_dir.exists():
@@ -709,7 +709,7 @@ def get_cache_file(qmd_path: Path, fmt: str) -> Path:
     if qmd_path.stem.lower() == "index":
         parent_name = qmd_path.parent.name
         if parent_name and parent_name != ".":
-            return qmd_path.parent / f"{parent_name}_locked" / f"rendered_{fmt}.txt"
+            return qmd_path.parent / f"{parent_name}_cached" / f"rendered_{fmt}.txt"
     return get_cache_dir(qmd_path) / f"rendered_{fmt}.txt"
 
 
@@ -821,7 +821,7 @@ def update_format_cache(
     output_hash = compute_file_hash(output_path)
     logger.info(f"Updating {fmt} cache for {file_path.name}: output hash {output_hash[:16]}...")
     
-    # New cache system: store artifact file in _locked/{target_name}/{hash}/{target_name}.{ext}
+    # New cache system: store artifact file in _cached/{target_name}/{hash}/{target_name}.{ext}
     if target_name is not None:
         cache_dir = get_cache_base() / target_name / qmd_hash
         cache_dir.mkdir(parents=True, exist_ok=True)
@@ -1385,7 +1385,7 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
             logger.info(f"{target} build completed successfully (native Markdown, website).")
             return True
         
-        # Non‑website mode: apply _locked cache policy
+        # Non‑website mode: apply _cached cache policy
         # Determine formats via inspect_quarto_file (may be empty)
         formats = get_formats_from_quarto_file(source_path)
         if not formats:
@@ -2109,7 +2109,7 @@ Snapshot:
 
 Clean:
   - Use `%(prog)s clean` to remove Quarto‑generated directories:
-      **/*_files, **/*_output, **/*_extensions, **/*_locked, **/_site
+      **/*_files, **/*_output, **/*_extensions, **/*_cached, **/_site
   - Deletes all matching directories and files recursively.
 
 Examples:

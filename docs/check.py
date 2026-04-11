@@ -31,7 +31,7 @@ IGNORED_DIRS = {
     ".quarto",
     "node_modules",
     "__pycache__",
-    "_locked",
+    "_cached",
 }
 VALID_EXTENSIONS = {".md", ".qmd", ".yml", ".yaml", ".json"}
 SOURCE_EXTENSIONS = {".qmd", ".md", ".rs", ".py", ".yml", ".yaml", ".json", ".toml"}

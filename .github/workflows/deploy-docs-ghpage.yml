@@ -52,16 +52,16 @@ jobs:
         id: cache-key
         run: |
           cd ${{ github.workspace }}
-          find docs -type f \( -name "*.qmd" -o -name "*.md" -o -name "*.py" -o -name "*.txt" -o -name "*.yml" -o -name "*.svg" -o -name "*.bib" -o -name "*.csl" -o -name "*.c2pa_manifest.json" \) -not -path "*/_locked/*" -not -path "*/_site/*" | sort | xargs sha256sum | sha256sum | cut -d' ' -f1 > /tmp/cache_key.txt
+          find docs -type f \( -name "*.qmd" -o -name "*.md" -o -name "*.py" -o -name "*.txt" -o -name "*.yml" -o -name "*.svg" -o -name "*.bib" -o -name "*.csl" -o -name "*.c2pa_manifest.json" \) -not -path "*/_cached/*" -not -path "*/_site/*" | sort | xargs sha256sum | sha256sum | cut -d' ' -f1 > /tmp/cache_key.txt
           echo "key=$(cat /tmp/cache_key.txt)" >> $GITHUB_OUTPUT
 
-      - name: Cache _locked directory
+      - name: Cache _cached directory
         uses: actions/cache@v4
         with:
-          path: _locked
-          key: ${{ runner.os }}-locked-${{ steps.cache-key.outputs.key }}
+          path: _cached
+          key: ${{ runner.os }}-cached-${{ steps.cache-key.outputs.key }}
           restore-keys: |
-            ${{ runner.os }}-locked-
+            ${{ runner.os }}-cached-
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
