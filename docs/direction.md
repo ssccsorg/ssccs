@@ -10,15 +10,15 @@ For decades, computation has been defined by the von Neumann model: data and ins
 
 This document outlines how SSCCS translates its philosophical and technical foundations into a concrete engineering trajectory, how we organise our work culturally, and how we engage with the global ecosystem to realise this paradigm in practice.
 
-> **Summary**: SSCCS is a software-first initiative redefining computation as structural observation. We seek technical collaborators—not sponsors—to validate our compiler and runtime on open-hardware platforms. Our culture prioritises human wellbeing, results over process, and open contribution. If you share this vision, let us build.
-
 ## Cultural Foundations
 
+SSCCS is a software-first initiative redefining computation as structural observation. We seek technical collaborators—not sponsors—to validate our compiler and runtime on open-hardware platforms. Our culture prioritises reproduciable results based on technically verifiable process, and risk-taking open contribution.
+
 ### Human Comes First
-All tools—rules, processes, methodologies, AI, automation, workflows—exist solely to support the goal of project, contributor's work and life. They are means, never ends. If a procedure causes unnecessary stress, fatigue, or alienation, the procedure is wrong—not the human. Our project goal and technology exists to help people live better, not despite it. Conversely, even claims of moral superiority cannot precede the project or its members. No ideology or virtue signaling stands above the wellbeing of the people doing the work.
+All tools—rules, processes, methodologies, AI, automation, workflows—exist solely to support the goal of project, contributor's work and life. They are means, never ends. If a procedure causes unnecessary stress, fatigue, or alienation, the procedure is wrong—not the human. Our project goal and technology exists to help people live better, not despite it. Conversely, even claims of moral superiority cannot precede the project or its members. 
 
 ### Results-Oriented Pragmatism
-Code quality, maintainability, and system impact matter more than how the code was written. We bypass bureaucracy and exhausting debates. Prove your point with code. Discussions are limited to software engineering, architecture, and performance. Unrelated ideological or social agendas will be ignored.
+Code quality, maintainability, and system impact matter more than how the code was written. We bypass bureaucracy and exhausting debates. Discussions are limited to software engineering, architecture, and performance.
 
 ### Clarity of Responsibility
 Every contributor bears 100% responsibility for their contributions. Tools (including AI) are aids; the human engineer remains accountable. In 2026, AI use is as standard as a compiler. We do not mandate disclosure—only evaluate correctness, security, and test compliance. We encourage its use if it supports our project's healthy growth.
@@ -43,7 +43,7 @@ Most established programmes are optimised for predictability. They typically sup
 
 SSCCS does not iterate within an established stack; it reimagines the substrate of computation itself. Because it questions foundational assumptions about hardware, software, and information flow, it is inherently too early‑stage and too conceptually disruptive for mechanisms that reward narrow, near‑term deliverables. Institutional risk‑aversion and paradigm‑shifting research are, by design, misaligned.
 
-This reality shapes our posture. Rather than retrofitting our work to fit funding templates, we prioritise collaboration grounded in technical substance, epistemic openness, and long‑term vision. Genuine innovation does not emerge from centralised approval; it crystallises through iterative contribution within an open ecosystem. The technological foundations we rely on today were not mandated by sovereign committees. They emerged from a borderless, decentralised commons—built by countless contributors who treated code as a shared inheritance. To now frame foundational progress through the lens of technological sovereignty is to confuse geopolitical strategy with the actual mechanics of innovation.
+This reality shapes our posture. Rather than retrofitting our work to fit funding templates, we prioritise collaboration grounded in technical substance, epistemic openness, and long‑term vision. Genuine innovation crystallises through iterative contribution within an open ecosystem. The technological foundations we rely on today were not mandated by sovereign committees. They emerged from a borderless, decentralised commons—built by countless contributors who treated code as a shared inheritance. To now frame foundational progress through the lens of technological sovereignty is to confuse geopolitical strategy with the actual mechanics of innovation.
 
 Our engagement is guided by three principles:
 
@@ -51,7 +51,7 @@ Our engagement is guided by three principles:
 - Foundational over immediate: Market fit is secondary to redefining computation. We align with partners who share a long‑term, systems‑level perspective.
 - Substance over ceremony: We welcome rigorous technical scrutiny and consensus‑based governance, but we invest only where there is genuine commitment to early‑stage, paradigm‑shifting work.
 
-Where funding is required, we view it as a catalyst for our mission rather than a primary objective. Our approach is guided by a clear priority: focusing on tangible progress and substantive research over administrative complexity. While our methods remain flexible to respect local industrial cultures and collaboration norms, our core commitments are steadfast. We prioritise technical depth, long-term vision, and mutual partnership as the foundations of our work. By streamlining our engagement and focusing on direct technical merit, we ensure that our energy remains dedicated to innovation.
+Where funding is required, we view it as a catalyst for our mission rather than a primary objective. Our approach is guided by a clear priority: focusing on tangible progress and substantive research over administrative complexity. While our methods remain flexible to respect local industrial cultures and collaboration norms, our core commitments are steadfast.  
 
 Our goal is to build a computational commons that is open to everyone, regardless of geography or institutional background. We invite those who share this vision to join us in shaping this new foundation for computation. For collaboration details, see our [Code of Conduct](/code_of_conduct.html) and [Contributing](/contributing.html)
 
@@ -70,7 +70,7 @@ In the current landscape—driven by agentic AI and HPC—SSCCS solves:
 
 ### Target Platforms for Validation
 
-To transition from pure-software simulation to tangible hardware validation, we will target specific open-hardware platforms with broad community adoption. These will serve as demonstration targets for our compiler and runtime, not as the primary development environment.
+To transition from pure-software simulation to tangible hardware validation, we will target specific open-hardware platforms with broad community adoption. 
 
 - CVA6 (OpenHW Group): Target for "Safe" dual-core lock-step components, aligning with our verifiability goals. Our compiler will emit code that leverages its safety features.
 - CORE-V Wally: An academic 5-stage pipeline ideal for validating structural mapping concepts. We will use it to measure the impact of our compiler optimisations.
@@ -129,7 +129,7 @@ See the [Documentation Home](/index.html) for technical details.
 
 ### Partnership Without Dependency
 
-- We seek collaborators, not sponsors: Identify groups active in open-hardware interested in novel programming models.
+- We seek collaborators, than sponsors: Identify groups active in open-hardware interested in novel programming models.
 - We offer technology, not a request: We are developing a new way to program open hardware. Our software stack is already functional on simulation; we are looking for partners to help validate it on real silicon.
 - Organic Evolution: Let partnerships grow from technical alignment, not application forms.
 
@@ -158,20 +158,9 @@ Success is measured by adoption, not grant size. If future core designers consid
 
 ## Conclusion
 
-SSCCS is at its core a technological project. Its value lies not in the number of proposals submitted, but in the quality of its ideas and the clarity with which they are demonstrated.
-
-The paradigm shift is clear: computation is not execution over time; it is the collapse of structured potential under observation. Loops disappear into layout. Data is the shadow cast by collapsed possibility. Time is one coordinate among many. The compiler maps structure to topology. The runtime observes and projects.
-
 The current global momentum around open instruction set architectures offers a unique opportunity to embed SSCCS into a living ecosystem where new hardware is being built. By focusing on direct technical engagement with hardware designers and system builders, we turn the project's strength—its foundational nature—into its primary asset.
 
 We will approach each region with respect, seeking win-win relationships with partners willing to engage seriously with our nascent idea. The immediate goal is no longer to write another proposal, but to produce a tangible, open-source artifact that the community can see, run, and build upon.
-
-### Next Steps for Prospective Collaborators
-
-1. Read: Start with the Whitepaper to understand the structural observation model.
-2. Explore: Browse the GitHub repository and run the simulator locally.
-3. Engage: Join our technical forum with a concrete question, proposal, or prototype idea.
-4. Contribute: Submit a PR, open an issue, or propose a joint validation target.
 
 ---
 
