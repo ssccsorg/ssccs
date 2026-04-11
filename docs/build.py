@@ -255,10 +255,11 @@ def compute_quarto_file_hash_with_deps(file_path: Path) -> str:
             for line in source.splitlines():
                 line = line.strip()
                 if line.startswith("%run"):
-                    # Extract the first non‑whitespace token after %run
-                    parts = line.split()
-                    if len(parts) >= 2:
-                        run_path = parts[1]
+                    import shlex
+                    tokens = shlex.split(line)
+                    # tokens[0] is '%run', tokens[1] is the path (if exists)
+                    if len(tokens) >= 2:
+                        run_path = tokens[1]
                         # Remove any trailing arguments (e.g., --output)
                         run_path = run_path.split("--")[0].strip()
                         if run_path:
@@ -271,13 +272,31 @@ def compute_quarto_file_hash_with_deps(file_path: Path) -> str:
                                     visited.add(dep)
                             except Exception:
                                 pass
-                    break  # only first %run per line? we'll continue scanning lines
+                    # continue scanning lines for more %run directives
 
         # Add config files
         for config_path in data.get("config", []):
             visited.add(Path(config_path).resolve())
         for resource_path in data.get("configResources", []):
             visited.add(Path(resource_path).resolve())
+
+        # Add metadata files, bibliography, and CSL from formats
+        for fmt, fmt_config in data.get("formats", {}).items():
+            pandoc = fmt_config.get("pandoc", {})
+            # metadata-files
+            for mf in pandoc.get("metadata-files", []):
+                mf_path = resolve(path, mf)
+                visited.add(mf_path)
+            # bibliography
+            bib = pandoc.get("bibliography")
+            if bib:
+                bib_path = resolve(path, bib)
+                visited.add(bib_path)
+            # csl
+            csl = pandoc.get("csl")
+            if csl:
+                csl_path = resolve(path, csl)
+                visited.add(csl_path)
 
     # Start collection
     collect(file_path.resolve())
