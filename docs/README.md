@@ -9,7 +9,7 @@
 4.0](https://img.shields.io/badge/License-CC_BY--NC--ND_4.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-nd/4.0/)
 [![DOI](https://img.shields.io/badge/DOI-10.5281/zenodo.18759106-blue)](https://doi.org/10.5281/zenodo.18759106)
 [![SSCCS
-Foundation](https://img.shields.io/badge/Foundation-Non--Profit-8A2BE2)](https://ssccs.org/legal)
+Foundation](https://img.shields.io/badge/Foundation-Computing%20Systems%20Initiative-8A2BE2)](https://ssccs.org/legal)
 
 SSCCS (Schema–Segment Composition Computing System) is an
 observation-driven computing model that defines deterministic
@@ -119,9 +119,7 @@ initiative financially or in kind, please contact <contact@ssccs.org>.
 
 ------------------------------------------------------------------------
 
-© 2026 [SSCCS Foundation](https://ssccs.org) — A non-profit research
-initiative, formalized through global standards and substantiated by its
-cryptographic authenticity.
+© 2026 [SSCCS Foundation](https://ssccs.org) — Open-source computing systems initiative.
 
 - Whitepaper: [PDF](https://ssccs.org/wp) /
   [HTML](https://ssccs.org/wpw) DOI:

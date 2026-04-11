@@ -11,7 +11,7 @@ April 2026, [SSCCS Foundation](https://ssccs.org)
 
 ## Executive Summary
 
-SSCCS (Schema–Segment Composition Computing System) is an open-source research initiative developing a new computational paradigm based on structural observation rather than instruction sequencing: **a stationary-data computing model that minimizes data movement through in-place observation.**
+SSCCS (Schema–Segment Composition Computing System) is an open-source computing systems initiative developing a new computational paradigm based on structural observation rather than instruction sequencing: **a stationary-data computing model that minimizes data movement through in-place observation.**
 
 This proposal outlines a technical collaboration with OpenHW Group to:
 
@@ -25,7 +25,7 @@ This proposal outlines a technical collaboration with OpenHW Group to:
 
 SSCCS's structured execution model—where observations follow deterministic rules defined by the Scheme—offers an interesting case study for verification methodologies. While conventional verification must cope with non‑determinism, speculative execution, and state explosion, OpenHW's **CORE‑V‑VERIF** framework <a href="#ref-2">[2]</a>, built on RVVI and Imperas reference models, provides a transparent, open‑source verification environment. By evaluating SSCCS within CORE‑V‑VERIF, OpenHW can explore how **structured, stateless extensions** may be verified with potentially reduced test‑case complexity. This collaboration thus offers OpenHW a concrete case study to advance verification practices for the next generation of RISC-V extensions.
 
-The integration of SSCCS with OpenHW CORE‑V is part of a larger research initiative exploring structural observation across the RISC‑V ecosystem <a href="#ref-6">[6]</a>. We plan to examine SSCCS validation on multiple RISC‑V platforms, extension mechanisms beyond XIF (e.g., custom function units, accelerator‑memory interfaces), and the potential for structural observation to become a cross‑platform programming model.
+The integration of SSCCS with OpenHW CORE‑V is part of a larger computing systems initiative exploring structural observation across the RISC‑V ecosystem <a href="#ref-6">[6]</a>. We plan to examine SSCCS validation on multiple RISC‑V platforms, extension mechanisms beyond XIF (e.g., custom function units, accelerator‑memory interfaces), and the potential for structural observation to become a cross‑platform programming model.
 
 
 ## Technical Alignment: CORE-V
@@ -296,7 +296,7 @@ SSCCS offers an opportunity to bring research into the OpenHW ecosystem. By leve
 
 ---
 
-© 2026 [SSCCS Foundation](https://ssccs.org) — A non-profit research and engineering initiative building a computing model and compiler infrastructure.
+© 2026 [SSCCS Foundation](https://ssccs.org) — Open-source computing systems initiative building a computing model, software compiler infrastructure, and open hardware architecture.
 
 - Whitepaper: [PDF](https://ssccs.org/wp) / [HTML](https://ssccs.org/wpw) DOI: [10.5281/zenodo.18759106](https://doi.org/10.5281/zenodo.18759106) via CERN/Zenodo, indexed by OpenAIRE. Licensed under *CC BY-NC-ND 4.0*.
 - Official repository: [GitHub](https://github.com/ssccsorg). Authenticated via GPG: [BCCB196BADF50C99](https://keys.openpgp.org/search?q=BCCB196BADF50C99). Licensed under *Apache 2.0*. 

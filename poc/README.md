@@ -216,6 +216,6 @@ The accompanying whitepaper (`docs/whitepaper.qmd`) is licensed under **CC BY‑
 
 ## Acknowledgments
 
-SSCCS Foundation a non‑profit research initiative. The PoC was developed as a reference implementation to validate the model’s feasibility and to invite collaboration from the open‑source and research communities.
+SSCCS Foundation a non‑profit computing systems initiative. The PoC was developed as a reference implementation to validate the model’s feasibility and to invite collaboration from the open‑source and research communities.
 
 For more information, visit the [SSCCS GitHub organization](https://github.com/ssccsorg/ssccs) or read the full whitepaper in `https://ssccs.org/wp`.

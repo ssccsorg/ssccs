@@ -593,8 +593,7 @@ By following this plan, SSCCS will transform from a philosophical whitepaper int
 
 ------------------------------------------------------------------------
 
-© 2026 [SSCCS Foundation](https://ssccs.org) — A non-profit research and
-engineering initiative building a computing model and compiler
+© 2026 [SSCCS Foundation](https://ssccs.org) — A computing systems initiative building a computing model and compiler
 infrastructure.
 
 - Whitepaper: [PDF](https://ssccs.org/wp) /
