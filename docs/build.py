@@ -653,10 +653,19 @@ def get_initial_cached_targets() -> set:
 def should_rerender_for_sidebar(build_targets: set) -> bool:
     """
     Check if HTML must be re-rendered to update sidebar.
-    Returns True if any target in the build set is not yet cached.
+    Returns True if:
+      - Any target in the build set is not yet cached (new files added), OR
+      - Any cached target is not in the build set (files deleted/changed)
+    
+    This ensures the sidebar is updated whenever the document set changes,
+    whether by addition, deletion, or modification of source files.
     """
     cached_targets = get_initial_cached_targets()
-    return not build_targets.issubset(cached_targets)
+    # Check for new files (targets not in cache)
+    has_new_files = not build_targets.issubset(cached_targets)
+    # Check for deleted/changed files (cached targets not in build set)
+    has_deleted_files = not cached_targets.issubset(build_targets)
+    return has_new_files or has_deleted_files
 
 
 def cache_site_directory(target_name: str, hash_str: str, site_dir: Path) -> bool:
