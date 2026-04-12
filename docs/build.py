@@ -835,6 +835,18 @@ def update_format_cache(
     
     # New cache system: store artifact file in _cached/{target_name}/{hash}/{target_name}.{ext}
     if target_name is not None:
+        # Delete existing cache entries for this target with different hash to prevent infinite accumulation
+        # This ensures only the current valid cache (with current qmd_hash) is kept
+        target_cache_dir = get_cache_base() / target_name
+        if target_cache_dir.exists():
+            try:
+                for existing_hash_dir in target_cache_dir.iterdir():
+                    if existing_hash_dir.is_dir() and existing_hash_dir.name != qmd_hash:
+                        shutil.rmtree(existing_hash_dir)
+                        logger.info(f"Deleted old cache directory for target '{target_name}' (hash: {existing_hash_dir.name[:16]}...) to prevent accumulation")
+            except Exception as e:
+                logger.warning(f"Failed to delete old cache for target '{target_name}': {e}")
+        
         cache_dir = get_cache_base() / target_name / qmd_hash
         cache_dir.mkdir(parents=True, exist_ok=True)
         ext = format_to_extension(fmt)
