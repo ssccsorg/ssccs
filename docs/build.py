@@ -2198,6 +2198,48 @@ def _render_target_isolated(target: str, output_dir: Optional[Path], single_comm
         logger.error(f"Exception while rendering {target}: {e}")
         return False
 
+def _cleanup_orphaned_caches(successful_targets: set, cache_base: Optional[Path] = None) -> int:
+    """
+    Remove cache entries for targets that are no longer in the successful build set.
+    
+    This prevents accumulation of stale cache data when source files are deleted
+    or target names change.
+    
+    Args:
+        successful_targets: Set of target names that were successfully built
+        cache_base: Base cache directory (defaults to _cached in parent of docs)
+    
+    Returns:
+        Number of orphaned cache directories removed
+    """
+    if cache_base is None:
+        cache_base = get_cache_base()
+    
+    if not cache_base.exists():
+        return 0
+    
+    # Get all cached target directories
+    cached_targets = {d.name for d in cache_base.iterdir() if d.is_dir()}
+    
+    # Find orphaned caches: in cache but not in successful targets
+    orphaned = cached_targets - successful_targets
+    
+    if not orphaned:
+        logger.debug("No orphaned cache entries found.")
+        return 0
+    
+    removed_count = 0
+    for target_name in orphaned:
+        cache_dir = cache_base / target_name
+        try:
+            shutil.rmtree(cache_dir)
+            logger.info(f"Removed orphaned cache for target '{target_name}' at {cache_dir}")
+            removed_count += 1
+        except Exception as e:
+            logger.warning(f"Failed to remove orphaned cache for '{target_name}': {e}")
+    
+    logger.info(f"Cleaned up {removed_count} orphaned cache directorie(s).")
+    return removed_count
 
 def build_targets(
     targets: List[str],
@@ -2364,6 +2406,10 @@ def build_targets(
                     shutil.rmtree(final_output)
                 return False
             
+            if succeeded:
+                successful_set = set(succeeded)
+                _cleanup_orphaned_caches(successful_set)
+                
             logger.info(f"All targets completed successfully: {list(results.keys())}")
             return True
             
