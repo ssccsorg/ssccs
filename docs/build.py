@@ -1817,47 +1817,213 @@ def build_single_target(target: str, output_dir: Optional[Path], single_command:
         return target, False
 
 
-def _merge_search_json(src_path: Path, dst_path: Path) -> bool:
-    """
-    Merge two search.json files by concatenating their arrays and deduplicating by objectID.
-    If dst_path does not exist, simply copy src_path to dst_path.
-    Returns True on success, False on error.
-    """
-    try:
-        import json
-        # Read source
-        with open(src_path, 'r', encoding='utf-8') as f:
-            src_data = json.load(f)
-        # If destination doesn't exist, copy
-        if not dst_path.exists():
-            shutil.copy2(src_path, dst_path)
-            return True
-        # Read destination
-        with open(dst_path, 'r', encoding='utf-8') as f:
-            dst_data = json.load(f)
-        # Ensure both are lists
-        if not isinstance(src_data, list) or not isinstance(dst_data, list):
-            logger.warning(f"search.json does not contain a JSON array, overwriting with source.")
-            shutil.copy2(src_path, dst_path)
-            return True
-        # Merge: concatenate
-        merged = src_data + dst_data
-        # Deduplicate by objectID
-        seen = {}
-        unique = []
-        for item in merged:
-            obj_id = item.get("objectID")
-            if obj_id not in seen:
-                seen[obj_id] = True
-                unique.append(item)
-        # Write back
-        with open(dst_path, 'w', encoding='utf-8') as f:
-            json.dump(unique, f, ensure_ascii=False, indent=2)
-        logger.debug(f"Merged search.json from {src_path} into {dst_path}")
-        return True
-    except Exception as e:
-        logger.error(f"Failed to merge search.json {src_path} -> {dst_path}: {e}")
+# ---------------------------------------------------------------------------
+# Shared Asset Merger System
+# ---------------------------------------------------------------------------
+# Shared assets are files that need content-level merging when combining
+# multiple target outputs (e.g., search.json, sitemap.xml).
+# Each merger handler is responsible for:
+#   1. Declaring which files it handles (by filename pattern)
+#   2. Merging source content into destination content appropriately
+#   3. Handling the case when destination doesn't exist (simple copy)
+
+@dataclass
+class SharedAssetMerger:
+    """Base class for shared asset merger handlers."""
+    name: str
+    # Filename patterns this handler handles (exact match or glob pattern)
+    filename_patterns: List[str] = field(default_factory=list)
+    
+    def handles_file(self, filename: str) -> bool:
+        """Check if this handler handles the given filename."""
+        import fnmatch
+        for pattern in self.filename_patterns:
+            if fnmatch.fnmatch(filename, pattern):
+                return True
         return False
+    
+    def merge(self, src_path: Path, dst_path: Path) -> bool:
+        """
+        Merge source file into destination file.
+        If dst_path does not exist, simply copy src_path to dst_path.
+        Returns True on success, False on error.
+        Subclasses should override this.
+        """
+        raise NotImplementedError
+
+
+class SearchJsonMerger(SharedAssetMerger):
+    """Merger for search.json files (JSON array concatenation with deduplication)."""
+    
+    def __init__(self):
+        super().__init__(
+            name="search_json",
+            filename_patterns=["search.json"],
+        )
+    
+    def merge(self, src_path: Path, dst_path: Path) -> bool:
+        """
+        Merge two search.json files by concatenating their arrays and deduplicating by objectID.
+        If dst_path does not exist, simply copy src_path to dst_path.
+        Returns True on success, False on error.
+        """
+        try:
+            import json
+            # Read source
+            with open(src_path, 'r', encoding='utf-8') as f:
+                src_data = json.load(f)
+            # If destination doesn't exist, copy
+            if not dst_path.exists():
+                shutil.copy2(src_path, dst_path)
+                return True
+            # Read destination
+            with open(dst_path, 'r', encoding='utf-8') as f:
+                dst_data = json.load(f)
+            # Ensure both are lists
+            if not isinstance(src_data, list) or not isinstance(dst_data, list):
+                logger.warning(f"search.json does not contain a JSON array, overwriting with source.")
+                shutil.copy2(src_path, dst_path)
+                return True
+            # Merge: concatenate
+            merged = src_data + dst_data
+            # Deduplicate by objectID
+            seen = {}
+            unique = []
+            for item in merged:
+                obj_id = item.get("objectID")
+                if obj_id not in seen:
+                    seen[obj_id] = True
+                    unique.append(item)
+            # Write back
+            with open(dst_path, 'w', encoding='utf-8') as f:
+                json.dump(unique, f, ensure_ascii=False, indent=2)
+            logger.debug(f"Merged search.json from {src_path} into {dst_path}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to merge search.json {src_path} -> {dst_path}: {e}")
+            return False
+
+
+class SitemapXmlMerger(SharedAssetMerger):
+    """Merger for sitemap.xml files (XML URL set union)."""
+    
+    def __init__(self):
+        super().__init__(
+            name="sitemap_xml",
+            filename_patterns=["sitemap.xml"],
+        )
+    
+    def merge(self, src_path: Path, dst_path: Path) -> bool:
+        """
+        Merge two sitemap.xml files by combining their URL entries.
+        Deduplicates by URL (loc element content).
+        If dst_path does not exist, simply copy src_path to dst_path.
+        Returns True on success, False on error.
+        """
+        try:
+            import xml.etree.ElementTree as ET
+            
+            # If destination doesn't exist, copy
+            if not dst_path.exists():
+                shutil.copy2(src_path, dst_path)
+                return True
+            
+            # Parse both XML files
+            src_tree = ET.parse(src_path)
+            dst_tree = ET.parse(dst_path)
+            
+            src_root = src_tree.getroot()
+            dst_root = dst_tree.getroot()
+            
+            # Extract namespace if present
+            ns = {}
+            if src_root.tag.startswith('{'):
+                ns_uri = src_root.tag.split('}')[0][1:]
+                ns['ns'] = ns_uri
+            
+            # Collect existing URLs from destination
+            existing_urls = set()
+            for url in dst_root.findall('.//ns:url', ns) if ns else dst_root.findall('.//url'):
+                loc = url.find('ns:loc', ns) if ns else url.find('loc')
+                if loc is not None and loc.text:
+                    existing_urls.add(loc.text)
+            
+            # Collect URL elements from source that don't exist in destination
+            url_elements_to_add = []
+            for url in src_root.findall('.//ns:url', ns) if ns else src_root.findall('.//url'):
+                loc = url.find('ns:loc', ns) if ns else url.find('loc')
+                if loc is not None and loc.text:
+                    if loc.text not in existing_urls:
+                        url_elements_to_add.append(url)
+            
+            # Add new URL elements to destination
+            for url_elem in url_elements_to_add:
+                dst_root.append(url_elem)
+            
+            # Write merged result
+            ET.indent(dst_tree, space="  ")
+            dst_tree.write(dst_path, encoding='utf-8', xml_declaration=True)
+            
+            logger.debug(f"Merged sitemap.xml from {src_path} into {dst_path} (added {len(url_elements_to_add)} new URLs)")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to merge sitemap.xml {src_path} -> {dst_path}: {e}")
+            return False
+
+
+class RobotsTxtMerger(SharedAssetMerger):
+    """
+    Merger for robots.txt files.
+    Since robots.txt is typically a simple configuration file, we use source precedence.
+    This can be customized based on project needs.
+    """
+    
+    def __init__(self):
+        super().__init__(
+            name="robots_txt",
+            filename_patterns=["robots.txt"],
+        )
+    
+    def merge(self, src_path: Path, dst_path: Path) -> bool:
+        """
+        For robots.txt, source takes precedence (overwrite destination).
+        This is because robots.txt is typically a site-wide configuration.
+        Returns True on success, False on error.
+        """
+        try:
+            shutil.copy2(src_path, dst_path)
+            logger.debug(f"Copied robots.txt from {src_path} to {dst_path} (source precedence)")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to copy robots.txt {src_path} -> {dst_path}: {e}")
+            return False
+
+
+# Registry of shared asset mergers
+SHARED_ASSET_MERGERS: List[SharedAssetMerger] = [
+    SearchJsonMerger(),
+    SitemapXmlMerger(),
+    RobotsTxtMerger(),
+]
+
+
+def get_merger_for_file(filename: str) -> Optional[SharedAssetMerger]:
+    """Get the appropriate merger handler for a given filename."""
+    for merger in SHARED_ASSET_MERGERS:
+        if merger.handles_file(filename):
+            return merger
+    return None
+
+
+def merge_shared_asset(src_path: Path, dst_path: Path) -> bool:
+    """
+    Merge a shared asset file from source to destination.
+    Returns True if merged successfully, False if no merger found or error.
+    """
+    merger = get_merger_for_file(src_path.name)
+    if merger is None:
+        return False
+    return merger.merge(src_path, dst_path)
 
 
 def _is_target_specific_file(file_path: Path, target_name: str, base_dir: Path) -> bool:
@@ -1931,24 +2097,30 @@ def merge_dirs(src: Path, dst: Path, target_name: Optional[str] = None) -> bool:
         # Ensure destination exists
         dst.mkdir(parents=True, exist_ok=True)
         
-        # First, handle special files that need content-level merging
-        src_search_json = src / "search.json"
-        dst_search_json = dst / "search.json"
+        # First, handle shared assets that need content-level merging
+        # Get list of filenames handled by shared asset mergers
+        shared_filenames = set()
+        for merger in SHARED_ASSET_MERGERS:
+            for pattern in merger.filename_patterns:
+                # Add exact pattern (e.g., "search.json")
+                if '*' not in pattern and '?' not in pattern:
+                    shared_filenames.add(pattern)
         
-        if src_search_json.exists() and dst_search_json.exists():
-            # Merge search.json files
-            if not _merge_search_json(src_search_json, dst_search_json):
-                logger.warning(f"Failed to merge search.json, will use rsync for other files")
-        elif src_search_json.exists():
-            # Copy search.json if dst doesn't have it
-            shutil.copy2(src_search_json, dst_search_json)
+        # Process shared assets
+        for filename in shared_filenames:
+            src_file = src / filename
+            dst_file = dst / filename
+            if src_file.exists():
+                if not merge_shared_asset(src_file, dst_file):
+                    # No merger found or error - fall back to copy
+                    if not dst_file.exists():
+                        shutil.copy2(src_file, dst_file)
+                        logger.debug(f"Copied shared file {src_file} to {dst_file} (no merger)")
         
-        # Handle robots.txt and sitemap.xml (shared config, source takes precedence)
-        for shared_file in ["robots.txt", "sitemap.xml"]:
-            src_shared = src / shared_file
-            dst_shared = dst / shared_file
-            if src_shared.exists():
-                shutil.copy2(src_shared, dst_shared)
+        # Build exclude list for rsync (files handled by shared asset mergers)
+        rsync_excludes = []
+        for filename in shared_filenames:
+            rsync_excludes.extend(["--exclude", filename])
         
         # Use rsync for the rest of the files
         # Flags:
@@ -1960,9 +2132,7 @@ def merge_dirs(src: Path, dst: Path, target_name: Optional[str] = None) -> bool:
             "rsync",
             "-a",
             "--ignore-existing",  # Keep existing files in dst (union behavior)
-            "--exclude", "search.json",
-            "--exclude", "robots.txt",
-            "--exclude", "sitemap.xml",
+        ] + rsync_excludes + [
             str(src) + "/",  # Trailing slash means "contents of src"
             str(dst) + "/",
         ]
