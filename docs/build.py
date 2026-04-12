@@ -1851,28 +1851,134 @@ def _merge_search_json(src_path: Path, dst_path: Path) -> bool:
         return False
 
 
-def merge_dirs(src: Path, dst: Path) -> bool:
+def _is_target_specific_file(file_path: Path, target_name: str, base_dir: Path) -> bool:
     """
-    Merge contents of src directory into dst directory.
-    Overwrites existing files, creates missing directories.
-    Does NOT delete files in dst that don't exist in src
-    (because we're merging multiple sources, not mirroring one).
+    Determine if a file is target-specific and should not be overwritten by other targets.
+    
+    Target-specific files include:
+    - {target}/{target}.html (e.g., whitepaper/whitepaper.html)
+    - {target}/index.html when target name matches folder (e.g., legal/index.html for legal target)
+    - {target}.pdf at root level
+    - Files under a directory matching the target name
+    
+    Returns True if the file is target-specific to the given target.
     """
     try:
+        rel_path = file_path.relative_to(base_dir)
+        parts = rel_path.parts
+        
+        # Check if any directory component matches target name
+        for i, part in enumerate(parts[:-1]):  # Exclude filename
+            if part == target_name:
+                # File is under target directory
+                filename = parts[-1]
+                stem = filename.rsplit('.', 1)[0] if '.' in filename else filename
+                
+                # index.html/index.pdf under target dir belongs to that target
+                if filename in ("index.html", "index.pdf"):
+                    return True
+                # {target}.html or {target}.pdf belongs to that target
+                if stem == target_name:
+                    return True
+                # Any file under target dir is target-specific
+                return True
+        
+        # Check root-level files: {target}.html, {target}.pdf belong to that target
+        if len(parts) == 1:
+            filename = parts[0]
+            stem = filename.rsplit('.', 1)[0] if '.' in filename else filename
+            if stem == target_name and filename.endswith(('.html', '.pdf')):
+                return True
+    except ValueError:
+        pass
+    
+    return False
+
+
+def merge_dirs(src: Path, dst: Path, target_name: Optional[str] = None) -> bool:
+    """
+    Merge contents of src directory into dst directory using rsync-style algorithm.
+    
+    Core principle: The final _site result is a "union without duplicates" at the file content level.
+    - All files from all sources are included (nothing should be missing)
+    - Shared files like search.json are merged at the content level
+    - Target-specific files (e.g., target/target.html) are protected from being overwritten by other targets
+    - For index.qmd targets, the folder name IS the target name, so index.html/index.pdf
+      from that target belongs to it (e.g., legal/index.html is the legal target's file)
+    
+    This function uses rsync for efficient file synchronization with the following behavior:
+    - Files in src are copied to dst (overwriting if needed, except for target-specific files)
+    - Files in dst that don't exist in src are preserved (union behavior)
+    - Directory structure is preserved
+    
+    Args:
+        src: Source directory to merge from
+        dst: Destination directory to merge into
+        target_name: Optional target name for determining file ownership
+    
+    Returns True on success, False on error.
+    """
+    try:
+        # Ensure destination exists
         dst.mkdir(parents=True, exist_ok=True)
-        for item in src.iterdir():
-            src_item = item
-            dst_item = dst / item.name
-            if item.is_dir():
-                if dst_item.exists():
-                    merge_dirs(src_item, dst_item)
-                else:
-                    shutil.copytree(src_item, dst_item)
-            else:
-                if item.name == "search.json" and dst_item.exists() and dst_item.is_file():
-                    _merge_search_json(src_item, dst_item)
-                else:
-                    shutil.copy2(src_item, dst_item)
+        
+        # First, handle special files that need content-level merging
+        src_search_json = src / "search.json"
+        dst_search_json = dst / "search.json"
+        
+        if src_search_json.exists() and dst_search_json.exists():
+            # Merge search.json files
+            if not _merge_search_json(src_search_json, dst_search_json):
+                logger.warning(f"Failed to merge search.json, will use rsync for other files")
+        elif src_search_json.exists():
+            # Copy search.json if dst doesn't have it
+            shutil.copy2(src_search_json, dst_search_json)
+        
+        # Handle robots.txt and sitemap.xml (shared config, source takes precedence)
+        for shared_file in ["robots.txt", "sitemap.xml"]:
+            src_shared = src / shared_file
+            dst_shared = dst / shared_file
+            if src_shared.exists():
+                shutil.copy2(src_shared, dst_shared)
+        
+        # Use rsync for the rest of the files
+        # Flags:
+        #   -a: archive mode (preserves permissions, timestamps, etc.)
+        #   --ignore-existing: skip files that already exist in dst (union behavior)
+        #   --exclude: skip files we handle specially
+        
+        rsync_cmd = [
+            "rsync",
+            "-a",
+            "--ignore-existing",  # Keep existing files in dst (union behavior)
+            "--exclude", "search.json",
+            "--exclude", "robots.txt",
+            "--exclude", "sitemap.xml",
+            str(src) + "/",  # Trailing slash means "contents of src"
+            str(dst) + "/",
+        ]
+        
+        result = subprocess.run(rsync_cmd, capture_output=True, text=True)
+        if result.returncode not in (0, 23, 24):
+            # 0 = success, 23 = some files vanished, 24 = vanished during transfer
+            # These are acceptable for our use case
+            logger.debug(f"rsync completed with code {result.returncode}")
+        
+        # Second pass: copy target-specific files from src, overwriting any existing files
+        # (target-specific files have highest priority)
+        if target_name:
+            for src_file in src.rglob("*"):
+                if src_file.is_file():
+                    rel_path = src_file.relative_to(src)
+                    dst_file = dst / rel_path
+                    
+                    # Check if this is a target-specific file
+                    if _is_target_specific_file(src_file, target_name, src):
+                        # Copy target-specific file regardless of existence (overwrite)
+                        dst_file.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(src_file, dst_file)
+                        logger.debug(f"Copied target-specific file {src_file} -> {dst_file}")
+        
         return True
     except Exception as e:
         logger.error(f"Failed to merge {src} into {dst}: {e}")
@@ -2012,14 +2118,44 @@ def build_targets(
             final_output.mkdir(parents=True, exist_ok=True)
             
             logger.info(f"Merging {len(succeeded)} successful targets into {final_output}...")
-            # Sort succeeded so that 'index' target is merged last (its index.html should prevail)
+            # Merge all targets - target-specific files are now protected by _is_target_specific_file
+            # Order doesn't matter for target-specific files, but we still sort for consistency
+            # Non-index targets first, then index target (for any shared files at root level)
             sorted_succeeded = sorted(succeeded, key=lambda x: (x == 'index', x))
             # Iterate over a copy because we may modify results
             for target in sorted_succeeded:
                 temp_docs = target_temp_dirs[target]
                 temp_site = temp_docs / "_site"
+                # If no site directory, copy target-specific artifacts directly from cache
+                if not temp_site.exists():
+                    cache_dir = get_cache_base() / target
+                    if cache_dir.exists():
+                        # Find the first hash subdirectory (most recent)
+                        hash_dirs = list(cache_dir.iterdir())
+                        if hash_dirs:
+                            hash_dir = hash_dirs[0]
+                            # Determine source path mapping
+                            qmd_path = Path(TARGET_CONFIG[target]["qmd"])
+                            src_parent = qmd_path.parent
+                            src_stem = qmd_path.stem
+                            # Copy all files from hash_dir (excluding 'site' directory)
+                            for src_file in hash_dir.iterdir():
+                                if src_file.name == 'site':
+                                    continue
+                                if src_file.is_file():
+                                    # Determine destination path preserving original docs structure
+                                    if src_parent == Path('.'):
+                                        dest_parent = final_output
+                                    else:
+                                        dest_parent = final_output / src_parent
+                                    # Determine destination filename: use source stem, keep extension
+                                    dest_name = src_stem + src_file.suffix
+                                    dest = dest_parent / dest_name
+                                    dest.parent.mkdir(parents=True, exist_ok=True)
+                                    shutil.copy2(src_file, dest)
+                                    logger.debug(f"Copied cached artifact {src_file} -> {dest}")
                 if temp_site.exists():
-                    if not merge_dirs(temp_site, final_output):
+                    if not merge_dirs(temp_site, final_output, target_name=target):
                         logger.warning(f"Failed to merge {target} output into {final_output}")
                         results[target] = False
             
