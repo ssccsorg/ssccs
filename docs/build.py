@@ -140,6 +140,10 @@ except ImportError:
 # Formats that are considered non‑deterministic (cached based on QMD hash only)
 NON_DETERMINISTIC_FORMATS = {"pdf", "beamer", "html", "gfm"}
 
+PROJECT_ROOT = Path(__file__).parent.parent.resolve()
+
+BUILD_TEMP_DIR = PROJECT_ROOT / "_docsbuild"
+
 # Patterns that match Quarto‑generated artifacts (used by clean_quarto_artifacts and copy ignore)
 IGNORING_ARTIFACT_PATTERNS = [
     "**/__pycache__",
@@ -2289,19 +2293,42 @@ def build_targets(
     if website and (not sequence_mode) and (len(targets) > 1):
         logger.info("Website mode: using isolated docs copies for parallel rendering...")
         
-        # Create base temp directory
-        base_temp = Path(tempfile.mkdtemp(prefix="quarto_website_"))
+        # Fixed absolute path that ensures path consistency for both CI and local
+        base_temp = BUILD_TEMP_DIR
+        
+        if base_temp.exists():
+            logger.info(f"Cleaning fixed temp dir: {base_temp}")
+            shutil.rmtree(base_temp, ignore_errors=True)  # Even if you fail, ignore it and proceed
+            
+        base_temp.mkdir(parents=True, exist_ok=True)
+        logger.info(f"Using fixed temp directory: {base_temp}")
+        
+        # Copy function (block infinite loop)
+        def copy_for_target(t: str) -> Tuple[str, Path]:
+            temp_docs = base_temp / t
+            if temp_docs.exists():
+                shutil.rmtree(temp_docs, ignore_errors=True)
+                
+            logger.info(f"Copying docs to {temp_docs} for {t}...")
+            
+            # Explicitly exclude target folder name + prevent circular references in symbolic links
+            def _strict_ignore(src, names):
+                ignored = set(ignore_quarto_artifacts()(src, names))
+                if base_temp.name in names:
+                    ignored.add(base_temp.name)
+                # Exclude copy if symbolic link points to base_temp
+                for name in list(names):
+                    p = Path(src) / name
+                    if p.is_symlink() and p.resolve() == base_temp.resolve():
+                        ignored.add(name)
+                return ignored
+
+            shutil.copytree(DOCS_ROOT, temp_docs, ignore=_strict_ignore)
+            return t, temp_docs
+
         target_temp_dirs: Dict[str, Path] = {}
         
         try:
-            # Copy entire docs folder for each target in parallel
-            def copy_for_target(t: str) -> Tuple[str, Path]:
-                temp_docs = base_temp / t
-                logger.info(f"Copying docs to {temp_docs} for {t}...")
-                shutil.copytree(DOCS_ROOT, temp_docs, ignore=ignore_quarto_artifacts())
-                return t, temp_docs
-
-            target_temp_dirs = {}
             with ThreadPoolExecutor(max_workers=max_jobs) as executor:
                 future_to_target = {executor.submit(copy_for_target, t): t for t in targets}
                 for future in as_completed(future_to_target):
