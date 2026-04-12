@@ -1,0 +1,684 @@
+---
+title: "Space Computing: Radiation-Tolerant RISC‑V and SSCCS"
+subtitle: "SSCCS Field Composition Protocols for Adaptive, Semantic Fault Tolerance"
+date: 2026-04
+date-format: "MMMM, YYYY"
+bibliography: ./_include/riscv_space_references.bib
+link-citations: true
+colorlinks: true
+metadata-files:
+  - ../_include/author.yml
+  - ../_include/format.pdf.yml
+  - ../_include/format.html.yml
+format:
+  html: default
+  pdf:
+    include-in-header:
+      text: |
+        \usepackage{geometry}
+        \usepackage{microtype}
+        \addtokomafont{disposition}{\rmfamily}
+        \input{./_files/riscv_space_metadata.tex}
+        \makeatletter
+        \def\@maketitle{
+          {\LARGE \bfseries \@title \par}
+          \vspace{0.3em}
+          {\large \@subtitle \par}
+          \vspace{2em}
+        }
+        \makeatother
+abstract: |
+  This report establishes a synergistic architecture combining SSCCS (Schema–Segment Composition Computing System) with radiation‑tolerant RISC‑V platforms for next‑generation space computing. While hardware‑level radiation hardening (e.g., StarRISC [@elash2024starrisc], HARV‑SoC [@santos2023harvsoc]) provides essential protection against single‑event effects, it suffers from static overhead and limited adaptability to evolving mission requirements. SSCCS introduces a software‑defined fault‑tolerance layer where Fields—executable, cryptographically signed binaries encoding constraint predicates and transition matrices—can be composed, sandboxed, and updated post‑deployment. By treating fault‑tolerance policies as dynamic Field binaries, we enable: (1) adaptive redundancy via temporal/spatial voting strategies reconfigured via software, (2) semantic error detection through application‑level constraint validation beyond bit‑wise ECC, and (3) reduced SWaP through intelligent resource reuse. The report details architectural integration via OpenHW's XIF interface, proposes a three‑phase validation roadmap, and positions this synergy as a strategic response to ESA TRISTAN's call for "deterministic, safe, and mixed‑criticality aware" space processors [@tristan2025].
+---
+
+```{python}
+#| echo: false
+#| include: false
+#| context: local
+
+title_meta_items = {
+    "pdf": [
+      {"title": "SSCCS Foundation", "link": "https://ssccs.org", "content": "ssccs.org"},
+      {"title": "Other Formats", "link": "https://docs.ssccs.org/research/riscv_space.html", "content": "HTML"},
+  ],
+  "html": [
+      {"title": "Other Formats", "link": "https://docs.ssccs.org/research/riscv_space.pdf", "content": "PDF", "content_class": "bi bi-file-pdf"},
+  ]
+}
+
+%run ../_include/_graphviz.py
+%run ../_include/_generate_metadata_tex.py --output ./_files/riscv_space_metadata.tex --version_prefix 0.2 --version_mark
+
+import matplotlib
+matplotlib.use('Agg')
+```
+
+{{< include ../_include/_title_meta_items_if_html.qmd >}}
+
+{{< include ../_include/_title_meta_items_if_pdf.qmd >}}
+
+---
+
+# Introduction
+
+Spaceborne and safety‑critical computing systems require high reliability under ionizing radiation. Recent years have seen the emergence of several radiation‑tolerant RISC‑V implementations, including StarRISC (STARLab) [@elash2024starrisc], HARV‑SoC [@santos2023harvsoc], and TMR‑protected RISC‑V processors [@walsemann2023radiation]. These platforms employ techniques such as hardened flip‑flops, SECDED ECC, and Triple Modular Redundancy (TMR) to mitigate Single Event Upsets (SEUs). However, hardware hardening is static: once fabricated, the protection mechanism cannot adapt to new error patterns or mission phases, and it incurs significant area and power costs.
+
+Concurrently, the SSCCS paradigm redefines computation not as instruction sequencing, but as the observation of stationary structures under dynamic constraints [@lee2026]. Central to this model is the Field, a mutable substrate that governs which states are admissible. Crucially, the SSCCS Whitepaper establishes that Fields are not merely abstract logic; they are first-class executable binaries that can be encrypted, signed, and sandboxed [@lee2026].
+
+This report argues that the binary nature of SSCCS Fields offers a unique solution to the rigidity of traditional Radiation Hardening by Design (RHBD). By loading "Fault Tolerance Fields" onto a StarRISC-like platform, we can achieve adaptive, software-defined resilience that evolves with the mission environment, reducing hardware overhead while enhancing resilience against complex failure modes like Multi-Bit Upsets (MBUs) and semantic corruption.
+
+::: {.callout-note}
+Terminology Clarification: This report distinguishes between:
+- Radiation-Hardened (RH): Full tolerance to extreme environments (deep space, >100 krad, LET > 80 MeV·cm²/mg)
+- Radiation-Tolerant (RT): Mitigation for Low Earth Orbit (LEO) and cubesat environments (<50 krad, LET < 40 MeV·cm²/mg)
+
+StarRISC targets the RT regime; SSCCS Fields provide complementary semantic protection applicable to both regimes.
+:::
+
+# Radiation‑Tolerant RISC‑V Platforms: Capabilities and Limitations
+
+## StarRISC (STARLab)
+
+StarRISC is based on the OpenHW CV32E40P core, fabricated in 22‑nm FD‑SOI technology. Key features include:
+
+| Feature | Description |
+|---------|-------------|
+| Hardened Sequential Elements | Stacked‑transistor flip‑flops resistant to SEUs up to LET ≈ 96 MeV·cm²/mg |
+| ECC Protected Memory | SECDED (Single Error Correction, Double Error Detection) on 512 KB SRAM |
+| Performance | Functional after 100 kRad (proton) TID; no SEFI observed in testing [@elash2024starrisc] |
+| Power/Area | ~15% area overhead vs. baseline CV32E40P; 2.1 mW/MHz typical |
+
+Residual Vulnerabilities:
+
+1.  Multi-Bit Upsets (MBUs): SECDED ECC corrects single‑bit errors but fails against correlated MBUs in a single word or accumulated errors over time.
+2.  Semantic Blindness: Hardware-level error detection operates on bits, not application semantics. A multi‑bit upset that results in a physically impossible state (e.g., velocity exceeding escape velocity) may go undetected.
+3.  Static Protection: The hardening strategy is fixed at design time and cannot be adapted to changing mission requirements without pre‑designed overhead.
+
+## HARV‑SoC and TMR‑Protected RISC‑V
+
+| Platform | Approach | Strengths | Limitations |
+|----------|----------|-----------|-------------|
+| HARV‑SoC [@santos2023harvsoc] | Fault‑aware SoC with integrated error detection/correction | Proton irradiation characterization; on‑chip fault reporting | Relies on hardware‑based reporting; no dynamic reconfiguration |
+| TMR‑Protected RISC‑V [@walsemann2023radiation] | Triple Modular Redundancy + SRAM scrubbing | Effective against SEUs/MBUs; validated in high‑energy physics | 3× area/power overhead; protection level fixed at fabrication |
+
+## Common Limitations
+
+All three platforms share two fundamental constraints:
+
+1.  Hard‑coded Redundancy: Protection mechanisms are fixed in hardware, preventing adaptation to varying radiation environments or mission phases.
+2.  Semantic Blindness: Hardware‑level error detection (ECC, voters) operates on bits, not on application‑level semantics. A multi‑bit upset that results in a physically impossible state may go undetected.
+
+# Landscape of Radiation‑Tolerant RISC‑V Research
+
+Beyond the three platforms detailed above, the RISC‑V ecosystem has seen a surge of research targeting radiation tolerance. Table {@tbl:research-landscape} summarizes key recent contributions with explicit SSCCS synergy opportunities.
+
+::: {tbl-colwidths="[30, 20, 20, 30]"}
+
+| Study | Approach | Key Contribution | Synergy |
+|-------|----------|------------------|------------------------------|
+| StarRISC (Elash et al., 2024) [@elash2024starrisc] | RHBD with hardened flip‑flops + SECDED ECC | Demonstrated functional operation after 100 kRad TID | Ideal target for Field sandboxing via PMP; minimal area overhead for Field accelerator |
+| PIC64‑HPSC (Microchip/NASA) [[@microchip2025pic64]] | High‑performance RISC‑V with vector extensions | 8× SiFive X280 cores, Vector Extension, up to 2 TOPS AI/ML | SSCCS Fields for semantic validation of AI inference outputs in autonomous navigation |
+| CORE‑V MCU (OpenHW) [[@openhw2025cvmcu]] | Ultra‑low‑power RT RISC‑V for cubesats | RV32IMC, PMP, SECDED ECC, 512KB SRAM | Reference platform for Field binary loading and XIF integration |
+| On‑Demand Lockstep (Simões et al., 2024) [@simoes2024] | Dynamic redundancy: cores operate in lockstep only when error rate exceeds threshold | Reduces power overhead by activating redundancy only during high‑radiation periods | SSCCS Fields can implement policy logic for mode switching decisions |
+| MFID Decoder (Ghosh et al., 2025) [@ghosh2025] | Multi‑bit fault‑tolerant instruction decoder using parity + ECC | Protects against MBUs in instruction decode stage | Complements SSCCS semantic validation at application layer |
+| TRISTAN Roadmap (ESA, 2025) [@tristan2025] | European RISC‑V ecosystem strategy | Supply chain resilience, certification framework, mixed‑criticality requirements | SSCCS binary signing aligns with TRISTAN's "trusted software stack" requirements |
+
+:::
+
+# Threat Model and Security Assumptions
+
+Before detailing the SSCCS integration, we define the adversarial and environmental assumptions:
+
+## Radiation Environment Model
+| Parameter | LEO/CubeSat Regime | Deep‑Space Regime |
+|-----------|-------------------|-------------------|
+| Total Ionizing Dose (TID) | 10–50 krad(Si) | 100–1000 krad(Si) |
+| Linear Energy Transfer (LET) | < 40 MeV·cm²/mg | > 80 MeV·cm²/mg |
+| Dominant Faults | SEU, occasional MBU | MBU, SEL, cumulative degradation |
+
+## Adversarial Capabilities
+- Passive: Natural radiation causing SEUs/MBUs in logic, memory, or interconnect
+- Active (theoretical): Fault injection via directed energy or compromised software updates
+
+## SSCCS Security Assumptions
+1.  Root of Trust: Public verification key stored in OTP; immutable after fabrication
+2.  Field Signing: All `.field` binaries signed with Ed25519 or ECDSA-P256; verification before execution
+3.  Memory Isolation: PMP enforces strict read/write/execute permissions for Field code, data, and Segment storage
+4.  No Side‑Channel Leakage: Field execution time bounded; no data‑dependent branching in constraint predicates
+
+# The Core Enabler: SSCCS Fields as Executable Binaries
+
+The synergy with StarRISC relies entirely on the properties of SSCCS Fields described in Section 2.3.3 of the SSCCS Whitepaper [@lee2026].
+
+## Dual Nature of Fields
+
+In SSCCS, a Field $F = (C, T)$ consists of a constraint predicate $C$ and a transition matrix $T$. While logically these define admissibility, physically:
+
+| Property | Description |
+|----------|-------------|
+| Executable Binaries | A Field is compiled into a platform-independent binary format (`.field`) containing bytecode for constraint evaluation and transition weighting |
+| Cryptographic Integrity | Fields are digitally signed. This ensures that only authorized fault-tolerance policies (e.g., from Mission Control) are executed on the spacecraft, preventing malicious or corrupted updates |
+| Sandboxing | Fields execute in isolated environments via PMP. A faulty or compromised Field cannot corrupt the underlying Segment data or other Fields, providing inherent structural isolation [@lee2026] |
+
+## Proposed .field Binary Format (Conceptual)
+
+```yaml
+# Header structure for SSCCS Field binaries
+field_header:
+  magic: "SSCCS_FLD"          # 8B identifier
+  version: uint16             # Format version (current: 0x0100)
+  signature_alg: uint8        # Ed25519=1, ECDSA-P256=2
+  constraint_type: uint8      # Dimensional=1, Algebraic=2, Semantic=3 [[@lee2026]]
+  code_offset: uint32         # Byte offset to constraint bytecode section
+  data_offset: uint32         # Byte offset to T-matrix/parameters section
+  code_size: uint32           # Size of bytecode section (bytes)
+  data_size: uint32           # Size of parameter section (bytes)
+  timeout_cycles: uint16      # Max execution cycles for constraint eval
+  signature: byte[64]         # Cryptographic signature over header+payload
+```
+
+## Dynamic Composition
+
+Fields support algebraic composition (Union, Intersection, Product) at the binary level [@lee2026]. This allows for runtime reconfiguration of fault tolerance strategies. For example:
+
+| Mode | Field Configuration | Use Case |
+|------|---------------------|----------|
+| Normal Mode | `Field_ECC_Light` (minimal checking) | Low-radiation environment; maximize performance |
+| Solar Storm Mode | `Field_ECC_Heavy` ∩ `Field_Temporal_Vote` | High-radiation period; strict temporal redundancy |
+| Autonomous Nav Mode | `Field_Semantic_Nav` ∪ `Field_Voting_Swarm` | Multi-spacecraft coordination with semantic validation |
+
+This capability transforms fault tolerance from a hardware feature into a software-defined service.
+
+```{python}
+#| label: fig-field-composition
+#| fig-cap: "SSCCS Field composition operations: union, intersection, and product for dynamic fault tolerance configuration"
+#| echo: false
+dot("""
+digraph FieldComposition {
+    rankdir=LR
+    node [shape=rect, style=rounded, fontname="Helvetica"]
+    
+    F1 [label="F₁\\n(C₁, T₁)", fillcolor="#E8F4F8", style="rounded,filled"]
+    F2 [label="F₂\\n(C₂, T₂)", fillcolor="#E8F4F8", style="rounded,filled"]
+    
+    Union [label="Union (∪)", shape=ellipse, fillcolor="#F4E8F8"]
+    Intersection [label="Intersection (∩)", shape=ellipse, fillcolor="#F4E8F8"]
+    Product [label="Product (×)", shape=ellipse, fillcolor="#F4E8F8"]
+    
+    F_union [label="F₁ ∪ F₂\\n(C₁ ∨ C₂, max(T₁,T₂))", fillcolor="#E8F8E8", style="rounded,filled"]
+    F_inter [label="F₁ ∩ F₂\\n(C₁ ∧ C₂, min(T₁,T₂))", fillcolor="#E8F8E8", style="rounded,filled"]
+    F_prod [label="F₁ × F₂\\n(product)", fillcolor="#E8F8E8", style="rounded,filled"]
+    
+    F1 -> Union
+    F2 -> Union
+    Union -> F_union
+    
+    F1 -> Intersection
+    F2 -> Intersection
+    Intersection -> F_inter
+    
+    F1 -> Product
+    F2 -> Product
+    Product -> F_prod
+}
+""")
+```
+
+# Synergy: Software-Defined Radiation Hardening (SDRH)
+
+We propose a hybrid architecture where StarRISC provides the physical baseline resilience, and SSCCS Fields provide the adaptive, semantic resilience.
+
+## Temporal Redundancy via Observation Fields
+
+Traditional TMR uses three physical cores. SSCCS enables Temporal TMR using a single core via the `OBSERVE` primitive. A "Stability Field" can be defined to require that a Segment's value remains consistent across multiple observations within a time window.
+
+```{python}
+#| label: fig-temporal-redundancy
+#| fig-cap: "Temporal redundancy pipeline: Stability Field detects SEUs through repeated observation and comparison"
+#| echo: false
+dot("""
+digraph Temporal_Redundancy {
+    rankdir=LR
+    node [shape=box, style=filled, fontname="Helvetica"]
+    
+    subgraph cluster_core {
+        label="StarRISC Core"
+        color="#333333"
+        style=solid
+        CPU [label="RISC-V Pipeline", fillcolor="#D4E7F4"]
+    }
+    
+    subgraph cluster_accel {
+        label="SSCCS Accelerator"
+        color="#338833"
+        style=solid
+        OBS [label="OBSERVE Instruction", fillcolor="#B4D8E7"]
+        CMP [label="Field Predicate\\n(val_t0 == val_t1)", shape=diamond, fillcolor="#E7D4D4"]
+        REJ [label="Reject Projection\\n(Retry/Error)", fillcolor="#E7B4B4"]
+        ACC [label="Accept Projection", fillcolor="#B4E7B4"]
+    }
+    
+    CPU -> OBS [label="T0: First Observe"]
+    OBS -> CPU [label="Store val_t0"]
+    
+    CPU -> OBS [label="T1: Second Observe"]
+    OBS -> CPU [label="Store val_t1"]
+    
+    OBS -> CMP [label="Evaluate Stability"]
+    
+    CMP -> ACC [label="Equal (No SEU)"]
+    CMP -> REJ [label="Not Equal (SEU Detected)"]
+    
+    REJ -> CPU [label="Exception/Trap"]
+}
+""")
+```
+
+```rust
+// Conceptual Rust-like pseudocode for a Stability Field
+let stability_field = Field::new()
+    .with_predicate(|segment| {
+        let val_t0 = observe(segment);
+        let val_t1 = observe(segment); // Re-observe
+        val_t0 == val_t1 // Admissible only if stable
+    })
+    .with_timeout(50) // Max 50 cycles for evaluation
+    .sign_with(mission_control_key);
+```
+
+Because the Field is a signed binary, this logic can be uploaded and verified on-orbit. If radiation causes a transient upset in the register during the first observation, the second observation will likely differ, causing the Field to reject the projection and trigger a retry or error handler. This mitigates SEUs that escape hardware ECC without tripling the hardware.
+
+::: {.callout-note}
+Timing Model: `OBSERVE` instruction latency:
+- Best case (cache hit, simple constraint): 3–5 cycles
+- Worst case (memory fetch, semantic validation): 15–30 cycles
+- Configurable timeout via Field metadata prevents hangs
+:::
+
+## Semantic Predictability Framework
+
+Traditional fault tolerance operates at the bit level (ECC corrects flipped bits). SSCCS Fields operate at the semantic level (constraints validate physically admissible states). This enables a two‑tier defense:
+
+```
+Radiation Event → Hardware Layer → SSCCS Layer → System Response
+SEU in register → ECC detects/corrects → Field predicate passes → Normal execution
+MBU in memory  → ECC fails (valid codeword) → Semantic constraint fails → Safe fallback
+Logic corruption → Voter disagreement → Temporal Field retry → Recovered state
+```
+
+Example: Navigation Coordinate Validation
+```rust
+// Semantic Field for spacecraft velocity constraint
+let nav_field = Field::semantic()
+    .with_constraint(|state: NavState| {
+        // Physical law: |Δv| ≤ thrust_capacity × Δt
+        let dv = state.velocity - state.prev_velocity;
+        dv.magnitude() <= state.thrust_max * state.dt
+    })
+    .with_recovery(|state| {
+        // Fallback: revert to last known-good state + alert
+        state.revert_to_checkpoint();
+        Alert::emit("Semantic violation detected");
+    });
+```
+
+This approach directly addresses ESA's concern about "non‑deterministic latency in mixed‑criticality systems" [@tristan2025] by providing deterministic semantic validation independent of memory contention.
+
+## Distributed Voting with Signed Fields
+
+In a multi-core or swarm configuration, SSCCS Fields enable Software-Defined Consensus. A "Voting Field" can be broadcast to multiple StarRISC nodes. Each node observes its local Segment and projects a value. The Field's transition matrix $T$ aggregates these projections using a majority vote or weighted average [@lee2026].
+
+| Advantage | Description |
+|-----------|-------------|
+| No Hardware Voter | The voting logic is contained within the Field binary |
+| Cryptographic Security | Since the Field is signed [@lee2026], a compromised node cannot inject a malicious voting algorithm |
+| Adaptive Topology | Voting weights can be updated on-orbit to account for node degradation |
+
+# Architectural Implementation on OpenHW CORE-V
+
+To realize this synergy, we propose implementing SSCCS runtime support on the OpenHW CORE-V platform, leveraging the eXtension Interface (XIF) [@openhw2025xif].
+
+## Custom Instructions for Field Execution
+
+Efficient execution of Field binaries requires hardware acceleration for the `OBSERVE` and `COLLAPSE` operations. We propose two custom instructions via XIF:
+
+| Instruction | Encoding (custom-0) | Operation | Description |
+|-------------|---------------------|-----------|-------------|
+| `OBSERVE rd, rs1, rs2` | `0001011` opcode | Project Segment | Reads Segment at `rs1`, applies Field at `rs2`, stores result in `rd`. Handles retry logic if configured |
+| `COLLAPSE rd, rs1, rs2` | `0001111` opcode | Aggregate Projections | Combines multiple observations using the Field's transition matrix $T$ |
+
+```verilog
+// Proposed custom instruction encoding (RISC-V custom-0 space)
+// OBSERVE: rd = observe(rs1: segment_id, rs2: field_id)
+// COLLAPSE: rd = collapse(rs1: observations_ptr, rs2: field_id)
+
+`define OPCODE_OBSERVE  7'b0001011  // custom-0
+`define OPCODE_COLLAPSE 7'b0001111
+
+// Instruction format (R-type compatible)
+// [31:25]=funct7, [24:20]=rs2, [19:15]=rs1, [14:12]=funct3, [11:7]=rd, [6:0]=opcode
+```
+
+These instructions allow the StarRISC core to offload the complex constraint evaluation of the Field to a tightly coupled coprocessor or accelerator, minimizing performance overhead.
+
+```{python}
+#| label: fig-xif-integration
+#| fig-cap: "CV32E40P core and SSCCS Coprocessor interconnection via XIF interface for OBSERVE/COLLAPSE instructions"
+#| echo: false
+dot("""
+digraph XIF_Integration {
+    rankdir=LR
+    node [shape=box, style=filled, fontname="Helvetica"]
+    
+    CPU [label="CV32E40P Core\\n(StarRISC)", fillcolor="#E8E8E8"]
+    XIF [label="XIF Interface", shape=parallelogram, fillcolor="#F8D4A8"]
+    
+    subgraph cluster_coprocessor {
+        label="SSCCS Accelerator (XIF Slave)"
+        color="#888888"
+        style=dashed
+        Dec [label="Decoder", fillcolor="#D4E7F4"]
+        CEU [label="Constraint Eval\\nUnit (CEU)", fillcolor="#D4E7F4"]
+        TMU [label="Transition Matrix\\nUnit (TMU)", fillcolor="#D4E7F4"]
+        FDT [label="Field Descriptor\\nTable", fillcolor="#D4E7F4"]
+        
+        Dec -> CEU
+        Dec -> TMU
+        CEU -> TMU
+        FDT -> CEU
+        FDT -> TMU
+    }
+    
+    MEM [label="ECC SRAM", shape=cylinder, fillcolor="#F8F4E8"]
+    
+    CPU -> XIF [label="Issue/Commit"]
+    XIF -> Dec [label="Custom Opcode"]
+    TMU -> XIF [label="Result"]
+    
+    CEU -> MEM [label="Segment Load", dir=both]
+}
+""")
+```
+
+## XIF Handshake Protocol for OBSERVE
+
+| Stage | XIF Channel | Description |
+|-------|-------------|-------------|
+| 1. Instruction Issue | Issue Interface | CPU asserts `x_issue_valid`; passes 32-bit instruction via `x_issue_req.instr`. SSCCS coprocessor accepts with `x_issue_ready` |
+| 2. Register Read | Register Interface | Coprocessor asserts `x_register_valid`; requests source register addresses via `x_register_req.rs`. CPU returns values with `x_register_resp.rdata` |
+| 3. Memory Access | Memory Request/Response | If `OBSERVE` needs Segment data, coprocessor issues load via `x_mem_valid`; receives data via `x_mem_resp.rdata` |
+| 4. Result Return | Result Interface | After computation, coprocessor asserts `x_result_valid`; supplies `x_result.rd` and `x_result.data`. CPU accepts with `x_result_ready` |
+| 5. Commit/Kill | Commit Interface | CPU asserts `x_commit_valid` upon instruction commit. If exception occurs, `x_commit.commit_kill` notifies coprocessor to abort |
+
+## Secure Field Loading
+
+Leveraging the Binary-Level Composition Protocols [@lee2026]:
+
+1.  Upload: New Field binaries (e.g., updated fault tolerance policies) are uploaded to StarRISC's secure memory.
+2.  Verification: The SSCCS Runtime verifies the Ed25519/ECDSA signature of the Field binary against a root of trust stored in OTP.
+3.  Sandboxing: The Field is loaded into a protected memory region (using PMP - Physical Memory Protection). It can only access Segments explicitly granted permission, preventing side-channel attacks or fault propagation [@lee2026].
+
+```{python}
+#| label: fig-secure-loading
+#| fig-cap: "Secure Field loading and PMP sandboxing: signature verification and memory isolation"
+#| echo: false
+dot("""
+digraph Secure_Loading {
+    rankdir=LR
+    node [shape=box, style="rounded,filled", fontname="Helvetica"]
+    
+    Upload [label="Receive .field Binary", shape=parallelogram, fillcolor="#E8E8E8"]
+    OTP [label="Root of Trust (OTP)", shape=box3d, fillcolor="#F8F4A8"]
+    Verifier [label="Signature Verification\\n(Ed25519/ECDSA)", fillcolor="#B4D8E7"]
+    PMP [label="PMP Configuration", fillcolor="#F8D4A8"]
+    
+    subgraph cluster_memory {
+        label="Protected Memory Map"
+        style=dashed
+        color="#888888"
+        FieldCode [label="Field Code Section\\nR-X (PMP Entry 1)", fillcolor="#D8D8D8"]
+        FieldData [label="Field Data Section\\nRW (PMP Entry 2)", fillcolor="#D8D8D8"]
+        SegmentMem [label="Segment Storage\\nR (PMP Entry 3)", fillcolor="#D8D8D8"]
+    }
+    
+    Upload -> Verifier [label="Binary + Signature"]
+    OTP -> Verifier [label="Public Key"]
+    
+    Verifier -> PMP [label="Valid Signature"]
+    Verifier -> Upload [label="Invalid Signature\\n(Abort)", style=dotted, color=red]
+    
+    PMP -> FieldCode [label="Lock Permissions"]
+    PMP -> FieldData [label="Lock Permissions"]
+    PMP -> SegmentMem [label="Lock Permissions"]
+    
+    FieldCode -> FieldData [label="Execute only"]
+    FieldData -> SegmentMem [label="Read only"]
+}
+""")
+```
+
+### PMP-Based Memory Isolation Layout
+
+Memory Map (StarRISC 512KB ECC SRAM):
+
+```
+─────────────────────────────────────────────────────────────
+0x0000_0000 ┌──────────────────────────┐
+            │ Trusted Runtime (TEE)     │ ← PMP Entry 0: LOCK, R-X
+            │ - Field Loader/Verifier   │   (Execute only, no write)
+0x0001_0000 ├──────────────────────────┤
+            │ Field Code Section        │ ← PMP Entry 1: LOCK, R-X
+            │ - Constraint Bytecode     │   (Field execution code)
+0x0002_0000 ├──────────────────────────┤
+            │ Field Data Section        │ ← PMP Entry 2: RW
+            │ - T matrix, temp data     │   (Field data)
+0x0003_0000 ├──────────────────────────┤
+            │ Segment Storage           │ ← PMP Entry 3: R (Field only)
+            │ - Observed data           │   (Read-only)
+0x0004_0000 ├──────────────────────────┤
+            │ Application Memory        │ ← PMP Entry 4: RWX
+            │                           │   (No Field access)
+─────────────────────────────────────────────────────────────
+```
+
+# Proposed Validation Roadmap
+
+We propose a joint validation effort between SSCCS Foundation and STARLab:
+
+## Phase 1: Simulation (Months 1–4)
+
+| Task | Description | Success Metric |
+|------|-------------|----------------|
+| Core Simulation | Simulate StarRISC core with SSCCS Runtime in Verilator | Functional correctness of OBSERVE/COLLAPSE |
+| MBU Injection | Inject controlled MBUs into SRAM model | ≥95% detection rate for semantic Fields |
+| Detection Rate Analysis | Compare SSCCS semantic validation vs. standard SECDED ECC | False positive rate ≤0.1% |
+
+## Phase 2: FPGA Emulation (Months 5–10)
+
+| Task | Description | Success Metric |
+|------|-------------|----------------|
+| XIF Implementation | Implement `OBSERVE`/`COLLAPSE` via XIF on FPGA-emulated CV32E40P | Instruction latency within timing model |
+| Dynamic Loading | Demonstrate dynamic loading of signed Field binaries | Field load + verify <1ms |
+| Area/Power Benchmarking | Synthesize SSCCS accelerator; compare to hardcoded TMR | <10% area overhead vs. baseline CV32E40P |
+
+## Phase 3: Radiation Testing (Months 11–18)
+
+| Task | Description | Success Metric |
+|------|-------------|----------------|
+| Heavy-Ion Testing | Expose hybrid system to heavy-ion beam (LET 10–80 MeV·cm²/mg) | Functional operation post-irradiation |
+| Recovery Validation | Validate that software-defined Fields recover from errors exceeding hardware ECC | Recovery time <10× clock period |
+| Performance Characterization | Measure timing, power, and fault coverage under radiation | Meet mission-specific SWaP constraints |
+
+```{python}
+#| label: fig-validation-roadmap
+#| fig-cap: "Three-phase validation roadmap: from simulation to radiation testing"
+#| echo: false
+dot("""
+digraph Validation_Roadmap {
+    rankdir=LR
+    node [shape=box, style="rounded,filled", width=2.2, fontname="Helvetica"]
+    
+    Phase1 [label="Phase 1: Simulation\\n• Core + Runtime Simulation\\n• MBU Injection\\n• Detection Rate Analysis", fillcolor="#E8F4F8"]
+    Phase2 [label="Phase 2: FPGA Emulation\\n• XIF Implementation\\n• Dynamic Field Loading\\n• Area/Power Benchmarking", fillcolor="#F4E8F8"]
+    Phase3 [label="Phase 3: Radiation Testing\\n• Heavy-Ion Exposure\\n• Recovery Validation\\n• Performance Characterization", fillcolor="#E8F8E8"]
+    
+    Phase1 -> Phase2 [label="Simulation Verified"]
+    Phase2 -> Phase3 [label="FPGA Validated"]
+    
+    Success [label="Success Metrics:\\n• ≥95% MBU detection\\n• <10% area overhead vs TMR\\n• <1ms recovery time", shape=ellipse, fillcolor="#F8F4E8"]
+    
+    Phase3 -> Success [label="Testing Complete"]
+}
+""")
+```
+
+# Conclusion
+
+The integration of StarRISC and SSCCS represents more than incremental improvement—it establishes a new design paradigm for resilient space computing. By exploiting the executable, composable nature of SSCCS Fields [@lee2026], we transcend the limitations of static hardware hardening:
+
+| Dimension | Traditional RHBD | SSCCS‑Enhanced Architecture |
+|-----------|-----------------|----------------------------|
+| Adaptability | Fixed at fabrication | Post‑launch policy updates via signed Fields |
+| Error Coverage | Bit‑wise (ECC, voters) | Semantic + bit‑wise (two‑tier defense) |
+| Resource Efficiency | ~200% area for TMR | <10% overhead for temporal redundancy |
+| Verification | Simulation + testing | Formal constraint validation + runtime monitoring |
+| Supply Chain | Proprietary IP dependencies | Open-source (OpenHW + SSCCS); transparent auditability |
+
+This synergy directly addresses the strategic imperatives identified by ESA TRISTAN: supply chain resilience through open standards, and deterministic execution for mixed‑criticality autonomy [@tristan2025]. Furthermore, the cryptographic signing of Fields aligns with emerging space cybersecurity frameworks, providing a verifiable chain of trust from ground station to orbit.
+
+We recommend initiating a joint proof‑of‑concept with the OpenHW ecosystem to validate the XIF‑based SSCCS accelerator, positioning this architecture as a reference implementation for next‑generation European and global space computing initiatives. The open‑source nature of both StarRISC and SSCCS enables transparent verification—a critical differentiator for safety‑critical space missions.
+
+# Technical Appendix
+
+## Microarchitecture of the OBSERVE Instruction
+
+The `OBSERVE rd, rs1, rs2` instruction applies the constraints $C$ defined by the Field (`rs2`) to a Segment (`rs1`) to produce a projection. According to the SSCCS Whitepaper, "observation momentarily activates the Field, triggering a collapse of possibility and generating a projection" [@lee2026].
+
+```{python}
+#| label: fig-observe-datapath
+#| fig-cap: "OBSERVE instruction datapath: Segment Cache, Constraint Evaluation Unit, and Transition Matrix Unit"
+#| echo: false
+dot("""
+digraph OBSERVE_Datapath {
+    rankdir=LR
+    node [shape=box, style=filled, fontname="Helvetica"]
+    
+    rs1 [label="rs1 (Segment ID)", shape=plaintext]
+    rs2 [label="rs2 (Field ID)", shape=plaintext]
+    
+    SegCache [label="Segment Cache", fillcolor="#E8F4F8"]
+    FDT [label="Field Descriptor Table", fillcolor="#E8F4F8"]
+    
+    CEU [label="Constraint Evaluation\\nUnit (CEU)\\nEvaluates C(s)", fillcolor="#F4E8F8"]
+    TMU [label="Transition Matrix\\nUnit (TMU)\\nComputes T(s, s')", fillcolor="#F4E8F8"]
+    
+    ProjReg [label="Projection Register", fillcolor="#E8F8E8"]
+    rd [label="rd (Result)", shape=plaintext]
+    
+    rs1 -> SegCache
+    rs2 -> FDT
+    
+    SegCache -> CEU
+    FDT -> CEU
+    
+    CEU -> TMU
+    FDT -> TMU
+    
+    TMU -> ProjReg
+    ProjReg -> rd
+}
+""")
+```
+
+Key Hardware Blocks:
+
+| Block | Description | Estimated Overhead (RV32IMC) |
+|-------|-------------|------------------------------|
+| Segment Cache | Small SRAM storing coordinate vectors of frequently accessed Segments; coupled with StarRISC ECC | ~2 KB; <1% area |
+| Constraint Evaluation Unit (CEU) | Combinational logic evaluating Field's constraint predicate $C(s)$. Supports three classes [@lee2026]: (1) dimensional (range checks), (2) algebraic (linear inequalities), (3) semantic (finite-state validation) | ~500 LUTs; ~3% area |
+| Transition Matrix Unit (TMU) | Computes Field's transition matrix $T(s, s')$. Accelerates max/min and multiplication operations [@lee2026] | ~800 LUTs; ~4% area |
+
+## COLLAPSE Instruction Aggregation Mechanism
+
+The `COLLAPSE rd, rs1, rs2` instruction aggregates multiple observation results according to the Field's transition matrix $T$. In SSCCS theory, "collapse" refers to the process where "observation activates the Field, triggering a collapse of possibility and generating a projection" [@lee2026].
+
+`COLLAPSE` is used in two primary scenarios:
+
+| Scenario | Description |
+|----------|-------------|
+| Temporal Aggregation | Aggregating multiple time-separated `OBSERVE` results of the same Segment to filter transient SEUs |
+| Spatial Aggregation | Aggregating `OBSERVE` results from multiple nodes (cores) to implement distributed voting |
+
+COLLAPSE Operation Pseudocode:
+
+```
+Input:  rs1 = Base address of observation results array
+        rs2 = Field ID (defines T matrix)
+Output: rd = Final aggregated projection value
+
+Algorithm:
+1. Load T(s, s') matrix from Field Descriptor Table.
+2. for i in 0..N-1:
+3.     proj_i = Memory[rs1 + i*4]  // Load observation
+4.     weight_i = T(prev_state, proj_i)
+5.     accumulated_weight += weight_i
+6.     weighted_sum += proj_i * weight_i
+7. rd = weighted_sum / accumulated_weight  (Weighted average)
+    or majority_vote(proj_0..proj_N-1)      (Majority vote)
+```
+
+This aggregation is implemented by reading observations from memory via XIF's Memory Request/Response interface, computing weights in the TMU, and returning the result via the Result interface.
+
+## Hardware TMR vs. SSCCS Temporal Redundancy Comparison
+
+| Comparison Item | Hardware TMR | SSCCS Temporal Redundancy |
+|-----------------|--------------|---------------------------|
+| Redundancy Type | Spatial: 3 cores simultaneous | Temporal: Repeated observations on single core |
+| Area Overhead | ~200% increase | ~8–12% (CEU+TMU+Field storage) |
+| Power Overhead | ~200% increase | Additional consumption only during Field execution |
+| SEU Detection Mechanism | Majority voter (combinational circuit) | Field stability predicate evaluation |
+| MBU Coverage | Limited by voter granularity | Enhanced by semantic constraints |
+| Adaptability | Fixed at design time | Dynamic (changeable by swapping Field binary) |
+| Verification | Simulation + radiation testing | + Formal constraint validation |
+
+## Technical Compatibility Assessment
+
+| Compatibility Element | Current Design Status | Feasibility | Recommendation |
+|-----------------------|-----------------------|-------------|----------------|
+| XIF-based OBSERVE/COLLAPSE | Defined at conceptual level | High | Prototype development based on CV32E40PX + xif_copro [@xifcopro2025] |
+| CEU/TMU Hardware Units | Functionality specified in Whitepaper [@lee2026] | Medium | Detailed microarchitecture design per constraint type required |
+| PMP-Based Sandboxing | Leverages standard RISC‑V feature | High | Optimization of Field-specific PMP context caching |
+| Temporal Redundancy Mechanism | Defined at algorithmic level | High | Validation via SEU injection simulation |
+| Cryptographic Signature Verification | Ed25519/ECDSA specified | High | OTP public key storage required (exists on StarRISC) |
+
+The three-phase validation roadmap proposed in this report (Simulation → FPGA Emulation → Radiation Testing) provides an appropriate approach for systematically verifying these compatibility elements. In particular, the CV‑X‑IF compatible coprocessor example (`xif_copro`) [@xifcopro2025] offers a concrete template for actual implementation of SSCCS instructions, enabling direct use in Phase 2 FPGA emulation.
+
+# Glossary
+
+| Term | Definition |
+|------|------------|
+| Segment | Immutable coordinate in possibility space; minimal unit of potential |
+| Scheme | Structural blueprint defining Segment relationships and adjacency |
+| Field | Mutable constraint substrate that governs what can be observed; executable binary in SSCCS |
+| Observation (Ω) | Active computation event that reveals Projection from Structure + Field |
+| Projection | Ephemeral, deterministic output of an Observation at the logical model level |
+| XIF | CORE-V eXtension Interface for tightly coupled coprocessors |
+| RHBD | Radiation Hardening by Design |
+| RT | Radiation-Tolerant (mitigation for LEO/cubesat environments) |
+| RH | Radiation-Hardened (full tolerance for deep-space environments) |
+| SEU | Single Event Upset |
+| MBU | Multi-Bit Upset |
+| TMR | Triple Modular Redundancy |
+| SECDED | Single Error Correction, Double Error Detection |
+| PMP | Physical Memory Protection (RISC-V) |
+| OTP | One-Time Programmable memory |
+| SWaP | Size, Weight, and Power |
+
+# References {.unnumbered .unlisted}
+
+::: {#refs}
+:::
+
+---
+
+{{< include ../_include/_license.qmd >}}
