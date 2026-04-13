@@ -137,12 +137,21 @@ try:
 except ImportError:
     YAML_AVAILABLE = False
 
+DOCS_PARENT = Path(__file__).parent.parent.resolve()
+DOCS_ROOT = Path(__file__).parent.absolute()
+
+BUILD_TEMP_DIR = "_docsbuild"
+BUILD_CACHE_DIR = "_cached"
+JUPYTER_CACHE_DIR = "_jupyter_cache"
+
+BUILD_TEMP_PATH = DOCS_PARENT / BUILD_TEMP_DIR
+BUILD_CACHE_PATH = DOCS_PARENT / BUILD_CACHE_DIR
+JUPYTER_CACHE_PATH = DOCS_PARENT / JUPYTER_CACHE_DIR
+
+os.environ["JUPYTERCACHE"] = str(JUPYTER_CACHE_PATH)
+
 # Formats that are considered non‑deterministic (cached based on QMD hash only)
 NON_DETERMINISTIC_FORMATS = {"pdf", "beamer", "html", "gfm"}
-
-PROJECT_ROOT = Path(__file__).parent.parent.resolve()
-
-BUILD_TEMP_DIR = PROJECT_ROOT / "_docsbuild"
 
 # Patterns that match Quarto‑generated artifacts (used by clean_quarto_artifacts and copy ignore)
 IGNORING_ARTIFACT_PATTERNS = [
@@ -150,11 +159,10 @@ IGNORING_ARTIFACT_PATTERNS = [
     "**/*.pyc",
     "**/*.pyd",
     "**/*.log",
-    "**/*_files",
     "**/*_output",
     "**/*_extensions",
     "**/*_cached",
-    "../_cached",
+    "**/*_files",
     "**/*_libs",
     "**/_site",
     # quarto: final artifacts
@@ -167,6 +175,13 @@ IGNORING_ARTIFACT_PATTERNS = [
     # c2pa
     "**/*.c2pa",
     "**/*.c2pa_identifier.svg",
+]
+
+CLEANING_ARTIFACT_PATTERNS = IGNORING_ARTIFACT_PATTERNS + [
+    os.path.join("..", BUILD_TEMP_DIR),
+    os.path.join("..", BUILD_CACHE_DIR),
+    os.path.join("..", JUPYTER_CACHE_DIR),
+    "**/.jupyter_cache"
 ]
 
 def ignore_quarto_artifacts() -> Callable[[str, List[str]], List[str]]:
@@ -946,7 +961,7 @@ def clean_quarto_artifacts(docs_root: Path) -> bool:
     """
     Remove Quarto-generated directories matching the patterns
     """
-    patterns = IGNORING_ARTIFACT_PATTERNS
+    patterns = CLEANING_ARTIFACT_PATTERNS
     deleted = []
     errors = []
     for pattern in patterns:
@@ -1767,7 +1782,6 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
     return True
 
 
-DOCS_ROOT = Path(__file__).parent.absolute()
 EXTERNAL_CONFIG: Dict[str, Any] = {}
 TARGET_CONFIG: Dict[str, Dict[str, Any]] = {}
 BUILD_FUNCTIONS: Dict[str, Callable[..., bool]] = {}
@@ -1778,6 +1792,7 @@ def initialize_config(config_path: Optional[Path]) -> None:
     global EXTERNAL_CONFIG, TARGET_CONFIG, BUILD_FUNCTIONS, OUTPUT_DIR_TARGETS
     EXTERNAL_CONFIG = load_external_config(config_path)
     TARGET_CONFIG = get_target_config(DOCS_ROOT, EXTERNAL_CONFIG)
+    JUPYTER_CACHE_PATH.mkdir(parents=True, exist_ok=True)
     
     # Build function mapping per target (auto-generated from TARGET_CONFIG)
     BUILD_FUNCTIONS = {}
@@ -2294,7 +2309,7 @@ def build_targets(
         logger.info("Website mode: using isolated docs copies for parallel rendering...")
         
         # Fixed absolute path that ensures path consistency for both CI and local
-        base_temp = BUILD_TEMP_DIR
+        base_temp = BUILD_TEMP_PATH
         
         if base_temp.exists():
             logger.info(f"Cleaning fixed temp dir: {base_temp}")

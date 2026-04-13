@@ -63,4 +63,5 @@ RUN uv pip install --system --break-system-packages \
         jupyter \
         matplotlib>=3.0 \
         numpy>=1.21 \
-        cairosvg
+        cairosvg \
+        jupyter-cache
