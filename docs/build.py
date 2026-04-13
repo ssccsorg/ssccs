@@ -21,6 +21,18 @@ Project Structure:
       ├── _utils/               # Build utilities (C2PA signing, path helpers)
       └── _site/                # Generated output (git-ignored)
 
+Target Naming:
+  - Target names are derived from the relative path of each .qmd/.md file
+    with path separators replaced by hyphens.
+  - Examples:
+      docs/index.qmd → index
+      docs/legal/index.qmd → legal-index
+      docs/research/file.qmd → research-file
+      docs/whitepaper/whitepaper.qmd → whitepaper-whitepaper
+  - This ensures unique target names even for same‑filename documents in different directories.
+  - `target_name.qmd` and `target_name.md` CANNOT be located at the same path.
+  - Target names are defined externally in build.yml; build.py does not know about them.
+
 Caching:
   - Outputs of non‑deterministic formats (pdf, beamer, html, gfm) are cached based on
     a combined SHA‑256 hash that includes the QMD source file and all its dependencies
@@ -480,19 +492,18 @@ def get_cache_dir(qmd_path: Path) -> Path:
 
 def get_cache_dir_for_target(qmd_path: Path, target_name: str) -> Path:
     """
-    Return the _cached directory considering target naming rules.
-    For index.qmd files, the cache dir uses the parent folder name.
-    For other files, uses the file stem.
+    Return the _cached directory for a QMD file.
+    Uses the target name for the cache directory.
     
-    This ensures backward compatibility when target names change.
+    Args:
+        qmd_path: Path to the QMD file
+        target_name: The target name (hyphenated path convention)
+    
+    Returns:
+        Path to the cache directory adjacent to the QMD file
     """
-    if qmd_path.stem.lower() == "index":
-        # For index.qmd, use parent folder name for cache dir
-        parent_name = qmd_path.parent.name
-        if parent_name and parent_name != ".":
-            return qmd_path.parent / f"{parent_name}_cached"
-    # Default: use file stem
-    return qmd_path.parent / f"{qmd_path.stem}_cached"
+    # Cache directory is always adjacent to the QMD file, using target name
+    return qmd_path.parent / f"{target_name}_cached"
 
 
 def get_cache_base() -> Path:
@@ -553,11 +564,20 @@ class LinkedArtifactHandler:
         primary_path: Path,
         docs_root: Path,
         config: Dict[str, Any],
+        target_name: Optional[str] = None,
     ) -> Optional[Path]:
         """
         Generate the linked artifact file.
         Returns the path to the generated file, or None if generation failed.
         Subclasses should override this.
+        
+        Args:
+            qmd_path: Path to the source QMD file
+            fmt: Output format
+            primary_path: Path to the primary output file
+            docs_root: Root directory of documentation
+            config: Target configuration
+            target_name: Optional target name for artifact naming
         """
         return None
 
@@ -579,7 +599,9 @@ class C2PAArtifactHandler(LinkedArtifactHandler):
         primary_path: Path,
         docs_root: Path,
         config: Dict[str, Any],
+        target_name: Optional[str] = None,
     ) -> Optional[Path]:
+        # Use original QMD stem for artifact naming (preserves original filename)
         c2pa_stem = qmd_path.stem
         manifest_path = qmd_path.parent / f"{c2pa_stem}.c2pa_manifest.json"
         output_c2pa = primary_path.parent / f"{c2pa_stem}.c2pa"
@@ -989,16 +1011,6 @@ def clean_quarto_artifacts(docs_root: Path) -> bool:
     return True
 
 
-# Default special target configurations (can be overridden by external config)
-DEFAULT_TARGET_CONFIG: Dict[str, Dict[str, Any]] = {
-    "whitepaper": {
-        "c2pa": True,
-    },
-    "proposal": {
-        "c2pa": True,
-    },
-}
-
 # Default exclude patterns (gitignore-style)
 DEFAULT_EXCLUDE_PATTERNS: List[str] = []
 
@@ -1031,17 +1043,13 @@ def get_exclude_patterns(external_config: Dict[str, Any]) -> List[str]:
 
 
 def get_target_config_from_external(external_config: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
-    """Get target configurations from external config or use defaults."""
+    """Get target configurations from external config.
+    
+    Note: build.py does not know about target names - they are defined externally.
+    This function returns only what is specified in the external config.
+    """
     # Note: YAML uses 'target_config' key (not 'target')
-    target_config = external_config.get('target_config', {})
-    # Merge with defaults (external config takes precedence)
-    merged = DEFAULT_TARGET_CONFIG.copy()
-    for target, config in target_config.items():
-        if target in merged:
-            merged[target].update(config)
-        else:
-            merged[target] = config
-    return merged
+    return external_config.get('target_config', {})
 
 
 def matches_gitignore_pattern(rel_path: Path, patterns: List[str]) -> bool:
@@ -1122,9 +1130,16 @@ def discover_quarto_targets(docs_root: Path, exclude_patterns: Optional[List[str
     Scan docs_root for .qmd and .md files and return target configurations.
     Excludes files/directories matching gitignore-style patterns.
     
-    Target naming rules:
-      - folder/index.qmd or folder/index.qmd -> target name is 'folder'
-      - folder/name.qmd or folder/name.md -> target name is 'name' (or 'folder_name' if conflict)
+    Target Naming:
+      - Target names are derived from the relative path of each .qmd/.md file
+        with path separators replaced by hyphens.
+      - Snake_case within filenames is preserved (only path separators become hyphens).
+      - Examples:
+          docs/index.qmd → index
+          docs/legal/index.qmd → legal-index
+          docs/research/file_name.qmd → research-file_name
+      - This ensures unique target names even for same‑filename documents in different directories.
+      - `target_name.qmd` and `target_name.md` CANNOT be located at the same path.
     
     Args:
         docs_root: Root directory to scan
@@ -1146,34 +1161,34 @@ def discover_quarto_targets(docs_root: Path, exclude_patterns: Optional[List[str
                 logger.info(f"Ignoring {rel_path} (matches exclude pattern)")
                 continue
             
-            # Determine target name based on file name
-            if rel_path.stem.lower() == "index":
-                # index.qmd / index.qmd -> use parent folder name as target
-                parent = rel_path.parent.name
-                if parent and parent != ".":
-                    target_name = parent.lower()
-                else:
-                    # Root level index -> use 'index'
-                    target_name = "index"
-            else:
-                # Regular file -> use stem as target name
-                # Sanitize: replace spaces and special chars with underscores
-                target_name = rel_path.stem.lower()
-                # Replace spaces and multiple spaces with single underscore
-                target_name = re.sub(r'\s+', '_', target_name)
-                # Replace other special chars that might cause issues
-                target_name = re.sub(r'[^a-z0-9_]', '', target_name)
+            # Determine target name from relative path
+            # Replace path separators with hyphens, then remove extension
+            parts = list(rel_path.parts)
+            # Remove the extension from the last part
+            if parts:
+                last_part = parts[-1]
+                # Remove .qmd or .md extension
+                if last_part.endswith('.qmd'):
+                    parts[-1] = last_part[:-4]
+                elif last_part.endswith('.md'):
+                    parts[-1] = last_part[:-3]
+            
+            # Join parts with hyphens
+            target_name = '-'.join(parts).lower()
+            # Sanitize: replace spaces and special chars (keep hyphens, underscores, alphanumeric)
+            # Only remove characters that are not alphanumeric, hyphen, or underscore
+            target_name = re.sub(r'[^a-z0-9_-]', '', target_name)
+            # Replace multiple consecutive hyphens with single hyphen (but preserve underscores)
+            target_name = re.sub(r'-+', '-', target_name)
+            # Remove leading/trailing hyphens (but not underscores within)
+            target_name = target_name.strip('-')
 
-            # Handle name conflicts
+            # Handle name conflicts (should not happen with new naming, but keep for safety)
             if target_name in targets:
-                parent = rel_path.parent.name
-                if parent and parent != ".":
-                    target_name = f"{parent}_{target_name}"
-                else:
-                    suffix = 2
-                    while f"{target_name}_{suffix}" in targets:
-                        suffix += 1
-                    target_name = f"{target_name}_{suffix}"
+                suffix = 2
+                while f"{target_name}-{suffix}" in targets:
+                    suffix += 1
+                target_name = f"{target_name}-{suffix}"
 
             config = {
                 "qmd": str(rel_path),
@@ -1191,9 +1206,12 @@ def discover_quarto_targets(docs_root: Path, exclude_patterns: Optional[List[str
 
 def get_target_config(docs_root: Path, external_config: Optional[Dict[str, Any]] = None) -> Dict[str, Dict[str, Any]]:
     """
-    Return merged configuration: target_config updates discovered defaults.
+    Return configuration from external config.
     
-    Note: target_config in YAML is optional - targets not listed still get built with defaults.
+    Note: build.py does not know about target names - they are defined externally.
+    The target names in build.yml must match the naming convention:
+      - Target names are derived from the relative path with separators replaced by hyphens.
+      - Example: docs/legal/index.qmd → legal-index
     
     Args:
         docs_root: Root directory of documentation
@@ -1206,31 +1224,12 @@ def get_target_config(docs_root: Path, external_config: Optional[Dict[str, Any]]
     target_config = get_target_config_from_external(external_config)
     
     discovered = discover_quarto_targets(docs_root, exclude_patterns)
-    # Merge target config (updates discovered entries)
-    # Note: Unlike before, missing targets in config are NOT errors - they just use defaults
-    for target, config in target_config.items():
-        if target not in discovered:
-            logger.warning(f"Target '{target}' from config not found in discovered files (may be excluded by pattern)")
-            continue
-        # Update discovered config with target config, preserving missing keys
-        discovered[target].update(config)
     
-    # Validate target names for configured targets only
+    # Update discovered config with target config, preserving missing keys
     for target, config in target_config.items():
-        if target not in discovered:
-            continue
-        qmd_path = Path(discovered[target]["qmd"])
-        if qmd_path.stem.lower() == "index":
-            expected = qmd_path.parent.name.lower()
-        else:
-            expected = qmd_path.stem.lower()
-        
-        if target.lower() != expected:
-            logger.error(
-                f"Target name '{target}' does not match source file path '{qmd_path}' "
-                f"(expected target name '{expected}')"
-            )
-            sys.exit(1)
+        if target in discovered:
+            discovered[target].update(config)
+    
     return discovered
 
 
@@ -1673,6 +1672,7 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
                 if ext is None:
                     continue
                 # Check if linked artifact already exists (from cache restoration)
+                # Use original QMD stem for artifact naming (preserves original filename)
                 linked_stem = qmd_path.stem
                 existing_linked = primary_path.parent / f"{linked_stem}.{ext}"
                 if existing_linked.exists():
@@ -1680,7 +1680,7 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
                     logger.info(f"Linked artifact ({ext}) already exists at {existing_linked}, skipping generation.")
                     continue
                 # Generate the linked artifact
-                generated_path = handler.generate(qmd_path, fmt, primary_path, docs_root, config)
+                generated_path = handler.generate(qmd_path, fmt, primary_path, docs_root, config, target_name=target)
                 if generated_path:
                     linked_artifacts[fmt][ext] = generated_path
                     logger.info(f"Generated linked artifact ({ext}) for {fmt} at {generated_path}")
@@ -1723,7 +1723,7 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
             dest_dir.mkdir(parents=True, exist_ok=True)
             primary_ext = format_to_extension('pdf' if 'pdf' in format_output_paths else 'beamer')
             dest_primary = dest_dir / f"{stem}.{primary_ext}"
-            # Determine linked artifact paths (uses QMD stem)
+            # Determine linked artifact paths (uses original QMD stem to preserve original filename)
             linked_stem = qmd_path.stem
             source_linked = {}
             dest_linked = {}
