@@ -35,8 +35,6 @@ RUN /opt/quarto/bin/quarto install tinytex --no-prompt \
     && mv /root/.TinyTeX /opt/tinytex \
     && /opt/tinytex/bin/x86_64-linux/tlmgr path add \
     && chmod -R 755 /opt/tinytex \
-    && mkdir -p /tmp/luaotfload-cache /tmp/texmf-var \
-    && chmod -R 777 /tmp/luaotfload-cache /tmp/texmf-var \
     && tlmgr install \
         babel-english \
         everypage \
@@ -52,7 +50,8 @@ RUN /opt/quarto/bin/quarto install tinytex --no-prompt \
         newtx \
         microtype \
         beamer \
-        translator
+        translator \
+    && luaotfload-tool --list=config
 
 # Install Python dependencies (put the most frequently changing layers at the bottom)
 RUN uv pip install --system --break-system-packages \
