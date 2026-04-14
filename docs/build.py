@@ -2032,11 +2032,111 @@ class RobotsTxtMerger(SharedAssetMerger):
             return False
 
 
+class LlmsTxtMerger(SharedAssetMerger):
+    """
+    Merger for llms.txt files (markdown list of page links).
+    Combines page entries from multiple targets and deduplicates by URL.
+    """
+    
+    def __init__(self):
+        super().__init__(
+            name="llms_txt",
+            filename_patterns=["llms.txt"],
+        )
+    
+    def _parse_page_entries(self, content: str) -> List[Tuple[str, str]]:
+        """
+        Parse llms.txt content and extract page entries as (name, url) tuples.
+        Returns list of (name, url) tuples found in markdown list items.
+        """
+        entries = []
+        # Match markdown list items with links: - [name](url)
+        pattern = re.compile(r'^\s*-\s*\[([^\]]+)\]\(([^)]+)\)\s*$')
+        for line in content.splitlines():
+            match = pattern.match(line)
+            if match:
+                name, url = match.groups()
+                entries.append((name.strip(), url.strip()))
+        return entries
+    
+    def _generate_content(self, entries: List[Tuple[str, str]], title: str = "Untitled") -> str:
+        """
+        Generate llms.txt content from page entries.
+        Returns formatted markdown content.
+        """
+        lines = [f"# {title}", "", "## Pages", ""]
+        for name, url in entries:
+            lines.append(f"- [{name}]({url})")
+        return "\n".join(lines) + "\n"
+    
+    def merge(self, src_path: Path, dst_path: Path) -> bool:
+        """
+        Merge two llms.txt files by combining their page entries.
+        Deduplicates by URL (keeping the first occurrence).
+        If dst_path does not exist, simply copy src_path to dst_path.
+        Returns True on success, False on error.
+        """
+        try:
+            # Read source
+            with open(src_path, 'r', encoding='utf-8') as f:
+                src_content = f.read()
+            
+            # If destination doesn't exist, copy
+            if not dst_path.exists():
+                shutil.copy2(src_path, dst_path)
+                return True
+            
+            # Read destination
+            with open(dst_path, 'r', encoding='utf-8') as f:
+                dst_content = f.read()
+            
+            # Parse entries from both files
+            src_entries = self._parse_page_entries(src_content)
+            dst_entries = self._parse_page_entries(dst_content)
+            
+            # Extract title from destination (or use default)
+            title = "Untitled"
+            for line in dst_content.splitlines():
+                if line.startswith('# '):
+                    title = line[2:].strip()
+                    break
+            
+            # Merge entries: start with destination, add source entries not in destination
+            seen_urls = set()
+            merged_entries = []
+            
+            # Add destination entries first (they take precedence)
+            for name, url in dst_entries:
+                if url not in seen_urls:
+                    seen_urls.add(url)
+                    merged_entries.append((name, url))
+            
+            # Add source entries that don't exist in destination
+            for name, url in src_entries:
+                if url not in seen_urls:
+                    seen_urls.add(url)
+                    merged_entries.append((name, url))
+            
+            # Generate merged content
+            merged_content = self._generate_content(merged_entries, title)
+            
+            # Write back
+            with open(dst_path, 'w', encoding='utf-8') as f:
+                f.write(merged_content)
+            
+            logger.debug(f"Merged llms.txt from {src_path} into {dst_path} (added {len(merged_entries) - len(dst_entries)} new entries)")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to merge llms.txt {src_path} -> {dst_path}: {e}")
+            return False
+
+
 # Registry of shared asset mergers
 SHARED_ASSET_MERGERS: List[SharedAssetMerger] = [
     SearchJsonMerger(),
     SitemapXmlMerger(),
     RobotsTxtMerger(),
+    LlmsTxtMerger(),
 ]
 
 
