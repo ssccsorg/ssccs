@@ -30,7 +30,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && chmod +x /usr/local/bin/c2patool \
     && rm -rf /tmp/c2patool*
 
-# Install TinyTeX and LaTeX packages (text processing engines)
+# Install TinyTeX and LaTeX packages
 RUN /opt/quarto/bin/quarto install tinytex --no-prompt \
     && mv /root/.TinyTeX /opt/tinytex \
     && /opt/tinytex/bin/x86_64-linux/tlmgr path add \
