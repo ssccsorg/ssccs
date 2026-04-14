@@ -1,0 +1,71 @@
+---
+title: "Compiler Performance Regression and Deterministic Execution"
+author: "SSCCS Foundation"
+abstract: |
+  A recent 25% performance regression in the LLVM RISC‑V backend (no functional bug) highlights a critical issue for SSCCS: deterministic reproducibility must include not only correct results but also predictable performance. This note analyses the regression, proposes extending SSCCS Fields to enforce performance invariants, and recommends concrete actions to build a self‑monitoring compilation system.
+references:
+  - id: kivin2026
+    author:
+      - family: Gnanapandithan
+        given: Kavin
+    title: "Tracking down a 25% regression on LLVM RISC-V"
+    type: webpage
+    issued:
+      year: 2026
+    URL: "https://blog.kaving.me/blog/tracking-down-a-25-regression-on-llvm-risc-v/"
+  - id: lee2026
+    author:
+      - family: Lee
+        given: Taeho
+    title: "Schema–Segment Composition Computing System Whitepaper"
+    type: report
+    issued:
+      year: 2026
+    URL: "https://doi.org/10.5281/zenodo.18759106"
+---
+
+## 1. The Regression
+
+A recent LLVM change improved `isKnownExactCastIntToFP`, allowing better folding of integer‑to‑float casts. However, this inadvertently blocked a downstream narrowing optimisation (`visitFPTrunc`) that converted double-precision divisions to single-precision. The result: `fdiv.d` (latency 33 cycles) was emitted instead of `fdiv.s` (19 cycles), causing a **~24–25% performance slowdown** for a benchmark on the SiFive P550 RISC‑V CPU [@kivin2026].
+
+Crucially, the generated code remained functionally correct – only performance regressed.
+
+## 2. Why This Matters for SSCCS
+
+SSCCS promises **deterministic reproducibility** [@lee2026]. In safety‑critical and real‑time systems, performance variation is as unacceptable as functional variation. A compiler that silently changes execution time (same source, different LLVM version) undermines trust.
+
+In SSCCS, the compiler is not a black box; it is part of the verifiable infrastructure. Performance regressions without functional errors are exactly the kind of hidden risk that must be detected and managed.
+
+## 3. Extending Fields to Enforce Performance Invariants
+
+SSCCS Fields already express dynamic constraints (admissibility, transition weights). We propose extending them to **performance invariants**:
+
+```rust
+let perf_field = Field::new()
+    .with_performance_constraint(|obs| obs.latency < 200_cycles);
+```
+
+If a compiler regression violates such an invariant (e.g., observation latency exceeds 200 cycles), the runtime can:
+- Log the violation with C2PA provenance.
+- Fall back to a slower but predictable software implementation.
+- Trigger re‑compilation with different optimisation flags.
+
+## 4. Concrete Recommendations
+
+1. **Performance regression test suite** – Automatically measure observation latency for representative Schemes (vector addition, 2D grid, graph BFS) across LLVM versions. Store baselines and alert on >5% deviation.
+
+2. **Extend `.ss` format** – Add optional `performance` metadata to Schemes:
+   ```yaml
+   performance:
+     max_latency: 1000_cycles
+     expected_speedup: 10x
+   ```
+
+3. **Runtime performance monitoring** – Use the `OBSERVE` custom instruction (via XIF) to measure cycles. Attach a performance Field to critical observations.
+
+4. **Upstream contribution** – Share SSCCS‑specific test cases with the LLVM RISC‑V community to improve long‑term stability.
+
+## 5. Conclusion
+
+Deterministic execution in SSCCS must encompass both functional correctness and performance predictability. Compiler performance regressions are real and can be detected systematically by extending Fields to include performance invariants. This turns a potential weakness into a strength: a self‑monitoring compilation system that guarantees not only what is computed, but how fast.
+ 

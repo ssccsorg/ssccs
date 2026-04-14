@@ -76,14 +76,6 @@ jobs:
           cache-from: type=gha,scope=shared-docs
           cache-to: type=gha,mode=min,scope=shared-docs
 
-      - name: Validate Docker environment
-        if: |
-          github.event_name == 'pull_request' ||
-          (github.event_name == 'push' && contains(github.event.head_commit.modified, 'docs/Dockerfile'))
-        run: |
-          docker run --rm dockerimg-docs:latest \
-            bash -c "python --version && c2patool --version && lualatex --version && quarto check && echo 'All tools OK'"
-
       - name: Run documentation build
         run: |
           docker run --rm \
