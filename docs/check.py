@@ -208,6 +208,19 @@ def is_likely_shortcode(content: str, match_start: int) -> bool:
     return False
 
 
+def is_inside_inline_code(content: str, match_start: int) -> bool:
+    """
+    Check if a position is inside inline code (single backticks).
+    Returns True if the match is within backticks.
+    """
+    # Count backticks before the match position
+    before = content[:match_start]
+    # Find all backtick positions
+    backtick_positions = [i for i, c in enumerate(before) if c == '`']
+    # If odd number of backticks before, we're inside inline code
+    return len(backtick_positions) % 2 == 1
+
+
 def normalize_link_to_absolute(
     link: str, source_file: Path, root: Path, inventory: Dict[str, Path]
 ) -> Optional[str]:
@@ -477,10 +490,16 @@ def validate_all_links(target_dir: str, verbose: bool = False, max_workers: int 
 
         links = set()
         for match in md_link_pattern.finditer(content):
+            # Skip links inside inline code (backticks)
+            if is_inside_inline_code(content, match.start()):
+                continue
             url = match.group(2)
             line = content.count('\n', 0, match.start()) + 1
             links.add((url, line))
         for match in html_link_pattern.finditer(content):
+            # Skip links inside inline code (backticks)
+            if is_inside_inline_code(content, match.start()):
+                continue
             url = match.group(1)
             line = content.count('\n', 0, match.start()) + 1
             links.add((url, line))
@@ -512,10 +531,45 @@ def validate_all_links(target_dir: str, verbose: bool = False, max_workers: int 
             if parsed.scheme in ("http", "https"):
                 try:
                     resp = session.head(url, timeout=10, allow_redirects=True)
+                    # For 400+ responses, perform a GET to check if body contains valid content
                     if resp.status_code >= 400:
-                        file_broken_remote.append(
-                            (file_path.relative_to(root), url, resp.status_code, line)
-                        )
+                        try:
+                            get_resp = session.get(url, timeout=10, allow_redirects=True, stream=True)
+                            # Read first byte to check if server returns actual content
+                            first_bytes = next(get_resp.iter_content(1024))
+                            if first_bytes:
+                                # Check if it's binary content (PDF, etc.) - valid response
+                                # PDF starts with %PDF, binary files have high-byte content
+                                if first_bytes.startswith(b'%PDF') or first_bytes[0:2] in (b'PK', b'\x89H'):
+                                    # Valid binary content, not broken
+                                    continue
+                                # Check if it's an HTML error page
+                                try:
+                                    content = first_bytes.decode('utf-8', errors='ignore')
+                                    error_patterns = [
+                                        r'404\s+not\s+found',
+                                        r'page\s+not\s+found',
+                                        r'error\s+400',
+                                        r'error\s+404',
+                                        r'file\s+not\s+found',
+                                        r"doesn't\s+exist",
+                                        r'not\s+found',
+                                        r'access\s+denied',
+                                        r'forbidden',
+                                    ]
+                                    if not any(re.search(pattern, content, re.IGNORECASE) for pattern in error_patterns):
+                                        # Content exists and doesn't look like an error page
+                                        continue
+                                except Exception:
+                                    pass
+                            # If we get here, treat as broken
+                            file_broken_remote.append(
+                                (file_path.relative_to(root), url, f"{resp.status_code} (body check failed)", line)
+                            )
+                        except Exception:
+                            file_broken_remote.append(
+                                (file_path.relative_to(root), url, f"{resp.status_code} (GET failed)", line)
+                            )
                     elif resp.status_code == 200:
                         # Heuristic: check if the page might be an error page
                         # Some servers return 200 for custom 404 pages
@@ -530,7 +584,7 @@ def validate_all_links(target_dir: str, verbose: bool = False, max_workers: int 
                                 r'page\s+not\s+found',
                                 r'error\s+404',
                                 r'file\s+not\s+found',
-                                r'doesn’t\s+exist',
+                                r"doesn't\s+exist",
                                 r'not\s+found',
                             ]
                             if any(re.search(pattern, content, re.IGNORECASE) for pattern in error_patterns):
