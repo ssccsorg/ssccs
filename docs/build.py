@@ -338,6 +338,8 @@ def compute_quarto_file_hash_with_deps(file_path: Path) -> str:
 
     # Compute combined hash
     hasher = hashlib.sha256()
+    # Include the file extension in the hash to detect extension changes (e.g., .md → .qmd)
+    hasher.update(file_path.suffix.encode("utf-8"))
     for dep in sorted(visited, key=lambda p: str(p)):
         # Include each file's hash
         try:
