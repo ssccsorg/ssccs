@@ -1,172 +1,136 @@
-# Project Direction
+# Project Direction 
 
 ## Toward a New Computational Paradigm
 
-For decades, computation has been defined by the von Neumann model: data and instructions stored in memory, fetched sequentially, executed by a processor, with results written back. The majority of energy and time in such systems is spent on data movement rather than logic—the well-known "data-movement wall." SSCCS proposes a shift from procedural execution to structural observation, as a redefinition of what computation is. For details, see:
+For decades, computation has followed the von Neumann model: data and instructions stored in memory, fetched sequentially, executed by a processor, results written back. Most energy and time are spent moving data – the well‑known *data‑movement wall*.
 
-- [Guide](/guide.html)
-- [Whitepaper](/whitepaper/whitepaper.html)
-- [Public Proposal](/proposal/proposal.html)
+We reimagine computation not as a sequence of steps, but as the geometry of stationary structure. In current computing, a fixed runtime logic or algorithm operates on fluid data, producing changing state. In SSCCS, the fixed geometric structure of pre-compiled data(or whatever we call it in the future.) itself is projected through observation, and the result is a deterministic state where the boundary between data and program disappears. Computation becomes structural observation, not procedural execution. (For foundational concepts, see [Guide](/guide.html), [Whitepaper](/whitepaper/whitepaper.html), [Public Proposal](/proposal/proposal.html).)
 
-This document outlines how SSCCS translates its philosophical and technical foundations into a concrete engineering trajectory, how we organise our work culturally, and how we engage with the global ecosystem to realise this paradigm in practice.
+This document outlines the **highest‑level direction** – our cultural bedrock, strategic posture, and long‑horizon vision. Detailed technical roadmaps, platform‑specific plans, and measurable milestones belong to separate reports and proposals.
+
+
 
 ## Cultural Foundations
 
-SSCCS is a software-first initiative redefining computation as structural observation. We seek technical collaborators—not sponsors—to validate our compiler and runtime on open-hardware platforms. Our culture prioritises reproduciable results based on technically verifiable process, and risk-taking open contribution.
+SSCCS is a software‑first initiative. We seek technical collaborators, not sponsors. Our culture prioritises reproducible results, verifiable processes, and open contribution.
 
 ### Human Comes First
-All tools—rules, processes, methodologies, AI, automation, workflows—exist solely to support the goal of project, contributor's work and life. They are means, never ends. If a procedure causes unnecessary stress, fatigue, or alienation, the procedure is wrong—not the human. Our project goal and technology exists to help people live better, not despite it. Conversely, even claims of moral superiority cannot precede the project or its members. 
+Every tool, from AI to automation, is meant to serve the project and its people. Any process that inflicts unnecessary stress or alienation is a failure. Our technology should not exist at the expense of humanity; it must improve our lives and even act as a tool of resistance against everything that threatens human well-being. We will.
 
-### Results-Oriented Pragmatism
-Code quality, maintainability, and system impact matter more than how the code was written. We bypass bureaucracy and exhausting debates. Discussions are limited to software engineering, architecture, and performance.
+### Results‑Oriented Pragmatism
+Code quality, maintainability, and system impact matter more than *how* the code was written. We bypass bureaucracy and exhausting debates. Discussions focus on engineering, architecture, and performance.
 
 ### Clarity of Responsibility
-Every contributor bears 100% responsibility for their contributions. Tools (including AI) are aids; the human engineer remains accountable. In 2026, AI use is as standard as a compiler. We do not mandate disclosure—only evaluate correctness, security, and test compliance. We encourage its use if it supports our project's healthy growth.
+In 2026, AI use is as standard as a compiler. We do not mandate disclosure—only evaluate correctness, security, and test compliance. We encourage its use if it supports our project's healthy growth. Every contributor bears full responsibility for their work. Tools are aids; the human engineer remains accountable.
 
 ### Beyond Boundaries
-We acknowledge that even our hosting platforms operate within centralized constraints. Where possible, we choose open, decentralized alternatives. We encourage bold ideas that challenge conventional computing—provided they do not block other contributors.
+We acknowledge that even our platforms operate within centralised constraints. Where possible, we choose open, decentralised alternatives. We encourage bold ideas that challenge conventional computing – provided they do not block others.
 
-These principles are complementary: we pursue results through sustainable collaboration, not at its expense. Rigorous technical debate is welcome; personal pressure is not. See more at [Code of Conduct](/code_of_conduct.html)
+These principles are complementary. Rigorous technical debate is welcome; personal pressure is not.
+See [Code of Conduct](/code_of_conduct.html).
+
 
 
 ## Partnership, Collaboration, and Support
 
-SSCCS does not await institutional validation to proceed. But we engage directly with academia, industry, open‑hardware communities, and independent researchers, guided by technical merit and reciprocal contribution. We seek collaborators, not patrons; co‑creators, not auditors.
+SSCCS does not await institutional validation. We engage with academia, industry, open‑hardware communities, and independent researchers – guided by technical merit and reciprocal contribution.
 
-We have engaged with funding bodies, research institutions, and open‑source initiatives across multiple regions. These dialogues have been instrumental in clarifying our vision and refining our documentation, yet they have also revealed a structural mismatch between conventional funding mechanisms and a project like SSCCS.
+Conventional funding mechanisms are optimised for predictability: mature toolchains, commercial consortia, incremental advances. SSCCS reimagines the substrate of computation itself. It is inherently too early‑stage and too disruptive for most existing templates.
 
-Most established programmes are optimised for predictability. They typically support:
+Rather than retrofitting our work to fit funding forms, we prioritise collaboration grounded in technical substance and long‑term vision. Our engagement follows three principles:
 
-- Mature open‑source libraries or toolchains operating within existing paradigms;
-- Commercial consortia with defined go‑to‑market strategies;
-- Incremental advances that reinforce the von Neumann architecture.
+- **Reciprocal value** – partnerships must benefit all parties.
+- **Foundational over immediate** – market fit is secondary to redefining computation.
+- **Substance over ceremony** – we welcome rigorous scrutiny, but only where there is genuine commitment to paradigm‑shifting work.
 
-SSCCS does not iterate within an established stack; it reimagines the substrate of computation itself. Because it questions foundational assumptions about hardware, software, and information flow, it is inherently too early‑stage and too conceptually disruptive for mechanisms that reward narrow, near‑term deliverables. Institutional risk‑aversion and paradigm‑shifting research are, by design, misaligned.
+Where funding is needed, we treat it as a catalyst, not a goal. Our priority is tangible progress and substantive research over administrative complexity.
 
-This reality shapes our posture. Rather than retrofitting our work to fit funding templates, we prioritise collaboration grounded in technical substance, epistemic openness, and long‑term vision. Genuine innovation crystallises through iterative contribution within an open ecosystem. The technological foundations we rely on today were not mandated by sovereign committees. They emerged from a borderless, decentralised commons—built by countless contributors who treated code as a shared inheritance. To now frame foundational progress through the lens of technological sovereignty is to confuse geopolitical strategy with the actual mechanics of innovation.
+We are building a computational commons open to everyone. Those who share this vision are invited to join.
+For collaboration details, see [Code of Conduct](/code_of_conduct.html) and [Contributing](/contributing.html).
 
-Our engagement is guided by three principles:
 
-- Reciprocal value: Partnerships must generate technical or strategic benefit for all parties. We do not operate as one‑way conduits.
-- Foundational over immediate: Market fit is secondary to redefining computation. We align with partners who share a long‑term, systems‑level perspective.
-- Substance over ceremony: We welcome rigorous technical scrutiny and consensus‑based governance, but we invest only where there is genuine commitment to early‑stage, paradigm‑shifting work.
 
-Where funding is required, we view it as a catalyst for our mission rather than a primary objective. Our approach is guided by a clear priority: focusing on tangible progress and substantive research over administrative complexity. While our methods remain flexible to respect local industrial cultures and collaboration norms, our core commitments are steadfast.  
+## Technical Strategy
 
-Our goal is to build a computational commons that is open to everyone, regardless of geography or institutional background. We invite those who share this vision to join us in shaping this new foundation for computation. For collaboration details, see our [Code of Conduct](/code_of_conduct.html) and [Contributing](/contributing.html)
+SSCCS is first a **software project** – a compiler, a runtime, and a declarative format that expresses computation as stationary structure. It is designed to target multiple hardware backends, from conventional CPUs to emerging open platforms.
 
-## Technical Strategy: Hardware as Implementation Media
+- **Hardware needs a programming model.** Open instruction sets provide the “what”. SSCCS provides the “how” – a way to describe computation as geometric structure and automatically map it to hardware.
+- **Verifiability by design** is built into our core semantics, addressing the growing demand for deterministic computation in safety‑critical systems.
+- **Energy efficiency** is a first‑order constraint. By eliminating data movement through structural isolation, SSCCS addresses physical limits without requiring hardware changes.
 
-SSCCS is first and foremost a software project—a compiler, a runtime, and a declarative format that allows computation to be expressed as stationary structure. It is designed to target multiple hardware backends, from conventional CPUs to emerging open-hardware platforms.
+In the current landscape – agentic AI, HPC, edge computing – SSCCS offers:
+1. Deterministic latency for safety‑critical applications.
+2. Bypassing the von Neumann bottleneck via software‑driven structural mapping.
 
-- Hardware needs a programming model. Open instruction sets provide the "what". SSCCS provides the "how"—a way to describe computation as geometric structure and automatically map it to the underlying hardware through a dedicated compiler.
-- Verifiability is a requirement, not a luxury. As safety-critical systems grow, demand for deterministic computation increases. SSCCS offers verifiability by design, built into its core semantics.
-- Energy efficiency is a first-order constraint. Data movement is the dominant energy sink. By eliminating it through structural isolation, SSCCS addresses physical limits facing chip designers—without requiring hardware changes.
+### Validation on Open Hardware
 
-In the current landscape—driven by agentic AI and HPC—SSCCS solves:
-
-1. Deterministic latency for safety-critical applications.
-2. The von Neumann bottleneck, bypassing data-movement costs through software-driven structural mapping.
-
-### Target Platforms for Validation
-
-To transition from pure-software simulation to tangible hardware validation, we will target specific open-hardware platforms with broad community adoption. 
-
-- CVA6 (OpenHW Group): Target for "Safe" dual-core lock-step components, aligning with our verifiability goals. Our compiler will emit code that leverages its safety features.
-- CORE-V Wally: An academic 5-stage pipeline ideal for validating structural mapping concepts. We will use it to measure the impact of our compiler optimisations.
-- Vector and Graph Extensions: Leveraging RISC-V Vector (RVV) to demonstrate energy-per-op gains for graph-like computations inherent in our model.
+To move from pure‑software simulation to tangible hardware validation, we will target **representative open platforms** – e.g., RISC‑V cores with safety features and vector extensions (including emerging platforms like NASA’s HPSC). The exact platform choices will be finalised in technical addenda, prioritising broad community adoption and alignment with our verifiability goals.
 
 ### Key Architectural Decision
 
-Develop a target-agnostic execution interface (HAL) within the codebase. This layer will abstract the underlying execution engine, allowing the core SSCCS logic (parser, analyser, layout resolver) to remain unchanged while swapping the backend between:
+We are developing a **target‑agnostic execution interface (HAL)** within the codebase. This layer abstracts the underlying engine, allowing the core SSCCS logic (parser, analyser, layout resolver) to remain unchanged while swapping backends (simulator, custom instruction dispatcher, FPGA accelerator).
 
-- The current pure simulator.
-- A future RISC-V custom instruction dispatcher (via inline assembly or C FFI).
-- FPGA-accelerated co-processors.
+Thus, the ontological core requires zero rewrites when porting to physical silicon – keeping the project fundamentally a software initiative.
 
-This ensures that the ontological core requires zero rewrites when porting to physical silicon, keeping the project fundamentally a software initiative.
+### Open Format and Ecosystem Integration
 
-## Open Format and Ecosystem Integration
+The rise of open instruction set architectures (ISAs) has fundamentally changed how new computing ideas can be realised. Open ISAs offer transparency, a growing ecosystem, and tangible, real‑world targets (FPGAs, silicon).
 
-The global technology landscape is changing. The rise of open instruction set architectures (ISAs) has fundamentally altered how new computing ideas can be realised. Unlike proprietary architectures, open ISAs offer:
+SSCCS contributes an **open `.ss` format** – a language layer through which logical design dictates physical implementation. Hardware provides the substrate; SSCCS provides the grammar. Our goal is to become a visible contributor to a living technological movement, through software that makes hardware easier to program.
 
-- Full transparency: specifications are open, and implementations can be freely studied, modified, and extended.
-- A rapidly growing ecosystem: from academic research groups to industry consortia, a vibrant community is actively building the next generation of processors.
-- Tangible, concrete targets: real silicon and FPGA platforms exist today, allowing experimental computing models to be tested on actual hardware.
 
-This shift creates an unprecedented opportunity. Instead of spending months on paperwork to ask for support, we can now directly engage with the ecosystem where new hardware is being built. In this context, our goal is no longer to secure abstract "funding" but to become a visible contributor to a living technological movement—through software that makes hardware easier to program.
 
-Hardware platforms are not the focus of SSCCS; they are the natural implementation media for the structural observation model. The open .ss format is the language layer through which logical design dictates physical implementation. Hardware provides the substrate; SSCCS provides the grammar.
+## Documentation‑First Infrastructure and Self‑Evolving Knowledge Base
 
-## Documentation-First Infrastructure and Self-Evolving Knowledge Base
+Our **Documentation‑First** philosophy treats accumulated knowledge as primary infrastructure. We build an Observable Knowledge Graph (OKG) – a structured, machine‑readable corpus optimised for LLM/RAG integration. Every output follows deterministic paths and adheres to provenance standards (e.g., C2PA).
 
-Our Documentation-First philosophy represents a fundamental shift in how we build software in the era of agentic development. We treat accumulated knowledge not as an afterthought, but as primary infrastructure. Our infrastructure is designed as an Observable Knowledge Graph (OKG)—a structured, machine-readable corpus optimized for LLM/RAG integration. Every output follows deterministic paths and adheres to C2PA provenance standards.
+By capturing every concept, design decision, and implementation detail in a structured, provenance‑tracked form, we enable AI systems to explore, reason about, and extend the underlying paradigm. This creates a platform for emergent discovery, where AI agents can identify connections that human researchers might overlook.
 
-By capturing every concept, design decision, and implementation detail in a structured, provenance-tracked form, we enable AI systems to explore, reason about, and extend the underlying computational paradigm. This creates a platform for emergent discovery, where AI agents can identify connections and opportunities that human researchers might overlook.
+The documentation system is not merely a publishing tool – it is a core technical artifact, the interface between human intent and machine reasoning. See [Documentation Home](/index.html) for details.
 
-Consequently, the documentation system is not merely a publishing tool; it is a core technical artifact. It serves as the foundation for knowledge management, AI integration, and public communication. It is the engine of radical, self-accelerating project growth. Documentation is the interface between human intent and machine reasoning. It ensures that the project grows not just through code, but through verifiable, shared understanding.
 
-See the [Documentation Home](/index.html) for technical details.
 
-## Immediate Action Plan
+## Immediate Action Plan (High‑Level)
 
-### Technical Integration (Cross-Regional)
+Our near‑term focus is **tangible, open‑source artifacts** that the community can run and build upon. Detailed milestones, timelines, and resource allocations are maintained in separate technical roadmaps and proposal documents.
 
-- Maintain software-first development: Continue refining the compiler, runtime, and open format. Keep the codebase clean and modular.
-- Select concrete open-hardware platforms for validation: Target CVA6, CORE-V Wally, and Vector extensions as demonstration backends.
-- Port SSCCS concepts to these platforms:
-  - Phase 1: Define structural mapping as custom instructions or co-processor extensions via simulation (QEMU or custom emulator).
-  - Phase 2: Move to FPGA prototypes running real examples (vector addition, graph algorithms) to validate performance and energy claims.
-- Prioritise Scope: Focus strictly on one primary target initially to ensure delivery within 6-9 months, mitigating resource risks.
-- Publish open-source tools: Release the stack with clear documentation. A working demonstration on FPGA carries more weight than extensive whitepapers.
+- **Software‑first development** – Continue refining the compiler, runtime, and open format. Keep the codebase modular and clean.
+- **Select open‑hardware targets** – Choose one or more RISC‑V platforms (e.g., with safety and vector capabilities) for initial validation. The final selection will balance community adoption, verifiability, and resource constraints.
+- **Iterative prototyping** – Move from simulation to FPGA prototypes, demonstrating the model on real examples (e.g., vector addition, graph algorithms).
+- **Publish open‑source tools** – Release the full stack with clear documentation. A working demonstration carries more weight than extensive whitepapers.
 
-### Community Engagement (Regional Focus)
+### Community Engagement (Regional)
 
-- In Asia-Pacific: Engage forums with working prototypes. Highlight rapid "concept-to-silicon" potential and the ease of integrating our software stack with their hardware.
-- In Europe: Share formal specifications with verification groups for deep technical exchange. Our codebase is well-suited for formal reasoning.
-- In North America: Connect with foundations emphasising native integration benefits. Emphasise that our software is ready to be adopted by hardware projects.
-- In the Middle East: Initiate outreach to key innovation hubs for joint research tracks, offering to adapt our software to their hardware needs.
+We will engage with open‑hardware ecosystems across regions – Asia‑Pacific, Europe, North America, the Middle East – adapting our message to local interests (rapid prototyping, formal verification, integration with existing foundations, joint research tracks). Each engagement will be guided by technical substance and mutual benefit.
 
 ### Partnership Without Dependency
 
-- We seek collaborators, than sponsors: Identify groups active in open-hardware interested in novel programming models.
-- We offer technology, not a request: We are developing a new way to program open hardware. Our software stack is already functional on simulation; we are looking for partners to help validate it on real silicon.
-- Organic Evolution: Let partnerships grow from technical alignment, not application forms.
+We seek collaborators, not patrons. We offer a novel way to program open hardware – a software stack already functional in simulation. We look for partners to help validate it on real silicon. Partnerships will grow organically from technical alignment, not application forms.
 
 ### Licensing Compatibility
 
-Our code is licensed under Apache 2.0, aligning perfectly with open-hardware norms (Solderpad/Apache). This removes legal friction, making it easier for hardware projects to integrate SSCCS components without compatibility concerns.
+Our code is licensed under **Apache 2.0**, aligning with open‑hardware norms (Solderpad/Apache). This removes legal friction, making integration easier. (For the whitepaper and certain content, a CC BY‑NC‑ND license is used – this will be reviewed for long‑term ecosystem compatibility as the project matures.)
 
 ### Resource Sustainability
 
-Recognising the need to fund the transition to FPGA validation:
+We will pursue **micro‑grants and bounties** for specific milestones, prioritise **in‑kind support** (FPGA cloud access, engineering time), and maintain a **lean operational model** to bridge initial prototyping independently.
 
-- Micro-Grants and Bounties: Pursue targeted grants for specific milestones (for example, completing the CVA6 backend).
-- In-Kind Support: Prioritise partnerships offering FPGA cloud access or engineering time.
-- Lean Operations: Maintain a lean model to bridge the initial prototyping phase independently.
 
-## Long-Term Vision and Success Metrics
 
-The goal: Establish a new computational foundation where structure is the primitive, expressed through open-source software and eventually adopted by hardware designers.
+## Long‑Term Vision and Success Metrics
 
-- Short term (0-12 months): Demonstrate a working prototype on open hardware, with our software stack running on a real FPGA.
-  - Success Metric: A merged Pull Request into a major open-hardware repo, independent teams running our simulator, and one joint technical paper.
-- Medium term (1-3 years): Expand to complex AI/graph workloads, demonstrating measurable efficiency gains compared to traditional software stacks on the same hardware.
-- Long term (3+ years): Contribute to standardisation (for example, RISC-V extensions, open format specifications), providing clear specs and reference implementations for global adoption.
+**Goal:** Establish a new computational foundation where *structure* is the primitive, expressed through open‑source software and eventually adopted by hardware designers.
 
-Success is measured by adoption, not grant size. If future core designers consider "structural observation" natural, and software developers reach for defining scheme-segment to describe computational structure, we succeed.
+- **Short term** – A working prototype on open hardware, with independent teams running our simulator and at least one joint technical publication.
+- **Medium term** – Demonstrate measurable efficiency gains on AI/graph workloads compared to traditional stacks on the same hardware.
+- **Long term** – Contribute to standardisation (e.g., RISC‑V extensions, open format specifications) with reference implementations for global adoption.
+
+Success is measured by **adoption**, not grant size. If future core designers consider “structural observation” natural, and developers reach for the open format to describe computational structure – we succeed.
+
+
 
 ## Conclusion
 
-The current global momentum around open instruction set architectures offers a unique opportunity to embed SSCCS into a living ecosystem where new hardware is being built. By focusing on direct technical engagement with hardware designers and system builders, we turn the project's strength—its foundational nature—into its primary asset.
+The global momentum around open instruction set architectures offers a unique opportunity to embed SSCCS into a living ecosystem where new hardware is being built. By focusing on direct technical engagement with hardware designers and system builders, we turn our foundational nature into our primary asset.
 
-We will approach each region with respect, seeking win-win relationships with partners willing to engage seriously with our nascent idea. The immediate goal is no longer to write another proposal, but to produce a tangible, open-source artifact that the community can see, run, and build upon.
-
----
-
-© 2026 [SSCCS Foundation](https://ssccs.org) — Open-source computing systems initiative building a computing model, software compiler infrastructure, and open hardware architecture.
-
-- Whitepaper: [PDF](https://ssccs.org/wp) / [HTML](https://ssccs.org/wpw) DOI: [10.5281/zenodo.18759106](https://doi.org/10.5281/zenodo.18759106) via CERN/Zenodo, indexed by OpenAIRE. Licensed under *CC BY-NC-ND 4.0*.
-- Official repository: [GitHub](https://github.com/ssccsorg). Authenticated via GPG: [BCCB196BADF50C99](https://keys.openpgp.org/search?q=BCCB196BADF50C99). Licensed under *Apache 2.0*. 
-- Governed by the [Foundational Charter and Statute](https://ssccs.org/legal) of the SSCCS Foundation (in formation).
-- Provenance: Human-authored and AI-refined: linguistic and editorial review; full intellectual responsibility with author(s). All major outputs are [C2PA-certified](https://ssccs.org/wpc2pa).
+We will approach each region with respect, seeking win‑win relationships with partners willing to engage seriously with our nascent idea. The immediate goal is not to write another proposal, but to produce a tangible, open‑source artifact that the community can see, run, and build upon.
