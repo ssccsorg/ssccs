@@ -58,13 +58,13 @@ SSCCS is first a **software project** – a compiler, a runtime, and a declarati
 - **Verifiability by design** is built into our core semantics, addressing the growing demand for deterministic computation in safety‑critical systems.
 - **Energy efficiency** is a first‑order constraint. By eliminating data movement through structural isolation, SSCCS addresses physical limits without requiring hardware changes.
 
-In the current landscape – agentic AI, HPC, edge computing – SSCCS offers:
+In the current landscape – agentic AI, HPC, space computing – SSCCS offers:
 1. Deterministic latency for safety‑critical applications.
 2. Bypassing the von Neumann bottleneck via software‑driven structural mapping.
 
 ### Validation on Open Hardware
 
-To move from pure‑software simulation to tangible hardware validation, we will target **representative open platforms** – e.g., RISC‑V cores with safety features and vector extensions (including emerging platforms like NASA’s HPSC). The exact platform choices will be finalised in technical addenda, prioritising broad community adoption and alignment with our verifiability goals.
+To move from pure‑software simulation to tangible hardware validation, we will target **representative open platforms** – e.g., RISC‑V cores with safety features and vector extensions (including emerging platforms like HPSC in the space computing sector). The exact platform choices will be finalised in technical addenda, prioritising broad community adoption and alignment with our verifiability goals.
 
 ### Key Architectural Decision
 
