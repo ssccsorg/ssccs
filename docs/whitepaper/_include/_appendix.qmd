@@ -87,7 +87,7 @@ SSCCS is intended for validation across multiple domains.
 | Domain               | Traditional Challenge                                     | Expected Advantages              |
 |----------------------|-----------------------------------------------------------|------------------------------------------------------|
 | Climate modelling    | Massive state space, grid data movement                   | Constraint isolation, minimal data transfer |
-| Space systems        | Radiation-induced errors, power constraints               | Structural reproducibility, verifiable execution |
+| Space systems        | Radiation-induced errors, power constraints               | Adaptive fault tolerance, semantic validation, cryptographic policy updates |
 | Protein folding      | Combinatorial explosion, long time scales                  | Massive parallel observation |
 | Swarm robotics       | Coordination overhead, limited communication              | Recursive composition, emergent coordination |
 | Financial modelling  | Real-time constraints, complex dependencies                | Deterministic projections, no race conditions |
@@ -664,6 +664,85 @@ The Custom profile ensures that SSCCS remains extensible as new hardware paradig
 The hardware profile is selected at compile time via a command‑line flag (e.g., `--profile cpu`). The compiler’s hardware‑mapping stage consults the profile to decide how to lower the logical‑address map and generate observation code. The same Scheme can be compiled for different profiles, yielding functionally identical projections but with performance and energy characteristics tailored to the underlying substrate.
 
 Detailed examples of observation‑code generation for each profile are given in [*-@sec-appendix-observation-code-gen*]. The mapping strategies described here are referenced from the main whitepaper’s discussion of target‑hardware mapping (see [Section 3.4.2](#sec-target-hardware-mapping)).
+
+# Space‑Grade Fault Tolerance with SSCCS Fields {#sec-appendix-riscv-space}
+SSCCS offers a paradigm shift for radiation-tolerant and safety-critical computing by replacing static hardware hardening with dynamic, software-defined resilience. This appendix details the technical synergy between SSCCS Fields and radiation-tolerant RISC-V platforms, focusing on OpenHW CORE-V integration, custom instruction design, and cryptographic deployment protocols.
+
+## Problem Context
+Conventional Radiation Hardening by Design (RHBD) relies on fixed mechanisms like Triple Modular Redundancy (TMR) and SECDED ECC. While effective against Single Event Upsets (SEUs), these approaches suffer from:
+- **Static Overhead**: Protection is fixed at fabrication (~200% area/power for TMR).
+- **Semantic Blindness**: Bit-wise correction cannot detect logically impossible states (e.g., velocity exceeding physical limits).
+- **Rigidity**: Cannot adapt to evolving radiation environments or mission phases without pre-designed overhead.
+
+SSCCS addresses these by introducing **Software-Defined Radiation Hardening (SDRH)**, where fault-tolerance policies are deployed as dynamically composable, cryptographically signed Field binaries.
+
+## Drafted in SSCCS: Distributed Executable Field
+
+Fields are compiled into platform-independent executable binaries containing constraint bytecode and transition matrices. The header structure ensures cryptographic integrity and runtime sandboxing:
+```yaml
+field_header:
+  magic: "SSCCS_FLD"          # 8B identifier
+  version: uint16             # Format version (0x0100)
+  signature_alg: uint8        # Ed25519=1, ECDSA-P256=2
+  constraint_type: uint8      # Dimensional=1, Algebraic=2, Semantic=3
+  code_offset: uint32         # Byte offset to constraint bytecode
+  data_offset: uint32         # Byte offset to T-matrix/parameters
+  code_size: uint32           # Bytecode section size
+  data_size: uint32           # Parameter section size
+  timeout_cycles: uint16      # Max execution cycles for constraint eval
+  signature: byte[64]         # Cryptographic signature (header+payload)
+```
+
+## XIF Custom Instructions & Handshake Protocol
+Efficient observation on RISC-V cores leverages the CORE-V eXtension Interface (XIF) to offload constraint evaluation to a tightly coupled coprocessor.
+
+### Instruction Encoding
+Both instructions use the RISC-V `custom0` opcode space (`0b0001011`):
+| Instruction | `funct7` | `rs2` (Field ID) | `rs1` (Segment/Array) | `funct3` | `rd` | `opcode` |
+|-------------|----------|------------------|-----------------------|----------|------|----------|
+| `OBSERVE rd, rs1, rs2` | `0000001` | Field ID | Segment ID | `000` | Dest | `0001011` |
+| `COLLAPSE rd, rs1, rs2` | `0000010` | Field ID | Observation Array | `000` | Dest | `0001011` |
+
+### XIF Handshake Timing
+The coprocessor communicates via a 5-stage XIF handshake:
+1. **Issue**: Core asserts `x_issue_valid`; coprocessor accepts with `x_issue_ready`.
+2. **Register Read**: Coprocessor requests source registers via `x_register_valid`.
+3. **Memory Access**: If needed, coprocessor fetches Segment data via `x_mem_valid`.
+4. **Result Return**: Computed projection returned via `x_result_valid`.
+5. **Commit**: Core confirms execution or issues `x_commit_kill` on exception.
+Typical latency ranges from 3–5 cycles (cache hit, simple constraint) to 15–30 cycles (semantic validation + memory fetch), bounded by `timeout_cycles` to prevent stalls.
+
+## Temporal & Semantic Redundancy Framework
+### Temporal TMR via `OBSERVE`
+Instead of tripling physical cores, SSCCS implements Temporal TMR using a single core. A `Stability Field` requires consistent observation across a time window:
+- **Area Overhead**: ~8–12% (CEU: 500 LUTs, TMU: 800 LUTs, FDT+Cache: 3 KB SRAM).
+- **SEU Detection Probability**: Reduces undetected upset probability from $p$ to $p^2$. For $p=10^{-6}$, dual-observation yields $10^{-12}$ per window.
+- **Adaptive Modes**: Fields can be composed on-orbit (`Union`, `Intersection`, `Product`) to switch between `Normal`, `Solar Storm`, or `Autonomous Nav` resilience profiles.
+
+### Two-Tier Defense
+1. **Hardware Layer**: ECC corrects single-bit flips; voters catch logic corruption.
+2. **SSCCS Layer**: Semantic Fields validate physical admissibility (e.g., `|Δv| ≤ thrust_max × Δt`). If an MBU produces a valid ECC codeword but violates physical laws, the Field triggers a deterministic safe fallback.
+
+## Secure Field Loading & PMP Sandboxing
+Space missions require post-launch cryptographic agility. The deployment pipeline ensures verifiable, isolated execution:
+1. **Root of Trust**: Master Public Key stored in OTP; immutable after fabrication.
+2. **Signature Verification**: Ed25519/ECDSA-P256 verification before execution.
+3. **PMP Memory Isolation** (StarRISC 512KB ECC SRAM layout):
+   | Address | Region | PMP Config |
+   |---|---|---|
+   | `0x0000_0000` | Trusted Runtime | LOCK, R-X |
+   | `0x0001_0000` | Field Code | LOCK, R-X |
+   | `0x0002_0000` | Field Data | RW |
+   | `0x0003_0000` | Segment Storage | R (Field-only) |
+   | `0x0004_0000` | Application | RWX |
+4. **Key Rolling**: Ground station signs a `Key Update Field` with the Master Private Key. Upon verification, the new public key hash is written to a designated ECC-protected Key Segment, maintaining a verifiable chain: `Master → PubKey₁ → Field`.
+
+## Ecosystem Alignment & Validation Pathway
+- **OpenHW CORE-V**: XIF integration targets CV32E40P baseline. Phase 1 uses `riscvOVPsimCOREV` for custom instruction emulation; Phase 2 targets FPGA prototyping via QuickLogic eFPGA on the CORE-V MCU DevKit.
+- **ESA TRISTAN**: SSCCS binary signing and deterministic latency directly address TRISTAN's "deterministic, safe, and mixed-criticality aware" requirements for European space processors.
+- **Rust Bare-Metal Toolchain**: `no_std` compilation, `embedded-hal` trait abstraction, and `defmt` structured logging enable type-safe, interrupt-driven observation queues with zero-cost abstractions for real-time deployment.
+
+This synergy positions SSCCS not as a replacement for hardware hardening, but as a dynamic, software-defined overlay that extends resilience, reduces SWaP, and enables post-deployment evolution of fault-tolerance policies.
 
 # Field Composition Example {#sec-appendix-field-composition-example}
 

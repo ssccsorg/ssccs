@@ -765,6 +765,8 @@ digraph field_composition_fixed {
 """)
 ```
 
+In safety-critical and extreme-environment deployments (e.g., space computing, autonomous systems), Fields can be compiled into **cryptographically signed, sandboxed binaries**. This dual nature enables post-deployment policy updates, adaptive constraint reconfiguration, and verifiable execution without modifying underlying silicon. By treating fault-tolerance logic as dynamically composable Fields, SSCCS transcends static hardware hardening, allowing systems to evolve resilience strategies in response to changing environmental conditions or mission phases.
+
 **Hand‑off mechanisms**. Fields support secure composition across trust boundaries through cryptographic signing and encryption. A signed Field carries a digital signature that guarantees its integrity and origin; the runtime verifies the signature before allowing composition. An encrypted Field can only be observed by holders of the corresponding decryption key, enabling confidential computation. Sandboxed Fields execute within isolated hardware domains, preventing side‑channel attacks and ensuring fault containment.
 
 **Hardware mapping of composed Fields**. When Fields are composed, the compiler maps the resulting logical constraints onto physical hardware units. For example, a union of two Fields may be realized by a multiplexer that selects the admissible Segments from either constituent Field. Intersection can be implemented as a logical AND gate across constraint predicates. Product composition maps to parallel execution units that operate on independent coordinate subspaces. The compiler generates hardware‑specific control logic that respects the composition semantics while preserving determinism.
@@ -1008,6 +1010,7 @@ While SSCCS can be implemented in software, its benefits are most pronounced wit
 - No instruction fetch unit; observation triggered structurally.
 - Direct observation support in the memory hierarchy.
 - Spatial computation mapping adjacency to wiring.
+- **Open RISC-V Synergy**: Concrete validation pathways are being explored via the RISC-V ecosystem, particularly through OpenHW CORE-V’s eXtension Interface (XIF). Custom observation primitives (`OBSERVE`, `COLLAPSE`) can be implemented as tightly coupled coprocessor extensions, enabling deterministic structural projection with minimal pipeline interference and formal verifiability.
 
 ## Implementation Cases
 
@@ -1107,6 +1110,8 @@ execution-based optimization to the deterministic observation of stationary topo
 a universal, structure-defined architecture.
 
 These references contextualize SSCCS within the broader intellectual landscape. In each domain, the shift from execution to observation is expected to offer advantages that incremental optimization cannot provide.
+
+Recent ecosystem developments in open-hardware space computing further contextualize SSCCS’s relevance. Initiatives such as ESA’s TRISTAN roadmap and radiation-tolerant RISC-V implementations (e.g., StarRISC, HARV-SoC) highlight the industry’s shift toward deterministic, mixed-criticality aware processors. SSCCS aligns with this trajectory by providing a software-defined resilience layer that complements physical hardening, enabling semantic fault detection, adaptive redundancy, and cryptographic policy enforcement on open silicon.
 
 # Development Roadmap and milestones
 
