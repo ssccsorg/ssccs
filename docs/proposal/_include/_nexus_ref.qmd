@@ -1,0 +1,83 @@
+# Reference Papers and Solutions
+
+Below is a comprehensive list of key papers and open-source solutions related to knowledge graph construction and incremental updates, autonomous research (hypothesis generation/validation), document processing pipelines, and RAG systems, all relevant to building SSCCS Nexus. Each entry has the item name linked to the corresponding URL where available.
+
+## Autonomous Research and Hypothesis Generation
+
+| Item | Type | Description |
+|------|------|-------------|
+| [Idea2Story (arXiv:2601.20833)](https://arxiv.org/abs/2601.20833) | Paper | Pre-computation based autonomous scientific discovery framework. Extracts methodology units from peer-reviewed papers to build a methodological knowledge graph, then navigates this graph at runtime to formulate research plans. Solves online inference cost and hallucination problems. |
+| [HypoChainer (arXiv:2507.17209)](https://arxiv.org/abs/2507.17209) | Paper | LLM + KG + human expert collaborative hypothesis generation and validation system. Three-stage pipeline: context exploration → hypothesis chain formation → validation prioritisation. Combines GNN predictions with KG to derive verifiable hypotheses. |
+| [MIND (arXiv:2604.13699)](https://arxiv.org/abs/2604.13699) | Paper | AI co-scientist for materials research. LLM-based multi-agent closed-loop validation: hypothesis refinement → MLIP simulation → discussion-based verification. |
+| [Theorizer (Ai2)](https://allenai.org/theorizer) | Solution | Analyses thousands of papers to automatically generate theories in ⟨law, scope, evidence⟩ structure. Uses multiple LLMs to extract consistent patterns and express testable claims. |
+| [ResearchEVO (arXiv:2604.05587)](https://arxiv.org/abs/2604.05587) | Paper | End-to-end automatic scientific discovery implementing discovery→explanation paradigm. LLM-based code exploration in evolution stage, full paper generation with RAG in explanation stage. Zero-shot citation. |
+| [Super Research (arXiv:2603.03623)](https://arxiv.org/abs/2603.03623) | Paper | Autonomous research framework for very complex questions. Structured decomposition into research plans, broad search for multiple perspectives, iterative querying for uncertainty resolution. |
+| [HypoExplore (arXiv:2604.08528)](https://arxiv.org/abs/2604.08528) | Paper | Agent framework modelling neural architecture discovery as hypothesis-driven scientific exploration. |
+
+## Incremental Knowledge Graph Construction and Integration
+
+| Item | Type | Description |
+|------|------|-------------|
+| [iText2KG (arXiv:2409.03284)](https://arxiv.org/abs/2409.03284) | Paper | LLM-based incremental, domain-agnostic KG construction method. Modules: document distiller, incremental entity extractor, incremental relation extractor, graph integrator. Evolved into ATOM. |
+| [KARMA (arXiv:2502.06472)](https://arxiv.org/abs/2502.06472) | Paper | 9 collaborative agents (entity discovery, relation extraction, schema alignment, conflict resolution) for automatic KG enrichment. Identified 38,230 entities from 1,200 PubMed papers, 83.1% accuracy, 18.6% conflict edge reduction. |
+| [ODKE+ (arXiv:2509.04696)](https://arxiv.org/abs/2509.04696) | Paper/Solution | Apple production-scale open-domain knowledge extraction system. Processes 9M+ Wikipedia pages, extracts 19M high-confidence facts (98.8% precision). Ontology-based prompting + dual LLM verification. |
+| [TG-RAG (arXiv:2510.13590)](https://arxiv.org/abs/2510.13590) | Paper | Time-sensitive RAG system. Bi-level temporal graph (timestamp relations + hierarchical time graph) models evolving knowledge, supports incremental updates. Introduces ECT-QA dataset. |
+| [InGram (ICML 2023)](https://arxiv.org/abs/2305.15802) | Paper | Inductive KG embedding method that embeds both new relations and new entities at inference time. Attention mechanism aggregating neighbour embeddings based on relation graph and original KG. Outperforms 14 SOTA methods. |
+| [Lacuna Wiki](https://github.com/lacuna-wiki/lacuna-wiki) | Solution | Single-MCP tool providing a personal research graph for agents. Supports YouTube, arXiv, PDF, etc. Accumulates knowledge across sessions. |
+
+## Document Processing and Knowledge Graph Construction
+
+| Item | Type | Description |
+|------|------|-------------|
+| [FAIR to WISE (F2W)](https://www.osti.gov/biblio/1993248) (also [GitHub](https://github.com/FAIR-Data-Team/F2W)) | Solution | LLM-based pipeline converting unstructured research PDFs into structured KG. LinkML schema extraction, full provenance tracking, ontology-based enrichment, JSON-LD graph, evidence-aware KG-RAG. Validated in organic photovoltaics domain. |
+| KnowledgeHub (IJCAI 2024) | Paper | End-to-end scientific discovery support tool. Builds KG from entity-relation triples, integrates LLM-based QA and summarisation. Supports insight extraction grounded in documents. (URL: search IJCAI 2024 proceedings) |
+| [Unstructured + Neo4j](https://neo4j.com/developer-blog/unstructured-io-neo4j-pdf-rag/) | Guide | Pipeline parsing PDF documents with unstructured.io and ingesting into Neo4j graph DB for GenAI applications. |
+
+## Knowledge Graph Embedding and Reasoning
+
+| Item | Type | Description |
+|------|------|-------------|
+| Knowledge Graph Reasoning Survey (2026) | Paper | Comprehensive survey integrating logic-based and embedding-based KG reasoning methods. Recent trends and vision for integration. (arXiv forthcoming) |
+| KGE Survey (2026) | Paper | Systematic review of KGE techniques from representation space perspective. Taxonomy: algebraic, geometric, hermeneutic views. (arXiv forthcoming) |
+| Complex Logical Query Survey (2026) | Paper | Comprehensive survey of representation learning for complex logical query answering. (arXiv forthcoming) |
+| From vectors to knowledge graphs (2026) | Paper | Comprehensive analysis of modern RAG architectures. Four-stage taxonomy: indexing, retrieval, fusion, generation. (arXiv forthcoming) |
+
+## Lightweight Crawling and RAG Pipelines
+
+| Item | Type | Description |
+|------|------|-------------|
+| [ragzero](https://www.npmjs.com/package/ragzero) | Solution | Lightweight RAG with no embedding pipeline or vector DB dependency. LLM acts as both retriever and reasoner. Fully offline with Ollama. Supports page crawling and integration. |
+| [RAGLight](https://github.com/RAGLight/RAGLight) | Solution | Modular lightweight framework supporting RAG, RAT, Agentic RAG pipelines. Pluggable LLMs, embeddings, vector stores. |
+| [Mojo Web Crawler](https://github.com/mojo-js/web-crawler) | Solution | C++ lightweight web crawler converting websites to RAG-ready data. Fast, simple, CI/CD-friendly. |
+| [n8n RAG workflows](https://n8n.io/workflows/rag-crawler) | Template | Automated RAG workflow: sitemap crawling → URL deduplication → page scraping → embedding → vector store ingestion. |
+| [Firecrawl + n8n](https://github.com/firecrawl/firecrawl) | Template | Visual RAG pipeline scraping web content with Firecrawl and ingesting into Supabase pgvector. |
+
+## RAG and GraphRAG Surveys
+
+| Item | Type | Description |
+|------|------|-------------|
+| From Vectors to Knowledge Graphs (2026) | Paper | (same as above) |
+| Knowledge Graph Survey (2026) | Paper | Comprehensive review covering KG representation learning, acquisition and completion, temporal KG, intelligent applications. (arXiv forthcoming) |
+
+## Related Open‑Source Tools
+
+| Item | Type | Description |
+|------|------|-------------|
+| [SwarmVault](https://github.com/swarmclawai/swarmvault) | Solution | Local-first LLM knowledge compiler. Raw sources → persistent wiki + KG + hybrid search. Built-in MCP server, 12+ agent integrations, contradiction detection. MIT license. |
+| [GitNexus](https://github.com/abhigyanpatwari/GitNexus) | Solution | Codebase → knowledge graph. Tree-sitter AST parsing, function/class/call graph, MCP server, impact analysis, hybrid search (BM25+vector). Code-centric. |
+| [Docling‑Graph](https://github.com/docling/docling-graph) | Solution | Documents (PDF, Markdown, etc.) → validated KG. Pydantic schema validation reduces LLM hallucinations. |
+| [PageIndex](https://github.com/VectifyAI/PageIndex) | Solution | Vectorless, reasoning-based RAG for single long PDFs. Builds hierarchical tree index; LLM navigates tree for relevant sections. Specialised for financial reports, technical manuals. |
+
+## Summary by Category
+
+| Category | Paper Count | Solution Count | Key Keywords |
+|----------|-------------|----------------|---------------|
+| Autonomous Research & Hypothesis Generation | 7 | 2 | Idea2Story, HypoChainer, MIND, Theorizer, ResearchEVO |
+| Incremental KG Construction & Integration | 6 | 2 | iText2KG, KARMA, ODKE+, TG-RAG, InGram |
+| Document Processing & KG Construction | 2 | 2 | FAIR to WISE, KnowledgeHub |
+| KG Embedding & Reasoning | 5 | 0 | KGE Survey, Complex Logical Query |
+| Lightweight Crawling & RAG | 0 | 6 | raggzero, RAGLight, Mojo, n8n |
+| RAG/GraphRAG Surveys | 2 | 0 | Vector to KG Survey, KG Survey |
+| Related Open‑Source Tools | 0 | 5 | SwarmVault, GitNexus, Docling‑Graph, PageIndex |
+
+Total: 22 papers, 17 solutions/tools (approximately 35+ unique items after deduplication)

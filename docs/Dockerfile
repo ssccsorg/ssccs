@@ -65,4 +65,7 @@ RUN uv pip install --system --break-system-packages \
         matplotlib>=3.0 \
         numpy>=1.21 \
         cairosvg \
-        jupyter-cache
+        jupyter-cache \
+        scipy \
+        networkx \
+        requests
