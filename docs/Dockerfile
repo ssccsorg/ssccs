@@ -15,7 +15,9 @@ ENV QUARTO_VER="1.9.35" \
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 # Install system packages and external tools (minimize layers)
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN sed -i 's/archive.ubuntu.com/azure.archive.ubuntu.com/g' /etc/apt/sources.list.d/ubuntu.sources && \
+    sed -i 's/security.ubuntu.com/azure.archive.ubuntu.com/g' /etc/apt/sources.list.d/ubuntu.sources && \
+    apt-get update && apt-get install -y --no-install-recommends \
     python3 python-is-python3 graphviz librsvg2-bin wget curl ca-certificates sudo \
     && apt-get clean -y && rm -rf /var/lib/apt/lists/* \
     # Install Quarto
