@@ -534,7 +534,7 @@ The constraint predicate $C(s)$ of a Field can express a wide variety of admissi
 
 This taxonomy is not mutually exclusive; a single Field may contain constraints of several types. The classification serves as a conceptual tool for designers, helping them choose the appropriate constraint representation and composition strategy for a given problem. In practice, the compiler may exploit the structural properties of each type to optimize observation code—for instance, dimensional constraints can be evaluated via range‑check circuits, while algebraic constraints may require dedicated arithmetic units. (See [*-@sec-appendix-axis-types*] for a detailed listing of axis types and [*-@sec-appendix-structural-relations*] for relation categories.)
 
-### Composition
+### Composition {#sec-field-composition}
 
 Field composition refers to the combination of two or more Fields to produce a new Field whose constraints and transition matrices are derived from the constituent Fields. Given Fields $F_1 = (C_1, T_1)$ and $F_2 = (C_2, T_2)$, a composition operator $\odot$ yields $F = F_1 \odot F_2 = (C, T)$ where $C$ and $T$ are defined according to the semantics of the composition.
 
@@ -771,7 +771,8 @@ In safety-critical and extreme-environment deployments (e.g., space computing, a
 
 **Composition with cryptographic signatures**. For example, consider two Fields $F_A$ and $F_B$, each signed by different authorities. The runtime verifies both signatures before allowing their intersection $F_A \cap F_B$. This ensures that only authorized constraints are combined, a property crucial for multi‑party secure computation.
 
-The recursive edge in the diagram illustrates that Fields can contain themselves, enabling self-similar composition—a property reminiscent of biological ribosomes that translate code into structure, and then reuse that structure as new code. A detailed worked example illustrating the intersection of a similarity-constraint Field and a position-constraint Field is provided in [*-@sec-appendix-field-composition-example*].
+The recursive edge in the diagram illustrates that Fields can contain themselves, enabling self‑similar composition—a property reminiscent of biological ribosomes that translate code into structure and then reuse that structure as new code. This compositional recursion underpins SSCCS’s ability to define adaptive, verifiable computation across scales, a capability that proves especially valuable in safety‑critical and extreme environments. A detailed worked example of constraint intersection is provided in [*-@sec-appendix-field-composition-example*]; the corresponding framework for fault‑tolerant computing in extreme environments is described in [*-@sec-appendix-riscv-space*].
+
 
 ## Observation and Projection
 
@@ -915,7 +916,7 @@ Other layout types are handled analogously. For a **column-major** layout the ma
 
 Each layout type is defined in the Schema’s `MemoryLayout` specification (see [*-@sec-appendix-memory-layout*]). The compiler evaluates the corresponding mapping function for every coordinate, producing a deterministic logical-address map that is then passed to the hardware-mapping stage.
 
-### Target-Hardware Mapping Strategies
+### Target-Hardware Mapping Strategies {#sec-target-hardware-mapping}
 
 The logical address space acts as a virtualization layer, decoupling structural description from physical implementation. The same Schema can be embedded into vastly different hardware substrates while preserving the core principle: structurally adjacent Segments reside in physically proximate storage locations.
 
@@ -1654,7 +1655,7 @@ $$SchemeId = H(\text{Axes} + \text{Segments} + \text{Relations} + \text{Observat
 
 # Observation‑Code Generation Methodology {#sec-appendix-observation-code-gen}
 
-This appendix expands on the observation‑code generation stage described in [Section 3.5](#sec-observation-code-gen) of the whitepaper, providing concrete implementation techniques for CPU, FPGA, and PIM targets. It illustrates how the SSCCS compiler lowers the high‑level structural description to executable native code while preserving determinism and reproducibility.
+This appendix expands on the observation‑code generation stage described in @sec-observation-code-gen of the whitepaper, providing concrete implementation techniques for CPU, FPGA, and PIM targets. It illustrates how the SSCCS compiler lowers the high‑level structural description to executable native code while preserving determinism and reproducibility.
 
 ## Lowering to LLVM/MLIR
 
@@ -1803,7 +1804,7 @@ The Custom profile ensures that SSCCS remains extensible as new hardware paradig
 
 The hardware profile is selected at compile time via a command‑line flag (e.g., `--profile cpu`). The compiler’s hardware‑mapping stage consults the profile to decide how to lower the logical‑address map and generate observation code. The same Scheme can be compiled for different profiles, yielding functionally identical projections but with performance and energy characteristics tailored to the underlying substrate.
 
-Detailed examples of observation‑code generation for each profile are given in [*-@sec-appendix-observation-code-gen*]. The mapping strategies described here are referenced from the main whitepaper’s discussion of target‑hardware mapping (see [Section 3.4.2](#sec-target-hardware-mapping)).
+Detailed examples of observation‑code generation for each profile are given in [*-@sec-appendix-observation-code-gen*]. The mapping strategies described here are referenced from the main whitepaper’s discussion of target‑hardware mapping (see @sec-target-hardware-mapping).
 
 # Fault Tolerance Computing in Extreme Environments {#sec-appendix-riscv-space}
 
@@ -1904,7 +1905,7 @@ This synergy positions SSCCS not as a replacement for hardware hardening, but as
 
 # Field Composition Example {#sec-appendix-field-composition-example}
 
-This appendix provides a detailed worked example of Field composition, illustrating the intersection of a similarity‑constraint Field and a position‑constraint Field as referenced in [Section 3.3](#sec-field-composition) of the main whitepaper. The example is drawn from a typical AI‑frontline scenario: selecting relevant tokens in a transformer‑based model using both semantic similarity and positional filtering.
+This appendix provides a detailed worked example of Field composition, illustrating the intersection of a similarity‑constraint Field and a position‑constraint Field as referenced in @sec-field-composition of the main whitepaper. The example is drawn from a typical AI‑frontline scenario: selecting relevant tokens in a transformer‑based model using both semantic similarity and positional filtering.
 
 ## Fields Definition
 
