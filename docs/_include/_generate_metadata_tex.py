@@ -2,7 +2,7 @@
 """
 Generate LaTeX metadata file for Quarto(.qmd) input.
 Usage: python generate_metadata.py [--input index.qmd] [--output ./_include/_metadata.tex] [--version_prefix 0.1]
-If --input is omitted, uses QUARTO_PROJECT_INPUT_FILE or the first .qmd file in current directory.
+If --input is omitted, uses QUARTO_PROJECT_INPUT_FILE or the first valid .qmd file in current directory.
 """
 
 import os
@@ -15,8 +15,12 @@ import textwrap
 
 def extract_front_matter(qmd_path):
     """Extract YAML front matter from a QMD file."""
-    with open(qmd_path, 'r', encoding='utf-8') as f:
-        lines = f.readlines()
+    try:
+        with open(qmd_path, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+    except Exception:
+        return {}
+
     in_front = False
     front_lines = []
     for line in lines:
@@ -28,14 +32,20 @@ def extract_front_matter(qmd_path):
                 break
         if in_front:
             front_lines.append(line)
+            
     if not front_lines:
-        raise ValueError(f"No YAML front matter found in {qmd_path}")
-    return yaml.safe_load(''.join(front_lines))
+        return {}
+        
+    try:
+        data = yaml.safe_load(''.join(front_lines))
+        return data if data else {}
+    except yaml.YAMLError:
+        return {}
 
 def main():
     parser = argparse.ArgumentParser(description='Generate LaTeX metadata for SSCCS')
     parser.add_argument('--input', '-i', required=False,
-                        help='Path to the main QMD file (e.g., index.qmd). If not provided, uses QUARTO_PROJECT_INPUT_FILE or first .qmd in directory.')
+                        help='Path to the main QMD file (e.g., index.qmd). If not provided, uses QUARTO_PROJECT_INPUT_FILE or first valid .qmd in directory.')
     parser.add_argument('--output', '-o', default='./_include/_metadata.tex',
                         help='Output LaTeX metadata file path')
     parser.add_argument('--version_prefix', '-p', default='0.1',
@@ -51,12 +61,29 @@ def main():
         qmd_path = os.environ.get('QUARTO_PROJECT_INPUT_FILE')
         if qmd_path and not os.path.exists(qmd_path):
             qmd_path = None  # invalid path, ignore
+            
         if not qmd_path:
-            # Fallback: first .qmd file in current directory
-            qmd_files = [f for f in os.listdir('.') if f.endswith('.qmd')]
-            qmd_path = qmd_files[0] if qmd_files else None
+            # Fallback: Find a valid .qmd file with front matter
+            valid_qmds = []
+            for f in os.listdir('.'):
+                if f.endswith('.qmd'):
+                    try:
+                        with open(f, 'r', encoding='utf-8') as check_f:
+                            if check_f.read(10).strip().startswith('---'):
+                                valid_qmds.append(f)
+                    except Exception:
+                        pass
+            
+            # Prioritize index.qmd or proposal.qmd if they exist among valid files
+            if 'index.qmd' in valid_qmds:
+                qmd_path = 'index.qmd'
+            elif 'proposal.qmd' in valid_qmds:
+                qmd_path = 'proposal.qmd'
+            else:
+                qmd_path = valid_qmds[0] if valid_qmds else None
+
         if not qmd_path:
-            sys.exit("Error: Cannot determine QMD file for hashing. Please specify --input or ensure a .qmd file exists in the current directory.")
+            sys.exit("Error: Cannot determine a valid QMD file for hashing. Please specify --input or ensure a .qmd file with YAML front matter exists in the current directory.")
     elif not os.path.isfile(qmd_path):
         sys.exit(f"Error: Input file '{qmd_path}' not found.")
 
@@ -79,7 +106,7 @@ def main():
     affiliation_domain = ''
 
     # Check if author information exists and is valid
-    if 'author' in front and isinstance(front['author'], list) and len(front['author']) > 0:
+    if front and 'author' in front and isinstance(front['author'], list) and len(front['author']) > 0:
         author = front['author'][0]
         author_name = author.get('name', '')
         author_email = author.get('email', '')

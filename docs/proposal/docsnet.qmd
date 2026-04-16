@@ -1,0 +1,431 @@
+# Project Nexus
+
+## Integrating Cross‑Document Linking, Semantic Vectorization, Code Indexing, and Lightweight Crawling
+
+**Document Version:** 2.0  
+**Date:** 2026-04-14  
+**Status:** Ready for Implementation
+
+## 1. Executive Summary
+
+The SSCCS project now has three parallel, disconnected assets:
+
+1. **Rich documentation** – whitepaper, research notes, proposals, governance (Quarto + Markdown).
+2. **Rust PoC codebase** – 30+ crates, 12+ experiments, bare‑metal RISC‑V simulation.
+3. **External knowledge** – RISC‑V specs, OpenHW docs, arXiv papers, blog posts.
+
+Currently, none of these talk to each other. A researcher cannot ask: *“Which experiment validates the `Observation` primitive described in Whitepaper §3.4?”* or *“What external RISC‑V documents discuss XIF, and how do they relate to our hardware‑mapping crate?”*
+
+**Project Nexus unifies everything into a single, queryable knowledge pipeline.**  
+
+It consists of four integrated phases:
+
+| Phase | Focus | Deliverable |
+|-------|-------|-------------|
+| **1** | Cross‑document linking & LLM optimisation | Citation backbone, glossary, `llms.txt`, bidirectional knowledge graph |
+| **2** | Semantic vectorization (RAG‑ready) | Chunked embeddings, vector database, query API, lightweight crawler |
+| **3** | Code–documentation integration | Rust symbol extraction, code–doc edges, unified graph |
+| **4** | Autonomous research features (optional) | Gap detection, hypothesis generation, draft synthesis |
+
+All phases are **incremental, build on existing tools, and integrate seamlessly with `docs/build.py`**. No heavy infrastructure – everything runs locally with free, open‑source components.
+
+## 2. Current Assets & What We Reuse
+
+| Asset | Location | Reuse in Nexus |
+|-------|----------|----------------|
+| **Quarto project** | `docs/` | Already renders HTML, PDF, GFM. We add `llms-txt: true`. |
+| **Citation system** | `_include/references.bib` + CSL | Provides structured citation metadata. |
+| **Cross‑reference syntax** | `@fig-`, `@eq-`, `@sec-` | Quarto resolves within documents; we extend to cross‑document links. |
+| **`search.json`** | `docs/_site/search.json` | Already has titles, breadcrumbs, excerpts – a mini‑graph. |
+| **Rust workspace** | `poc/standard/`, `poc/baremetal_riscv/` | 30+ crates, 12+ experiments – rich symbol set. |
+| **Build script** | `docs/build.py` | Handles parallel rendering, caching, C2PA signing – we add Nexus steps as post‑render hooks. |
+
+**No new file formats, no rewriting existing content.**
+
+## 3. Phase 1: Foundation – Cross‑Document Linking & LLM Optimisation
+
+**Goal:** Make every technical assertion traceable and machine‑readable.
+
+### 3.1 Citation Backbone
+
+We already have BibTeX + CSL. **Enhancements:**
+
+- Ensure all research notes include a `bibliography:` field in their YAML frontmatter.
+- In `build.py`, after rendering, extract all citation keys and create a reverse index (which document cites which key).
+- Generate `citations.json` – a mapping from citation key to list of documents that cite it.
+
+### 3.2 Cross‑Document Reference Resolution
+
+Quarto resolves `@sec-` links within the same document. For cross‑document links, we need a manual convention (or a post‑processing step). **Proposed convention:**
+
+See the [Whitepaper, §3.4](/whitepaper/whitepaper.html#observation-and-projection)
+
+During build, we scan all rendered HTML for internal links and record them as edges in the knowledge graph (source document → target anchor). This is already partially done by Quarto; we just need to parse the output.
+
+**Implementation:** Use BeautifulSoup to extract all `<a href="...">` from rendered HTML, filter internal links, and store in `crossref_edges.jsonl`.
+
+### 3.3 Conceptual Glossary
+
+**Goal:** Generate a machine‑readable glossary of key terms (Segment, Scheme, Field, Observation, Projection, etc.) with back‑links to occurrences.
+
+**Method:**
+
+1. Define a glossary file `_include/glossary.yml`:
+   ```yaml
+   - term: Segment
+     definition: Immutable coordinate point with cryptographic identity.
+     url: /whitepaper.html#segment
+   - term: Scheme
+     definition: Structural blueprint defining axes, relations, memory layout.
+     url: /whitepaper.html#scheme
+   ```
+2. During build, scan all Markdown for occurrences of these terms (case‑sensitive, whole word).
+3. Record each occurrence (document, heading, line) and store in `term_occurrences.jsonl`.
+4. Generate a static glossary page `docs/glossary.html` with definitions and links to occurrences.
+5. Export the glossary as `glossary.json` for machine use.
+
+### 3.4 Bidirectional Linking (Knowledge Graph)
+
+**Build a graph of documents and sections:**
+
+- Nodes: documents (from `search.json`) and sections (from `##` headings in `.llms.md`).
+- Edges: `CITES` (from citation index), `LINKS_TO` (from cross‑reference scan), `PART_OF` (hierarchy from breadcrumbs).
+
+**Storage:** NetworkX + JSON export (same as original Nexus plan). This graph is used for navigation and later for hybrid search re‑ranking.
+
+### 3.5 LLM Optimisation (Quarto Built‑in)
+
+Simply enable in `_quarto.yml`:
+
+```yaml
+project:
+  type: website
+  llms-txt: true   # generates llms.txt and llms-full.txt
+```
+
+Quarto will automatically produce:
+- `llms.txt` – a sitemap for LLMs.
+- `llms-full.txt` – concatenation of all `.llms.md` files.
+
+**No extra work.** These files become the base for vectorization (Phase 2).
+
+### Deliverables (Phase 1)
+
+| ID | Item | Format |
+|----|------|--------|
+| P1‑1 | `citations.json` – citation reverse index | JSON |
+| P1‑2 | `crossref_edges.jsonl` – internal link edges | JSONL |
+| P1‑3 | `glossary.yml` + `glossary.json` + static glossary page | YAML + JSON + HTML |
+| P1‑4 | `term_occurrences.jsonl` – where terms appear | JSONL |
+| P1‑5 | Knowledge graph (documents + sections) as `kg_basic.json` | JSON |
+| P1‑6 | `llms.txt` and `llms-full.txt` (generated by Quarto) | Text |
+
+**Integration:** Add `--nexus-phase1` flag to `build.py` that runs all post‑processing after Quarto render.
+
+## 4. Phase 2: Semantic Vectorization & RAG Pipeline
+
+**Goal:** Make the documentation corpus semantically searchable and usable for retrieval‑augmented generation (RAG).
+
+### 4.1 Chunking Strategy
+
+**Input:** `llms-full.txt` (or individual `.llms.md` files) – already clean Markdown.
+
+**Chunking rules (Python with `markdown` library):**
+
+- Split by `##` headings (level‑2 sections). Each chunk includes the heading and all content until next `##`.
+- Preserve metadata: document source (from `llms.txt` sitemap), heading hierarchy, any citations/glossary terms present.
+- Optionally, further split very long sections (>1024 tokens) into sub‑chunks at paragraph boundaries (`\n\n`).
+
+**Output:** `chunks.jsonl` – each entry has `{id, text, metadata}`.
+
+### 4.2 Embedding Generation
+
+**Model:** `all‑MiniLM‑L6‑v2` (local, 80MB) – no API cost, good quality.
+
+**Implementation:**
+
+```python
+from sentence_transformers import SentenceTransformer
+model = SentenceTransformer("all-MiniLM-L6-v2")
+embeddings = model.encode([chunk["text"] for chunk in chunks])
+```
+
+**Caching:** Compute SHA‑256 hash of each chunk’s text + metadata; store embedding in a cache directory (`_vector_cache/`). Only recompute if hash changes.
+
+### 4.3 Vector Storage
+
+**Choice:** ChromaDB (lightweight, persistent, embeddable, supports metadata filtering).
+
+**Schema:**
+
+```python
+collection.add(
+    documents=[chunk["text"] for chunk in chunks],
+    metadatas=[chunk["metadata"] for chunk in chunks],
+    ids=[chunk["id"] for chunk in chunks],
+    embeddings=embeddings
+)
+```
+
+**Storage location:** `docs/_site/vector_db/` – alongside the static site.
+
+### 4.4 Query Interface
+
+**CLI tool (`nexus query`):**
+
+```bash
+python -m nexus query "What is the data movement wall?" --top-k 5 --filter doc_type=whitepaper
+```
+
+Returns:
+```
+1. Whitepaper §2.1 – score 0.89
+   "For decades, data movement has consumed 60–80% of energy..."
+   URL: /whitepaper.html#data-movement-wall
+
+2. Research note: potential_synergies... – score 0.76
+   "Memristive crossbars can reduce data movement..."
+```
+
+**Streamlit app** (same as earlier Nexus plan) – interactive search, graph visualisation, hybrid (BM25 + vector) ranking.
+
+### 4.5 Lightweight External Crawling
+
+**Goal:** Integrate external web pages (RISC‑V specs, OpenHW docs, arXiv abstracts) into the same vector database.
+
+**Implementation (simple, free):**
+
+```python
+import requests
+from bs4 import BeautifulSoup
+from markdownify import markdownify as md
+import hashlib
+
+def crawl_url(url, max_depth=0, respect_robots=True):
+    # robots.txt check (use robotparser)
+    # fetch page
+    # extract main content (using trafilatura or BeautifulSoup + heuristics)
+    # convert to Markdown (markdownify)
+    # chunk, embed, and store in the same ChromaDB collection
+    # mark metadata with source="external", url=url, crawl_date=now
+```
+
+**Politeness:** Add delays (1 second between requests), respect `robots.txt`, cache ETags.
+
+**Target URLs (examples):**
+- RISC‑V Unprivileged Specification (latest PDF/HTML)
+- OpenHW CORE‑V XIF documentation
+- Relevant arXiv papers (via abstracts API)
+
+**Storage:** External chunks go into the same ChromaDB collection but with `source="external"` metadata. They can be filtered in/out of queries.
+
+**Cache:** `_crawl_cache/` stores raw HTML and ETag to avoid re‑fetching.
+
+### Deliverables (Phase 2)
+
+| ID | Item | Format |
+|----|------|--------|
+| P2‑1 | Chunking script (`nexus/chunk.py`) | Python |
+| P2‑2 | `chunks.jsonl` – all chunks with metadata | JSONL |
+| P2‑3 | Vector database (ChromaDB) at `docs/_site/vector_db/` | Binary |
+| P2‑4 | `nexus query` CLI tool | Python |
+| P2‑5 | Streamlit app (unified search + graph) | Python |
+| P2‑6 | Crawling module (`nexus/crawl.py`) | Python |
+| P2‑7 | `_crawl_cache/` with external content | Directory |
+
+**Integration:** Add `--nexus-phase2` flag to `build.py` that runs chunking, embedding, and (optionally) crawling after Quarto render.
+
+## 5. Phase 3: Code–Documentation Integration
+
+*This is the extension from the previous code‑indexing plan, now merged into the unified pipeline.*
+
+### 5.1 Code Symbol Extraction
+
+**Tool:** `rustdoc` JSON output.
+
+**Command:**
+```bash
+cargo doc --no-deps --output-format json > rustdoc.jsonl
+```
+
+**Parse:** Extract modules, structs, enums, functions, traits, impls. For each symbol, record:
+- `kind`, `name`, `path`, `crate`, `docs` (doc comment), `source_file`, `line`
+
+**Output:** `code_symbols.jsonl`
+
+### 5.2 Code–Documentation Linking
+
+**Heuristics (same as before):**
+
+1. **Explicit links** in doc comments (e.g., `/// See [Segment](https://docs.ssccs.org/#segment)`).
+2. **Name‑based mapping** (`Segment` → glossary term “Segment”).
+3. **Semantic similarity** (fallback) – compare docstring with chunk embeddings.
+4. **File path hints** (`crates/primitive/src/scheme/` → “Scheme Abstraction Layer”).
+
+**Output:** `code_doc_edges.jsonl` – triples `(code_symbol_id, relation, doc_node_id)`.
+
+### 5.3 Unified Graph
+
+Merge the document graph (Phase 1) and code graph into a single NetworkX graph. Export as `knowledge_graph_unified.json` (compatible with D3.js).
+
+**New node types:** `CodeSymbol`, `ExperimentBinary`.  
+**New relation types:** `IMPLEMENTS`, `VALIDATES`, `CALLS`, `DEPENDS_ON`.
+
+### 5.4 Query Extensions
+
+Update the Streamlit app to allow searching code symbols and showing code–doc relationships.
+
+Example query: *“Show me all code that implements `Field`.”* → returns `field‑synthesis` crate, `Field` struct, and linked documentation.
+
+### Deliverables (Phase 3)
+
+| ID | Item | Format |
+|----|------|--------|
+| P3‑1 | `code_symbols.jsonl` | JSONL |
+| P3‑2 | `code_doc_edges.jsonl` | JSONL |
+| P3‑3 | Unified knowledge graph `knowledge_graph_unified.json` | JSON |
+| P3‑4 | Updated Streamlit app (code search + graph) | Python |
+| P3‑5 | `nexus code` CLI subcommands | Python |
+| P3‑6 | Experiment validation links (manually added comments) | Code |
+
+**Integration:** Add `--nexus-phase3` flag to `build.py` that runs code indexing after documentation build.
+
+## 6. Phase 4: Autonomous Research Features (Optional)
+
+*Stretch goals, only after Phases 1–3 are stable.*
+
+| Feature | Implementation |
+|---------|----------------|
+| **Gap detection** | Find concept pairs that co‑occur in the graph but lack an explicit edge. Use network analysis (e.g., missing triangles). |
+| **Hypothesis generation** | Use a local LLM (Ollama + Llama 3.2) with the unified graph as context. Prompt: “Given these three research notes, what hypothesis about sponge functions in SSCCS is worth testing?” |
+| **Draft synthesis** | Generate structured research outlines (problem → related work → proposed method → evaluation) based on retrieved chunks. |
+| **Automated PR review** | When a new `.llms.md` or Rust file is added, Nexus suggests related documents and code symbols. |
+
+**No additional infrastructure** – everything runs locally.
+
+## 7. Integration with `docs/build.py`
+
+Add a single `--nexus` flag that runs all phases (or individual phase flags). Example:
+
+```python
+# docs/build.py – after quarto render
+if args.nexus:
+    from nexus.pipeline import run_nexus
+    
+    run_nexus(
+        phases=args.nexus_phases,  # e.g., ["phase1", "phase2", "phase3"]
+        docs_root="docs/_site",
+        code_root="poc",
+        crawl_urls=args.crawl_urls,
+        rebuild_embeddings=args.rebuild_embeddings
+    )
+```
+
+Usage:
+```bash
+# Full pipeline
+python3 docs/build.py --website --nexus
+
+# Only Phase 1 (cross‑doc linking)
+python3 docs/build.py --website --nexus --nexus-phases phase1
+
+# With external crawling
+python3 docs/build.py --website --nexus --crawl-urls riscv-spec.txt
+```
+
+All Nexus outputs are stored under `docs/_site/nexus/` to keep the static site clean.
+
+## 8. Deliverables Summary (All Phases)
+
+| Phase | Deliverable | Format | Effort |
+|-------|-------------|--------|--------|
+| **1** | Citation index, cross‑ref edges, glossary, basic KG, `llms.txt` | JSON, YAML, HTML | 2–3 days |
+| **2** | Chunking, vector DB, query CLI, Streamlit app, crawler | Python, ChromaDB | 3–4 days |
+| **3** | Code symbols, code–doc links, unified KG, experiment links | JSONL, Python | 2–3 days |
+| **4** | Gap detection, hypothesis generation, draft synthesis (optional) | Python, prompts | 2–3 days |
+| **Integration** | `build.py` hooks, documentation | Patch, Markdown | 1 day |
+
+**Total (Phases 1–3):** ~7–10 days (part‑time, 2–3 weeks).  
+**Phase 4:** additional 2–3 days if pursued.
+
+All tools are open‑source and run locally – **no cloud costs**.
+
+## 9. Risks & Mitigations
+
+| Risk | Mitigation |
+|------|-------------|
+| Cross‑document links break after Quarto updates | Use relative paths and regenerate edges on every build. Links are verified during build (404 check). |
+| Vector database becomes large (>1GB) | ChromaDB compresses embeddings; 10k chunks × 384 dims ≈ 15MB. Acceptable. |
+| External crawling rate‑limited / blocked | Respect `robots.txt`, use delays, cache aggressively. Fallback: user can provide pre‑downloaded files. |
+| Code indexing fails on complex macros | `rustdoc` JSON handles most cases. For unsupported patterns, fall back to `syn` parsing (optional). |
+| Maintenance burden | All outputs are static files (`knowledge_graph.json`, `vector_db/`) that can be used independently of the live pipeline. The pipeline itself is optional; documentation remains usable without it. |
+
+## 10. Success Metrics
+
+| Metric | Target |
+|--------|--------|
+| **Cross‑document links** | Every citation, figure, equation, and glossary term has a working hyperlink across all documents. |
+| **llms.txt generation** | `llms.txt` and `llms-full.txt` are created automatically. |
+| **Semantic search** | Query “energy efficiency of observation” returns the whitepaper section and relevant research notes with >0.7 cosine similarity. |
+| **Code–doc linking** | For each core primitive (Segment, Scheme, Field, Observation, Projection), there is at least one `IMPLEMENTS` edge to a code symbol. |
+| **External crawling** | At least three external RISC‑V documents are indexed and queryable. |
+| **Build time** | Nexus pipeline adds <30 seconds to the existing Quarto build. |
+
+## 11. Immediate Next Steps
+
+1. **Enable `llms-txt: true` in `_quarto.yml`** and verify `llms.txt` and `llms-full.txt` are generated.
+2. **Implement Phase 1 post‑processing** (citation index, cross‑ref edges, glossary) as a Python script. Run it manually on a small subset.
+3. **Integrate into `build.py`** as a `--nexus-phase1` flag.
+4. **Proceed to Phase 2** once Phase 1 is stable.
+
+The plan is **ready to implement** – no further research needed.
+
+## Appendix A: Directory Structure After Nexus
+
+```
+docs/_site/
+├── index.html
+├── whitepaper/
+├── research/
+├── ...
+├── llms.txt
+├── llms-full.txt
+├── nexus/
+│   ├── citations.json
+│   ├── crossref_edges.jsonl
+│   ├── glossary.json
+│   ├── term_occurrences.jsonl
+│   ├── kg_basic.json
+│   ├── chunks.jsonl
+│   ├── vector_db/                (ChromaDB)
+│   ├── knowledge_graph_unified.json
+│   └── crawl_cache/
+└── (existing assets)
+```
+
+## Appendix B: Example Unified Query
+
+**User (via Streamlit):**  
+> *“What external RISC‑V documents discuss XIF, and which of our code crates implement related functionality?”*
+
+**Nexus response:**
+
+```
+External documents (crawled):
+1. OpenHW CORE-V XIF Specification – section 3.2 "Interface Signals"
+   URL: https://github.com/openhwgroup/core-v-xif
+
+Code symbols:
+1. `poc/baremetal_riscv/src/instructions/mod.rs` – defines `OBSERVE` instruction encoding
+2. `poc/standard/crates/hardware-mapping/src/lib.rs` (placeholder) – XIF coprocessor profile
+
+Documentation:
+- Whitepaper §5.2 "Hardware Mapping" – mentions XIF as a target
+- Research note: "RISC-V Integration Research" – section on XIF coprocessor design
+
+Graph visualisation: [XIF concept] –RELATED_TO→ [OpenHW spec] –MENTIONS→ [OBSERVE instruction]
+```
+
+
+{{< include ../_include/_license.qmd >}}
+ 

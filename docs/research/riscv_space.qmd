@@ -31,7 +31,7 @@ format:
         }
         \makeatother
 abstract: |
-  This report explores a conceptual framework for a synergistic architecture combining SSCCS with radiation‑tolerant RISC‑V platforms for next‑generation space computing. While hardware‑level radiation hardening (e.g., StarRISC [@elash2024starrisc], HARV‑SoC [@santos2023harvsoc]) provides essential protection against single‑event effects, it suffers from static overhead and limited adaptability to evolving mission requirements. SSCCS introduces a software‑defined fault‑tolerance layer where Fields—executable, cryptographically signed binaries encoding constraint predicates and transition matrices—can be composed, sandboxed, and updated post‑deployment. By treating fault‑tolerance policies as dynamic Field binaries, this approach could enable: (1) adaptive redundancy via temporal/spatial voting strategies reconfigured via software, (2) semantic error detection through application‑level constraint validation beyond bit‑wise ECC, and (3) reduced SWaP through intelligent resource reuse. The report outlines a conceptual approach to architectural integration via OpenHW's XIF interface and positions this synergy as a strategic response to ESA TRISTAN's call for "deterministic, safe, and mixed‑criticality aware" space processors [@tristan2025].
+  This report explores a conceptual framework for a synergistic architecture combining SSCCS with radiation‑tolerant RISC‑V platforms for next‑generation space computing. While hardware‑level radiation hardening (e.g., StarRISC [@elash2025efficacy] [@starlab2026], HARV‑SoC [@santos2023harvsoc]) provides essential protection against single‑event effects, it suffers from static overhead and limited adaptability to evolving mission requirements. SSCCS introduces a software‑defined fault‑tolerance layer where Fields—executable, cryptographically signed binaries encoding constraint predicates and transition matrices—can be composed, sandboxed, and updated post‑deployment. By treating fault‑tolerance policies as dynamic Field binaries, this approach could enable: (1) adaptive redundancy via temporal/spatial voting strategies reconfigured via software, (2) semantic error detection through application‑level constraint validation beyond bit‑wise ECC, and (3) reduced SWaP through intelligent resource reuse. The report outlines a conceptual approach to architectural integration via OpenHW's XIF interface and positions this synergy as a strategic response to ESA TRISTAN's call for "deterministic, safe, and mixed‑criticality aware" space processors [@tristan2025].
 ---
 
 ```{python}
@@ -64,7 +64,7 @@ matplotlib.use('Agg')
 
 # Introduction
 
-Spaceborne and safety‑critical computing systems require high reliability under ionizing radiation. Recent years have seen the emergence of several radiation‑tolerant RISC‑V implementations, including StarRISC (StarRISC) [@elash2024starrisc], HARV‑SoC [@santos2023harvsoc], and TMR‑protected RISC‑V processors [@walsemann2023radiation]. These platforms employ techniques such as hardened flip‑flops, SECDED ECC, and Triple Modular Redundancy (TMR) to mitigate Single Event Upsets (SEUs). However, hardware hardening is static: once fabricated, the protection mechanism cannot adapt to new error patterns or mission phases, and it incurs significant area and power costs.
+Spaceborne and safety‑critical computing systems require high reliability under ionizing radiation. Recent years have seen the emergence of several radiation‑tolerant RISC‑V implementations, including StarRISC (StarRISC) [@elash2025efficacy], HARV‑SoC [@santos2023harvsoc], and TMR‑protected RISC‑V processors [@walsemann2023radiation]. These platforms employ techniques such as hardened flip‑flops, SECDED ECC, and Triple Modular Redundancy (TMR) to mitigate Single Event Upsets (SEUs). However, hardware hardening is static: once fabricated, the protection mechanism cannot adapt to new error patterns or mission phases, and it incurs significant area and power costs.
 
 Concurrently, the SSCCS paradigm redefines computation not as instruction sequencing, but as the observation of stationary structures under dynamic constraints [@lee2026]. Central to this model is the Field, a mutable substrate that governs which states are admissible. Crucially, the SSCCS Whitepaper establishes that Fields are not merely abstract logic; they are first-class executable binaries that can be encrypted, signed, and sandboxed [@lee2026].
 
@@ -88,7 +88,7 @@ StarRISC is based on the OpenHW CV32E40P core, fabricated in 22‑nm FD‑SOI te
 |---------|-------------|
 | Hardened Sequential Elements | Stacked‑transistor flip‑flops resistant to SEUs up to LET ≈ 96 MeV·cm²/mg |
 | ECC Protected Memory | SECDED (Single Error Correction, Double Error Detection) on 512 KB SRAM |
-| Performance | Functional after 100 kRad (proton) TID; no SEFI observed in testing [@elash2024starrisc] |
+| Performance | Functional after 100 kRad (proton) TID; no SEFI observed in testing [@elash2025efficacy] |
 | Power/Area | ~15% area overhead vs. baseline CV32E40P; 2.1 mW/MHz typical |
 
 Residual Vulnerabilities:
@@ -119,7 +119,7 @@ Beyond the three platforms detailed above, the RISC‑V ecosystem has seen a sur
 
 | Study | Approach | Key Contribution | Synergy |
 |-------|----------|------------------|------------------------------|
-| StarRISC (Elash et al., 2024) [@elash2024starrisc] | RHBD with hardened flip‑flops + SECDED ECC | Demonstrated functional operation after 100 kRad TID | Ideal target for Field sandboxing via PMP; minimal area overhead for Field accelerator |
+| StarRISC [@elash2025efficacy] | RHBD with hardened flip‑flops + SECDED ECC | Demonstrated functional operation after 100 kRad TID | Ideal target for Field sandboxing via PMP; minimal area overhead for Field accelerator |
 | PIC64‑HPSC (Microchip/NASA) [[@microchip2025pic64]] | High‑performance RISC‑V with vector extensions | 8× SiFive X280 cores, Vector Extension, up to 2 TOPS AI/ML | SSCCS Fields for semantic validation of AI inference outputs in autonomous navigation |
 | CORE‑V MCU (OpenHW) [[@openhw2025cvmcu]] | Ultra‑low‑power RT RISC‑V for cubesats | RV32IMC, PMP, SECDED ECC, 512KB SRAM | Reference platform for Field binary loading and XIF integration |
 | On‑Demand Lockstep (Simões et al., 2024) [@simoes2024] | Dynamic redundancy: cores operate in lockstep only when error rate exceeds threshold | Reduces power overhead by activating redundancy only during high‑radiation periods | SSCCS Fields can implement policy logic for mode switching decisions |

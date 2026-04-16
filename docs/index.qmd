@@ -91,17 +91,19 @@ All major outputs include cryptographic provenance metadata. Source commits are 
 
  
 
-## For Developers: Build System Details 
+## For Developers: Build System Details
 
 <details>
 <summary>Click to expand – detailed build system guide (parallel caching, C2PA signing, etc.)</summary>
 
 The SSCCS documentation build system orchestrates Quarto renders with intelligent caching and parallelism, enabling fast, reproducible builds of multi‑format outputs. It is designed to handle complex documentation projects with many interdependent files while minimising redundant work.
 
+### Build System (`build.py`)
+
 Key features
 
 - Parallel rendering: Multiple Quarto documents are rendered concurrently, using physical CPU cores for optimal performance.
-- Intelligent caching: Each document’s hash (including all dependencies) determines whether a rebuild is needed; modifying an included fragment triggers rebuilds only for documents that actually include it.
+- Intelligent caching: Each document's hash (including all dependencies) determines whether a rebuild is needed; modifying an included fragment triggers rebuilds only for documents that actually include it.
 - External configuration: Build parameters are externalised in `docs/build.yml`, allowing target‑specific overrides (e.g., C2PA signing) and exclusion patterns without modifying the build script.
 - C2PA provenance: Selected outputs can be signed with C2PA manifests, providing cryptographic proof of authorship and integrity.
 - Website‑mode isolation: For website profiles, each target is rendered in a fully isolated temporary directory, preventing resource conflicts and enabling true parallel website generation.
@@ -114,6 +116,18 @@ python3 build.py --website # generate website‑optimized outputs
 ```
 
 This command builds all website targets in parallel. For other usage examples and a complete description of the system, see the top‑level comment in `docs/build.py`.
+
+### Docs Checker (`check.py`)
+
+```bash
+./check.py                        # Full validation
+./check.py --validate-only        # Links + citation check
+./check.py --validate-only --cleanup-uncited  # + remove uncited bib entries
+```
+
+Checks:
+- Links (local/remote, YAML frontmatter, BibTeX)
+- Citations: reports if `@key` is missing from `.bib`, or if `.bib` is completely unused
 
 </details>
 
