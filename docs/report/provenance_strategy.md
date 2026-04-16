@@ -5,11 +5,13 @@
 This report presents a unified technical strategy for securing intellectual property (IP) in digital documents through cryptographic provenance frameworks. The primary focus is the Coalition for Content Provenance and Authenticity (C2PA) standard, evaluated alongside complementary technologies including PKI/PAdES, IETF SCITT, OpenTimestamps, W3C Verifiable Credentials, KERI, and SEAL.
 
 The strategy addresses three core threats to digital IP:
+
 1. Unauthorized modification – content alteration without detection
 2. Attribution fraud – false claims of authorship or origin  
 3. Provenance obfuscation – loss of creation history and chain-of-custody
 
 Key Recommendations:
+
 - Migrate from test certificates to production C2PA-conformant certificates (DigiCert/SSL.com) with RFC 3161 timestamping
 - Implement a hybrid architecture combining C2PA (rich provenance), PKI/PAdES (legal recognition), and OpenTimestamps (trustless anchoring)
 - Deploy cross-verification tooling that validates multiple independent trust mechanisms
@@ -136,6 +138,7 @@ User/Validator Application
 ```
 
 Current Conformant CAs (2026):
+
 - DigiCert – Full C2PA Conformance Programme participant
 - SSL.com – Joined September 2025, supports C2PA-specific OIDs
 - Future entrants – Monitor C2PA website for updates
@@ -143,6 +146,7 @@ Current Conformant CAs (2026):
 ### 2.4 Implementation Patterns for PDF Workflows
 
 #### Pattern A: Sidecar Manifest (Current `sign_c2pa.py`)
+
 ```python
 # Output structure
 document.pdf          # Original content
@@ -154,6 +158,7 @@ Pros: Non-invasive to original PDF; easy to generate
 Cons: Risk of separation; requires coordinated distribution
 
 #### Pattern B: Embedded Manifest (Recommended for Production)
+
 ```python
 # Embed C2PA manifest in PDF XMP namespace
 from pypdf import PdfReader, PdfWriter
@@ -177,6 +182,7 @@ Pros: Single-file distribution; standard PDF viewers can extract metadata
 Cons: Increases file size (~12-100KB); requires XMP-aware tools
 
 #### Pattern C: Soft-Binding with Repository
+
 ```python
 # Store manifest externally, reference by hash in PDF
 manifest_hash = hashlib.sha256(c2pa_manifest).hexdigest()
@@ -258,6 +264,7 @@ Verification Pipeline (Recommended Order):
 ### Phase 1: Foundation (Weeks 1-2)
 
 #### Task 1.1: Acquire Production C2PA Certificate
+
 ```python
 # Certificate acquisition checklist
 certificate_requirements = {
@@ -294,6 +301,7 @@ def verify_c2pa_certificate(cert_path: Path):
 ```
 
 #### Task 1.2: Integrate RFC 3161 Timestamping
+
 ```python
 # Modified sign_c2pa.py: TSA integration
 import requests
@@ -336,6 +344,7 @@ def generate_manifest_with_timestamp(pdf_hash: str, manifest_data: dict, tsa_url
 ```
 
 #### Task 1.3: Secure Key Management Integration
+
 ```python
 # Abstract signer interface for KMS/HSM
 from abc import ABC, abstractmethod
@@ -393,6 +402,7 @@ def get_signer(config: dict) -> ExternalSigner:
 ### Phase 2: Complementary Layers (Weeks 3-5)
 
 #### Task 2.1: PKI/PAdES PDF Signing
+
 ```python
 # docs/_utils/sign_pades.py
 from cryptography.hazmat.primitives import hashes, serialization
@@ -440,6 +450,7 @@ def sign_pdf_pades(
 ```
 
 #### Task 2.2: OpenTimestamps Integration
+
 ```python
 # docs/_utils/sign_ots.py
 import opentimestamps.core.timestamp as ots_timestamp
@@ -475,6 +486,7 @@ def verify_ots_proof(ots_path: Path, original_pdf: Path) -> bool:
 ```
 
 #### Task 2.3: SCITT Transparency Service Integration
+
 ```python
 # docs/_utils/register_scitt.py
 import requests
@@ -568,6 +580,7 @@ class SCITTClient:
 ### Phase 3: Integration & Verification (Weeks 6-8)
 
 #### Task 3.1: Unified Verification Script
+
 ```python
 # docs/_utils/verify_provenance.py
 from dataclasses import dataclass
@@ -751,6 +764,7 @@ if __name__ == "__main__":
 ```
 
 #### Task 3.2: Build Pipeline Integration (`build.py` Modifications)
+
 ```python
 # Add to build.py: post-render provenance hooks
 
@@ -919,6 +933,7 @@ disaster_recovery:
    - Includes CLI commands, expected outputs, troubleshooting
 
 3. Dispute Resolution Protocol
+
    ```
    If provenance is challenged:
    1. Request full verification report from verifier tool
@@ -990,17 +1005,17 @@ Provenance System Versioning:
 
 ### Medium-Term Enhancements (30-90 Days)
 
-5. Add PKI/PAdES signing as parallel output for legal document workflows
-6. Implement OpenTimestamps integration as trustless backup for timestamps
-7. Evaluate SCITT service providers for transparency logging pilot
-8. Update `build.py` pipeline to support configurable provenance layers per target
+1. Add PKI/PAdES signing as parallel output for legal document workflows
+2. Implement OpenTimestamps integration as trustless backup for timestamps
+3. Evaluate SCITT service providers for transparency logging pilot
+4. Update `build.py` pipeline to support configurable provenance layers per target
 
 ### Long-Term Strategy (90+ Days)
 
-9. Deploy KMS/HSM integration for production key management
-10. Establish public verification endpoint for external stakeholders
-11. Participate in C2PA/SCITT standards development to shape future specifications
-12. Conduct third-party security audit of the complete provenance system
+1. Deploy KMS/HSM integration for production key management
+2. Establish public verification endpoint for external stakeholders
+3. Participate in C2PA/SCITT standards development to shape future specifications
+4. Conduct third-party security audit of the complete provenance system
 
 ### Success Metrics
 
@@ -1028,28 +1043,33 @@ Provenance System Versioning:
 ## Appendix B: Reference Implementations & Resources
 
 C2PA Ecosystem:
-- Specification: https://c2pa.org/specifications/
-- SDK (Rust): https://github.com/contentauth/c2pa-rs
-- CLI Tool: https://github.com/contentauth/c2patool
-- Trust List: https://trustlist.c2pa.org/
+
+- Specification: <https://c2pa.org/specifications/>
+- SDK (Rust): <https://github.com/contentauth/c2pa-rs>
+- CLI Tool: <https://github.com/contentauth/c2patool>
+- Trust List: <https://trustlist.c2pa.org/>
 
 PKI/PAdES:
-- ETSI PAdES Standard: https://www.etsi.org/deliver/etsi_en/319100_319199/31914201/
-- endesive Library: https://github.com/andrewdavidmackenzie/endesive
-- DigiCert PAdES Guide: https://www.digiCert.com/solutions/pades-digital-signatures
+
+- ETSI PAdES Standard: <https://www.etsi.org/deliver/etsi_en/319100_319199/31914201/>
+- endesive Library: <https://github.com/andrewdavidmackenzie/endesive>
+- DigiCert PAdES Guide: <https://www.digiCert.com/solutions/pades-digital-signatures>
 
 SCITT:
-- IETF Draft: https://datatracker.ietf.org/wg/scitt/documents/
-- Reference Implementation: https://github.com/microsoft/scitt-registry
+
+- IETF Draft: <https://datatracker.ietf.org/wg/scitt/documents/>
+- Reference Implementation: <https://github.com/microsoft/scitt-registry>
 
 OpenTimestamps:
-- Protocol: https://opentimestamps.org/
-- Python Client: https://github.com/opentimestamps/python-opentimestamps
-- Calendar List: https://petertodd.org/2016/opentimestamps-announcement
+
+- Protocol: <https://opentimestamps.org/>
+- Python Client: <https://github.com/opentimestamps/python-opentimestamps>
+- Calendar List: <https://petertodd.org/2016/opentimestamps-announcement>
 
 Verification Tools:
-- Adobe Content Credentials: https://contentcredentials.org/
-- Truepic Lens: https://www.truepic.com/lens
+
+- Adobe Content Credentials: <https://contentcredentials.org/>
+- Truepic Lens: <https://www.truepic.com/lens>
 - Custom Verifier: docs/_utils/verify_provenance.py (this project)
 
 *This document is licensed under Apache 2.0. Technical recommendations are based on publicly available specifications and independent security analysis as of Q2 2026. All implementations should undergo organization-specific legal review and security audit before production deployment.*
