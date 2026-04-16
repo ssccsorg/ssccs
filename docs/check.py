@@ -3,22 +3,27 @@
 SSCCS Docs Checker
 
 Usage:
-    ./check.py # Edit source link + verify
-    ./check.py --fix-only # Only perform fixes
-    ./check.py --validate-only # Perform verification only
+    python check.py                           # Full pipeline: fix + validate + citations
+    python check.py --fix-only                # Only link normalization
+    python check.py --validate-only           # Link validation + citation consistency
+    python check.py --check-uncited           # Find uncited .bib entries with topic categorization
+    python check.py --compare-citations A B   # Compare citations between two QMD files
+    python check.py --check-section-refs      # Check for unused/broken section cross-references
+    python check.py --fix-section-refs        # Auto-comment out unused section definitions
+    python check.py --all                     # Run ALL checks including deep uncited analysis
 """
-
-# Additional command for citation consistency check:
-#     ./check.py --check-citations # Check citation consistency between .qmd/.md and .bib files
 
 import os
 import re
 import sys
+import json
 import time
+import shutil
+import subprocess
 import requests
 from pathlib import Path
 from urllib.parse import urlparse
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Set, Tuple, Optional, Union
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock
 import fnmatch
@@ -35,136 +40,579 @@ IGNORED_DIRS = {
     "node_modules",
     "__pycache__",
     "_cached",
+    ".DS_Store",
 }
 VALID_EXTENSIONS = {".md", ".qmd", ".yml", ".yaml", ".json", ".bib"}
-SOURCE_EXTENSIONS = {".qmd", ".md", ".rs", ".py", ".yml", ".yaml", ".json", ".toml", ".bib"}
+SOURCE_EXTENSIONS = {
+    ".qmd",
+    ".md",
+    ".rs",
+    ".py",
+    ".yml",
+    ".yaml",
+    ".json",
+    ".toml",
+    ".bib",
+}
 IGNORE_FILES = {"README.md"}
-IGNORE_URL_PATTERNS = [
-    "*keys.openpgp.org*",
-    "*doi.org*",
-    "*?token=*",
-]
+IGNORE_URL_PATTERNS = ["*keys.openpgp.org*", "*doi.org*", "*?token=*"]
+
+TOPIC_KEYWORDS = {
+    "riscv": ["risc", "openhw", "core-v", "riscv", "spike", "verilator", "risc-v"],
+    "space": [
+        "radiation",
+        "space",
+        "tristan",
+        "rad-hard",
+        "single-event",
+        " SEE ",
+        " TID ",
+        "cosmic",
+    ],
+    "security": [
+        "side-channel",
+        "fault-injection",
+        "glitch",
+        "power-analysis",
+        "timing-attack",
+    ],
+    "formal": ["formal-verif", "coq", "isabelle", "proof", "theorem", "model-check"],
+    "embedded": ["embedded", "microcontroller", "firmware", "rtos", "bare-metal"],
+}
 
 
 # ============================================================
-# Helper functions
+# Quarto Metadata Extraction
 # ============================================================
-def extract_bibtex_citation_keys(content: str) -> set:
+_quarto_inspect_cache = {}
+
+def run_quarto_inspect(filepath: Path) -> Optional[Dict]:
+    """Cached version of run_quarto_inspect to avoid repeated subprocess calls."""
+    if filepath in _quarto_inspect_cache:
+        return _quarto_inspect_cache[filepath]
+    if not shutil.which("quarto"):
+        return None
+    try:
+        result = subprocess.run(
+            ["quarto", "inspect", str(filepath)],
+            capture_output=True,
+            text=True,
+            timeout=5,               # shortened timeout
+            check=False,
+        )
+        if result.returncode != 0:
+            return None
+        data = json.loads(result.stdout)
+        _quarto_inspect_cache[filepath] = data
+        return data
+    except (subprocess.TimeoutExpired, json.JSONDecodeError, Exception):
+        return None
+
+
+def extract_bibliography_from_metadata(metadata: Dict) -> List[str]:
     """
-    Extract all citation keys from a BibTeX file.
-    Returns a set of citation keys.
+    Extract bibliography paths from Quarto metadata dict.
+    Handles string paths, lists of paths, or inline YAML.
     """
+    bib_value = metadata.get("bibliography")
+    if not bib_value:
+        return []
+
+    bib_paths = []
+    if isinstance(bib_value, str):
+        bib_paths.append(bib_value)
+    elif isinstance(bib_value, list):
+        for item in bib_value:
+            if isinstance(item, str):
+                bib_paths.append(item)
+    # Inline YAML dict is not a file path, ignored
+
+    return [bp.strip() for bp in bib_paths if bp.endswith(".bib")]
+
+
+def get_bibliography_files(source_file: Path, root: Path) -> List[Path]:
+    """Uses cached quarto inspect to get bibliography paths."""
+    metadata = run_quarto_inspect(source_file)
+    if metadata:
+        bib_refs = extract_bibliography_from_metadata(metadata)
+        resolved = []
+        for ref in bib_refs:
+            p = (source_file.parent / ref).resolve()
+            if p.exists():
+                resolved.append(p)
+        return resolved
+
+    # Fallback regex parsing (unchanged)
+    try:
+        content = source_file.read_text(encoding="utf-8")
+        if not content.startswith("---"):
+            return []
+        match = re.search(r"^---\n(.*?)\n---", content, re.DOTALL)
+        if not match:
+            return []
+        frontmatter = match.group(1)
+        bib_match = re.search(r"^bibliography:\s*(.+?)$", frontmatter, re.MULTILINE)
+        if not bib_match:
+            return []
+        bib_value = bib_match.group(1).strip()
+        bib_paths = []
+        if bib_value.startswith("["):
+            for item in re.findall(r'["\']?([^"\',\]]+\.bib)["\']?', bib_value):
+                bib_paths.append(item.strip())
+        elif bib_value.endswith(".bib"):
+            bib_paths.append(bib_value.strip("\"'"))
+        resolved = []
+        for ref in bib_paths:
+            p = (source_file.parent / ref).resolve()
+            if p.exists():
+                resolved.append(p)
+        return resolved
+    except Exception:
+        return []
+
+
+# ============================================================
+# Citation Extraction
+# ============================================================
+def extract_bibtex_citation_keys(content: str) -> Set[str]:
+    """Extract all citation keys from BibTeX content."""
     keys = set()
-    # Match @type{key, ...} pattern
-    citation_pattern = re.compile(r'@\w+\s*\{\s*([^,\s]+)\s*,', re.IGNORECASE)
-    for match in citation_pattern.finditer(content):
+    pattern = re.compile(r"@\w+\s*\{\s*([^,\s]+)\s*,", re.IGNORECASE)
+    for match in pattern.finditer(content):
         keys.add(match.group(1).strip())
     return keys
 
 
-def extract_quarto_citation_keys(content: str) -> set:
+def extract_quarto_citation_keys(content: str) -> Set[str]:
     """
-    Extract all citation keys from Quarto/Markdown content.
-    Matches @key, [@key], [@key1; @key2], etc.
-    Returns a set of citation keys.
-    
-    Excludes common Quarto/Pandoc variables that use @ syntax.
+    Extract citation keys from Quarto/Markdown body (excluding frontmatter).
+    Filters out cross-references (sec-, fig-, tbl-, eq-, lst-) and common variables.
     """
     keys = set()
-    # Common Quarto/Pandoc variables that are NOT BibTeX citations
-    excluded_keys = {
-        'title', 'subtitle', 'author', 'date', 'abstract', 'keywords',
-        'affiliation', 'correspondence', 'acknowledgements', 'references',
-        'maketitle', 'ssccs',  # Project-specific variables
+    excluded = {
+        "title",
+        "subtitle",
+        "author",
+        "date",
+        "abstract",
+        "keywords",
+        "affiliation",
+        "correspondence",
+        "acknowledgements",
+        "references",
+        "maketitle",
+        "ssccs",
     }
-    
-    # Match @key pattern (with optional brackets and multiple keys)
-    # Handles: @key, [@key], [@key1; @key2], [-@key] for negative citations
-    # Require at least one digit or colon in the key to match typical BibTeX keys (e.g., author2024, doi:xxx)
-    citation_pattern = re.compile(r'@([a-zA-Z][a-zA-Z0-9_:\-]*[0-9:][a-zA-Z0-9_:\-]*)')
-    for match in citation_pattern.finditer(content):
+    excluded_prefixes = ("sec-", "fig-", "tbl-", "eq-", "lst-")
+
+    # Match @key requiring at least one digit or colon to reduce false positives
+    pattern = re.compile(r"(?<!\[-\*)@([a-zA-Z][a-zA-Z0-9_:\-]*[0-9:][a-zA-Z0-9_:\-]*)")
+    for match in pattern.finditer(content):
         key = match.group(1).strip()
-        if key.lower() not in excluded_keys:
+        if key.lower() not in excluded and not key.startswith(excluded_prefixes):
             keys.add(key)
     return keys
 
 
+def extract_citations_from_file(filepath: Path) -> Set[str]:
+    """Extract citations from QMD/MD file body (excluding YAML frontmatter)."""
+    try:
+        content = filepath.read_text(encoding="utf-8")
+    except Exception:
+        return set()
+
+    if content.startswith("---"):
+        match = re.search(r"^---\n.*?\n---", content, re.DOTALL)
+        if match:
+            content = content[match.end() :]
+
+    return extract_quarto_citation_keys(content)
+
+
+# ============================================================
+# Link Extraction Helpers
+# ============================================================
 def extract_yaml_frontmatter_links(content: str) -> List[Tuple[str, int]]:
-    """
-    Extract links from YAML frontmatter in .qmd and .md files.
-    Returns list of (url, line_number) tuples.
-    """
+    """Extract links from YAML frontmatter."""
     links = []
-    # Check if content starts with YAML frontmatter delimiter
     if not content.startswith("---"):
         return links
-    
-    # Find the end of frontmatter
-    lines = content.split('\n')
+    lines = content.split("\n")
     frontmatter_end = 0
     for i, line in enumerate(lines[1:], start=1):
         if line.strip() == "---":
             frontmatter_end = i
             break
-    
     if frontmatter_end == 0:
         return links
-    
-    # Parse frontmatter for URLs
-    url_pattern = re.compile(r'^(?:\s*[-\w]+:\s*)?(https?://[^\s\'"]+|[^\s\'"]+\.(?:pdf|html|md|qmd|bib))', re.MULTILINE)
-    for i, line in enumerate(lines[:frontmatter_end + 1], start=1):
-        # Look for URL patterns in YAML values
-        # Match common YAML patterns: key: value, - list_item, etc.
-        matches = re.findall(r'(?:^|:\s|-)\s*(https?://[^\s\'"]+|[^\s\'"]+\.(?:pdf|html|md|qmd|bib))(?:\s|$)', line)
-        for match in matches:
+    url_pattern = re.compile(
+        r'(?:^|:\s|-)\s*(https?://[^\s\'"]+|[^\s\'"]+\.(?:pdf|html|md|qmd|bib))(?:\s|$)'
+    )
+    for i, line in enumerate(lines[: frontmatter_end + 1], start=1):
+        for match in re.findall(url_pattern, line):
             url = match.strip()
-            if url and not url.startswith('#'):
+            if url and not url.startswith("#"):
                 links.append((url, i))
-    
     return links
 
 
 def extract_bibtex_links(content: str) -> List[Tuple[str, int]]:
-    """
-    Extract links from BibTeX entries.
-    Looks for url, doi, eprint, and file fields.
-    Returns list of (url, line_number) tuples.
-    """
+    """Extract URLs/DOIs from BibTeX entries."""
     links = []
-    lines = content.split('\n')
-    
-    # Patterns for BibTeX fields that contain links
-    url_pattern = re.compile(r'^\s*url\s*=\s*\{?([^}\s]+)\}?\s*,?\s*$')
-    doi_pattern = re.compile(r'^\s*doi\s*=\s*\{?([^}\s]+)\}?\s*,?\s*$')
-    eprint_pattern = re.compile(r'^\s*eprint\s*=\s*\{?([^}\s]+)\}?\s*,?\s*$')
-    file_pattern = re.compile(r'^\s*file\s*=\s*\{?([^}\s]+)\}?\s*,?\s*$')
-    
+    lines = content.split("\n")
+    patterns = [
+        (re.compile(r"^\s*url\s*=\s*\{?([^}\s]+)\}?\s*,?\s*$", re.I), None),
+        (
+            re.compile(r"^\s*doi\s*=\s*\{?([^}\s]+)\}?\s*,?\s*$", re.I),
+            lambda v: f"https://doi.org/{v}" if not v.startswith("http") else v,
+        ),
+        (
+            re.compile(r"^\s*eprint\s*=\s*\{?([^}\s]+)\}?\s*,?\s*$", re.I),
+            lambda v: (
+                f'https://arxiv.org/abs/{v.replace("arXiv:", "").split()[0]}'
+                if "." in v.replace("arXiv:", "").split()[0]
+                else None
+            ),
+        ),
+    ]
     for i, line in enumerate(lines, start=1):
-        for pattern in [url_pattern, doi_pattern, eprint_pattern, file_pattern]:
+        for pattern, transformer in patterns:
             match = pattern.match(line)
             if match:
-                value = match.group(1).strip()
-                if value:
-                    # Convert DOI to URL if needed
-                    if pattern == doi_pattern and not value.startswith('http'):
-                        value = f'https://doi.org/{value}'
-                    elif pattern == eprint_pattern and not value.startswith('http'):
-                        # arXiv eprint - handle various formats:
-                        # "arXiv:1234.5678", "1234.5678", "arXiv:1234.5678 [cs.AI]"
-                        arxiv_id = value.replace('arXiv:', '').split()[0].strip()
-                        # Validate it looks like an arXiv ID (contains a dot)
-                        if '.' in arxiv_id:
-                            value = f'https://arxiv.org/abs/{arxiv_id}'
-                        # Otherwise, keep original value (might be a local path or other format)
+                value = match.group(1).strip("{} \t")
+                if transformer:
+                    transformed = transformer(value)
+                    if transformed and transformed.startswith("http"):
+                        links.append((transformed, i))
+                elif value.startswith("http"):
                     links.append((value, i))
-    
     return links
 
 
+# ============================================================
+# Uncited References Analysis
+# ============================================================
+def find_uncited_references(
+    bib_path: Path, doc_paths: List[Path], verbose: bool = False
+) -> Dict[str, List[str]]:
+    """Find entries in .bib file not cited in any of the given documents."""
+    try:
+        bib_content = bib_path.read_text(encoding="utf-8")
+    except Exception:
+        return {}
+
+    bib_entries = extract_bibtex_citation_keys(bib_content)
+    all_cited = set()
+    for doc in doc_paths:
+        if doc.exists() and doc.suffix in {".qmd", ".md"}:
+            all_cited.update(extract_citations_from_file(doc))
+
+    uncited = bib_entries - all_cited
+    categorized = {"other": []}
+
+    for key in uncited:
+        entry_pattern = re.compile(rf"@[\w]+\s*\{{\s*{re.escape(key)}\s*,", re.I)
+        entry_match = entry_pattern.search(bib_content)
+        if not entry_match:
+            categorized["other"].append(key)
+            continue
+
+        start_pos = entry_match.end()
+        snippet = bib_content[start_pos : start_pos + 800].lower()
+
+        categorized_flag = False
+        for topic, keywords in TOPIC_KEYWORDS.items():
+            if any(kw.lower() in snippet for kw in keywords):
+                categorized.setdefault(topic, []).append(key)
+                categorized_flag = True
+                break
+        if not categorized_flag:
+            categorized["other"].append(key)
+
+    if verbose:
+        print(f"\nBibliography Analysis: {bib_path.name}")
+        print(
+            f"   Total: {len(bib_entries)}, Cited: {len(bib_entries - uncited)}, Uncited: {len(uncited)}"
+        )
+        for topic, keys in sorted(categorized.items()):
+            if keys:
+                print(f"   - {topic.upper()}: {len(keys)}")
+
+    return categorized
+
+
+# ============================================================
+# Cross-Document Citation Comparison
+# ============================================================
+def compare_citations_between_files(
+    file_a: Path, file_b: Path, bib_path: Optional[Path] = None, verbose: bool = False
+) -> Dict[str, any]:
+    """Compare citation keys between two QMD/MD documents."""
+    keys_a = extract_citations_from_file(file_a) if file_a.exists() else set()
+    keys_b = extract_citations_from_file(file_b) if file_b.exists() else set()
+
+    result = {
+        "only_in_a": keys_a - keys_b,
+        "only_in_b": keys_b - keys_a,
+        "in_both": keys_a & keys_b,
+        "missing_in_bib": {},
+    }
+
+    if bib_path and bib_path.exists():
+        try:
+            bib_keys = extract_bibtex_citation_keys(
+                bib_path.read_text(encoding="utf-8")
+            )
+            for label, keys in [
+                ("only_in_a", result["only_in_a"]),
+                ("only_in_b", result["only_in_b"]),
+            ]:
+                missing = keys - bib_keys
+                if missing:
+                    result["missing_in_bib"][label] = sorted(missing)
+        except Exception:
+            pass
+
+    if verbose:
+        print(f"\nCitation Comparison: {file_a.name} vs {file_b.name}")
+        print(f"   {file_a.name}: {len(keys_a)} citations")
+        print(f"   {file_b.name}: {len(keys_b)} citations")
+        print(
+            f"   Shared: {len(result['in_both'])}, Only A: {len(result['only_in_a'])}, Only B: {len(result['only_in_b'])}"
+        )
+
+    return result
+
+
+def show_citation_context(
+    filepath: Path, target_keys: Set[str], context_lines: int = 2
+):
+    """Print lines around each target citation key in a file."""
+    if not filepath.exists():
+        return
+    try:
+        content = filepath.read_text(encoding="utf-8")
+    except Exception:
+        return
+    lines = content.splitlines()
+
+    for key in sorted(target_keys):
+        pattern = f"@{key}"
+        for i, line in enumerate(lines):
+            if pattern in line:
+                start = max(0, i - context_lines)
+                end = min(len(lines), i + context_lines + 1)
+                print(f"\n{filepath.name}:{i+1} - @{key}")
+                for j in range(start, end):
+                    marker = "->" if j == i else " "
+                    print(f"{marker} {j+1:4}: {lines[j]}")
+                break
+
+
+# ============================================================
+# Section Cross-Reference Checking
+# ============================================================
+def extract_section_definitions(content: str) -> Dict[str, Dict]:
+    """Extract section definitions: # Header {#sec-foo} (including level 1)"""
+    sections = {}
+    # Includes level 1 headers ( #{1,6} )
+    header_pattern = re.compile(
+        r"^(#{1,6})\s+(.+?)\s*\{#(sec-[a-zA-Z0-9_\-]+)\}\s*$", re.MULTILINE
+    )
+    bare_id_pattern = re.compile(r"^\{#(sec-[a-zA-Z0-9_\-]+)\}\s*$", re.MULTILINE)
+
+    lines = content.split("\n")
+    for i, line in enumerate(lines, start=1):
+        match = header_pattern.match(line)
+        if match:
+            sections[match.group(3)] = {
+                "title": match.group(2).strip(),
+                "level": len(match.group(1)),
+                "line": i,
+                "type": "header",
+            }
+            continue
+        bare_match = bare_id_pattern.match(line)
+        if bare_match:
+            sec_id = bare_match.group(1)
+            title = "Untitled Section"
+            for j in range(i - 2, max(-1, i - 10), -1):
+                prev = lines[j].strip()
+                if prev and not prev.startswith("#") and not prev.startswith("{#"):
+                    title = prev
+                    break
+            sections[sec_id] = {"title": title, "level": 0, "line": i, "type": "bare"}
+    return sections
+
+def extract_section_references(content: str) -> Dict[str, List[Dict]]:
+    refs = {}
+    lines = content.split("\n")
+
+    # Pattern 1: Quarto @sec-xxx syntax
+    pattern_at = re.compile(r"@(sec-[a-zA-Z0-9_\-]+)")
+
+    # Pattern 2: Markdown link syntax [text](#sec-xxx) or [text]( #sec-xxx )
+    pattern_md = re.compile(r"\]\(\s*#(sec-[a-zA-Z0-9_\-]+)\s*\)")
+
+    for i, line in enumerate(lines, start=1):
+        # @sec-xxx processing
+        for match in pattern_at.finditer(line):
+            if is_inside_inline_code(line, match.start()):
+                continue
+            ref_id = match.group(1)
+            ref_type = "inline" if (match.start() > 0 and line[match.start() - 1] == "[") else "citation"
+            start_ctx = max(0, match.start() - 20)
+            end_ctx = min(len(line), match.end() + 20)
+            context = line[start_ctx:end_ctx].strip()
+            refs.setdefault(ref_id, []).append(
+                {"line": i, "context": context, "type": ref_type}
+            )
+
+        # Markdown link handling
+        for match in pattern_md.finditer(line):
+            if is_inside_inline_code(line, match.start()):
+                continue
+            ref_id = match.group(1)
+            start_ctx = max(0, match.start() - 20)
+            end_ctx = min(len(line), match.end() + 20)
+            context = line[start_ctx:end_ctx].strip()
+            refs.setdefault(ref_id, []).append(
+                {"line": i, "context": context, "type": "markdown-link"}
+            )
+
+    return refs
+
+def check_all_section_references(
+    target_dir: str, verbose: bool = False
+) -> Dict[str, any]:
+    """Check section reference consistency across all QMD/MD files."""
+    root = Path(target_dir).resolve()
+    if not root.exists():
+        print(f"ERROR: {root} does not exist")
+        return {}
+
+    if verbose:
+        print(f"Checking section cross-references in {root}...")
+        print("-" * 60)
+
+    global_definitions: Dict[str, Dict] = {}
+    global_references: Dict[str, List] = {}
+
+    for file_path in root.rglob("*.qmd"):
+        if any(part in IGNORED_DIRS for part in file_path.relative_to(root).parts):
+            continue
+        if file_path.name in IGNORE_FILES:
+            continue
+
+        try:
+            original_content = file_path.read_text(encoding="utf-8")
+        except Exception:
+            continue
+
+        # Find the frontmatter end line
+        frontmatter_end_line = 0
+        if original_content.startswith("---"):
+            lines = original_content.split("\n")
+            for idx, line in enumerate(lines[1:], start=2):
+                if line.strip() == "---":
+                    frontmatter_end_line = idx
+                    break
+
+        # Extract definitions (use full original)
+        defined = extract_section_definitions(original_content)
+        # Reference extraction (use full original)
+        referenced = extract_section_references(original_content)
+
+        # Remove internal references to Frontmatter
+        referenced_filtered = {}
+        for sec_id, usages in referenced.items():
+            filtered = [u for u in usages if u["line"] > frontmatter_end_line]
+            if filtered:
+                referenced_filtered[sec_id] = filtered
+
+        # Add to global map
+        for sec_id, meta in defined.items():
+            if sec_id not in global_definitions:
+                global_definitions[sec_id] = {**meta, "source_file": file_path}
+
+        for sec_id, usages in referenced_filtered.items():
+            for usage in usages:
+                global_references.setdefault(sec_id, []).append(
+                    {**usage, "source_file": file_path}
+                )
+
+    defined_ids = set(global_definitions.keys())
+    referenced_ids = set(global_references.keys())
+    unused = sorted(defined_ids - referenced_ids)
+    broken = sorted(referenced_ids - defined_ids)
+
+    print(f"\nSection Reference Summary:")
+    print(f"   Total defined sections: {len(defined_ids)}")
+    print(f"   Total referenced sections: {len(referenced_ids)}")
+    print(f"   Unused definitions: {len(unused)}")
+    print(f"   Broken references: {len(broken)}")
+
+    if unused and verbose:
+        print(f"\nUnused Section Definitions:")
+        for sec_id in unused:
+            meta = global_definitions[sec_id]
+            rel_file = meta["source_file"].relative_to(root)
+            print(f"   - {sec_id} in {rel_file}:{meta['line']} (\"{meta['title']}\")")
+    elif unused and not verbose:
+        # Only partially visible in non-detailed mode
+        print(f"\nUnused Section Definitions (first 10):")
+        for sec_id in unused[:10]:
+            meta = global_definitions[sec_id]
+            rel_file = meta["source_file"].relative_to(root)
+            print(f"   - {sec_id} in {rel_file}:{meta['line']}")
+        if len(unused) > 10:
+            print(f"   ... and {len(unused) - 10} more")
+
+    if broken and verbose:
+        print(f"\nBroken Section References:")
+        for sec_id in broken:
+            usage = global_references[sec_id][0]
+            rel_file = usage["source_file"].relative_to(root)
+            print(f"   - {sec_id} in {rel_file}:{usage['line']} ({usage['context']})")
+    elif broken and not verbose:
+        print(f"\nBroken Section References (first 10):")
+        for sec_id in broken[:10]:
+            usage = global_references[sec_id][0]
+            rel_file = usage["source_file"].relative_to(root)
+            print(f"   - {sec_id} in {rel_file}:{usage['line']}")
+        if len(broken) > 10:
+            print(f"   ... and {len(broken) - 10} more")
+
+    return {
+        "unused": unused,
+        "broken": broken,
+        "definitions": global_definitions,
+        "references": global_references,
+    }
+
+def _comment_out_section_id(file_path: Path, sec_id: str, target_line: int):
+    """Convert: ## Title {#sec-foo} -> ## Title <!--{#sec-foo} -->"""
+    try:
+        content = file_path.read_text(encoding="utf-8")
+        lines = content.split("\n")
+        if 0 < target_line <= len(lines):
+            line_idx = target_line - 1
+            modified = re.sub(
+                r"\{#(" + re.escape(sec_id) + r")\}",
+                r"<!-- {\#\1} -->",
+                lines[line_idx],
+            )
+            if modified != lines[line_idx]:
+                lines[line_idx] = modified
+                file_path.write_text("\n".join(lines), encoding="utf-8")
+    except Exception as e:
+        print(f"Warning: Could not modify {file_path}: {e}")
+
+
+# ============================================================
+# Link Normalization & Validation
+# ============================================================
 def get_std_base(name: str) -> str:
-    """
-    Standardize file names (snake_case, preserve Korean, maintain _ prefix)
-    """
     base = os.path.splitext(name)[0]
     if base.upper() == "README":
         return "README"
@@ -173,24 +621,19 @@ def get_std_base(name: str) -> str:
     new = actual.lower().replace(" ", "_").replace("-", "_")
     new = re.sub(r"[^a-z0-9_\u1100-\u11FF\uAC00-\uD7AF]", "", new)
     new = re.sub(r"_+", "_", new).strip("_")
-    return prefix + new
+    return prefix + new if prefix else new
 
 
 def build_global_inventory(root_path: Path) -> Dict[str, Path]:
-    """
-    Build a full document inventory (normalized key -> relative path relative to root)
-    """
     inventory = {}
     for ext in (".md", ".qmd"):
         for file_path in root_path.rglob(f"*{ext}"):
-            # Skip excluded directories
             if any(
                 part in IGNORED_DIRS for part in file_path.relative_to(root_path).parts
             ):
                 continue
             key = get_std_base(file_path.name)
             rel = file_path.relative_to(root_path)
-            # Duplicate key processing (add parent folder name)
             if key in inventory:
                 parent = file_path.parent.name
                 key = f"{parent}_{key}"
@@ -198,424 +641,267 @@ def build_global_inventory(root_path: Path) -> Dict[str, Path]:
     return inventory
 
 
-def is_likely_shortcode(content: str, match_start: int) -> bool:
-    """Check whether there is a Quarto shortcode or include pattern before the match position"""
-    start = max(0, match_start - 30)
-    before = content[start:match_start]
-    # {{< ... >}} or {% include ... %} or raw include pattern
-    if re.search(r"{{<.*?>|{%\s*include|<\s*include", before):
-        return True
-    return False
-
-
 def is_inside_inline_code(content: str, match_start: int) -> bool:
-    """
-    Check if a position is inside inline code (single backticks).
-    Returns True if the match is within backticks.
-    """
-    # Count backticks before the match position
     before = content[:match_start]
-    # Find all backtick positions
-    backtick_positions = [i for i, c in enumerate(before) if c == '`']
-    # If odd number of backticks before, we're inside inline code
-    return len(backtick_positions) % 2 == 1
+    backticks = [i for i, c in enumerate(before) if c == "`"]
+    return len(backticks) % 2 == 1
 
 
 def normalize_link_to_absolute(
     link: str, source_file: Path, root: Path, inventory: Dict[str, Path]
 ) -> Optional[str]:
-    """
-    Convert links to absolute paths (starting with /) (if referencing source files)
-    External links, anchors, emails, etc. are not converted.
-    """
-    # If it is already an absolute path or an external link, it is returned as is.
-    if link.startswith(("http://", "https://", "mailto:", "tel:", "#", "/", "data:")):
+    if link.startswith(
+        ("http://", "https://", "mailto:", "tel:", "#", "/", "data:", "ftp://")
+    ):
         return None
-
-    # Anchor/Query Separation
-    anchor = ""
+    anchor = query = ""
     if "#" in link:
         link, anchor = link.split("#", 1)
         anchor = "#" + anchor
-    query = ""
     if "?" in link:
         link, query = link.split("?", 1)
         query = "?" + query
-
     p = Path(link)
-    stem = p.stem
-    if not stem:
+    if not p.stem or p.stem not in inventory:
         return None
-
-    # Make sure it's in your inventory
-    if stem not in inventory:
-        return None
-
-    target_rel = inventory[stem]
-    # Create absolute path relative to root (always starts with /)
+    target_rel = inventory[p.stem]
     abs_path = "/" + str(target_rel).replace("\\", "/")
-    # Determine the extension: .html if the original link is .html, otherwise the actual extension.
     orig_ext = p.suffix.lower()
     if orig_ext == ".html":
         abs_path = Path(abs_path).with_suffix(".html")
     else:
         abs_path = Path(abs_path).with_suffix(target_rel.suffix)
-    abs_path = str(abs_path).replace("\\", "/")
-    return abs_path + query + anchor
+    return str(abs_path).replace("\\", "/") + query + anchor
 
 
-# ============================================================
-# Sync function
-# ============================================================
 def sync_all_links(target_dir: str):
     root = Path(target_dir).resolve()
     if not root.exists():
         print(f"ERROR: {root} does not exist")
         return
-
-    print(f"> Building inventory from {root} ...")
+    print(f"Building inventory from {root} ...")
     inventory = build_global_inventory(root)
-    print(f"> Indexed {len(inventory)} documents")
+    print(f"Indexed {len(inventory)} documents")
     print("-" * 60)
-
-    # Regular expression to find an entire Markdown link: [text](url)
     md_link_pattern = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
     total_fixed = 0
     processed = 0
-
     for file_path in root.rglob("*"):
         if file_path.suffix not in VALID_EXTENSIONS:
             continue
         if any(part in IGNORED_DIRS for part in file_path.relative_to(root).parts):
             continue
-
         try:
             content = file_path.read_text(encoding="utf-8")
         except Exception as e:
-            print(f"> Cannot read {file_path}: {e}")
+            print(f"Cannot read {file_path}: {e}")
             continue
-
         processed += 1
         new_content = content
-        offset = 0  # Cumulative position correction
-
+        offset = 0
         for match in md_link_pattern.finditer(content):
-            full_link = match.group(0)  # [text](url)
-            url = match.group(2)  # url part
+            url = match.group(2)
             start, end = match.span()
-
-            # Never modify URLs (http, https, etc.)
             if url.startswith(
-                ("http://", "https://", "mailto:", "tel:", "#", "ftp://", "file://")
+                ("http://", "https://", "mailto:", "tel:", "#", "ftp://", "file://", "")
             ):
                 continue
-
-            # Link replacement based on inventory (local files only)
             new_url = normalize_link_to_absolute(url, file_path, root, inventory)
             if new_url and new_url != url:
-                # Create new link
                 text = match.group(1)
                 new_full = f"[{text}]({new_url})"
-                # Replace content (consider offset)
                 new_content = (
                     new_content[: start + offset]
                     + new_full
                     + new_content[end + offset :]
                 )
-                offset += len(new_full) - len(full_link)
+                offset += len(new_full) - len(match.group(0))
                 total_fixed += 1
-
         if new_content != content:
             file_path.write_text(new_content, encoding="utf-8")
-            rel = file_path.relative_to(root)
-            print(f"> Fixed: {rel}")
-
+            print(f"Fixed: {file_path.relative_to(root)}")
     print("-" * 60)
-    print(f"> Processed {processed} files, fixed {total_fixed} links.")
+    print(f"Processed {processed} files, fixed {total_fixed} links.")
 
 
-# ============================================================
-# Validation function with Quarto awareness
-# ============================================================
 def should_ignore_url(url: str) -> bool:
-    for pattern in IGNORE_URL_PATTERNS:
-        if fnmatch.fnmatch(url, pattern):
-            return True
-    return False
+    return any(fnmatch.fnmatch(url, pattern) for pattern in IGNORE_URL_PATTERNS)
+
 
 def is_valid_quarto_link(link_path: str, source_file: Path, root: Path) -> bool:
-    """
-    Return True if `link_path` will exist after Quarto rendering.
-    Rules:
-      - .html links: valid if corresponding .qmd/.md/.bib exists.
-      - directory/ links: valid if directory contains index.qmd/index.md.
-      - bare names (no extension, no trailing slash): valid only if a .qmd/.md/.bib
-        file of that exact name exists (otherwise broken).
-      - .bib links: valid if the .bib file exists.
-    """
-    # List of possible source subdirectories (e.g., 'docs', 'content')
-    source_subdirs = ['', 'docs', 'src', 'content']
+    source_subdirs = ["", "docs", "src", "content"]
 
     def check_exact_file(base: Path) -> bool:
-        """Check if base.qmd, base.md, or base.bib exists."""
-        return (base.with_suffix('.qmd').exists() or
-                base.with_suffix('.md').exists() or
-                base.with_suffix('.bib').exists())
+        return (
+            base.with_suffix(".qmd").exists()
+            or base.with_suffix(".md").exists()
+            or base.with_suffix(".bib").exists()
+        )
 
     def check_directory_index(dir_path: Path) -> bool:
-        """Check if dir_path/index.qmd or index.md exists."""
-        return ((dir_path / 'index.qmd').exists() or 
-                (dir_path / 'index.md').exists())
+        return (dir_path / "index.qmd").exists() or (dir_path / "index.md").exists()
 
-    # Normalize the link (remove fragment/query)
-    clean = link_path.split('#')[0].split('?')[0]
-
-    # Determine if the link ends with .html or a trailing slash
-    is_html = clean.endswith('.html')
-    is_dir_slash = clean.endswith('/')
-    
-    # Check if link has a known source extension
-    known_extensions = {'.qmd', '.md', '.bib'}
-    has_known_ext = any(clean.endswith(ext) for ext in known_extensions)
-
-    # Handle absolute paths that start with /docs/ (common repo-root pattern)
-    if clean.startswith('/docs/'):
-        # Try stripping the /docs/ prefix for docs-rooted validation
-        # Use string slicing instead of lstrip to avoid character stripping
-        alt_clean = clean[6:]  # len('/docs/') == 6
-        return is_valid_quarto_link(alt_clean, source_file, root)
-    
-    # For each possible source base directory
+    clean = link_path.split("#")[0].split("?")[0]
+    is_html = clean.endswith(".html")
+    is_dir_slash = clean.endswith("/")
+    known_ext = any(clean.endswith(ext) for ext in {".qmd", ".md", ".bib"})
+    if clean.startswith("/docs/"):
+        return is_valid_quarto_link(clean[6:], source_file, root)
     for sub in source_subdirs:
-        if clean.startswith('/'):
-            target = root / sub / clean.lstrip('/')
+        if clean.startswith("/"):
+            target = root / sub / clean.lstrip("/")
         else:
-            # Relative link: resolve from source file's parent
             target = (source_file.parent / clean).resolve()
             if not str(target).startswith(str(root)):
                 continue
-
         if is_html:
-            # .html link: look for .qmd/.md/.bib with same name
-            if check_exact_file(target.with_suffix('')):
+            if check_exact_file(target.with_suffix("")):
                 return True
         elif is_dir_slash:
-            # Directory link (ends with /): look for index file inside
             if check_directory_index(target):
                 return True
-        elif has_known_ext:
-            # Link with known extension: check if file exists directly
+        elif known_ext:
             if target.exists():
                 return True
         else:
-            # Bare name (no .html, no trailing slash): exact .qmd/.md/.bib required
             if check_exact_file(target):
                 return True
-            # Also try under source subdirectories for absolute links
             for alt_sub in source_subdirs:
                 if alt_sub == sub:
                     continue
-                alt_target = root / alt_sub / clean.lstrip('/')
-                if check_exact_file(alt_target):
+                if check_exact_file(root / alt_sub / clean.lstrip("/")):
                     return True
-
     return False
+
 
 def validate_all_links(target_dir: str, verbose: bool = False, max_workers: int = 8):
     root = Path(target_dir).resolve()
     if not root.exists():
         print(f"ERROR: {root} does not exist")
         return
-
-    print(f" Validating links in {root} using {max_workers} threads...")
-    print(f"   (ignoring {len(IGNORE_URL_PATTERNS)} URL patterns)")
+    print(f"Validating links in {root} using {max_workers} threads...")
+    print(f"  (ignoring {len(IGNORE_URL_PATTERNS)} URL patterns)")
     print("-" * 60)
-
     md_link_pattern = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
-    html_link_pattern = re.compile(r'(?:href|src)=["\']([^"\']+)["\']', re.IGNORECASE)
-
-    # List of files to check
-    files_to_check = []
-    for file_path in root.rglob("*"):
-        if file_path.suffix not in VALID_EXTENSIONS:
-            continue
-        if any(part in IGNORED_DIRS for part in file_path.relative_to(root).parts):
-            continue
-        if file_path.name in IGNORE_FILES:
-            continue
-        files_to_check.append(file_path)
-
+    html_link_pattern = re.compile(r'(?:href|src)=["\']([^"\']+)["\']', re.I)
+    files_to_check = [
+        fp
+        for fp in root.rglob("*")
+        if fp.suffix in VALID_EXTENSIONS
+        and not any(p in IGNORED_DIRS for p in fp.relative_to(root).parts)
+        and fp.name not in IGNORE_FILES
+    ]
     total_files = len(files_to_check)
-    broken_local = []
-    broken_remote = []
-    checked_links = 0
-    processed_files = 0
+    broken_local, broken_remote = [], []
+    checked_links = processed_files = 0
     start_time = time.time()
     data_lock = Lock()
     print_lock = Lock()
     session = requests.Session()
     session.headers.update({"User-Agent": "SSCCS-LinkChecker/1.0"})
-
     running = True
 
     def status_reporter():
         while running:
             time.sleep(1.0)
             with data_lock:
-                files_done = processed_files
-                links_done = checked_links
+                fd, ld = processed_files, checked_links
             elapsed = time.time() - start_time
             with print_lock:
                 print(
-                    f"\r Files: {files_done}/{total_files} | Links: {links_done} | Time: {elapsed:.1f}s",
+                    f"\r Files: {fd}/{total_files} | Links: {ld} | Time: {elapsed:.1f}s",
                     end="",
                     flush=True,
                 )
 
-    reporter_thread = threading.Thread(target=status_reporter, daemon=True)
-    reporter_thread.start()
+    threading.Thread(target=status_reporter, daemon=True).start()
 
     def process_file(file_path: Path):
         nonlocal processed_files, checked_links
-        file_broken_local = []
-        file_broken_remote = []
-        file_links_checked = 0
-
+        file_broken_local, file_broken_remote = [], []
         try:
             content = file_path.read_text(encoding="utf-8")
         except Exception:
             with data_lock:
                 processed_files += 1
-            return file_broken_local, file_broken_remote
-
+            return [], []
         links = set()
         for match in md_link_pattern.finditer(content):
-            # Skip links inside inline code (backticks)
             if is_inside_inline_code(content, match.start()):
                 continue
-            url = match.group(2)
-            line = content.count('\n', 0, match.start()) + 1
-            links.add((url, line))
+            links.add((match.group(2), content.count("\n", 0, match.start()) + 1))
         for match in html_link_pattern.finditer(content):
-            # Skip links inside inline code (backticks)
             if is_inside_inline_code(content, match.start()):
                 continue
-            url = match.group(1)
-            line = content.count('\n', 0, match.start()) + 1
-            links.add((url, line))
-        
-        # Extract links from YAML frontmatter for .qmd and .md files
+            links.add((match.group(1), content.count("\n", 0, match.start()) + 1))
         if file_path.suffix in {".qmd", ".md"}:
-            frontmatter_links = extract_yaml_frontmatter_links(content)
-            links.update(frontmatter_links)
-        
-        # Extract links from BibTeX files
+            links.update(extract_yaml_frontmatter_links(content))
         if file_path.suffix == ".bib":
-            bibtex_links = extract_bibtex_links(content)
-            links.update(bibtex_links)
-
+            links.update(extract_bibtex_links(content))
         for url, line in links:
-            if not url or url.startswith(("#", "mailto:", "tel:", "data:")):
+            if (
+                not url
+                or url.startswith(("#", "mailto:", "tel:", ""))
+                or should_ignore_url(url)
+                or "{" in url
+                or "[" in url
+            ):
                 continue
-            if should_ignore_url(url):
-                continue
-
-            # Skip malformed template literals
-            if "{" in url or "[" in url:
-                continue
-
-            file_links_checked += 1
+            checked_links += 1
             clean_url = url.split("#")[0].split("?")[0]
             parsed = urlparse(url)
-
             if parsed.scheme in ("http", "https"):
                 try:
                     resp = session.head(url, timeout=10, allow_redirects=True)
-                    # For 400+ responses, perform a GET to check if body contains valid content
                     if resp.status_code >= 400:
                         try:
-                            get_resp = session.get(url, timeout=10, allow_redirects=True, stream=True)
-                            # Read first byte to check if server returns actual content
+                            get_resp = session.get(
+                                url, timeout=10, allow_redirects=True, stream=True
+                            )
                             first_bytes = next(get_resp.iter_content(1024))
-                            if first_bytes:
-                                # Check if it's binary content (PDF, etc.) - valid response
-                                # PDF starts with %PDF, binary files have high-byte content
-                                if first_bytes.startswith(b'%PDF') or first_bytes[0:2] in (b'PK', b'\x89H'):
-                                    # Valid binary content, not broken
-                                    continue
-                                # Check if it's an HTML error page
-                                try:
-                                    content = first_bytes.decode('utf-8', errors='ignore')
-                                    error_patterns = [
-                                        r'404\s+not\s+found',
-                                        r'page\s+not\s+found',
-                                        r'error\s+400',
-                                        r'error\s+404',
-                                        r'file\s+not\s+found',
-                                        r"doesn't\s+exist",
-                                        r'not\s+found',
-                                        r'access\s+denied',
-                                        r'forbidden',
-                                    ]
-                                    if not any(re.search(pattern, content, re.IGNORECASE) for pattern in error_patterns):
-                                        # Content exists and doesn't look like an error page
-                                        continue
-                                except Exception:
-                                    pass
-                            # If we get here, treat as broken
+                            if first_bytes and (
+                                first_bytes.startswith(b"%PDF")
+                                or first_bytes[0:2] in (b"PK", b"\x89H")
+                            ):
+                                continue
+                            content_check = first_bytes.decode("utf-8", errors="ignore")
+                            if not any(
+                                re.search(p, content_check, re.I)
+                                for p in [
+                                    r"404\s+not\s+found",
+                                    r"page\s+not\s+found",
+                                    r"error\s+404",
+                                    r"file\s+not\s+found",
+                                ]
+                            ):
+                                continue
                             file_broken_remote.append(
-                                (file_path.relative_to(root), url, f"{resp.status_code} (body check failed)", line)
-                            )
-                        except Exception:
-                            file_broken_remote.append(
-                                (file_path.relative_to(root), url, f"{resp.status_code} (GET failed)", line)
-                            )
-                    elif resp.status_code == 200:
-                        # Heuristic: check if the page might be an error page
-                        # Some servers return 200 for custom 404 pages
-                        # Perform a GET request limited to first 1KB
-                        try:
-                            get_resp = session.get(url, timeout=10, allow_redirects=True, stream=True)
-                            get_resp.raise_for_status()
-                            # Read first 1024 bytes
-                            content = next(get_resp.iter_content(1024)).decode('utf-8', errors='ignore')
-                            error_patterns = [
-                                r'404\s+not\s+found',
-                                r'page\s+not\s+found',
-                                r'error\s+404',
-                                r'file\s+not\s+found',
-                                r"doesn't\s+exist",
-                                r'not\s+found',
-                            ]
-                            if any(re.search(pattern, content, re.IGNORECASE) for pattern in error_patterns):
-                                file_broken_remote.append(
-                                    (file_path.relative_to(root), url, "Soft 404", line)
+                                (
+                                    file_path.relative_to(root),
+                                    url,
+                                    f"{resp.status_code} (body check)",
+                                    line,
                                 )
-                        except Exception:
-                            # If GET fails, treat as broken
-                            file_broken_remote.append(
-                                (file_path.relative_to(root), url, "GET failed", line)
                             )
-                except Exception:
+                        except:
+                            file_broken_remote.append(
+                                (
+                                    file_path.relative_to(root),
+                                    url,
+                                    f"{resp.status_code} (GET failed)",
+                                    line,
+                                )
+                            )
+                except:
                     file_broken_remote.append(
                         (file_path.relative_to(root), url, "Connection Error", line)
                     )
-            elif clean_url:
-                if not is_valid_quarto_link(clean_url, file_path, root):
-                    file_broken_local.append(
-                        (file_path.relative_to(root), url, "Not Found", line)
-                    )
-
+            elif clean_url and not is_valid_quarto_link(clean_url, file_path, root):
+                file_broken_local.append(
+                    (file_path.relative_to(root), url, "Not Found", line)
+                )
         with data_lock:
             processed_files += 1
-            checked_links += file_links_checked
-
-        if verbose:
-            with print_lock:
-                print(
-                    f"\n Processed: {file_path.relative_to(root)} ({file_links_checked} links)"
-                )
-
         return file_broken_local, file_broken_remote
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -626,11 +912,8 @@ def validate_all_links(target_dir: str, verbose: bool = False, max_workers: int 
             broken_remote.extend(remote)
 
     running = False
-    reporter_thread.join(timeout=2.0)
     print()
     print("-" * 60)
-
-    # Report broken links
     if broken_local or broken_remote:
         print("\n" + "=" * 60)
         print(" BROKEN LINKS FOUND")
@@ -645,234 +928,308 @@ def validate_all_links(target_dir: str, verbose: bool = False, max_workers: int 
                 print(f"  {rel_path}:{line}: {url} ({reason})")
     else:
         print("\nAll links are valid.")
-
     elapsed = time.time() - start_time
-    print(f"\nValidation finished. Checked {checked_links} links, found {len(broken_local)+len(broken_remote)} broken in {elapsed:.1f}s.")
+    print(
+        f"\nValidation finished. Checked {checked_links} links, found {len(broken_local)+len(broken_remote)} broken in {elapsed:.1f}s."
+    )
 
 
 # ============================================================
-# Citation consistency check
+# Citation Consistency Check
 # ============================================================
-def check_citation_consistency(target_dir: str, cleanup: bool = False):
-    """
-    Check citation consistency between .qmd/.md files and their associated .bib files.
-    Reports:
-    - Citations in .qmd/.md that are not in the associated .bib file
-    - Entries in .bib files that are not cited in ANY referencing .qmd/.md file
-    
-    For each .bib file, only checks against .qmd/.md files that explicitly reference it.
-    For uncited entries, shows which specific documents DO cite each key.
-    """
+def check_citation_consistency(target_dir: str, cleanup: bool = False, verbose: bool = False):
     root = Path(target_dir).resolve()
     if not root.exists():
         print(f"ERROR: {root} does not exist")
         return
-    
-    print(f" Checking citation consistency in {root}...")
-    print("-" * 60)
-    
-    # Find all .bib files
-    bib_files = {}
+
+    if verbose:
+        print(f"Checking citation consistency in {root}...")
+        print("-" * 60)
+
+    bib_files: Dict[Path, Set[str]] = {}
     for bib_path in root.rglob("*.bib"):
         if any(part in IGNORED_DIRS for part in bib_path.relative_to(root).parts):
             continue
-        bib_files[bib_path] = extract_bibtex_citation_keys(bib_path.read_text(encoding="utf-8"))
-    
-    # Track which documents reference each bib file, and what keys they cite
-    # bib_path -> {doc_path -> set of cited keys}
-    bib_to_docs: Dict[Path, Dict[Path, set]] = {bib: {} for bib in bib_files}
-    
-    # Track citations not found in bibliography
+        try:
+            bib_files[bib_path] = extract_bibtex_citation_keys(
+                bib_path.read_text(encoding="utf-8")
+            )
+        except Exception:
+            continue
+
+    bib_to_docs: Dict[Path, Dict[Path, Set[str]]] = {bib: {} for bib in bib_files}
     citation_issues = []
-    
+
+    # Process each .qmd/.md file
     for file_path in root.rglob("*"):
         if file_path.suffix not in {".qmd", ".md"}:
             continue
-        if any(part in IGNORED_DIRS for part in file_path.relative_to(root).parts):
+        if (
+            any(part in IGNORED_DIRS for part in file_path.relative_to(root).parts)
+            or file_path.name in IGNORE_FILES
+        ):
             continue
-        if file_path.name in IGNORE_FILES:
+
+        bib_refs = get_bibliography_files(file_path, root)  # Use cached version
+        if not bib_refs:
             continue
-        
-        content = file_path.read_text(encoding="utf-8")
-        
-        # Check for bibliography in frontmatter
-        bib_match = re.search(r'^---\n.*?bibliography:\s*(.+?)\s*$', content, re.MULTILINE | re.DOTALL)
-        if not bib_match:
-            continue
-        
-        bib_refs = bib_match.group(1).strip()
-        # Handle multiple bibliographies (YAML list or comma-separated)
-        bib_paths = []
-        if bib_refs.startswith('['):
-            # YAML list format
-            for item in re.findall(r'-\s*(.+?)(?:\n|$)', bib_refs):
-                bib_paths.append(item.strip())
-        else:
-            # Single file or comma-separated
-            for item in bib_refs.split(','):
-                bib_paths.append(item.strip())
-        
-        # Get all cited keys in this document
-        cited_keys_in_doc = extract_quarto_citation_keys(content)
-        
-        # Process each referenced bib file
-        for bib_ref in bib_paths:
-            bib_path = (file_path.parent / bib_ref).resolve()
+
+        cited_keys = extract_citations_from_file(file_path)
+        for bib_path in bib_refs:
             if bib_path not in bib_files:
                 continue
-            
-            # Register this document as referencing the bib file
-            bib_to_docs[bib_path][file_path] = cited_keys_in_doc.copy()
-            
-            # Check for citations not in bib file
-            available_keys = bib_files[bib_path]
-            missing = cited_keys_in_doc - available_keys
+            bib_to_docs[bib_path][file_path] = cited_keys.copy()
+            missing = cited_keys - bib_files[bib_path]
             for key in missing:
-                citation_issues.append((file_path.relative_to(root), bib_path.relative_to(root), key))
-    
-    # Now compute uncited entries for each bib file
-    # Only report if NO keys are cited at all (completely unused bib)
-    completely_uncited = {}  # bib_path -> set of uncited keys
-    
+                citation_issues.append(
+                    (file_path.relative_to(root), bib_path.relative_to(root), key)
+                )
+
+    completely_uncited = {}
     for bib_path, docs in bib_to_docs.items():
         if not docs:
-            continue  # No documents reference this bib file
-        
-        available_keys = bib_files[bib_path]
-        
-        # For each key in the bib, find which documents cite it
-        key_to_citing_docs: Dict[str, set] = {key: set() for key in available_keys}
+            continue
+        key_to_citing_docs = {key: set() for key in bib_files[bib_path]}
         for doc_path, cited_keys in docs.items():
             for key in cited_keys:
                 if key in key_to_citing_docs:
                     key_to_citing_docs[key].add(doc_path)
-        
-        # Find uncited keys (no document cites them)
-        uncited_keys = {key for key, citing_docs in key_to_citing_docs.items() if not citing_docs}
-        
-        # Check if ANY key is cited
-        any_cited = any(citing_docs for citing_docs in key_to_citing_docs.values())
-        
-        if uncited_keys and not any_cited:
-            # No keys are cited at all - error
-            completely_uncited[bib_path] = uncited_keys
-        # If some keys are cited, do NOT report uncited keys (this is normal)
-    
-    # Perform cleanup if requested
+        uncited = {k for k, v in key_to_citing_docs.items() if not v}
+        if uncited and not any(key_to_citing_docs.values()):
+            completely_uncited[bib_path] = uncited
+
     if cleanup and completely_uncited:
         print("\n" + "=" * 60)
         print(" CLEANUP PHASE")
         print("=" * 60)
-        
         for bib_path, keys in list(completely_uncited.items()):
             rel_bib = bib_path.relative_to(root)
-            referencing_docs = bib_to_docs.get(bib_path, {})
-            
-            if len(referencing_docs) == 1:
-                doc_path = list(referencing_docs.keys())[0]
-                print(f"\n🧹 Cleaning {rel_bib} (no citations from: {doc_path.relative_to(root)})")
+            docs = bib_to_docs.get(bib_path, {})
+            if len(docs) == 1:
+                print(
+                    f"\nCleaning {rel_bib} (no citations from: {list(docs.keys())[0].relative_to(root)})"
+                )
                 _remove_bib_entries(bib_path, keys)
-                print(f"  Removed {len(keys)} uncited entries from {rel_bib}")
-        
+                print(f"  Removed {len(keys)} uncited entries")
         print("\nCleanup complete. Re-run validation to verify.")
-    
-    # Report issues
+
     has_issues = citation_issues or completely_uncited
-    
-    if has_issues and not cleanup:
+    if has_issues:
         print("\n" + "=" * 60)
         print(" CITATION CONSISTENCY ISSUES FOUND")
         print("=" * 60)
-        
         if citation_issues:
-            print(f"\n📄 Citations not found in bibliography ({len(citation_issues)}):")
+            print(f"\nCitations not in bibliography ({len(citation_issues)}):")
             for doc_path, bib_path, key in sorted(citation_issues):
                 print(f"  {doc_path}: @{key} (not in {bib_path})")
-        
         if completely_uncited:
-            total_uncited = sum(len(keys) for keys in completely_uncited.values())
-            print(f"\n📚 Bibliography entries not cited ({total_uncited}):")
+            total = sum(len(v) for v in completely_uncited.values())
+            print(f"\nCompletely uncited bibliography entries ({total}):")
             for bib_path, keys in sorted(completely_uncited.items()):
-                rel_bib = bib_path.relative_to(root)
-                referencing_docs = bib_to_docs.get(bib_path, {})
-                print(f"  {rel_bib}: {len(keys)} uncited entries (referenced by {len(referencing_docs)} document(s))")
-                sample = sorted(keys)[:5]
-                for key in sample:
-                    print(f"    - @{key}")
-                if len(keys) > 5:
-                    print(f"    ... and {len(keys) - 5} more")
-    
-    if not has_issues:
+                rel = bib_path.relative_to(root)
+                docs = bib_to_docs.get(bib_path, {})
+                print(
+                    f"  {rel}: {len(keys)} uncited (referenced by {len(docs)} doc(s))"
+                )
+                if verbose:
+                    for key in sorted(keys):
+                        print(f"    - @{key}")
+                else:
+                    for key in sorted(keys)[:5]:
+                        print(f"    - @{key}")
+                    if len(keys) > 5:
+                        print(f"    ... and {len(keys) - 5} more")
+    else:
         print("\nAll citations are consistent.")
-    
     print(f"\nChecked {len(bib_files)} bibliography files.")
 
-
-def _remove_bib_entries(bib_path: Path, keys_to_remove: set):
-    """Helper function to remove BibTeX entries by key."""
-    content = bib_path.read_text(encoding="utf-8")
-    lines = content.split('\n')
-    new_lines = []
-    skip_entry = False
-    brace_count = 0
-    
+def _remove_bib_entries(bib_path: Path, keys_to_remove: Set[str]):
+    try:
+        content = bib_path.read_text(encoding="utf-8")
+    except Exception:
+        return
+    lines = content.split("\n")
+    new_lines, skip_entry, brace_count = [], False, 0
     for line in lines:
-        entry_match = re.match(r'@\w+\s*\{\s*([^,\s]+)\s*,', line, re.IGNORECASE)
+        entry_match = re.match(r"@\w+\s*\{\s*([^,\s]+)\s*,", line, re.I)
         if entry_match:
-            current_entry_key = entry_match.group(1).strip()
-            if current_entry_key in keys_to_remove:
+            current_key = entry_match.group(1).strip()
+            if current_key in keys_to_remove:
                 skip_entry = True
-                brace_count = line.count('{') - line.count('}')
+                brace_count = line.count("{") - line.count("}")
             else:
                 skip_entry = False
-        
         if skip_entry:
-            brace_count += line.count('{') - line.count('}')
+            brace_count += line.count("{") - line.count("}")
             if brace_count <= 0:
                 skip_entry = False
         else:
             new_lines.append(line)
-    
-    bib_path.write_text('\n'.join(new_lines), encoding="utf-8")
+    bib_path.write_text("\n".join(new_lines), encoding="utf-8")
 
 
 # ============================================================
-# Main CLI
+# CLI Entry Point
 # ============================================================
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="SSCCS Link Manager")
+    parser = argparse.ArgumentParser(description="SSCCS Quarto Docs Checker")
+    parser.add_argument("--fix-only", action="store_true", help="Only fix links")
     parser.add_argument(
-        "--fix-only", action="store_true", help="Only fix links (skip validation)"
+        "--validate-only", action="store_true", help="Only validate links + citations"
+    )
+    parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
+    parser.add_argument(
+        "--cleanup-uncited",
+        action="store_true",
+        help="Auto-remove completely uncited .bib entries",
     )
     parser.add_argument(
-        "--validate-only", action="store_true", help="Only validate links (includes citation check)"
+        "--check-uncited",
+        action="store_true",
+        help="Find uncited .bib entries with topic categorization",
     )
     parser.add_argument(
-        "--verbose", "-v", action="store_true", help="Show detailed validation progress"
+        "--compare-citations",
+        nargs=2,
+        metavar=("FILE_A", "FILE_B"),
+        help="Compare citations between two files",
     )
     parser.add_argument(
-        "--cleanup-uncited", action="store_true", help="Automatically remove uncited entries from .bib files referenced by only 1 document"
+        "--show-context",
+        action="store_true",
+        help="Show context lines for missing citations",
     )
     parser.add_argument(
-        "--dir", "-d", default="./", help="Target directory (default: ./)"
+        "--check-section-refs",
+        action="store_true",
+        help="Check unused/broken section cross-references",
     )
+    parser.add_argument(
+        "--fix-section-refs",
+        action="store_true",
+        help="Comment out unused section definitions",
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Preview changes without modifying files"
+    )
+    parser.add_argument("--all", action="store_true", help="Run ALL checks")
+    parser.add_argument("--dir", "-d", default="./", help="Target directory")
+    parser.add_argument("--bib", type=str, help="Specific .bib file path")
     args = parser.parse_args()
+
+    root = Path(args.dir).resolve()
+
+    # -----Action flags determination -----
+    action_flags = [
+        args.check_section_refs,
+        args.fix_section_refs,
+        args.check_uncited,
+        args.compare_citations,
+        args.all,
+        args.validate_only,
+        args.fix_only,
+    ]
+    no_action_given = not any(action_flags)
+
+    if args.check_section_refs:
+        result = check_all_section_references(args.dir, verbose=True)
+        sys.exit(1 if (result["unused"] or result["broken"]) else 0)
+
+    if args.fix_section_refs:
+        result = check_all_section_references(args.dir, verbose=False)
+        if not result["unused"]:
+            print("No unused section definitions found.")
+            sys.exit(0)
+        print(f"\nFound {len(result['unused'])} unused section definitions:")
+        for sec_id in result["unused"]:
+            meta = result["definitions"][sec_id]
+            file_path = meta["source_file"]
+            rel_path = file_path.relative_to(root)
+            if args.dry_run:
+                print(
+                    f"  [DRY-RUN] Would comment out: {rel_path}:{meta['line']} @{sec_id}"
+                )
+            else:
+                _comment_out_section_id(file_path, sec_id, meta["line"])
+                print(f"  Commented out: {rel_path}:{meta['line']} @{sec_id}")
+        if not args.dry_run:
+            print("\nCleanup complete. Re-run --check-section-refs to verify.")
+        sys.exit(0)
+
+    if args.check_uncited:
+        bib = Path(args.bib) if args.bib else None
+        bib_files_to_check = []
+        if bib and bib.exists():
+            bib_files_to_check.append(bib)
+        else:
+            for qmd in root.rglob("*.qmd"):
+                if any(p in IGNORED_DIRS for p in qmd.relative_to(root).parts):
+                    continue
+                refs = get_bibliography_files(qmd, root)
+                bib_files_to_check.extend(refs)
+            bib_files_to_check = list(set(bib_files_to_check))
+
+        if not bib_files_to_check:
+            print("No bibliography files found. Use --bib to specify.")
+            sys.exit(1)
+
+        for bib_path in bib_files_to_check:
+            docs = [
+                fp
+                for fp in root.rglob("*.qmd")
+                if bib_path in get_bibliography_files(fp, root)
+                and not any(p in IGNORED_DIRS for p in fp.relative_to(root).parts)
+            ]
+            if not docs:
+                print(f"Warning: No documents reference {bib_path.relative_to(root)}")
+                continue
+            find_uncited_references(bib_path, docs, verbose=True)
+        sys.exit(0)
+
+    if args.compare_citations:
+        file_a, file_b = Path(args.compare_citations[0]), Path(
+            args.compare_citations[1]
+        )
+        bib = Path(args.bib) if args.bib else None
+        if not bib:
+            common = set(get_bibliography_files(file_a, root)) & set(
+                get_bibliography_files(file_b, root)
+            )
+            if common:
+                bib = list(common)[0]
+
+        result = compare_citations_between_files(file_a, file_b, bib, verbose=True)
+        if result["only_in_a"]:
+            print(f"\nOnly in {file_a.name}:")
+            for k in sorted(result["only_in_a"]):
+                print(f"  - @{k}")
+        if result["only_in_b"]:
+            print(f"\nOnly in {file_b.name}:")
+            for k in sorted(result["only_in_b"]):
+                print(f"  - @{k}")
+        if args.show_context:
+            if result["only_in_a"]:
+                show_citation_context(file_a, result["only_in_a"])
+            if result["only_in_b"]:
+                show_citation_context(file_b, result["only_in_b"])
+        sys.exit(0)
+
+    # --all or no action flag → run all functions
+    if args.all or no_action_given:
+        sync_all_links(args.dir)
+        print("\n" + "=" * 60 + "\n VALIDATION PHASE\n" + "=" * 60 + "\n")
+        validate_all_links(args.dir, verbose=args.verbose)
+        print("\n" + "=" * 60 + "\n CITATION CHECK PHASE\n" + "=" * 60 + "\n")
+        check_citation_consistency(args.dir, cleanup=args.cleanup_uncited)
+        print("\n" + "=" * 60 + "\n SECTION REFERENCE CHECK\n" + "=" * 60 + "\n")
+        check_all_section_references(args.dir, verbose=True)
+        sys.exit(0)
 
     if args.validate_only:
         validate_all_links(args.dir, verbose=args.verbose)
         check_citation_consistency(args.dir, cleanup=args.cleanup_uncited)
     elif args.fix_only:
         sync_all_links(args.dir)
-    else:
-        # Default: Verify after modification
-        sync_all_links(args.dir)
-        print("\n" + "=" * 60)
-        print(" VALIDATION PHASE")
-        print("=" * 60 + "\n")
-        validate_all_links(args.dir, verbose=args.verbose)
-        print("\n" + "=" * 60)
-        print(" CITATION CHECK PHASE")
-        print("=" * 60 + "\n")
-        check_citation_consistency(args.dir, cleanup=args.cleanup_uncited)
