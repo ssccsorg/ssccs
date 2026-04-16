@@ -1,0 +1,869 @@
+```{python}
+#| echo: false
+#| include: false
+#| context: local
+%run ../_include/_graphviz.py
+```
+
+# Project Nexus
+
+## Unified Knowledge Pipeline for SSCCS
+
+Date: 2026-04-16  
+
+
+## Executive Summary
+
+The SSCCS project has three parallel, disconnected assets:
+
+- Rich documentation – whitepaper, research notes, proposals, governance (Quarto + Markdown).
+- Rust PoC codebase – 30+ crates, 12+ experiments, bare‑metal RISC‑V simulation.
+- External knowledge – RISC‑V specs, OpenHW docs, arXiv papers, blog posts.
+
+Currently, none of these talk to each other. A researcher cannot ask: *“Which experiment validates the `Observation` primitive described in Whitepaper §3.4?”* or *“What external RISC‑V documents discuss XIF, and how do they relate to our hardware‑mapping crate?”*
+
+Project Nexus unifies everything into a single, queryable knowledge pipeline.  
+
+But beyond unification, Nexus now incorporates two breakthrough paradigms from recent research:
+
+| Paradigm | Source | Core Insight | Application to Nexus |
+|----------|--------|--------------|----------------------|
+| Hypothesis‑Driven Discovery | HypoChainer (arXiv:2507.17209) | LLMs + Knowledge Graphs + Human Experts collaboratively construct hypothesis chains – structured reasoning paths validated against KG evidence. | Nexus will generate testable hypotheses from document–code gaps, validate them against crawled external KGs, and prioritize validation candidates. |
+| Contract‑Governed Multi‑Agent Generation | Story2Proposal (arXiv:2601.20833? – from provided PDF) | Specialized agents (Architect, Writer, Refiner, Renderer) operate under a persistent shared contract that tracks structural obligations and visual artifacts. | Nexus agents (Crawler, Indexer, Query, Hypothesis, Validator) share a contract state – ensuring all outputs satisfy structural, citation, and evidence constraints. |
+
+Synthesis: Nexus becomes a contract‑governed, hypothesis‑driven scientific discovery system for SSCCS – not just a passive knowledge base, but an active research assistant that:
+
+- Ingests internal docs + code + external sources into a unified KG (inspired by HypoChainer’s KG integration).
+- Constructs hypothesis chains from detected gaps and contradictions (HypoChainer’s core innovation).
+- Validates hypotheses against the KG and external evidence (HypoChainer’s validation selection).
+- Generates structured research artifacts (reports, experiment plans, paper drafts) under a persistent contract that enforces cross‑section consistency and citation grounding (Story2Proposal’s contribution).
+
+All four phases remain incremental, build on existing tools, and integrate seamlessly with `docs/build.py`. No heavy infrastructure – everything runs locally with free, open‑source components.
+
+
+## Current Assets & What We Reuse
+
+| Asset | Location | Reuse in Nexus |
+|-------|----------|----------------|
+| Quarto project | `docs/` | Already renders HTML, PDF, GFM. We add `llms-txt: true`. |
+| Citation system | `_include/references.bib` + CSL | Provides structured citation metadata. |
+| Cross‑reference syntax | `@fig-`, `@eq-`, `@sec-` | Quarto resolves within documents; we extend to cross‑document links. |
+| `search.json` | `docs/_site/search.json` | Already has titles, breadcrumbs, excerpts – a mini‑graph. |
+| Rust workspace | `poc/standard/`, `poc/baremetal_riscv/` | 30+ crates, 12+ experiments – rich symbol set. |
+| Build script | `docs/build.py` | Handles parallel rendering, caching, C2PA signing – we add Nexus steps as post‑render hooks. |
+
+No new file formats, no rewriting existing content.
+
+
+## Synthesis of HypoChainer + Story2Proposal into Nexus
+
+Before detailing the four phases, we explicitly map insights from both papers onto the Nexus architecture.
+
+### From HypoChainer (LLM + KG + Human Collaboration)
+
+| HypoChainer Concept | Translation to Nexus |
+|---------------------|----------------------|
+| Contextual Exploration (RAG + visualizations) | Nexus Phase 2 (vector search + Streamlit) becomes the exploration interface. Experts can lasso clusters in embedding space, just as in HypoChainer’s Fig. - |
+| Hypothesis Chains (structured reasoning paths) | Nexus Phase 4 generates hypothesis chains – e.g., `[RISC‑V XIF extension] → [coprocessor interface] → [SSCCS Observation primitive] → [hardware acceleration]`. Each link is validated against the KG. |
+| KG‑Grounded Validation | Every hypothesis chain step must be supported by at least one KG edge (from internal docs, code symbols, or crawled external sources). |
+| RAG with Local‑Only Mode | Nexus Phase 2 implements dual retrieval modes: (1) local KG only, (2) external web augmentation. This prevents hallucinations from ungrounded LLM knowledge. |
+| Voronoi Treemap for Entity Alignment | Nexus’s graph visualisation (Streamlit + Plotly) will cluster related entities by type, allowing lasso selection and hypothesis‑aligned entity highlighting. |
+| Prediction View with Sortable Confidence | For SSCCS, “predictions” are replaced with code‑documentation links and external fact extractions. Each link gets a confidence score (explicit link > name match > semantic similarity). |
+| UpSet Plot for Hypothesis Coverage | When Nexus generates multiple hypotheses, the UpSet plot shows which documents/code symbols satisfy each hypothesis – identifying gaps and contradictions. |
+
+### From Story2Proposal (Contract‑Governed Multi‑Agent Framework)
+
+| Story2Proposal Concept | Translation to Nexus |
+|------------------------|----------------------|
+| Persistent Shared Visual Contract | Nexus maintains a `contract.json` that tracks: required sections in generated reports, expected figures/tables, citation obligations, and validation rules. |
+| Specialized Agents | Nexus agents: Architect (plans research queries), Crawler (ingests external sources), Indexer (embeds + graphs), Hypothesis (generates chains), Validator (checks against KG), Renderer (produces reports). |
+| Generate‑Evaluate‑Adapt Loop | After each hypothesis generation, evaluation agents check: (1) reasoning quality (logical consistency), (2) data fidelity (KG support), (3) visual consistency (figures match text). Feedback updates the contract. |
+| Section‑Level Obligations | When Nexus generates a research report, the contract specifies which sections must contain which citations, code references, and external links. Missing obligations trigger re‑generation. |
+| Deterministic LaTeX Rendering | Nexus outputs validated `.qmd` or `.tex` files with resolved cross‑references – ready for Quarto compilation. |
+
+### Unified Architecture Diagram
+
+```{python}
+#| echo: false
+#| execute: false
+#| results: false
+dot("""
+digraph NexusSynthesis {
+    rankdir=LR;
+    splines=ortho;
+    nodesep=0.35;
+    ranksep=0.45;
+    // Remove size and ratio → Output to fit content size without forced stretching/distortion (minimize blank space + prevent screen bias)
+    fontname="Arial";
+    
+    // ===== Top Contract =====
+    contract [label="STORY2PROPOSAL CONTRACT\ncontract.json: sections, citations, visual obligations", shape=box, style=filled, fillcolor="#e6f2ff", fontsize=11, width=2.5];
+    
+    // ===== Step 1: Knowledge Gathering Agent =====
+    subgraph cluster_agents1 {
+        label="Knowledge Acquisition";
+        style=filled;
+        fillcolor="#f5f5f5";
+        color="#666";
+        
+        architect [label="ARCHITECT\n(planner)", shape=box, fillcolor="#d4f1f9"];
+        crawler [label="CRAWLER\n(external)", shape=box, fillcolor="#d4f1f9"];
+        indexer [label="INDEXER\n(embed+graph)", shape=box, fillcolor="#d4f1f9"];
+    }
+    
+    // ===== Integrated Knowledge Graph =====
+    unified_kg [label="UNIFIED KNOWLEDGE GRAPH\n(docs + code + external)", shape=box, style=filled, fillcolor="#fffacd", width=2.2];
+    
+    // ===== Step 2: Hypothesis and Verification Agent =====
+    subgraph cluster_agents2 {
+        label="Hypothesis & Validation";
+        style=filled;
+        fillcolor="#f5f5f5";
+        color="#666";
+        
+        hypothesis [label="HYPOTHESIS\n(chain generation)", shape=box, fillcolor="#ffe4e1"];
+        validator [label="VALIDATOR\n(KG check)", shape=box, fillcolor="#ffe4e1"];
+        renderer [label="RENDERER\n(report)", shape=box, fillcolor="#ffe4e1"];
+    }
+    
+    // ===== Final result =====
+    output [label="HYPOTHESIS CHAINS +\nVALIDATED REPORT", shape=box, style=filled, fillcolor="#d4f1f9", width=2.2];
+    
+    // ===== Connection =====
+    contract -> architect [weight=2];
+    contract -> crawler [weight=2];
+    contract -> indexer [weight=2];
+    
+    architect -> unified_kg;
+    crawler -> unified_kg;
+    indexer -> unified_kg;
+    
+    unified_kg -> hypothesis;
+    unified_kg -> validator;
+    unified_kg -> renderer;
+    
+    hypothesis -> validator [dir=both, label="feedback", style=dashed];
+    validator -> renderer [label="updated contract", style=dashed];
+    
+    hypothesis -> output;
+    validator -> output;
+    renderer -> output;
+}
+""")
+```
+
+
+## Phase 1: Foundation – Cross‑Document Linking & LLM Optimisation
+
+*(Unchanged from original Nexus – but now explicitly a prerequisite for Hypothesis Chains.)*
+
+### 3.1 Citation Backbone
+
+We already have BibTeX + CSL. Enhancements:
+
+- Ensure all research notes include a `bibliography:` field in their YAML frontmatter.
+- In `build.py`, after rendering, extract all citation keys and create a reverse index (which document cites which key).
+- Generate `citations.json` – a mapping from citation key to list of documents that cite it.
+
+### 3.2 Cross‑Document Reference Resolution
+
+Quarto resolves `@sec-` links within the same document. For cross‑document links, we need a manual convention (or a post‑processing step). Proposed convention:
+
+See the [Whitepaper, Section 3.4](/whitepaper/whitepaper.html#observation-and-projection)
+
+During build, we scan all rendered HTML for internal links and record them as edges in the knowledge graph (source document → target anchor). This is already partially done by Quarto; we just need to parse the output.
+
+### 3.3 Conceptual Glossary
+
+Goal: Generate a machine‑readable glossary of key terms (Segment, Scheme, Field, Observation, Projection, etc.) with back‑links to occurrences.
+
+Method:
+
+- Define a glossary file `_include/glossary.yml`:
+
+   ```yaml
+   - term: Segment
+     definition: Immutable coordinate point with cryptographic identity.
+     url: /whitepaper.html#segment
+   - term: Scheme
+     definition: Structural blueprint defining axes, relations, memory layout.
+     url: /whitepaper.html#scheme
+   ```
+
+- During build, scan all Markdown for occurrences of these terms (case‑sensitive, whole word).
+- Record each occurrence (document, heading, line) and store in `term_occurrences.jsonl`.
+- Generate a static glossary page `docs/glossary.html` with definitions and links to occurrences.
+- Export the glossary as `glossary.json` for machine use.
+
+### 3.4 Bidirectional Linking (Knowledge Graph)
+
+Build a graph of documents and sections:
+
+- Nodes: documents (from `search.json`) and sections (from `##` headings in `.llms.md`).
+- Edges: `CITES` (from citation index), `LINKS_TO` (from cross‑reference scan), `PART_OF` (hierarchy from breadcrumbs).
+
+Storage: NetworkX + JSON export (same as original Nexus plan). This graph is used for navigation and later for hybrid search re‑ranking.
+
+### 3.5 LLM Optimisation (Quarto Built‑in)
+
+Simply enable in `_quarto.yml`:
+
+```yaml
+project:
+  type: website
+  llms-txt: true   # generates llms.txt and llms-full.txt
+```
+
+Quarto will automatically produce:
+
+- `llms.txt` – a sitemap for LLMs.
+- `llms-full.txt` – concatenation of all `.llms.md` files.
+
+No extra work. These files become the base for vectorization (Phase 2).
+
+### Deliverables (Phase 1)
+
+| ID | Item | Format |
+|----|------|--------|
+| P1-1 | `citations.json` – citation reverse index | JSON |
+| P1-2 | `crossref_edges.jsonl` – internal link edges | JSONL |
+| P1-3 | `glossary.yml` + `glossary.json` + static glossary page | YAML + JSON + HTML |
+| P1-4 | `term_occurrences.jsonl` – where terms appear | JSONL |
+| P1-5 | Knowledge graph (documents + sections) as `kg_basic.json` | JSON |
+| P1-6 | `llms.txt` and `llms-full.txt` (generated by Quarto) | Text |
+
+Integration: Add `--nexus-phase1` flag to `build.py` that runs all post‑processing after Quarto render.
+
+
+## Phase 2: Semantic Vectorization & RAG Pipeline
+
+*(Enhanced with HypoChainer’s RAG insights: local‑only mode, entity linking, and dual retrieval.)*
+
+### 4.1 Chunking Strategy
+
+Input: `llms-full.txt` (or individual `.llms.md` files) – already clean Markdown.
+
+Chunking rules (Python with `markdown` library):
+
+- Split by `##` headings (level‑2 sections). Each chunk includes the heading and all content until next `##`.
+- Preserve metadata: document source (from `llms.txt` sitemap), heading hierarchy, any citations/glossary terms present.
+- Optionally, further split very long sections (>1024 tokens) into sub‑chunks at paragraph boundaries (`\n\n`).
+
+HypoChainer addition: Each chunk also records co‑occurring glossary terms – enabling later hypothesis chains that link concepts across sections.
+
+Output: `chunks.jsonl` – each entry has `{id, text, metadata, terms}`.
+
+### 4.2 Embedding Generation
+
+Model: `all-MiniLM-L6-v2` (local, 80MB) – no API cost, good quality.
+
+Implementation:
+
+```python
+from sentence_transformers import SentenceTransformer
+model = SentenceTransformer("all-MiniLM-L6-v2")
+embeddings = model.encode([chunk["text"] for chunk in chunks])
+```
+
+Caching: Compute SHA‑256 hash of each chunk’s text + metadata; store embedding in a cache directory (`_vector_cache/`). Only recompute if hash changes.
+
+### 4.3 Vector Storage
+
+Choice: ChromaDB (lightweight, persistent, embeddable, supports metadata filtering).
+
+Schema:
+
+```python
+collection.add(
+    documents=[chunk["text"] for chunk in chunks],
+    metadatas=[chunk["metadata"] for chunk in chunks],
+    ids=[chunk["id"] for chunk in chunks],
+    embeddings=embeddings
+)
+```
+
+Storage location: `docs/_site/vector_db/` – alongside the static site.
+
+### 4.4 Query Interface with Dual Retrieval Modes (HypoChainer‑Inspired)
+
+CLI tool (`nexus query`):
+
+```bash
+# Local‑only mode (KG grounding, no hallucinations)
+python -m nexus query "What is the data movement wall?" --mode local --top-k 5
+
+# Augmented mode (external web search + local)
+python -m nexus query "RISC-V XIF vs SSCCS Observation" --mode hybrid --top-k 5
+```
+
+Returns (with confidence scores):
+
+```
+- Whitepaper Section 2.1 – score 0.89 (local)
+   "For decades, data movement has consumed 60–80% of energy..."
+   URL: /whitepaper.html#data-movement-wall
+   Terms: [data_movement, energy_efficiency]
+
+- OpenHW XIF Spec – score 0.76 (external)
+   "The CORE-V XIF interface enables custom coprocessor extensions..."
+   URL: https://github.com/openhwgroup/core-v-xif
+   Terms: [coprocessor, instruction_extension]
+```
+
+Streamlit app (same as earlier Nexus plan) – interactive search, graph visualisation, hybrid (BM25 + vector) ranking, plus HypoChainer‑style lasso selection on embedding clusters.
+
+### 4.5 Lightweight External Crawling (with Robots.txt Respect)
+
+Goal: Integrate external web pages (RISC‑V specs, OpenHW docs, arXiv abstracts) into the same vector database.
+
+Implementation (simple, free):
+
+```python
+import requests
+from bs4 import BeautifulSoup
+from markdownify import markdownify as md
+import hashlib
+from urllib.robotparser import RobotFileParser
+
+def crawl_url(url, max_depth=0):
+    rp = RobotFileParser()
+    rp.set_url(urlparse(url).scheme + "://" + urlparse(url).netloc + "/robots.txt")
+    rp.read()
+    if not rp.can_fetch("*", url):
+        return None
+    # fetch page, convert to Markdown, chunk, embed, store
+    # metadata: source="external", url=url, crawl_date=now
+```
+
+Politeness: Add delays (1 second between requests), respect `robots.txt`, cache ETags.
+
+Target URLs (examples):
+
+- RISC‑V Unprivileged Specification (latest PDF/HTML)
+- OpenHW CORE‑V XIF documentation
+- Relevant arXiv papers (via abstracts API)
+
+Storage: External chunks go into the same ChromaDB collection but with `source="external"` metadata. They can be filtered in/out of queries.
+
+Cache: `_crawl_cache/` stores raw HTML and ETag to avoid re‑fetching.
+
+### Deliverables (Phase 2)
+
+| ID | Item | Format |
+|----|------|--------|
+| P2-1 | Chunking script (`nexus/chunk.py`) | Python |
+| P2-2 | `chunks.jsonl` – all chunks with metadata | JSONL |
+| P2-3 | Vector database (ChromaDB) at `docs/_site/vector_db/` | Binary |
+| P2-4 | `nexus query` CLI tool (local + hybrid modes) | Python |
+| P2-5 | Streamlit app (unified search + graph + lasso selection) | Python |
+| P2-6 | Crawling module (`nexus/crawl.py`) with robots.txt | Python |
+| P2-7 | `_crawl_cache/` with external content | Directory |
+
+Integration: Add `--nexus-phase2` flag to `build.py` that runs chunking, embedding, and (optionally) crawling after Quarto render.
+
+
+## Phase 3: Code–Documentation Integration
+
+*(Unchanged – but now feeds into hypothesis generation.)*
+
+### 5.1 Code Symbol Extraction
+
+Tool: `rustdoc` JSON output.
+
+Command:
+
+```bash
+cargo doc --no-deps --output-format json > rustdoc.jsonl
+```
+
+Parse: Extract modules, structs, enums, functions, traits, impls. For each symbol, record:
+
+- `kind`, `name`, `path`, `crate`, `docs` (doc comment), `source_file`, `line`
+
+Output: `code_symbols.jsonl`
+
+### 5.2 Code–Documentation Linking
+
+Heuristics (same as before):
+
+- Explicit links in doc comments (e.g., `/// See [Segment](https://docs.ssccs.org/#segment)`).
+- Name‑based mapping (`Segment` → glossary term “Segment”).
+- Semantic similarity (fallback) – compare docstring with chunk embeddings.
+- File path hints (`crates/primitive/src/scheme/` → “Scheme Abstraction Layer”).
+
+Output: `code_doc_edges.jsonl` – triples `(code_symbol_id, relation, doc_node_id)`.
+
+### 5.3 Unified Graph
+
+Merge the document graph (Phase 1) and code graph into a single NetworkX graph. Export as `knowledge_graph_unified.json` (compatible with D3.js).
+
+New node types: `CodeSymbol`, `ExperimentBinary`.  
+New relation types: `IMPLEMENTS`, `VALIDATES`, `CALLS`, `DEPENDS_ON`.
+
+### 5.4 Query Extensions
+
+Update the Streamlit app to allow searching code symbols and showing code–doc relationships.
+
+Example query: “Show me all code that implements `Field`.” → returns `field-synthesis` crate, `Field` struct, and linked documentation.
+
+### Deliverables (Phase 3)
+
+| ID | Item | Format |
+|----|------|--------|
+| P3-1 | `code_symbols.jsonl` | JSONL |
+| P3-2 | `code_doc_edges.jsonl` | JSONL |
+| P3-3 | Unified knowledge graph `knowledge_graph_unified.json` | JSON |
+| P3-4 | Updated Streamlit app (code search + graph) | Python |
+| P3-5 | `nexus code` CLI subcommands | Python |
+| P3-6 | Experiment validation links (manually added comments) | Code |
+
+Integration: Add `--nexus-phase3` flag to `build.py` that runs code indexing after documentation build.
+
+
+## Phase 4: Autonomous Research Features – HypoChainer + Story2Proposal Integration
+
+*(This phase is fundamentally redesigned to implement the synthesis.)*
+
+### 4.1 Contract‑Governed Hypothesis Chain Construction
+
+Inspiration: HypoChainer’s hypothesis chains + Story2Proposal’s contract state.
+
+Implementation:
+
+```python
+# nexus/contract.py
+class HypothesisContract:
+    def __init__(self):
+        self.required_evidence_types = ["code_symbol", "doc_section", "external_source"]
+        self.min_confidence = 0.7
+        self.chains = []  # list of HypothesisChain objects
+        self.validation_rules = [...]
+    
+    def add_chain(self, chain):
+        # validate each link has KG support
+        for link in chain.links:
+            if not self.kg_has_edge(link.source, link.target):
+                raise ContractViolation(f"Missing KG edge: {link.source} → {link.target}")
+        self.chains.append(chain)
+
+class HypothesisChain:
+    def __init__(self, steps):
+        self.steps = steps  # list of (concept_a, relation, concept_b)
+        self.grounded_edges = []  # KG edge IDs supporting each step
+        self.confidence = 0.0
+```
+
+Chain generation algorithm (inspired by HypoChainer’s LLM + KG):
+
+- Gap detection: Find concept pairs that co‑occur in the KG (e.g., appear in same document or code comment) but lack a direct `RELATES_TO` edge.
+- LLM chain proposal: Feed the gap + surrounding subgraph to a local LLM (Ollama + Llama 3.2) with prompt:
+
+   ```
+   Given these SSCCS concepts:
+   - {concept_a} (defined in {doc_url})
+   - {concept_b} (defined in {doc_url})
+   
+   And these existing KG connections: {subgraph_edges}
+   
+   Propose a hypothesis chain of 3-5 logical steps that could connect {concept_a} to {concept_b}.
+   Each step must be a testable relationship.
+   ```
+
+- KG grounding (Validator agent): For each proposed step, search the unified KG for supporting edges. If no direct edge exists, use semantic similarity (Phase 2 embeddings) to find the closest match.
+- Confidence scoring: `confidence = (num_grounded_steps / total_steps) * (1 - avg_embedding_distance)`
+
+### 4.2 Generate‑Evaluate‑Adapt Loop (Story2Proposal)
+
+After chain generation, evaluation agents inspect the chain:
+
+| Evaluation Agent | Checks | Feedback Signal |
+|-----------------|--------|-----------------|
+| Reasoning Agent | Logical consistency (no cycles, valid relations) | `reasoning_score` (0–1) |
+| Data Fidelity Agent | Each step has KG support with confidence ≥ threshold | `fidelity_score` (0–1) |
+| Novelty Agent | Chain not identical to existing documented hypothesis | `novelty_flag` (True/False) |
+| Visual Coherence Agent | Chain can be rendered as a clear diagram | `visualizable_flag` |
+
+If any score falls below threshold, the contract triggers a regeneration with modified prompt (e.g., “Previous chain had low data fidelity – propose alternative steps using these KG edges: {suggested_edges}”).
+
+### 4.3 Hypothesis Validation Selection (HypoChainer)
+
+```{python}
+#| echo: false
+#| execute: false
+#| results: false
+dot("""
+digraph HypoChainer {
+    rankdir=LR;
+    splines=ortho;
+    nodesep=0.6;
+    ranksep=0.8;
+    
+    // ========== CLUSTER: Contextual Exploration ==========
+    subgraph cluster_context {
+        label="I  Contextual Exploration";
+        style=filled;
+        fillcolor="#f0f8ff";
+        color="#2b6cb0";
+        fontname="Arial";
+        
+        // Nodes
+        research_paper [label="Research Paper", shape=box];
+        kg [label="Knowledge Graph", shape=box];
+        gnn [label="GNN", shape=box];
+        prediction [label="Prediction", shape=box];
+        prediction_filtration [label="Prediction\nFiltration", shape=box];
+        interest [label="Interest", shape=box];
+        rag [label="RAG", shape=box, fillcolor="#d4f1f9"];
+        llm1 [label="LLM", shape=box];
+        augmented_kg [label="Augmented KG", shape=box];
+        knowledge [label="Knowledge", shape=box];
+        
+        // Edges inside the cluster
+        research_paper -> kg [style=invis];  // alignment only
+        research_paper -> gnn;
+        kg -> gnn;
+        gnn -> prediction;
+        prediction -> prediction_filtration;
+        interest -> prediction_filtration [style=dashed, label="guides"];
+        prediction_filtration -> rag;
+        rag -> llm1;
+        llm1 -> augmented_kg;
+        augmented_kg -> knowledge;
+    }
+    
+    // ========== CLUSTER: Hypothesis Construction ==========
+    subgraph cluster_hypothesis {
+        label="II  Hypothesis Construction";
+        style=filled;
+        fillcolor="#fff0f5";
+        color="#c41e3a";
+        fontname="Arial";
+        
+        hypothesis [label="Hypothesis", shape=box, fillcolor="#ffe4e1"];
+        llm2 [label="LLM", shape=box];
+        hypothesis_iter [label="Hypothesis\nIteration", shape=box];
+        hypothesis_chain [label="Hypothesis\nChain", shape=box, fillcolor="#ffe4e1"];
+        validation [label="Validation\nSelection", shape=box];
+        lab_exp [label="Lab\nExperiment", shape=box, fillcolor="#d4f1f9"];
+        
+        hypothesis -> llm2;
+        llm2 -> hypothesis_iter;
+        hypothesis_iter -> hypothesis_chain [label="refine"];
+        hypothesis_chain -> validation;
+        validation -> lab_exp;
+    }
+    
+    // ========== CROSS‑CLUSTER EDGES ==========
+    knowledge -> hypothesis [lhead=cluster_hypothesis, color="#2b6cb0", penwidth=2];
+    hypothesis_chain -> validation [ltail=cluster_hypothesis, color="#c41e3a"];
+    
+    // Optional: research proposals as a separate node (if mentioned)
+    research_proposals [label="Research\nProposals", shape=box, style=dashed];
+    research_proposals -> prediction [style=dashed, color="gray"];
+    
+    // Legend / note
+    lab_exp -> research_proposals [style=invis];
+    
+    // Additional connection from paper flow (typical)
+    lab_exp -> research_paper [style=dotted, dir=back, label="feedback"];
+}
+""")
+```
+
+Once a hypothesis chain passes evaluation, Nexus performs validation selection:
+
+- Retrieve evidence: For each step, retrieve the top‑5 supporting KG edges (docs, code, external sources).
+- Prioritize candidates: Rank edges by confidence + recency + authority (external specs > internal notes > code comments).
+- Identify gaps: If a step has no supporting edge with confidence >0.5, flag as “unvalidated link – candidate for experiment.”
+- Output: Generate a validation report (Markdown) with:
+  - Hypothesis chain diagram (Mermaid or Graphviz)
+  - Table of supporting evidence per step
+  - List of recommended experiments to validate missing links
+
+### 4.4 Report Generation under Contract (Story2Proposal)
+
+The Renderer agent produces a structured research report that satisfies the contract:
+
+Contract obligations for a hypothesis report:
+
+- Section 1: Hypothesis chain (visual + textual)
+- Section 2: Evidence table (each link → KG edge → source URL)
+- Section 3: Gap analysis (unvalidated links)
+- Section 4: Proposed experiments
+- Required citations: ≥3 external sources, ≥2 internal doc references
+
+The renderer generates a `.qmd` file with resolved cross‑references, which can be compiled by Quarto into PDF/HTML.
+
+### 4.5 Ink Spreading (Continuous Integration)
+
+When new content is added:
+
+- A new research note (`.llms.md`) or Rust file is committed.
+- `build.py --nexus` re‑runs Phases 1–3 (incremental).
+- The Hypothesis agent re‑scans for gaps involving the new content.
+- If a new hypothesis chain emerges, the system automatically generates a draft report and commits it to `docs/hypotheses/` (with human review flag).
+
+### Deliverables (Phase 4)
+
+| ID | Item | Format |
+|----|------|--------|
+| P4-1 | Contract state manager (`nexus/contract.py`) | Python |
+| P4-2 | Hypothesis chain generator (LLM + KG gap detection) | Python + prompts |
+| P4-3 | Evaluation agents (reasoning, fidelity, novelty, visual) | Python |
+| P4-4 | Validation selection module (evidence retrieval + prioritisation) | Python |
+| P4-5 | Report renderer (`.qmd` generator with contract enforcement) | Python |
+| P4-6 | `nexus hypothesize` CLI command | Python |
+| P4-7 | Streamlit hypothesis explorer (chain visualisation + evidence browser) | Python |
+| P4-8 | GitHub Actions workflow for automatic hypothesis generation on new commits | YAML |
+
+Integration: Add `--nexus-phase4` flag to `build.py`. When enabled, runs hypothesis generation after indexing.
+
+
+## Integration with `docs/build.py`
+
+Add a single `--nexus` flag that runs all phases (or individual phase flags). Example:
+
+```python
+# docs/build.py – after quarto render
+if args.nexus:
+    from nexus.pipeline import run_nexus
+    
+    run_nexus(
+        phases=args.nexus_phases,  # e.g., ["phase1", "phase2", "phase3", "phase4"]
+        docs_root="docs/_site",
+        code_root="poc",
+        crawl_urls=args.crawl_urls,
+        rebuild_embeddings=args.rebuild_embeddings,
+        generate_hypotheses=args.generate_hypotheses
+    )
+```
+
+Usage:
+
+```bash
+# Full pipeline (including hypothesis generation)
+python3 docs/build.py --website --nexus --generate-hypotheses
+
+# Only Phases 1–3 (indexing only, no autonomous research)
+python3 docs/build.py --website --nexus --nexus-phases phase1,phase2,phase3
+
+# With external crawling + hypothesis generation
+python3 docs/build.py --website --nexus --crawl-urls riscv-spec.txt --generate-hypotheses
+```
+
+All Nexus outputs are stored under `docs/_site/nexus/` to keep the static site clean.
+
+
+## Deliverables Summary (All Phases)
+
+| Phase | Deliverable | Format | Effort |
+|-------|-------------|--------|--------|
+| 1 | Citation index, cross‑ref edges, glossary, basic KG, `llms.txt` | JSON, YAML, HTML | 2–3 days |
+| 2 | Chunking, vector DB, query CLI, Streamlit app, crawler | Python, ChromaDB | 3–4 days |
+| 3 | Code symbols, code–doc links, unified KG, experiment links | JSONL, Python | 2–3 days |
+| 4 | Contract state, hypothesis chain generator, evaluation agents, validation selection, report renderer, auto‑hypothesis workflow | Python, prompts, QMD, YAML | 5–7 days |
+| Integration | `build.py` hooks, documentation | Patch, Markdown | 1 day |
+
+Total (Phases 1–4): ~13–18 days (part‑time, 3–4 weeks).
+
+All tools are open‑source and run locally – no cloud costs.
+
+
+## Evaluation of Existing Open‑Source Tools (Why We Build Nexus)
+
+Before designing Nexus, we reviewed the 2026 landscape. The following tools were considered and rejected because they do not meet the specific document‑to‑knowledge‑to‑code pipeline required for SSCCS, nor do they integrate hypothesis‑driven discovery with contract‑governed generation.
+
+| Tool | Primary Focus | Reason for Rejection |
+|------|---------------|----------------------|
+| SwarmVault | Local‑first LLM knowledge compiler (turns Markdown into wiki + graph). | Designed for personal knowledge bases, not for integrating code and external crawling. No code symbol extraction. Overhead for our scale. |
+| GitNexus | Code‑centric knowledge graph (functions, call chains, MCP). | Does not understand research documents or conceptual relationships. Would require a fork and extensive changes to support `.llms.md`. |
+| PageIndex | Vectorless, reasoning‑based RAG for single long PDFs. | Works on one document at a time. No multi‑document graph, no code integration, no autonomous research. |
+| raggle | Generic Markdown indexer with BM25 + vector + graph. | No ontology support, no code–doc linking, no crawling. |
+| Docling‑Graph | Schema‑validated knowledge graphs from PDF/Markdown. | Good for precision, but lacks code integration and external crawler. Could be used as an optional backend for Phase 1, but we prefer lighter NetworkX + JSON. |
+| Idea2Story / HypoChainer | Research automation (gap detection, hypothesis generation). | These are inspirations for Phase 4, not full pipelines. They do not handle ingestion, vector search, or code–doc linking. We implement a lightweight version of their ideas on top of our unified graph. |
+| Story2Proposal | Contract‑governed multi‑agent manuscript generation. | Excellent for report generation, but assumes input research story already exists. Does not handle KG construction or hypothesis discovery from code/docs. We integrate its contract mechanism into Phase - |
+
+Conclusion: No existing tool covers all four phases with the HypoChainer+Story2Proposal synthesis. Therefore, Nexus is built as a lightweight, purpose‑built pipeline reusing Quarto’s outputs (`search.json`, `.llms.md`) and `rustdoc` JSON, while implementing the novel hypothesis chain + contract mechanisms described above.
+
+
+## Autonomous Research Vision: The “Ink Spreading” Model (Refined)
+
+In our discussions, we described the ideal autonomous research system as “ink spreading into a lake” – when a new paper, PDF, or external resource is added, its knowledge automatically diffuses into the existing graph, updating connections, contradictions, and hypotheses.
+
+With the HypoChainer + Story2Proposal synthesis, this vision becomes:
+
+- Ink = new document, code commit, or crawled external spec.
+- Lake = unified KG + contract state + hypothesis chain repository.
+- Spreading mechanism =
+  - Phase 1–3 ingest the ink into the KG.
+  - Phase 4 gap detection identifies new concept pairs.
+  - Hypothesis generator proposes chains linking new ink to existing knowledge.
+  - Validator checks chains against KG (including other external sources).
+  - Renderer produces hypothesis reports – which themselves become new ink for the next iteration.
+
+Example: A user adds a new research note about “memristive crossbar arrays for SSCCS.” Nexus:
+
+- Extracts terms `memristor`, `crossbar`, `in‑memory computing`.
+- Links `memristor` to existing `Observation` primitive via semantic similarity (both involve state storage).
+- Generates hypothesis chain: `[memristor crossbar] → [in‑memory computation] → [reduces data movement] → [Observation primitive efficiency] → [hardware acceleration potential]`.
+- Validates each step: step 3 supported by whitepaper §2.1 (data movement wall), step 4 supported by code symbol `observation_synthesis`, step 2 partially supported (external arXiv paper).
+- Flags step 5 (“hardware acceleration potential”) as unvalidated – candidate for FPGA experiment.
+- Renders a hypothesis report with proposed experiment: “Implement Observation primitive on memristive crossbar simulator.”
+
+This is autonomous, grounded, and actionable – exactly the ink‑spreading vision.
+
+
+## Risks & Mitigations
+
+| Risk | Mitigation |
+|------|-------------|
+| Cross‑document links break after Quarto updates | Use relative paths and regenerate edges on every build. Links are verified during build (404 check). |
+| Vector database becomes large (>1GB) | ChromaDB compresses embeddings; 10k chunks × 384 dims ≈ 15MB. Acceptable. |
+| External crawling rate‑limited / blocked | Respect `robots.txt`, use delays, cache aggressively. Fallback: user can provide pre‑downloaded files. |
+| Code indexing fails on complex macros | `rustdoc` JSON handles most cases. For unsupported patterns, fall back to `syn` parsing (optional). |
+| LLM hallucinations in hypothesis generation | Use local‑only RAG mode for grounding. Hypothesis steps must have KG edges – no free generation. |
+| Contract violations block report generation | Contract includes `allow_partial=True` flag for draft reports. Human reviewer can override. |
+| Maintenance burden | All outputs are static files (`knowledge_graph.json`, `vector_db/`, `hypothesis_chains.json`) that can be used independently of the live pipeline. The pipeline itself is optional; documentation remains usable without it. |
+
+
+## Success Metrics (Updated for Synthesis)
+
+| Metric | Target |
+|--------|--------|
+| Cross‑document links | Every citation, figure, equation, and glossary term has a working hyperlink across all documents. |
+| llms.txt generation | `llms.txt` and `llms-full.txt` are created automatically. |
+| Semantic search | Query “energy efficiency of observation” returns the whitepaper section and relevant research notes with >0.7 cosine similarity. |
+| Code–doc linking | For each core primitive (Segment, Scheme, Field, Observation, Projection), there is at least one `IMPLEMENTS` edge to a code symbol. |
+| External crawling | At least three external RISC‑V documents are indexed and queryable. |
+| Hypothesis chain generation | From a new research note, Nexus generates ≥1 hypothesis chain with ≥3 steps, where ≥70% of steps have KG support (confidence >0.5). |
+| Contract compliance | All generated reports satisfy the contract (sections, citations, visual obligations) with <10% manual corrections. |
+| Build time | Nexus pipeline adds <60 seconds to the existing Quarto build (Phases 1–3) + optional <30s for hypothesis generation. |
+
+
+## Immediate Next Steps
+
+- Enable `llms-txt: true` in `_quarto.yml` and verify `llms.txt` and `llms-full.txt` are generated.
+- Implement Phase 1 post‑processing (citation index, cross‑ref edges, glossary) as a Python script. Run it manually on a small subset.
+- Implement Phase 2 (chunking, embedding, ChromaDB, basic CLI query).
+- Implement Phase 3 (code symbol extraction + linking) – reuse existing `rustdoc` pipelines.
+- Implement Phase 4 incrementally:
+  - Week 1: Contract state + gap detection.
+  - Week 2: Hypothesis chain generator + LLM prompting.
+  - Week 3: Evaluation agents + validation selection.
+  - Week 4: Report renderer + GitHub Actions automation.
+- Integrate into `build.py` as `--nexus` flag with phase selection.
+
+The plan is ready to implement – no further research needed. The synthesis of HypoChainer and Story2Proposal provides a novel, cutting‑edge foundation for autonomous scientific discovery within the SSCCS project.
+
+
+## Appendix A: Directory Structure After Nexus
+
+```
+docs/_site/
+├── index.html
+├── whitepaper/
+├── research/
+├── hypotheses/                    # Generated hypothesis reports
+│   ├── 2026-04-16_memristor_observation.qmd
+│   └── ...
+├── ...
+├── llms.txt
+├── llms-full.txt
+├── nexus/
+│   ├── citations.json
+│   ├── crossref_edges.jsonl
+│   ├── glossary.json
+│   ├── term_occurrences.jsonl
+│   ├── kg_basic.json
+│   ├── chunks.jsonl
+│   ├── vector_db/                (ChromaDB)
+│   ├── knowledge_graph_unified.json
+│   ├── contract.json              # Persistent shared contract
+│   ├── hypothesis_chains.json     # All generated chains with validation status
+│   └── crawl_cache/
+└── (existing assets)
+```
+
+
+## Appendix B: Example Unified Query with Hypothesis Chain
+
+User (via Streamlit):  
+*“What external RISC‑V documents discuss XIF, and which of our code crates implement related functionality? Also, generate a hypothesis chain linking XIF to our Observation primitive.”*
+
+Nexus response:
+
+```
+External documents (crawled):
+- OpenHW CORE-V XIF Specification – section 3.2 "Interface Signals"
+   URL: https://github.com/openhwgroup/core-v-xif
+
+Code symbols:
+- `poc/baremetal_riscv/src/instructions/mod.rs` – defines `OBSERVE` instruction encoding
+- `poc/standard/crates/hardware-mapping/src/lib.rs` (placeholder) – XIF coprocessor profile
+
+Documentation:
+- Whitepaper Section 5.2 "Hardware Mapping" – mentions XIF as a target
+- Research note: "RISC-V Integration Research" – section on XIF coprocessor design
+
+Graph visualisation: [XIF concept] --RELATED_TO--> [OpenHW spec] --MENTIONS--> [OBSERVE instruction]
+
+Generated Hypothesis Chain (confidence: 0.82):
+
+- [RISC-V XIF extension] → [provides custom instruction interface] → [coprocessor]
+- [coprocessor] → [enables user-defined stateful operations] → [Observation primitive]
+- [Observation primitive] → [requires low-latency memory access] → [data movement optimization]
+- [data movement optimization] → [is a core SSCCS goal] → [whitepaper §2.1]
+
+Validation:
+- Step 1: Supported by OpenHW XIF spec (§3.2) + code symbol `xif_interface` (confidence 0.89)
+- Step 2: Partially supported – `observation_synthesis` crate mentions "stateful operations" but not XIF (confidence 0.67)
+- Step 3: Supported by whitepaper §2.1 (confidence 0.91)
+- Step 4: Supported by whitepaper §1 (confidence 0.95)
+
+Gap: No direct implementation of XIF → Observation mapping. Recommended experiment: Implement XIF coprocessor that exposes Observation primitive as a custom instruction.
+
+Report saved to: `docs/hypotheses/2026-04-16_xif_observation_hypothesis.qmd`
+```
+
+
+## Appendix C: Visualisation (Plotly + Julia Note)
+
+While the primary implementation uses Python, the knowledge graph `knowledge_graph_unified.json` and hypothesis chains `hypothesis_chains.json` can be loaded into Julia for interactive visualisation using `PlotlyJS.jl` and `NetworkLayout.jl`. This may be useful for researchers who prefer a Julia environment. A minimal example:
+
+```julia
+using JSON, PlotlyJS, NetworkLayout
+
+graph = JSON.parsefile("docs/_site/nexus/knowledge_graph_unified.json")
+hypotheses = JSON.parsefile("docs/_site/nexus/hypothesis_chains.json")
+
+# Visualise graph with hypothesis chains highlighted
+# (implementation uses PlotlyJS with spring layout)
+```
+
+
+## Appendix D: Mapping to HypoChainer and Story2Proposal Original Papers
+
+| HypoChainer Component | Nexus Implementation Location |
+|-----------------------|-------------------------------|
+| RAG with local‑only mode | Phase 2, Section 4.4 (`--mode local`) |
+| Embedding View with lasso selection | Phase 2 Streamlit app |
+| Hypothesis chain construction | Phase 4, Section 4.1 |
+| KG‑grounded validation | Phase 4 Validator agent |
+| Prediction View (sortable confidence) | Phase 3 code–doc linking confidence scores |
+| UpSet Plot for hypothesis coverage | Phase 4 Streamlit hypothesis explorer |
+
+| Story2Proposal Component | Nexus Implementation Location |
+|--------------------------|-------------------------------|
+| Persistent shared contract | Phase 4, `contract.json` |
+| Architect agent | Phase 4 gap detection + chain planning |
+| Writer agent | Phase 4 hypothesis chain generator |
+| Refiner agent | Phase 4 evaluation agents (feedback loop) |
+| Renderer agent | Phase 4 report generator (`.qmd` output) |
+| Generate‑evaluate‑adapt loop | Phase 4, Section 4.2 |
+| Section‑level obligations | Phase 4 contract validation rules |
+
+
+{{< include ./_include/_nexus_ref.qmd >}}
+
+
+{{< include ../_include/_license.qmd >}}
