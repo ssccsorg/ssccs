@@ -85,10 +85,17 @@ jobs:
             dockerimg-docs \
             python docs/build.py --website
 
+      - name: Prepare Pages artifact
+        run: |
+          mkdir -p docs/_pages
+          rsync -av docs/_site/ docs/_pages/ \
+            --exclude='*.llms.md' \
+            --exclude='llms.txt'
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
         with:
-          path: docs/_site
+          path: docs/_pages
 
   deploy:
     needs: build
