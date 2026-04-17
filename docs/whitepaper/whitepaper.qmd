@@ -1006,10 +1006,10 @@ While SSCCS can be implemented in software, its benefits are most pronounced wit
 - No instruction fetch unit; observation triggered structurally.
 - Direct observation support in the memory hierarchy.
 - Spatial computation mapping adjacency to wiring.
-- **Open RISC-V Synergy**: Concrete validation pathways are being explored via the RISC‑V ecosystem [@riscv2019spec], particularly through OpenHW CORE‑V’s eXtension Interface (XIF) [@openhw2025xif; @openhw2025xifguide]. Custom observation primitives (`OBSERVE`, `COLLAPSE`) can be implemented as tightly coupled coprocessor extensions, enabling deterministic structural projection with minimal pipeline interference and formal verifiability [@openhw2026verif].
-- **OpenHW Ecosystem**: The OpenHW CORE‑V MCU [@openhw2025cvmcu] and SDK [@corev2026sdk] provide ready‑to‑use platforms for prototyping SSCCS observation units, while the Imperas simulation environment [@imperas2025] enables pre‑silicon verification. The CVA6 core [@openhw2025cva6] and other OpenHW MCU variants [@openhw2025mcu] offer scalable performance targets. Integration proposals [@riscvintegrationreport; @openhwintegrationproposal] outline concrete steps for mapping SSCCS primitives to RISC‑V extensions.
-- **Edge and Peripheral Integration**: Peripheral integration with eFPGA fabrics [@quicklogic2024] and always‑on vision sensors [@himax2023] demonstrates the versatility of the RISC‑V ecosystem for edge deployment, while formal verification tools [@smith2025] and coprocessor examples [@xifcopro2025] ensure correctness and extensibility. Efficient I/O for large‑scale machine learning [@emlio2025] further highlights the importance of minimizing data movement.
-- **Space‑Grade Resilience**: Radiation‑hardened RISC‑V implementations such as HARV‑SoC [@santos2023harvsoc] and StarRISC, together with ESA’s TRISTAN roadmap [@tristan2025], demonstrate the industry shift toward deterministic, mixed‑criticality aware processors. Recent advances in multi‑bit fault‑tolerant instruction decoding [@ghosh2025], dynamic lockstep redundancy [@simoes2024], and high‑performance space computing platforms [@microchip2025pic64; @starlab2026] further illustrate the RISC‑V community’s focus on resilience. SSCCS complements these efforts by providing a software‑defined resilience layer that can be deployed as cryptographically signed Fields [@elash2025efficacy; @walsemann2023radiation].
+- **Open RISC-V Synergy**: Concrete validation pathways are being explored via the RISC‑V ecosystem [@riscv2019spec], particularly through OpenHW CORE‑V’s eXtension Interface (XIF) [@openhw2025xif]. Custom observation primitives (`OBSERVE`, `COLLAPSE`) can be implemented as tightly coupled coprocessor extensions, enabling deterministic structural projection with minimal pipeline interference and formal verifiability.
+- **OpenHW Ecosystem**: The OpenHW CORE‑V MCU [@openhw2025cvmcu] and SDK provide ready‑to‑use platforms for prototyping SSCCS observation units, while the Imperas simulation environment enables pre‑silicon verification. The CVA6 core and other OpenHW MCU variants offer scalable performance targets. Integration proposals outline concrete steps for mapping SSCCS primitives to RISC‑V extensions.
+- **Edge and Peripheral Integration**: Peripheral integration with eFPGA fabrics [@quicklogic2024] and always‑on vision sensors demonstrates the versatility of the RISC‑V ecosystem for edge deployment, while formal verification tools [@smith2025] and coprocessor examples [@xifcopro2025] ensure correctness and extensibility. Efficient I/O for large‑scale machine learning [@emlio2025] further highlights the importance of minimizing data movement.
+- **Space‑Grade Resilience**: Radiation‑hardened RISC‑V implementations such as HARV‑SoC and StarRISC, together with ESA’s TRISTAN roadmap [@tristan2025], demonstrate the industry shift toward deterministic, mixed‑criticality aware processors. Recent advances in multi‑bit fault‑tolerant instruction decoding [@ghosh2025], dynamic lockstep redundancy [@simoes2024], and high‑performance space computing platforms [@microchip2025pic64; @starlab2026] further illustrate the RISC‑V community’s focus on resilience. SSCCS complements these efforts by providing a software‑defined resilience layer that can be deployed as cryptographically signed Fields. [@elash2025efficacy; @walsemann2023radiation].
 
 ## Implementation Cases
 
@@ -1806,7 +1806,7 @@ Detailed examples of observation‑code generation for each profile are given in
 
 # Fault Tolerance Computing in Extreme Environments {#sec-appendix-riscv-space}
 
-SSCCS should offer a paradigm shift for radiation-tolerant and safety-critical computing by replacing static hardware hardening with dynamic, software-defined resilience. This appendix details the technical synergy between SSCCS Fields and radiation-tolerant RISC-V platforms [@openhw2025xif; @tristan2025], focusing on OpenHW CORE-V integration, custom instruction design, and cryptographic deployment protocols.
+SSCCS should offer a paradigm shift for radiation-tolerant and safety-critical computing by replacing static hardware hardening with dynamic, software-defined resilience. This appendix details the technical synergy between SSCCS Fields and radiation-tolerant RISC-V platforms [@openhw2025xif], focusing on OpenHW CORE-V integration, custom instruction design, and cryptographic deployment protocols.
 
 ## Problem Context
 
@@ -1895,8 +1895,8 @@ Space missions require post-launch cryptographic agility. The deployment pipelin
 
 ## Ecosystem Alignment & Validation Pathway
 
-- **OpenHW CORE-V**: XIF integration targets CV32E40P baseline. Phase 1 uses `riscvOVPsimCOREV` for custom instruction emulation; Phase 2 targets FPGA prototyping via QuickLogic eFPGA on the CORE-V MCU DevKit [@openhw2025xif; @openhw2025cvmcu].
-- **ESA TRISTAN**: SSCCS binary signing and deterministic latency directly address TRISTAN's "deterministic, safe, and mixed-criticality aware" requirements for European space processors [@tristan2025].
+- **OpenHW CORE-V**: XIF integration targets CV32E40P baseline. Phase 1 uses `riscvOVPsimCOREV` for custom instruction emulation; Phase 2 targets FPGA prototyping via QuickLogic eFPGA on the CORE-V MCU DevKit [@openhw2025xif].
+- **ESA TRISTAN**: SSCCS binary signing and deterministic latency directly address TRISTAN's "deterministic, safe, and mixed-criticality aware" requirements for European space processors.
 - **Rust Bare-Metal Toolchain**: `no_std` compilation, `embedded-hal` trait abstraction, and `defmt` structured logging enable type-safe, interrupt-driven observation queues with zero-cost abstractions for real-time deployment [@rustembeddedbook].
 
 This synergy positions SSCCS not as a replacement for hardware hardening, but as a dynamic, software-defined overlay that extends resilience, reduces SWaP, and enables post-deployment evolution of fault-tolerance policies.
