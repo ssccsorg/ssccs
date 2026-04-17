@@ -3,6 +3,7 @@
 This repository contains a proof‑of‑concept implementation of the **Schema–Segment Composition Computing System (SSCCS)**, a new computational model that redefines computation as the observation of structured potential rather than as a sequence of state mutations.
 
 The PoC demonstrates the core ontological layers of SSCCS:
+
 - **Segment** – immutable coordinate points in a multi‑dimensional possibility space.
 - **Scheme** – immutable structural blueprint defining axes, segments, relations, memory layout, and observation rules.
 - **Field** – mutable container of dynamic constraints.
@@ -28,6 +29,7 @@ All crates reside under `poc/crates/`. The workspace configuration is defined in
 ## Rust Environment Setup
 
 ### 1. Install Rust
+
 If you do not have Rust installed, use [rustup](https://rustup.rs/):
 
 ```bash
@@ -41,12 +43,14 @@ rustup update
 ```
 
 ### 2. Verify Installation
+
 ```bash
 rustc --version
 cargo --version
 ```
 
 ### 3. Clone the Repository
+
 ```bash
 git clone https://github.com/ssccsorg/ssccs.git
 cd ssccs/poc
@@ -55,6 +59,7 @@ cd ssccs/poc
 ## Building and Running
 
 ### Build the Project
+
 ```bash
 cargo build --release --workspace
 ```
@@ -62,6 +67,7 @@ cargo build --release --workspace
 To build a specific crate, e.g., `cargo build --release -p ssccs-primitive`.
 
 ### Run the Example Program
+
 The PoC includes ten constitutional‑concept tests that validate the SSCCS model:
 
 ```bash
@@ -80,8 +86,8 @@ To test only a specific crate, e.g., `cargo test -p ssccs-primitive`.
 
 The output will show each test (Segment, Field, Projector, Scheme, etc.) passing.
 
-
 ### Linting and Formatting
+
 The code adheres to Rust’s best practices. To check for warnings across the whole workspace:
 
 ```bash
@@ -101,24 +107,31 @@ To lint or format a specific crate, use `-p` (e.g., `cargo clippy -p ssccs-primi
 Rust’s design philosophy aligns closely with the SSCCS model, making it the natural language for this proof of concept.
 
 ### 1. Immutability by Default
+
 SSCCS requires that Segments and Schemes be **immutable**. Rust’s ownership system enforces immutability unless explicit mutability is declared (`mut`). This guarantees that the core SSCCS structures cannot be accidentally mutated, matching the ontological requirement that “structure is fixed.”
 
 ### 2. Zero‑Cost Abstractions
+
 SSCCS aims to turn structural specification into efficient hardware mapping. Rust’s zero‑cost abstractions allow high‑level descriptions (e.g., `RelationGraph`, `MemoryLayout`) to compile to machine code with no runtime overhead, preserving the performance needed for future hardware acceleration.
 
 ### 3. Concurrency Without Data Races
+
 Because Segments are immutable, they can be observed concurrently without synchronization. Rust’s borrow checker statically guarantees that immutable references can be shared freely across threads, while mutable references are exclusive. This eliminates data races **at compile time**, which is exactly the concurrency model SSCCS intends to exploit.
 
 ### 4. Cryptographic Primitives and Performance
+
 Segment and Scheme identities are derived from BLAKE3 hashes. Rust’s `blake3` crate provides fast, safe, and well‑audited cryptographic hashing, enabling the verifiable identity system that underpins SSCCS’s auditability.
 
 ### 5. Strong Type System for Structural Invariants
+
 The Scheme abstraction layer uses Rust’s enum and trait system to encode **axis types**, **relation types**, **layout types**, and **observation rules** as compile‑time types. This ensures that invalid structural configurations cannot be represented, catching many logical errors before runtime.
 
 ### 6. Ecosystem for Systems Programming
+
 As a systems language, Rust gives fine‑grained control over memory layout (via `#[repr(C)]`, packed structs, etc.), which is essential for implementing the `MemoryLayout` mapping that translates coordinate spaces to hardware addresses.
 
 ### 7. Safety and Auditability
+
 SSCCS emphasizes transparency and verifiability. Rust’s memory‑safety guarantees (no undefined behavior, no use‑after‑free, no buffer overflows) reduce the risk of hidden bugs that could compromise the deterministic observation process. This aligns with the SSCCS goal of “computation as auditable trace.”
 
 In summary, Rust provides the right combination of **immutability guarantees**, **performance control**, **concurrency safety**, and **cryptographic support** to faithfully prototype the SSCCS model while laying a foundation for future hardware‑acceleration phases.
@@ -128,6 +141,7 @@ In summary, Rust provides the right combination of **immutability guarantees**, 
 The following development milestones have been completed, each documented in the `docs/` directory and reflected in the codebase.
 
 ### 1. Core Library (`crates/core/src/core.rs`)
+
 - **Segment** struct with coordinates and cryptographic `SegmentId` (BLAKE3 hash).
 - **SpaceCoordinates** as a generic multi‑dimensional coordinate vector.
 - **Constraint** trait and `ConstraintSet` for defining admissibility conditions.
@@ -135,6 +149,7 @@ The following development milestones have been completed, each documented in the
 - **Projector** trait with `project` and `possible_next_coordinates` methods.
 
 ### 2. Scheme Abstraction Layer (`crates/primitive/src/scheme/`)
+
 - **`abstract_scheme.rs`** (970 lines) – defines `Scheme`, `Axis`, `RelationGraph`, `MemoryLayout`, `ObservationContext`, and `SchemeBuilder`.
   - Type aliases `PredicateFn` and `MappingFn` for complex closure types.
   - Comprehensive enumeration of structural relations (`Adjacency`, `Hierarchy`, `Dependency`, `Equivalence`).
@@ -145,27 +160,32 @@ The following development milestones have been completed, each documented in the
   - `TransformedScheme` with geometric transformations (translation, rotation, scaling).
 
 ### 3. Compiler Pipeline (`crates/primitive/src/compiler_pipeline.rs`)
+
 - Four‑stage pipeline: parsing, structural analysis, memory‑layout resolution, hardware mapping.
 - `HardwareProfile` enum (`GenericCPU`, `FPGA`, `PIM`, `Custom`).
 - `CompiledScheme` struct that holds the final hardware‑mapped layout and generated observation code.
 - Placeholder implementations for each stage, ready for extension.
 
 ### 4. `.ss` Binary Parser (`crates/primitive/src/ss_parser.rs`)
+
 - Basic parser for the open `.ss` binary format.
 - Validates header magic and version.
 - Reads SchemeId, axes, segment table, relation graph, memory‑layout closure, and observation rules.
 - Returns a dummy `Scheme` for demonstration; serves as a skeleton for future elaboration.
 
 ### 5. Projector Implementations (`crates/primitive/src/projector.rs`)
+
 - `IntegerProjector` – extracts a coordinate along a given axis.
 - `ArithmeticProjector` – defines adjacency through arithmetic operations (`+1`, `-1`, `*2`, `/2`).
 - `ParityProjector` – classifies coordinates as "even" or "odd" strings.
 
 ### 6. Space Implementations (`crates/primitive/src/spaces/`)
+
 - **`boolean.ss`** – `BooleanSpace` for representing true/false values as 1D coordinates (0 = false, 1 = true).
 - **`integer.ss`** – `IntegerSpace` for single‑axis integer values with convenient constructors.
 
 ### 7. Constitutional Concept Tests (`crates/primitive/src/main.rs`)
+
 Ten tests verify that the SSCCS model satisfies its foundational principles:
 
 1. **Segment Concept** – immutability and cryptographic identity.
@@ -190,23 +210,26 @@ All ten tests pass, confirming that the PoC correctly embodies the SSCCS ontolog
 These crates currently contain only a minimal `lib.rs` stub; they are ready to be populated with research‑specific code while reusing the core SSCCS types from `ssccs‑core`.
 
 ### 9. Code Quality and Maintenance
+
 - **Clippy linting** – resolved 10 warnings (type‑complexity, unnecessary‑map‑or, large‑enum‑variant, needless‑borrow, clone‑on‑copy) by introducing type aliases, boxing large variants, and removing redundant operations.
 - **Formatting** – module order adjusted to satisfy `cargo fmt`.
 - **Documentation** – inline doc comments and references to the whitepaper.
 
 ### 10. Whitepaper Synchronization
+
 The implementation stays aligned with the conceptual description in `docs/whitepaper.qmd`:
+
 - Ontological layers (Segment, Scheme, Field, Observation, Projection) match the code.
 - Compiler‑pipeline section (Section 5.1) corresponds to `compiler_pipeline.rs`.
 - Memory‑layout abstraction (Section 5.2) is realized as `MemoryLayout` in `abstract_scheme.rs`.
 - Open `.ss` format (Section 6) is stubbed in `ss_parser.rs`.
 
 ### 11. Next Steps (Immediate)
+
 - Extend the `.ss` parser to fully deserialize a Scheme.
 - Implement the hardware‑mapping stage with concrete cache‑line and bank‑interleaving logic.
 - Add more realistic projectors (e.g., floating‑point operations, image‑pixel interpretation).
 - Benchmark data‑movement reduction against a traditional vector‑addition loop.
-
 
 ## License
 

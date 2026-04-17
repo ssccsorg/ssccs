@@ -72,6 +72,7 @@ This report explores how the binary nature of SSCCS Fields could offer a unique 
 
 ::: {.callout-note}
 Terminology Clarification: This report distinguishes between:
+
 - Radiation-Hardened (RH): Full tolerance to extreme environments (deep space, >100 krad, LET > 80 MeV·cm²/mg)
 - Radiation-Tolerant (RT): Mitigation for Low Earth Orbit (LEO) and cubesat environments (<50 krad, LET < 40 MeV·cm²/mg)
 
@@ -93,9 +94,9 @@ StarRISC is based on the OpenHW CV32E40P core, fabricated in 22‑nm FD‑SOI te
 
 Residual Vulnerabilities:
 
-1.  Multi-Bit Upsets (MBUs): SECDED ECC corrects single‑bit errors but fails against correlated MBUs in a single word or accumulated errors over time.
-2.  Semantic Blindness: Hardware-level error detection operates on bits, not application semantics. A multi‑bit upset that results in a physically impossible state (e.g., velocity exceeding escape velocity) may go undetected.
-3.  Static Protection: The hardening strategy is fixed at design time and cannot be adapted to changing mission requirements without pre‑designed overhead.
+1. Multi-Bit Upsets (MBUs): SECDED ECC corrects single‑bit errors but fails against correlated MBUs in a single word or accumulated errors over time.
+2. Semantic Blindness: Hardware-level error detection operates on bits, not application semantics. A multi‑bit upset that results in a physically impossible state (e.g., velocity exceeding escape velocity) may go undetected.
+3. Static Protection: The hardening strategy is fixed at design time and cannot be adapted to changing mission requirements without pre‑designed overhead.
 
 ## HARV‑SoC and TMR‑Protected RISC‑V
 
@@ -108,8 +109,8 @@ Residual Vulnerabilities:
 
 All three platforms share two fundamental constraints:
 
-1.  Hard‑coded Redundancy: Protection mechanisms are fixed in hardware, preventing adaptation to varying radiation environments or mission phases.
-2.  Semantic Blindness: Hardware‑level error detection (ECC, voters) operates on bits, not on application‑level semantics. A multi‑bit upset that results in a physically impossible state may go undetected.
+1. Hard‑coded Redundancy: Protection mechanisms are fixed in hardware, preventing adaptation to varying radiation environments or mission phases.
+2. Semantic Blindness: Hardware‑level error detection (ECC, voters) operates on bits, not on application‑level semantics. A multi‑bit upset that results in a physically impossible state may go undetected.
 
 # Landscape of Radiation‑Tolerant RISC‑V Research
 
@@ -133,6 +134,7 @@ Beyond the three platforms detailed above, the RISC‑V ecosystem has seen a sur
 Before detailing the SSCCS integration, this section defines the adversarial and environmental assumptions:
 
 ## Radiation Environment Model
+
 | Parameter | LEO/CubeSat Regime | Deep‑Space Regime |
 |-----------|-------------------|-------------------|
 | Total Ionizing Dose (TID) | 10–50 krad(Si) | 100–1000 krad(Si) |
@@ -140,14 +142,16 @@ Before detailing the SSCCS integration, this section defines the adversarial and
 | Dominant Faults | SEU, occasional MBU | MBU, SEL, cumulative degradation |
 
 ## Adversarial Capabilities
+
 - Passive: Natural radiation causing SEUs/MBUs in logic, memory, or interconnect
 - Active (theoretical): Fault injection via directed energy or compromised software updates
 
 ## SSCCS Security Assumptions
-1.  Root of Trust: Public verification key stored in OTP; immutable after fabrication
-2.  Field Signing: All `.field` binaries signed with Ed25519 or ECDSA-P256; verification before execution
-3.  Memory Isolation: PMP enforces strict read/write/execute permissions for Field code, data, and Segment storage
-4.  No Side‑Channel Leakage: Field execution time bounded; no data‑dependent branching in constraint predicates
+
+1. Root of Trust: Public verification key stored in OTP; immutable after fabrication
+2. Field Signing: All `.field` binaries signed with Ed25519 or ECDSA-P256; verification before execution
+3. Memory Isolation: PMP enforces strict read/write/execute permissions for Field code, data, and Segment storage
+4. No Side‑Channel Leakage: Field execution time bounded; no data‑dependent branching in constraint predicates
 
 # The Core Enabler: SSCCS Fields as Executable Binaries
 
@@ -306,6 +310,7 @@ This is dramatically lower than the ~200% area penalty of full TMR.
 **SEU Detection Probability:** With a single observation, the probability of an undetected SEU is $p$ (the raw upset rate). With a Stability Field requiring two agreeing observations, the probability of an undetected SEU becomes $p^2$ (assuming independent upsets). For example, if $p = 10^{-6}$ per cycle, temporal redundancy reduces undetected upset probability to $10^{-12}$ per dual‑observation window.
 
 **Latency Model:**
+
 - **Best case (cache hit, simple constraint):** 3–5 cycles  
 - **Typical case (cache hit, moderate constraint):** 8–12 cycles  
 - **Worst case (memory fetch + semantic validation):** 15–30 cycles  
@@ -324,6 +329,7 @@ Logic corruption → Voter disagreement → Temporal Field retry → Recovered s
 ```
 
 Example: Navigation Coordinate Validation
+
 ```rust
 // Semantic Field for spacecraft velocity constraint
 let nav_field = Field::semantic()
@@ -454,9 +460,9 @@ digraph XIF_Integration {
 
 Leveraging the Binary-Level Composition Protocols [@lee2026]:
 
-1.  Upload: New Field binaries (e.g., updated fault tolerance policies) are uploaded to StarRISC's secure memory.
-2.  Verification: The SSCCS Runtime verifies the Ed25519/ECDSA signature of the Field binary against a root of trust stored in OTP.
-3.  Sandboxing: The Field is loaded into a protected memory region (using PMP - Physical Memory Protection). It can only access Segments explicitly granted permission, preventing side-channel attacks or fault propagation [@lee2026].
+1. Upload: New Field binaries (e.g., updated fault tolerance policies) are uploaded to StarRISC's secure memory.
+2. Verification: The SSCCS Runtime verifies the Ed25519/ECDSA signature of the Field binary against a root of trust stored in OTP.
+3. Sandboxing: The Field is loaded into a protected memory region (using PMP - Physical Memory Protection). It can only access Segments explicitly granted permission, preventing side-channel attacks or fault propagation [@lee2026].
 
 ### Key Management for Long-Duration Missions
 
@@ -515,8 +521,8 @@ digraph Secure_Loading {
 
 ### PMP-Based Memory Isolation Layout
 
-Memory Map (StarRISC 512KB ECC SRAM): 
- 
+Memory Map (StarRISC 512KB ECC SRAM):
+
  | Address      | Region                | PMP Configuration       |
 |--------------|-----------------------|-------------------------|
 | 0x0000_0000  | Trusted Runtime (TEE) | LOCK, R‑X               |

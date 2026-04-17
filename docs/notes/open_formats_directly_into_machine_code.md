@@ -100,7 +100,7 @@ fn main() {
     let projection2 = sub_ca();
     println!("Sub observation projection result: {}", projection2); // Output: 9
 }
-``` 
+```
 
 ---
 

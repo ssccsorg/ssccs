@@ -30,7 +30,6 @@ This crate is **separate** from the `standard/` workspace:
 | **Standard Library** | `std` available | `no_std` (core + alloc only) |
 | **Panic Handler** | Default (unwind) | `panic-halt` (abort) |
 | **Use Case** | Simulation, testing, benchmarking | Embedded hardware deployment |
- 
 
 ## Installation
 

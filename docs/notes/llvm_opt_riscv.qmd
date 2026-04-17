@@ -46,6 +46,7 @@ let perf_field = Field::new()
 ```
 
 If a compiler regression violates such an invariant (e.g., observation latency exceeds 200 cycles), the runtime can:
+
 - Log the violation with C2PA provenance.
 - Fall back to a slower but predictable software implementation.
 - Trigger re‑compilation with different optimisation flags.
@@ -55,6 +56,7 @@ If a compiler regression violates such an invariant (e.g., observation latency e
 1. **Performance regression test suite** – Automatically measure observation latency for representative Schemes (vector addition, 2D grid, graph BFS) across LLVM versions. Store baselines and alert on >5% deviation.
 
 2. **Extend `.ss` format** – Add optional `performance` metadata to Schemes:
+
    ```yaml
    performance:
      max_latency: 1000_cycles
@@ -68,4 +70,3 @@ If a compiler regression violates such an invariant (e.g., observation latency e
 ## 5. Conclusion
 
 Deterministic execution in SSCCS must encompass both functional correctness and performance predictability. Compiler performance regressions are real and can be detected systematically by extending Fields to include performance invariants. This turns a potential weakness into a strength: a self‑monitoring compilation system that guarantees not only what is computed, but how fast.
- 

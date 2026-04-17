@@ -8,6 +8,7 @@ The DevContainer provides a complete, reproducible development environment for t
 2. Reopen in container (`F1` → `Dev Containers: Reopen in Container`).
 3. Wait for the setup script to finish (installs Quarto, Python, TinyTeX, c2patool, and system dependencies).
 4. Build the documentation:
+
    ```bash
    cd docs
    python build.py --website
@@ -26,6 +27,7 @@ The DevContainer provides a complete, reproducible development environment for t
 ## Future Expansion
 
 This environment is not limited to documentation. As the project grows (e.g., Rust backends, embedded PoCs), additional tools can be added:
+
 - Rust/Cargo (via `rustup`)
 - Additional compilers or embedded toolchains
 - Custom test frameworks
@@ -48,4 +50,4 @@ To extend the environment, edit `docs/Dockerfile` or `.devcontainer/post-create-
 
 ---
 
-**Maintained by SSCCS Foundation** – For issues, open a ticket on GitHub. 
+**Maintained by SSCCS Foundation** – For issues, open a ticket on GitHub.

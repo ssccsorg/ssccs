@@ -1,5 +1,5 @@
 ---
-title: "Rust Bare‑Metal Toolchain as a Foundation for RISC-V  Integration"
+title: "Rust Bare‑Metal Toolchain as a Foundation for RISC-V Integration"
 subtitle: "Leveraging Embedded Rust and Comprehensive Rust Bare‑Metal Guides for Structural Observation Primitives"
 date: 2026-04
 date-format: "MMMM, YYYY"
@@ -80,7 +80,6 @@ We focus on the following aspects of the Rust embedded guides:
 
 We then map these topics to the SSCCS hardware‑integration research, which currently includes a custom‑instruction emulation library, a placeholder XIF coprocessor profile, and a test suite that runs on the RISC‑V target.
 
-
 # Summary of Rust Embedded and Bare‑Metal Guides
 
 ## Rust Embedded Book
@@ -106,7 +105,6 @@ The *Comprehensive Rust* bare‑metal guide (published by Google) [@comprehensiv
 - **Application processors vs. microcontrollers** – differences between `cortex‑a` and `cortex‑m` targets.
 - **Safety patterns** – using `Owned` and `Borrowed` wrappers to enforce peripheral ownership.
 
-
 ## Common Themes
 
 Both resources underscore:
@@ -117,7 +115,6 @@ Both resources underscore:
 4. **Community‑driven crates** – a rich ecosystem of `no_std`‑compatible libraries (e.g., `heapless`, `embedded‑time`).
 
 These themes align directly with SSCCS’s need for a reliable, verifiable, and portable low‑level software stack.
-
 
 # Current SSCCS Hardware‑Integration Status
 
@@ -145,7 +142,6 @@ The prototype successfully compiles for `riscv32imac‑unknown‑none‑elf` and
 | Use `defmt` or `log` for structured logging | **Not yet** – logging uses `println` in host tests |
 | Leverage `cargo‑generate` for project templating | **Not yet** – project created manually |
 
-
 ## Gaps Identified
 
 1. **No custom linker script** – The prototype relies on the default linker script provided by `riscv‑rt`. For fine‑grained control over memory layout (e.g., placing Scheme segments in specific RAM regions), a custom linker script will be needed.
@@ -157,7 +153,6 @@ The prototype successfully compiles for `riscv32imac‑unknown‑none‑elf` and
 4. **No interrupt or exception handling** – The observation primitives are currently purely computational; they do not interact with interrupts or exception vectors. In a real system, observation instructions may need to be interruptible or may raise exceptions on invalid configurations.
 
 5. **Manual project setup** – The workspace was created manually. A `cargo‑generate` template could accelerate the creation of future SSCCS‑hardware experiments.
-
 
 # Opportunities for Deeper Integration
 
@@ -179,6 +174,7 @@ pub trait ObservationCoprocessor {
 ```
 
 Concrete implementations could be:
+
 - `SoftwareObservation` – the current emulation fallback.
 - `XifObservation` – a hardware driver for the OpenHW CORE‑V XIF interface.
 - `FpgaObservation` – an accelerator mapped to an eFPGA fabric.
@@ -234,7 +230,6 @@ In a real‑time system, observation requests may arrive from multiple sources (
 
 This pattern aligns with the *Concurrency* chapter of the Embedded Book and would demonstrate how SSCCS’s immutability primitives simplify concurrent access (no locks needed at the logical level).
 
-
 # Roadmap: Next Steps Guided by Rust Embedded Practices
 
 Based on the analysis above, we propose the following concrete actions:
@@ -253,7 +248,6 @@ Based on the analysis above, we propose the following concrete actions:
 
 Each step will be accompanied by a small example commit and a test that verifies the new capability, following the pedagogical style of the Rust Embedded Book.
 
-
 # Additional Considerations (Optional Enhancements)
 
 ### RISC‑V‑Specific Register Access
@@ -268,7 +262,6 @@ Beyond Verilog/VHDL, eFPGA integration could leverage modern HDLs such as **Amar
 
 SSCCS’s isolation properties could be reinforced by hardware memory protection. RISC‑V provides PMP (Physical Memory Protection) and, in higher‑end cores, MMU‑based virtual memory. While this is an advanced topic that may be omitted from the initial prototype, future safety‑critical deployments should consider integrating PMP regions to separate Scheme segments, Fields, and projection buffers.
 
-
 # Recommendations
 
 This document presents a **realistic and actionable research plan** that accurately identifies points where the Rust embedded ecosystem can contribute concretely to SSCCS hardware integration. Notably, it avoids exaggerated promises (e.g., “hardware performance numbers”, “full ASIC implementation”) and honestly discloses current limitations.
@@ -280,7 +273,6 @@ This document presents a **realistic and actionable research plan** that accurat
 3. **Secure OpenHW CORE‑V MCU DevKit access** – obtaining the physical hardware early is crucial for validating the prototype on a real RISC‑V target.
 4. **Prepare community contributions** – based on this research, draft documentation (e.g., a guide to implementing custom instructions via XIF) that can be contributed to the OpenHW community.
 
-
 # Conclusion
 
 The Rust embedded and bare‑metal guides provide a robust, community‑validated foundation for building low‑level software that is safe, portable, and maintainable. The SSCCS hardware‑integration prototype already follows many of their recommendations—`no_std`, a dedicated target, a panic handler, and a runtime crate—but several opportunities for deeper alignment remain.
@@ -288,7 +280,6 @@ The Rust embedded and bare‑metal guides provide a robust, community‑validate
 By adopting the `embedded‑hal` trait pattern, custom linker scripts, `defmt` logging, and interrupt‑safe concurrency, the SSCCS research can leverage the full power of the Rust embedded ecosystem. This will accelerate the validation of structural observation on RISC‑V hardware, moving the SSCCS paradigm closer to real‑world deployment.
 
 Ultimately, the combination of Rust’s guarantees and SSCCS’s structural model offers a promising path toward verifiable, energy‑efficient computing—a path that the Rust embedded community is uniquely equipped to help us walk.
-
 
 # Glossary
 
@@ -301,7 +292,6 @@ Ultimately, the combination of Rust’s guarantees and SSCCS’s structural mode
 | **Linker script** | A file that directs the linker how to place sections in memory. |
 | **XIF** | CORE‑V eXtension Interface – a RISC‑V interface for tightly coupled coprocessors. |
 | **Observation primitive** | A basic SSCCS operation (e.g., `OBSERVE`, `COLLAPSE`) that can be realized as a custom instruction. |
-
 
 # References {.unnumbered .unlisted}
 

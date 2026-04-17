@@ -89,7 +89,7 @@ import numpy as np
 
 ## The Problem We Face
 
-For eighty years, computing has followed the same pattern: fetch an instruction, move data from memory to processor, execute, store the result back. This worked when processors and memory ran at comparable speeds. It no longer does. **Today, data movement consumes 60–80% of energy in modern AI accelerators [@eyeriss2016].** As models grow to hundreds of billions of parameters, this “data movement wall”[@wulf1995hitting] [@horowitz2014computing] [@ieee2023performancewalls] becomes insurmountable. Each NVIDIA H100 accelerator draws 700W continuously under load, and AI data centers are projected to consume 68 GW by 2027 nearly matching California’s entire power capacity [@ieee2025; @omdia2025]. 
+For eighty years, computing has followed the same pattern: fetch an instruction, move data from memory to processor, execute, store the result back. This worked when processors and memory ran at comparable speeds. It no longer does. **Today, data movement consumes 60–80% of energy in modern AI accelerators [@eyeriss2016].** As models grow to hundreds of billions of parameters, this “data movement wall”[@wulf1995hitting] [@horowitz2014computing] [@ieee2023performancewalls] becomes insurmountable. Each NVIDIA H100 accelerator draws 700W continuously under load, and AI data centers are projected to consume 68 GW by 2027 nearly matching California’s entire power capacity [@ieee2025; @omdia2025].
 
 ::: {layout-ncol=2}
 
@@ -163,11 +163,10 @@ plt.show()
 
 :::
 
-
 Industry analysts warn data center power could surge 165% from AI workloads alone [@mrl2025]. EPRI projects data centers may account for 9–17% of US electricity by 2030 [@epri2026]; Gartner forecasts AI-optimized server investments at 3–4× traditional servers, with power doubling in four years [@gartner2026]. These fundamental limitations have been recognized for decades [@borkar2011future], with data movement among the top exascale challenges [@lucas2014top].
 
-
 ::: {layout-ncol=2}
+
 ```{python}
 #| echo: false
 #| fig-cap: "Relative energy cost of various operations (normalized to arithmetic). Data from Eyeriss (ISCA 2016) [@eyeriss2016]."
@@ -189,8 +188,7 @@ for bar, val in zip(bars, energy_cost):
 
 plt.tight_layout()
 plt.show()
-``` 
- 
+```
 
 ```{python}
 #| echo: false
@@ -214,6 +212,7 @@ plt.ylim(0, 120)
 plt.tight_layout()
 plt.show()
 ```
+
 :::
 
 But the problem goes beyond energy. Machine learning models remain black boxes with no verifiable path from input to result. For critical applications, this lack of verifiability creates unacceptable risk:
@@ -223,7 +222,6 @@ But the problem goes beyond energy. Machine learning models remain black boxes w
 - A financial algorithm triggers a flash crash as in 2010, where a single automated sell program contributed to a 600-point Dow plunge, yet regulators could not deterministically reconstruct the precise decision chain [@nanex2010flash; @sec2010flash].
 
 Today, organizations compensate with redundant systems and lengthy certification costing billions annually. Total documented damage from AI-related incidents already **exceeds $100 billion [@raiids2025], and 346 reported cases.** We need a foundation where trust is built in, not bolted on.
- 
 
 ### A Different Approach
 
@@ -254,15 +252,14 @@ The same structural principles driving recent advances in AI—such as manifold-
 
 SSCCS emerges from the convergence of three recent technological and scientific trends that make its realisation feasible for the first time.
 
-1.  The End of Dennard Scaling and the Data Movement Crisis  
+1. The End of Dennard Scaling and the Data Movement Crisis  
     For decades, performance scaled with transistor density. Today, energy per bit moved has become the dominant constraint. Data movement accounts for 60–80% of total energy in modern accelerators. Traditional architectures (even PIM) still move data *between* computational domains. SSCCS eliminates data movement entirely by making data stationary and computation a function of structural observation. This is no longer a theoretical advantage—it is an economic and physical necessity.
 
-2.  Maturity of Open‑Source Hardware Ecosystems  
+2. Maturity of Open‑Source Hardware Ecosystems  
     The rise of RISC‑V, open FPGA toolchains (Yosys, nextpnr), and open ASIC design flows (OpenLANE, Skywater 130 nm) has drastically lowered the barrier to implementing custom compute models. A new ISA based on `Observation` can now be prototyped on commodity FPGA boards and, if successful, transitioned to silicon without requiring a multi‑billion‑dollar semiconductor company. This enables an agile, open‑source development model.
 
-3.  Advances in Formal Methods and Verification  
+3. Advances in Formal Methods and Verification  
     Over the past five years, proof assistants like Coq and Lean have matured to the point where they can handle complex, real‑world system verification. The SSCCS model’s determinism and race‑freedom are precisely the kind of properties that can now be mechanised. This allows us to build, from the ground up, a computing system with provable safety guarantees—a feature absent from conventional architectures.
-
 
 ## Current status and plan
 
@@ -293,9 +290,8 @@ In return, we offer early access to a new computational paradigm and co-authorsh
 ## References {.unnumbered .unlisted}
 
 ::: {#refs}
-::: 
+:::
 
 ---
 
 {{< include ../_include/_license.qmd >}}
- 

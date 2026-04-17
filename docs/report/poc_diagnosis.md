@@ -181,4 +181,3 @@ A parallel research track investigates Rust bare-metal programming for RISC-V ta
 ## Conclusion
 
 This roadmap focuses exclusively on the technical evolution of the PoC. The path forward is clear: complete the core algebra (Field composition), realise the compiler pipeline (structural analysis, memory‑layout resolution, hardware mapping), generate observation code for multiple targets, and validate the energy‑efficiency claims through rigorous benchmarking. A parallel RISC-V hardware-integration sub-project investigates Rust bare-metal programming as a foundation for SSCCS validation on open RISC-V platforms.
- 

@@ -1,4 +1,4 @@
-# Project Direction 
+# Project Direction
 
 ## Toward a New Computational Paradigm
 
@@ -8,28 +8,28 @@ We reimagine computation not as a sequence of steps, but as the geometry of stat
 
 This document outlines the **highest‑level direction** – our cultural bedrock, strategic posture, and long‑horizon vision. Detailed technical roadmaps, platform‑specific plans, and measurable milestones belong to separate reports and proposals.
 
-
-
 ## Cultural Foundations
 
 SSCCS is a software‑first initiative. We seek technical collaborators, not sponsors. Our culture prioritises reproducible results, verifiable processes, and open contribution.
 
 ### Human Comes First
+
 Every tool, from AI to automation, is meant to serve the project and its people. Any process that inflicts unnecessary stress or alienation is a failure. Our technology should not exist at the expense of humanity; it must improve our lives and even act as a tool of resistance against everything that threatens human well-being. We will.
 
 ### Results‑Oriented Pragmatism
+
 Code quality, maintainability, and system impact matter more than *how* the code was written. We bypass bureaucracy and exhausting debates. Discussions focus on engineering, architecture, and performance.
 
 ### Clarity of Responsibility
+
 In 2026, AI use is as standard as a compiler. We do not mandate disclosure—only evaluate correctness, security, and test compliance. We encourage its use if it supports our project's healthy growth. Every contributor bears full responsibility for their work. Tools are aids; the human engineer remains accountable.
 
 ### Beyond Boundaries
+
 We acknowledge that even our platforms operate within centralised constraints. Where possible, we choose open, decentralised alternatives. We encourage bold ideas that challenge conventional computing – provided they do not block others.
 
 These principles are complementary. Rigorous technical debate is welcome; personal pressure is not.
 See [Code of Conduct](/code_of_conduct.html).
-
-
 
 ## Partnership, Collaboration, and Support
 
@@ -48,8 +48,6 @@ Where funding is needed, we treat it as a catalyst, not a goal. Our priority is 
 We are building a computational commons open to everyone. Those who share this vision are invited to join.
 For collaboration details, see [Code of Conduct](/code_of_conduct.html) and [Contributing](/contributing.html).
 
-
-
 ## Technical Strategy
 
 SSCCS is first a **software project** – a compiler, a runtime, and a declarative format that expresses computation as stationary structure. It is designed to target multiple hardware backends, from conventional CPUs to emerging open platforms.
@@ -59,6 +57,7 @@ SSCCS is first a **software project** – a compiler, a runtime, and a declarati
 - **Energy efficiency** is a first‑order constraint. By eliminating data movement through structural isolation, SSCCS addresses physical limits without requiring hardware changes.
 
 In the current landscape – agentic AI, HPC, space computing – SSCCS offers:
+
 1. Deterministic latency for safety‑critical applications.
 2. Bypassing the von Neumann bottleneck via software‑driven structural mapping.
 
@@ -78,7 +77,6 @@ The rise of open instruction set architectures (ISAs) has fundamentally changed 
 
 SSCCS contributes an **open `.ss` format** – a language layer through which logical design dictates physical implementation. Hardware provides the substrate; SSCCS provides the grammar. Our goal is to become a visible contributor to a living technological movement, through software that makes hardware easier to program.
 
-
 ## Documentation‑First Infrastructure and Self‑Evolving Knowledge Base
 
 Our Documentation‑First philosophy treats accumulated knowledge not as a static archive, but as a living, cellular fabric that co‑evolves with the code, experiments, and research it describes. At the core of this fabric lies the Observable Knowledge Graph (OKG) —a structured, machine‑readable corpus of Segments, Schemes, Fields, and Observations that is explicitly designed for LLM/RAG integration and governed by a persistent Contract.
@@ -86,7 +84,6 @@ Our Documentation‑First philosophy treats accumulated knowledge not as a stati
 Every whitepaper, technical note, governance record, and code artifact is ingested through contract‑governed agents, extracted into the unified graph, and linked by deterministic edges (DEFINES, IMPLEMENTS, VALIDATES, DERIVES_FROM). This creates a closed‑loop ecosystem: hypotheses generated from gaps in the graph are validated against cryptographic provenance, and the resulting insights—along with new code and external references—are fed back into the ingestion pipeline. The graph expands with every commit and research note, enabling the entire knowledge base to grow organically.
 
 This transforms documentation from a passive endpoint into the primary interface between human intent and machine reasoning. AI agents explore the graph, surface emergent connections, and extend the SSCCS paradigm through a continuous generate‑evaluate‑adapt cycle. See [Documentation Home](/index.html) and [Project Nexus](/proposal/nexus.html) for details.
-
 
 ## Immediate Action Plan (High‑Level)
 
@@ -113,8 +110,6 @@ Our code is licensed under **Apache 2.0**, aligning with open‑hardware norms (
 
 We will pursue **micro‑grants and bounties** for specific milestones, prioritise **in‑kind support** (FPGA cloud access, engineering time), and maintain a **lean operational model** to bridge initial prototyping independently.
 
-
-
 ## Long‑Term Vision and Success Metrics
 
 **Goal:** Establish a new computational foundation where *structure* is the primitive, expressed through open‑source software and eventually adopted by hardware designers.
@@ -124,8 +119,6 @@ We will pursue **micro‑grants and bounties** for specific milestones, prioriti
 - **Long term** – Contribute to standardisation (e.g., RISC‑V extensions, open format specifications) with reference implementations for global adoption.
 
 Success is measured by **adoption**, not grant size. If future core designers consider “structural observation” natural, and developers reach for the open format to describe computational structure – we succeed.
-
-
 
 ## Conclusion
 

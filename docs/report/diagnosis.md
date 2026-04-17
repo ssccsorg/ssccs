@@ -109,6 +109,7 @@ To identify areas for improvement, we use a rigorous evaluation framework (inspi
 ## 3. Bold Scientific Unknowns and Breakthrough Hypothesis
 
 ### 3.1 The Core Unknown
+
 Can computation be fully expressed as the observation of immutable structure under dynamic constraints, eliminating the need for instruction sequencing and data movement?
 
 Existing approaches treat computation as transformation of state over time. SSCCS posits that computation is collapse of structured potential – a fundamentally different ontological stance. The scientific unknown is whether this stance can be made practically executable while preserving determinism, energy efficiency, and scalability.
@@ -117,22 +118,22 @@ Existing approaches treat computation as transformation of state over time. SSCC
 
 SSCCS is not a speculative idea out of time; it emerges from the convergence of three recent technological and scientific trends that make its realisation feasible for the first time.
 
-1.  The End of Dennard Scaling and the Data Movement Crisis  
+1. The End of Dennard Scaling and the Data Movement Crisis  
     For decades, performance scaled with transistor density. Today, energy per bit moved has become the dominant constraint. Data movement accounts for 60–80% of total energy in modern accelerators. Traditional architectures (even PIM) still move data *between* computational domains. SSCCS eliminates data movement entirely by making data stationary and computation a function of structural observation. This is no longer a theoretical advantage—it is an economic and physical necessity.
 
-2.  Maturity of Open‑Source Hardware Ecosystems  
+2. Maturity of Open‑Source Hardware Ecosystems  
     The rise of RISC‑V, open FPGA toolchains (Yosys, nextpnr), and open ASIC design flows (OpenLANE, Skywater 130 nm) has drastically lowered the barrier to implementing custom compute models. A new ISA based on `Observation` can now be prototyped on commodity FPGA boards and, if successful, transitioned to silicon without requiring a multi‑billion‑dollar semiconductor company. This enables an agile, open‑source development model.
 
-3.  Advances in Formal Methods and Verification  
+3. Advances in Formal Methods and Verification  
     Over the past five years, proof assistants like Coq and Lean have matured to the point where they can handle complex, real‑world system verification. The SSCCS model’s determinism and race‑freedom are precisely the kind of properties that can now be mechanised. This allows us to build, from the ground up, a computing system with provable safety guarantees—a feature absent from conventional architectures.
 
 ### 3.3 Specific Unknowns to Investigate
 
-1.  Field composition algebra – How can multiple Fields be combined while preserving observation determinism?
-2.  Hardware mapping of structural constraints – Can a Scheme’s memory‑layout abstraction be compiled directly into hardware topologies with provable data‑movement reduction?
-3.  Observation‑centric hardware – Can a physical device be designed where the “observation” event corresponds to a measurable energy pulse?
-4.  Formal verification of collapse determinism – Under what conditions does an observation produce a unique projection?
-5.  Open‑format to machine‑code compilation – Can the `.ss` binary format be compiled directly into machine code bypassing traditional instruction selection?
+1. Field composition algebra – How can multiple Fields be combined while preserving observation determinism?
+2. Hardware mapping of structural constraints – Can a Scheme’s memory‑layout abstraction be compiled directly into hardware topologies with provable data‑movement reduction?
+3. Observation‑centric hardware – Can a physical device be designed where the “observation” event corresponds to a measurable energy pulse?
+4. Formal verification of collapse determinism – Under what conditions does an observation produce a unique projection?
+5. Open‑format to machine‑code compilation – Can the `.ss` binary format be compiled directly into machine code bypassing traditional instruction selection?
 
 *Progress note*: Since the initial identification of these unknowns, the whitepaper and appendix have been enhanced with detailed treatments of Field composition algebra (Section 3.3), hardware mapping strategies (Appendix A.6), and open‑format compilation (Appendix A.5). These provide a foundation for further investigation, but the core unknowns remain open research questions.
 
@@ -201,9 +202,9 @@ Projected Energy Advantage (Range with Justification)
 
 Over the next 36 months, we will deliver:
 
-1.  A fully functional SSCCS software stack compiling `.ss` files into observation‑centric executables.
-2.  An FPGA‑based hardware prototype demonstrating observation‑collapse with measurable energy savings.
-3.  A formal proof (mechanized in Lean/Coq) of determinism and race‑freedom for a subset of the algebra.
+1. A fully functional SSCCS software stack compiling `.ss` files into observation‑centric executables.
+2. An FPGA‑based hardware prototype demonstrating observation‑collapse with measurable energy savings.
+3. A formal proof (mechanized in Lean/Coq) of determinism and race‑freedom for a subset of the algebra.
 
 Concrete demonstration workloads:
 
@@ -277,74 +278,74 @@ The following tasks address identified gaps and strengthen the project for inter
 
 ### 7.1 SOTA Benchmarking and Quantified Advantages
 
-* Task 1.1 (1 month)
+- Task 1.1 (1 month)
   Deliver a one‑page benchmarking table comparing SSCCS with PIM, CXL, GPU, FPGA, and neuromorphic systems, including quantified metrics.
 
-* Task 1.2 (0.5 month)
+- Task 1.2 (0.5 month)
   Provide a one‑page narrative explaining why existing approaches cannot address the fundamental problem.
 
 ### 7.2 Tangible Breakthrough with Measurable KPIs
 
-* Task 2.1 (1 month)
+- Task 2.1 (1 month)
   Define three demonstration workloads, including baseline metrics and SSCCS mappings.
 
-* Task 2.2 (0.5 month)
+- Task 2.2 (0.5 month)
   Establish KPI table with baselines, target values, and measurement methods.
 
 ### 7.3 Science‑to‑Innovation Pathway
 
-* Task 3.1 (1 month)
+- Task 3.1 (1 month)
 
   Develop a two‑page roadmap covering:
 
-  * Foundation (TRL 3 → 4)
-  * Prototyping (TRL 4 → 5)
-  * Transition Preparation (TRL 5 → 6)
+  - Foundation (TRL 3 → 4)
+  - Prototyping (TRL 4 → 5)
+  - Transition Preparation (TRL 5 → 6)
 
-* Task 3.2 (0.5 month)
+- Task 3.2 (0.5 month)
   Define IP and standardisation strategy, including:
 
-  * Open‑core licensing (Apache 2.0 + commercial extensions)
-  * Patent positioning (first‑to‑file in multiple jurisdictions)
-  * Target standards (IEEE, ETSI, ISO/IEC JTC 1)
-  * Regulatory considerations (EU AI Act, etc.)
+  - Open‑core licensing (Apache 2.0 + commercial extensions)
+  - Patent positioning (first‑to‑file in multiple jurisdictions)
+  - Target standards (IEEE, ETSI, ISO/IEC JTC 1)
+  - Regulatory considerations (EU AI Act, etc.)
 
 ### 7.4 Market Alignment and Adoption
 
-* Task 4.1 (1 month)
+- Task 4.1 (1 month)
   Conduct market analysis across AI/ML, robotics, space, and scientific computing sectors, with geographic breakdown (Asia, Middle East, Europe, Americas).
 
-* Task 4.2 (ongoing)
+- Task 4.2 (ongoing)
   Secure 2–3 MOUs with early adopters in different regions.
 
 ### 7.5 Team and Consortium Building (Global)
 
-* Task 5.1 (2 months)
+- Task 5.1 (2 months)
   Identify and onboard complementary partners across formal methods, hardware, and applications from Europe, Asia, and the Middle East.
 
-* Task 5.2 (1 month)
+- Task 5.2 (1 month)
   Define five work packages with ownership, milestones, and resource allocation, distributed geographically.
 
 ### 7.6 TRL Definition and Evidence
 
-* Task 6.1 (1 week)
+- Task 6.1 (1 week)
   Document TRL status:
 
-  * Current: TRL 3
-  * Target: TRL 5
+  - Current: TRL 3
+  - Target: TRL 5
     Include supporting evidence (PoC code, test results).
 
 ### 7.7 Financial Planning (Global)
 
-* Task 7.1 (1 month)
+- Task 7.1 (1 month)
   Develop detailed budget aligned with work packages, reflecting funding sources from multiple regions.
 
 ### 7.8 Portfolio Complementarity and Collaboration
 
-* Task 8.1 (1 week)
+- Task 8.1 (1 week)
   Provide a one‑page analysis of synergy with related initiatives (e.g., RISC‑V, CHIPS Act programmes, Middle East AI strategies, Asian semiconductor funds).
 
-* Task 8.2 (0.5 month)
+- Task 8.2 (0.5 month)
   Allocate resources (e.g., within WP4) for collaboration activities such as workshops and knowledge exchange across continents.
 
 ## 8. Milestones and Deliverables (36‑Month Timeline)
@@ -522,6 +523,7 @@ Rather than being limited to a single region, SSCCS contributes to multi‑polar
 ### 12.4 Environmental Impact (Global)
 
 Energy‑efficient computing directly supports:
+
 - European Green Deal objectives.
 - Regional green new deals in Asia.
 - Global climate commitments through reduced data centre energy consumption.
@@ -540,6 +542,7 @@ The following table formalises the key risks, their probability and impact, and 
 | Market Adoption | The open‑source ecosystem does not materialise; developers find the SSCCS model too foreign to adopt. | Low | Medium | Invest in developer relations (Section 9.5) and accessible documentation (Guide, Manifesto). Provide language bindings (Python, Rust) and emulation backends for easy experimentation. | If adoption is slow, pivot to a high‑value niche: safety‑critical systems (automotive, aerospace) where verifiability is a non‑negotiable advantage, and work with a single anchor customer to prove value. |
 
 ## 14. Immediate Actions (Next 6 Months) – Status as of 2026‑03‑30
+
 ### 14.1 Whitepaper Enhancements
 
 - Add “Global Alignment” section referencing major regional technology strategies. **[Pending]**
@@ -578,7 +581,6 @@ The following table formalises the key risks, their probability and impact, and 
 - New section: “Pathway to Innovation and Market” (global TRL roadmap, IP strategy, early adopter engagement) **[Pending]**
 - New section: “Global Portfolio Complementarity” (synergies with related initiatives across continents) **[Pending]**
 - Added appendix sections covering observation‑code generation, hardware mapping, field composition, and scheme enumerations. **[Completed – see Appendix A.5–A.8]**
-
 
 ## 15. Conclusion
 
