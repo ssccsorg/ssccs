@@ -3,6 +3,7 @@
 This repository contains a proof‑of‑concept implementation of the **Schema–Segment Composition Computing System (SSCCS)**, a new computational model that redefines computation as the observation of structured potential rather than as a sequence of state mutations.
 
 The PoC demonstrates the core ontological layers of SSCCS:
+
 - **Segment** – immutable coordinate points in a multi‑dimensional possibility space.
 - **Scheme** – immutable structural blueprint defining axes, segments, relations, memory layout, and observation rules.
 - **Field** – mutable container of dynamic constraints.
@@ -80,6 +81,7 @@ ssccs-schemes   ssccs-examples (both depend on ssccs-primitive + ssccs-core)
 ## Rust Environment Setup
 
 ### 1. Install Rust
+
 If you do not have Rust installed, use [rustup](https://rustup.rs/):
 
 ```bash
@@ -93,12 +95,14 @@ rustup update
 ```
 
 ### 2. Verify Installation
+
 ```bash
 rustc --version
 cargo --version
 ```
 
 ### 3. Clone the Repository
+
 ```bash
 git clone https://github.com/ssccsorg/ssccs.git
 cd ssccs/poc
@@ -107,6 +111,7 @@ cd ssccs/poc
 ## Building and Running
 
 ### Build the Project
+
 ```bash
 cargo build --release --workspace
 ```
@@ -161,7 +166,9 @@ cargo fmt --check --workspace
 You can run the same CI workflow locally using [act](https://github.com/nektos/act), a tool that executes GitHub Actions workflows on your local machine.
 
 ### Prerequisites
+
 1. Install `act`:
+
    ```bash
    # macOS (using Homebrew)
    brew install act
@@ -169,22 +176,27 @@ You can run the same CI workflow locally using [act](https://github.com/nektos/a
    # Linux (using the installation script)
    curl -s https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash
    ```
+
 2. Ensure Docker is running.
 
 ### Running the Validation Job
+
 To run the `rust-check` job defined in `.github/workflows/rust-poc-ci.yml`:
+
 ```bash
 cd /path/to/ssccs/poc
 act -j rust-check -P ubuntu-latest=catthehacker/ubuntu:act-latest
 ```
 
 This will:
+
 - Spin up a Docker container with the Ubuntu latest image
 - Install the Rust toolchain, clippy, and rustfmt
 - Cache dependencies
 - Run the complete validation suite (`poc/run.sh`)
 
 The validation script (`poc/run.sh`) performs the following checks in order:
+
 1. **Formatting** – `cargo fmt --check`
 2. **Linting** – `cargo clippy --workspace -- -D warnings`
 3. **Build** – `cargo build --workspace --release`
@@ -194,6 +206,7 @@ The validation script (`poc/run.sh`) performs the following checks in order:
 If any step fails, the workflow stops and reports the error. A successful run ends with "ALL VALIDATIONS PASSED".
 
 ### Notes
+
 - The first run will take longer due to Docker image downloads and dependency caching.
 - Subsequent runs benefit from cached Docker layers and the Rust cache.
 - The `catthehacker/ubuntu:act-latest` image is recommended for `act` because it includes common tools (including `jq`) that the validation script expects.
@@ -273,6 +286,7 @@ Shared utilities for experiments and examples:
 ### What Belongs in ssccs-core
 
 Only absolute primitives that cannot be decomposed further:
+
 - Core ontological types (Segment, SpaceCoordinates, Field, Constraint)
 - The Projector trait (not implementations)
 - Observation functions
@@ -281,6 +295,7 @@ Only absolute primitives that cannot be decomposed further:
 ### What Belongs in ssccs-primitive
 
 Scheme abstraction layer:
+
 - Scheme struct and builder
 - SchemeTrait definition
 - Structural relations and constraints
@@ -290,6 +305,7 @@ Scheme abstraction layer:
 ### What Belongs in ssccs-schemes
 
 Concrete implementations and developer input:
+
 - Scheme templates (Grid2D, IntegerLine, Graph, Tensor3D)
 - Composite and Transformed Scheme extensions
 - Spaces (BooleanSpace, IntegerSpace) as developer conveniences
@@ -297,6 +313,7 @@ Concrete implementations and developer input:
 ### What Belongs in ssccs-examples
 
 Shared utilities for experimentation:
+
 - Projector implementations
 - Compiler pipeline
 - Parser implementations
@@ -305,6 +322,7 @@ Shared utilities for experimentation:
 ### What Belongs in Experiment Crates
 
 Individual constitutional tests that:
+
 - Demonstrate a specific SSCCS concept
 - Can evolve independently
 - May be refactored or replaced as the model evolves

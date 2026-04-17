@@ -256,6 +256,7 @@ Theoretical universality does not guarantee practical performance.
 Two scenarios:
 
 **Scenario A – Structural Compilation**
+
 - Layout fixed at compile time
 - Observation code statically generated
 - Field mutation localized
@@ -264,6 +265,7 @@ Two scenarios:
 → Likely performance benefits.
 
 **Scenario B – Runtime Structural Interpretation**
+
 - Frequent dynamic parsing
 - Repeated topology traversal
 - Constraint resolution via generic engine
@@ -329,7 +331,7 @@ The research direction therefore focuses on:
 This report does not claim superiority over instruction-based systems.  
 It identifies conditions under which a structure-first model may provide measurable benefits.
 
-Further empirical validation is required. 
+Further empirical validation is required.
 
 ---
 

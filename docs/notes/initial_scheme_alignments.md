@@ -993,6 +993,7 @@ pub enum TransformType {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Matrix<T>(Vec<Vec<T>>);
 ```
+
 The Scheme abstraction layer is now complete. Key features:
 
 ## **Key Design Principles**

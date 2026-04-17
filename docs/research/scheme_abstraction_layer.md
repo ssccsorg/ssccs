@@ -5,6 +5,7 @@ The Scheme abstraction layer in SSCCS defines the structural relationships betwe
 ## 1. Introduction
 
 In SSCCS, a **Scheme** is an immutable blueprint that captures:
+
 - Dimensional axes (coordinate system)
 - Structural relations (adjacency, hierarchy, dependency, equivalence, custom predicates)
 - Memory‑layout mapping (logical address space)
@@ -38,12 +39,15 @@ The previous Scheme implementation (`Grid2DScheme`, `IntegerLineScheme`) was tig
 ## 3. Core Types and Their Relationships
 
 ### 3.1 SchemeId
+
 ```rust
 pub struct SchemeId(pub [u8; 32]);
 ```
+
 A 32‑byte cryptographic identifier derived from hashing the entire structural description (axes, segments, relations, constraints, layout, observation rules). Two Schemes with identical content produce the same `SchemeId`.
 
 ### 3.2 Axis
+
 ```rust
 pub struct Axis {
     pub name: String,
@@ -51,7 +55,9 @@ pub struct Axis {
     pub metadata: HashMap<String, String>,
 }
 ```
+
 An axis defines one dimension of the Scheme’s coordinate space. The `AxisType` can be:
+
 - **Discrete**: integer‑valued (e.g., pixel indices)
 - **Continuous**: real‑valued (physical resolution deferred)
 - **Cyclic(Option<i64>)**: periodic (e.g., angles modulo 360°)
@@ -60,6 +66,7 @@ An axis defines one dimension of the Scheme’s coordinate space. The `AxisType`
 - **WithUnit(String)**: physical units (e.g., "meters", "seconds")
 
 ### 3.3 StructuralRelation
+
 ```rust
 pub enum StructuralRelation {
     Adjacency { relation_type: AdjacencyType, weight: Option<f64>, metadata: HashMap<String, String> },
@@ -69,9 +76,11 @@ pub enum StructuralRelation {
     Custom { name: String, predicate: Arc<dyn Fn(&Segment, &Segment) -> bool + Send + Sync> },
 }
 ```
+
 Structural relations define how Segments are connected or constrained relative to each other. They are stored in a `RelationGraph` and can be filtered when querying for neighbors.
 
 ### 3.4 MemoryLayout
+
 ```rust
 pub struct MemoryLayout {
     pub layout_type: LayoutType,
@@ -79,18 +88,22 @@ pub struct MemoryLayout {
     pub metadata: HashMap<String, String>,
 }
 ```
+
 A memory layout defines how a coordinate tuple maps to a logical address. The `LayoutType` describes the high‑level organization (Linear, RowMajor, ColumnMajor, SpaceFillingCurve), while the `mapping` closure implements the precise transformation. Logical addresses are independent of physical memory and can be used by a projector to locate data.
 
 ### 3.5 LogicalAddress
+
 ```rust
 pub struct LogicalAddress {
     pub address: Vec<u8>,
     pub metadata: HashMap<String, String>,
 }
 ```
+
 A variable‑length byte array representing an address in the Scheme’s logical address space. It may include dimensional coordinates, offsets, or any other scheme‑specific encoding.
 
 ### 3.6 Scheme
+
 ```rust
 pub struct Scheme {
     pub id: SchemeId,
@@ -103,22 +116,28 @@ pub struct Scheme {
     pub metadata: HashMap<String, String>,
 }
 ```
+
 The immutable blueprint. Once built via a `SchemeBuilder`, it cannot be modified. All structural queries (`structural_neighbors`, `validate_structure`, `map_to_logical_address`) are performed on this object.
 
 ### 3.7 RelationGraph
+
 ```rust
 pub struct RelationGraph {
     nodes: HashMap<SegmentId, Segment>,
     edges: HashMap<(SegmentId, SegmentId), Vec<StructuralRelation>>,
 }
 ```
+
 A directed multigraph that stores all Segments and the relations between them. It supports adding relations, retrieving relations between two Segments, and iterating over neighbors.
 
 ### 3.8 SchemeBuilder
+
 ```rust
 pub struct SchemeBuilder { ... }
 ```
+
 A builder pattern for constructing a Scheme step‑by‑step. Methods:
+
 - `add_axis`, `add_segment`, `add_segments`, `add_relation`, `add_structural_constraint`
 - `set_memory_layout`, `set_observation_rules`, `add_metadata`
 - `build()` → `Scheme`
@@ -126,6 +145,7 @@ A builder pattern for constructing a Scheme step‑by‑step. Methods:
 The builder computes the cryptographic hash of the entire structure as each component is added, guaranteeing that the final `SchemeId` is deterministic.
 
 ### 3.9 ObservationRules
+
 ```rust
 pub struct ObservationRules {
     pub resolution_strategy: ResolutionStrategy,
@@ -134,6 +154,7 @@ pub struct ObservationRules {
     pub context: ObservationContext,
 }
 ```
+
 Rules that govern how an Observation is performed on a Field projected through this Scheme. Includes resolution strategy (e.g., `FirstValid`, `WeightedAverage`, `ConstraintSatisfaction`), triggers (`Periodic`, `OnChange`, `OnRequest`), priority, and contextual metadata.
 
 ## 4. Templates – Common Scheme Patterns
@@ -141,31 +162,38 @@ Rules that govern how an Observation is performed on a Field projected through t
 To simplify creation of frequently used Schemes, the abstraction provides three templates.
 
 ### 4.1 Grid2DTemplate
+
 ```rust
 let template = Grid2DTemplate::new(width, height, GridTopology::FourConnected);
 let scheme = template.build();
 ```
+
 Produces a two‑dimensional grid with a chosen topology (FourConnected, EightConnected, Hexagonal, Triangular). Automatically generates Segments for each grid cell, sets up adjacency relations, and configures a row‑major memory layout.
 
 ### 4.2 IntegerLineTemplate
+
 ```rust
 let template = IntegerLineTemplate::new(start, end, step);
 let scheme = template.build();
 ```
+
 Creates a one‑dimensional discrete line of Segments. Adjacency follows linear ordering, and the memory layout is linear.
 
 ### 4.3 GraphTemplate
+
 ```rust
 let template = GraphTemplate::new();
 template.add_node(coords1, segment1);
 template.add_edge(segment1_id, segment2_id, relation);
 let scheme = template.build();
 ```
+
 Builds an arbitrary graph of Segments with custom relations. No predefined layout; the memory mapping is left as linear unless overridden.
 
 ## 5. Composite and Transformed Schemes
 
 ### 5.1 CompositeScheme
+
 ```rust
 let composite = CompositeScheme::new(
     vec![SchemeImpl::Basic(scheme1), SchemeImpl::Basic(scheme2)],
@@ -176,9 +204,11 @@ let composite = CompositeScheme::new(
     }
 );
 ```
+
 A `CompositeScheme` combines multiple `SchemeImpl` components (Basic, Composite, or Transformed) using a set of composition rules. The resulting Scheme’s `SchemeId` is derived from the hash of the component IDs and the composition rules.
 
 Supported combination methods:
+
 - `Union`: logical OR (segment belongs to the composite if it belongs to any component)
 - `Intersection`: logical AND (segment must belong to all components)
 - `Product`: Cartesian product of component coordinate spaces
@@ -186,6 +216,7 @@ Supported combination methods:
 - `Custom`: user‑defined combination logic
 
 ### 5.2 TransformedScheme
+
 ```rust
 let transformed = TransformedScheme::new(
     Box::new(SchemeImpl::Basic(base_scheme)),
@@ -195,7 +226,9 @@ let transformed = TransformedScheme::new(
     }
 );
 ```
+
 Applies a geometric or topological transformation to a base Scheme. Transformations include:
+
 - **Translation**, **Rotation**, **Scaling**, **Shearing**
 - **Projection** (dimensional reduction)
 - **DimensionalExpansion** (adding a dummy axis)
@@ -239,12 +272,14 @@ This trait allows uniform handling of any Scheme variant through the `SchemeImpl
 ### 7.2 Example: Old vs New
 
 **Old:**
+
 ```rust
 let scheme = Grid2DScheme::new(10, 10);
 let addr = scheme.map_to_memory(&SpaceCoordinates::new(vec![2, 3]));
 ```
 
 **New:**
+
 ```rust
 let scheme = Grid2DTemplate::new(10, 10, GridTopology::FourConnected).build();
 let addr = scheme.map_to_logical_address(&SpaceCoordinates::new(vec![2, 3]));
@@ -253,6 +288,7 @@ let addr = scheme.map_to_logical_address(&SpaceCoordinates::new(vec![2, 3]));
 ## 8. Examples
 
 ### 8.1 Creating a Custom Scheme with Hierarchical Relations
+
 ```rust
 let mut builder = SchemeBuilder::new();
 builder
@@ -282,6 +318,7 @@ let scheme = builder.build();
 ```
 
 ### 8.2 Composite Scheme with Union
+
 ```rust
 let grid = Grid2DTemplate::new(5, 5, GridTopology::FourConnected).build();
 let line = IntegerLineTemplate::new(0, 10, 1).build();
@@ -297,6 +334,7 @@ let composite = CompositeScheme::new(
 ```
 
 ### 8.3 Applying a Rotation Transformation
+
 ```rust
 let base = Grid2DTemplate::new(8, 8, GridTopology::EightConnected).build();
 let transformed = TransformedScheme::new(

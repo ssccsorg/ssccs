@@ -59,6 +59,5 @@ We welcome contributions in many forms:
 - **Documentation:** Whitepaper improvements, tutorials, API docs.
 - **Research:** Formal analysis, performance benchmarks, security audits.
 - **Outreach:** Blog posts, talks, educational material.
- 
+
 For questions or discussions, use [GitHub Discussions](https://github.com/ssccsorg/ssccs/discussions).
- 

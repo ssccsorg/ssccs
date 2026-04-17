@@ -1,8 +1,8 @@
 # SSCCS Validation with OpenHW CORE-V Ecosystem
 
-April 2026, [SSCCS Foundation](https://ssccs.org) 
+April 2026, [SSCCS Foundation](https://ssccs.org)
 
-**For technical details, see:** 
+**For technical details, see:**
 
 - [RISC‑V integration research report](/research/riscv.html)
 - [SSCCS Whitepaper](/whitepaper/whitepaper.html)
@@ -15,9 +15,9 @@ SSCCS (Schema–Segment Composition Computing System) is an open-source computin
 
 This proposal outlines a technical collaboration with OpenHW Group to:
 
-1.  Demonstrate SSCCS on OpenHW's **CORE-V processor family** using the **CORE-V eXtension Interface (XIF)** <a href="#ref-1">[1]</a>.
-2.  Evaluate the performance and energy efficiency characteristics of the SSCCS model on real silicon (CV32E40P core and CORE-V MCU DevKit) <a href="#ref-3">[3]</a>.
-3.  Contribute to the OpenHW ecosystem by providing a novel programming model, compiler toolchain, and verification infrastructure for custom RISC-V extensions.
+1. Demonstrate SSCCS on OpenHW's **CORE-V processor family** using the **CORE-V eXtension Interface (XIF)** <a href="#ref-1">[1]</a>.
+2. Evaluate the performance and energy efficiency characteristics of the SSCCS model on real silicon (CV32E40P core and CORE-V MCU DevKit) <a href="#ref-3">[3]</a>.
+3. Contribute to the OpenHW ecosystem by providing a novel programming model, compiler toolchain, and verification infrastructure for custom RISC-V extensions.
 
 ### Why OpenHW
 
@@ -26,7 +26,6 @@ This proposal outlines a technical collaboration with OpenHW Group to:
 SSCCS's structured execution model—where observations follow deterministic rules defined by the Scheme—offers an interesting case study for verification methodologies. While conventional verification must cope with non‑determinism, speculative execution, and state explosion, OpenHW's **CORE‑V‑VERIF** framework <a href="#ref-2">[2]</a>, built on RVVI and Imperas reference models, provides a transparent, open‑source verification environment. By evaluating SSCCS within CORE‑V‑VERIF, OpenHW can explore how **structured, stateless extensions** may be verified with potentially reduced test‑case complexity. This collaboration thus offers OpenHW a concrete case study to advance verification practices for the next generation of RISC-V extensions.
 
 The integration of SSCCS with OpenHW CORE‑V is part of a larger computing systems initiative exploring structural observation across the RISC‑V ecosystem <a href="#ref-6">[6]</a>. We plan to examine SSCCS validation on multiple RISC‑V platforms, extension mechanisms beyond XIF (e.g., custom function units, accelerator‑memory interfaces), and the potential for structural observation to become a cross‑platform programming model.
-
 
 ## Technical Alignment: CORE-V
 
@@ -37,7 +36,6 @@ The integration of SSCCS with OpenHW CORE‑V is part of a larger computing syst
 | **Hardware Platform** | CORE-V MCU DevKit (CV32E40P core + Quicklogic eFPGA <a href="#ref-3">[3]</a>). | eFPGA allows rapid prototyping of SSCCS custom hardware accelerators alongside the core. |
 | **Software Ecosystem** | CORE-V SDK with GCC, FreeRTOS, and peripheral drivers. | SSCCS compiler can target the SDK, enabling integration of SSCCS-optimized libraries into existing software stacks. |
 | **Security & Safety** | Members (Thales, NXP, Silicon Labs) emphasize functional safety and security. | SSCCS structured dataflow and immutability primitives can help reduce certain classes of vulnerabilities when properly integrated. |
-
 
 #### Structured Coprocessor Design
 
@@ -59,7 +57,6 @@ Beyond the XIF interface, SSCCS can leverage other OpenHW CORE‑V features to e
 
 These synergies illustrate that SSCCS is designed as a programming model that can integrate with the CORE‑V ecosystem, complementing existing hardware features.
 
-
 ## Current PoC Status and Readiness for OpenHW Integration
 
 The SSCCS Proof of Concept (PoC) is a fully functional Rust‑based reference implementation that validates the core ontological layers of the model. The PoC has successfully passed ten constitutional concept tests, confirming that the abstract primitives—Segment, Scheme, Field, Observation, and Projection—can be realized as executable software. Key components already implemented include:
@@ -73,7 +70,6 @@ The SSCCS Proof of Concept (PoC) is a fully functional Rust‑based reference im
 All ten constitutional tests pass, demonstrating that the SSCCS model is internally consistent and ready for external validation. The PoC thus provides a foundation for Phase 1 (software emulation) of the proposed collaboration. The existing Rust codebase can be adapted to target the **riscvOVPsimCOREV** <a href="#ref-4">[4]</a> reference simulator, allowing SSCCS custom instructions to be exercised in a cycle‑accurate OpenHW core simulation.
 
 **Readiness for OpenHW:** The PoC's modular architecture separates the core SSCCS logic from hardware‑specific mapping, enabling integration with the CORE‑V XIF interface. The `HardwareProfile` enum already includes a `GenericCPU` variant; adding a `COREV_XIF` variant is straightforward. The compiler's hardware‑mapping stage can be extended to emit XIF‑compliant coprocessor descriptions, while the observation‑code generation stage can produce RISC‑V assembly that invokes custom `OBSERVE` instructions.
-
 
 ## Proposed Technical Roadmap (Enhanced with PoC‑Based Milestones)
 
@@ -136,21 +132,27 @@ The timeline is designed to deliver incremental value, with each phase producing
 Beyond the immediate technical deliverables, SSCCS brings several research directions that can enrich the OpenHW ecosystem:
 
 ### Verification Methodology for Structured Extensions
+
 SSCCS's structured execution model offers an interesting case study for verification, a core concern for high‑volume production SoCs <a href="#ref-13">[13]</a>. By contributing SSCCS as a case study, we can help explore practices for verifying structured custom instructions—a pattern that may become increasingly relevant as RISC‑V extensions proliferate. The SSCCS verification IP can serve as a reference for other extension developers <a href="#ref-15">[15]</a>.
 
 ### Energy‑Efficient Computing through Structural Observation
+
 The SSCCS model aims to minimize data movement by keeping Segments stationary and observing them in place. This aligns with OpenHW's focus on energy‑efficient IoT and embedded systems <a href="#ref-10">[10]</a>. The collaboration will produce measurements of energy characteristics on CORE‑V hardware, contributing evidence for structural observation as a potential approach to address data‑movement challenges <a href="#ref-5">[5]</a>, <a href="#ref-8">[8]</a>.
 
 ### Security and Safety Considerations
+
 SSCCS's immutable Segments and structured dataflow primitives aim to help reduce certain classes of vulnerabilities (e.g., buffer overflows) when properly integrated. These properties may be valuable for OpenHW members targeting safety‑critical domains. The collaboration will explore how SSCCS primitives can be integrated with ISO 26262‑compliant design practices.
 
 ### Programming Model Exploration
+
 SSCCS introduces a programming model—"structural observation"—that complements traditional imperative and dataflow models <a href="#ref-9">[9]</a>. By integrating SSCCS into the CORE‑V SDK, we provide OpenHW developers with an additional way to express computation, potentially offering benefits for certain problem classes (e.g., regular grids, graph algorithms, sensor‑fusion pipelines).
 
 ### Open Format Standardisation
+
 The SSCCS `.ss` format is an open, binary representation of structural blueprints. By aligning this format with OpenHW's open‑source philosophy, we can foster a community‑driven standard for describing computation as geometry. This standard could eventually be adopted by other RISC‑V extension developers.
 
 ### Community Engagement and Outreach
+
 To ensure broad adoption and feedback, we will execute a structured community‑engagement plan:
 
 - **OpenHW Task Group:** Explore proposing a dedicated Task Group on "Structural Programming Models" within OpenHW, subject to community interest.
@@ -160,7 +162,6 @@ To ensure broad adoption and feedback, we will execute a structured community‑
 - **Regular Progress Updates:** Present quarterly updates to the OpenHW community, sharing results and soliciting feedback.
 
 This engagement strategy aims to make SSCCS an accessible addition to the OpenHW ecosystem.
-
 
 ## Validation Domains and Expected Benefits
 
@@ -203,7 +204,6 @@ These analytical considerations will be evaluated on OpenHW CORE‑V hardware, p
 | **Ecosystem Growth** | Attracts researchers and developers interested in foundational computing paradigms to the OpenHW community. |
 | **Aligned with Member Interests** | OpenHW members (e.g., NXP, Silicon Labs, Thales) emphasize security, safety, and efficiency – all central to SSCCS research. |
 
-
 ## Execution Team
 
 This work will be led by Taeho Lee (Founder, SSCCS Foundation), with contributions from:
@@ -213,7 +213,6 @@ This work will be led by Taeho Lee (Founder, SSCCS Foundation), with contributio
 - **Formal Verification:** Academic advisors providing expertise in structured system verification.
 
 We welcome OpenHW members to co‑staff technical tasks and co‑author deliverables.
-
 
 ## Resource Requirements and Support Request
 
@@ -226,7 +225,6 @@ To execute this roadmap, SSCCS Foundation seeks:
 | **Technical Collaboration** | Mentorship from OpenHW members experienced in XIF integration, eFPGA programming, and verification. |
 | **Community Engagement** | Opportunities to present SSCCS at OpenHW events and workshops (e.g., OpenHW TV, technical meetings). |
 
-
 ## Risk Mitigation
 
 | Risk | Mitigation Strategy |
@@ -237,11 +235,9 @@ To execute this roadmap, SSCCS Foundation seeks:
 | **Community adoption** | Co‑develop tutorials with OpenHW documentation team; host joint webinar post‑Phase 2. |
 | **Schedule slippage** | Adopt agile milestones; deliver a minimal viable prototype after Phase 1 that can be demonstrated independently of later phases. |
 
-
 ## Conclusion
 
 SSCCS offers an opportunity to bring research into the OpenHW ecosystem. By leveraging the **CORE-V XIF interface** and the **CORE-V MCU DevKit**, we can explore how structural observation can complement conventional RISC-V cores, with potential benefits for verifiability and energy efficiency. This collaboration aligns with OpenHW's mission to drive innovation in open-source hardware and to provide a rich, accessible platform for the global semiconductor community.
- 
 
 ## References
 
@@ -291,14 +287,13 @@ SSCCS offers an opportunity to bring research into the OpenHW ecosystem. By leve
 [15] A. M. G. Silva et al., "Formal verification of RISC‑V processors using UVM," in *2023 IEEE International Conference on Computer Design (ICCD)*, 2023, pp. 123–130.
 
 <a id="ref-16"></a>
-[16] SSCCS Foundation, "[RISC‑V Integration Research](https://docs.ssccs.org/research/riscv.html)," 2026. 
-
+[16] SSCCS Foundation, "[RISC‑V Integration Research](https://docs.ssccs.org/research/riscv.html)," 2026.
 
 ---
 
 © 2026 [SSCCS Foundation](https://ssccs.org) — Open-source computing systems initiative building a computing model, software compiler infrastructure, and open hardware architecture.
 
 - Whitepaper: [PDF](https://ssccs.org/wp) / [HTML](https://ssccs.org/wpw) DOI: [10.5281/zenodo.18759106](https://doi.org/10.5281/zenodo.18759106) via CERN/Zenodo, indexed by OpenAIRE. Licensed under *CC BY-NC-ND 4.0*.
-- Official repository: [GitHub](https://github.com/ssccsorg). Authenticated via GPG: [BCCB196BADF50C99](https://keys.openpgp.org/search?q=BCCB196BADF50C99). Licensed under *Apache 2.0*. 
+- Official repository: [GitHub](https://github.com/ssccsorg). Authenticated via GPG: [BCCB196BADF50C99](https://keys.openpgp.org/search?q=BCCB196BADF50C99). Licensed under *Apache 2.0*.
 - Governed by the [Foundational Charter and Statute](https://ssccs.org/legal) of the SSCCS Foundation (in formation).
 - Provenance: Human-authored and AI-refined: linguistic and editorial review; full intellectual responsibility with author(s). All major outputs are [C2PA-certified](https://ssccs.org/wpc2pa).

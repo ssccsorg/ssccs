@@ -82,13 +82,13 @@ The concern that using LLVM, SIMD, caches, etc., contradicts SSCCS’s claim of 
 
 ### 5.1 Paradigm and Implementation Are Different Layers
 
-- A **computational paradigm** is a conceptual model of what computation *is*. SSCCS defines computation as the collapse of stationary structure under dynamic constraints.  
-- An **implementation tool** is a means to realise that conceptual model on physical hardware. LLVM, caches, SIMD, PIM are tools that run on existing hardware (von Neumann or its variants) to generate or optimise code.
+* A **computational paradigm** is a conceptual model of what computation *is*. SSCCS defines computation as the collapse of stationary structure under dynamic constraints.  
+* An **implementation tool** is a means to realise that conceptual model on physical hardware. LLVM, caches, SIMD, PIM are tools that run on existing hardware (von Neumann or its variants) to generate or optimise code.
 
 A new paradigm does not have to discard every existing implementation technique. For example:
 
-- **Functional programming** languages (Haskell, Scala) run on von Neumann hardware, yet their paradigm is radically different from imperative programming.  
-- **Dataflow architectures** have been simulated on conventional CPUs before custom hardware was built.
+* **Functional programming** languages (Haskell, Scala) run on von Neumann hardware, yet their paradigm is radically different from imperative programming.  
+* **Dataflow architectures** have been simulated on conventional CPUs before custom hardware was built.
 
 Similarly, SSCCS’s conceptual independence lies in its **definition** of computation. This definition does not depend on any particular hardware or compiler infrastructure; it can be formalised mathematically without reference to caches, SIMD, or LLVM.
 
@@ -110,8 +110,8 @@ Thus, using LLVM in Phase 1 is a **pragmatic choice** for validation, not a cl
 
 This situation resembles the history of physics:
 
-- **New paradigm**: The shift from “particle” to “wave” descriptions of light was a fundamental change in how physical phenomena were understood.  
-- **Use of existing tools**: Early experiments validating wave theory used detectors originally designed for particles (e.g., photoelectric effect apparatus). Using existing equipment to test a new theory is natural.
+* **New paradigm**: The shift from “particle” to “wave” descriptions of light was a fundamental change in how physical phenomena were understood.  
+* **Use of existing tools**: Early experiments validating wave theory used detectors originally designed for particles (e.g., photoelectric effect apparatus). Using existing equipment to test a new theory is natural.
 
 Similarly, using existing hardware and compiler infrastructure to simulate SSCCS is a natural way to validate the new paradigm before building specialised hardware.
 
