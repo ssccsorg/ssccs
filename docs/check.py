@@ -55,7 +55,7 @@ SOURCE_EXTENSIONS = {
     ".bib",
 }
 IGNORE_FILES = {"README.md"}
-IGNORE_URL_PATTERNS = ["*keys.openpgp.org*", "*doi.org*", "*?token=*"]
+IGNORE_URL_PATTERNS = ["*keys.openpgp.org*", "*?token=*"]
 
 TOPIC_KEYWORDS = {
     "riscv": ["risc", "openhw", "core-v", "riscv", "spike", "verilator", "risc-v"],
@@ -232,23 +232,31 @@ def extract_citations_from_file(filepath: Path) -> Set[str]:
 # ============================================================
 # Link Extraction Helpers
 # ============================================================
-def extract_yaml_frontmatter_links(content: str) -> List[Tuple[str, int]]:
-    """Extract links from YAML frontmatter."""
+def extract_yaml_frontmatter_links(content: str, require_delimiters: bool = True) -> List[Tuple[str, int]]:
+    """Extract links from YAML frontmatter (or whole YAML file if require_delimiters=False)."""
     links = []
-    if not content.startswith("---"):
-        return links
     lines = content.split("\n")
-    frontmatter_end = 0
-    for i, line in enumerate(lines[1:], start=1):
-        if line.strip() == "---":
-            frontmatter_end = i
-            break
-    if frontmatter_end == 0:
-        return links
+    start_idx = 0
+    end_idx = len(lines)
+
+    if require_delimiters:
+        if not content.startswith("---"):
+            return links
+        # find closing ---
+        for i, line in enumerate(lines[1:], start=1):
+            if line.strip() == "---":
+                end_idx = i
+                break
+        if end_idx == len(lines):
+            # no closing delimiter found
+            return links
+        start_idx = 1  # skip opening --- line
+    # else treat whole file as frontmatter, start_idx=0, end_idx=len(lines)
+
     url_pattern = re.compile(
         r'(?:^|:\s|-)\s*(https?://[^\s\'"]+|[^\s\'"]+\.(?:pdf|html|md|qmd|bib))(?:\s|$)'
     )
-    for i, line in enumerate(lines[: frontmatter_end + 1], start=1):
+    for i, line in enumerate(lines[start_idx:end_idx], start=start_idx + 1):
         for match in re.findall(url_pattern, line):
             url = match.strip()
             if url and not url.startswith("#"):
@@ -703,7 +711,7 @@ def sync_all_links(target_dir: str):
             url = match.group(2)
             start, end = match.span()
             if url.startswith(
-                ("http://", "https://", "mailto:", "tel:", "#", "ftp://", "file://", "")
+                ("http://", "https://", "mailto:", "tel:", "#", "ftp://", "file://")
             ):
                 continue
             new_url = normalize_link_to_absolute(url, file_path, root, inventory)
@@ -836,12 +844,14 @@ def validate_all_links(target_dir: str, verbose: bool = False, max_workers: int 
             links.add((match.group(1), content.count("\n", 0, match.start()) + 1))
         if file_path.suffix in {".qmd", ".md"}:
             links.update(extract_yaml_frontmatter_links(content))
+        if file_path.suffix in {".yml", ".yaml"}:
+            links.update(extract_yaml_frontmatter_links(content, require_delimiters=False))
         if file_path.suffix == ".bib":
             links.update(extract_bibtex_links(content))
         for url, line in links:
             if (
                 not url
-                or url.startswith(("#", "mailto:", "tel:", ""))
+                or url.startswith(("#", "mailto:", "tel:", "data:"))
                 or should_ignore_url(url)
                 or "{" in url
                 or "[" in url
@@ -864,26 +874,20 @@ def validate_all_links(target_dir: str, verbose: bool = False, max_workers: int 
                                 or first_bytes[0:2] in (b"PK", b"\x89H")
                             ):
                                 continue
-                            content_check = first_bytes.decode("utf-8", errors="ignore")
-                            if not any(
-                                re.search(p, content_check, re.I)
-                                for p in [
-                                    r"404\s+not\s+found",
-                                    r"page\s+not\s+found",
-                                    r"error\s+404",
-                                    r"file\s+not\s+found",
-                                ]
-                            ):
+                            if resp.status_code in (403, 418):
                                 continue
+                            # Any 4xx/5xx is considered broken
                             file_broken_remote.append(
                                 (
                                     file_path.relative_to(root),
                                     url,
-                                    f"{resp.status_code} (body check)",
+                                    f"{resp.status_code}",
                                     line,
                                 )
                             )
                         except:
+                            if resp.status_code in (403, 418):
+                                continue
                             file_broken_remote.append(
                                 (
                                     file_path.relative_to(root),

@@ -177,12 +177,13 @@ IGNORING_ARTIFACT_PATTERNS = [
     "**/*_files",
     "**/*_libs",
     "**/_site",
+    "**/_docsbuild",
     # quarto: final artifacts
     "**/*.tex",
     "**/*.pdf",
     "**/*.html",
     # quarto: global
-    "**/*.quarto_ipynb",
+    "**/*.quarto_ipynb*",
     "**/*.quarto",
     # c2pa
     "**/*.c2pa",

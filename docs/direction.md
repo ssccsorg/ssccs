@@ -79,15 +79,13 @@ The rise of open instruction set architectures (ISAs) has fundamentally changed 
 SSCCS contributes an **open `.ss` format** – a language layer through which logical design dictates physical implementation. Hardware provides the substrate; SSCCS provides the grammar. Our goal is to become a visible contributor to a living technological movement, through software that makes hardware easier to program.
 
 
-
 ## Documentation‑First Infrastructure and Self‑Evolving Knowledge Base
 
-Our **Documentation‑First** philosophy treats accumulated knowledge as primary infrastructure. We build an Observable Knowledge Graph (OKG) – a structured, machine‑readable corpus optimised for LLM/RAG integration. Every output follows deterministic paths and adheres to provenance standards (e.g., C2PA).
+Our Documentation‑First philosophy treats accumulated knowledge not as a static archive, but as a living, cellular fabric that co‑evolves with the code, experiments, and research it describes. At the core of this fabric lies the Observable Knowledge Graph (OKG) —a structured, machine‑readable corpus of Segments, Schemes, Fields, and Observations that is explicitly designed for LLM/RAG integration and governed by a persistent Contract.
 
-By capturing every concept, design decision, and implementation detail in a structured, provenance‑tracked form, we enable AI systems to explore, reason about, and extend the underlying paradigm. This creates a platform for emergent discovery, where AI agents can identify connections that human researchers might overlook.
+Every whitepaper, technical note, governance record, and code artifact is ingested through contract‑governed agents, extracted into the unified graph, and linked by deterministic edges (DEFINES, IMPLEMENTS, VALIDATES, DERIVES_FROM). This creates a closed‑loop ecosystem: hypotheses generated from gaps in the graph are validated against cryptographic provenance, and the resulting insights—along with new code and external references—are fed back into the ingestion pipeline. The graph expands with every commit and research note, enabling the entire knowledge base to grow organically.
 
-The documentation system is not merely a publishing tool – it is a core technical artifact, the interface between human intent and machine reasoning. See [Documentation Home](/index.html) for details.
-
+This transforms documentation from a passive endpoint into the primary interface between human intent and machine reasoning. AI agents explore the graph, surface emergent connections, and extend the SSCCS paradigm through a continuous generate‑evaluate‑adapt cycle. See [Documentation Home](/index.html) and [Project Nexus](/proposal/nexus.html) for details.
 
 
 ## Immediate Action Plan (High‑Level)
