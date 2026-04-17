@@ -1,13 +1,18 @@
 ---
 title: "SSCCS Documentation Nexus"
-subtitle: "Networked Knowledge Base Infrastructure"
+subtitle: "Networked Knowledge Base & Autonomous Research Infrastructure"
 metadata-files:
     - _include/format.html.yml
 format:
   html: default
 ---
 
-
+```{python}
+#| echo: false
+#| include: false
+#| context: local
+%run ./_include/_graphviz.py
+```
 ## Overview
 
 ```{python}
@@ -241,58 +246,132 @@ fig.update_layout(
 fig.show()
 ```
 
+Welcome to the SSCCS Documentation Hub. This platform operates as the unified knowledge pipeline for the project, integrating research documentation and external technical specifications into a single queryable graph. Every whitepaper, technical note, governance record, and code artifact is version-controlled, cryptographically traceable, and structured for continuous discovery.
 
-Welcome to the SSCCS Documentation. This site serves as the central hub for all official documentation related to the SSCCS project, including our whitepaper, technical specifications, research findings, and governance documents.
+## Observable Knowledge Graph
 
-<!-- <div style="max-width: 100%; overflow: hidden;">
-  <video src="https://pub-dc90fe2d3f7f431897f3c088a1130e0c.r2.dev/ssccs_docs_net.mp4" 
-         autoplay muted loop playsinline 
-         style="width: 100%; height: auto; display: block;">
-  </video>
-</div> -->
+The documentation functions as a versioned network of technical assertions and design decisions. Cross-references, citation backlinks, and code-to-document mappings form explicit dependency paths. This architecture enables researchers to trace technical lineage, validate implementations against original hypotheses, and navigate architectural histories through direct relationship mapping. The graph expands with each commit and research note, maintaining a living record of how SSCCS concepts evolve across documents and codebases.
 
-Beyond a static archive, the project's central nervous infrastructure—a Networked Knowledge Base designed as an Observable Knowledge Graph (OKG). It is the primary artifact of SSCCS, ensuring that every assertion, technical decision, and implementation detail is version-controlled, machine-readable, and cryptographically traceable. All documents are cross-referenced and built from plain Markdown (.md/.qmd) sources. The Graph grows with the code and research—it is the foundation, not an afterthought.
+## Contract-Governed Discovery Pipeline
 
+It functions as a living, unified pipeline where Contract-Governed Ingestion feeds a Unified Knowledge Graph, which in turn drives Hypothesis Generation and Validation. At the core lie the SSCCS Primitives, which continuously evolve with every commit and research note. In this architecture, research, documentation, hypotheses, experiments, and executable code are organically interconnected—functioning like biological cells that grow and adapt in synchronization.
 
-## Documentation as Dynamic Data Infrastructure
+```{python}
+#| echo: false
+dot("""
+digraph SSCCSOrganicGrowth {
+    rankdir=TB;
+    splines=ortho;
+    nodesep=0.3;
+    ranksep=0.1;
+    
+    // ----- Contract Layer -----
+    contract [label="SSCCS CONTRACT
+(required sections, primitive citations,
+code references, visual obligations)",
+        shape=box, style="rounded", fontsize=10, width=2.8];
+    
+    // ----- Ingestion Agents -----
+    subgraph cluster_ingest {
+        label="Ingestion Agents";
+        style="dashed"; color="gray"; fontsize=11;
+        
+        spec_parser [label="SPEC PARSER\n(Scheme-Segment, \n Markdown docs, etc..)", shape=box, style="rounded"];
+        code_indexer [label="CODE INDEXER\n(Code symbols, etc.)", shape=box, style="rounded"];
+        eco_crawler [label="ECO CRAWLER\n(Research and facts, etc.)", shape=box, style="rounded"];
+    }
+    
+    // ----- SSCCS Primitives (core unit) -----
+    primitives [label="SSCCS PRIMITIVES
+Segment · Scheme · Field · Observation
+(immutable coordinates, axes,
+constraints, projections)",
+        shape=box, style="rounded,dashed", fontsize=10, width=2.8];
+    
+    // ----- Unified Knowledge Graph -----
+    subgraph cluster_kg {
+        label="SSCCS Knowledge Graph";
+        style="dashed"; color="gray"; fontsize=11;
+        
+        kg_core [label="Unified Graph Store
+Nodes: Segment, Scheme, Field, Observation,
+CodeSymbol, ExternalDoc, Hypothesis
+Edges: DEFINES, IMPLEMENTS, REFERENCES,
+VALIDATES, DERIVES_FROM",
+            shape=box, style="rounded", fontsize=9, width=3.4];
+    }
+    
+    // ----- Hypothesis Engine -----
+    subgraph cluster_hypo {
+        label="Hypothesis Engine";
+        style="dashed"; color="gray"; fontsize=11;
+        
+        gap_detector [label="GAP DETECTOR\n(find undefined links)", shape=box, style="rounded"];
+        chain_gen [label="CHAIN GENERATOR\n(LLM + KG)", shape=box, style="rounded"];
+        validator [label="VALIDATOR\n(edge support, scoring)", shape=box, style="rounded"];
+    }
+    
+    // ----- Output Artifacts -----
+    output [label="VALIDATED ARTIFACTS
+Hypothesis reports · Dashboards
+Experiment proposals · Contract‑compliant docs",
+        shape=box, style="rounded", fontsize=10, width=3.2];
+    
+    // ===== Primary Flow =====
+    contract -> spec_parser [weight=3];
+    contract -> code_indexer [weight=3];
+    contract -> eco_crawler [weight=3];
+    
+    spec_parser -> primitives [label="extracts", weight=2];
+    code_indexer -> kg_core [label="populates symbols", weight=2];
+    
+    primitives -> kg_core [label="core nodes", style=dashed, weight=1];
+    
+    kg_core -> gap_detector [label="traverses", ltail=cluster_kg, weight=2];
+    gap_detector -> chain_gen [label="gaps", weight=2];
+    chain_gen -> validator [dir=both, label="feedback", style=dashed, weight=1];
+    
+    validator -> primitives [label="refines", style=dashed, weight=1];
+    validator -> kg_core [label="enriches", style=dashed, weight=1];
+    
+    validator -> output [label="contract‑checked", weight=2];
+    kg_core -> output [label="supports", style=dotted, weight=1];
+    
+    // ===== Organic Co‑Evolution Feedback Loops (fully connected, no constraint=false) =====
+    output -> spec_parser [label="new research\nstories", style=dashed, weight=1];
+    validator -> contract [label="contract\namendments", style=dashed, weight=1];
 
-By converting static records into structured, interconnected data, the project achieves:
+    output -> code_indexer [label="new external\nreferences\ncode updates, ...", style=dashed, weight=1];
+    
+    primitives -> spec_parser [style=dashed, weight=1];
+    primitives -> kg_core [style=dashed, weight=1];
+        
+    // Invisible edges for balance
+    contract -> primitive;
+    eco_crawler -> output;
+}
+""")
+```
 
-### Observable Knowledge Graph (OKG)
-Every document is a node in a versioned graph, enabling clear provenance, dependency tracking, and multi-hop reasoning across technical specifications, research notes, and governance records.
+Knowledge ingestion and hypothesis generation operate through a structured, locally executed pipeline. The system indexes rendered documents and integrates external specifications into a unified vector and graph database. Automated agents construct testable hypothesis chains from detected conceptual gaps, validate reasoning paths against cryptographic provenance and graph evidence, and render structured research reports under persistent structural contracts. All outputs remain machine-readable, deterministically indexed, and compatible with standard development workflows.
 
-### Accelerated Onboarding
-The networked structure reduces the time required for new contributors to understand complex technical histories — from days of reading to minutes of navigation.
+## Cryptographic Provenance & Structured Licensing
 
-### Auditable Transparency
-Integration of C2PA-signed outputs and GPG-authenticated commits enables automated regulatory and financial auditing without manual intervention.
+The knowledge supply chain is secured through integrated verification standards. GPG-signed commits authenticate source modifications, while [C2PA manifests](https://c2pa.org/) certify published artifacts. Licensing terms are embedded directly into document metadata and build outputs, ensuring clear usage boundaries across Apache 2.0 technical components and CC BY-NC-ND 4.0 research publications. Every export carries verifiable origin data and dependency hashes, supporting transparent auditing and reliable downstream integration.
 
+## Continuous Research Navigation
 
+New documents, code updates, and external references automatically integrate into the knowledge graph, refreshing dependency maps and surfacing validation candidates. Researchers navigate the infrastructure through deterministic paths, hybrid semantic search, and interactive graph visualizations. The system surfaces hypothesis reports, gap analyses, and experiment proposals as they emerge from the continuous validation cycle.
 
-## Machine-Readable by Design
-
-The infrastructure is built to support both human readers and automated tooling. Outputs are structured for reliable indexing, retrieval, and integration.
-
-### Structured Output Features
-
-| Feature | Purpose |
-| :--- | :--- |
-| Deterministic Paths | Predictable URLs and file structures for reliable indexing and linking. |
-| Dependency Mapping | SHA-256 hashes map document relationships for accurate change propagation. |
-| Clean Markdown | Minimalist, parseable output optimized for embedding and downstream processing. |
-| YAML Metadata | Standardized frontmatter (author, date, type) enables metadata-aware filtering. |
-| C2PA Provenance | Cryptographic verification of origin and integrity for key artifacts. |
-
-### Export & Integration
-- Outputs available in HTML, PDF, and plain Markdown
-- Dependency graphs exportable as RDF/JSON-LD for graph database integration
-- Machine-readable manifests support incremental indexing and CI/CD pipelines
-
-
+Explore the unified index, trace conceptual dependencies, and review automatically generated research artifacts to observe how SSCCS structures, validates, and evolves its technical foundation.
 
 ## Build and Contribute
 
-All documentation is written in plain Markdown (`.md` / `.qmd`) with YAML frontmatter. The build is orchestrated by `docs/build.py` using [Quarto](https://quarto.org).
+<details>
+<summary>Click to expand to see detailed build system guide</summary>
+
+
+The SSCCS documentation build system orchestrates Quarto renders with intelligent caching and parallelism, enabling fast, reproducible builds of multi‑format outputs. It is designed to handle complex documentation projects with many interdependent files while minimising redundant work. All documentation is written in plain Markdown (`.md` / `.qmd`) with YAML frontmatter. The build is orchestrated by `docs/build.py` using [Quarto](https://quarto.org).
 
 ### Environment Setup (Recommended)
 
@@ -312,26 +391,6 @@ cd docs
 python3 build.py
 ```
  
-
-## Provenance and Licensing
-
-| Component | License | Authentication |
-| :--- | :--- | :--- |
-| Source Code | Apache 2.0 | GPG-signed commits (`BCCB196BADF50C99`) |
-| Technical Documentation | Apache 2.0 | C2PA-certified |
-| Whitepaper & Proposals | CC BY-NC-ND 4.0 | C2PA-certified |
-| Build System | Apache 2.0 | Version-controlled source |
-
-All major outputs include cryptographic provenance metadata. Source commits are signed; published artifacts carry C2PA manifests for verifiable authenticity.
-
- 
-
-## For Developers: Build System Details
-
-<details>
-<summary>Click to expand – detailed build system guide (parallel caching, C2PA signing, etc.)</summary>
-
-The SSCCS documentation build system orchestrates Quarto renders with intelligent caching and parallelism, enabling fast, reproducible builds of multi‑format outputs. It is designed to handle complex documentation projects with many interdependent files while minimising redundant work.
 
 ### Build System (`build.py`)
 
