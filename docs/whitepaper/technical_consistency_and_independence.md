@@ -45,9 +45,9 @@ The whitepaper is accompanied by eleven appendices that elaborate the core ideas
 
 ### 3.1 Overall Assessment of the Appendices
 
-* **Conceptual coherence**: All appendices stay faithful to the core definitions. No appendix introduces a concept that conflicts with Segments’ immutability, Schemes’ static topology, Fields’ dynamic constraints, or Observation’s determinism.
-* **Implementation–definition alignment**: The implementation techniques described (Rust prototypes, LLVM lowering, FPGA netlist generation, PIM command sequences, etc.) are standard tools applied to realise the abstract model. They do not violate the paradigm’s principles; rather, they show how those principles can be embodied on current hardware.
-* **Terminological precision**: Terminology is used consistently throughout the appendices. The only notable variation is the occasional use of “Schema” to denote the file representation of a “Scheme”; this distinction is clarified in the open‑format appendix and does not lead to confusion.
+- **Conceptual coherence**: All appendices stay faithful to the core definitions. No appendix introduces a concept that conflicts with Segments’ immutability, Schemes’ static topology, Fields’ dynamic constraints, or Observation’s determinism.
+- **Implementation–definition alignment**: The implementation techniques described (Rust prototypes, LLVM lowering, FPGA netlist generation, PIM command sequences, etc.) are standard tools applied to realise the abstract model. They do not violate the paradigm’s principles; rather, they show how those principles can be embodied on current hardware.
+- **Terminological precision**: Terminology is used consistently throughout the appendices. The only notable variation is the occasional use of “Schema” to denote the file representation of a “Scheme”; this distinction is clarified in the open‑format appendix and does not lead to confusion.
 
 **Gaps and minor inconsistencies identified**:
 
@@ -82,13 +82,13 @@ The concern that using LLVM, SIMD, caches, etc., contradicts SSCCS’s claim of 
 
 ### 5.1 Paradigm and Implementation Are Different Layers
 
-* A **computational paradigm** is a conceptual model of what computation *is*. SSCCS defines computation as the collapse of stationary structure under dynamic constraints.  
-* An **implementation tool** is a means to realise that conceptual model on physical hardware. LLVM, caches, SIMD, PIM are tools that run on existing hardware (von Neumann or its variants) to generate or optimise code.
+- A **computational paradigm** is a conceptual model of what computation *is*. SSCCS defines computation as the collapse of stationary structure under dynamic constraints.  
+- An **implementation tool** is a means to realise that conceptual model on physical hardware. LLVM, caches, SIMD, PIM are tools that run on existing hardware (von Neumann or its variants) to generate or optimise code.
 
 A new paradigm does not have to discard every existing implementation technique. For example:
 
-* **Functional programming** languages (Haskell, Scala) run on von Neumann hardware, yet their paradigm is radically different from imperative programming.  
-* **Dataflow architectures** have been simulated on conventional CPUs before custom hardware was built.
+- **Functional programming** languages (Haskell, Scala) run on von Neumann hardware, yet their paradigm is radically different from imperative programming.  
+- **Dataflow architectures** have been simulated on conventional CPUs before custom hardware was built.
 
 Similarly, SSCCS’s conceptual independence lies in its **definition** of computation. This definition does not depend on any particular hardware or compiler infrastructure; it can be formalised mathematically without reference to caches, SIMD, or LLVM.
 
@@ -110,8 +110,8 @@ Thus, using LLVM in Phase 1 is a **pragmatic choice** for validation, not a cl
 
 This situation resembles the history of physics:
 
-* **New paradigm**: The shift from “particle” to “wave” descriptions of light was a fundamental change in how physical phenomena were understood.  
-* **Use of existing tools**: Early experiments validating wave theory used detectors originally designed for particles (e.g., photoelectric effect apparatus). Using existing equipment to test a new theory is natural.
+- **New paradigm**: The shift from “particle” to “wave” descriptions of light was a fundamental change in how physical phenomena were understood.  
+- **Use of existing tools**: Early experiments validating wave theory used detectors originally designed for particles (e.g., photoelectric effect apparatus). Using existing equipment to test a new theory is natural.
 
 Similarly, using existing hardware and compiler infrastructure to simulate SSCCS is a natural way to validate the new paradigm before building specialised hardware.
 

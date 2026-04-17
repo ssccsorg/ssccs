@@ -20,10 +20,10 @@ $P = \Omega(\Sigma, F)$
 
 where:
 
-* $\Sigma$ is an **immutable**, structured set of Segments.
-* $F$ is a **mutable** Field constraint state.
-* $\Omega$ is the **observation operator**.
-* $P$ is the resulting **Projection**.
+- $\Sigma$ is an **immutable**, structured set of Segments.
+- $F$ is a **mutable** Field constraint state.
+- $\Omega$ is the **observation operator**.
+- $P$ is the resulting **Projection**.
 
 Evaluating expressiveness requires determining whether the model can simulate:
 
@@ -377,4 +377,3 @@ The research direction therefore focuses on:
 - Deterministic concurrency validation
 
 This report does not assert superiority over instruction-based systems. It identifies the conditions under which a structure-first model may provide quantifiable benefit and establishes the architectural criteria for a successful software implementation.
- 
