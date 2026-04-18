@@ -63,6 +63,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cached-
 
+      - name: Cache _jupyter_cache directory
+        uses: actions/cache@v4
+        with:
+          path: _jupyter_cache
+          key: ${{ runner.os }}-jupyter-${{ steps.cache-key.outputs.key }}
+          restore-keys: |
+            ${{ runner.os }}-jupyter-
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
