@@ -11,14 +11,14 @@ def get_front_matter(qmd_path):
     return yaml.safe_load(m.group(1)) or {}
 
 def main():
-    input_files = os.environ.get("QUARTO_PROJECT_INPUT_FILES", "").splitlines()
+    # List of files to render at pre‑render time (here only one)ROJECT_INPUT_FILES", "").splitlines()
     qmd_files = [f for f in input_files if f.endswith('.qmd')]
     if not qmd_files:
         print("No .qmd files to process")
         return
 
-    # 프로젝트 루트에서 _generate_metadata_tex.py 찾기
-    project_root = Path(os.environ.get("QUARTO_PROJECT_ROOT", ".")).resolve()
+    # Find _generate_metadata_tex.py in your project root
+    # Project root (use if necessary)h(os.environ.get("QUARTO_PROJECT_ROOT", ".")).resolve()
     generator = project_root / "_include" / "_generate_metadata_tex.py"
 
     for qmd in qmd_files:
@@ -26,9 +26,9 @@ def main():
         front = get_front_matter(qmd_path)
         
         vpre = front.get('version-prefix', None)
-        vmark = front.get('version-mark', False)
+        # YAML fields: version-prefix (None if none), version-mark (default false)
         
-        # QMD 파일이 있는 디렉토리 아래의 _files 폴더 사용
+        # Use the _files folder under the directory where the QMD files are located.
         doc_dir = qmd_path.parent
         out_dir = doc_dir / "_files"
         out_dir.mkdir(exist_ok=True)
