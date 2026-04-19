@@ -48,7 +48,7 @@ def main():
                         help='Path to the main QMD file (e.g., index.qmd). If not provided, uses QUARTO_PROJECT_INPUT_FILE or first valid .qmd in directory.')
     parser.add_argument('--output', '-o', default='./_include/_metadata.tex',
                         help='Output LaTeX metadata file path')
-    parser.add_argument('--version_prefix', '-p', default='0.1',
+    parser.add_argument('--version_prefix', '-p', default=None,
                         help='Version prefix (e.g., 0.1)')
     parser.add_argument('--version_mark', action='store_true',
                         help='Include background version watermark in PDF')
@@ -90,8 +90,11 @@ def main():
     # ----- Compute version -----
     with open(qmd_path, 'rb') as f:
         file_hash = hashlib.sha256(f.read()).hexdigest()
-    date_short = datetime.now().strftime("%y%m%d")
-    version_str = f"{args.version_prefix}-{date_short}-{file_hash[:6]}"
+    date_short = datetime.now().strftime("%y%m%d")    
+    if args.version_prefix is not None:
+        version_str = f"{args.version_prefix}-{date_short}-{file_hash[:6]}"
+    else:
+        version_str = f"{date_short}-{file_hash[:6]}"
 
     # ----- Extract YAML front matter (author/affiliations are optional) -----
     front = extract_front_matter(qmd_path)
