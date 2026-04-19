@@ -1,4 +1,4 @@
-# Project Direction
+# Direction
 
 ## Toward a New Computational Paradigm
 
@@ -26,27 +26,22 @@ In 2026, AI use is as standard as a compiler. We do not mandate disclosure—onl
 
 ### Beyond Boundaries
 
-We acknowledge that even our platforms operate within centralised constraints. Where possible, we choose open, decentralised alternatives. We encourage bold ideas that challenge conventional computing – provided they do not block others.
-
-These principles are complementary. Rigorous technical debate is welcome; personal pressure is not.
+We acknowledge that even our platforms operate within centralised constraints. Where possible, we choose open, decentralised alternatives. We encourage bold ideas that challenge conventional computing – provided they do not block others. These principles are complementary. Rigorous technical debate is welcome; personal pressure is not.
 See [Code of Conduct](/code_of_conduct.html).
 
 ## Partnership, Collaboration, and Support
 
-SSCCS does not await institutional validation. We engage with academia, industry, open‑hardware communities, and independent researchers – guided by technical merit and reciprocal contribution.
+SSCCS does not wait for institutional validation. We partner with academia, industry, open‑hardware communities, and independent researchers based on technical merit and reciprocal contribution. Conventional funding favors predictable, incremental advances. SSCCS reimagines computation itself – too early and too disruptive for most existing templates. We do not force our work into those molds.
 
-Conventional funding mechanisms are optimised for predictability: mature toolchains, commercial consortia, incremental advances. SSCCS reimagines the substrate of computation itself. It is inherently too early‑stage and too disruptive for most existing templates.
+Our principles:
 
-Rather than retrofitting our work to fit funding forms, we prioritise collaboration grounded in technical substance and long‑term vision. Our engagement follows three principles:
+- **Reciprocal value** – partnerships benefit all sides.
+- **Foundational over immediate** – redefining computation matters more than market fit.
+- **Substance over ceremony** – we welcome rigorous scrutiny, but only from those genuinely committed to paradigm‑shifting work.
 
-- **Reciprocal value** – partnerships must benefit all parties.
-- **Foundational over immediate** – market fit is secondary to redefining computation.
-- **Substance over ceremony** – we welcome rigorous scrutiny, but only where there is genuine commitment to paradigm‑shifting work.
+Funding is a catalyst, not a goal. We prioritize tangible progress over administrative overhead, and do not trade favors or perform transparency. We seek practitioners whose fundamentals are so strong they do not merely challenge established ideas – they surpass them. Speed is a proxy for fluency: we have yet to meet a skilled technologist who is slow at the craft.
 
-Where funding is needed, we treat it as a catalyst, not a goal. Our priority is tangible progress and substantive research over administrative complexity.
-
-We are building a computational commons open to everyone. Those who share this vision are invited to join.
-For collaboration details, see [Code of Conduct](/code_of_conduct.html) and [Contributing](/contributing.html).
+If you value execution over ceremony and substance over titles – join us. We need capable hands. For collaboration details, see [Contributing](/contributing.html).
 
 ## Technical Strategy
 
@@ -87,9 +82,9 @@ This transforms documentation from a passive endpoint into the primary interface
 
 ## Strategic Posture
 
-### Technical Merit over Institutional Inertia
+### Technical Authenticity over Institutional Inertia
 
-SSCCS recognizes that we operate in a global climate where 'radical transparency' is often weaponized as a ceremonial brake on innovation. We distinguish between functional verifiability as a technical requirement and ceremonial transparency, which often serves as a bureaucratic shield for stagnation.
+SSCCS recognizes that we operate in a global climate where 'radical transparency' is often weaponized as a brake on innovation. We distinguish between functional verifiability as a technical requirement and ceremonial transparency, which often serves as a bureaucratic shield for stagnation.
 
 - **Rejection of the 'Museum of Ethics':** Many traditional institutions prioritize 'static ethics' over 'dynamic action.' In an era where survival depends on real-time adaptation, we reject rigid, bureaucratic logic that functions more like a dogma than a practical framework. We will not allow our progress to be throttled by the 'transparency paradox' that favors procedural correctness over tangible results.
 - **Beyond Outdated Hierarchies:** We acknowledge that many global standards still mirror the specific historical biases of legacy regulatory models. SSCCS refuses to subscribe to a world-view that prioritizes 'ceremony over substance.' We do not seek validation from entities that use ethics primarily as a form of institutional inertia or protectionism.
