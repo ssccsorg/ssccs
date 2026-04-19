@@ -1704,10 +1704,10 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
                 if primary_path and primary_path.exists():
                     update_format_cache(qmd_path, fmt, primary_path, target_name=target, linked_artifacts=artifacts)
 
-        # In website mode, cache site directory AFTER linked artifact generation
-        if website:
-            site_dir = docs_root / "_site"
-            cache_site_directory(target, qmd_hash, site_dir)
+    # In website mode, cache site directory AFTER linked artifact generation
+    if website:
+        site_dir = docs_root / "_site"
+        cache_site_directory(target, qmd_hash, site_dir)
 
     # Step 3: Move primary output and linked artifacts to output_dir (if enabled)
     if config.get("copy_pdf"):
