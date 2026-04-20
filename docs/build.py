@@ -157,6 +157,28 @@ BUILD_CACHE_DIR = "_cached"
 JUPYTER_CACHE_DIR = "_jupyter_cache"
 QUARTO_CONFIG_FILES = ["_quarto.yml", "_quarto-website.yml"]
 
+@lru_cache(maxsize=1)
+def get_website_config(docs_root: Path) -> Dict[str, Any]:
+    """
+    Load website configuration from _quarto-website.yml.
+    Returns a dictionary with configuration values.
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    config_path = docs_root / "_quarto-website.yml"
+    if not config_path.exists():
+        return {}
+    if not YAML_AVAILABLE:
+        logger.warning("YAML not available, cannot read website config")
+        return {}
+    try:
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
+        return config or {}
+    except Exception as e:
+        logger.warning(f"Failed to load website config from {config_path}: {e}")
+        return {}
+
 BUILD_TEMP_PATH = DOCS_PARENT / BUILD_TEMP_DIR
 BUILD_CACHE_PATH = DOCS_PARENT / BUILD_CACHE_DIR
 JUPYTER_CACHE_PATH = DOCS_PARENT / JUPYTER_CACHE_DIR
@@ -177,6 +199,7 @@ IGNORING_ARTIFACT_PATTERNS = [
     "**/*_cached",
     "**/*_files",
     "**/*_libs",
+    "**/_llms",
     "**/_site",
     "**/_docsbuild",
     # quarto: final artifacts
@@ -2565,6 +2588,41 @@ def build_targets(
                 _cleanup_orphaned_caches(successful_set)
                 
             logger.info(f"All targets completed successfully: {list(results.keys())}")
+            
+            # If website mode and llms-txt enabled, run rsync to copy LLMS files
+            if website:
+                config = get_website_config(DOCS_ROOT)
+                llms_txt_enabled = config.get("website", {}).get("llms-txt", False)
+                if llms_txt_enabled:
+                    # Determine source and destination directories
+                    source_dir = final_site if output_dir is None else output_dir
+                    # Ensure source_dir exists
+                    if not source_dir.exists():
+                        logger.warning(f"Source directory {source_dir} does not exist, skipping rsync.")
+                    else:
+                        dest_dir = source_dir.parent / "_llms"
+                        logger.info(f"Running rsync to copy LLMS files from {source_dir} to {dest_dir}")
+                        rsync_cmd = [
+                            "rsync",
+                            "-av",
+                            "--delete",
+                            "--delete-excluded",
+                            "--prune-empty-dirs",
+                            "--include=*/",
+                            "--include=*.llms.md",
+                            "--include=llms.txt",
+                            "--exclude=*",
+                            f"{source_dir}/",
+                            f"{dest_dir}/",
+                        ]
+                        try:
+                            subprocess.run(rsync_cmd, check=True)
+                            logger.info("rsync completed successfully.")
+                        except subprocess.CalledProcessError as e:
+                            logger.error(f"rsync failed with exit code {e.returncode}")
+                        except Exception as e:
+                            logger.error(f"Failed to run rsync: {e}")
+            
             return True
             
         finally:
