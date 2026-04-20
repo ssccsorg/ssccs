@@ -33,6 +33,9 @@ on:
       - '.github/workflows/deploy-docs-ghpage.yml'
       - '!docs/**/README.md'
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 permissions:
   contents: read
   pages: write
@@ -46,7 +49,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Compute cache key
         id: cache-key
@@ -56,7 +59,7 @@ jobs:
           echo "key=$(cat /tmp/cache_key.txt)" >> $GITHUB_OUTPUT
 
       - name: Cache _cached directory
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: _cached
           key: ${{ runner.os }}-cached-${{ steps.cache-key.outputs.key }}
@@ -64,7 +67,7 @@ jobs:
             ${{ runner.os }}-cached-
 
       - name: Cache _jupyter_cache directory
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: _jupyter_cache
           key: ${{ runner.os }}-jupyter-${{ steps.cache-key.outputs.key }}
@@ -72,10 +75,13 @@ jobs:
             ${{ runner.os }}-jupyter-
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Build and cache Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
+        env:
+          DOCKER_BUILD_RECORD_UPLOAD: false
+          DOCKER_BUILD_SUMMARY: false
         with:
           context: .
           file: docs/Dockerfile
@@ -83,6 +89,8 @@ jobs:
           load: true
           cache-from: type=gha,scope=shared-docs
           cache-to: type=gha,mode=min,scope=shared-docs
+          provenance: false
+          sbom: false
 
       - name: Run documentation build
         run: |
@@ -101,7 +109,8 @@ jobs:
             --exclude='llms.txt'
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v4
+        if: ${{ github.actor != 'nektos/act' }}
+        uses: actions/upload-pages-artifact@v5
         with:
           path: docs/_pages
 
@@ -115,4 +124,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

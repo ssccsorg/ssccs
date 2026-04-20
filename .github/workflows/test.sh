@@ -39,18 +39,6 @@ trap 'echo -e "\n${YELLOW}========== TEST SUMMARY ==========${NC}"; echo "Passed
 cleanup
 
 # ----------------------------------------------------------------------
-# Test 1: Check Dockerfiles (check-dockerfiles.yml, job=check-docs)
-# ----------------------------------------------------------------------
-run_test "Dockerfiles check" \
-    act -W .github/workflows/check-dockerfiles.yml \
-        --job check-docs \
-        --bind \
-        --env CI=true \
-        --rm \
-        --container-architecture linux/amd64 \
-        --platform ubuntu-latest=catthehacker/ubuntu:act-24.04
-
-# ----------------------------------------------------------------------
 # Test 2: Rust POC CI (check-poc.yml, job=check-poc)
 # ----------------------------------------------------------------------
 run_test "Rust POC CI" \
@@ -59,7 +47,6 @@ run_test "Rust POC CI" \
 # ----------------------------------------------------------------------
 # Test 3: Build documentation (deploy-docs-ghpage.yml, job=build)
 # ----------------------------------------------------------------------
-ARTIFACT_DIR="/tmp/act-artifacts"
 run_test "Documentation build (Quarto site)" \
     act -W .github/workflows/deploy-docs-ghpage.yml \
         --job build \
@@ -68,6 +55,6 @@ run_test "Documentation build (Quarto site)" \
         --rm \
         --container-architecture linux/amd64 \
         --platform ubuntu-latest=catthehacker/ubuntu:act-24.04 \
-        --artifact-server-path "$ARTIFACT_DIR"
+        --artifact-server-path "/tmp/act-artifacts"
 
 # Summary printed automatically via EXIT trap
