@@ -32,7 +32,7 @@ A memristor’s resistance is a function of its historical charge flow, essentia
 
 Traditional Von Neumann architectures suffer from the "Memory Wall" due to sequential data fetching. SSCCS identifies that a Memristor Crossbar Array can perform "Zero-Copy" computations by utilizing Kirchhoff's Current Law.
 
-* Potential Intersection: Applying a voltage (Field) to a conductance matrix (Schema Segment) results in an instantaneous current (Projection). This is not an "execution" of instructions but a physical resolution of constraints.
+- Potential Intersection: Applying a voltage (Field) to a conductance matrix (Schema Segment) results in an instantaneous current (Projection). This is not an "execution" of instructions but a physical resolution of constraints.
 
 ---
 
@@ -62,8 +62,8 @@ This exploratory report suggests that SSCCS is uniquely positioned to bridge the
 
 ### References
 
-* [1] Keccak Team.  ["The Sponge Functions."](https://keccak.team/keccak_specs_summary.html)
-* [2] Wikipedia.  ["Memristor."](https://en.wikipedia.org/wiki/Memristor)
+- [1] Keccak Team.  ["The Sponge Functions."](https://keccak.team/keccak_specs_summary.html)
+- [2] Wikipedia.  ["Memristor."](https://en.wikipedia.org/wiki/Memristor)
 
 ---
 

@@ -3,14 +3,13 @@ project:
   resources:
     - "**/*.c2pa"
   post-render:
-    - 'find . -type d -name "figure-pdf" -exec rm -rf {} +'
-    - 'find . -type d -name "mediabag" -exec rm -rf {} +'
-
+    - 'find . -type d -name "figure-pdf" -exec rm -rf {} + -o -name "figure-beamer" -exec rm -rf {} + -o -name "mediabag" -exec rm -rf {} +'
 website:
   repo-url: https://github.com/ssccsorg/ssccs
   site-url: https://docs.ssccs.org
   repo-subdir: docs
   repo-actions: [edit, issue]
+  llms-txt: true
   page-footer: 
     left: "© [SSCCS Foundation](https://ssccs.org) &bull; [*CC BY-NC-ND 4.0*](https://creativecommons.org/licenses/by-nc-nd/4.0/)"
     right: 
@@ -21,11 +20,13 @@ website:
         href: mailto:contact@ssccs.org
       - icon: github
         href: https://github.com/ssccsorg/ssccs
-  llms-txt: true
-  sidebar:
-    contents: auto
+  sidebar:  
     collapse-level: 1
-
+    contents:
+        - href: index.qmd
+          text: "Home"
+        - auto: "*.{qmd,md}"
+        
 metadata-files:
   - ./_include/format.html.yml
   - ./_include/format.pdf.yml

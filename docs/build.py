@@ -155,6 +155,7 @@ DOCS_ROOT = Path(__file__).parent.absolute()
 BUILD_TEMP_DIR = "_docsbuild"
 BUILD_CACHE_DIR = "_cached"
 JUPYTER_CACHE_DIR = "_jupyter_cache"
+QUARTO_CONFIG_FILES = ["_quarto.yml", "_quarto-website.yml"]
 
 BUILD_TEMP_PATH = DOCS_PARENT / BUILD_TEMP_DIR
 BUILD_CACHE_PATH = DOCS_PARENT / BUILD_CACHE_DIR
@@ -274,6 +275,10 @@ def compute_quarto_file_hash_with_deps(file_path: Path) -> str:
         if entry is None:
             # No file information, treat as leaf
             return
+        # Process Quarto Configs
+        for gcfg in [DOCS_ROOT / file for file in QUARTO_CONFIG_FILES]:
+            if gcfg.exists():
+                visited.add(gcfg.resolve())
         # Process includeMap
         for inc in entry.get("includeMap", []):
             target_rel = inc.get("target")
@@ -350,6 +355,10 @@ def compute_quarto_file_hash_with_deps(file_path: Path) -> str:
             # If a dependency disappears, we treat it as changed, causing a rebuild
             # by including a placeholder.
             hasher.update(b"<missing>")
+            
+    # Compute file extention
+    hasher.update(file_path.suffix.encode("utf-8"))
+
     return hasher.hexdigest()
 
 
@@ -1697,10 +1706,10 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
                 if primary_path and primary_path.exists():
                     update_format_cache(qmd_path, fmt, primary_path, target_name=target, linked_artifacts=artifacts)
 
-        # In website mode, cache site directory AFTER linked artifact generation
-        if website:
-            site_dir = docs_root / "_site"
-            cache_site_directory(target, qmd_hash, site_dir)
+    # In website mode, cache site directory AFTER linked artifact generation
+    if website:
+        site_dir = docs_root / "_site"
+        cache_site_directory(target, qmd_hash, site_dir)
 
     # Step 3: Move primary output and linked artifacts to output_dir (if enabled)
     if config.get("copy_pdf"):

@@ -12,10 +12,10 @@ The strategy addresses three core threats to digital IP:
 
 Key Recommendations:
 
-- Migrate from test certificates to production C2PA-conformant certificates (DigiCert/SSL.com) with RFC 3161 timestamping
-- Implement a hybrid architecture combining C2PA (rich provenance), PKI/PAdES (legal recognition), and OpenTimestamps (trustless anchoring)
-- Deploy cross-verification tooling that validates multiple independent trust mechanisms
-- Integrate all provenance steps into the existing Quarto-based `build.py` pipeline
+- Migrate from test certificates to production C2PA-conformant certificates (DigiCert/SSL.com) with RFC 3161 timestamping, while retaining self‑signed certificates for development and testing.
+- Implement a hybrid architecture combining C2PA (rich provenance), PKI/PAdES (legal recognition), and OpenTimestamps (trustless anchoring), with commercial alternatives available for each layer.
+- Deploy cross-verification tooling that validates multiple independent trust mechanisms, whether free or commercial.
+- Integrate all provenance steps into the existing Quarto-based `build.py` pipeline.
 
 This defense-in-depth approach ensures that compromise or failure of any single trust mechanism does not undermine overall IP protection.
 
@@ -37,36 +37,33 @@ The existing script implements the core C2PA workflow:
 
 ### 1.2 Critical Limitations of Test-Certificate Mode
 
-| Issue | Impact | Mitigation |
-|-------|--------|-----------|
-| Untrusted certificate | Validators show "unrecognized"; no legal weight | Acquire C2PA-conformant CA certificate |
-| No trusted timestamp | Manifest invalid after cert expiry | Integrate RFC 3161 TSA |
-| Private key in filesystem | Key exposure risk | Use KMS/HSM for key operations |
-| Sidecar-only storage | Manifest/PDF separation risk | Embed in PDF XMP or use soft-binding repository |
-| No cross-verification | Single point of trust failure | Add PKI signature + blockchain anchor |
+| Issue | Impact | Free Mitigation | Commercial Mitigation |
+|-------|--------|----------------|------------------------|
+| Untrusted certificate | Validators show "unrecognized"; no legal weight | Self-signed certificate (internal testing) | Acquire C2PA-conformant CA certificate (DigiCert/SSL.com) |
+| No trusted timestamp | Manifest invalid after cert expiry | OpenTimestamps (Bitcoin anchor) | Integrate RFC 3161 TSA (DigiCert, GlobalSign) |
+| Private key in filesystem | Key exposure risk | (none – use file with caution) | Use KMS/HSM for key operations |
+| Sidecar-only storage | Manifest/PDF separation risk | Embed in PDF XMP using pypdf (may be unstable) | Use commercial PDF SDK for reliable embedding |
+| No cross-verification | Single point of trust failure | Add OpenTimestamps + W3C VC | Add PKI signature + SCITT |
 
-### 1.3 Production Readiness Requirements
+### 1.3 Production Readiness Requirements (Free + Commercial)
 
 ```yaml
 production_requirements:
   certificate:
-    source: "C2PA-conformant CA (DigiCert, SSL.com)"
-    format: "PKCS#12 (.pfx) with full chain"
-    validation: "Must chain to C2PA Trust List root"
+    free: "Self-signed (development only)"
+    commercial: "C2PA-conformant CA (DigiCert, SSL.com) – PKCS#12 (.pfx) with full chain, must chain to C2PA Trust List root"
   
   timestamping:
-    standard: "RFC 3161"
-    providers: ["DigiCert TSA", "SSL.com TSA", "GlobalSign TSA"]
-    integration: "Embed timestamp token in claim signature"
+    free: "OpenTimestamps (Bitcoin blockchain)"
+    commercial: "RFC 3161 TSA (DigiCert, SSL.com, GlobalSign) – embed token in claim signature"
   
   key_management:
-    options: ["AWS KMS", "Azure Key Vault", "HashiCorp Vault", "On-premise HSM"]
-    requirement: "Private key never leaves secure boundary"
+    free: "File system (not recommended for production)"
+    commercial: "AWS KMS, Azure Key Vault, HashiCorp Vault, On-premise HSM"
   
   manifest_storage:
-    primary: "Embed in PDF XMP namespace (c2pa:)"
-    fallback: "Sidecar .c2pa with hash reference in PDF metadata"
-    repository: "Optional soft-binding to HTTPS manifest store"
+    free: "Sidecar .c2pa or pypdf XMP embedding"
+    commercial: "Embed in PDF XMP using commercial SDK; optional soft-binding to HTTPS manifest store"
 ```
 
 ## 2. C2PA Technical Architecture: Deep Dive
@@ -100,8 +97,8 @@ C2PA Manifest (JUMBF container - ISO/IEC 19567-1)
 │
 ├── Claim Signature
 │   ├── Algorithm: ECDSA P-256 / P-384 or RSA-PSS 2048/3072
-│   ├── Certificate: X.509 chain to C2PA Trust List root
-│   └── Timestamp: RFC 3161 token (recommended)
+│   ├── Certificate: X.509 chain to C2PA Trust List root (commercial) or self-signed (test)
+│   └── Timestamp: RFC 3161 token (commercial) or OpenTimestamps proof (free)
 │
 └── Manifest Store Metadata
     ├── Format: application/c2pa+json or application/c2pa+cbor
@@ -179,7 +176,7 @@ def embed_c2pa_manifest(pdf_path: Path, c2pa_manifest: bytes):
 ```
 
 Pros: Single-file distribution; standard PDF viewers can extract metadata  
-Cons: Increases file size (~12-100KB); requires XMP-aware tools
+Cons: Increases file size (~12-100KB); requires XMP-aware tools (free pypdf may be unstable for complex PDFs; commercial SDKs recommended for production)
 
 #### Pattern C: Soft-Binding with Repository
 
@@ -221,9 +218,9 @@ Verification Pipeline (Recommended Order):
    │
 2. Verify C2PA manifest:
    ├─ Signature validity (cryptographic)
-   ├─ Certificate chain to C2PA Trust List
+   ├─ Certificate chain to C2PA Trust List (commercial) or accept self-signed with warning
    ├─ Revocation status (CRL/OCSP)
-   └─ Timestamp validity (RFC 3161)
+   └─ Timestamp validity (RFC 3161 or OpenTimestamps)
    │
 3. Verify embedded PKI/PAdES signature (if present):
    ├─ Certificate chain to trusted root
@@ -258,6 +255,28 @@ Verification Pipeline (Recommended Order):
 | Network unavailable | Soft-binding manifests unverifiable | Embedded PKI + OTS work offline | Prefer hard-binding for critical docs |
 | PDF transcoded | Hard-binding breaks | PKI signature may survive; OTS hash still valid | Use soft-binding + repository for edited versions |
 | Legal challenge | Emerging precedent | PKI/PAdES has established case law | Always include PKI signature for legal docs |
+
+### 3.4 Commercial vs Free: Comparison Matrix and Hybrid Strategy
+
+The following table contrasts free/open‑source options with commercial (paid) alternatives for each provenance component. Both are supported by the codebase; the choice depends on legal requirements, security posture, and budget.
+
+| Component | Free Option | Commercial Option | Free Limitations | Commercial Benefits | Recommended Use |
+|-----------|-------------|-------------------|------------------|---------------------|-----------------|
+| **C2PA Certificate** | Self-signed (generated via OpenSSL) | DigiCert C2PA, SSL.com C2PA | Validators show "untrusted"; no legal weight | C2PA Trust List inclusion; trusted by Adobe/Microsoft | Development/testing: free; public release: commercial |
+| **Timestamping** | OpenTimestamps (Bitcoin blockchain) | RFC 3161 TSA (DigiCert, GlobalSign, SSL.com) | ~hour confirmation; not a legal standard | Instant, RFC-standard, admissible in court | Use both for redundancy |
+| **Key Management** | File system (private key on disk) | AWS KMS, Azure Key Vault, HSM | High risk of exposure; no audit log | Secure enclave; full audit trail; key rotation | Production: mandatory commercial |
+| **PDF Manifest Embedding** | pypdf XMP insertion | iText 8, PDFlib (commercial SDKs) | Unstable with complex PDFs; may corrupt | 100% reliability; support for all PDF features | Important documents: commercial |
+| **PKI/PAdES** | None (free certs not trusted) | WebTrust/eIDAS qualified certificates | Not applicable | Legally binding; eIDAS Qualified Signatures | All legal documents |
+| **SCITT Transparency** | Self-hosted open-source registry | Microsoft SCITT Registry, other managed services | Maintenance burden; availability not guaranteed | Managed, high availability, SLAs | Pilot: free; production: commercial |
+| **W3C Verifiable Credentials** | did:key, did:web (self-hosted) | did:indy, commercial verifiable data registries | No revocation mechanism; DIY trust | Built-in revocation; governance frameworks | Experimental: free; enterprise: commercial |
+
+**Hybrid Strategy Recommendation:**
+
+- **Development / Internal Testing:** Use full free stack (self-signed C2PA + OpenTimestamps + pypdf embedding). This validates the workflow at zero cost.
+- **Public / Official Documents:** Always use commercial C2PA certificate + RFC 3161 TSA. Add PKI/PAdES for legal enforceability.
+- **Maximum Assurance:** Combine commercial C2PA + commercial PKI/PAdES + free OpenTimestamps (as an independent anchor) + SCITT transparency. This gives three independent trust anchors.
+
+The existing code in this report supports both free and commercial providers through configuration (e.g., `--cert` can point to a self-signed or DigiCert PEM; `--tsa` can be an RFC 3161 URL or left empty to use OpenTimestamps). No code changes are required to switch between them.
 
 ## 4. Implementation Roadmap: Phased Technical Tasks
 
@@ -1039,37 +1058,3 @@ Provenance System Versioning:
 | W3C VC | Verifiable Credentials; cryptographically signed claims using decentralized identifiers |
 | KERI | Key Event Receipt Infrastructure; self-certifying identifiers without ledger dependency |
 | SEAL | Secure Evidence Attribution Label; DNSSEC-anchored lightweight signature scheme |
-
-## Appendix B: Reference Implementations & Resources
-
-C2PA Ecosystem:
-
-- Specification: <https://c2pa.org/specifications/>
-- SDK (Rust): <https://github.com/contentauth/c2pa-rs>
-- CLI Tool: <https://github.com/contentauth/c2patool>
-- Trust List: <https://trustlist.c2pa.org/>
-
-PKI/PAdES:
-
-- ETSI PAdES Standard: <https://www.etsi.org/deliver/etsi_en/319100_319199/31914201/>
-- endesive Library: <https://github.com/andrewdavidmackenzie/endesive>
-- DigiCert PAdES Guide: <https://www.digiCert.com/solutions/pades-digital-signatures>
-
-SCITT:
-
-- IETF Draft: <https://datatracker.ietf.org/wg/scitt/documents/>
-- Reference Implementation: <https://github.com/microsoft/scitt-registry>
-
-OpenTimestamps:
-
-- Protocol: <https://opentimestamps.org/>
-- Python Client: <https://github.com/opentimestamps/python-opentimestamps>
-- Calendar List: <https://petertodd.org/2016/opentimestamps-announcement>
-
-Verification Tools:
-
-- Adobe Content Credentials: <https://contentcredentials.org/>
-- Truepic Lens: <https://www.truepic.com/lens>
-- Custom Verifier: docs/_utils/verify_provenance.py (this project)
-
-*This document is licensed under Apache 2.0. Technical recommendations are based on publicly available specifications and independent security analysis as of Q2 2026. All implementations should undergo organization-specific legal review and security audit before production deployment.*
