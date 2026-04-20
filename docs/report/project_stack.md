@@ -1,16 +1,16 @@
 # Strategic Agentic Development Stack for SSCCS
 
-## Technical Architecture Report (Revised)
+## Technical Architecture Report
 
 ### 1. Executive Summary
 
 This document defines the development and execution stack for the State‑Space Composition Computing System (SSCCS). The architecture is structured around a clear separation of concerns:
 
-- **Rust** is used for all performance-critical and system-level components.
+- **Rust** is used for all performance‑critical and system‑level components.
 - **Python** is used for orchestration, analysis, and documentation.
-- **TypeScript/JavaScript** is restricted to optional interface and edge-layer roles.
+- **TypeScript/JavaScript** is restricted to optional interface and edge‑layer roles.
 
-A deliberate decision has been made to eliminate LaTeX from the toolchain. Documentation is treated as a first-class, executable artifact, rather than a static output. All visual and analytical outputs are generated programmatically to ensure reproducibility, version control compatibility, and machine accessibility.
+The stack is guided by the principles of the SSCCS Code of Conduct: **human life comes first, results over ceremony, strict technical focus, and aggressive adoption of proven technology**. These values directly influence tool selection, interface design, and the rejection of vendor‑lock via unratified standards. All interfaces, including agent command patterns, prioritise compliance with recognised international standards. Specific service providers (OpenAI, Claude, etc.) or development environments (VS Code, GitHub, etc.) may be supported for convenience where needed, but we do not rely on their proprietary schemas. This ensures our infrastructure remains open and portable, independent of changes in any commercial ecosystem.
 
 ---
 
@@ -23,8 +23,6 @@ A deliberate decision has been made to eliminate LaTeX from the toolchain. Docum
 | Build Systems | Cargo + uv | Unified, high‑performance dependency and build management |
 | Interoperability | PyO3 | Safe and efficient Rust–Python integration with minimal overhead |
 | Interface Layer | TypeScript (optional) | Isolated to non‑critical UI and edge communication |
-
-The stack prioritises predictability and reproducibility over ecosystem breadth.
 
 ---
 
@@ -43,7 +41,7 @@ The division between Rust and Python reflects fundamentally different execution 
 | Data analysis & experimentation | Python | Faster iteration and richer tooling |
 | Documentation generation | Python | Enables executable and reproducible reporting |
 
-This separation avoids mixing concerns and reduces systemic complexity.
+This separation avoids mixing concerns and reduces systemic complexity. It also aligns with the CoC’s **results‑oriented** principle: the “pedigree” of code matters less than whether it works and remains maintainable.
 
 ---
 
@@ -58,7 +56,7 @@ LaTeX is not used due to the following limitations:
 - High dependency overhead in containerised environments
 - Limited compatibility with LLM‑driven workflows
 
-The requirement is not typesetting quality alone, but **programmable documentation**.
+The requirement is not typesetting quality alone, but **programmable documentation**. This directly supports the CoC’s **aggressive adoption of technology** when efficacy and safety are established.
 
 #### 4.2 Visualization Stack
 
@@ -90,7 +88,21 @@ This enables:
 
 ---
 
-### 5. Version Control and State Management
+### 5. AI Tooling Policy 
+
+AI usage is treated as standard engineering practice, consistent with the CoC:
+
+- **No mandatory disclosure** of AI assistance in commits or PRs.
+- **Human accountability** remains with the submitting engineer.
+- **Evaluation criteria** focus only on architectural consistency, logical correctness, security, and test compliance.
+- **Extended use** of AI is encouraged for tasks such as cultural synthesis and communication.
+- **No vendor‑lock** via unratified standards: all interfaces must be implementable by multiple independent parties.
+
+This policy ensures that the stack remains open and adaptable, regardless of changes in commercial AI ecosystems.
+
+---
+
+### 6. Version Control and State Management
 
 **Git** is used as the unified storage layer for:
 
@@ -107,9 +119,11 @@ This approach ensures:
 - Deterministic reconstruction of past states
 - Elimination of external database dependencies for most workflows
 
+It also aligns with the CoC’s **clarity of responsibility** and **system protection** principles.
+
 ---
 
-### 6. CI/CD and Deployment
+### 7. CI/CD and Deployment
 
 The system is designed for minimal and reproducible environments.
 
@@ -131,7 +145,7 @@ No LaTeX or heavyweight runtime dependencies are included.
 
 ---
 
-### 7. Execution Environments
+### 8. Execution Environments
 
 | Context | Environment |
 |---------|-------------|
@@ -145,7 +159,7 @@ All environments are aligned to minimise drift.
 
 ---
 
-### 8. Role of JavaScript
+### 9. Role of JavaScript
 
 JavaScript is intentionally excluded from the core system.
 
@@ -154,11 +168,11 @@ Its use is limited to:
 - Optional visualisation frontends
 - Edge‑layer request forwarding
 
-These components are loosely coupled and do not impact the core runtime.
+These components are loosely coupled and do not impact the core runtime. This restriction follows the CoC’s **strict technical focus**: discussions and tool selections are limited to software engineering and performance.
 
 ---
 
-### 9. Strategic Alignment
+### 10. Strategic Alignment
 
 The stack aligns with several emerging patterns:
 
@@ -172,7 +186,7 @@ These trends reinforce the design choices made in this architecture.
 
 ---
 
-### 10. Conclusion
+### 11. Conclusion
 
 The SSCCS stack is designed to support a system where:
 
@@ -185,3 +199,5 @@ Rust and Python are not interchangeable in this context; they address different 
 - Operationally lightweight
 - Structurally clear
 - Adaptable to AI‑assisted development workflows
+
+All technical decisions are guided by the Code of Conduct’s core values: **human life first, results over ceremony, and a realistic approach to equality – where technical merit and mutual respect drive progress, not rigid ideology or vendor lock‑in.**

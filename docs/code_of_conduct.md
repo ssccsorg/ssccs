@@ -30,12 +30,13 @@ Every contributor bears 100% responsibility for the integrity of their contribut
 
 ## AI Tooling Policy: Tools as Standard
 
-As of 2026, using AI (LLMs, etc.) for engineering is as standard as using a compiler or an IDE.
+Using AI (LLMs, etc.) for engineering is as standard as using a compiler or an IDE.
 
 - **No Mandatory Disclosure:** Contributors are not required to disclose AI usage in commit messages or PRs.
 - **Human Accountability:** Regardless of the tools used, the human engineer who submits the code bears 100% responsibility for its consequences.
 - **Evaluation Criteria:** Reviewers evaluate only architectural consistency, logical correctness, security, and test compliance. Low-quality code that lacks proper human direction and validation will be rejected regardless of its origin.
 - **Extended Use:** AI can be actively utilized in areas difficult to codify, such as cultural synthesis or streamlining communication. We encourage using AI as an aid to improve decision-making and efficiency.
+- **No Vendor‑Lock via Unratified Standards:** All interfaces, including agent command patterns, prioritize compliance with recognized international standards. Specific service providers (OpenAI, Claude, etc.) or development environments (VS Code, GitHub, etc.) may be supported for convenience where needed, but we do not rely on their proprietary schemas. This ensures our infrastructure remains open and portable, independent of changes in any commercial ecosystem.
 
 ## Communication Guidelines
 
