@@ -250,7 +250,7 @@ def extract_yaml_frontmatter_links(content: str, require_delimiters: bool = True
         if end_idx == len(lines):
             # no closing delimiter found
             return links
-        start_idx = 1  # skip opening --- line
+        start_idx = 1  # skip opening ---line
     # else treat whole file as frontmatter, start_idx=0, end_idx=len(lines)
 
     url_pattern = re.compile(
@@ -737,50 +737,70 @@ def should_ignore_url(url: str) -> bool:
 
 
 def is_valid_quarto_link(link_path: str, source_file: Path, root: Path) -> bool:
-    source_subdirs = ["", "docs", "src", "content"]
+    """Securely verify local links (including .html) in Quarto projects
+    -/docs/report/poc_diagnosis.html → Check whether docs/report/poc_diagnosis.qmd/md exists
+    -Minimize side effects: handle all out-of-root links, relative paths, and directory indexes
+    """
+    clean = link_path.split("#")[0].split("?")[0].strip()
+    if not clean or clean.startswith(("#", "mailto:", "tel:", "data:", "http", "https")):
+        return True  # External links or anchors are not subject to separate inspection.
 
-    def check_exact_file(base: Path) -> bool:
-        return (
-            base.with_suffix(".qmd").exists()
-            or base.with_suffix(".md").exists()
-            or base.with_suffix(".bib").exists()
-        )
-
-    def check_directory_index(dir_path: Path) -> bool:
-        return (dir_path / "index.qmd").exists() or (dir_path / "index.md").exists()
-
-    clean = link_path.split("#")[0].split("?")[0]
     is_html = clean.endswith(".html")
     is_dir_slash = clean.endswith("/")
-    known_ext = any(clean.endswith(ext) for ext in {".qmd", ".md", ".bib"})
-    if clean.startswith("/docs/"):
-        return is_valid_quarto_link(clean[6:], source_file, root)
-    for sub in source_subdirs:
-        if clean.startswith("/"):
-            target = root / sub / clean.lstrip("/")
-        else:
-            target = (source_file.parent / clean).resolve()
-            if not str(target).startswith(str(root)):
-                continue
-        if is_html:
-            if check_exact_file(target.with_suffix("")):
-                return True
-        elif is_dir_slash:
-            if check_directory_index(target):
-                return True
-        elif known_ext:
-            if target.exists():
-                return True
-        else:
-            if check_exact_file(target):
-                return True
-            for alt_sub in source_subdirs:
-                if alt_sub == sub:
-                    continue
-                if check_exact_file(root / alt_sub / clean.lstrip("/")):
-                    return True
-    return False
+    known_ext = clean.endswith((".qmd", ".md", ".bib"))
 
+    # 1. Path normalization (based on root)
+    try:
+        if clean.startswith("/"):
+            # Absolute path (root-relative path starting with /in Quarto)
+            target_path = clean.lstrip("/")
+        else:
+            # Relative path → resolve based on source_file
+            target_path = str((source_file.parent / clean).resolve().relative_to(root))
+    except (ValueError, FileNotFoundError):
+        # Path outside the root → invalid (handled safely)
+        return False
+
+    target = root / target_path
+
+    # 2. .html → source file mapping (the most important part)
+    if is_html:
+        base = target.with_suffix("")  # remove .html
+        if (base.with_suffix(".qmd").exists() or
+            base.with_suffix(".md").exists()):
+            return True
+
+        # Safety device: Search again under docs/(when the project structure is docs/)
+        if not str(target_path).startswith("docs/"):
+            alt_base = (root / "docs" / target_path).with_suffix("")
+            if alt_base.with_suffix(".qmd").exists() or alt_base.with_suffix(".md").exists():
+                return True
+
+    # 3. Directory index (e.g. /report/→ index.qmd)
+    elif is_dir_slash:
+        if (target / "index.qmd").exists() or (target / "index.md").exists():
+            return True
+
+    # 4. If you already have an extension
+    elif known_ext:
+        return target.exists()
+
+    # 5. Automatic matching of .qmd/.md if there is no extension
+    else:
+        if target.with_suffix(".qmd").exists() or target.with_suffix(".md").exists():
+            return True
+
+    # 6. Final fallback (docs, src, content)
+    for sub in ("", "docs", "src", "content"):
+        alt = root / sub / target_path
+        if is_html:
+            base = alt.with_suffix("")
+            if base.with_suffix(".qmd").exists() or base.with_suffix(".md").exists():
+                return True
+        elif alt.exists() or alt.with_suffix(".qmd").exists() or alt.with_suffix(".md").exists():
+            return True
+
+    return False
 
 def validate_all_links(target_dir: str, verbose: bool = False, max_workers: int = 8):
     root = Path(target_dir).resolve()

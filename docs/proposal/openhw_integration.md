@@ -251,7 +251,7 @@ SSCCS offers an opportunity to bring research into the OpenHW ecosystem. By leve
 [3] QuickLogic, "ArticPro 2 eFPGA Architecture Manual," 2024. [https://support.arctic.de/en/m2-pro-series](https://support.arctic.de/en/m2-pro-series)
 
 <a id="ref-4"></a>
-[4] Imperas Software, "riscvOVPsimCOREV Reference Simulator Documentation," 2025. [https://www.imperas.com/riscvovpsimcorev](https://www.imperas.com/riscvovpsimcorev)
+[4] Imperas Software, "riscvOVPsimCOREV Reference Simulator Documentation," 2025. [https://www.synopsys.com/verification/imperasdv.html)
 
 <a id="ref-5"></a>
 [5] M. Horowitz, "Computing's Energy Problem (and What We Can Do About It)," *2014 IEEE International Solid-State Circuits Conference Digest of Technical Papers (ISSCC)*, pp. 10–14, 2014. doi: 10.1109/ISSCC.2014.6757323
