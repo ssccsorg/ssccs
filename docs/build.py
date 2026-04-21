@@ -2607,7 +2607,7 @@ def build_targets(
                             "-av",
                             "--delete",
                             "--delete-excluded",
-                            "--prune-empty-dirs",
+                            "--remove-source-files",
                             "--include=*/",
                             "--include=*.llms.md",
                             "--include=llms.txt",
@@ -2617,6 +2617,7 @@ def build_targets(
                         ]
                         try:
                             subprocess.run(rsync_cmd, check=True)
+                            subprocess.run(["find", str(dest_dir), "-type", "d", "-empty", "-delete"], check=False)
                             logger.info("rsync completed successfully.")
                         except subprocess.CalledProcessError as e:
                             logger.error(f"rsync failed with exit code {e.returncode}")
