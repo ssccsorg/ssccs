@@ -88,7 +88,7 @@ This enables:
 
 ---
 
-### 5. AI Tooling Policy 
+### 5. AI Tooling Policy
 
 AI usage is treated as standard engineering practice, consistent with the CoC:
 
