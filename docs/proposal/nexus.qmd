@@ -478,11 +478,13 @@ This is the living “lake” that continuously grows – exactly the autonomous
 
 1. Enable `llms-txt: true` in `_quarto.yml` and verify `llms.txt`, `llms-full.txt`.
 2. Install SwarmVault (Node ≥24) and run initial ingestion:
+
    ```bash
    swarmvault init --profile personal-research
    swarmvault source add docs/_site --recursive
    swarmvault compile
    ```
+
 3. Implement Phase 1 post‑processing (citation index, cross‑ref edges, glossary) as Python scripts.
 4. Implement Phase 2 (chunking, embeddings, ChromaDB, CLI query).
 5. Implement Phase 3 (code symbol extraction + linking) – reuse `rustdoc` pipelines.
