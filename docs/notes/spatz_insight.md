@@ -12,8 +12,6 @@ This report presents a unified interpretation of the SSCCS whitepaper and the Sp
 
 ## 1. Introduction
 
-SSCCS (State‑Space Composition Computing System) introduces a structural paradigm in which computation emerges from relations between immutable *Segments* grouped into *Schemes*. A `MemoryLayout` encodes adjacency and locality, and an *Observation* defines computation as a projection over stationary data.
-
 Spatz, a compact RISC‑V vector processor cluster with a shared‑L1 scratchpad memory (SPM) and a tiny 2 KiB vector register file (VRF), investigates how modern hardware achieves high efficiency. Its results—95% FPU utilisation, 30% higher energy efficiency than a scalar cluster, and minimal register capacity—demonstrate that performance is not compute‑bound but constrained by data supply and storage balance.
 
 The key insight is that these two perspectives are not independent. SSCCS implicitly assumes a physical model that Spatz makes explicit. This report formalises that connection.
