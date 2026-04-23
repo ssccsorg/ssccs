@@ -235,8 +235,8 @@ Finally, TileTensor is a proof that well‑designed, type‑driven abstractions 
 
 ## References
 
-* Modular Blog (2026. 04): [TileTensor Part 1 – Safer, More Efficient GPU Kernels](https://www.modular.com/blog/tiletensor-part-1-safer-more-efficient-gpu-kernels)
-* Modular Documentation: [Using LayoutTensor - Manual](https://docs.modular.com/mojo/manual/layout/tensors/)
-* arXiv (2026. 03): [CuTe: Layout Representation and Algebra](https://arxiv.org/abs/2603.02298)
-* Google Research Blog: [TimesFM: A Decoder-Only Foundation Model for Time-Series Forecasting](https://research.google/blog/a-decoder-only-foundation-model-for-time-series-forecasting/)
-* Mojo Official Docs: [Mojo Language Overview & Manual](https://docs.modular.com/mojo/manual/)
+- Modular Blog (2026. 04): [TileTensor Part 1 – Safer, More Efficient GPU Kernels](https://www.modular.com/blog/tiletensor-part-1-safer-more-efficient-gpu-kernels)
+- Modular Documentation: [Using LayoutTensor - Manual](https://docs.modular.com/mojo/manual/layout/tensors/)
+- arXiv (2026. 03): [CuTe: Layout Representation and Algebra](https://arxiv.org/abs/2603.02298)
+- Google Research Blog: [TimesFM: A Decoder-Only Foundation Model for Time-Series Forecasting](https://research.google/blog/a-decoder-only-foundation-model-for-time-series-forecasting/)
+- Mojo Official Docs: [Mojo Language Overview & Manual](https://docs.modular.com/mojo/manual/)

@@ -1,22 +1,16 @@
-# Spatz–SSCCS Structural Insights 
+# Spatz–SSCCS Structural Insights
 
 A Structural–Physical Synthesis for Deterministic and Efficient Computation
-
-
 
 ## Abstract
 
 This report presents a unified interpretation of the SSCCS whitepaper and the Spatz architecture. SSCCS defines computation as a structural process over stationary data, while Spatz provides empirical evidence of the physical constraints governing efficient execution. By combining both, we derive a formal execution model in which computation is expressed as structure and bounded by memory bandwidth, register capacity, and dataflow balance. The result is a constraint‑complete view of computation: structure defines what is computed, and physical balance determines whether it can be executed efficiently and deterministically.
-
----
 
 ## 1. Introduction
 
 Spatz, a compact RISC‑V vector processor cluster with a shared‑L1 scratchpad memory (SPM) and a tiny 2 KiB vector register file (VRF), investigates how modern hardware achieves high efficiency. Its results—95% FPU utilisation, 30% higher energy efficiency than a scalar cluster, and minimal register capacity—demonstrate that performance is not compute‑bound but constrained by data supply and storage balance.
 
 The key insight is that these two perspectives are not independent. SSCCS implicitly assumes a physical model that Spatz makes explicit. This report formalises that connection.
-
----
 
 ## 2. Structural Model (SSCCS)
 
@@ -50,8 +44,6 @@ This model implies:
 - Data remains stationary (zero movement of input data).
 - Parallelism emerges from structural independence (no locks, no synchronisation).
 
----
-
 ## 3. Physical Model (Spatz)
 
 A hardware instance is defined by three parameters:
@@ -80,8 +72,6 @@ Additional empirical results from Spatz:
 - Compiler‑managed scratchpad memory (SPM) can replace hardware caches, eliminating cache‑miss unpredictability.
 - Data‑level parallelism (DLP) alone is sufficient for high efficiency; complex instruction‑level parallelism (ILP) logic (out‑of‑order, branch prediction) is unnecessary.
 
----
-
 ## 4. Execution Feasibility
 
 Execution in SSCCS must satisfy physical constraints. A `MemoryLayout` is **feasible** if:
@@ -99,8 +89,6 @@ Therefore:
 - `MemoryLayout` is not merely a locality optimisation; it is a **constraint satisfaction problem**.
 - An SSCCS program (Scheme + set of Fields) is executable if and only if its layout satisfies the balance condition for all Observations.
 
----
-
 ## 5. Throughput and Performance Bound
 
 Let $T$ be the throughput of an Observation (results per cycle). Then:
@@ -115,8 +103,6 @@ where $\rho$ is the **data reuse factor** induced by the `MemoryLayout` (how man
 - Effective bandwidth, amplified by reuse, is equally critical.
 
 Performance is bounded by the minimum of compute rate and data supply rate.
-
----
 
 ## 6. State and Register Capacity
 
@@ -137,8 +123,6 @@ Thus:
 - Optimal execution favours **minimal state**.
 
 In SSCCS terms, this validates **stateless or near‑stateless Observations** – projectors should not hold large internal buffers.
-
----
 
 ## 7. Data Movement Revisited
 
@@ -163,8 +147,6 @@ because Observations produce new data that must be consumed downstream (e.g., as
 
 Spatz’s balance condition provides a way to predict when projection movement becomes a bottleneck.
 
----
-
 ## 8. Parallelism
 
 In SSCCS, parallelism arises from independent subgraphs. If two subgraphs share no vertices or edges, their Observations can be executed concurrently without synchronisation.
@@ -175,8 +157,6 @@ Spatz confirms that:
 - Near‑linear scaling is achievable under balanced conditions (Spatz Fig. 10 shows near‑linear speedup on two cores).
 
 Therefore: parallelism is a **property of structure**, realised through **balanced dataflow**.
-
----
 
 ## 9. Memory Model: Cache vs. Structured Layout
 
@@ -190,8 +170,6 @@ This implies a fundamental shift:
 SSCCS extends this idea: `MemoryLayout` becomes a **declarative specification** of data placement. The compiler does not guess; it enforces adjacency.
 
 Thus: memory is not an optimisation layer but part of the **computational definition**.
-
----
 
 ## 10. Unified Formal Model
 
@@ -214,8 +192,6 @@ Execution is **valid** if:
 2. Observations operate with minimal state ($Z \approx Z_{\text{opt}}$),
 3. Dataflow remains within bandwidth limits ($\beta$ not exceeded).
 
----
-
 ## 11. Integrated Interpretation
 
 Combining SSCCS and Spatz yields a complete computational model:
@@ -235,8 +211,6 @@ This implies:
 - Bandwidth determines execution viability.
 - State determines efficiency bounds.
 
----
-
 ## 12. Conclusion
 
 The integration of SSCCS and Spatz leads to a holistic model of deterministic, efficient computation.
@@ -254,8 +228,6 @@ The integration of SSCCS and Spatz leads to a holistic model of deterministic, e
 > SSCCS provides the structural language.  
 > Spatz provides the physical laws.  
 > Together, they define a deterministic and efficient model of computation.
-
----
 
 ## Appendix: Detailed Mapping of Spatz Insights to the SSCCS Whitepaper
 
