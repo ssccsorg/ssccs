@@ -50,3 +50,27 @@ jobs:
           chmod +x run.sh
           ./run.sh --validation
         shell: bash
+
+      - name: Prepare poc agent artifacts
+        run: |
+          mkdir -p _agent
+          rsync -av --delete \
+            --exclude='target' \
+            --exclude='.git' \
+            --exclude='*.swp' \
+            --exclude='*.rs.bk' \
+            poc/ _agent/poc/
+
+      - name: Upload poc agent artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: poc-agent
+          path: _agent
+          retention-days: 7
+
+      - name: Trigger Nexus Build
+        uses: peter-evans/repository-dispatch@v4
+        with:
+          token: ${{ secrets.SSCCS_NEXUS_ACTIONS_READWRITE_PAT }}
+          repository: ssccsorg/ssccs-nexus
+          event-type: ssccs-poc-agent-af

@@ -157,6 +157,28 @@ BUILD_CACHE_DIR = "_cached"
 JUPYTER_CACHE_DIR = "_jupyter_cache"
 QUARTO_CONFIG_FILES = ["_quarto.yml", "_quarto-website.yml"]
 
+@lru_cache(maxsize=1)
+def get_website_config(docs_root: Path) -> Dict[str, Any]:
+    """
+    Load website configuration from _quarto-website.yml.
+    Returns a dictionary with configuration values.
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    config_path = docs_root / "_quarto-website.yml"
+    if not config_path.exists():
+        return {}
+    if not YAML_AVAILABLE:
+        logger.warning("YAML not available, cannot read website config")
+        return {}
+    try:
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
+        return config or {}
+    except Exception as e:
+        logger.warning(f"Failed to load website config from {config_path}: {e}")
+        return {}
+
 BUILD_TEMP_PATH = DOCS_PARENT / BUILD_TEMP_DIR
 BUILD_CACHE_PATH = DOCS_PARENT / BUILD_CACHE_DIR
 JUPYTER_CACHE_PATH = DOCS_PARENT / JUPYTER_CACHE_DIR
@@ -177,6 +199,7 @@ IGNORING_ARTIFACT_PATTERNS = [
     "**/*_cached",
     "**/*_files",
     "**/*_libs",
+    "**/_llms",
     "**/_site",
     "**/_docsbuild",
     # quarto: final artifacts
@@ -344,6 +367,8 @@ def compute_quarto_file_hash_with_deps(file_path: Path) -> str:
 
     # Compute combined hash
     hasher = hashlib.sha256()
+    # Include the file extension in the hash to detect extension changes (e.g., .md → .qmd)
+    hasher.update(file_path.suffix.encode("utf-8"))
     for dep in sorted(visited, key=lambda p: str(p)):
         # Include each file's hash
         try:
@@ -2040,11 +2065,111 @@ class RobotsTxtMerger(SharedAssetMerger):
             return False
 
 
+class LlmsTxtMerger(SharedAssetMerger):
+    """
+    Merger for llms.txt files (markdown list of page links).
+    Combines page entries from multiple targets and deduplicates by URL.
+    """
+    
+    def __init__(self):
+        super().__init__(
+            name="llms_txt",
+            filename_patterns=["llms.txt"],
+        )
+    
+    def _parse_page_entries(self, content: str) -> List[Tuple[str, str]]:
+        """
+        Parse llms.txt content and extract page entries as (name, url) tuples.
+        Returns list of (name, url) tuples found in markdown list items.
+        """
+        entries = []
+        # Match markdown list items with links: - [name](url)
+        pattern = re.compile(r'^\s*-\s*\[([^\]]+)\]\(([^)]+)\)\s*$')
+        for line in content.splitlines():
+            match = pattern.match(line)
+            if match:
+                name, url = match.groups()
+                entries.append((name.strip(), url.strip()))
+        return entries
+    
+    def _generate_content(self, entries: List[Tuple[str, str]], title: str = "Untitled") -> str:
+        """
+        Generate llms.txt content from page entries.
+        Returns formatted markdown content.
+        """
+        lines = [f"# {title}", "", "## Pages", ""]
+        for name, url in entries:
+            lines.append(f"- [{name}]({url})")
+        return "\n".join(lines) + "\n"
+    
+    def merge(self, src_path: Path, dst_path: Path) -> bool:
+        """
+        Merge two llms.txt files by combining their page entries.
+        Deduplicates by URL (keeping the first occurrence).
+        If dst_path does not exist, simply copy src_path to dst_path.
+        Returns True on success, False on error.
+        """
+        try:
+            # Read source
+            with open(src_path, 'r', encoding='utf-8') as f:
+                src_content = f.read()
+            
+            # If destination doesn't exist, copy
+            if not dst_path.exists():
+                shutil.copy2(src_path, dst_path)
+                return True
+            
+            # Read destination
+            with open(dst_path, 'r', encoding='utf-8') as f:
+                dst_content = f.read()
+            
+            # Parse entries from both files
+            src_entries = self._parse_page_entries(src_content)
+            dst_entries = self._parse_page_entries(dst_content)
+            
+            # Extract title from destination (or use default)
+            title = "Untitled"
+            for line in dst_content.splitlines():
+                if line.startswith('# '):
+                    title = line[2:].strip()
+                    break
+            
+            # Merge entries: start with destination, add source entries not in destination
+            seen_urls = set()
+            merged_entries = []
+            
+            # Add destination entries first (they take precedence)
+            for name, url in dst_entries:
+                if url not in seen_urls:
+                    seen_urls.add(url)
+                    merged_entries.append((name, url))
+            
+            # Add source entries that don't exist in destination
+            for name, url in src_entries:
+                if url not in seen_urls:
+                    seen_urls.add(url)
+                    merged_entries.append((name, url))
+            
+            # Generate merged content
+            merged_content = self._generate_content(merged_entries, title)
+            
+            # Write back
+            with open(dst_path, 'w', encoding='utf-8') as f:
+                f.write(merged_content)
+            
+            logger.debug(f"Merged llms.txt from {src_path} into {dst_path} (added {len(merged_entries) - len(dst_entries)} new entries)")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to merge llms.txt {src_path} -> {dst_path}: {e}")
+            return False
+
+
 # Registry of shared asset mergers
 SHARED_ASSET_MERGERS: List[SharedAssetMerger] = [
     SearchJsonMerger(),
     SitemapXmlMerger(),
     RobotsTxtMerger(),
+    LlmsTxtMerger(),
 ]
 
 
@@ -2463,6 +2588,42 @@ def build_targets(
                 _cleanup_orphaned_caches(successful_set)
                 
             logger.info(f"All targets completed successfully: {list(results.keys())}")
+            
+            # If website mode and llms-txt enabled, run rsync to copy LLMS files
+            if website:
+                config = get_website_config(DOCS_ROOT)
+                llms_txt_enabled = config.get("website", {}).get("llms-txt", False)
+                if llms_txt_enabled:
+                    # Determine source and destination directories
+                    source_dir = final_site if output_dir is None else output_dir
+                    # Ensure source_dir exists
+                    if not source_dir.exists():
+                        logger.warning(f"Source directory {source_dir} does not exist, skipping rsync.")
+                    else:
+                        dest_dir = source_dir.parent / "_llms"
+                        logger.info(f"Running rsync to copy LLMS files from {source_dir} to {dest_dir}")
+                        rsync_cmd = [
+                            "rsync",
+                            "-av",
+                            "--delete",
+                            "--delete-excluded",
+                            "--remove-source-files",
+                            "--include=*/",
+                            "--include=*.llms.md",
+                            "--include=llms.txt",
+                            "--exclude=*",
+                            f"{source_dir}/",
+                            f"{dest_dir}/",
+                        ]
+                        try:
+                            subprocess.run(rsync_cmd, check=True)
+                            subprocess.run(["find", str(dest_dir), "-type", "d", "-empty", "-delete"], check=False)
+                            logger.info("rsync completed successfully.")
+                        except subprocess.CalledProcessError as e:
+                            logger.error(f"rsync failed with exit code {e.returncode}")
+                        except Exception as e:
+                            logger.error(f"Failed to run rsync: {e}")
+            
             return True
             
         finally:
