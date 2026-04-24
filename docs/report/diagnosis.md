@@ -609,6 +609,4 @@ infrastructure.
 - Governed by the [Foundational Charter and
   Statute](https://ssccs.org/legal) of the SSCCS Foundation (in
   formation).
-- Provenance: Human-in-Command, AI-assisted. Full intellectual responsibility with author(s). [C2PA-certified](https://ssccs.org/wpc2pa). Aligns with [ISO/IEC JTC 1/SC 42](https://www.iso.org/committee/6794475.html) human‑machine teaming frameworks.
-  review; full intellectual responsibility with author(s). All major
-  outputs are [C2PA-certified](https://ssccs.org/wpc2pa).
+- Provenance: Human-in-Command, AI-assisted. Aligns with [ISO/IEC JTC 1/SC 42](https://www.iso.org/committee/6794475.html) and [C2PA-certified](https://ssccs.org/wpc2pa). Full intellectual responsibility with author(s).  
