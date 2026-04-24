@@ -54,7 +54,12 @@ jobs:
       - name: Prepare poc agent artifacts
         run: |
           mkdir -p _agent
-          cp -r poc _agent/
+          rsync -av --delete \
+            --exclude='target' \
+            --exclude='.git' \
+            --exclude='*.swp' \
+            --exclude='*.rs.bk' \
+            poc/ _agent/poc/
 
       - name: Upload poc agent artifacts
         uses: actions/upload-artifact@v4
