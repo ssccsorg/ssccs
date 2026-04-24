@@ -113,6 +113,19 @@ jobs:
         uses: actions/upload-pages-artifact@v5
         with:
           path: docs/_pages
+        
+      - name: Prepare agent artifact with full docs path
+        run: |
+          mkdir -p _agent/docs
+          cp -r docs/_llms _agent/docs/
+
+      - name: Upload agent artifact
+        if: ${{ github.actor != 'nektos/act' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-agent
+          path: _agent
+          retention-days: 7
 
   deploy:
     needs: build

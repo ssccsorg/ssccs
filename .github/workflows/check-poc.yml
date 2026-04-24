@@ -50,3 +50,15 @@ jobs:
           chmod +x run.sh
           ./run.sh --validation
         shell: bash
+
+      - name: Prepare poc agent artifacts
+        run: |
+          mkdir -p _agent
+          cp -r poc _agent/
+
+      - name: Upload poc agent artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: poc-agent
+          path: _agent
+          retention-days: 7
