@@ -37,7 +37,7 @@ The integration of SSCCS with OpenHW CORE‑V is part of a larger computing syst
 | **Software Ecosystem** | CORE-V SDK with GCC, FreeRTOS, and peripheral drivers. | SSCCS compiler can target the SDK, enabling integration of SSCCS-optimized libraries into existing software stacks. |
 | **Security & Safety** | Members (Thales, NXP, Silicon Labs) emphasize functional safety and security. | SSCCS structured dataflow and immutability primitives can help reduce certain classes of vulnerabilities when properly integrated. |
 
-#### Structured Coprocessor Design
+### Structured Coprocessor Design
 
 The SSCCS coprocessor implements a **structured architecture** to minimize side effects on core pipeline state:
 
@@ -251,7 +251,7 @@ SSCCS offers an opportunity to bring research into the OpenHW ecosystem. By leve
 [3] QuickLogic, "ArticPro 2 eFPGA Architecture Manual," 2024. [https://support.arctic.de/en/m2-pro-series](https://support.arctic.de/en/m2-pro-series)
 
 <a id="ref-4"></a>
-[4] Imperas Software, "riscvOVPsimCOREV Reference Simulator Documentation," 2025. [https://www.synopsys.com/verification/imperasdv.html)
+[4] Imperas Software, "riscvOVPsimCOREV Reference Simulator Documentation," 2025. [<https://www.synopsys.com/verification/imperasdv.html>)
 
 <a id="ref-5"></a>
 [5] M. Horowitz, "Computing's Energy Problem (and What We Can Do About It)," *2014 IEEE International Solid-State Circuits Conference Digest of Technical Papers (ISSCC)*, pp. 10–14, 2014. doi: 10.1109/ISSCC.2014.6757323

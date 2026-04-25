@@ -25,14 +25,14 @@ dot("""
 digraph MLIREcosystem {
     rankdir=TB;
     node [shape=rect, style=rounded];
-    
+
     subgraph cluster_mlir {
         label="MLIR Core";
         IR [label="SSA IR"];
         Dialects [label="Dialects\n(Arith, Tensor, MemRef)"];
         Passes [label="Optimisation Passes"];
     }
-    
+
     subgraph cluster_workshop {
         label="EuroLLVM 2026 Contributions";
         Canonical [label="Canonicalization Roundtable"];
@@ -45,7 +45,7 @@ digraph MLIREcosystem {
         Autotune [label="Autotuning Pipeline"];
         Static [label="Static Analysis"];
     }
-    
+
     subgraph cluster_ssccs {
         label="SSCCS";
         Frontend [label="Rust Frontend\n(Scheme parsing)"];
@@ -53,7 +53,7 @@ digraph MLIREcosystem {
         Backend [label="MLIR Backend\n(Hardware mapping)"];
         Runtime [label="Runtime\n(Observation)"];
     }
-    
+
     Dialects -> Canonical;
     Dialects -> Assembly;
     Dialects -> CUDATile;
@@ -63,7 +63,7 @@ digraph MLIREcosystem {
     Passes -> Static;
     xDSL -> Frontend [style=dashed];
     Melior -> Frontend [style=dashed];
-    
+
     Frontend -> Middle -> Backend -> Runtime;
 }
 """)
@@ -188,7 +188,7 @@ dot("""
 digraph TypeSystem {
     rankdir=LR;
     node [shape=rect, style=rounded];
-    
+
     CoordinateType [label="Coordinate Type"];
     IntegerType [label="Integer\n(bit-exact)"];
     FloatType [label="Float"];
@@ -196,17 +196,17 @@ digraph TypeSystem {
     BFloat16 [label="BFloat16\n(ML/AI)"];
     FP8 [label="FP8 (E4M3/E5M2)"];
     CustomType [label="Custom Type\n(via interface)"];
-    
+
     CoordinateType -> IntegerType;
     CoordinateType -> FloatType;
     FloatType -> FixedPoint;
     FloatType -> BFloat16;
     FloatType -> FP8;
     FloatType -> CustomType;
-    
+
     PrecisionCert [label="Precision Certificate", shape=ellipse];
     FidelityCheck [label="Fidelity Check", shape=diamond];
-    
+
     FloatType -> PrecisionCert;
     PrecisionCert -> FidelityCheck;
 }
@@ -257,7 +257,7 @@ dot("""
 digraph HybridPipeline {
     rankdir=LR;
     node [shape=rect, style=rounded];
-    
+
     subgraph cluster_rust {
         label="Rust (SSCCS Frontend)";
         Parse [label="Parse .ss Schema"];
@@ -265,20 +265,20 @@ digraph HybridPipeline {
         IRBuild [label="Build SSCCS IR"];
         Cost [label="Cost Model"];
     }
-    
+
     subgraph cluster_mlir {
         label="MLIR via Melior";
         Optimise [label="Optimisation Passes"];
         Lower [label="Lowering to Dialects"];
         CodeGen [label="Code Generation"];
     }
-    
+
     subgraph cluster_runtime {
         label="Runtime";
         JIT [label="JIT Execution"];
         Observe [label="Observation"];
     }
-    
+
     Parse -> Structure -> IRBuild -> Cost;
     Cost -> Optimise [label="call MLIR"];
     Optimise -> Lower -> CodeGen;
@@ -311,13 +311,13 @@ Instead of hard‑coding optimisation heuristics, SSCCS can treat Field‑specif
 transform.sequence {
   // Step 1: Preprocess – eliminate unreachable Segments
   %reachable = ssccs.dead_segment_elimination %scheme
-    
+
   // Step 2: Field‑specific optimisation
   %tiled = %reachable |> ssccs.tile [tile_size = 64, strategy = "dense"]
-    
+
   // Step 3: Parallelism extraction
   %parallel = %tiled |> ssccs.extract_independent [min_granularity = 8]
-    
+
   // Step 4: Hardware mapping (multiple variants)
   %cuda = %parallel |> ssccs.map_to_cuda [threads = 256]
   %cpu = %parallel |> ssccs.map_to_cpu [vectorize = true]
@@ -342,25 +342,25 @@ dot("""
 digraph TransformPipeline {
     rankdir=LR;
     node [shape=rect, style=rounded];
-    
+
     Payload [label="Payload IR\n(Scheme, Field)"];
     Transform [label="Transform Script\n(Strategy)"];
     Interpreter [label="Transform Interpreter", shape=ellipse];
     OptimisedIR [label="Optimised IR"];
     Backend [label="Backend"];
-    
+
     Payload -> Interpreter;
     Transform -> Interpreter;
     Interpreter -> OptimisedIR;
     OptimisedIR -> Backend;
-    
+
     subgraph cluster_script {
         label="Field‑Specific Libraries";
         GraphLib [label="Graph Traversal\nScripts"];
         ArithLib [label="Arithmetic\nScripts"];
         SparseLib [label="Sparse\nScripts"];
     }
-    
+
     subgraph cluster_transform {
         label="Transform Dialect";
         DeadSeg [label="Dead Segment\nElimination"];
@@ -368,12 +368,12 @@ digraph TransformPipeline {
         Fusion [label="Adjacency\nFusion"];
         ParExtract [label="Independent\nSubgraph Extract"];
     }
-    
+
     GraphLib -> DeadSeg;
     ArithLib -> Tiling;
     ArithLib -> ParExtract;
     SparseLib -> DeadSeg;
-    
+
     DeadSeg -> Payload [style=invis];
     Tiling -> Payload [style=invis];
     Fusion -> Payload [style=invis];

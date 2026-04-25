@@ -48,15 +48,15 @@ latex_parts = []
 for i, logo in enumerate(logo_data):
     svg_path = f"{output_dir}/image{i}.svg"
     pdf_path = f"{output_dir}/image{i}.pdf"
-    
+
     with open(svg_path, "w", encoding="utf-8") as f:
         f.write(logo["svg"])
-    
+
     cairosvg.svg2pdf(url=svg_path, write_to=pdf_path)
     latex_parts.append(
         f"\\includegraphics[height={logo['height']['pdf']}pt]{{{pdf_path}}}"
     )
-    
+
 latex_code = (
   "\\begin{center}" + "\n    " +
   "\n    \\hspace{10pt}\n    ".join(latex_parts) +

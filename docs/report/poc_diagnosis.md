@@ -17,7 +17,7 @@ The goal is to translate the theoretical and strategic insights into actionable 
 
 ## Current PoC State
 
-#### What’s Implemented
+### What’s Implemented
 
 1. **Core Types** (`ssccs‑core`):
    - `Segment` with cryptographic identity (BLAKE3 hash) and immutable coordinates.
@@ -65,7 +65,7 @@ The goal is to translate the theoretical and strategic insights into actionable 
 
 ## Technical Challenges and Insights
 
-#### Structural Superiority and Extensibility
+### Structural Superiority and Extensibility
 
 The recent addition of the `Tensor3DTemplate` illustrates SSCCS’s structural superiority: a new scheme template can be added without modifying the existing field, projector, or observation mechanisms. This modularity follows the same pattern as the existing templates (`Grid2DTemplate`, `IntegerLineTemplate`, `GraphTemplate`) and demonstrates that the system is extensible by construction. The insight is that the Scheme abstraction layer serves as a plugin architecture for topological patterns; any new domain‑specific topology can be encapsulated as a template, reusing the entire downstream stack.
 
@@ -87,7 +87,7 @@ The whitepaper’s energy model predicts that SSCCS can reduce energy consumptio
 
 ## Proposed Development Roadmap (Phased)
 
-#### Phase 1: Foundation
+### Phase 1: Foundation
 
 **Goal**: Implement the missing core components and establish a baseline benchmarking suite.
 

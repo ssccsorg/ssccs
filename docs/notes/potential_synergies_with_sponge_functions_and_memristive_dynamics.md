@@ -62,8 +62,8 @@ This exploratory report suggests that SSCCS is uniquely positioned to bridge the
 
 ### References
 
-- [1] Keccak Team.  ["The Sponge Functions."](https://keccak.team/keccak_specs_summary.html)
-- [2] Wikipedia.  ["Memristor."](https://en.wikipedia.org/wiki/Memristor)
+- [1] Keccak Team. ["The Sponge Functions."](https://keccak.team/keccak_specs_summary.html)
+- [2] Wikipedia. ["Memristor."](https://en.wikipedia.org/wiki/Memristor)
 
 ---
 

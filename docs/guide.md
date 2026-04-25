@@ -116,28 +116,28 @@ In traditional programming, you write instructions. In SSCCS, you
 **design structure** and **set conditions**.
 
 1. **Define a Scheme**:
-    - Choose your data shape: vector, matrix, graph, etc.  
-    - Specify axes, adjacency (e.g., 4‑neighbor grid), and memory layout
-      (row‑major, column‑major, etc.).  
-    - Define observation rules (e.g., “when observed, sum all
-      Segments”).
+   - Choose your data shape: vector, matrix, graph, etc.  
+   - Specify axes, adjacency (e.g., 4‑neighbor grid), and memory layout
+     (row‑major, column‑major, etc.).  
+   - Define observation rules (e.g., “when observed, sum all
+     Segments”).
 2. **Place Segments**:
-    - Segments are automatically generated from the Scheme.  
-    - Each Segment gets coordinates and an ID—no initial values.
+   - Segments are automatically generated from the Scheme.  
+   - Each Segment gets coordinates and an ID—no initial values.
 3. **Set up a Field**:
-    - Add dynamic constraints: “add corresponding elements”, “find
-      maximum”, “apply a transformation”.  
-    - Fields can be changed at runtime.
+   - Add dynamic constraints: “add corresponding elements”, “find
+     maximum”, “apply a transformation”.  
+   - Fields can be changed at runtime.
 4. **Observe**:
-    - Call `observe(scheme, field)`.  
-    - The system evaluates the Scheme under the Field’s rules and
-      returns a Projection.  
-    - That’s your answer.
+   - Call `observe(scheme, field)`.  
+   - The system evaluates the Scheme under the Field’s rules and
+     returns a Projection.  
+   - That’s your answer.
 5. **The Compiler’s Role**:
-    - The compiler analyzes the Scheme and maps it to physical memory.  
-    - It ensures that logically adjacent Segments become physically
-      adjacent in hardware (cache lines, memory banks).  
-    - This eliminates most data movement—only results travel.
+   - The compiler analyzes the Scheme and maps it to physical memory.  
+   - It ensures that logically adjacent Segments become physically
+     adjacent in hardware (cache lines, memory banks).  
+   - This eliminates most data movement—only results travel.
 
 **Overall Flow:**
 

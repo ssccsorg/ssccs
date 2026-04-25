@@ -122,6 +122,7 @@ Tasks should be executed in the following sequence to maintain logical flow and 
 Once this task specification is approved, the work can be delegated to a suitable mode (e.g., **Code** mode for writing the QMD content and implementing PoC features, **Architect** mode for structural planning, or **Orchestrator** mode for coordinating multiple subtasks). The implementer should refer to the PoC source code, research notes, and the updated whitepaper for accurate technical details.
 
 ---
+
 *Version: 2.0*  
 *Date: 2026‑03‑19*  
 *Author: Roo (Architect mode)*

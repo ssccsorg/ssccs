@@ -49,7 +49,7 @@ for i in range(1, num_data+1):
     angle = (i / num_data) * 2 * np.pi
     radius = 12
     all_coords[f'd{i}'] = (5 + radius * np.cos(angle), y_layer['data'], radius * np.sin(angle))
-    
+
 def get_pos(node): return all_coords[node]
 seg_nodes = [f's{i}' for i in range(1, num_segments+1)]
 sch_nodes = [f'sch{i}' for i in range(1, num_schemes+1)]
@@ -148,7 +148,7 @@ for edge_list, color in [(field_to_proj_edges, 'black'), (proj_to_data_edges, 'b
         za = z1 + 0.9*dz
         ax.quiver(xa, ya, za, dx, dy, dz,
                   color=color, length=0.4, normalize=True, arrow_length_ratio=1.1, linewidth=0.5)
- 
+
 ax.scatter(*zip(*[get_pos(n) for n in seg_nodes]), c='black', marker='.', s=30, label='Segments')
 ax.scatter(*zip(*[get_pos(n) for n in sch_nodes]), c='black', marker='s', s=40, label='Schemes')
 ax.scatter(*zip(*[get_pos(n) for n in f_nodes]), c='black', marker='^', s=40, label='Fields')

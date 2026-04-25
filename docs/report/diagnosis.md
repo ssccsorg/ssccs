@@ -119,13 +119,13 @@ Existing approaches treat computation as transformation of state over time. SSCC
 SSCCS is not a speculative idea out of time; it emerges from the convergence of three recent technological and scientific trends that make its realisation feasible for the first time.
 
 1. The End of Dennard Scaling and the Data Movement Crisis  
-    For decades, performance scaled with transistor density. Today, energy per bit moved has become the dominant constraint. Data movement accounts for 60–80% of total energy in modern accelerators. Traditional architectures (even PIM) still move data *between* computational domains. SSCCS eliminates data movement entirely by making data stationary and computation a function of structural observation. This is no longer a theoretical advantage—it is an economic and physical necessity.
+   For decades, performance scaled with transistor density. Today, energy per bit moved has become the dominant constraint. Data movement accounts for 60–80% of total energy in modern accelerators. Traditional architectures (even PIM) still move data *between* computational domains. SSCCS eliminates data movement entirely by making data stationary and computation a function of structural observation. This is no longer a theoretical advantage—it is an economic and physical necessity.
 
 2. Maturity of Open‑Source Hardware Ecosystems  
-    The rise of RISC‑V, open FPGA toolchains (Yosys, nextpnr), and open ASIC design flows (OpenLANE, Skywater 130 nm) has drastically lowered the barrier to implementing custom compute models. A new ISA based on `Observation` can now be prototyped on commodity FPGA boards and, if successful, transitioned to silicon without requiring a multi‑billion‑dollar semiconductor company. This enables an agile, open‑source development model.
+   The rise of RISC‑V, open FPGA toolchains (Yosys, nextpnr), and open ASIC design flows (OpenLANE, Skywater 130 nm) has drastically lowered the barrier to implementing custom compute models. A new ISA based on `Observation` can now be prototyped on commodity FPGA boards and, if successful, transitioned to silicon without requiring a multi‑billion‑dollar semiconductor company. This enables an agile, open‑source development model.
 
 3. Advances in Formal Methods and Verification  
-    Over the past five years, proof assistants like Coq and Lean have matured to the point where they can handle complex, real‑world system verification. The SSCCS model’s determinism and race‑freedom are precisely the kind of properties that can now be mechanised. This allows us to build, from the ground up, a computing system with provable safety guarantees—a feature absent from conventional architectures.
+   Over the past five years, proof assistants like Coq and Lean have matured to the point where they can handle complex, real‑world system verification. The SSCCS model’s determinism and race‑freedom are precisely the kind of properties that can now be mechanised. This allows us to build, from the ground up, a computing system with provable safety guarantees—a feature absent from conventional architectures.
 
 ### 3.3 Specific Unknowns to Investigate
 

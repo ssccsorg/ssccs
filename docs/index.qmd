@@ -60,7 +60,7 @@ for item in data:
     text = item.get("text", "")[:500]
     nodes[obj_id] = {"title": title, "crumbs": crumbs, "preview": text}
     node_to_crumbs[obj_id] = crumbs
-    
+
     # Hierarchical relationship (PARENT_OF)
     for i in range(len(crumbs) - 1):
         parent = crumbs[i]
@@ -68,7 +68,7 @@ for item in data:
         edges.append({"from": parent, "to": child, "type": "PARENT_OF"})
         # Save parent-child mappings (for sibling relationships)
         node_to_parents.setdefault(child, set()).add(parent)
-    
+
     # Link Extraction (CITES)
     link_pattern = r'\[([^\]]+)\]\(([^)]+)\)'
     for match in re.finditer(link_pattern, text):
@@ -268,35 +268,35 @@ dot("""
 digraph SSCCSOrganicGrowth {
     rankdir=TB;
     splines=ortho;
-    
+
     // ----- Contract Layer -----
     contract [label="SSCCS CONTRACT
 (required sections, primitive citations,
 code references, visual obligations)",
         shape=box, style="rounded", fontsize=10, width=2.8];
-    
+
     // ----- Ingestion Agents -----
     subgraph cluster_ingest {
         label="Ingestion Agents";
         style="dashed"; color="gray"; fontsize=11;
-        
+
         spec_parser [label="SPEC PARSER\n(Scheme-Segment, \n Markdown docs, etc..)", shape=box, style="rounded"];
         code_indexer [label="CODE INDEXER\n(Code symbols, etc.)", shape=box, style="rounded"];
         eco_crawler [label="ECO CRAWLER\n(Research and facts, etc.)", shape=box, style="rounded"];
     }
-    
+
     // ----- SSCCS Primitives (core unit) -----
     primitives [label="SSCCS PRIMITIVES
 Segment · Scheme · Field · Observation
 (immutable coordinates, axes,
 constraints, projections)",
         shape=box, style="rounded,dashed", fontsize=10, width=2.8];
-    
+
     // ----- Unified Knowledge Graph -----
     subgraph cluster_kg {
         label="SSCCS Knowledge Graph";
         style="dashed"; color="gray"; fontsize=11;
-        
+
         kg_core [label="Unified Graph Store
 Nodes: Segment, Scheme, Field, Observation,
 CodeSymbol, ExternalDoc, Hypothesis
@@ -304,52 +304,52 @@ Edges: DEFINES, IMPLEMENTS, REFERENCES,
 VALIDATES, DERIVES_FROM",
             shape=box, style="rounded", fontsize=9, width=3.4];
     }
-    
+
     // ----- Hypothesis Engine -----
     subgraph cluster_hypo {
         label="Hypothesis Engine";
         style="dashed"; color="gray"; fontsize=11;
-        
+
         gap_detector [label="GAP DETECTOR\n(find undefined links)", shape=box, style="rounded"];
         chain_gen [label="CHAIN GENERATOR\n(LLM + KG)", shape=box, style="rounded"];
         validator [label="VALIDATOR\n(edge support, scoring)", shape=box, style="rounded"];
     }
-    
+
     // ----- Output Artifacts -----
     output [label="VALIDATED ARTIFACTS
 Hypothesis reports · Dashboards
 Experiment proposals · Contract‑compliant docs",
         shape=box, style="rounded", fontsize=10, width=3.2];
-    
+
     // ===== Primary Flow =====
     contract -> spec_parser [weight=3];
     contract -> code_indexer [weight=3];
     contract -> eco_crawler [weight=3];
-    
+
     spec_parser -> primitives [label="extracts", weight=2];
     code_indexer -> kg_core [label="populates symbols", weight=2];
-    
+
     primitives -> kg_core [label="core nodes", style=dashed, weight=1];
-    
+
     kg_core -> gap_detector [label="traverses", ltail=cluster_kg, weight=2];
     gap_detector -> chain_gen [label="gaps", weight=2];
     chain_gen -> validator [dir=both, label="feedback", style=dashed, weight=1];
-    
+
     validator -> primitives [label="refines", style=dashed, weight=1];
     validator -> kg_core [label="enriches", style=dashed, weight=1];
-    
+
     validator -> output [label="contract‑checked", weight=2];
     kg_core -> output [label="supports", style=dotted, weight=1];
-    
+
     // ===== Organic Co‑Evolution Feedback Loops (fully connected, no constraint=false) =====
     output -> spec_parser [label="new research\nstories", style=dashed, weight=1];
     validator -> contract [label="contract\namendments", style=dashed, weight=1];
 
     output -> code_indexer [label="new external\nreferences\ncode updates, ...", style=dashed, weight=1];
-    
+
     primitives -> spec_parser [style=dashed, weight=1];
     primitives -> kg_core [style=dashed, weight=1];
-        
+
     // Invisible edges for balance
     contract -> primitive;
     eco_crawler -> output;

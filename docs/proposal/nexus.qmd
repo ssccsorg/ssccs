@@ -114,9 +114,9 @@ digraph NexusSynthesis {
     nodesep=0.35;
     ranksep=0.45;
     fontname="Arial";
-    
+
     contract [label="STORY2PROPOSAL CONTRACT\ncontract.json", shape=box, style=filled, fillcolor="#e6f2ff", fontsize=11, width=2.5];
-    
+
     subgraph cluster_agents1 {
         label="Knowledge Acquisition";
         style=filled;
@@ -126,9 +126,9 @@ digraph NexusSynthesis {
         crawler [label="CRAWLER", shape=box, fillcolor="#d4f1f9"];
         indexer [label="INDEXER", shape=box, fillcolor="#d4f1f9"];
     }
-    
+
     unified_kg [label="UNIFIED KNOWLEDGE GRAPH", shape=box, style=filled, fillcolor="#fffacd", width=2.2];
-    
+
     subgraph cluster_agents2 {
         label="Hypothesis & Validation";
         style=filled;
@@ -138,24 +138,24 @@ digraph NexusSynthesis {
         validator [label="VALIDATOR", shape=box, fillcolor="#ffe4e1"];
         renderer [label="RENDERER", shape=box, fillcolor="#ffe4e1"];
     }
-    
+
     output [label="HYPOTHESIS CHAINS +\nVALIDATED REPORT", shape=box, style=filled, fillcolor="#d4f1f9", width=2.2];
-    
+
     contract -> architect [weight=2];
     contract -> crawler [weight=2];
     contract -> indexer [weight=2];
-    
+
     architect -> unified_kg;
     crawler -> unified_kg;
     indexer -> unified_kg;
-    
+
     unified_kg -> hypothesis;
     unified_kg -> validator;
     unified_kg -> renderer;
-    
+
     hypothesis -> validator [dir=both, label="feedback", style=dashed];
     validator -> renderer [label="updated contract", style=dashed];
-    
+
     hypothesis -> output;
     validator -> output;
     renderer -> output;
@@ -501,7 +501,7 @@ The plan is ready to implement – no further research needed. The synthesis of 
 
 ## Appendix A: Directory Structure After Nexus
 
-```
+```text
 docs/_site/
 ├── index.html
 ├── whitepaper/
@@ -544,7 +544,7 @@ User (via Streamlit):
 
 Nexus response:
 
-```
+```text
 External documents (crawled):
 - OpenHW CORE-V XIF Specification – section 3.2 "Interface Signals"
    URL: https://github.com/openhwgroup/core-v-xif

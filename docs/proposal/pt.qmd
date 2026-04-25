@@ -227,7 +227,7 @@ digraph MapAnalogy {
     Conditions [label="Observation Conditions\n(Field)", shape=ellipse];
     Satellite [label="Observation", shape=ellipse];
     Image [label="Image (Projection)", shape=box];
-    
+
     Map -> Point [arrowhead=none, style=dashed, label="contains"];
     Conditions -> Satellite [arrowhead=none, style=dashed];
     Satellite -> Image [label="produces"];
@@ -279,11 +279,11 @@ digraph OnePlusOneMemory {
         color=blue;
         style=filled;
         fillcolor=lightgray;
-        
+
         node [shape=box, style=filled, fillcolor=white];
         mem0 [label="Segment 0\nAddress: 0x1000\nCoordinates: 0"];
         mem1 [label="Segment 1\nAddress: 0x1004\nCoordinates: 1"];
-        
+
         note [shape=plaintext, label="Segment has no value\nonly coordinates and address", fontsize=8];
     }
 
@@ -291,12 +291,12 @@ digraph OnePlusOneMemory {
         label="Field (constraint)";
         color=green;
         style=dashed;
-        
+
         node [shape=ellipse, style=filled, fillcolor=lightyellow];
         val0 [label="Binding value:\nAddress 0x1000 → 1"];
         val1 [label="Binding value:\nAddress 0x1004 → 1"];
         op [label="Operation: add"];
-        
+
         val0 -> op [dir=none, style=dotted];
         val1 -> op [dir=none, style=dotted];
     }
@@ -306,7 +306,7 @@ digraph OnePlusOneMemory {
         color=red;
         style=filled;
         fillcolor=lightpink;
-        
+
         obs [shape=ellipse, label="observation"];
         proj [shape=box, label="Projection: 2"];
         obs -> proj [label="generation"];
@@ -314,9 +314,9 @@ digraph OnePlusOneMemory {
 
     mem0 -> val0 [style=dashed, label="binding"];
     mem1 -> val1 [style=dashed, label="binding"];
-    
+
     op -> obs [style=dotted, label="apply"];
-    
+
     note -> mem0 [style=invis];
 }
 """, h="300px")

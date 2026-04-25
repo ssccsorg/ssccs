@@ -20,7 +20,7 @@ impl SchemeId {
     pub fn as_bytes(&self) -> &[u8; 32] {
         &self.0
     }
-    
+
     pub fn to_hex(&self) -> String {
         hex::encode(self.0)
     }
@@ -33,10 +33,10 @@ impl SchemeId {
 pub struct Axis {
     /// Axis names (e.g. "x", "y", "time", "energy")
     pub name: String,
-    
+
     /// Axis type -implementation determines physical representation
     pub axis_type: AxisType,
-    
+
     /// Axis metadata (optional)
     pub metadata: HashMap<String, String>,
 }
@@ -46,19 +46,19 @@ pub struct Axis {
 pub enum AxisType {
     /// Discrete axis (integer value)
     Discrete,
-    
+
     /// Continuous axis (real values, physical resolution determined by implementation)
     Continuous,
-    
+
     /// Circular axis (periodic, e.g. angle 0-360)
     Cyclic(Option<i64>), // cycle (optional)
-    
+
     /// Categorical axis (discrete categories)
     Categorical,
-    
+
     /// Relational axis (defines relationships with other axes)
     Relational(String), // Related axis name
-    
+
     /// Axis with units of measurement
     WithUnit(String), // Units (e.g. "meters", "seconds")
 }
@@ -74,27 +74,27 @@ pub enum StructuralRelation {
         weight: Option<f64>, // Relationship Strength (optional)
         metadata: HashMap<String, String>,
     },
-    
+
     /// Hierarchical relationship (parent-child)
     Hierarchy {
         parent: SegmentId,
         depth: i64,
         relation_type: HierarchyType,
     },
-    
+
     /// Dependency (A depends on B)
     Dependency {
         dependent: SegmentId,
         dependency_type: DependencyType,
         strength: f64,
     },
-    
+
     /// Equivalence relationship (different expressions within the same structure)
     Equivalence {
         equivalence_class: u64,
         symmetry: SymmetryType,
     },
-    
+
     /// custom relationship
     Custom {
         name: String,
@@ -107,19 +107,19 @@ pub enum StructuralRelation {
 pub enum AdjacencyType {
     /// Euclidean distance criterion
     Euclidean(f64), // distance threshold
-    
+
     /// Based on Manhattan distance
     Manhattan(i64), // L1 distance threshold
-    
+
     /// Grid neighbors (2D/3D grid)
     Grid(GridTopology),
-    
+
     /// Graph connectivity (arbitrary topology)
     Graph,
-    
+
     /// Space-time contiguity (time + space)
     Spatiotemporal,
-    
+
     /// Conceptual adjacency (semantic similarity)
     Conceptual,
 }
@@ -169,10 +169,10 @@ pub enum SymmetryType {
 pub struct StructuralConstraint {
     /// Constraints (different from field constraints)
     constraint: Arc<dyn Constraint>,
-    
+
     /// Pharmaceutical type
     constraint_type: ConstraintType,
-    
+
     /// applied area
     scope: ConstraintScope,
 }
@@ -182,16 +182,16 @@ pub struct StructuralConstraint {
 pub enum ConstraintType {
     /// Dimensional constraints (axis ranges, etc.)
     Dimensional,
-    
+
     /// Topological constraints (connectivity, etc.)
     Topological,
-    
+
     /// Algebraic constraints (mathematical relationships)
     Algebraic,
-    
+
     /// Logical Constraints (Boolean Conditions)
     Logical,
-    
+
     /// Physical constraints (conservation laws, etc.)
     Physical,
 }
@@ -213,13 +213,13 @@ pub enum ConstraintScope {
 pub struct ObservationRules {
     /// Multiple possible configuration resolution strategies
     pub resolution: ResolutionStrategy,
-    
+
     /// Observation trigger condition
     pub triggers: Vec<ObservationTrigger>,
-    
+
     /// Observation Priority
     pub priority: ObservationPriority,
-    
+
     /// observation context
     pub context: ObservationContext,
 }
@@ -232,22 +232,22 @@ pub enum ResolutionStrategy {
         algorithm: String,
         parameters: HashMap<String, String>,
     },
-    
+
     /// Probabilistic selection (weighted based)
     Probabilistic {
         distribution: String, // "uniform", "weighted", "boltzmann"
         temperature: Option<f64>, // For Boltzmann distribution
     },
-    
+
     /// energy minimization
     EnergyMinimization {
         energy_function: String,
         optimization_method: String,
     },
-    
+
     /// Maximize entropy
     EntropyMaximization,
-    
+
     /// External resolver (runtime decision)
     External {
         resolver_id: String,
@@ -280,10 +280,10 @@ pub enum ObservationPriority {
 pub struct ObservationContext {
     /// List of allowed observers (if none, allow all)
     pub allowed_observers: Option<HashSet<String>>,
-    
+
     /// observation constraints
     pub constraints: Vec<String>,
-    
+
     /// Observation metadata
     pub metadata: HashMap<String, String>,
 }
@@ -295,10 +295,10 @@ pub struct ObservationContext {
 pub struct MemoryLayout {
     /// Layout Type
     pub layout_type: LayoutType,
-    
+
     /// Mapping function (coordinate → logical address)
     pub mapping: Arc<dyn Fn(&SpaceCoordinates) -> Option<LogicalAddress> + Send + Sync>,
-    
+
     /// Layout metadata
     pub metadata: HashMap<String, String>,
 }
@@ -308,10 +308,10 @@ pub struct MemoryLayout {
 pub struct LogicalAddress {
     /// Address space ID (multiple address spaces supported)
     pub space_id: u64,
-    
+
     /// offset in space
     pub offset: u64,
-    
+
     /// address metadata
     pub metadata: HashMap<String, String>,
 }
@@ -321,22 +321,22 @@ pub struct LogicalAddress {
 pub enum LayoutType {
     /// linear layout
     Linear,
-    
+
     /// Row-first (2D grid)
     RowMajor,
-    
+
     /// Column priority
     ColumnMajor,
-    
+
     /// Space-filling curve (preserving locality)
     SpaceFillingCurve(CurveType),
-    
+
     /// Hierarchical Layout
     Hierarchical,
-    
+
     /// Graph-based layout
     GraphBased,
-    
+
     /// custom
     Custom(String),
 }
@@ -358,25 +358,25 @@ pub enum CurveType {
 pub struct Scheme {
     /// unique identifier
     id: SchemeId,
-    
+
     /// Dimension axis definition
     axes: Vec<Axis>,
-    
+
     /// Segments included
     segments: HashMap<SegmentId, Segment>,
-    
+
     /// Structural Relationship Graph
     relations: RelationGraph,
-    
+
     /// structural constraints
     structural_constraints: Vec<StructuralConstraint>,
-    
+
     /// Memory layout abstraction
     memory_layout: MemoryLayout,
-    
+
     /// observation rule
     observation_rules: ObservationRules,
-    
+
     /// Scheme metadata
     metadata: HashMap<String, String>,
 }
@@ -386,7 +386,7 @@ pub struct Scheme {
 pub struct RelationGraph {
     /// Segment → Relationship list
     outgoing: HashMap<SegmentId, Vec<(SegmentId, StructuralRelation)>>,
-    
+
     /// Segment ← Relationship List (reverse)
     incoming: HashMap<SegmentId, Vec<(SegmentId, StructuralRelation)>>,
 }
@@ -395,20 +395,20 @@ impl RelationGraph {
     pub fn new() -> Self {
         Self::default()
     }
-    
+
     pub fn add_relation(&mut self, from: SegmentId, to: SegmentId, relation: StructuralRelation) {
         self.outgoing.entry(from).or_default().push((to, relation.clone()));
         self.incoming.entry(to).or_default().push((from, relation));
     }
-    
+
     pub fn get_outgoing(&self, from: &SegmentId) -> Vec<(SegmentId, StructuralRelation)> {
         self.outgoing.get(from).cloned().unwrap_or_default()
     }
-    
+
     pub fn get_incoming(&self, to: &SegmentId) -> Vec<(SegmentId, StructuralRelation)> {
         self.incoming.get(to).cloned().unwrap_or_default()
     }
-    
+
     pub fn get_relations_between(&self, from: &SegmentId, to: &SegmentId) -> Vec<StructuralRelation> {
         self.outgoing.get(from)
             .iter()
@@ -423,12 +423,12 @@ impl Scheme {
     /// Create Scheme (recommended to use Builder)
     pub fn new(builder: SchemeBuilder) -> Self {
         let mut hasher = blake3::Hasher::new();
-        
+
         // Structural property hashing (ensuring immutability)
         builder.compute_hash(&mut hasher);
-        
+
         let id = SchemeId(hasher.finalize().into());
-        
+
         Self {
             id,
             axes: builder.axes,
@@ -440,35 +440,35 @@ impl Scheme {
             metadata: builder.metadata,
         }
     }
-    
+
     pub fn id(&self) -> &SchemeId {
         &self.id
     }
-    
+
     pub fn axes(&self) -> &[Axis] {
         &self.axes
     }
-    
+
     pub fn dimensionality(&self) -> usize {
         self.axes.len()
     }
-    
+
     pub fn contains_segment(&self, segment_id: &SegmentId) -> bool {
         self.segments.contains_key(segment_id)
     }
-    
+
     pub fn get_segment(&self, segment_id: &SegmentId) -> Option<&Segment> {
         self.segments.get(segment_id)
     }
-    
+
     pub fn segments(&self) -> impl Iterator<Item = &Segment> {
         self.segments.values()
     }
-    
+
     pub fn segment_ids(&self) -> impl Iterator<Item = &SegmentId> {
         self.segments.keys()
     }
-    
+
     /// Structured relationship-based neighbor lookup
     pub fn structural_neighbors(&self, segment_id: &SegmentId, relation_filter: Option<&str>) 
         -> Vec<(SegmentId, StructuralRelation)> 
@@ -488,7 +488,7 @@ impl Scheme {
             })
             .collect()
     }
-    
+
     /// Structural constraint verification
     pub fn validate_structure(&self, coords: &SpaceCoordinates) -> Result<(), String> {
         for constraint in &self.structural_constraints {
@@ -501,12 +501,12 @@ impl Scheme {
         }
         Ok(())
     }
-    
+
     /// Logical address mapping (not physical address)
     pub fn map_to_logical_address(&self, coords: &SpaceCoordinates) -> Option<LogicalAddress> {
         (self.memory_layout.mapping)(coords)
     }
-    
+
     pub fn describe(&self) -> String {
         format!(
             "Scheme {}:\n  Dimensions: {}\n  Segments: {}\n  Relations: {}\n  Constraints: {}",
@@ -563,17 +563,17 @@ impl SchemeBuilder {
             ..Default::default()
         }
     }
-    
+
     pub fn add_axis(mut self, axis: Axis) -> Self {
         self.axes.push(axis);
         self
     }
-    
+
     pub fn add_segment(mut self, segment: Segment) -> Self {
         self.segments.insert(*segment.id(), segment);
         self
     }
-    
+
     pub fn add_segments<I>(mut self, segments: I) -> Self
     where
         I: IntoIterator<Item = Segment>
@@ -583,32 +583,32 @@ impl SchemeBuilder {
         }
         self
     }
-    
+
     pub fn add_relation(mut self, from: SegmentId, to: SegmentId, relation: StructuralRelation) -> Self {
         self.relations.add_relation(from, to, relation);
         self
     }
-    
+
     pub fn add_structural_constraint(mut self, constraint: StructuralConstraint) -> Self {
         self.structural_constraints.push(constraint);
         self
     }
-    
+
     pub fn set_memory_layout(mut self, layout: MemoryLayout) -> Self {
         self.memory_layout = layout;
         self
     }
-    
+
     pub fn set_observation_rules(mut self, rules: ObservationRules) -> Self {
         self.observation_rules = rules;
         self
     }
-    
+
     pub fn add_metadata(mut self, key: String, value: String) -> Self {
         self.metadata.insert(key, value);
         self
     }
-    
+
     /// Hash calculations (ensuring structural immutability)
     fn compute_hash(&self, hasher: &mut blake3::Hasher) {
         // Hashing axis information
@@ -616,14 +616,14 @@ impl SchemeBuilder {
             hasher.update(axis.name.as_bytes());
             hasher.update(format!("{:?}", axis.axis_type).as_bytes());
         }
-        
+
         // Hashing Segment ID (coordinates are already included in Segment ID)
         let mut segment_ids: Vec<_> = self.segments.keys().collect();
         segment_ids.sort();
         for id in segment_ids {
             hasher.update(id.as_bytes());
         }
-        
+
         // Relationship Graph Hashing
         let mut relation_entries: Vec<_> = self.relations.outgoing.iter().collect();
         relation_entries.sort_by_key(|(k, _)| *k);
@@ -635,13 +635,13 @@ impl SchemeBuilder {
                 hasher.update(neighbor_id.as_bytes());
             }
         }
-        
+
         // Constraint hashing (type only)
         for constraint in &self.structural_constraints {
             hasher.update(format!("{:?}", constraint.constraint_type).as_bytes());
         }
     }
-    
+
     pub fn build(self) -> Scheme {
         Scheme::new(self)
     }
@@ -652,18 +652,18 @@ impl SchemeBuilder {
 /// 2D Grid Scheme Template
 pub mod grid2d {
     use super::*;
-    
+
     pub struct Grid2DTemplate {
         width: i64,
         height: i64,
         topology: GridTopology,
     }
-    
+
     impl Grid2DTemplate {
         pub fn new(width: i64, height: i64, topology: GridTopology) -> Self {
             Self { width, height, topology }
         }
-        
+
         pub fn build(self) -> Scheme {
             let mut builder = SchemeBuilder::new()
                 .add_axis(Axis {
@@ -680,7 +680,7 @@ pub mod grid2d {
                               ("range_end".to_string(), self.height.to_string())]
                         .iter().cloned().collect(),
                 });
-            
+
             // Segment creation
             for x in 0..self.width {
                 for y in 0..self.height {
@@ -688,11 +688,11 @@ pub mod grid2d {
                     builder = builder.add_segment(segment);
                 }
             }
-            
+
             // Add adjacency relationship
             // (simplification: actually creates relationships based on topology)
             builder = builder.add_metadata("template".to_string(), "grid2d".to_string());
-            
+
             builder.build()
         }
     }
@@ -701,18 +701,18 @@ pub mod grid2d {
 /// 1D Linear Scheme Template (Integer Arithmetic)
 pub mod integer_line {
     use super::*;
-    
+
     pub struct IntegerLineTemplate {
         start: i64,
         end: i64,
         step: i64,
     }
-    
+
     impl IntegerLineTemplate {
         pub fn new(start: i64, end: i64, step: i64) -> Self {
             Self { start, end, step }
         }
-        
+
         pub fn build(self) -> Scheme {
             let mut builder = SchemeBuilder::new()
                 .add_axis(Axis {
@@ -723,7 +723,7 @@ pub mod integer_line {
                               ("step".to_string(), self.step.to_string())]
                         .iter().cloned().collect(),
                 });
-            
+
             // Segment creation
             let mut value = self.start;
             while value <= self.end {
@@ -731,12 +731,12 @@ pub mod integer_line {
                 builder = builder.add_segment(segment);
                 value += self.step;
             }
-            
+
             // Adjacency relationship (linear)
             // (simplification: actually just adding neighbor relationships)
-            
+
             builder = builder.add_metadata("template".to_string(), "integer_line".to_string());
-            
+
             builder.build()
         }
     }
@@ -745,20 +745,20 @@ pub mod integer_line {
 /// Graph-based Scheme template
 pub mod graph {
     use super::*;
-    
+
     pub struct GraphTemplate {
         nodes: Vec<Vec<i64>>,      // node coordinates
         edges: Vec<(usize, usize, f64)>, // (from_idx, to_idx, weight)
     }
-    
+
     impl GraphTemplate {
         pub fn new(nodes: Vec<Vec<i64>>, edges: Vec<(usize, usize, f64)>) -> Self {
             Self { nodes, edges }
         }
-        
+
         pub fn build(self) -> Scheme {
             let mut builder = SchemeBuilder::new();
-            
+
             // Dimension axis (variable length)
             for i in 0..self.nodes[0].len() {
                 builder = builder.add_axis(Axis {
@@ -767,14 +767,14 @@ pub mod graph {
                     metadata: HashMap::new(),
                 });
             }
-            
+
             // Create node segment
             let segments: Vec<Segment> = self.nodes.iter()
                 .map(|coords| Segment::from_values(coords.clone()))
                 .collect();
-            
+
             builder = builder.add_segments(segments.clone());
-            
+
             // Add edge relationship
             for (from_idx, to_idx, weight) in self.edges {
                 if let (Some(from_seg), Some(to_seg)) = (segments.get(from_idx), segments.get(to_idx)) {
@@ -790,9 +790,9 @@ pub mod graph {
                     );
                 }
             }
-            
+
             builder = builder.add_metadata("template".to_string(), "graph".to_string());
-            
+
             builder.build()
         }
     }
@@ -810,28 +810,28 @@ pub use abstract_scheme::*;
 pub trait SchemeTrait: Debug + Send + Sync {
     /// Scheme identifier
     fn id(&self) -> &SchemeId;
-    
+
     /// Dimension Axis Information
     fn axes(&self) -> &[Axis];
-    
+
     /// number of dimensions
     fn dimensionality(&self) -> usize;
-    
+
     /// Segment inclusion or not
     fn contains_segment(&self, segment_id: &SegmentId) -> bool;
-    
+
     /// Segment lookup
     fn get_segment(&self, segment_id: &SegmentId) -> Option<&Segment>;
-    
+
     /// all Segment iterators
     fn segments(&self) -> Box<dyn Iterator<Item = &Segment> + '_>;
-    
+
     /// Structural verification
     fn validate_structure(&self, coords: &SpaceCoordinates) -> Result<(), String>;
-    
+
     /// Logical address mapping
     fn map_to_logical_address(&self, coords: &SpaceCoordinates) -> Option<LogicalAddress>;
-    
+
     /// Scheme Description
     fn describe(&self) -> String;
 }
@@ -841,10 +841,10 @@ pub trait SchemeTrait: Debug + Send + Sync {
 pub enum SchemeImpl {
     /// Basic Scheme implementation
     Basic(abstract_scheme::Scheme),
-    
+
     /// Composite Scheme (composition of other Schemes)
     Composite(CompositeScheme),
-    
+
     /// Converted Scheme (variant of basic Scheme)
     Transformed(TransformedScheme),
 }
@@ -857,7 +857,7 @@ impl SchemeTrait for SchemeImpl {
             SchemeImpl::Transformed(s) => s.id(),
         }
     }
-    
+
     fn axes(&self) -> &[Axis] {
         match self {
             SchemeImpl::Basic(s) => s.axes(),
@@ -865,7 +865,7 @@ impl SchemeTrait for SchemeImpl {
             SchemeImpl::Transformed(s) => s.axes(),
         }
     }
-    
+
     fn dimensionality(&self) -> usize {
         match self {
             SchemeImpl::Basic(s) => s.dimensionality(),
@@ -873,7 +873,7 @@ impl SchemeTrait for SchemeImpl {
             SchemeImpl::Transformed(s) => s.dimensionality(),
         }
     }
-    
+
     fn contains_segment(&self, segment_id: &SegmentId) -> bool {
         match self {
             SchemeImpl::Basic(s) => s.contains_segment(segment_id),
@@ -881,7 +881,7 @@ impl SchemeTrait for SchemeImpl {
             SchemeImpl::Transformed(s) => s.contains_segment(segment_id),
         }
     }
-    
+
     fn get_segment(&self, segment_id: &SegmentId) -> Option<&Segment> {
         match self {
             SchemeImpl::Basic(s) => s.get_segment(segment_id),
@@ -889,7 +889,7 @@ impl SchemeTrait for SchemeImpl {
             SchemeImpl::Transformed(s) => s.get_segment(segment_id),
         }
     }
-    
+
     fn segments(&self) -> Box<dyn Iterator<Item = &Segment> + '_> {
         match self {
             SchemeImpl::Basic(s) => Box::new(s.segments()),
@@ -897,7 +897,7 @@ impl SchemeTrait for SchemeImpl {
             SchemeImpl::Transformed(s) => Box::new(s.segments()),
         }
     }
-    
+
     fn validate_structure(&self, coords: &SpaceCoordinates) -> Result<(), String> {
         match self {
             SchemeImpl::Basic(s) => s.validate_structure(coords),
@@ -905,7 +905,7 @@ impl SchemeTrait for SchemeImpl {
             SchemeImpl::Transformed(s) => s.validate_structure(coords),
         }
     }
-    
+
     fn map_to_logical_address(&self, coords: &SpaceCoordinates) -> Option<LogicalAddress> {
         match self {
             SchemeImpl::Basic(s) => s.map_to_logical_address(coords),
@@ -913,7 +913,7 @@ impl SchemeTrait for SchemeImpl {
             SchemeImpl::Transformed(s) => s.map_to_logical_address(coords),
         }
     }
-    
+
     fn describe(&self) -> String {
         match self {
             SchemeImpl::Basic(s) => s.describe(),

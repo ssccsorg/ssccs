@@ -52,15 +52,15 @@ production_requirements:
   certificate:
     free: "Self-signed (development only)"
     commercial: "C2PA-conformant CA (DigiCert, SSL.com) – PKCS#12 (.pfx) with full chain, must chain to C2PA Trust List root"
-  
+
   timestamping:
     free: "OpenTimestamps (Bitcoin blockchain)"
     commercial: "RFC 3161 TSA (DigiCert, SSL.com, GlobalSign) – embed token in claim signature"
-  
+
   key_management:
     free: "File system (not recommended for production)"
     commercial: "AWS KMS, Azure Key Vault, HashiCorp Vault, On-premise HSM"
-  
+
   manifest_storage:
     free: "Sidecar .c2pa or pypdf XMP embedding"
     commercial: "Embed in PDF XMP using commercial SDK; optional soft-binding to HTTPS manifest store"
@@ -76,7 +76,7 @@ Key Members: Adobe, Microsoft, Google, Intel, Arm, BBC, Sony, Truepic, SSCCS Fou
 
 ### 2.2 Data Model Hierarchy
 
-```
+```text
 C2PA Manifest (JUMBF container - ISO/IEC 19567-1)
 │
 ├── Claim (CBOR-encoded, signed)
@@ -107,9 +107,9 @@ C2PA Manifest (JUMBF container - ISO/IEC 19567-1)
 
 ### 2.3 Trust Infrastructure: C2PA Trust List
 
-```
+```text
 C2PA Trust List Validation Chain:
-                                                    
+
 User/Validator Application                        
          │                                        
          ▼                                        
@@ -163,14 +163,14 @@ from pypdf import PdfReader, PdfWriter
 def embed_c2pa_manifest(pdf_path: Path, c2pa_manifest: bytes):
     reader = PdfReader(pdf_path)
     writer = PdfWriter()
-    
+
     # Add C2PA manifest to XMP metadata
     xmp = reader.xmp_metadata or {}
     xmp['c2pa:manifest'] = c2pa_manifest  # Base64-encoded
-    
+
     for page in reader.pages:
         writer.add_page(page)
-    
+
     writer.add_metadata(xmp)
     writer.write(pdf_path.with_suffix('.signed.pdf'))
 ```
@@ -211,7 +211,7 @@ Cons: Requires always-available repository; network dependency for verification
 
 A robust IP protection system validates provenance through multiple independent mechanisms. Agreement between any two methods provides strong corroboration.
 
-```
+```text
 Verification Pipeline (Recommended Order):
 
 1. Extract PDF hash from C2PA assertion (org.ssccs.pdfhash)
@@ -302,10 +302,10 @@ certificate_requirements = {
 def verify_c2pa_certificate(cert_path: Path):
     from cryptography import x509
     from cryptography.hazmat.backends import default_backend
-    
+
     with open(cert_path, 'rb') as f:
         cert = x509.load_pem_x509_certificate(f.read(), default_backend())
-    
+
     # Check C2PA-specific OID (example)
     c2pa_oid = x509.ObjectIdentifier("1.3.6.1.4.1.311.100.1")  # Placeholder
     try:
@@ -313,7 +313,7 @@ def verify_c2pa_certificate(cert_path: Path):
         print(f"✓ C2PA extension present: {ext.value}")
     except x509.ExtensionNotFound:
         print("✗ Warning: C2PA-specific extension not found")
-    
+
     # Verify chain (requires C2PA Trust List root)
     # Implementation: use c2patool or custom validator
     return True
@@ -331,7 +331,7 @@ def request_timestamp(tsa_url: str, hash_value: bytes) -> bytes:
     """Request RFC 3161 timestamp token from TSA."""
     # Build TimeStampReq (simplified)
     timestamp_req = build_rfc3161_request(hash_value)
-    
+
     response = requests.post(
         tsa_url,
         data=timestamp_req,
@@ -339,7 +339,7 @@ def request_timestamp(tsa_url: str, hash_value: bytes) -> bytes:
         timeout=30
     )
     response.raise_for_status()
-    
+
     # Parse TimeStampResp, extract token
     timestamp_token = parse_rfc3161_response(response.content)
     return timestamp_token
@@ -347,18 +347,18 @@ def request_timestamp(tsa_url: str, hash_value: bytes) -> bytes:
 # Integration point in manifest generation
 def generate_manifest_with_timestamp(pdf_hash: str, manifest_data: dict, tsa_url: str):
     # ... existing manifest preparation ...
-    
+
     # Request timestamp for claim hash
     claim_hash = compute_claim_hash(manifest_data)
     timestamp_token = request_timestamp(tsa_url, claim_hash)
-    
+
     # Embed timestamp in claim signature
     manifest_data['claim_signature']['timestamp'] = {
         'token': base64.b64encode(timestamp_token).decode(),
         'tsa': tsa_url,
         'gen_time': extract_timestamp_time(timestamp_token)
     }
-    
+
     return manifest_data
 ```
 
@@ -370,12 +370,12 @@ from abc import ABC, abstractmethod
 
 class ExternalSigner(ABC):
     """Abstract interface for external key operations."""
-    
+
     @abstractmethod
     def sign(self, data: bytes, algorithm: str) -> bytes:
         """Sign data using protected private key."""
         pass
-    
+
     @abstractmethod
     def get_certificate_chain(self) -> List[bytes]:
         """Return certificate chain for verification."""
@@ -388,14 +388,14 @@ class AWSKMSSigner(ExternalSigner):
         self.kms = boto3.client('kms', region_name=region)
         self.key_id = key_id
         self.cert_chain = [open(p, 'rb').read() for p in cert_chain_path]
-    
+
     def sign(self, data: bytes, algorithm: str) -> bytes:
         # Map C2PA algorithm to KMS signing spec
         signing_spec = {
             'ECDSA_SHA_384': 'ECDSA_SHA_384',
             'RSASSA_PSS_SHA_256': 'RSASSA_PSS_SHA_256'
         }[algorithm]
-        
+
         response = self.kms.sign(
             KeyId=self.key_id,
             Message=data,
@@ -403,7 +403,7 @@ class AWSKMSSigner(ExternalSigner):
             SigningAlgorithm=signing_spec
         )
         return response['Signature']
-    
+
     def get_certificate_chain(self) -> List[bytes]:
         return self.cert_chain
 
@@ -439,13 +439,13 @@ def sign_pdf_pades(
     location: str = "SSCCS Foundation"
 ):
     """Apply PAdES signature with timestamp to PDF."""
-    
+
     # Load certificate and key
     with open(cert_path, 'rb') as f:
         cert = serialization.load_pem_x509_certificate(f.read())
     with open(key_path, 'rb') as f:
         private_key = serialization.load_pem_private_key(f.read(), password=None)
-    
+
     # Prepare signature parameters
     signature_params = {
         'signer': cert,
@@ -457,11 +457,11 @@ def sign_pdf_pades(
         'mode': 'sign',  # PAdES-BES or PAdES-LTV
         'timestamp': True,
     }
-    
+
     # Sign using endesive library
     data = pdf_path.read_bytes()
     signed_data = endesive.pdf.sign(data, signature_params)
-    
+
     # Write output
     output_path.write_bytes(signed_data)
     print(f"✓ PAdES signature applied: {output_path}")
@@ -479,26 +479,26 @@ import hashlib
 
 def generate_ots_proof(pdf_path: Path, output_path: Path):
     """Create OpenTimestamps proof for PDF hash."""
-    
+
     # Compute PDF hash
     pdf_hash = hashlib.sha256(pdf_path.read_bytes()).digest()
-    
+
     # Create timestamp operation (simplified - in practice, use ots-cli or library)
     # This submits hash to public calendars and returns proof
     timestamp = ots_timestamp.Timestamp(pdf_hash)
-    
+
     # In production: use opentimestamps client to submit to calendars
     # For now, simulate with library call
     from opentimestamps import timestamp_file
     timestamp_file.timestamp(pdf_path, output_path)
-    
+
     print(f"✓ OpenTimestamps proof created: {output_path}")
     return output_path
 
 def verify_ots_proof(ots_path: Path, original_pdf: Path) -> bool:
     """Verify OTS proof against Bitcoin blockchain."""
     from opentimestamps import verify
-    
+
     # Verify requires Bitcoin node access or trusted verifier service
     result = verify(ots_path, original_pdf)
     return result.is_verified()
@@ -516,17 +516,17 @@ from cryptography.hazmat.primitives.asymmetric import padding
 
 class SCITTClient:
     """Client for SCITT-compliant Transparency Service."""
-    
+
     def __init__(self, service_url: str, issuer_key_path: Path):
         self.service_url = service_url.rstrip('/')
         with open(issuer_key_path, 'rb') as f:
             self.issuer_key = serialization.load_pem_private_key(
                 f.read(), password=None
             )
-    
+
     def register_statement(self, pdf_path: Path, metadata: dict) -> dict:
         """Register a Signed Statement about the PDF."""
-        
+
         # Build statement payload
         statement = {
             "type": "https://scitt.example.org/types/document-provenance/v1",
@@ -551,7 +551,7 @@ class SCITTClient:
             "iss": "did:web:ssccs.org",  # Decentralized identifier
             "iat": int(time.time())
         }
-        
+
         # Sign statement (simplified - use JOSE/COSE in production)
         signature = self.issuer_key.sign(
             json.dumps(statement, sort_keys=True).encode(),
@@ -561,7 +561,7 @@ class SCITTClient:
             ),
             hashes.SHA256()
         )
-        
+
         signed_statement = {
             "statement": statement,
             "signature": {
@@ -569,7 +569,7 @@ class SCITTClient:
                 "value": base64.b64encode(signature).decode()
             }
         }
-        
+
         # Submit to Transparency Service
         response = requests.post(
             f"{self.service_url}/statements",
@@ -577,11 +577,11 @@ class SCITTClient:
             headers={'Content-Type': 'application/scitt-statement+json'}
         )
         response.raise_for_status()
-        
+
         receipt = response.json()
         print(f"✓ SCITT receipt: {receipt['receiptId']}")
         return receipt
-    
+
     def verify_receipt(self, receipt_id: str, expected_hash: str) -> bool:
         """Verify inclusion receipt from Transparency Service."""
         response = requests.get(
@@ -590,7 +590,7 @@ class SCITTClient:
         )
         response.raise_for_status()
         receipt = response.json()
-        
+
         # Verify receipt signature and inclusion proof
         # Implementation depends on service's cryptographic scheme
         return verify_scitt_receipt(receipt, expected_hash)
@@ -621,12 +621,12 @@ class VerificationResult:
 
 class ProvenanceVerifier:
     """Unified verifier for multi-layer provenance."""
-    
+
     def __init__(self, pdf_path: Path):
         self.pdf_path = pdf_path
         self.pdf_hash = hashlib.sha256(pdf_path.read_bytes()).hexdigest()
         self.results: List[VerificationResult] = []
-    
+
     def verify_c2pa(self, manifest_path: Optional[Path] = None) -> VerificationResult:
         """Verify C2PA manifest signature and trust chain."""
         try:
@@ -635,9 +635,9 @@ class ProvenanceVerifier:
             cmd = ["c2patool", str(self.pdf_path), "--verify"]
             if manifest_path:
                 cmd.extend(["--manifest", str(manifest_path)])
-            
+
             result = subprocess.run(cmd, capture_output=True, text=True)
-            
+
             if result.returncode == 0:
                 # Parse output for trust status
                 if "trusted" in result.stdout.lower():
@@ -653,18 +653,18 @@ class ProvenanceVerifier:
         except Exception as e:
             return VerificationResult("C2PA", VerificationStatus.FAIL,
                                     f"Exception: {str(e)}")
-    
+
     def verify_pades(self) -> VerificationResult:
         """Verify embedded PKI/PAdES signature."""
         try:
             from PyPDF2 import PdfReader
             reader = PdfReader(self.pdf_path)
-            
+
             # Check for signature fields
             if '/AcroForm' not in reader.trailer['/Root']:
                 return VerificationResult("PAdES", VerificationStatus.NOT_APPLICABLE,
                                         "No signature fields found")
-            
+
             # Use endesive or similar for full validation
             # Simplified: check signature existence
             signatures = reader.get_fields().get('/Sig', [])
@@ -677,18 +677,18 @@ class ProvenanceVerifier:
         except Exception as e:
             return VerificationResult("PAdES", VerificationStatus.FAIL,
                                     f"Exception: {str(e)}")
-    
+
     def verify_ots(self, ots_path: Path) -> VerificationResult:
         """Verify OpenTimestamps proof."""
         try:
             if not ots_path.exists():
                 return VerificationResult("OpenTimestamps", VerificationStatus.NOT_APPLICABLE,
                                         "No .ots file found")
-            
+
             # Verify against blockchain (requires network)
             from opentimestamps import verify
             result = verify(ots_path, self.pdf_path)
-            
+
             if result.is_verified():
                 return VerificationResult("OpenTimestamps", VerificationStatus.PASS,
                                         f"Timestamp confirmed in block {result.block_height}")
@@ -698,14 +698,14 @@ class ProvenanceVerifier:
         except Exception as e:
             return VerificationResult("OpenTimestamps", VerificationStatus.FAIL,
                                     f"Exception: {str(e)}")
-    
+
     def verify_scitt(self, receipt_path: Path) -> VerificationResult:
         """Verify SCITT transparency receipt."""
         try:
             if not receipt_path.exists():
                 return VerificationResult("SCITT", VerificationStatus.NOT_APPLICABLE,
                                         "No receipt file found")
-            
+
             receipt = json.loads(receipt_path.read_text())
             # Verify receipt signature and inclusion proof
             if verify_scitt_receipt(receipt, self.pdf_hash):
@@ -717,7 +717,7 @@ class ProvenanceVerifier:
         except Exception as e:
             return VerificationResult("SCITT", VerificationStatus.FAIL,
                                     f"Exception: {str(e)}")
-    
+
     def generate_report(self) -> str:
         """Generate human-readable verification report."""
         report = [f"Provenance Verification Report",
@@ -725,7 +725,7 @@ class ProvenanceVerifier:
                  f"SHA-256: {self.pdf_hash}",
                  f"Timestamp: {datetime.now().isoformat()}",
                  "-" * 60]
-        
+
         for r in self.results:
             status_icon = {
                 VerificationStatus.PASS: "✓",
@@ -737,11 +737,11 @@ class ProvenanceVerifier:
             if r.details:
                 for k, v in r.details.items():
                     report.append(f"    {k}: {v}")
-        
+
         # Overall assessment
         passed = sum(1 for r in self.results if r.status == VerificationStatus.PASS)
         failed = sum(1 for r in self.results if r.status == VerificationStatus.FAIL)
-        
+
         report.append("-" * 60)
         if failed == 0 and passed >= 2:
             report.append("OVERALL: CONFIRMED (multiple independent verifications passed)")
@@ -749,9 +749,9 @@ class ProvenanceVerifier:
             report.append("OVERALL: PARTIAL (no failures, but limited verification)")
         else:
             report.append(f"OVERALL: FAILED ({failed} verification(s) failed)")
-        
+
         return "\n".join(report)
-    
+
     def run_all(self, manifest_path: Optional[Path] = None, 
                 ots_path: Optional[Path] = None,
                 receipt_path: Optional[Path] = None) -> str:
@@ -764,7 +764,7 @@ class ProvenanceVerifier:
             self.results.append(self.verify_ots(ots_path))
         if receipt_path:
             self.results.append(self.verify_scitt(receipt_path))
-        
+
         return self.generate_report()
 
 # CLI usage
@@ -776,7 +776,7 @@ if __name__ == "__main__":
     parser.add_argument("--ots", "-o", type=Path, help="OpenTimestamps proof path")
     parser.add_argument("--receipt", "-r", type=Path, help="SCITT receipt path")
     args = parser.parse_args()
-    
+
     verifier = ProvenanceVerifier(args.pdf)
     report = verifier.run_all(args.manifest, args.ots, args.receipt)
     print(report)
@@ -795,7 +795,7 @@ def apply_provenance_layers(
 ) -> Dict[str, Path]:
     """Apply all configured provenance layers to generated PDF."""
     artifacts = {}
-    
+
     # C2PA signing (existing, enhanced)
     if config.get("c2pa"):
         manifest_template = pdf_path.parent / f"{pdf_path.stem}.c2pa_manifest.json"
@@ -811,7 +811,7 @@ def apply_provenance_layers(
             ]
             if run_command(cmd, cwd=docs_root):
                 artifacts["c2pa"] = c2pa_output
-    
+
     # PKI/PAdES signing
     if config.get("pades"):
         pades_output = pdf_path.parent / f"{pdf_path.stem}.pades.pdf"
@@ -825,7 +825,7 @@ def apply_provenance_layers(
         ]
         if run_command(cmd, cwd=docs_root):
             artifacts["pades"] = pades_output
-    
+
     # OpenTimestamps
     if config.get("opentimestamps"):
         ots_output = pdf_path.parent / f"{pdf_path.stem}.ots"
@@ -836,7 +836,7 @@ def apply_provenance_layers(
         ]
         if run_command(cmd, cwd=docs_root):
             artifacts["ots"] = ots_output
-    
+
     # SCITT registration
     if config.get("scitt"):
         receipt_output = pdf_path.parent / f"{pdf_path.stem}.scitt.json"
@@ -854,7 +854,7 @@ def apply_provenance_layers(
         ]
         if run_command(cmd, cwd=docs_root):
             artifacts["scitt"] = receipt_output
-    
+
     return artifacts
 
 # Integrate into build_generic() after PDF generation:
@@ -953,7 +953,7 @@ disaster_recovery:
 
 3. Dispute Resolution Protocol
 
-   ```
+   ```text
    If provenance is challenged:
    1. Request full verification report from verifier tool
    2. If C2PA fails but PKI passes: rely on PKI certificate chain
@@ -982,15 +982,15 @@ monitoring_targets:
   c2pa_trust_list:
     check: "Daily download and signature verification"
     alert: "If list fails to update or signature invalid"
-  
+
   certificate_expiry:
     check: "Weekly scan of all signing certificates"
     alert: "30/7/1 days before expiry"
-  
+
   tsa_availability:
     check: "Hourly ping to configured TSA endpoints"
     alert: "If >2 providers unreachable"
-  
+
   verification_endpoint:
     check: "Synthetic transactions every 5 minutes"
     alert: "If error rate >1% or latency >5s"
@@ -998,7 +998,7 @@ monitoring_targets:
 
 ### 7.2 Version Management
 
-```
+```text
 Provenance System Versioning:
 - Manifest schema: Semantic versioning (v2.3 → v2.4)
 - Assertion definitions: Namespace-versioned (org.ssccs.pdfhash/v1)
