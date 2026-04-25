@@ -1,0 +1,474 @@
+---
+title: "EuroLLVM 2026 Deep Analysis and Insights"
+date: "2026-04-25"
+metadata-files:
+  - ../_include/author.yml
+  - ../_include/format.html.yml
+format:
+  html: default
+---
+
+```{python}
+#| echo: false
+#| include: false
+#| context: local
+%run ../_include/_graphviz.py
+```
+
+The 2026 EuroLLVM Developers' Meeting featured a full-day MLIR Workshop (April 13) followed by two days of main conference sessions (April 14-15). While all talks were delivered in person and not recorded, the slide decks and summary reports provide rich material for compiler researchers. This report extracts concrete, actionable insights for the SSCCS project, focusing on intermediate representation (IR) design, memory management, transformation control, and hardware abstraction.
+
+```{python}
+#| label: fig-mlir-ecosystem
+#| fig-cap: "MLIR Ecosystem Overview for SSCCS"
+
+dot("""
+digraph MLIREcosystem {
+    rankdir=TB;
+    node [shape=rect, style=rounded];
+    
+    subgraph cluster_mlir {
+        label="MLIR Core";
+        IR [label="SSA IR"];
+        Dialects [label="Dialects\n(Arith, Tensor, MemRef)"];
+        Passes [label="Optimisation Passes"];
+    }
+    
+    subgraph cluster_workshop {
+        label="EuroLLVM 2026 Contributions";
+        Canonical [label="Canonicalization Roundtable"];
+        Assembly [label="Assembly Dialects"];
+        CUDATile [label="CUDA Tile IR"];
+        FPTypes [label="Floating‑Point Types"];
+        xDSL [label="xDSL (Python)"];
+        Melior [label="Melior (Rust)"];
+        Transform [label="Transform Dialect"];
+        Autotune [label="Autotuning Pipeline"];
+        Static [label="Static Analysis"];
+    }
+    
+    subgraph cluster_ssccs {
+        label="SSCCS";
+        Frontend [label="Rust Frontend\n(Scheme parsing)"];
+        Middle [label="MLIR Middle‑End\n(Optimisation)"];
+        Backend [label="MLIR Backend\n(Hardware mapping)"];
+        Runtime [label="Runtime\n(Observation)"];
+    }
+    
+    Dialects -> Canonical;
+    Dialects -> Assembly;
+    Dialects -> CUDATile;
+    Dialects -> FPTypes;
+    Passes -> Transform;
+    Passes -> Autotune;
+    Passes -> Static;
+    xDSL -> Frontend [style=dashed];
+    Melior -> Frontend [style=dashed];
+    
+    Frontend -> Middle -> Backend -> Runtime;
+}
+""")
+```
+
+## 1. MLIR Canonicalization Roundtable
+
+### 1.1 Core Discussion
+
+The roundtable addressed fundamental challenges in MLIR's canonicalization infrastructure—the process that simplifies IR to expected forms for optimisation matching. Key points from the discussion include:
+
+- **Mandate for Canonical Forms**: A widely accepted statement emerged that "canonicalization is not required for correctness" of lowering, but is essential for optimisation since "non‑canonical forms should always be lowered … they won't always be recognised and optimised".
+
+- **Pathological Behaviour**: An extreme case was cited where `canonicalize` could increase compile time from minutes to hours, possibly due to "adversarial patterns where two or more rewrites keep adding work items to the queue in a multi‑fixed‑point scenario".
+
+- **No Termination Guarantee**: A strong consensus was that "there is no guarantee the canonicalization will finish, let alone at a canonical representation. … the `canonicalize` pass does not canonicalise the IR".
+
+- **Unpredictable Interference**: Since rewrites are defined per operation without cross‑operation coordination, "unintentional interference is likely and unpredictable".
+
+- **Canonicalisation by Construction**: Transformations should "best‑effort generate and/or maintain canonical forms". The Linalg dialect examples showed tradeoffs between named ops (easier for loop fusion) and generic ops (easier for Linalg fusion), implying "canonical forms depend on the use (transforms / destinations)".
+
+### 1.2 SSCCS Implications
+
+These insights provide direct constraints for SSCCS's Scheme IR design:
+
+**Design Constraint 1 — Encode semantics into IR structure from the start**
+
+Similar to MLIR's "canonicalisation by construction" principle, SSCCS Scheme IR must be defined so that its canonical form is automatically maintained by construction rules, not requiring a separate canonicalisation pass. This means the IR parser and builder must enforce structural invariants (e.g., adjacency relations, axis ordering) as early as possible.
+
+**Design Constraint 2 — Support multiple normal forms per core abstraction**
+
+Allowing both named ops and generic forms in Linalg suggests SSCCS should support both high‑level structural representations (Schemes composed of named composite operations) and low‑level flat forms (explicit Segment lists) through a well‑defined normalisation interface.
+
+**Design Constraint 3 — Split and compose canonicalisation rules**
+
+Given MLIR's experience with pattern interference, SSCCS can adopt a modular approach: each Field type contributes its own canonicalisation rules, composed via explicit priority and conflict detection mechanisms rather than monolithic greedy application. This directly supports SSCCS's Field‑extensibility goal.
+
+## 2. Assembly Dialects Roundtable
+
+This roundtable aimed to "structure the assembly and ISA level efforts that are gaining traction in the MLIR ecosystem".
+
+### 2.1 SSCCS Implications
+
+Assembly Dialects provide a direct path for hardware‑specific code generation:
+
+**Design Constraint 4 — Assembly Dialect mapping for hardware backends**
+
+SSCCS can target existing Assembly Dialects (RISC‑V, x86, AMD GPU) as backends for the `MemoryLayout` to physical instruction mapping. The `MemoryLayout` would produce a representation in the appropriate Assembly Dialect, which existing MLIR backends would then lower to machine code.
+
+**Design Constraint 5 — Metadata for instruction timing and resource use**
+
+Assembly Dialects can embed attributes for instruction latency, energy, and resource utilisation. This enables SSCCS's cost model to estimate observation execution cost at compile time without hardware profiling—critical for heterogeneous orchestration decisions.
+
+## 3. CUDA Tile IR (Matthias Springer)
+
+This talk presented a tile‑based CUDA dialect for MLIR, developed at NVIDIA Switzerland, focusing on "design trade‑offs that differentiate it from upstream dialects".
+
+### 3.1 Core Design Features
+
+- **Tile‑centric operations**: The dialect makes tiling a first‑class concept, not a transformation applied to generic operations.
+- **NVIDIA Tensor Core targeting**: Optimised for matrix multiplication and convolution patterns.
+- **Rich type system**: Encodes tile shape, memory layout, and ordering constraints directly in the IR.
+- **TMA‑aware patterns**: Specialised load/store patterns for Tensor Memory Accelerator units.
+- **Token‑based ordering**: Explicit dependency management through token types.
+
+### 3.2 SSCCS Implications
+
+CUDA Tile IR provides a concrete blueprint for SSCCS's Field‑specific IR design:
+
+**Design Pattern 1 — First‑class operation concepts**
+
+```mlir
+// CUDA Tile IR approach (conceptual)
+%tile = cuda_tile.matmul %A, %B { tileSize = [64, 64] }
+```
+
+**Design Pattern 2 — Hierarchical IR layers**
+
+CUDA Tile IR sits above low‑level dialects (`arith`, `memref`, `tensor`) but below hardware intrinsics. This layered approach suggests SSCCS could define:
+
+- **Frontend IR**: High‑level Schemes with abstract `Field` compositions
+- **Middle IR**: Field‑specific operators (e.g., `arithmetic.add`, `graph.traverse`)
+- **Backend IR**: Region‑specific (Assembly Dialect, PIM commands) enriched with cost estimates and placement metadata.
+
+**Design Pattern 3 — Vendor‑specific extensions with upstream compatibility**
+
+The talk "contrasts CUDA Tile IR's type system, operations, and overall dialect design" with upstream dialects, implying a `vendor.nvidia` namespace approach. SSCCS can adopt a similar strategy: a core open dialect (`ssccs.*`) plus vendor extensions (`nvidia.*`, `amd.*`) that share a common structural substrate.
+
+## 4. Floating‑Point Types in MLIR (Matthias Springer)
+
+This talk "summarises recent improvements to MLIR's floating‑point type infrastructure, focusing on how to represent and lower the rapidly growing zoo of low‑precision and block‑scaled formats".
+
+### 4.1 Core Contributions
+
+- **FloatTypeInterface**: Standardised interface for all floating‑point types.
+- **arith‑to‑apfloat infrastructure**: Software emulation of low‑precision FP arithmetic on CPUs.
+- **Step‑by‑step extension guide**: From extending LLVM's `APFloat` to defining lowering rules.
+
+### 4.2 SSCCS Implications
+
+**Design Constraint 6 — Deterministic type semantics**
+
+SSCCS coordinates (Segment positions) may be integer or floating‑point. The coordinate type system must guarantee deterministic observation results (bit‑exact reproducibility) across compilations and hardware targets. This requires:
+
+- Explicit rounding mode specifications for `Field` operations
+- Precision certificates documenting possible error bounds
+- Rejection of transformations that alter FP rounding semantics
+
+**Design Constraint 7 — Hardware abstraction for lower precision**
+
+MLIR's extensible FP type system allows SSCCS to define custom coordinate types (e.g., fixed‑point, block‑floating‑point) and lower them to appropriate hardware instructions or software emulation when hardware support is absent—critical for edge devices with limited FPU capabilities.
+
+**Design Constraint 8 — Value range metadata**
+
+The `FloatTypeInterface` can be extended to carry value range information (min, max, probable distribution), enabling layout optimisation—for example, placing small coordinate values in a compact tile separate from large values to improve compression or reduce memory usage.
+
+```{python}
+#| label: fig-type-system
+#| fig-cap: "SSCCS Type System with FP Precision Tiers"
+
+dot("""
+digraph TypeSystem {
+    rankdir=LR;
+    node [shape=rect, style=rounded];
+    
+    CoordinateType [label="Coordinate Type"];
+    IntegerType [label="Integer\n(bit-exact)"];
+    FloatType [label="Float"];
+    FixedPoint [label="Fixed-Point\n(embedded)"];
+    BFloat16 [label="BFloat16\n(ML/AI)"];
+    FP8 [label="FP8 (E4M3/E5M2)"];
+    CustomType [label="Custom Type\n(via interface)"];
+    
+    CoordinateType -> IntegerType;
+    CoordinateType -> FloatType;
+    FloatType -> FixedPoint;
+    FloatType -> BFloat16;
+    FloatType -> FP8;
+    FloatType -> CustomType;
+    
+    PrecisionCert [label="Precision Certificate", shape=ellipse];
+    FidelityCheck [label="Fidelity Check", shape=diamond];
+    
+    FloatType -> PrecisionCert;
+    PrecisionCert -> FidelityCheck;
+}
+""")
+```
+
+## 5. xDSL: Python‑Native SSA Compiler Framework
+
+xDSL is "a Python‑native compiler framework built around SSA‑based intermediate representations". It influenced MLIR's design for Python interoperability and enabled rapid prototyping.
+
+### 5.1 SSCCS Implications
+
+**Prototyping Tool for Field Behaviour**
+
+While SSCCS's core compiler is written in Rust, xDSL can serve as a prototyping environment for new `Field` definitions. A `Field` can be prototyped in xDSL's Python‑native IR, its behaviour validated, and the canonical implementation then ported to Rust.
+
+**Cross‑Framework IR Translation**
+
+xDSL can translate between MLIR dialects and SSCCS's Rust‑native IR, enabling reuse of MLIR's optimisation and analysis passes without relying on the full C++ stack. This hybrid approach is currently under active development in the LLVM community.
+
+**Educational and Documentation Tool**
+
+xDSL's Pythonic syntax makes it suitable for documenting SSCCS's IR concepts in an executable format. Tutorial notebooks can demonstrate Scheme composition, Field application, and observation semantics in a live, interactive environment.
+
+## 6. Melior: Rust‑MLIR Bindings
+
+Melior provides "safe, ergonomic API for creating, manipulating, and executing MLIR code from Rust applications". It is the most mature Rust binding for MLIR.
+
+### 6.1 SSCCS Implications
+
+**Direct Integration Path**
+
+SSCCS's Rust‑implemented compiler can call MLIR optimisation and code generation passes through Melior's C API bindings: "The Rust bindings MLIR C API is used by language bindings (Rust via mlir‑sys/melior, Python, etc.)". This avoids rewriting passes that MLIR already provides—such as memref optimisation, vectorisation, and hardware lowering.
+
+**Type‑Safe IR Construction**
+
+Melior leverages Rust's ownership model, ensuring that IR construction operations are memory‑safe without garbage collection overhead.
+
+**Hybrid Pipeline**
+
+Melior enables a hybrid architecture: Rust handles SSCCS‑specific frontend logic (Scheme parsing, structural analysis, Field composition) and calls into MLIR for middle‑end and backend passes. The MLIR execution is sandboxed, preserving SSCCS's determinism guarantees.
+
+```{python}
+#| label: fig-hybrid-pipeline
+#| fig-cap: "Hybrid Rust-MLIR Pipeline via Melior"
+
+dot("""
+digraph HybridPipeline {
+    rankdir=LR;
+    node [shape=rect, style=rounded];
+    
+    subgraph cluster_rust {
+        label="Rust (SSCCS Frontend)";
+        Parse [label="Parse .ss Schema"];
+        Structure [label="Structural Analysis"];
+        IRBuild [label="Build SSCCS IR"];
+        Cost [label="Cost Model"];
+    }
+    
+    subgraph cluster_mlir {
+        label="MLIR via Melior";
+        Optimise [label="Optimisation Passes"];
+        Lower [label="Lowering to Dialects"];
+        CodeGen [label="Code Generation"];
+    }
+    
+    subgraph cluster_runtime {
+        label="Runtime";
+        JIT [label="JIT Execution"];
+        Observe [label="Observation"];
+    }
+    
+    Parse -> Structure -> IRBuild -> Cost;
+    Cost -> Optimise [label="call MLIR"];
+    Optimise -> Lower -> CodeGen;
+    CodeGen -> JIT -> Observe;
+}
+""")
+```
+
+## 7. Transform Dialect
+
+MLIR's Transform Dialect "provides operations that can be used to control transformation of the IR using a different portion of the IR".
+
+### 7.1 Core Characteristics
+
+- **Separation of Payload and Transform IR**: The IR being transformed (payload) is distinct from the IR guiding the transformation (transform IR).
+- **Side‑Effect Modelling**: MLIR's side‑effect modelling enables optimisation of transform IR itself.
+- **Non‑deterministic Choice Semantics**: Alternative sub‑schedules or parameters can be expressed symbolically.
+- **Composition and Reuse**: Existing passes are exposed as transform operations without reimplementation.
+
+### 7.2 SSCCS Implications
+
+Transform Dialect offers a systematic way to make SSCCS's observation strategies part of the IR:
+
+**Design Pattern 4 — Observation strategies as transform scripts**
+
+Instead of hard‑coding optimisation heuristics, SSCCS can treat Field‑specific observation strategies as Transform Dialect scripts. For example:
+
+```mlir
+// Conceptual SSCCS Transform script
+transform.sequence {
+  // Step 1: Preprocess – eliminate unreachable Segments
+  %reachable = ssccs.dead_segment_elimination %scheme
+    
+  // Step 2: Field‑specific optimisation
+  %tiled = %reachable |> ssccs.tile [tile_size = 64, strategy = "dense"]
+    
+  // Step 3: Parallelism extraction
+  %parallel = %tiled |> ssccs.extract_independent [min_granularity = 8]
+    
+  // Step 4: Hardware mapping (multiple variants)
+  %cuda = %parallel |> ssccs.map_to_cuda [threads = 256]
+  %cpu = %parallel |> ssccs.map_to_cpu [vectorize = true]
+}
+```
+
+This approach enables runtime selection of optimal variants without recompilation and allows non‑expert users to experiment with different observation strategies.
+
+**Determinism Guarantee for Transform Execution**
+
+While the Transform IR allows non‑deterministic choices, the final selected execution path must be deterministic. SSCCS can require that all choices in a transform script be resolved at compile time (via heuristics) or that the runtime commit to a specific deterministic schedule at observation time—for example, by always picking the first valid variant.
+
+**Field‑Specific Optimisation Pipelines**
+
+Each Field type can define its own Transform Dialect script. The SSCCS compiler would dynamically compose these per‑Field scripts into a coherent pass pipeline, enabling modular compiler extensions without modifying core code.
+
+```{python}
+#| label: fig-transform-pipeline
+#| fig-cap: "Transform Dialect‑Driven Compiler Pipeline for SSCCS"
+
+dot("""
+digraph TransformPipeline {
+    rankdir=LR;
+    node [shape=rect, style=rounded];
+    
+    Payload [label="Payload IR\n(Scheme, Field)"];
+    Transform [label="Transform Script\n(Strategy)"];
+    Interpreter [label="Transform Interpreter", shape=ellipse];
+    OptimisedIR [label="Optimised IR"];
+    Backend [label="Backend"];
+    
+    Payload -> Interpreter;
+    Transform -> Interpreter;
+    Interpreter -> OptimisedIR;
+    OptimisedIR -> Backend;
+    
+    subgraph cluster_script {
+        label="Field‑Specific Libraries";
+        GraphLib [label="Graph Traversal\nScripts"];
+        ArithLib [label="Arithmetic\nScripts"];
+        SparseLib [label="Sparse\nScripts"];
+    }
+    
+    subgraph cluster_transform {
+        label="Transform Dialect";
+        DeadSeg [label="Dead Segment\nElimination"];
+        Tiling [label="Tiling"];
+        Fusion [label="Adjacency\nFusion"];
+        ParExtract [label="Independent\nSubgraph Extract"];
+    }
+    
+    GraphLib -> DeadSeg;
+    ArithLib -> Tiling;
+    ArithLib -> ParExtract;
+    SparseLib -> DeadSeg;
+    
+    DeadSeg -> Payload [style=invis];
+    Tiling -> Payload [style=invis];
+    Fusion -> Payload [style=invis];
+    ParExtract -> Payload [style=invis];
+}
+""")
+```
+
+## 8. Static Analysis and Autotuning
+
+The poster session featured **A CPU Autotuning Pipeline for MLIR‑IREE** presenting "an autotuning pipeline for IREE's LLVM‑CPU backend that enables Transform Dialect–driven, compile‑time multi‑level tiling with CPU‑specific constraints". The pipeline achieved "up to 20% speedup" and outlined "next steps toward joint tuning of per‑layer sub‑FP8 precision variants and tiling using an XGBoost‑guided, budgeted evaluation strategy".
+
+The poster **Engineering a Hybrid Rust and MLIR Toolchain for AI Agents** presented a hybrid Rust and MLIR toolchain, directly aligning with SSCCS's architecture.
+
+The broader MLIR static analysis ecosystem is also evolving. A recent presentation at POPL 2026 introduced synthesis of practical MLIR abstract transformers, highlighting that "static analyses play a fundamental role during compilation … they discover facts that are true in all executions of the code being compiled, and then these facts are used to justify optimisations and diagnostics".
+
+### 8.1 SSCCS Implications
+
+**Design Constraint 9 — Autotuning framework for observation parameters**
+
+The IREE autotuning pipeline suggests SSCCS could adopt a similar approach for choosing observation parameters—tile sizes, parallelism degree, Field‑specific optimisation flags—by treating them as part of the Transform Dialect script and using a budgeted search strategy (e.g., XGBoost‑guided evaluation) to converge on optimal configurations.
+
+**Design Constraint 10 — Static analysis for Scheme correctness**
+
+Static analysis can verify structural properties of Schemes—e.g., absence of cycles in the adjacency graph, reachability of Segments, or independence of Fields. This can be implemented as an MLIR analysis pass operating on the SSCCS IR, reusing existing analysis infrastructure.
+
+**Design Constraint 11 — Runtime‑aware optimisation loop**
+
+Following the direction of co‑designed compiler‑runtime systems, SSCCS can instrument its compiler analyses with "runtime‑visible metadata", enabling a closed feedback loop where the compiler learns from actual observation latencies and energy consumption to refine its cost models and strategy selection.
+
+## 9. Comprehensive SSCCS Compiler Architecture Roadmap
+
+Based on all insights from EuroLLVM 2026, a comprehensive SSCCS compiler architecture emerges:
+
+### 9.1 Layer 1: Frontend (Rust)
+
+- Parse `.ss` schemas into an Abstract Syntax Tree (AST)
+- Perform structural analysis: segment adjacency graph construction, invariant checking
+- Generate initial SSCCS IR (high‑level) in MLIR through **Melior**
+
+### 9.2 Layer 2: Middle‑End (MLIR / Transform Dialect)
+
+- Apply Field‑specific optimisation scripts as **Transform Dialect** sequences:
+  - Arithmetic Fields: constant folding, CSE, vectorisation, tiling (CUDA Tile IR inspired)
+  - Graph Fields: dead segment elimination, adjacency fusion, independent subgraph extraction
+- Enrich IR with **precision metadata** using MLIR's type system extensions
+- Run **static analyses** to verify correctness and emit **fidelity certificates**
+- Optionally invoke **autotuning** to explore alternative optimisations (e.g., tile size variants)
+
+### 9.3 Layer 3: Backend (MLIR / Assembly Dialects)
+
+- Lower optimised SSCCS IR to target‑specific **Assembly Dialects** (RISC‑V, x86, AMD GPU)
+- Embed **cost metadata** (latency, energy, memory) into custom attributes attached to instructions
+- Call MLIR's existing backends to generate executable code (e.g., LLVM IR, SPIR‑V, or directly Assembly)
+
+### 9.4 Layer 4: Runtime (Rust + MLIR JIT)
+
+- Maintain current state (Segments values) in memory according to `MemoryLayout`
+- Receive observation requests: `observe(scheme_id, field_id, constraints)`
+- **Option selection**: choose optimal variant from those prepared by compiler (based on cost models and runtime telemetry)
+- Execute observation by invoking pre‑compiled MLIR module or JIT‑compiling a Transform script on‑demand
+- Return projection result and record execution metrics for feedback loop
+
+### 9.5 Development and Prototyping Environment
+
+- **xDSL** for rapid prototyping of new Field definitions and Transform scripts
+- **Jupyter notebooks + xDSL** for interactive Scheme/Field design and verification
+- **Melior** to integrate Rust‑implemented passes into the MLIR pipeline
+
+## 10. Conclusion
+
+The EuroLLVM 2026 MLIR workshop provided a clear picture of MLIR's evolution: from a low‑level IR infrastructure to a platform for composing, inspecting, and optimising compilers. The key themes—modular passes, typed extensible IRs, hardware‑specific dialects, and feedback‑driven autotuning—directly address challenges SSCCS faces in making structural computing practical.
+
+For the SSCCS project, the path forward is evident:
+
+1. **Adopt Melior** to integrate Rust frontend with MLIR middle‑end and backends.
+2. **Design SSCCS IR as an MLIR dialect** (or a set of dialects) with built‑in canonical forms and rich type semantics.
+3. **Leverage Transform Dialect** to make Field‑specific optimisation strategies explicit, modular, and autotunable.
+4. **Build Field‑specific passes** inspired by CUDA Tile IR (arithmetic) and Assembly Dialects (graph/hardware mapping).
+5. **Implement fidelity certificates** as MLIR attributes, verified by static analyses to guarantee determinism.
+6. **Create a prototyping workflow** using xDSL and notebooks for rapid Field design iteration.
+
+EuroLLVM 2026 demonstrated that MLIR is no longer just an infrastructure—it is a **research platform** for exploring advanced compiler architectures. SSCCS is uniquely positioned to contribute to and benefit from this ecosystem, advancing structural computing from concept to implementation.
+
+## Reference Links
+
+| Topic | Link |
+|-------|------|
+| EuroLLVM 2026 Main Page | [llvm.swoogo.com/2026eurollvm](https://llvm.swoogo.com/2026eurollvm) |
+| MLIR Canonicalisation Roundtable Summary | [discourse.llvm.org/t/eurollvm-2026-round-table-summary-mlir-canonicalization/90588](https://discourse.llvm.org/t/eurollvm-2026-round-table-summary-mlir-canonicalization/90588) |
+| Assembly Dialects Roundtable | [discourse.llvm.org/t/assembly-dialects-roundtable/90647](https://discourse.llvm.org/t/assembly-dialects-roundtable/90647) |
+| CUDA Tile IR Session | [llvm.swoogo.com/2026eurollvm/session/4050959/cuda-tile-ir](https://llvm.swoogo.com/2026eurollvm/session/4050959/cuda-tile-ir) |
+| CUDA Tile IR GitHub (recovered) | [github.com/NVIDIA/cuda-tile](https://github.com/NVIDIA/cuda-tile) |
+| Floating‑Point Types in MLIR Session | [llvm.swoogo.com/2026eurollvm/session/3943073/floating-point-types-in-mlir-infrastructure-new-types-and-dialect-design](https://llvm.swoogo.com/2026eurollvm/session/3943073/floating-point-types-in-mlir-infrastructure-new-types-and-dialect-design) |
+| xDSL Framework | [github.com/xdslproject/xdsl](https://github.com/xdslproject/xdsl) |
+| Melior Rust Bindings | [github.com/mlir-rs/melior](https://github.com/mlir-rs/melior) |
+| Transform Dialect Documentation | [mlir.llvm.org/docs/Dialects/Transform](https://mlir.llvm.org/docs/Dialects/Transform) |
+| Research Library (Slides/Posters) | [llvm.swoogo.com/2026eurollvm](https://llvm.swoogo.com/2026eurollvm) (main schedule with session details) |
