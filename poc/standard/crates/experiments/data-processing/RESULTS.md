@@ -27,7 +27,7 @@ Simple nested loops summing (i+j) for all matrix positions.
 
 ### Execution Output
 
-```
+```text
 ╔════════════════════════════════════════════════════════════╗
 ║  Experiment: Observation-Centric Data Processing with Rust ║
 ╚════════════════════════════════════════════════════════════╝
@@ -80,7 +80,7 @@ To evaluate scalability, we extended the experiment to a 100×100 matrix with ra
 
 **Execution Output**:
 
-```
+```text
 Traditional sum: 5000129 (time: 77.5µs)
 SSCCS sum: 5000129 (time: 47.82075ms)
 ```
@@ -149,6 +149,7 @@ SSCCS sum: 5000129 (time: 47.82075ms)
 The experiment successfully validates that SSCCS can be applied to classic data‑processing tasks. While the overhead is currently higher than hand‑written loops, the architectural benefits—separation of concerns, dynamic constraints, and implicit iteration—make SSCCS a promising model for complex, adaptive computing scenarios. Further experiments should explore larger datasets, more complex projections, and performance optimizations.
 
 ---
+
 **Experiment Date**: 2026‑03‑31  
 **SSCCS PoC Version**: As of commit `?`  
 **Hardware**: Apple Silicon Mac (timings are indicative only)  

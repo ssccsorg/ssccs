@@ -110,7 +110,7 @@ The `instructions` module provides:
 
 #### Custom Instruction Format
 
-```
+```text
 OBSERVE (custom1):
   31    27 26    20 19    15 14  12 11     7 6      0
   ┌──────┬────────┬────────┬─────┬─────────┬────────┐

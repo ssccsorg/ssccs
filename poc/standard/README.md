@@ -62,7 +62,7 @@ All crates reside under `poc/crates/`. The experiment crates are organized under
 
 ## Dependency Graph
 
-```
+```text
 ssccs-core (no internal dependencies - absolute primitives)
     │
     ▼

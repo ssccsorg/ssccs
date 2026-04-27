@@ -79,6 +79,7 @@ Implement a **pass‑through verification phase** in the compiler: for each comp
 **Papers**: *ActivationReasoning* (Helff et al., ICLR 2026) and *LRG: Two‑Stage Neurosymbolic Framework* (ICLR 2026)
 
 **Core Insights**:  
+
 - **ActivationReasoning** enables compositional reasoning over latent features, bridging neural representations and symbolic reasoning.  
 - **LRG** brings formal logical verification into LLM workflows for compliance and policy QA.
 
@@ -93,6 +94,7 @@ Extend the `.ss` format’s observation rules with **logical constraints** expre
 **Papers**: *Auditable Rationales in Neuro‑Symbolic Systems* (EmergentMind) and *Delta‑State Algebra* (Academia, ICLR 2026)
 
 **Core Insights**:  
+
 - **Auditable Rationales** provide verifiable explanations of decision‑making using explicit symbolic rules.  
 - **Delta‑State Algebra** offers a formally verified foundation for transient state computation, enabling algebraic verification of state transitions.
 
@@ -114,6 +116,7 @@ The compiler should automatically generate a **provenance trace** for each obser
 
 **SSCCS Mapping – §3.3 (Field Composition) and §4.3 (Runtime)**:  
 VMAO’s **plan‑execute‑verify‑replan** cycle is a direct instance of field composition. In SSCCS terms:
+
 - **Plan** → selecting a `Field` or composition of `Fields`.
 - **Execute** → applying `Observation`.
 - **Verify** → a second `Field` that checks consistency.
@@ -127,6 +130,7 @@ Implement a **verification‑driven observation loop** in the runtime. For safet
 **Papers**: *AgentFlow* (Lambda.ai, ICLR 2026) and *KAIROS Benchmark* (Lambda.ai, ICLR 2026)
 
 **Core Insights**:  
+
 - **AgentFlow** trains a team of agents to plan and use tools in the flow of a task, using Flow‑GRPO (Group Refined Policy Optimization). A 7B model beats GPT‑4o on search, math, and science reasoning.  
 - **KAIROS** shows that LLMs fail under adversarial prompting but multi‑agent systems can exhibit “higher‑order structure” beyond mere aggregates.
 
@@ -143,10 +147,12 @@ Extend the `Field` abstraction with **behavioral types** that encode coordinatio
 ### 5.1 PLENA and EdgeCIM: Co‑Designed Systems for Memory Walls
 
 **Papers**:  
+
 - **PLENA**: Hardware‑software co‑designed system for long‑context inference (ICLR 2026).  
 - **EdgeCIM**: Co‑design for compute‑in‑memory accelerators targeting small language models (ICLR 2026).
 
 **Core Insights**:  
+
 - **PLENA** uses a flattened systolic array with native FlashAttention support to tackle memory walls.  
 - **EdgeCIM** uses a tile‑based mapping strategy that balances pipeline stages on CIM accelerators.
 
@@ -175,10 +181,12 @@ Replace the existing matrix with a roofline analysis and incorporate Spatz’s b
 ### 5.3 Optimas and Aetherling: Data‑Centric Compilation
 
 **Papers**:  
+
 - **Optimas** (ICLR 2026): Aligns local reward functions with global system performance.  
 - **Aetherling** (Huff et al., ICLR 2026): Compiles data‑parallel programs into statically scheduled, streaming hardware circuits.
 
 **SSCCS Mapping – Compiler cost models and `MemoryLayout`**:  
+
 - **Optimas** suggests that each `Field` should expose a local cost estimate (latency, energy), and the compiler must ensure alignment with the global objective (e.g., fastest end‑to‑end observation).  
 - **Aetherling**’s streaming circuit generation parallels SSCCS’s `MemoryLayout` for FPGA backends, reinforcing the “stationary data” model.
 
