@@ -58,13 +58,13 @@ where
 - $\beta$: memory bandwidth (data units per cycle from L1 to PEs)  
 - $Z$: register capacity (VRF size in bytes)
 
-Spatz introduces the fundamental **balance constraint**:
+Spatz introduces the fundamental balance constraint:
 
 $$
 C_F \cdot \beta \le \sqrt{Z}
 $$
 
-This condition is not an optimisation but a **requirement for sustained execution**. If violated, the system cannot supply data fast enough to keep compute units active, leading to pipeline stalls.
+This condition is not an optimisation but a requirement for sustained execution. If violated, the system cannot supply data fast enough to keep compute units active, leading to pipeline stalls.
 
 Additional empirical results from Spatz:
 
@@ -74,7 +74,7 @@ Additional empirical results from Spatz:
 
 ## 4. Execution Feasibility
 
-Execution in SSCCS must satisfy physical constraints. A `MemoryLayout` is **feasible** if:
+Execution in SSCCS must satisfy physical constraints. A `MemoryLayout` is feasible if:
 
 $$
 C_{F,O} \cdot \beta \le \sqrt{Z} \quad \text{for all Observations } O
@@ -86,7 +86,7 @@ If this condition is not met, the Observation stalls due to insufficient data su
 
 Therefore:
 
-- `MemoryLayout` is not merely a locality optimisation; it is a **constraint satisfaction problem**.
+- `MemoryLayout` is not merely a locality optimisation; it is a constraint satisfaction problem.
 - An SSCCS program (Scheme + set of Fields) is executable if and only if its layout satisfies the balance condition for all Observations.
 
 ## 5. Throughput and Performance Bound
@@ -97,7 +97,7 @@ $$
 T \le \min\left( C_F,\; \beta \cdot \rho \right)
 $$
 
-where $\rho$ is the **data reuse factor** induced by the `MemoryLayout` (how many times each loaded data unit is used before being evicted). This implies:
+where $\rho$ is the data reuse factor induced by the `MemoryLayout` (how many times each loaded data unit is used before being evicted). This implies:
 
 - Compute capacity alone does not determine performance.
 - Effective bandwidth, amplified by reuse, is equally critical.
@@ -120,9 +120,9 @@ If $Z$ exceeds this bound significantly:
 Thus:
 
 - State is not a performance resource beyond a threshold.
-- Optimal execution favours **minimal state**.
+- Optimal execution favours minimal state.
 
-In SSCCS terms, this validates **stateless or near‑stateless Observations** – projectors should not hold large internal buffers.
+In SSCCS terms, this validates stateless or near‑stateless Observations – projectors should not hold large internal buffers.
 
 ## 7. Data Movement Revisited
 
@@ -142,8 +142,8 @@ $$
 
 because Observations produce new data that must be consumed downstream (e.g., as input to another Field). Therefore:
 
-- Data movement is **not eliminated** – it is **transformed** into a structured dataflow.
-- The correct interpretation: execution is a **bandwidth‑constrained flow system**, not a zero‑movement system.
+- Data movement is not eliminated – it is transformed into a structured dataflow.
+- The correct interpretation: execution is a bandwidth‑constrained flow system, not a zero‑movement system.
 
 Spatz’s balance condition provides a way to predict when projection movement becomes a bottleneck.
 
@@ -156,20 +156,20 @@ Spatz confirms that:
 - Data‑level parallelism alone can saturate compute units.
 - Near‑linear scaling is achievable under balanced conditions (Spatz Fig. 10 shows near‑linear speedup on two cores).
 
-Therefore: parallelism is a **property of structure**, realised through **balanced dataflow**.
+Therefore: parallelism is a property of structure, realised through balanced dataflow.
 
 ## 9. Memory Model: Cache vs. Structured Layout
 
-Traditional architectures rely on caches, which infer locality dynamically through hardware heuristics. Spatz replaces this with a **compiler‑managed scratchpad memory (SPM)**.
+Traditional architectures rely on caches, which infer locality dynamically through hardware heuristics. Spatz replaces this with a compiler‑managed scratchpad memory (SPM).
 
 This implies a fundamental shift:
 
 - From runtime heuristics to compile‑time determinism.
-- From probabilistic locality to **guaranteed locality**.
+- From probabilistic locality to guaranteed locality.
 
-SSCCS extends this idea: `MemoryLayout` becomes a **declarative specification** of data placement. The compiler does not guess; it enforces adjacency.
+SSCCS extends this idea: `MemoryLayout` becomes a declarative specification of data placement. The compiler does not guess; it enforces adjacency.
 
-Thus: memory is not an optimisation layer but part of the **computational definition**.
+Thus: memory is not an optimisation layer but part of the computational definition.
 
 ## 10. Unified Formal Model
 
@@ -186,7 +186,7 @@ where
 - $O$ defines the observation operator (projector),
 - $H$ defines the physical hardware parameters $(C_F, \beta, Z)$.
 
-Execution is **valid** if:
+Execution is valid if:
 
 1. $C_{F,O} \cdot \beta \le \sqrt{Z}$ for all Observations $O$ (balance condition),
 2. Observations operate with minimal state ($Z \approx Z_{\text{opt}}$),
@@ -196,8 +196,8 @@ Execution is **valid** if:
 
 Combining SSCCS and Spatz yields a complete computational model:
 
-- **SSCCS** defines the *structure* of computation (what is computed, how data is related).
-- **Spatz** defines the *feasibility* of execution (whether the structure can be mapped to hardware without stalling).
+- SSCCS defines the *structure* of computation (what is computed, how data is related).
+- Spatz defines the *feasibility* of execution (whether the structure can be mapped to hardware without stalling).
 
 Thus:
 
@@ -215,14 +215,14 @@ This implies:
 
 The integration of SSCCS and Spatz leads to a holistic model of deterministic, efficient computation.
 
-**Key conclusions:**
+Key conclusions:
 
-- Computation is not instruction‑driven but **structure‑driven**.
-- Performance is not compute‑limited but **bandwidth‑limited**.
+- Computation is not instruction‑driven but structure‑driven.
+- Performance is not compute‑limited but bandwidth‑limited.
 - State is not a scaling resource beyond a physical threshold.
-- Data movement is **transformed, not eliminated** – it becomes a structured, bandwidth‑controlled flow.
+- Data movement is transformed, not eliminated – it becomes a structured, bandwidth‑controlled flow.
 
-**Final statement:**
+Final statement:
 
 > Computation is a structured dataflow process executed under strict physical constraints on bandwidth and storage.  
 > SSCCS provides the structural language.  
@@ -233,14 +233,16 @@ The integration of SSCCS and Spatz leads to a holistic model of deterministic, e
 
 This appendix re‑evaluates the Spatz paper in direct reference to specific sections of the current SSCCS whitepaper (docs.ssccs.org).
 
+::: {tbl-colwidths="[50, 50]"}
+
 ### A.1 Compiler‑Managed Memory vs. Hardware Caches
 
-| Spatz | SSCCS (whitepaper §5.2 “Memory Mapping Logic”) |
+| Spatz | SSCCS (§5.2 “Memory Mapping Logic”) |
 |-------|--------------------------------------------------|
 | Uses a scratchpad memory (SPM) where data placement is decided at compile time. | Defines a `MemoryLayout` abstraction that maps logical adjacency to physical addresses (row‑major, space‑filling curve). The compiler resolves layout offline. |
 | SPM gives predictable latency and energy because no cache misses occur. | The compiler’s layout guarantees that structurally adjacent Segments are placed in the same cache line or adjacent memory banks – effectively making the memory system behave like an SPM for observation. |
 
-**Insight confirmed:** Spatz shows that a compiler‑managed memory can achieve 95% FPU utilisation on a 2D workload while being energy‑efficient. This directly supports SSCCS’s decision to make memory layout a compile‑time, declarative step.
+Insight confirmed: Spatz shows that a compiler‑managed memory can achieve 95% FPU utilisation on a 2D workload while being energy‑efficient. This directly supports SSCCS’s decision to make memory layout a compile‑time, declarative step.
 
 ### A.2 The Efficiency of Small, Specialised Units
 
@@ -248,7 +250,7 @@ This appendix re‑evaluates the Spatz paper in direct reference to specific sec
 |-------|-------------------------------------------------|
 | A 2 KiB VRF is sufficient; large register files waste energy. | Observers (projectors) are lightweight; they do not hold large internal state. Observation is a stateless operation that reads from stationary Segments and produces a projection. |
 
-**Insight:** Spatz provides empirical evidence that “smaller can be better”. For SSCCS, this justifies keeping the observation runtime minimal – no heavy vector register files, no out‑of‑order logic. The projector can be a simple sequence of memory reads and arithmetic operations, sized exactly to the data path needed for the target hardware.
+Insight: Spatz provides empirical evidence that “smaller can be better”. For SSCCS, this justifies keeping the observation runtime minimal – no heavy vector register files, no out‑of‑order logic. The projector can be a simple sequence of memory reads and arithmetic operations, sized exactly to the data path needed for the target hardware.
 
 ### A.3 Data Movement as the Primary Bottleneck
 
@@ -256,9 +258,9 @@ This appendix re‑evaluates the Spatz paper in direct reference to specific sec
 |-------|--------------------------------------------------|
 | Explicitly cites the von Neumann bottleneck (one‑word‑at‑a‑time) as the main obstacle to energy efficiency. | Eliminates data movement by making all data stationary. The only movement is the projection result. |
 
-**Nuance added by Spatz:** Even with a stationary data model, the projection itself must be moved to where it is used (e.g., as input to another Field). Spatz’s balance condition $C_F \beta \le \sqrt{Z}$ suggests that SSCCS needs a similar **balance condition** for the observation operator. If the projector consumes more data per cycle than the memory hierarchy can supply, the observation will stall – violating deterministic execution.
+Nuance added by Spatz: Even with a stationary data model, the projection itself must be moved to where it is used (e.g., as input to another Field). Spatz’s balance condition $C_F \beta \le \sqrt{Z}$ suggests that SSCCS needs a similar balance condition for the observation operator. If the projector consumes more data per cycle than the memory hierarchy can supply, the observation will stall – violating deterministic execution.
 
-**Recommendation:** The SSCCS compiler should incorporate a performance/power model to warn when a `MemoryLayout` leads to an unbalanced observation (e.g., when the projection’s data footprint exceeds the local cache capacity).
+Recommendation: The SSCCS compiler should incorporate a performance/power model to warn when a `MemoryLayout` leads to an unbalanced observation (e.g., when the projection’s data footprint exceeds the local cache capacity).
 
 ### A.4 Data‑Level Parallelism Without ILP Complexity
 
@@ -266,7 +268,7 @@ This appendix re‑evaluates the Spatz paper in direct reference to specific sec
 |-------|----------------------------------------------------------|
 | Relies on DLP and avoids complex ILP (out‑of‑order, branch prediction). | Parallelism emerges from structural independence in the Scheme. No locks, no atomic operations. |
 
-**Insight:** Spatz demonstrates that DLP alone, when properly supported by a compiler‑managed memory, can achieve high efficiency. This matches SSCCS’s principle that concurrency is not programmed but derived from the Scheme’s relation graph. The whitepaper’s claim that “independent sub‑graphs can be observed concurrently” is validated by Spatz’s cluster of compact vector processors: each PE can independently process a sub‑graph without synchronisation, as long as data is laid out in the SPM.
+Insight: Spatz demonstrates that DLP alone, when properly supported by a compiler‑managed memory, can achieve high efficiency. This matches SSCCS’s principle that concurrency is not programmed but derived from the Scheme’s relation graph. The whitepaper’s claim that “independent sub‑graphs can be observed concurrently” is validated by Spatz’s cluster of compact vector processors: each PE can independently process a sub‑graph without synchronisation, as long as data is laid out in the SPM.
 
 ### A.5 The Trade‑off Between Flexibility and Specialisation
 
@@ -274,7 +276,9 @@ This appendix re‑evaluates the Spatz paper in direct reference to specific sec
 |-------|------------------------------------------|
 | Uses a programmable RISC‑V vector core instead of a fixed‑function accelerator, to retain flexibility for evolving AI models. | Uses a generic `Field` abstraction and a compiler that can retarget the same Scheme to different hardware (CPU, FPGA, PIM). |
 
-**Insight:** SSCCS’s approach – a structural blueprint (Scheme) plus a dynamic governance layer (Field) – is similar in spirit to Spatz’s programmable vector core. Both avoid locking into a fixed dataflow. However, Spatz quantifies the cost of flexibility: a processor‑based solution is about 30% more energy‑efficient than a scalar cluster, but still less efficient than a fully specialised accelerator. For SSCCS, this implies that the `Field` implementation should be **parametrisable** – e.g., a projector can be compiled to either a scalar loop, a vectorised loop, or a fixed‑function state machine, depending on the required flexibility.
+Insight: SSCCS’s approach – a structural blueprint (Scheme) plus a dynamic governance layer (Field) – is similar in spirit to Spatz’s programmable vector core. Both avoid locking into a fixed dataflow. However, Spatz quantifies the cost of flexibility: a processor‑based solution is about 30% more energy‑efficient than a scalar cluster, but still less efficient than a fully specialised accelerator. For SSCCS, this implies that the `Field` implementation should be parametrisable – e.g., a projector can be compiled to either a scalar loop, a vectorised loop, or a fixed‑function state machine, depending on the required flexibility.
+
+:::
 
 ### A.6 Concrete Recommendations for the SSCCS Whitepaper
 
@@ -287,6 +291,6 @@ This appendix re‑evaluates the Spatz paper in direct reference to specific sec
 
 ### A.7 Conclusion of the Mapping
 
-The Spatz paper provides **quantitative, real‑world evidence** that several core principles of SSCCS – compiler‑managed memory layout, lightweight observation units, reliance on data‑level parallelism, and the trade‑off between flexibility and specialisation – are not only theoretically sound but also practically achievable. The specific results (2 KiB VRF, 30% efficiency gain, 95% FPU utilisation) can be cited in the SSCCS whitepaper to ground its architectural claims. Conversely, Spatz’s balance equation and its treatment of data movement can help refine SSCCS’s own compiler heuristics and clarify the limits of “stationary data”.
+The Spatz paper provides quantitative, real‑world evidence that several core principles of SSCCS – compiler‑managed memory layout, lightweight observation units, reliance on data‑level parallelism, and the trade‑off between flexibility and specialisation – are not only theoretically sound but also practically achievable. The specific results (2 KiB VRF, 30% efficiency gain, 95% FPU utilisation) can be cited in the SSCCS whitepaper to ground its architectural claims. Conversely, Spatz’s balance equation and its treatment of data movement can help refine SSCCS’s own compiler heuristics and clarify the limits of “stationary data”.
 
 The two works are highly complementary: Spatz shows *how* to build an efficient vector cluster; SSCCS shows *what* structural description makes such a cluster usable for a wide range of computations without sacrificing determinism or auditability.
