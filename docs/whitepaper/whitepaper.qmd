@@ -785,6 +785,66 @@ $$
 
 If the resolution strategy is deterministic, $\Omega$ is a function; if probabilistic, it samples from a distribution defined by the transition weights $T$. Observation occurs when the structure and Field together create an instability—i.e., multiple admissible configurations. $\Omega$ deterministically selects one configuration and returns it as $P$. No data is moved during observation; Segments remain in place.
 
+### Field Evolution and Observation Transition
+
+Fields are mutable by design (see §3.3). This section extends mutability with explicit update rules that allow a Field to evolve over time or in response to events. When a Field updates, any previously computed projection becomes stale; a subsequent observation reflects the new Field state.
+
+For systems that require strict reproducible execution, only deterministic triggers (e.g., fixed‑rate temporal triggers or dependency chains) are permitted. Non‑deterministic triggers (external events, observed predicates that depend on runtime values) are allowed only when reproducibility is not required.
+
+An update rule consists of a trigger and a transformation that modifies the Field’s constraint predicate $C$ and transition matrix $T$:
+
+$$
+F' = \text{update}(F, \text{trigger}, \text{context}).
+$$
+
+The trigger types are summarised below; formal semantics and determinism properties are provided in [*-@sec-appendix-dynamic-field-evolution*].
+
+| Trigger Type | Description | Deterministic |
+|--------------|-------------|---------------|
+| **Temporal** | After a duration along the Scheme’s time axis (if present) | Yes (fixed rate) |
+| **Event** | External signal (hardware interrupt, network message) | No (unless source is deterministic) |
+| **Observed** | A projection satisfies a predicate immediately after observation | Depends on predicate |
+| **Dependency** | Another Field updates | Yes (if order is fixed) |
+| **Composite** | Logical combination (AND, OR, sequencing) | Depends on components |
+
+When a Field that participates in a composition (union, intersection, product) is updated, the composite Field is implicitly updated according to the composition rule (e.g., $F_A \cap F_B$ becomes $F_A' \cap F_B$). The runtime tracks versions of constituent Fields and recomposes lazily.
+
+Observation results are ephemeral (see §3.4). Caching with versioning is an implementation optimisation—it does not change semantics. The runtime ensures that each observation returns a result consistent with the current Field state; stale projections are transparently recomputed. The diagram below illustrates the dynamic observation cycle.
+
+```{python}
+#| label: fig-dynamic-observation
+#| fig-cap: "Dynamic observation cycle: a trigger initiates Field update, making previous projections stale"
+dot("""
+digraph DynamicObservation {
+    rankdir=LR;
+    node [shape=rect, style=rounded];
+    edge [arrowhead=normal];
+
+    Trigger [label="Trigger", shape=ellipse];
+    Field [label="Field F"];
+    Observation [label="Observation Ω"];
+    Projection [label="Projection P"];
+    Update [label="Field Update"];
+    Stale [label="Stale", style=dashed];
+
+    Trigger -> Field [label="raises"];
+    Field -> Observation [label="apply Ω"];
+    Observation -> Projection;
+    Field -> Update [label="evolve"];
+    Update -> Field [label="new F'"];
+    Projection -> Stale [label="if version changed", style=dashed];
+    Stale -> Observation [style=dotted, label="re‑observe"];
+}
+""")
+```
+
+Examples:
+
+- Temporal evolution, deterministic: A Scheme with a time axis. Field $F$ admits $x \in [0,10]$. Rule: `after(10s)` expands the interval by 2. After 10 seconds, a new observation yields $x \in [0,12]$.
+- Event-driven, non-deterministic: Temperature sensor Scheme. Field $F_0$ admits values > 30 (alarm). An external fire-suppression event triggers update to $F_1$ (threshold > 50). A later observation gives a refined alarm set.
+
+Detailed trigger semantics, versioning implementation notes, and compiler/runtime considerations are provided in [*-@sec-appendix-dynamic-field-evolution*].
+
 ### Structural Isolation
 
 Security properties emerge from the immutable structure rather than being added features. Since Segments cannot be modified, concurrent observations are naturally isolated. Formally, for any two disjoint sets of Segments $S_1$ and $S_2$,
@@ -800,7 +860,7 @@ where $\times$ denotes independent composition of projections. Every Segment and
 | Traditional Concept   | SSCCS Counterpart          | Shift                          |
 |-----------------------|----------------------------|--------------------------------|
 | Instruction fetch     | Not applicable             | No imperative control flow     |
-| Operand load          | Segment coordinates        | Data never moves; only observed|
+| Operand load          | Segment coordinates        | Stationary data move           |
 | Result store          | Projection (ephemeral)     | Results are events, not states |
 | Cache line fill       | Structural layout          | Locality from geometry         |
 | Lock acquisition      | Immutability               | No shared mutable state        |
@@ -1833,7 +1893,7 @@ field_header:
   signature: byte[64]         # Cryptographic signature (header+payload)
 ```
 
-### XIF Custom Instructions & Handshake Protocol
+### IF Custom Instructions & Handshake Protocol
 
 Efficient observation on RISC-V cores leverages the CORE-V eXtension Interface (XIF) to offload constraint evaluation to a tightly coupled coprocessor.
 
@@ -2122,6 +2182,179 @@ A one‑dimensional discrete axis representing integer coordinates. Adjacency is
 ### Graph
 
 A set of Segments with arbitrary connectivity expressed as graph adjacency. The axis may be categorical (node labels) or relational (edge references). The layout can be graph‑based (e.g., sorted by degree) or custom. This template supports graph algorithms, social networks, and dependency graphs.
+
+## Dynamic Field Evolution (Draft) {#sec-appendix-dynamic-field-evolution}
+
+This appendix provides formal semantics, definitions, and additional examples for the dynamic Field evolution mechanism introduced in §3.3.x. It includes implementation guidelines for versioning and caching, compiler and runtime considerations, and a sketch for extending the open format. While not required for understanding the core model, it offers concrete guidance for compiler and runtime implementors.
+
+### Formal Semantics of Triggers
+
+Let $\mathcal{F}$ be the set of all Fields, $\mathcal{S}$ the set of all Schemes, and $\mathcal{P}$ the set of all projections.
+
+#### Temporal Trigger
+
+A temporal trigger is defined with respect to a **time axis** declared in the Scheme. Let $t$ be the coordinate along that axis. The trigger `after(Δt)` fires when the following condition holds:
+
+$$
+t_{\text{now}} - t_{\text{last}} \ge \Delta t,
+$$
+
+where $t_{\text{last}}$ is the value of the time axis at the moment of the previous update (or at Field creation, if never updated). The update is applied **atomically** before the next observation.
+
+If the Scheme does **not** contain a time axis, temporal triggers are not permitted.
+
+#### Event Trigger
+
+An event trigger `on(event_id)` fires when the runtime receives an external event with the given identifier. The runtime defines the event delivery semantics (e.g., immediate, queued, priority). Because events originate outside the SSCCS model, they are generally non‑deterministic. For deterministic deployments, event triggers must be disabled or restricted to events that are themselves deterministic (e.g., a pre‑recorded trace).
+
+#### Observed Trigger
+
+An observed trigger `when(P > threshold, field)` is evaluated **immediately after** an observation produces projection $P$. If the predicate ($P > \text{threshold}$ in this example) evaluates to true, the Field is updated **before the next observation**. The predicate may refer only to the projection value and constants, not to mutable external state. This ensures that if the projection is deterministic, the trigger evaluation is deterministic as well.
+
+#### Dependency Trigger
+
+A dependency trigger `on_update(F_other)` fires when the specified Field `F_other` completes an update. The order of cascading updates follows a **topological order** of the dependency graph. Cycles are allowed only if they are broken by a separate convergence condition (e.g., after a fixed number of iterations). The runtime may detect cycles and apply a default resolution strategy (e.g., update only once per cycle).
+
+#### Composite Trigger
+
+Composite triggers combine two or more triggers via logical operators:
+
+- **AND** (`t1 AND t2`): fires when all constituent triggers have fired.
+- **OR** (`t1 OR t2`): fires when any constituent trigger has fired.
+- **Sequence** (`t1 ; t2`): fires first when `t1` fires, then when `t2` fires after that.
+
+Determinism of a composite trigger is the logical combination of determinism of its parts (AND/OR preserve determinism if all parts are deterministic; sequencing preserves determinism if the sequence is prescribed).
+
+### Versioning and Staleness (Implementation Notes)
+
+The whitepaper defines projections as ephemeral. Caching is an **optimisation**; the following notes describe a typical implementation approach but are not mandatory.
+
+#### Version Counter
+
+Each Field maintains a monotonically increasing version number. Initially `version = 0`. On every update (triggered evolution), `version += 1`.
+
+Cached projections are stored as a tuple `(value, field_version, scheme_hash)`. When an observation is requested:
+
+1. If a cached projection exists for the `(scheme, field)` pair and its `field_version` equals the current Field version, return the cached value.
+2. Otherwise, recompute the projection, store `(new_value, current_version, scheme_hash)`, and return it.
+
+This ensures that projections are always consistent with the current Field state, while avoiding recomputation when no update has occurred.
+
+#### Staleness Propagation for Composite Fields
+
+For a composite Field $F_c = F_1 \odot F_2$ (where $\odot$ is union, intersection, or product), the runtime maintains a **composite version** which is a function of the versions of its constituents:
+
+$$
+\text{version}(F_c) = \text{hash}(\text{version}(F_1), \text{version}(F_2), \odot)
+$$
+
+When an observation is performed on $F_c$, the runtime checks the composite version. If the composite version has changed since the last cache entry, the projection is recomputed by evaluating the composition rule on the current $F_1$ and $F_2$.
+
+Lazy recomposition is recommended: the composite Field’s internal structure is only rebuilt when an observation is actually requested, not eagerly after every constituent update.
+
+### Compiler Considerations
+
+#### Static Analysis of Update Rules
+
+The compiler can analyse update rules to:
+
+- **Determine determinism** – flag non‑deterministic triggers when the user requests a reproducible build.
+- **Detect impossible triggers** – e.g., temporal trigger on a Scheme without a time axis → error.
+- **Identify independent updates** – updates that do not affect each other can be executed in parallel.
+
+#### Code Generation for Versioned Observations
+
+The compiler generates observation code that accepts the current Field version as an implicit parameter. For example, in Rust‑like pseudocode:
+
+```rust
+fn observe(scheme: &Scheme, field: &Field, field_version: u64) -> Projection {
+    if let Some(cached) = CACHE.get((scheme.id(), field.id())) {
+        if cached.version == field_version {
+            return cached.value;
+        }
+    }
+    let value = compute_observation(scheme, field);
+    CACHE.insert((scheme.id(), field.id()), CachedEntry { value, version: field_version });
+    value
+}
+```
+
+#### Dependency Graph for Update Ordering
+
+The compiler extracts the dependency graph from `on_update(F_other)` triggers. It then computes a topological order and schedules updates accordingly. If a cycle is detected and not explicitly resolved by the user (e.g., with a `max_iterations` annotation), the compiler issues a warning and may fall back to a fixed‑point iteration strategy.
+
+### Runtime Considerations
+
+#### Trigger Monitoring
+
+A lightweight event loop or discrete‑event simulator (depending on deployment) monitors:
+
+- **Temporal triggers** – using a timer queue keyed by `(scheme, field, absolute_time)`.
+- **Event triggers** – subscribing to external event channels.
+- **Observed triggers** – evaluated after each observation, with updates queued for the next observation cycle.
+- **Dependency triggers** – propagated deterministically in topological order.
+
+#### Caching Policies
+
+Implementations may choose different caching strategies:
+
+- **No cache** – always recompute (simplest, but may be inefficient).
+- **Per‑Field LRU cache** – keep a bounded number of projections per Field.
+- **Global cache with epoch invalidation** – all projections are invalidated when any Field version changes (simple but may waste work).
+
+The choice does not affect correctness, only performance.
+
+#### Safety and Livelocks
+
+If a trigger causes a Field to update, and that update causes another trigger to fire immediately (e.g., a chain of dependency triggers), the runtime must prevent infinite loops. A typical mechanism is to limit the number of updates per observation cycle or to detect repeated updates without progress. The runtime may also provide a `max_updates` configuration parameter.
+
+### Relationship with the Open Format
+
+Future versions of the `.ss` schema may include a `triggers` block inside a Field definition. A possible syntax sketch:
+
+```yaml
+Field:
+  id: temperature_alarm
+  constraints: value > 30
+  triggers:
+    - type: after
+      dt: 10s
+      update: constraint = value > 50
+    - type: on_event
+      event: suppression_activated
+      update: constraint = value > 60
+  deterministic: false   # because non‑deterministic event
+```
+
+This would enable static verification and cross‑language portability of dynamic evolution logic.
+
+### Additional Examples
+
+#### Deterministic Temporal Expansion with Dependency
+
+```python
+# Scheme: 1D grid with time axis t
+F = Field(constraint={x in [0,10]})
+F.add_trigger(trigger=after(10s), update=lambda f: f.expand_constraint(2))
+
+F2 = Field(constraint={x in [0,5]})
+F2.add_trigger(trigger=on_update(F), update=lambda f: f.expand_constraint(1))
+```
+
+When `F` expands every 10 seconds, `F2` expands in response, creating a cascade of deterministic constraints.
+
+#### Observed‑Triggered Feedback (Deterministic)
+
+```python
+F = Field(constraint={x in [0,100]})
+F.add_trigger(
+    trigger=when(P > 90, field=F),
+    update=lambda f: f.set_constraint({x in [0,50]})
+)
+```
+
+After an observation yields a projection greater than 90, the Field tightens the constraint. Because the projection is deterministic, the entire feedback loop is deterministic.
+
 
 :::
 

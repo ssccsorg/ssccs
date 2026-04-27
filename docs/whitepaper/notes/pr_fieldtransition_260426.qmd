@@ -10,9 +10,9 @@
 
 The SSCCS whitepaper clearly defines:
 
-- Fields are mutable (`C(s)` constraints, `T(s₁,s₂)` transition weights).
-- Observation is `P = Ω(Σ, F)`.
-- Time is a coordinate axis.
+* Fields are mutable (`C(s)` constraints, `T(s₁,s₂)` transition weights).
+* Observation is `P = Ω(Σ, F)`.
+* Time is a coordinate axis.
 
 However, the paper lacks a **general mechanism** for how a Field evolves (not only over time but due to any trigger) and how such evolution **transitions the sequence of projections**. There is also no concrete model for expressing “Field change → re‑observation” in the programming model, compiler, or runtime.
 
@@ -28,8 +28,8 @@ $$
 F' = \text{update}(F, \text{trigger}, \text{context})
 $$
 
-- `trigger`: event that causes the change (e.g., time elapsed, external input, observation result, dependency).
-- `context`: additional parameters for the update (e.g., Δt, temperature change, user input).
+* `trigger`: event that causes the change (e.g., time elapsed, external input, observation result, dependency).
+* `context`: additional parameters for the update (e.g., Δt, temperature change, user input).
 
 ### 2.2 Types of Triggers
 
@@ -141,9 +141,9 @@ The whitepaper can show how this external event triggers Field update and transi
 
 ### 4.1 Compiler Additions
 
-1.  **Analyze update rules:** statically determine which triggers may cause Field changes.
-2.  **Generate version‑aware code:** add version fields to projection caches; re‑compute when version mismatches.
-3.  **Extend dependency graph:** include Field‑update → observation edges to ensure correct ordering in parallel execution.
+1. **Analyze update rules:** statically determine which triggers may cause Field changes.
+2. **Generate version‑aware code:** add version fields to projection caches; re‑compute when version mismatches.
+3. **Extend dependency graph:** include Field‑update → observation edges to ensure correct ordering in parallel execution.
 
 ### 4.2 Runtime Additions
 

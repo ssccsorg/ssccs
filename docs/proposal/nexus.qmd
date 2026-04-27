@@ -140,13 +140,13 @@ digraph NexusUnified {
         fillcolor="#f8f8f8";
         color="#999";
         fontsize=12;
-        
+
         planner [label="Planner\n(strategic action)", shape=box, style=filled, fillcolor="#d4f1f9"];
         executor [label="Executor\n(tool invoker)", shape=box, style=filled, fillcolor="#d4f1f9"];
         memory  [label="Evolving Memory", shape=box3d, style=filled, fillcolor="#fffacd"];
         verifier [label="Verifier\n(KG grounding +\ncontract check)", shape=box, style=filled, fillcolor="#d4f1f9"];
         generator [label="Generator\n(report &\nhypothesis chain)", shape=box, style=filled, fillcolor="#d4f1f9"];
-        
+
         // Intra-loop edges
         planner -> executor [label="tool call"];
         executor -> memory [label="result"];
@@ -223,6 +223,7 @@ done
 ```
 
 This automatically:
+
 - Chunks the documents,
 - Extracts entities and relationships,
 - Generates embeddings,
@@ -384,6 +385,7 @@ Phase 4 transforms Nexus into a **self‑improving research agent**. The core is
 ### 4.1 The Evolving Memory
 
 An append‑only `Evolving Memory` records:
+
 - The original user query.
 - Each planning step: proposed action, chosen tool (EdgeQuake query, external crawl, code search, etc.), and parameters.
 - Tool execution results.
@@ -394,6 +396,7 @@ An append‑only `Evolving Memory` records:
 ### 4.2 Planner: The Learnable Decision Maker
 
 The Planner is an LLM (initially any capable model, e.g., a 7B‑scale open model) that is the **only trainable component**. It must:
+
 - Decompose research questions into sub‑goals.
 - Select the appropriate tool (EdgeQuake's `hybrid` query, `local` for entity focus, `global` for themes, `crawl_external`, `search_kg` for code symbols via EdgeQuake, `run_python`, etc.).
 - Evaluate tool results and decide whether to continue, backtrack, or terminate.
@@ -403,6 +406,7 @@ Initially the Planner is a frozen instruct model. As research sessions complete,
 ### 4.3 Executor: Tool Orchestration
 
 Registered tools include:
+
 - `search_kg(query, mode)` – EdgeQuake query wrapper (various modes); now also retrieves code symbols from the unified graph (Phase 3b).
 - `crawl_external(url)` – fetch and upload to EdgeQuake.
 - `search_code_exact(query)` – fast exact‑match fallback against the SQLite adjunct code index.
@@ -416,6 +420,7 @@ Each tool call is logged into the Evolving Memory.
 ### 4.4 Verifier: KG‑Grounded Evaluation
 
 The Verifier:
+
 - Queries EdgeQuake (`hybrid` mode) for each candidate hypothesis step claim.
 - Computes a **support score**: fraction of steps that have at least one matching entity/relationship with a confidence above a threshold.
 - Computes a **novelty score**: for each hypothesis step, checks whether the proposed relationship already exists in EdgeQuake's graph. Novelty is calculated as the count of new KG edges that would be created if the hypothesis were added, weighted by entity distance. Steps that bridge previously disconnected entity clusters receive higher novelty.
@@ -429,6 +434,7 @@ The Generator operates under `contract.json` and follows a two‑stage approval 
 **Stage 1 – Draft generation:** The Generator produces an intermediate `_draft.qmd` containing the hypothesis chain, evidence table, gap analysis, and proposed experiments.
 
 **Stage 2 – Reporter cross‑check:** The Reporter agent compares `_draft.qmd` against all rules in `contract.json`:
+
 - Section "hypothesis_chain" must contain a Mermaid diagram.
 - Section "evidence_table" must list KG‑grounded evidence per step.
 - All citations must reference entries in the bibliography.
@@ -462,6 +468,7 @@ Each research session is persisted as a structured rollout for use in Flow‑GRP
 ```
 
 **Training dataset assembly:** A scheduled script (daily cron job or GitHub Action) runs `nexus/training/train_flow_grpo.py` which:
+
 1. Reads all unprocessed session files from `memory/`.
 2. Groups rollouts into batches (e.g., 8 trajectories per group).
 3. Computes the final reward for each rollout by blending:
@@ -478,6 +485,7 @@ This automated pipeline ensures the Planner continuously improves as more resear
 ### 4.7 Flow‑GRPO: Training the Planner On‑Policy
 
 **Training loop:**
+
 1. **Collect rollouts**: The rollout collector (4.6) appends each session to `memory/`. The final reward blends:
    - **KG support** (fraction of steps with EdgeQuake‑grounded evidence).
    - **Novelty** (count of new KG edges the hypothesis would introduce).
@@ -494,6 +502,7 @@ The planning decisions (e.g., "use global search for thematic question", "switch
 Whenever new documents are added (via `crawl_external` or new research notes committed), EdgeQuake's graph is updated. The Planner, trained on past research sessions, can immediately leverage the enriched graph to generate higher‑quality hypotheses.
 
 Implementation steps:
+
 1. Define `contract.json` (including `novelty` section).
 2. Develop agentic loop in Python (`nexus/core/agent.py`), wiring Planner→Executor→Verifier→Generator and memory.
 3. Implement tool functions using the Phase 1–3b infrastructure.
@@ -686,6 +695,7 @@ Write `nexus/tools/edgequake_query.py` as a minimal wrapper around EdgeQuake's R
 ### A.5 Set Up a Basic Agentic Loop Skeleton
 
 In `nexus/core/agent.py`, implement a simple loop that:
+
 - Takes a query.
 - Calls the Planner (for now, a hardcoded sequence of tool calls).
 - Calls Executor to run those tools (EdgeQuake query, dummy external crawl).
