@@ -916,8 +916,12 @@ def generate_docs_parallel(
     print()
     print(" Generating LLM-friendly markdown documentation...")
 
-    # Clean output directory
+    # Clean output directory (skip files starting with uppercase letter)
     for existing in glob.glob(os.path.join(output_dir, "*.md")):
+        basename = os.path.basename(existing)
+        if basename and basename[0].isupper():
+            # Keep files like README.md, LICENSE.md, etc.
+            continue
         os.remove(existing)
 
     # ------------------------------------------------------------------

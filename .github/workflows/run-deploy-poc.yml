@@ -51,7 +51,7 @@ jobs:
         run: |
           chmod +x run.sh
           ./run.sh --validation
-          python3 doc.py
+          python3 doc.py --output-dir ./
         shell: bash
 
       - name: Prepare poc agent artifacts
@@ -61,6 +61,8 @@ jobs:
             --exclude='target' \
             --exclude='.git' \
             --exclude='*.swp' \
+            --exclude='*.py' \
+            --exclude='*.sh' \
             --exclude='*.rs.bk' \
             poc/ _agent/poc/
 
