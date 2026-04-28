@@ -31,7 +31,7 @@ import sys
 # ===========================================================================
 # Constants
 # ===========================================================================
-DEFAULT_OUTPUT_DIR = os.path.join(".", "target", "llms-docs")
+DEFAULT_OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "_llms")
 IGNORE_DIRS = {"target", ".git", "node_modules"}
 DOC_ARGS = "--no-deps"  # hardcoded, matching doc.sh line 143
 
