@@ -6,8 +6,9 @@ on:
       - 'poc/Cargo.*'
       - 'poc/**/*.rs'
       - 'poc/rust-toolchain*'
-      - '.github/workflows/check-poc.yml'
+      - '.github/workflows/run-deploy-poc.yml'
       - 'poc/run.sh'
+      - 'poc/doc.py'
   pull_request:
     branches:
       - main
@@ -15,8 +16,9 @@ on:
       - 'poc/Cargo.*'
       - 'poc/**/*.rs'
       - 'poc/rust-toolchain*'
-      - '.github/workflows/check-poc.yml'
+      - '.github/workflows/run-deploy-poc.yml'
       - 'poc/run.sh'
+      - 'poc/doc.py'
   workflow_dispatch:
 
 permissions:
@@ -28,7 +30,7 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  check-poc:
+  build-poc:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -44,11 +46,12 @@ jobs:
         with:
           workspaces: "poc"
 
-      - name: Run Unified Validation Script
+      - name: Run Script (lint/build/test/doc)
         working-directory: ./poc
         run: |
           chmod +x run.sh
           ./run.sh --validation
+          python3 doc.py
         shell: bash
 
       - name: Prepare poc agent artifacts

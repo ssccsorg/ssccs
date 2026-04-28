@@ -24,7 +24,6 @@ import glob
 import json
 import os
 import re
-import shutil
 import subprocess
 import sys
 
@@ -40,6 +39,9 @@ DOC_ENV = os.environ.copy()
 DOC_ENV["RUSTC_BOOTSTRAP"] = "1"
 DOC_ENV["RUSTDOCFLAGS"] = "-Z unstable-options --output-format json"
 
+# Source file patterns to monitor for freshness
+_SOURCE_PATTERNS = (".rs", "Cargo.toml", "Cargo.lock")
+
 
 # ===========================================================================
 # Utilities
@@ -54,6 +56,65 @@ def resolve_abs(path: str) -> str:
 def eprint(*args, **kwargs):
     """Print to stderr."""
     print(*args, file=sys.stderr, **kwargs)
+
+
+# ===========================================================================
+# Freshness check — avoid redundant cargo doc if JSON outputs are up-to-date
+# ===========================================================================
+def _latest_source_mtime(abs_dir: str) -> float:
+    """Return the latest modification time of any tracked source file under abs_dir."""
+    latest = 0.0
+    for dirpath, dirnames, filenames in os.walk(abs_dir):
+        dirnames[:] = [d for d in dirnames if d not in IGNORE_DIRS]
+        for fn in filenames:
+            # str.endswith() accepts a tuple of suffixes natively
+            if fn.endswith(_SOURCE_PATTERNS):
+                fp = os.path.join(dirpath, fn)
+                try:
+                    mtime = os.path.getmtime(fp)
+                    if mtime > latest:
+                        latest = mtime
+                except OSError:
+                    continue
+    return latest
+
+
+def _is_docs_fresh(ws: dict) -> bool:
+    """Check whether existing rustdoc JSON output is up-to-date vs source files.
+
+    Returns True when *every* expected JSON file for the crate(s) in *ws*
+    exists **and** has a modification time >= the newest source file mtime.
+    This lets us skip the expensive ``cargo doc`` invocation entirely.
+
+    For workspaces, we only check the explicitly listed member crates so that
+    freshly-updated dependency JSONs (from a prior ``cargo doc``) do not
+    accidentally make us think we are fresh when our own source changed.
+    """
+    abs_dir = ws["abs_dir"]
+    crate_names = ws.get("crate_names", [])
+    if not crate_names:
+        return False
+
+    json_dir = os.path.join(abs_dir, "target", "doc")
+    expected_jsons = [os.path.join(json_dir, f"{name}.json") for name in crate_names]
+
+    # Every expected file must exist
+    for jp in expected_jsons:
+        if not os.path.isfile(jp):
+            return False
+
+    # Latest source mtime
+    src_mtime = _latest_source_mtime(abs_dir)
+    if src_mtime == 0.0:
+        return False  # no source files at all — treat as stale
+
+    # Earliest JSON mtime among expected outputs
+    try:
+        json_mtime = min(os.path.getmtime(jp) for jp in expected_jsons)
+    except OSError:
+        return False
+
+    return json_mtime >= src_mtime
 
 
 # ===========================================================================
@@ -737,25 +798,38 @@ def discover_crates(root_dir: str) -> list[dict]:
 def _run_cargo_doc_single(ws: dict) -> list[str]:
     """Run cargo doc --no-deps for a single workspace/crate.
 
+    First checks whether existing rustdoc JSON output under ``target/doc/``
+    is already fresh (newer than all source files).  If so, **skips** the
+    ``cargo doc`` invocation entirely and returns the existing JSON paths
+    directly — this avoids re-running rustdoc when the build artifacts from
+    ``run.sh`` (or a prior doc generation) are still valid.
+
     Returns list of absolute paths to generated JSON files.
     Returns empty list on failure.
     """
     abs_dir = ws["abs_dir"]
     is_workspace = ws["is_workspace"]
     rel_dir = ws["rel_dir"]
+    prefix = f"  [{rel_dir}]"
 
-    json_target = os.path.join(abs_dir, "target", "doc-json")
-    if os.path.exists(json_target):
-        shutil.rmtree(json_target)
+    # ------------------------------------------------------------------
+    # Freshness check — avoid redundant cargo doc when JSON outputs exist
+    # and are newer than all tracked source files.
+    # ------------------------------------------------------------------
+    if _is_docs_fresh(ws):
+        json_dir = os.path.join(abs_dir, "target", "doc")
+        json_files = sorted(glob.glob(os.path.join(json_dir, "*.json")))
+        if json_files:
+            crate_list = ws.get("crate_names", [])
+            print(f"{prefix} rustdoc JSON is fresh ({len(crate_list)} crate(s)) — skipping cargo doc")
+            return json_files
+        # Fall-through: glob returned nothing despite _is_docs_fresh saying
+        # every expected file exists.  Should not happen, but be defensive.
 
     cmd = ["cargo", "doc"]
     cmd.extend(DOC_ARGS.split())
     if is_workspace:
         cmd.append("--workspace")
-    cmd.extend(["--target-dir", json_target])
-
-    # Indent output so parallel runs don't jumble
-    prefix = f"  [{rel_dir}]"
 
     try:
         result = subprocess.run(
@@ -778,7 +852,7 @@ def _run_cargo_doc_single(ws: dict) -> list[str]:
         eprint(f"{prefix} ERROR: cargo not found. Is Rust installed?")
         raise  # fatal — let main() handle it
 
-    json_dir = os.path.join(json_target, "doc")
+    json_dir = os.path.join(abs_dir, "target", "doc")
     if not os.path.isdir(json_dir):
         print(f"{prefix} No JSON output directory found.")
         return []
@@ -792,14 +866,29 @@ def _run_cargo_doc_single(ws: dict) -> list[str]:
 
 
 def _convert_single_json(json_file: str, output_dir: str,
-                         known_names: set[str]) -> str | None:
-    """Convert a single JSON file to Markdown, returning the output path or None."""
+                         known_names: set[str],
+                         ws_prefix: str = "") -> str | None:
+    """Convert a single JSON file to Markdown, returning the output path or None.
+
+    When *ws_prefix* is non-empty (e.g. ``"standard/crates/core"``), the
+    output filename is prefixed with the sanitised workspace path so that
+    crates with identical names in different workspaces do not collide::
+
+        {sanitised_prefix}-{crate_name}.md
+
+    The separator ``-`` was chosen because the project's crate names use
+    underscores (``_``), making it unambiguous to strip the prefix later.
+    """
     crate_name = os.path.splitext(os.path.basename(json_file))[0]
 
     if crate_name not in known_names:
         return None  # skip dependency
 
-    out_md = os.path.join(output_dir, f"{crate_name}.md")
+    if ws_prefix:
+        safe_prefix = ws_prefix.strip("/").replace("/", "_")
+        out_md = os.path.join(output_dir, f"{safe_prefix}-{crate_name}.md")
+    else:
+        out_md = os.path.join(output_dir, f"{crate_name}.md")
 
     if convert_file(json_file, out_md):
         return out_md
@@ -839,6 +928,7 @@ def generate_docs_parallel(
     print()
 
     all_json_files: list[str] = []
+    json_file_to_ws: dict[str, str] = {}  # json path → workspace rel_dir
     worker_count = max_workers or min(len(workspaces), os.cpu_count() or 4)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=worker_count) as executor:
@@ -855,6 +945,8 @@ def generate_docs_parallel(
                 sys.exit(1)
 
             if json_files:
+                for jf in json_files:
+                    json_file_to_ws[jf] = ws["rel_dir"]
                 all_json_files.extend(json_files)
                 print(f"  ✓ [{ws['rel_dir']}] generated {len(json_files)} JSON file(s)")
             else:
@@ -878,7 +970,8 @@ def generate_docs_parallel(
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=worker_count) as executor:
         future_map = {
-            executor.submit(_convert_single_json, jf, output_dir, all_known_names): jf
+            executor.submit(_convert_single_json, jf, output_dir,
+                            all_known_names, json_file_to_ws.get(jf, "")): jf
             for jf in all_json_files
         }
         for future in concurrent.futures.as_completed(future_map):
@@ -898,12 +991,6 @@ def generate_docs_parallel(
                     pass  # silently skip deps
                 else:
                     print(f"  ✗ conversion failed for {json_file}")
-
-    # Clean up all JSON target directories
-    for ws in workspaces:
-        json_target = os.path.join(ws["abs_dir"], "target", "doc-json")
-        if os.path.exists(json_target):
-            shutil.rmtree(json_target)
 
     generated_files.sort()
     return generated_files, all_known_names
@@ -927,6 +1014,31 @@ def merge_markdown_files(generated_files: list[str], output_path: str):
             merged.write("\n\n")
 
     print(f" Merged document: {output_path}")
+
+
+# ===========================================================================
+# Helper: extract the crate-name suffix from a potentially prefixed filename
+# ===========================================================================
+def _crate_basename_stem(bn: str) -> str:
+    """Return the crate-name portion of a (possibly workspace-prefixed) markdown filename.
+
+    Crate names in this project use only underscores (``_``), and the
+    workspace prefix is separated from the crate name by ``-``.  This
+    function splits on the **last** ``-`` (safe because crate names do
+    not contain hyphens) and returns the part after it.
+
+    Examples::
+
+        "standard_crates_core-ssccs_core.md"    → "ssccs_core"
+        "baremetal_riscv-ssccs_baremetal_riscv.md" → "ssccs_baremetal_riscv"
+        "ssccs_core.md"                         → "ssccs_core"
+
+    When there is no prefix (no ``-`` before ``.md``), the entire stem
+    is returned.
+    """
+    stem = bn[:-3] if bn.endswith(".md") else bn
+    parts = stem.rsplit("-", 1)
+    return parts[-1]
 
 
 # ===========================================================================
@@ -964,11 +1076,12 @@ def generate_llms_txt(output_dir: str, generated_files: list[str],
         bn = os.path.basename(f)
         if bn in skip_basenames:
             continue
-        if bn.startswith("ssccs_baremetal_") or bn.startswith("crate_"):
+        stem = _crate_basename_stem(bn)
+        if stem.startswith("ssccs_baremetal_") or stem.startswith("crate_"):
             bm_files.append(f)
-        elif bn.startswith("ssccs_"):
+        elif stem.startswith("ssccs_"):
             core_files.append(f)
-        elif bn.startswith("experiment_"):
+        elif stem.startswith("experiment_"):
             exp_files.append(f)
 
     with open(llms_txt, "w", encoding="utf-8") as out:
@@ -1042,11 +1155,12 @@ def generate_index_md(output_dir: str, generated_files: list[str],
         bn = os.path.basename(f)
         if bn in skip_basenames:
             continue
-        if bn.startswith("ssccs_baremetal_") or bn.startswith("crate_"):
+        stem = _crate_basename_stem(bn)
+        if stem.startswith("ssccs_baremetal_") or stem.startswith("crate_"):
             bm_files.append(f)
-        elif bn.startswith("ssccs_"):
+        elif stem.startswith("ssccs_"):
             core_files.append(f)
-        elif bn.startswith("experiment_"):
+        elif stem.startswith("experiment_"):
             exp_files.append(f)
 
     with open(index_md, "w", encoding="utf-8") as out:
