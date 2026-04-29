@@ -66,12 +66,16 @@ jobs:
             --exclude='*.rs.bk' \
             poc/ _agent/poc/
 
-      - name: Upload poc agent artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: poc-agent
-          path: _agent
-          retention-days: 7
+      - name: Upload agent artifects to R2-S3
+        if: ${{ github.actor != 'nektos/act' }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.CFR2_USR_API_S3_ACCID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CFR2_USR_API_S3_SECKEY }}
+        run: |
+          aws s3 sync _agent/poc s3://ssccs-nexus-af/ssccs/poc/ \
+            --endpoint-url ${{ secrets.CFR2_USR_API_HOST }} \
+            --delete
+        shell: bash
 
       - name: Trigger Nexus Build
         uses: peter-evans/repository-dispatch@v4

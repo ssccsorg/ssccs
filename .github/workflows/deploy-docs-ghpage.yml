@@ -119,13 +119,16 @@ jobs:
           mkdir -p _agent/docs
           cp -r docs/_llms _agent/docs/
 
-      - name: Upload agent artifact
+      - name: Upload agent artifects to R2-S3
         if: ${{ github.actor != 'nektos/act' }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: docs-agent
-          path: _agent
-          retention-days: 7
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.CFR2_USR_API_S3_ACCID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CFR2_USR_API_S3_SECKEY }}
+        run: |
+          aws s3 sync _agent/docs s3://ssccs-nexus-af/ssccs/docs \
+            --endpoint-url ${{ secrets.CFR2_USR_API_HOST }} \
+            --delete
+        shell: bash
 
       - name: Trigger Nexus Build
         uses: peter-evans/repository-dispatch@v4
