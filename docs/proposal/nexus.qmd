@@ -2,6 +2,12 @@
 title: "Project Nexus"
 subtitle: Unified Knowledge Pipeline with Learnable Agentic Research
 date: last-modified
+format:
+  html: default
+metadata-files:
+  - ../_include/author.yml
+abstract: |
+  Project Nexus unifies everything into a single, queryable knowledge pipeline, and transforms it into a self‑improving agentic research system. At its core is EdgeQuake, a Rust‑native Graph‑RAG engine that decomposes documents into structured knowledge and supports six distinct query modes. An artifact ingestion pipeline ensures strong consistency and decouples CI/CD from the KG. The agentic loop (Planner, Executor, Verifier, Generator) orchestrates research activity, grounded in KG evidence and governed by a contract schema. Finally, a Flow‑GRPO learning loop refines the Planner based on research outcomes and human feedback.
 ---
 
 ```{python}
@@ -13,113 +19,13 @@ date: last-modified
 
 ## Executive Summary
 
-The SSCCS project has three parallel, disconnected assets:
-
-- Rich documentation – whitepaper, research notes, proposals, governance (Quarto + Markdown).
-- Rust PoC codebase – 30+ crates, 12+ experiments, bare‑metal RISC‑V simulation.
-- External knowledge – RISC‑V specs, OpenHW docs, arXiv papers, blog posts.
-
-Currently, none of these talk to each other. A researcher cannot ask: *“Which experiment validates the `Observation` primitive described in Whitepaper §3.4?”* or *“What external RISC‑V documents discuss XIF, and how do they relate to our hardware‑mapping crate?”*
-
-**Project Nexus** unifies everything into a single, queryable knowledge pipeline, and transforms it into a self‑improving agentic research system.
-
-Nexus now incorporates three breakthrough paradigms:
-
-| Paradigm | Source | Core Insight | Application to Nexus |
-|----------|--------|--------------|----------------------|
-| In‑the‑Flow Agentic Optimization | AgentFlow (arXiv:2510.05592) | A trainable Planner inside a multi‑turn agentic loop, optimized via Flow‑GRPO to learn long‑horizon strategies from sparse outcome rewards. | Nexus’ Planner learns to decompose research questions, select tools, and form hypothesis chains that improve over time through reinforcement learning. |
-| Hypothesis‑Driven Discovery | HypoChainer (arXiv:2507.17209) | LLMs + Knowledge Graphs + Human Experts collaboratively construct hypothesis chains – structured reasoning paths validated against KG evidence. | Nexus generates testable hypotheses from document‑code gaps, validates them against crawled external KGs, and prioritizes validation candidates. |
-| Contract‑Governed Multi‑Agent Generation | Story2Proposal (arXiv:2601.20833) | Specialized agents (Architect, Writer, Refiner, Renderer) operate under a persistent shared contract that tracks structural obligations and visual artifacts. | Nexus output agents (Generator, Reporter) share a contract state – ensuring all generated reports satisfy structural, citation, and evidence constraints. |
-
-**Synthesis:** Nexus becomes a contract‑governed, hypothesis‑driven, **learning** agentic system for SSCCS – not just a passive knowledge base, but an active research assistant that:
-
-- Ingests internal docs + code + external sources into a unified KG.
-- Constructs hypothesis chains from detected gaps and contradictions.
-- Validates hypotheses against the KG and external evidence.
-- Generates structured research artifacts under a persistent contract.
-- **Continuously improves its planning strategy** via on‑policy reinforcement learning from research outcomes.
-
-All phases use [EdgeQuake](https://github.com/raphaelmansuy/edgequake) as the integrated knowledge engine – a high‑performance Graph‑RAG framework in Rust that provides **native graph and vector storage, entity extraction, relationship mapping, hybrid query modes, and a REST API** in a single stack. No separate vector database or KG tool is needed. Build integration stays minimal via `/api/v1/documents/upload` and `/api/v1/query`.
-
----
-
-## Current Assets & What We Reuse
-
-| Asset | Location | Reuse in Nexus |
-|-------|----------|----------------|
-| Quarto project | `docs/` | Already renders HTML, PDF, GFM. We add `llms-txt: true`. |
-| Citation system | `_include/references.bib` + CSL | Provides structured citation metadata. |
-| Cross‑reference syntax | `@fig-`, `@eq-`, `@sec-` | Quarto resolves within documents; we extend to cross‑document links. |
-| `search.json` | `docs/_site/search.json` | Already has titles, breadcrumbs, excerpts – served to EdgeQuake as an ingestion source. |
-| Rust workspace | `poc/standard/`, `poc/baremetal_riscv/` | 30+ crates, 12+ experiments – rich symbol set. |
-| Build script | `docs/build.py` | Handles parallel rendering, caching, C2PA signing – we add Nexus steps as post‑render hooks. |
-
-No new file formats, no rewriting existing content.
-
----
-
-## Implementation Foundation: EdgeQuake
-
-**EdgeQuake** ([GitHub](https://github.com/raphaelmansuy/edgequake)) is an all‑in‑one Graph‑RAG framework written in Rust. It implements the LightRAG algorithm: documents are decomposed into a knowledge graph of entities and relationships, and at query time the system traverses both vector space and graph structure. It ships as a single Docker Compose stack with PostgreSQL (pgvector + Apache AGE) and a built‑in React frontend.
-
-- **Unified KG + vector store** – No need for separate ChromaDB or SwarmVault. Entity extraction, relationship mapping, embedding, and graph storage are all handled by one service.
-- **6 Query Modes** – `naive`, `local`, `global`, `hybrid`, `mix`, `bypass` give the Planner and Verifier different retrieval strategies for different research questions.
-- **Production‑ready REST API** – `/api/v1/documents/upload` and `/api/v1/query` endpoints serve as the primary tool interface for the Nexus agent.
-- **Knowledge Injection** – Domain glossaries, acronyms, and synonym mappings (available from v0.8.0) allow us to inject our SSCCS‑specific terminology into the graph.
-- **Custom Entity Configuration** – Enables domain‑specific entity types for the hardware/architecture domain (v0.9.0+).
-- **Built‑in UI** – Optional, but helpful for exploring the graph during early adoption.
-- **MCP Server** – Exposes ingest and query capabilities as tools for AI coding assistants, future‑proofing agent integration.
-- **High performance** – 5× faster queries and 2.4× faster processing than traditional RAG.
-
-**Optional: graphify‑rs for code‑only deep dives**
-`graphify-rs` (Rust) can still be used on the `poc/` directory to obtain a fast, AST‑only code graph (no LLM required). Its output can be ingested into EdgeQuake as additional documents or kept as a separate tool called by the Verifier.
-
-All concrete LLM vendor names are avoided; EdgeQuake supports OpenAI, Anthropic, Mistral, Ollama, and many others. The default development mode can run entirely locally via Ollama.
-
----
-
-## Synthesis of AgentFlow + HypoChainer + Story2Proposal into Nexus
-
-This section maps insights from all three papers onto the Nexus architecture, with a special focus on the new **agentic learning loop** and how EdgeQuake serves as the unified backend.
-
-### From AgentFlow (Learnable Planner + Flow‑GRPO)
-
-| AgentFlow Concept | Nexus Implementation |
-|-------------------|----------------------|
-| Planner (action proposer) | `Planner` agent: decomposes research questions, selects tools (EdgeQuake query, external crawl, code analysis), assembles hypothesis chains. |
-| Executor (tool invoker) | `Executor`: calls EdgeQuake API (query modes) and other tools like `crawl_external` or `run_python`. Results are recorded in the `Evolving Memory`. |
-| Verifier (state evaluator) | `Verifier`: queries EdgeQuake (`hybrid` mode) to ground each hypothesis step against the KG and checks contract compliance. Produces a continuation/termination signal. |
-| Generator (final answer) | `Generator`: produces the final research report, hypothesis chain, and recommended experiments under the persistent contract. |
-| Evolving Memory | A deterministic, append‑only record of the full research trajectory. |
-| Flow‑GRPO | On‑policy RL that broadcasts the final outcome reward to every planning step, decomposing multi‑turn RL into single‑turn updates. |
-| Group‑normalized advantages | Stabilizes Planner training across parallel research trajectories. |
-
-### From HypoChainer (LLM + KG + Human Collaboration)
-
-| HypoChainer Concept | Nexus Implementation |
-|---------------------|----------------------|
-| Contextual Exploration | Provided by EdgeQuake’s hybrid query and the `Executor`’s ability to switch between local/global graph views. |
-| Hypothesis Chains | The `Planner` constructs chains; the `Verifier` grounds each step against entities and relationships found via EdgeQuake. |
-| KG‑Grounded Validation | Each hypothesis step must be supported by at least one entity/relationship retrieved from EdgeQuake’s graph. |
-| RAG with Local‑Only Mode | All Nexus‑managed data (internal docs + crawled external docs) resides in EdgeQuake, so local mode is the default. The `crawl_external` tool adds fresh sources on demand. |
-| Hypothesis‑Aligned Entities | The `Verifier` uses EdgeQuake’s `local` or `hybrid` query to find entities semantically aligned with a given hypothesis claim. |
-| UpSet Plot for Coverage | The Verification UI visualizes which documents/code symbols satisfy each hypothesis – identifying gaps. |
-
-### From Story2Proposal (Contract‑Governed Multi‑Agent Framework)
-
-| Story2Proposal Concept | Nexus Implementation |
-|------------------------|----------------------|
-| Persistent Shared Contract | `contract.json` defines required evidence, report sections, and quality thresholds. |
-| Specialized Agents | Nexus adopts: Architect→Planner, Writer→Generator, Refiner→Verifier (feedback loop), Renderer→Reporter. |
-| Generate–Evaluate–Adapt Loop | The Planner‑Executor‑Verifier‑Generator loop with Flow‑GRPO feedback implements continuous generation, evaluation, and policy adaptation. |
-| Section‑Level Obligations | Generated reports must contain specific citations, code references, and external links as mandated by the contract. |
-| Deterministic Rendering | The Reporter outputs validated `.qmd` files ready for Quarto compilation. |
+Project Nexus unifies everything into a single, queryable knowledge pipeline, and transforms it into a self‑improving agentic research system.
 
 ### Unified Architecture Diagram
 
 ```{python}
 #| label: fig-nexus-unified-architecture
-#| fig-cap: "Unified Nexus Architecture with Agentic Research Loop, EdgeQuake Graph‑RAG, and Flow‑GRPO feedback"
+#| fig-cap: "Unified Nexus Architecture"
 #| echo: false
 dot("""
 digraph NexusUnified {
@@ -133,715 +39,367 @@ digraph NexusUnified {
     user [label="Researcher Query", shape=plaintext, fontsize=12];
     contract [label="contract.json", shape=note, style=filled, fillcolor="#e6f2ff", fontsize=11];
 
-    // Agentic Loop subgraph
+    // Artifact Pipeline
+    subgraph cluster_pipeline {
+        label="Artifact Pipeline";
+        style=dashed; color="gray";
+        r2 [label="Cloudflare R2\nssccs-nexus-af", shape=cylinder, style=filled, fillcolor="#ffe4e1"];
+        worker [label="Sync Worker\n/sync/:engine", shape=box, style=filled, fillcolor="#e6ffe6"];
+    }
+
+    // Agentic Loop
     subgraph cluster_loop {
         label="Agentic Research Loop";
         style=filled;
         fillcolor="#f8f8f8";
         color="#999";
-        fontsize=12;
-
-        planner [label="Planner\n(strategic action)", shape=box, style=filled, fillcolor="#d4f1f9"];
-        executor [label="Executor\n(tool invoker)", shape=box, style=filled, fillcolor="#d4f1f9"];
+        planner [label="Planner", shape=box, style=filled, fillcolor="#d4f1f9"];
+        executor [label="Executor", shape=box, style=filled, fillcolor="#d4f1f9"];
         memory  [label="Evolving Memory", shape=box3d, style=filled, fillcolor="#fffacd"];
-        verifier [label="Verifier\n(KG grounding +\ncontract check)", shape=box, style=filled, fillcolor="#d4f1f9"];
-        generator [label="Generator\n(report &\nhypothesis chain)", shape=box, style=filled, fillcolor="#d4f1f9"];
-
-        // Intra-loop edges
-        planner -> executor [label="tool call"];
-        executor -> memory [label="result"];
-        memory -> planner [label="state"];
-        memory -> verifier [label="intermediate output"];
-        verifier -> memory [label="feedback /\ncontinue"];
-        verifier -> generator [label="terminate?"];
+        verifier [label="Verifier", shape=box, style=filled, fillcolor="#d4f1f9"];
+        generator [label="Generator", shape=box, style=filled, fillcolor="#d4f1f9"];
+        planner -> executor; executor -> memory; memory -> planner; memory -> verifier;
+        verifier -> memory; verifier -> generator [label="terminate?"];
     }
 
-    // External engines
-    edgequake [label="EdgeQuake Graph‑RAG\n(REST API)", shape=cylinder, style=filled, fillcolor="#ffe4e1", fontsize=11];
-    flowgrpo [label="Flow‑GRPO", shape=box, style=filled, fillcolor="#e6ffe6", fontsize=11];
+    edgequake [label="EdgeQuake\n(RAG+Graph+REST API)", shape=cylinder, style=filled, fillcolor="#ffe4e1"];
+    flowgrpo [label="Flow‑GRPO", shape=box, style=filled, fillcolor="#e6ffe6"];
 
-    // Connections to and from loop
+    // Connections
     user -> planner;
-    contract -> planner [constraint=true];
-    contract -> generator [style=dashed, label="constrains"];
+    contract -> planner; contract -> generator [style=dashed];
 
-    executor -> edgequake [label="query / crawl / code", constraint=false];
-    verifier -> edgequake [label="grounding", constraint=false];
+    executor -> edgequake; verifier -> edgequake;
+    generator -> user;
 
-    generator -> user [label="report"];
+    r2 -> worker [label="aws s3 sync"]; worker -> edgequake [label="sync"];
+    executor -> r2 [style=dotted, label="upload external docs"];
+
     generator -> flowgrpo [label="final reward"];
     flowgrpo -> planner [label="policy update"];
-    generator -> contract [dir=both, style=dashed, label="validates"];
+    generator -> contract [dir=both, style=dashed];
 
-    // Layout hints
     { rank=same; user; contract; }
     { rank=same; edgequake; flowgrpo; }
-    edgequake -> flowgrpo [style=invis]; // align horizontally
 }
 """)
 ```
 
-The Planner is the only trainable component. All other modules (Executor, Verifier, Generator) use frozen LLMs with structured prompts. EdgeQuake serves as the primary knowledge retrieval and grounding engine.
 
----
+More than a passive knowledge base, it is a self‑improving agentic research infrastructure that:
 
-## Phase 1: Foundation – Cross‑Document Linking & EdgeQuake Ingestion
+- Ingests documentation, code symbols, and external sources into a unified knowledge graph (KG).
+- Detects conceptual gaps and contradictions across these domains.
+- Constructs and validates hypothesis chains, each step grounded in graph‑based evidence.
+- Generates contract‑compliant research artifacts (reports, experiment proposals, structured narratives).
+- Learns from research outcomes, refining its planning strategy through on‑policy reinforcement learning.
 
-*(Replaces the previous SwarmVault‑based Phase 1.)*
+### Research Inspirations
 
-### 1.1 Citation Backbone
+Three complementary research advances underpin this vision:
 
-- Ensure all research notes include a `bibliography:` field in their YAML frontmatter.
-- In `build.py`, after Quarto rendering, extract all citation keys and create a reverse index.
-- Generate `citations.json` – a mapping from citation key to list of documents that cite it.
-- This file will later be ingested into EdgeQuake as a domain‑specific knowledge injection (using the `/api/v1/workspaces/:id/injection` endpoint) so that citation relationships become graph edges.
+| Paradigm | Source | Core Insight | Role in Nexus |
+|----------|--------|--------------|-----------------|
+| In‑the‑Flow Agentic Optimization | AgentFlow [arXiv:2510.05592](https://arxiv.org/pdf/2510.05592) | A trainable Planner inside a multi‑turn loop, optimized via Flow‑GRPO, learns long‑horizon tool‑use strategies from sparse outcome rewards. | The Nexus Planner learns to decompose research questions, select appropriate tools, and assemble hypothesis chains that improve over time. |
+| Hypothesis‑Driven Discovery | HypoChainer [arXiv:2507.17209](https://arxiv.org/pdf/2507.17209) | LLMs, Knowledge Graphs, and human experts collaboratively build and validate hypothesis chains anchored in KG entities. | The Planner and Verifier embody this cycle: chains are generated, then each step is grounded against entities and relationships retrieved from EdgeQuake. |
+| Contract‑Governed Multi‑Agent Generation | Story2Proposal [arXiv:2601.20833](https://arxiv.org/pdf/2601.20833) | Specialized agents (Architect, Writer, Refiner, Renderer) operate under a persistent shared contract that enforces structural obligations and visual‑artifact alignment. | The Generator and Reporter agents enforce `contract.json` to guarantee that every generated report meets required sections, citations, and evidence thresholds. |
 
-### 1.2 Cross‑Document Reference Resolution
 
-Quarto resolves `@sec-` links within the same document. For cross‑document links, we use a manual convention (or post‑processing). Proposed convention:
+## Architecture Stack
 
-See the [Whitepaper, Section 3.4](/whitepaper/whitepaper.html#observation-and-projection)
+The Nexus architecture is assembled from distinct, purpose‑aligned layers. Each layer addresses a specific concern while maintaining clean interfaces to the others.
 
-During build, we scan all rendered HTML for internal links and record them as edges in `crossref_edges.jsonl`. These edges are also uploaded to EdgeQuake as a separate knowledge injection dataset, enriching the graph.
+### Layer 1: Knowledge Graph Engine — EdgeQuake
 
-### 1.3 Conceptual Glossary
+At the center of Nexus sits EdgeQuake, a Rust‑native Graph‑RAG framework that implements the LightRAG algorithm. Rather than treating documents as flat text, EdgeQuake decomposes them into structured knowledge: entities, typed relationships, and community clusters, all stored in a single PostgreSQL instance.
 
-Define `_include/glossary.yml`. During build, scan all Markdown for occurrences, store in `term_occurrences.jsonl`. Generate `glossary.json`. This glossary is injected into EdgeQuake via its Knowledge Injection API, teaching it about SSCCS‑specific terms (Segment, Scheme, Field, Observation, Projection) and their synonyms.
+#### Storage Architecture: PostgreSQL with Dual Extensions
 
-### 1.4 EdgeQuake Setup and Initial Ingestion
+EdgeQuake uses PostgreSQL 15+ as its sole persistence layer, with two specialized extensions:
 
-After `quarto render`, the entire `_site` directory is uploaded to EdgeQuake.
+| Extension | Role | Index Types |
+|-----------|------|-------------|
+| pgvector | Vector similarity search on document chunks and entity descriptions | HNSW, IVFFlat, VCHORDRQ |
+| Apache AGE | Property graph storage for entities, relationships, and Louvain communities | GIN, B‑tree |
 
-```bash
-# One‑time setup: start EdgeQuake stack (Docker required)
-curl -fsSL https://raw.githubusercontent.com/raphaelmansuy/edgequake/edgequake-main/quickstart.sh | sh
+This dual‑extension design is critical: it enables cross‑domain queries that span both semantic similarity (vector space) and structural connectivity (graph space) without leaving the database. A single SQL transaction can retrieve a document chunk by embedding similarity, then traverse its entity neighbors through Cypher graph operations — all within the same PostgreSQL process.
 
-# Then, for every build:
-for file in $(find docs/_site -name "*.html" -o -name "*.md" -o -name "*.pdf"); do
-  curl -X POST http://localhost:8080/api/v1/documents/upload -F "file=@$file"
-done
-```
+Why not separate stores? Earlier iterations of LightRAG used NetworkX (in‑memory) for graph operations alongside external vector databases. This created consistency boundaries: the graph and vectors could drift. EdgeQuake's single‑database approach eliminates drift by colocating all state under PostgreSQL's ACID guarantees.
 
-This automatically:
+#### Entity Extraction Pipeline
 
-- Chunks the documents,
-- Extracts entities and relationships,
-- Generates embeddings,
-- Builds a knowledge graph with vector search.
+During ingestion, each document passes through a multi‑stage pipeline:
 
-**Knowledge Injection:** After initial ingestion, we upload the glossary and citation edges to enhance the graph with domain‑specific mappings.
+1. Chunking — documents are split into ~1200‑token segments with 100‑token overlap.
+2. Entity Extraction — an LLM (any supported provider: OpenAI, Anthropic, Mistral, Ollama) parses each chunk into `(entity, type, description)` triples and `(source, target, keywords, description)` relationship tuples. Seven entity types are recognized by default, with custom types configurable per workspace (v0.9.0+).
+3. Gleaning — an optional second pass catches entities missed in the first extraction, improving recall by approximately 18%.
+4. Normalization — case normalization and description merging reduce duplicates by 36–40%.
+5. Embedding — document chunks, entity descriptions, and relationship descriptions each receive vector embeddings.
+6. Community Detection — Louvain modularity optimization clusters related entities for thematic, high‑level queries (Global mode).
 
-### Phase 1 Deliverables
+#### Six Query Modes
 
-| ID | Item | Format |
-|----|------|--------|
-| P1-1 | `citations.json` | JSON |
-| P1-2 | `crossref_edges.jsonl` | JSONL |
-| P1-3 | `glossary.yml` + `glossary.json` | YAML + JSON |
-| P1-4 | `term_occurrences.jsonl` | JSONL |
-| P1-5 | EdgeQuake stack running, `_site` fully ingested | Service + KG |
-| P1-6 | Knowledge injection of glossary + citations | EdgeQuake API |
-| P1-7 | `llms.txt`, `llms-full.txt` (Quarto built‑in) | Text |
+EdgeQuake exposes six retrieval strategies through its REST API, each optimized for different question types:
 
----
+| Mode | Data Sources | Strategy | Best For |
+|------|-------------|----------|----------|
+| Naive | `chunks_vdb` only | Pure vector similarity search on document chunks | Simple keyword‑like lookups (~100–300ms) |
+| Local | `entities_vdb`, `chunk_entity_relation_graph` | Extract keywords → find related entities → retrieve entity descriptions and local graph neighborhood | Specific entity‑centric questions: *"What is the Observation primitive?"* (~200–500ms) |
+| Global | `relationships_vdb`, `chunk_entity_relation_graph` | Extract keywords → find related relationships → retrieve relationship descriptions and global graph context | Thematic, high‑level questions: *"What are the major themes in the architecture?"* (~300–800ms) |
+| Hybrid | `entities_vdb`, `relationships_vdb`, `chunk_entity_relation_graph` | Parallel Local + Global retrieval, merged context | Complex questions requiring both detail and broader connections (~400–1000ms) |
+| Mix | All vector stores + graph | Keyword extraction → entity search + relationship search + chunk search → weighted combination | Multi‑faceted queries where both semantic similarity and graph structure matter |
+| Bypass | None | Direct LLM call without retrieval | General questions not requiring document context |
 
-## Phase 2: Semantic Query Infrastructure & External Crawling
+The Planner agent uses these modes strategically: a question about "all concepts related to data movement" triggers Global mode, while "how does Observation interact with XIF?" triggers Hybrid mode to balance entity focus with cross‑document relationship tracing.
 
-EdgeQuake already provides 6 query modes (`naive`, `local`, `global`, `hybrid`, `mix`, `bypass`). This phase integrates those capabilities directly into the Nexus agent toolkit.
+#### Performance Characteristics
 
-### 2.1 Query Interface (CLI & Python SDK)
+EdgeQuake's Rust implementation delivers significant throughput advantages over traditional RAG stacks:
 
-A simple Python wrapper around EdgeQuake’s REST API serves as the primary `search_internal_kg` tool for the Executor.
+| Metric | EdgeQuake | Traditional RAG | Factor |
+|--------|-----------|-----------------|--------|
+| Entity extraction | ~2–3× baseline | Baseline | 3× |
+| Query latency (hybrid) | <200ms | ~1000ms | 5× faster |
+| Document processing (10k tokens) | 25s | ~60s | 2.4× faster |
+| Concurrent users | 1000+ | ~100 | 10× |
+| Memory per document | 2MB | ~8MB | 4× better |
 
-```python
-# nexus/tools/edgequake_query.py
-import requests
+#### REST API
 
-EDGEQUAKE_BASE = "http://localhost:8080/api/v1"
+EdgeQuake exposes an OpenAPI 3.0 REST API with the endpoints most relevant to Nexus:
 
-def query_kg(query_text, mode="hybrid", workspace="default"):
-    resp = requests.post(f"{EDGEQUAKE_BASE}/query", json={
-        "query": query_text,
-        "mode": mode,
-        "workspace": workspace
-    })
-    return resp.json()
-```
+- `POST /api/v1/documents/upload` — ingestion entry point (files or text)
+- `GET /api/v1/documents` — list documents with filters (status, date range, pattern)
+- `DELETE /api/v1/documents/:id` — remove a document and all associated entities, relationships, and chunks
+- `POST /api/v1/query` — execute queries across all 6 modes
+- `POST /api/v1/workspaces/:id/injection` — inject domain glossary terms, synonyms, and entity definitions directly into the graph
+- SSE streaming for real‑time token‑by‑token response delivery
 
-The `nexus query` CLI becomes:
+The deletion endpoint is particularly important for the incremental sync strategy: changing a source artifact requires deleting the old EdgeQuake document before uploading the new one, since EdgeQuake has no update API.
 
-```bash
-nexus query "What is the data movement wall?" --mode global
-nexus query "RISC-V XIF coprocessor design" --mode hybrid --workspace ssccs
-```
 
-This tool is directly callable by the Planner.
+### Layer 2: Artifact Storage & Ingestion Pipeline — Cloudflare R2 + Worker
 
-### 2.2 Lightweight External Crawling
+Rather than uploading documents directly to EdgeQuake from CI/CD (which would couple build pipelines to a specific running instance), Nexus introduces an intermediate artifact store and a synchronization worker.
 
-A separate `crawl_external` tool (similar to the previous Phase 2) respects `robots.txt`, caches ETags, and targets RISC‑V specs, OpenHW docs, and arXiv abstracts. Crawled content is uploaded to EdgeQuake as new documents, enriching the graph.
+#### Why a Decoupled Pipeline?
 
-```bash
-nexus crawl "https://github.com/openhwgroup/core-v-xif" --workspace ssccs
-```
+Direct uploads create several problems:
 
-### Phase 2 Deliverables
-
-| ID | Item |
-|----|------|
-| P2-1 | Python query wrapper for EdgeQuake API (`query_kg`) |
-| P2-2 | `nexus query` CLI (using EdgeQuake) |
-| P2-3 | `crawl_external` tool with EdgeQuake upload |
-| P2-4 | Crawl cache directory |
-| P2-5 | Verified multi‑mode queries against SSCCS corpus |
-
----
-
-## Phase 3: Code–Documentation Integration
-
-### 3.1 Code Symbol Extraction
-
-Use `rustdoc` JSON:
-
-```bash
-cargo doc --no-deps --output-format json > rustdoc.jsonl
-```
-
-Extract modules, structs, functions, traits, impls → `code_symbols.jsonl`.
-
-### 3.2 Synthetic Code Documentation Generation
-
-A Python script [`nexus/rustdoc_json_to_md.py`](../nexus/rustdoc_json_to_md.py) transforms the `rustdoc.jsonl` output into a well‑structured Markdown file `code_documentation.md`. Each symbol is described with:
-
-- Symbol name and type (module, struct, function, trait, impl).
-- Source file path and line number.
-- Doc comment text.
-- Dependencies and relationships to other symbols.
-
-This Markdown file is ingested into EdgeQuake as a regular document, integrating code entities directly into the knowledge graph. The Planner can then query code symbols using standard EdgeQuake queries (`search_kg`) without a separate tool.
-
-### 3.3 Code–Documentation Linking
-
-Heuristics: explicit links in doc comments, name‑based mapping, semantic similarity, file path hints. Output: `code_doc_edges.jsonl`. These edges are injected into EdgeQuake via the knowledge injection API, enriching the graph with cross‑references between documentation entities and code entities.
-
-### 3.4 Structured Code Index (Adjunct)
-
-A lightweight SQLite index (`code_index.sqlite`) is retained for fast, no‑LLM symbol lookup. The `nexus code` CLI queries this index for exact symbol matching and file‑level search. The Verifier uses this as a secondary supplement, but all primary querying and grounding flows through EdgeQuake's unified graph.
-
-### Phase 3 Deliverables
-
-| ID | Item |
-|----|------|
-| P3-1 | `code_symbols.jsonl` (from rustdoc JSON) |
-| P3-2 | `code_documentation.md` (synthetic Markdown for EdgeQuake ingestion) |
-| P3-3 | `code_doc_edges.jsonl` (cross‑reference edges injected into EdgeQuake) |
-| P3-4 | `code_index.sqlite` (lightweight code‑search index) |
-| P3-5 | `nexus/rustdoc_json_to_md.py` (conversion script) |
-| P3-6 | `nexus code` CLI (queries the code index) |
-| P3-7 | Code‑symbol ingestion into EdgeQuake (entities queryable via `search_kg`) |
-
----
-
-## Phase 3b: Unified Code–Documentation Graph via EdgeQuake
-
-Phase 3b completes the unification of code and documentation within EdgeQuake's single knowledge graph, eliminating the previous separate‑index approach.
-
-### 3b.1 Synthetic Document Ingestion
-
-The `code_documentation.md` file generated in Phase 3.2 is uploaded to EdgeQuake via the standard `/api/v1/documents/upload` endpoint. EdgeQuake's entity extraction processes the synthetic document, creating graph entities for each code symbol (module, struct, function, trait, impl) and their relationships (depends_on, implements, re-exports).
-
-```bash
-curl -X POST http://localhost:8080/api/v1/documents/upload \
-  -F "file=@nexus/code_documentation.md" \
-  -F "workspace=ssccs"
-```
-
-### 3b.2 Knowledge Injection of Code Relationships
-
-The `code_doc_edges.jsonl` file (Phase 3.3) is injected into EdgeQuake via the `/api/v1/workspaces/:id/injection` endpoint. This adds typed edges between documentation entities (from the Quarto site) and code entities (from the synthetic document), enabling unified traversal. Example edges:
-
-- `Observation` (whitepaper §3.4) → `IMPLEMENTS` → `observation_synthesis::Observer` (Rust crate)
-- `Projection` (whitepaper §3.5) → `IMPLEMENTS` → `projector::Projector` (Rust crate)
-- `data_movement` (research note) → `RELATES_TO` → `hardware_mapping::DataMovement` (Rust crate)
-
-### 3b.3 Tool Update
-
-The Executor's tool registry no longer needs a separate `search_code` tool for EdgeQuake queries. The existing `search_kg` tool (with `hybrid` or `local` mode) can retrieve code symbols directly. The SQLite adjunct (`code_index.sqlite`) remains available as a fast exact‑match fallback via a `search_code_exact` tool.
-
-### Phase 3b Deliverables
-
-| ID | Item |
-|----|------|
-| P3b-1 | `code_documentation.md` ingested into EdgeQuake |
-| P3b-2 | Code‑doc relationship edges injected into EdgeQuake KG |
-| P3b-3 | Unified `search_kg` tool able to query both docs and code symbols |
-| P3b-4 | `search_code_exact` fallback tool (SQLite) |
-| P3b-5 | Verification: "Observation" query returns both whitepaper §3.4 AND `observation_synthesis::Observer` |
-
-## Phase 4: Autonomous Research Engine – Agentic Planner & Hypothesis Generation with Learning
-
-Phase 4 transforms Nexus into a **self‑improving research agent**. The core is an agentic loop (Planner‑Executor‑Verifier‑Generator) whose Planner is continuously fine‑tuned using Flow‑GRPO. EdgeQuake serves as the primary knowledge retrieval and verification engine.
-
-### 4.1 The Evolving Memory
-
-An append‑only `Evolving Memory` records:
-
-- The original user query.
-- Each planning step: proposed action, chosen tool (EdgeQuake query, external crawl, code search, etc.), and parameters.
-- Tool execution results.
-- Verifier assessments at each turn.
-- Final outputs and human feedback.
-- **User feedback entries** (score + comment) recorded via the `UserFeedbackTool`.
-
-### 4.2 Planner: The Learnable Decision Maker
-
-The Planner is an LLM (initially any capable model, e.g., a 7B‑scale open model) that is the **only trainable component**. It must:
-
-- Decompose research questions into sub‑goals.
-- Select the appropriate tool (EdgeQuake's `hybrid` query, `local` for entity focus, `global` for themes, `crawl_external`, `search_kg` for code symbols via EdgeQuake, `run_python`, etc.).
-- Evaluate tool results and decide whether to continue, backtrack, or terminate.
-
-Initially the Planner is a frozen instruct model. As research sessions complete, trajectories and final rewards (report quality, human rating) are collected. These trajectories feed the Flow‑GRPO algorithm to fine‑tune the Planner.
-
-### 4.3 Executor: Tool Orchestration
-
-Registered tools include:
-
-- `search_kg(query, mode)` – EdgeQuake query wrapper (various modes); now also retrieves code symbols from the unified graph (Phase 3b).
-- `crawl_external(url)` – fetch and upload to EdgeQuake.
-- `search_code_exact(query)` – fast exact‑match fallback against the SQLite adjunct code index.
-- `run_python(code)` – executes a snippet for computation.
-- `generate_hypothesis_step(context)` – proposes a candidate hypothesis link using a frozen LLM.
-- `verify_against_contract(artifacts)` – calls the Verifier module as a tool.
-- `feedback(score, comment)` – `UserFeedbackTool` that prompts the researcher for a score (float) and optional comment; stored in memory for later reward aggregation.
-
-Each tool call is logged into the Evolving Memory.
-
-### 4.4 Verifier: KG‑Grounded Evaluation
-
-The Verifier:
-
-- Queries EdgeQuake (`hybrid` mode) for each candidate hypothesis step claim.
-- Computes a **support score**: fraction of steps that have at least one matching entity/relationship with a confidence above a threshold.
-- Computes a **novelty score**: for each hypothesis step, checks whether the proposed relationship already exists in EdgeQuake's graph. Novelty is calculated as the count of new KG edges that would be created if the hypothesis were added, weighted by entity distance. Steps that bridge previously disconnected entity clusters receive higher novelty.
-- Checks contract compliance (required sections, citation formats, `novelty.minimum_new_edges` threshold).
-- Outputs structured feedback and a binary termination flag.
-
-### 4.5 Generator: Contract‑Compliant Report Rendering
-
-The Generator operates under `contract.json` and follows a two‑stage approval process:
-
-**Stage 1 – Draft generation:** The Generator produces an intermediate `_draft.qmd` containing the hypothesis chain, evidence table, gap analysis, and proposed experiments.
-
-**Stage 2 – Reporter cross‑check:** The Reporter agent compares `_draft.qmd` against all rules in `contract.json`:
-
-- Section "hypothesis_chain" must contain a Mermaid diagram.
-- Section "evidence_table" must list KG‑grounded evidence per step.
-- All citations must reference entries in the bibliography.
-- The novelty score must meet `contract.json`'s `novelty.minimum_new_edges` threshold.
-
-If all rules pass, the Reporter produces the final `.qmd` file. If rules fail, the Reporter returns an error report, and the Generator is re‑invoked with the failure details. The report is only finalized when the Verifier approves the final artifact against the contract.
-
-### 4.6 Rollout Collection and Training Pipeline
-
-Each research session is persisted as a structured rollout for use in Flow‑GRPO training.
-
-**Rollout logging:** The `nexus/rollout/collector.py` module appends a line to `memory/session_<timestamp>.jsonl` at the conclusion of each session. The schema follows:
-
-```json
-{
-  "session_id": "sess_20260420_001",
-  "query": "Explore XIF integration with Observation primitive",
-  "turns": [
-    {
-      "turn": 1,
-      "action": {"tool": "search_kg", "args": {"query": "Observation primitive", "mode": "hybrid"}},
-      "result": {"entities": [...], "relationships": [...]},
-      "verifier_feedback": {"support_score": 0.85, "novelty_score": 0.3}
-    },
-    ...
-  ],
-  "final_output": "docs/hypotheses/2026-04-20_xif_observation.qmd",
-  "reward": 0.82,
-  "feedback": {"score": 4.0, "comment": "Good novelty, but missing citation to XIF spec §3.2"}
+1. CI coupling: every docs or code build must reach the EdgeQuake instance. If the instance is unavailable, the build fails.
+2. No change detection: EdgeQuake cannot tell whether a re‑uploaded document has actually changed; every upload triggers LLM extraction.
+3. Multiple sources are hard to merge: core documentation, POC code artifacts, and user‑injected documents come from different places and must converge on one KG.
+
+The decoupled pipeline addresses all three by establishing a single source of truth (R2) and a dedicated sync process (Worker).
+
+#### R2: Strongly Consistent Object Store
+
+Cloudflare R2 (bucket: `ssccs-nexus-af`) serves as the artifact repository. Key properties for Nexus:
+
+- Strong consistency on the S3 API — unlike AWS S3 before 2020, R2 guarantees read‑after‑write consistency, meaning that once `PutObject` returns, the object is immediately visible to the sync worker. This eliminates race conditions during incremental updates.
+- S3‑compatible API — supports `GetObject`, `PutObject`, `DeleteObject`, and `ListObjectsV2`, enabling direct use of `aws s3 sync` from CI without custom tooling.
+- Zero egress fees — no cost for transferring data from R2 to the Worker or EdgeQuake, even across regions.
+- Free tier: 10 GB storage, 1 million write operations/month, 10 million read operations/month — well within SSCCS's expected usage.
+
+#### The Sync Worker
+
+The sync worker (`nexus-sync-worker`, TypeScript) exposes a single endpoint, `POST /sync/:engine`, and performs incremental synchronization between R2 and EdgeQuake.
+
+Internal Architecture:
+
+1. Authentication — the request must carry `Authorization: Bearer <SYNC_API_KEY>`. The API key is stored as a Cloudflare Secret, never appearing in source code or configuration files.
+2. Engine Routing — the `URLPattern` API matches `/:engine` from the path. Currently `eq` maps to `EdgeQuakeHandler`; adding a new engine requires implementing an `EngineHandler` interface and registering it in the engines map.
+3. Diff Computation — the producer compares two data sets:
+   - R2 inventory: all objects in the bucket, each with an `ETag` (MD5 hash of content).
+   - KV mapping: a persistent record of `{r2_key: {doc_id, etag}}` stored in Cloudflare KV.
+   
+   The diff produces three task lists: deletions (in KV but not in R2), uploads (in R2 but not in KV, or ETag mismatch), and no‑ops (ETag match).
+4. Queue‑Based Processing — tasks are chunked (≤10 items per message) and pushed to a Cloudflare Queue (`nexus-sync-queue`). This is the critical design element that avoids the free‑plan subrequest limit (50 external `fetch` calls per worker invocation).
+5. Consumer Processing — queue consumers receive chunks and execute the actual EdgeQuake API calls (`DELETE` then `POST` for modified files). After each successful upload, the KV mapping is updated with the new document ID and ETag.
+
+Queue Consumer Concurrency: Cloudflare Queues support automatic horizontal scaling. Consumers are invoked in parallel when the backlog grows, up to the platform maximum — typically 250 concurrent invocations. This means a large sync (hundreds of changed documents) will scale out automatically without any configuration changes.
+
+```{python}
+#| label: fig-nexus-artifact-pipeline
+#| fig-cap: "Artifact ingestion pipeline"
+#| echo: false
+dot("""
+digraph ArtifactPipeline {
+    splines=ortho;
+    nodesep=0.5;
+    
+    ci [label="CI/CD\n(aws s3 sync)", shape=box, fillcolor="#d4f1f9"];
+    r2 [label="Cloudflare R2\nssccs-nexus-af", shape=cylinder, fillcolor="#ffebcd"];
+    producer [label="Producer Worker\n/sync/:engine", shape=box, fillcolor="#e6ffe6"];
+    kv [label="KV\nmapping", shape=note, fillcolor="#fffacd"];
+    queue [label="Queue\nnexus-sync-queue", shape=box, fillcolor="#f0f0f0"];
+    
+    subgraph cluster_consumers {
+        label="Queue Consumers (auto‑scale)";
+        style="dashed";
+        c1 [label="Consumer 1", shape=box, fillcolor="#ffe4e1"];
+        c2 [label="Consumer 2", shape=box, fillcolor="#ffe4e1"];
+        cn [label="Consumer N", shape=box, fillcolor="#ffe4e1"];
+    }
+    
+    edgequake [label="EdgeQuake(RAG+Graph)\nDELETE + POST", shape=cylinder, fillcolor="#ffe4e1"];
+    
+    ci -> r2; r2 -> producer;
+    producer -> kv; producer -> queue;
+    queue -> c1; queue -> c2; queue -> cn;
+    c1 -> edgequake; c2 -> edgequake; cn -> edgequake;
+    edgequake -> kv [style=dashed];
 }
+""")
 ```
 
-**Training dataset assembly:** A scheduled script (daily cron job or GitHub Action) runs `nexus/training/train_flow_grpo.py` which:
+Design Decision: KV for Mapping
 
-1. Reads all unprocessed session files from `memory/`.
-2. Groups rollouts into batches (e.g., 8 trajectories per group).
-3. Computes the final reward for each rollout by blending:
-   - **KG support** (normalized fraction of grounded steps).
-   - **Novelty** (count of new KG edges if hypothesis were added, per the Verifier's computation).
-   - **Human feedback** (latest `feedback` entry score, if any, scaled to [0,1]).
-   - **Contract compliance** (binary: 1.0 if all contract rules passed, 0.3 if any failed).
-4. Computes group‑normalized advantages.
-5. Runs the Flow‑GRPO policy update (PPO‑style clipped objective with KL penalty toward a reference model).
-6. Stores the updated Planner checkpoint and training metrics in `checkpoints/`.
+Workers KV is eventually consistent: changes made in one edge location may take up to 60 seconds to propagate globally. However, all sync worker invocations for our architecture are triggered from a single entry point (`/sync/eq`), and the producer writes the mapping and immediately uses it within the same invocation — read‑your‑own‑writes consistency is guaranteed. The eventual consistency of KV is therefore not a practical concern for this design: we never rely on multiple concurrent producers writing the same mapping keys.
 
-This automated pipeline ensures the Planner continuously improves as more research sessions accumulate.
 
-### 4.7 Flow‑GRPO: Training the Planner On‑Policy
+### Layer 3: Agentic Research Loop — Planner, Executor, Verifier, Generator
 
-**Training loop:**
+The agentic loop is the operational brain of Nexus. It is modeled after AgentFlow's four‑component architecture but adapted for the research domain with KG‑grounded verification.
 
-1. **Collect rollouts**: The rollout collector (4.6) appends each session to `memory/`. The final reward blends:
-   - **KG support** (fraction of steps with EdgeQuake‑grounded evidence).
-   - **Novelty** (count of new KG edges the hypothesis would introduce).
-   - **Human feedback** or LLM‑as‑judge score.
-   - **Contract compliance**.
-2. **Group sampling**: Batch of trajectories (e.g., 8) forms a group.
-3. **Advantage calculation**: Group‑normalized final reward.
-4. **Policy update**: PPO‑style clipped objective with KL penalty toward a reference model.
+#### Agent Flow
 
-The planning decisions (e.g., "use global search for thematic question", "switch to code search when documentation is silent") improve as the Planner is rewarded for trajectories that yield well‑grounded, contract‑compliant, novel reports.
+```{python}
+#| label: fig-nexus-organic
+#| fig-cap: "Nexus as the realization of SSCCS Organic Growth"
+#| echo: false
+dot("""
+digraph NexusOrganic {
+    rankdir=TB;
+    contract [label="Contract (contract.json)", shape=note, fillcolor="#e6f2ff"];
+    r2 [label="R2 Artifact Store\n(strong consistency)", shape=cylinder, fillcolor="#ffebcd"];
+    worker [label="Sync Worker\n/sync/:engine", shape=box, fillcolor="#e6ffe6"];
+    edgequake [label="EdgeQuake KG\n(PostgreSQL + pgvector + AGE)", shape=cylinder, fillcolor="#ffe4e1"];
+    planner [label="Planner\n(trainable)", shape=box, fillcolor="#d4f1f9"];
+    verifier [label="Verifier\n(KG grounding)", shape=box, fillcolor="#d4f1f9"];
+    generator [label="Generator\n(contract‑compliant)", shape=box, fillcolor="#d4f1f9"];
+    output [label="Research Artifacts\n(.qmd reports)", shape=note];
+    flowgrpo [label="Flow‑GRPO\n(training loop)", shape=box, fillcolor="#f0f0f0"];
 
-### 4.8 Continuous Research Loop (Ink Spreading with Learning)
+    contract -> worker; contract -> generator [style=dashed, label="constrains"];
+    r2 -> worker [label="read + diff"];
+    worker -> edgequake [label="sync"];
+    edgequake -> planner [label="query"]; edgequake -> verifier;
+    planner -> verifier [label="hypotheses"]; verifier -> generator [label="terminate?"];
+    generator -> output;
+    generator -> flowgrpo [label="reward"];
+    flowgrpo -> planner [label="policy update"];
+    output -> r2 [style=dashed, label="new knowledge"];
+    generator -> contract [dir=both, style=dashed];
 
-Whenever new documents are added (via `crawl_external` or new research notes committed), EdgeQuake's graph is updated. The Planner, trained on past research sessions, can immediately leverage the enriched graph to generate higher‑quality hypotheses.
-
-Implementation steps:
-
-1. Define `contract.json` (including `novelty` section).
-2. Develop agentic loop in Python (`nexus/core/agent.py`), wiring Planner→Executor→Verifier→Generator and memory.
-3. Implement tool functions using the Phase 1–3b infrastructure.
-4. Build the rollout collector (`nexus/rollout/collector.py`).
-5. Build a Flow‑GRPO trainer (`nexus/training/train_flow_grpo.py`) that loads memory files, computes rewards, and calls model updates.
-6. Integrate into `build.py` with `--nexus --train`.
-
-### Phase 4 Deliverables
-
-| ID | Item |
-|----|------|
-| P4-1 | `contract.json` schema and manager (with novelty section) |
-| P4-2 | Evolving Memory implementation (append‑only JSONL) |
-| P4-3 | Agentic loop (Planner, Executor, Verifier, Generator) |
-| P4-4 | Toolkit registration and execution engine (including `UserFeedbackTool`, `search_code_exact`) |
-| P4-5 | Verifier (EdgeQuake‑grounded scoring + novelty computation + contract check) |
-| P4-6 | Generator with contract‑enforced report approval (draft → Reporter cross‑check → final) |
-| P4-7 | `nexus/rollout/collector.py` – session persistence to JSONL |
-| P4-8 | `memory/session_schema.json` – formalized rollout schema |
-| P4-9 | `nexus/training/train_flow_grpo.py` – Flow‑GRPO trainer module |
-| P4-10 | Scheduled training pipeline (cron / GitHub Action) |
-| P4-11 | `nexus hypothesize` CLI (runs the agentic loop) |
-| P4-12 | `nexus train` CLI (RL on collected rollouts) |
-| P4-13 | Streamlit hypothesis explorer |
-| P4-14 | GitHub Actions workflow for automatic hypothesis generation |
-
----
-
-## Integration with `docs/build.py`
-
-```python
-# docs/build.py – after quarto render
-if args.nexus:
-    # Phase 1: Ingest site into EdgeQuake
-    subprocess.run(["python", "nexus/ingest_site.py", "--workspace", "ssccs"])
-    # Phase 2: External crawl (if configured)
-    if args.crawl:
-        run_external_crawl()
-    # Phase 3: Code symbol extraction + synthetic doc generation
-    if "phase3" in args.nexus_phases:
-        run_code_linking()
-        run_code_doc_generation()        # new: generate code_documentation.md
-        run_code_doc_ingestion()         # new: ingest into EdgeQuake (Phase 3b)
-    # Phase 4: Agentic hypothesis run
-    if args.run_agent:
-        run_agentic_loop(query=args.query, contract=args.contract)
-        run_rollout_collector()          # new: persist session to JSONL
-    # RL training
-    if args.train:
-        subprocess.run(["python", "nexus/training/train_flow_grpo.py"])
-```
-
-Usage:
-
-```bash
-# Full pipeline with agent interaction
-python3 docs/build.py --website --nexus --run-agent --query "Explore XIF integration"
-
-# Train the Planner
-python3 docs/build.py --nexus --train
-
-# Full pipeline including code-doc unification (Phase 3b)
-python3 docs/build.py --website --nexus --run-agent --nexus-phases phase3 --query "XIF integration"
-```
-
----
-
-## Deliverables Summary (All Phases)
-
-| Phase | Deliverable | Effort |
-|-------|-------------|--------|
-| 1 | Citation index, cross‑ref edges, glossary, EdgeQuake ingestion, knowledge injection | 2–3 days |
-| 2 | Python query wrapper, `nexus query` CLI, external crawler, verified queries | 1–2 days |
-| 3 | Code symbol extraction, synthetic code doc generation, EdgeQuake ingestion, code‑doc linking | 2–3 days |
-| 3b | Unified code‑documentation graph: ingestion into EdgeQuake, knowledge injection of code relationships, tool updates | 1 day |
-| 4 | Agentic loop, memory, tools (incl. UserFeedbackTool), contract (with novelty), verifier (novelty scoring), generator (contract‑enforced approval), rollout collector, Flow‑GRPO trainer, CLI, Streamlit, CI | 8–11 days |
-| Integration | `build.py` hooks, documentation | 1 day |
-
-**Total:** ~15–20 days (part‑time, 4–5 weeks). All components are open‑source and run locally; EdgeQuake's Docker stack runs on standard hardware.
-
----
-
-## Tool Selection Summary
-
-We have evaluated the landscape and made the following concrete choice:
-
-- **Primary knowledge engine:** [EdgeQuake](https://github.com/raphaelmansuy/edgequake) – a single Rust‑based Graph‑RAG framework that provides KG extraction, vector embeddings, 6 query modes, and a REST API. It replaces the need for separate graph databases (Neo4j, NetworkX), vector databases (ChromaDB), and ingestion pipelines (SwarmVault). Its built‑in knowledge injection and custom entity configuration fit our domain‑specific SSCCS terminology.
-- **Code analysis:** `rustdoc` JSON → synthetic `code_documentation.md` → ingested into EdgeQuake for unified querying via `search_kg`. A lightweight SQLite adjunct (`code_index.sqlite`) provides fast exact‑match fallback via `search_code_exact`. This eliminates the previous separate code index while retaining fast lookup when needed. The `rustdoc_json_to_md.py` script bridges the two representations without custom graph merging.
-- **Reinforcement Learning:** Adapted open‑source GRPO implementation for Planner fine‑tuning, fed by the formalized rollout collection pipeline (`nexus/rollout/collector.py` and `nexus/training/train_flow_grpo.py`).
-
-This combination gives us a robust, vendor‑neutral foundation that aligns with SSCCS's principles and dramatically simplifies the infrastructure compared to the previous multi‑tool approach.
-
----
-
-## Autonomous Research Vision: The “Ink Spreading” Model with a Learning Planner
-
-1. New documentation or crawled external source → uploaded to EdgeQuake.
-2. Graph is augmented with new entities and relationships.
-3. Gap detection identifies new concept pairs.
-4. Planner (trained) proposes hypothesis chains, adaptively selecting query modes and tools.
-5. Verifier grounds each step against EdgeQuake’s graph.
-6. Generator produces a contract‑compliant report.
-7. Researcher feedback becomes the reward signal for Flow‑GRPO, improving future planning.
-
-Over time, the Planner learns which strategies produce high‑quality, high‑novelty hypotheses, essentially internalizing the SSCCS research methodology.
-
----
-
-## Risks & Mitigations
-
-| Risk | Likelihood | Impact | Mitigation |
-|------|-----------|--------|-------------|
-| Cross‑document links break after Quarto updates | Low | Low | Regenerate edges on every build; verify links. |
-| EdgeQuake ingestion time for large sites (>1000 pages) | Medium | Medium | Incremental uploads: only new/modified files. EdgeQuake's Rust‑based pipeline processes documents efficiently. |
-| External crawling rate‑limited or blocked | Low | Low | Respect `robots.txt`, use delays, rely on community‑managed mirrors (e.g., arXiv bulk data). |
-| Code indexing fails on complex macros | Low | Low | `rustdoc` JSON handles most cases; fallback to `syn`. |
-| LLM hallucination in Planner or Hypothesis generator leads to unsound chains | Medium | High | Every hypothesis step is verified by EdgeQuake grounding; unsupported steps reduce the reward, discouraging hallucination during RL. Planner uses a reference model KL constraint. |
-| RL training instability with 7B model on customer‑grade hardware | Medium | High | Use small batch sizes (group size 8), KL penalty, and gradient accumulation. Pre‑trained open models (Qwen2.5‑7B) show stable GRPO behavior. |
-| Training data scarcity | Low | Medium | Start with heuristic rewards (KG support, contract compliance, novelty); later incorporate human ratings. |
-| Over‑fitting of Planner to SSCCS research style, losing generality | Low | Medium | Include a diversity term in the reward; occasionally blend a second domain's data in training. |
-| EdgeQuake ingestion latency for documentation sets with preserved cross‑reference links | Low | Low | Supplement the graph with injected knowledge (citations, glossary) via the `/api/v1/workspaces/:id/injection` endpoint. |
-
----
-
-## Success Metrics
-
-| Metric | Target |
-|--------|--------|
-| Cross‑document links | Working hyperlinks for all citations, equations, glossary terms. |
-| `llms.txt` generation | Created automatically. |
-| Semantic search (EdgeQuake) | "energy efficiency of observation" returns whitepaper section with top‑5 result. |
-| Code–doc unification (Phase 3b) | "Observation" query returns both whitepaper §3.4 AND `observation_synthesis::Observer` as top‑10 results. |
-| Code–doc linking | Core primitives have at least one `IMPLEMENTS` edge connecting doc entities to code entities in EdgeQuake graph. |
-| External crawling | ≥3 external RISC‑V documents ingested and queryable via EdgeQuake. |
-| Hypothesis chain generation | ≥1 chain with ≥3 steps, ≥70% steps grounded in EdgeQuake entities. |
-| Novelty score computation | Verifier correctly identifies novel KG edges with ≥80% precision against human judgment. |
-| Agentic loop completion | Planner terminates within 3–7 turns for typical queries. |
-| Planner learning improvement | After 100 sessions, average KG‑support and novelty scores increase >10%. |
-| Contract compliance | Generated reports satisfy contract with <10% manual corrections. |
-| User feedback integration | ≥1 feedback entry per session on average after initial deployment. |
-| Build time | EdgeQuake ingestion adds <60s to Quarto build; agentic loop <30s per query. |
-
----
-
-## Immediate Next Steps
-
-### A.1 Start EdgeQuake and Ingest Current Documentation
-
-```bash
-# 1. Download and start EdgeQuake (requires Docker)
-bash <(curl -fsSL https://raw.githubusercontent.com/raphaelmansuy/edgequake/edgequake-main/quickstart.sh)
-
-# 2. Wait for health check
-curl http://localhost:8080/health
-
-# 3. Create a workspace for SSCCS
-curl -X POST http://localhost:8080/api/v1/workspaces -H "Content-Type: application/json" \
-  -d '{"name": "ssccs", "description": "SSCCS project knowledge base"}'
-
-# 4. Upload the Quarto-rendered site
-for file in $(find docs/_site -name "*.html" -o -name "*.md" -o -name "*.pdf"); do
-  curl -X POST http://localhost:8080/api/v1/documents/upload -F "file=@$file" -F "workspace=ssccs"
-done
-
-# 5. Verify ingestion: query for "Observation primitive"
-curl -X POST http://localhost:8080/api/v1/query -H "Content-Type: application/json" \
-  -d '{"query": "Observation primitive", "mode": "hybrid", "workspace": "ssccs"}'
-```
-
-### A.2 Enable Quarto `llms.txt`
-
-Edit `docs/_quarto.yml`:
-
-```yaml
-project:
-  type: website
-  llms-txt: true
-```
-
-Run `quarto render` and verify `docs/_site/llms.txt` and `llms-full.txt` are generated.
-
-### A.3 Prepare the Glossary
-
-Create `docs/_include/glossary.yml` with initial SSCCS terms (Segment, Scheme, Field, Observation, Projection). Write a Python script `nexus/glossary_extractor.py` that scans all Markdown files, records occurrences, and produces `glossary.json`.
-
-### A.4 Build the Python Query Wrapper
-
-Write `nexus/tools/edgequake_query.py` as a minimal wrapper around EdgeQuake's REST API. Test all 6 query modes against the ingested corpus and document the response format.
-
-### A.5 Set Up a Basic Agentic Loop Skeleton
-
-In `nexus/core/agent.py`, implement a simple loop that:
-
-- Takes a query.
-- Calls the Planner (for now, a hardcoded sequence of tool calls).
-- Calls Executor to run those tools (EdgeQuake query, dummy external crawl).
-- Prints intermediate results.
-
-This validates that the tool‑calling architecture works end‑to‑end.
-
-### A.6 Define the Initial Contract
-
-Create `contract.json` with minimum viable rules:
-
-```json
-{
-  "required_hypothesis_steps": ["mechanism", "connection_to_ssccs", "testable_prediction"],
-  "evidence_requirements": {
-    "kg_support": "at_least_one_per_step"
-  },
-  "novelty": {
-    "method": "edge_count_from_kg",
-    "minimum_new_edges": 2,
-    "weight_in_reward": 0.3
-  },
-  "report_sections": ["hypothesis_chain", "evidence_table", "gap_analysis"]
+    { rank=same; contract; r2; }
+    { rank=same; planner; verifier; generator; }
 }
+""")
 ```
 
-Write a script `nexus/contract.py` that reads this file and exposes a `validate_report(sections)` function.
+The architecture compresses the Organic Growth model into a concrete, implementable pipeline while preserving its foundational insight: knowledge grows organically when governed by explicit, evolvable contracts — and when the system that processes it can learn from its own discoveries.
 
-### A.7 Outline the Rollout Memory Format
+#### Planner: The Only Trainable Component
 
-Design the JSONL schema for a session:
+The Planner is an LLM — initially a frozen instruct model (Qwen2.5‑7B or equivalent), later fine‑tuned via Flow‑GRPO. Its responsibilities:
 
-```json
-{
-  "session_id": "sess_20260420_001",
-  "query": "...",
-  "turns": [
-    {"turn": 1, "action": {"tool": "search_kg", "args": {...}}, "result": {...}, "verifier_feedback": {...}},
-    ...
-  ],
-  "final_output": "...",
-  "reward": 0.85,
-  "feedback": {"score": 4, "comment": "Good novelty"}
-}
-```
+- Decompose a research question into sub‑goals.
+- Select the appropriate EdgeQuake query mode (`hybrid` for complex reasoning, `local` for entity lookup, `global` for thematic surveys).
+- Decide when to crawl external sources or execute Python code.
+- Evaluate intermediate results and decide whether evidence is sufficient to terminate.
 
-Commit this schema as `memory/session_schema.json`.
+The Planner is trained on trajectories collected from actual research sessions — successful hypothesis chains, tool sequences, and human feedback ratings all become training signals.
 
-### A.8 Verify Hardware and Dependency Availability
+#### Executor: Tool Orchestration
 
-- Docker: `docker --version`
-- Python 3.10+: `python --version`
-- Rust (for code extraction): `rustc --version`
-- GPUs for eventual RL training: `nvidia-smi` (optional, RL can also run on CPU with small models or be deferred).
+The Executor invokes registered tools on the Planner's behalf and returns structured results to the Evolving Memory. Tool examples:
 
-### A.9 Timeline to First Working Prototype
+- `search_kg(query, mode)` — calls EdgeQuake's `/query` with the specified mode.
+- `crawl_external(url)` — fetches and uploads external documents to R2 (and thus into the KG).
+- `run_python(code)` — executes computational snippets.
+- `generate_hypothesis_step(context)` — uses a frozen LLM to propose candidate hypothesis links.
+- `feedback(score, comment)` — prompts the researcher for evaluation, which feeds into the reward signal.
 
-By completing steps A.1–A.6, you achieve a static query‑able KG and a skeleton agent that can answer "where is this concept documented?" within one week. This prototype is the baseline for incrementally adding learning (Phase 4) and advanced hypothesis generation.
+#### Verifier: KG‑Grounded Evaluation
 
----
+The Verifier acts as both the HypoChainer‑style validation engine and the Story2Proposal evaluation agent. For each hypothesis step, it:
 
-## Appendix A: Directory Structure After Nexus
+1. Queries EdgeQuake (Hybrid or Local mode) for entities and relationships semantically aligned with the claim.
+2. Computes a support score: fraction of steps that have at least one grounded KG path.
+3. Computes a novelty score: counts how many new KG edges would be created if the hypothesis were validated — bridging previously disconnected entity clusters earns higher novelty.
+4. Checks the `contract.json` rules (required sections, citation formats, novelty thresholds).
+5. Outputs a structured feedback signal (weak steps, missing evidence) and a binary termination flag.
 
-```text
-docs/_site/
-├── index.html
-├── whitepaper/
-├── research/
-├── hypotheses/                    # Generated hypothesis reports
-│   └── 2026-04-20_*.qmd
-├── ...
-├── llms.txt
-├── llms-full.txt
-├── nexus/
-│   ├── citations.json
-│   ├── crossref_edges.jsonl
-│   ├── glossary.json
-│   ├── term_occurrences.jsonl
-│   ├── code_symbols.jsonl          # Structured rustdoc symbols (for adjunct index)
-│   ├── code_documentation.md       # Synthetic Markdown ingested into EdgeQuake
-│   ├── code_doc_edges.jsonl        # Cross‑reference edges for KG injection
-│   ├── code_index.sqlite           # Lightweight adjunct for fast exact‑match lookup
-│   ├── contract.json               # Contract schema (incl. novelty section)
-│   ├── memory/                     # Evolving Memory rollouts
-│   │   ├── session_schema.json     # Formalized rollout schema
-│   │   └── session_*.jsonl         # Individual session trajectories
-│   ├── rollouts/                   # Grouped training datasets for Flow‑GRPO
-│   │   └── rollout_batch_*.jsonl
-│   ├── checkpoints/                # Planner fine‑tuned weights
-│   │   └── planner_step_*.pt
-│   └── crawl_cache/                # ETag cache for external crawling
-└── (existing assets)
+#### Generator: Contract‑Compliant Output
 
-# EdgeQuake data (inside Docker volumes)
-edgequake-data/
-├── postgres/                     # PG data with pgvector + AGE graph
-└── ...
-```
+When the Verifier signals termination, the Generator produces:
 
----
+- A hypothesis chain diagram with confidence scores.
+- An evidence table (KG‑grounded sources per step).
+- Gap analysis and proposed experiments.
+- A Quarto‑ready `.qmd` file.
 
-## Appendix B: Example Unified Agentic Query with EdgeQuake
+A Reporter agent performs a final cross‑check against `contract.json` before the file is committed. If contract rules fail, the Generator is re‑invoked with the error report.
 
-User: *“What external RISC‑V documents discuss XIF, and which of our code crates implement related functionality? Generate a hypothesis chain linking XIF to our Observation primitive.”*
+#### Evolving Memory
 
-Agentic trajectory:
+All research activity is recorded in an append‑only `Evolving Memory` (JSONL files). Each session logs the query, every planning turn (tool choice, arguments, results, verifier feedback), the final output, and any human feedback. These trajectories are the raw material for RL training.
 
-| Turn | Planner Action | Tool | Result |
-|------|---------------|------|--------|
-| 1 | Query KG for “Observation primitive” | `search_kg` (hybrid) | Whitepaper §3.4, `observation_synthesis` crate references. |
-| 2 | Search web for XIF coprocessor | `crawl_external` | OpenHW CORE‑V XIF spec ingested into EdgeQuake. |
-| 3 | Find aligned entities linking coprocessor → stateful ops | `search_kg` (local) | Entities: XIF_Custom_Instruction, Observation_State. |
-| 4 | Verifier: all steps grounded, confidence 0.82. Termination. | | |
 
-Generated Hypothesis Chain:
+### Layer 4: Learning Loop — Flow‑GRPO
 
-1. [RISC‑V XIF ext] → provides custom instruction interface → [coprocessor] (grounded in OpenHW §3.2 + `xif_interface.rs`)
-2. [coprocessor] → enables stateful ops → [Observation primitive] (partial ground, confidence 0.67)
-3. [Observation primitive] → requires low‑latency memory → [data movement optimization] (conf. 0.91)
-4. [data movement opt] → core SSCCS goal (conf. 0.95)
+The collected trajectories feed a Flow‑GRPO pipeline that refines the Planner:
 
-Report saved to `docs/hypotheses/2026-04-20_xif_observation.qmd`.
+1. Rollout Collection: each completed session is stored as `memory/session_<timestamp>.jsonl`.
+2. Reward Computation: the final reward blends KG‑support score, novelty score, contract compliance (binary), and human feedback (score normalized to [0,1]).
+3. Group Sampling: trajectories are batched (typically 8 per group).
+4. Advantage Calculation: group‑normalized advantages (as in GRPO) stabilize training.
+5. Policy Update: PPO‑style clipped objective with KL penalty toward a frozen reference model. Because the reward is broadcast to all steps of a trajectory, the multi‑turn credit assignment problem is decomposed into single‑turn updates.
 
----
+Training can run on a consumer GPU (7B model) or be deferred to cloud resources. The Planner checkpoint is versioned and stored alongside the repository.
 
-## Appendix C: Visualisation (Lowest Priority)
 
-Interactive visualisations can be generated from EdgeQuake’s graph data using Plotly or Sigma.js. Not required for core functionality.
+### Layer 5: Contract Governance (Future)
 
----
+The SSCCS Organic Growth diagram in `index.qmd` envisions a system where Contract‑Governed Ingestion feeds a Unified Knowledge Graph, driving Hypothesis Generation and Validation. Nexus currently implements this as `contract.json` — a JSON schema that defines required hypothesis steps, evidence thresholds, novelty minimums, and report section requirements. As the project matures, the contract can expand to enforce:
 
-## Appendix D: Mapping to All Three Papers
+- Cryptographic provenance chains (C2PA manifests for generated artifacts).
+- Mandatory code‑documentation traceability for every new hypothesis.
+- Formal verification of experimental proposals against KG evidence.
 
-| Component | AgentFlow | HypoChainer | Story2Proposal |
-|-----------|-----------|-------------|----------------|
-| **Planner** | Trainable policy via Flow‑GRPO | — | — |
-| **Executor** | Tool orchestration layer | — | — |
-| **Verifier** | Termination & state evaluation | KG‑grounded validation | Evaluation feedback |
-| **Generator** | — | — | Report rendering |
-| **Contract** | — | — | Structural obligations |
-| **Memory** | Trajectory for RL | — | — |
-| **KG Engine** | — | Entity‑aligned retrieval | — |
+Because the contract is versioned, machine‑readable, and enforced at both the Verifier and Reporter layers, it provides an evolvable governance surface without requiring architectural changes.
 
-The unified system combines the strengths of all three: a learning agent for strategy, a KG for grounded reasoning, and a contract for quality assurance.
 
----
+### Component Interaction Matrix
+
+| Component | EdgeQuake | R2 | Sync Worker | Planner | Verifier | Generator |
+|-----------|:---:|:---:|:---:|:---:|:---:|:---:|
+| EdgeQuake | — | — | ← syncs | ← queries | ← grounds | — |
+| R2 | — | — | ← reads | — | — | — |
+| Sync Worker | → DELETE/POST | → list/get | — | — | — | — |
+| Planner | → queries | — | — | — | → delegates | — |
+| Verifier | → hybrid queries | — | — | ← receives | — | → signals |
+| Generator | — | — | — | — | ← triggered | — |
+
+
+## Strategic Value & Open‑Source Alignment
+
+- No lock‑in: EdgeQuake runs on any PostgreSQL 15+ instance; R2 and Workers are replaceable with any S3‑compatible store and any serverless function platform.
+- Free tier viability: the entire stack operates within Cloudflare's free tier (R2: 10 GB, 1M writes/month; Workers: 100k requests/day; Queues: included) and OCI's Always Free tier.
+- Research‑first design: optimized for the academic exploration cycle — hypothesize, validate, publish — rather than for commercial RAG benchmarks.
+- Autonomous learning: among the first applications of on‑policy reinforcement learning to scientific knowledge management.
+
+
+## Integration with AWS Ecosystem as a Strategic Collaboration
+
+Project Nexus serves as the knowledge backbone for the broader [SSCCS × AWS Strategic Collaboration Roadmap](./aws.html), which outlines autonomous compiler optimization and pre‑silicon hardware emulation workstreams. The Nexus agentic loop and Graph‑RAG infrastructure are directly applicable to the experiments proposed in that roadmap:
+
+- **AI‑Driven Compiler Optimization on Graviton**: Autonomous agents, powered by the Planner and Verifier, can explore compiler pass sequences, evaluate metrics (CEI, FGR, buffer reduction), and store experimental results in EdgeQuake. This accelerates the closed‑loop tuning cycle described in the roadmap.
+- **Pre‑Silicon Hardware Emulation on AWS HPC**: The same hypothesis‑generation and validation pipeline can manage the massive parameter space of structural observations across simulated HPC environments, tracking determinism, energy efficiency, and latency. Results from these emulations feed back into the knowledge graph, enabling cross‑domain discovery between software and hardware research.
+
+The ingestion pipeline ensures that benchmark data, compiler configurations, and emulation traces are continuously integrated with Nexus, turning every AWS experiment into a reusable knowledge asset.
+
 
 {{< include ./_include/_nexus_ref.qmd >}}
 
