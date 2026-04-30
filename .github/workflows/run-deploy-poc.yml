@@ -58,12 +58,9 @@ jobs:
         run: |
           mkdir -p _agent
           rsync -av --delete \
-            --exclude='target' \
-            --exclude='.git' \
-            --exclude='*.swp' \
-            --exclude='*.py' \
-            --exclude='*.sh' \
-            --exclude='*.rs.bk' \
+            --exclude='**/README.md' \
+            --include='*.md' \
+            --exclude='*' \
             poc/ _agent/poc/
 
       - name: Upload agent artifects to R2-S3
