@@ -1,20 +1,20 @@
 ---
-title: "Project Nexus"
+title: "Implementation and Architecture: Initial Phase"
 subtitle: Unified Knowledge Pipeline with Learnable Agentic Research
 date: last-modified
 format:
   html: default
 metadata-files:
-  - ../_include/author.yml
+  - ../../_include/author.yml
 abstract: |
-  Project Nexus unifies everything into a single, queryable knowledge pipeline, and transforms it into a self‑improving agentic research system. At its core is EdgeQuake, a Rust‑native Graph‑RAG engine that decomposes documents into structured knowledge and supports six distinct query modes. An artifact ingestion pipeline ensures strong consistency and decouples CI/CD from the KG. The agentic loop (Planner, Executor, Verifier, Generator) orchestrates research activity, grounded in KG evidence and governed by a contract schema. Finally, a Flow‑GRPO learning loop refines the Planner based on research outcomes and human feedback.
+  Project Nexus unifies everything into a single, queryable knowledge pipeline, and transforms it into a self‑improving agentic research system. At its core is GraphRAG — a class of graph‑native retrieval‑augmented generation engines that decompose documents into structured knowledge and support multiple query modes. The initial phase implements and evaluates multiple GraphRAG backends (e.g., LightRAG, Qdrant‑based, Neo4j‑based) behind a common engine‑agnostic interface, allowing the system to benchmark, compare, and select the optimal backend per workload. An artifact ingestion pipeline ensures strong consistency and decouples CI/CD from the KG. The agentic loop (Planner, Executor, Verifier, Generator) orchestrates research activity, grounded in KG evidence and governed by a contract schema. Finally, a Flow‑GRPO learning loop refines the Planner based on research outcomes and human feedback.
 ---
 
 ```{python}
 #| echo: false
 #| include: false
 #| context: local
-%run ../_include/_graphviz.py
+%run ../../_include/_graphviz.py
 ```
 
 ## Executive Summary
@@ -62,17 +62,17 @@ digraph NexusUnified {
         verifier -> memory; verifier -> generator [label="terminate?"];
     }
 
-    edgequake [label="EdgeQuake\n(RAG+Graph+REST API)", shape=cylinder, style=filled, fillcolor="#ffe4e1"];
+    graphrag [label="GraphRAG\n(Engine‑Agnostic Interface)", shape=cylinder, style=filled, fillcolor="#ffe4e1"];
     flowgrpo [label="Flow‑GRPO", shape=box, style=filled, fillcolor="#e6ffe6"];
 
     // Connections
     user -> planner;
     contract -> planner; contract -> generator [style=dashed];
 
-    executor -> edgequake; verifier -> edgequake;
+    executor -> graphrag; verifier -> graphrag;
     generator -> user;
 
-    r2 -> worker [label="aws s3 sync"]; worker -> edgequake [label="sync"];
+    r2 -> worker [label="aws s3 sync"]; worker -> graphrag [label="sync"];
     executor -> r2 [style=dotted, label="upload external docs"];
 
     generator -> flowgrpo [label="final reward"];
@@ -80,11 +80,10 @@ digraph NexusUnified {
     generator -> contract [dir=both, style=dashed];
 
     { rank=same; user; contract; }
-    { rank=same; edgequake; flowgrpo; }
+    { rank=same; graphrag; flowgrpo; }
 }
 """)
 ```
-
 
 More than a passive knowledge base, it is a self‑improving agentic research infrastructure that:
 
@@ -101,94 +100,96 @@ Three complementary research advances underpin this vision:
 | Paradigm | Source | Core Insight | Role in Nexus |
 |----------|--------|--------------|-----------------|
 | In‑the‑Flow Agentic Optimization | AgentFlow [arXiv:2510.05592](https://arxiv.org/pdf/2510.05592) | A trainable Planner inside a multi‑turn loop, optimized via Flow‑GRPO, learns long‑horizon tool‑use strategies from sparse outcome rewards. | The Nexus Planner learns to decompose research questions, select appropriate tools, and assemble hypothesis chains that improve over time. |
-| Hypothesis‑Driven Discovery | HypoChainer [arXiv:2507.17209](https://arxiv.org/pdf/2507.17209) | LLMs, Knowledge Graphs, and human experts collaboratively build and validate hypothesis chains anchored in KG entities. | The Planner and Verifier embody this cycle: chains are generated, then each step is grounded against entities and relationships retrieved from EdgeQuake. |
+| Hypothesis‑Driven Discovery | HypoChainer [arXiv:2507.17209](https://arxiv.org/pdf/2507.17209) | LLMs, Knowledge Graphs, and human experts collaboratively build and validate hypothesis chains anchored in KG entities. | The Planner and Verifier embody this cycle: chains are generated, then each step is grounded against entities and relationships retrieved from GraphRAG. |
 | Contract‑Governed Multi‑Agent Generation | Story2Proposal [arXiv:2601.20833](https://arxiv.org/pdf/2601.20833) | Specialized agents (Architect, Writer, Refiner, Renderer) operate under a persistent shared contract that enforces structural obligations and visual‑artifact alignment. | The Generator and Reporter agents enforce `contract.json` to guarantee that every generated report meets required sections, citations, and evidence thresholds. |
-
 
 ## Architecture Stack
 
 The Nexus architecture is assembled from distinct, purpose‑aligned layers. Each layer addresses a specific concern while maintaining clean interfaces to the others.
 
-### Layer 1: Knowledge Graph Engine — EdgeQuake
+### Layer 1: Knowledge Graph Engine — GraphRAG
 
-At the center of Nexus sits EdgeQuake, a Rust‑native Graph‑RAG framework that implements the LightRAG algorithm. Rather than treating documents as flat text, EdgeQuake decomposes them into structured knowledge: entities, typed relationships, and community clusters, all stored in a single PostgreSQL instance.
+At the center of Nexus sits a GraphRAG layer — a class of graph‑native retrieval‑augmented generation engines that decompose documents into structured knowledge: entities, typed relationships, and community clusters. Rather than committing to a single implementation, Nexus adopts an engine‑agnostic design: multiple GraphRAG backends operate behind a common interface, allowing the system to benchmark, compare, and route queries to the optimal backend per workload.
 
-#### Storage Architecture: PostgreSQL with Dual Extensions
+#### Engine‑Agnostic Interface
 
-EdgeQuake uses PostgreSQL 15+ as its sole persistence layer, with two specialized extensions:
+All GraphRAG backends conform to a common `EngineHandler` interface that abstracts the core operations Nexus requires:
 
-| Extension | Role | Index Types |
-|-----------|------|-------------|
-| pgvector | Vector similarity search on document chunks and entity descriptions | HNSW, IVFFlat, VCHORDRQ |
-| Apache AGE | Property graph storage for entities, relationships, and Louvain communities | GIN, B‑tree |
+| Operation | Interface Method | Description |
+|-----------|-----------------|-------------|
+| Upload | `upload(document) → doc_id` | Ingest a document, extract entities/relationships, return handle |
+| Delete | `delete(doc_id)` | Remove a document and all associated artifacts |
+| Query | `query(text, mode) → results` | Execute retrieval across supported query modes |
+| List | `list(filter) → documents` | Enumerate ingested documents with metadata |
+| Inject | `inject(terms, workspace)` | Inject domain glossary and entity definitions |
 
-This dual‑extension design is critical: it enables cross‑domain queries that span both semantic similarity (vector space) and structural connectivity (graph space) without leaving the database. A single SQL transaction can retrieve a document chunk by embedding similarity, then traverse its entity neighbors through Cypher graph operations — all within the same PostgreSQL process.
+This abstraction isolates the rest of Nexus from any particular backend's storage architecture, query syntax, or API conventions. Adding a new GraphRAG implementation requires only implementing this interface and registering a route in the sync worker (e.g., `/sync/lightrag`, `/sync/qd`).
 
-Why not separate stores? Earlier iterations of LightRAG used NetworkX (in‑memory) for graph operations alongside external vector databases. This created consistency boundaries: the graph and vectors could drift. EdgeQuake's single‑database approach eliminates drift by colocating all state under PostgreSQL's ACID guarantees.
+#### Initial Phase: Multi‑Backend Benchmarking
 
-#### Entity Extraction Pipeline
+The initial phase deploys and evaluates multiple GraphRAG implementations to inform the long‑term backend strategy:
 
-During ingestion, each document passes through a multi‑stage pipeline:
+| Backend | Routing Key | Architecture | Strengths | Evaluation Focus |
+|---------|-------------|-------------|-----------|-----------------|
+| **LightRAG** | `/sync/lightrag` | PostgreSQL + pgvector + Apache AGE | Single‑DB ACID consistency, Louvain community detection, six query modes | Baseline: entity extraction quality, query latency, operational simplicity |
+| **Qdrant‑based** | `/sync/qd` | Qdrant vector DB + external graph store | High‑performance vector search, horizontal scaling, cloud‑native | Vector recall vs. graph‑aware recall, ingestion throughput |
+| **Neo4j‑based** | `/sync/neo4j` | Neo4j native graph + separate vector index | Native graph traversal (Cypher), mature ecosystem, property graph model | Multi‑hop reasoning quality, graph query expressiveness |
 
-1. Chunking — documents are split into ~1200‑token segments with 100‑token overlap.
-2. Entity Extraction — an LLM (any supported provider: OpenAI, Anthropic, Mistral, Ollama) parses each chunk into `(entity, type, description)` triples and `(source, target, keywords, description)` relationship tuples. Seven entity types are recognized by default, with custom types configurable per workspace (v0.9.0+).
-3. Gleaning — an optional second pass catches entities missed in the first extraction, improving recall by approximately 18%.
-4. Normalization — case normalization and description merging reduce duplicates by 36–40%.
-5. Embedding — document chunks, entity descriptions, and relationship descriptions each receive vector embeddings.
-6. Community Detection — Louvain modularity optimization clusters related entities for thematic, high‑level queries (Global mode).
+Each backend ingests the same corpus through the same sync pipeline. The Verifier benchmarks query quality across modes (Local, Global, Hybrid), and the Planner learns to route questions to the most appropriate backend based on question type and observed performance.
 
-#### Six Query Modes
+#### Common Entity Extraction Pipeline
 
-EdgeQuake exposes six retrieval strategies through its REST API, each optimized for different question types:
+Regardless of backend, all GraphRAG implementations share a common conceptual ingestion pipeline:
 
-| Mode | Data Sources | Strategy | Best For |
-|------|-------------|----------|----------|
-| Naive | `chunks_vdb` only | Pure vector similarity search on document chunks | Simple keyword‑like lookups (~100–300ms) |
-| Local | `entities_vdb`, `chunk_entity_relation_graph` | Extract keywords → find related entities → retrieve entity descriptions and local graph neighborhood | Specific entity‑centric questions: *"What is the Observation primitive?"* (~200–500ms) |
-| Global | `relationships_vdb`, `chunk_entity_relation_graph` | Extract keywords → find related relationships → retrieve relationship descriptions and global graph context | Thematic, high‑level questions: *"What are the major themes in the architecture?"* (~300–800ms) |
-| Hybrid | `entities_vdb`, `relationships_vdb`, `chunk_entity_relation_graph` | Parallel Local + Global retrieval, merged context | Complex questions requiring both detail and broader connections (~400–1000ms) |
-| Mix | All vector stores + graph | Keyword extraction → entity search + relationship search + chunk search → weighted combination | Multi‑faceted queries where both semantic similarity and graph structure matter |
-| Bypass | None | Direct LLM call without retrieval | General questions not requiring document context |
+1. **Chunking** — documents are split into semantically coherent segments with configurable overlap.
+2. **Entity Extraction** — an LLM parses each chunk into `(entity, type, description)` triples and `(source, target, keywords, description)` relationship tuples.
+3. **Gleaning** — an optional second pass catches entities missed in the first extraction.
+4. **Normalization** — case normalization and description merging reduce duplicate entities.
+5. **Embedding** — document chunks, entity descriptions, and relationship descriptions each receive vector embeddings.
+6. **Community Detection** — graph clustering (e.g., Louvain, Leiden) groups related entities for thematic, high‑level queries.
 
-The Planner agent uses these modes strategically: a question about "all concepts related to data movement" triggers Global mode, while "how does Observation interact with XIF?" triggers Hybrid mode to balance entity focus with cross‑document relationship tracing.
+Each backend implements this pipeline according to its own storage and compute architecture. The common interface ensures that the Planner, Verifier, and Generator need not know which backend produced a given result.
 
-#### Performance Characteristics
+#### Query Modes
 
-EdgeQuake's Rust implementation delivers significant throughput advantages over traditional RAG stacks:
+The `EngineHandler` interface exposes a standard set of retrieval strategies that all backends must support:
 
-| Metric | EdgeQuake | Traditional RAG | Factor |
-|--------|-----------|-----------------|--------|
-| Entity extraction | ~2–3× baseline | Baseline | 3× |
-| Query latency (hybrid) | <200ms | ~1000ms | 5× faster |
-| Document processing (10k tokens) | 25s | ~60s | 2.4× faster |
-| Concurrent users | 1000+ | ~100 | 10× |
-| Memory per document | 2MB | ~8MB | 4× better |
+| Mode | Strategy | Best For |
+|------|----------|----------|
+| **Naive** | Pure vector similarity on document chunks | Simple keyword‑like lookups |
+| **Local** | Entity‑centric: keywords → entities → local graph neighborhood | Specific entity questions |
+| **Global** | Relationship‑centric: keywords → relationships → global graph context | Thematic, high‑level surveys |
+| **Hybrid** | Parallel Local + Global, merged context | Complex cross‑domain reasoning |
+| **Mix** | Weighted combination of all retrieval sources | Multi‑faceted queries |
+| **Bypass** | Direct LLM call without retrieval | General questions |
 
-#### REST API
+The Planner selects the appropriate mode based on question type. The multi‑backend architecture allows mode performance to be compared across implementations: a Hybrid query might be faster on Qdrant‑based while a Global query yields richer results on Neo4j‑based.
 
-EdgeQuake exposes an OpenAPI 3.0 REST API with the endpoints most relevant to Nexus:
+#### Performance Benchmarking Framework
 
-- `POST /api/v1/documents/upload` — ingestion entry point (files or text)
-- `GET /api/v1/documents` — list documents with filters (status, date range, pattern)
-- `DELETE /api/v1/documents/:id` — remove a document and all associated entities, relationships, and chunks
-- `POST /api/v1/query` — execute queries across all 6 modes
-- `POST /api/v1/workspaces/:id/injection` — inject domain glossary terms, synonyms, and entity definitions directly into the graph
-- SSE streaming for real‑time token‑by‑token response delivery
+The initial phase includes a benchmarking framework that evaluates each backend on:
 
-The deletion endpoint is particularly important for the incremental sync strategy: changing a source artifact requires deleting the old EdgeQuake document before uploading the new one, since EdgeQuake has no update API.
+| Metric | Description | Target |
+|--------|-------------|--------|
+| Entity extraction quality | Precision/recall against gold‑standard annotations | F1 ≥ 0.85 |
+| Query latency (Hybrid) | End‑to‑end response time for complex queries | < 1s |
+| Ingestion throughput | Documents processed per minute | > 10 docs/min |
+| Storage efficiency | Disk footprint per document | < 5 MB/doc |
+| Concurrent query capacity | Simultaneous queries before degradation | > 50 |
 
+Results inform not only backend selection but also the Planner's learned routing policy — a question type that consistently yields better results from a specific backend will bias the Planner toward that backend.
 
 ### Layer 2: Artifact Storage & Ingestion Pipeline — Cloudflare R2 + Worker
 
-Rather than uploading documents directly to EdgeQuake from CI/CD (which would couple build pipelines to a specific running instance), Nexus introduces an intermediate artifact store and a synchronization worker.
+Rather than uploading documents directly to a GraphRAG engine from CI/CD (which would couple build pipelines to a specific running instance), Nexus introduces an intermediate artifact store and a synchronization worker.
 
 #### Why a Decoupled Pipeline?
 
 Direct uploads create several problems:
 
-1. CI coupling: every docs or code build must reach the EdgeQuake instance. If the instance is unavailable, the build fails.
-2. No change detection: EdgeQuake cannot tell whether a re‑uploaded document has actually changed; every upload triggers LLM extraction.
-3. Multiple sources are hard to merge: core documentation, POC code artifacts, and user‑injected documents come from different places and must converge on one KG.
+1. CI coupling: every docs or code build must reach a specific GraphRAG instance. If the instance is unavailable, the build fails.
+2. No change detection: the GraphRAG engine cannot tell whether a re‑uploaded document has actually changed; every upload triggers LLM extraction.
+3. Multiple sources are hard to merge: core documentation, POC code artifacts, and user‑injected documents come from different places and must converge on one KG — potentially across multiple backends.
 
 The decoupled pipeline addresses all three by establishing a single source of truth (R2) and a dedicated sync process (Worker).
 
@@ -198,24 +199,29 @@ Cloudflare R2 (bucket: `ssccs-nexus-af`) serves as the artifact repository. Key 
 
 - Strong consistency on the S3 API — unlike AWS S3 before 2020, R2 guarantees read‑after‑write consistency, meaning that once `PutObject` returns, the object is immediately visible to the sync worker. This eliminates race conditions during incremental updates.
 - S3‑compatible API — supports `GetObject`, `PutObject`, `DeleteObject`, and `ListObjectsV2`, enabling direct use of `aws s3 sync` from CI without custom tooling.
-- Zero egress fees — no cost for transferring data from R2 to the Worker or EdgeQuake, even across regions.
+- Zero egress fees — no cost for transferring data from R2 to the Worker or GraphRAG backends, even across regions.
 - Free tier: 10 GB storage, 1 million write operations/month, 10 million read operations/month — well within SSCCS's expected usage.
 
 #### The Sync Worker
 
-The sync worker (`nexus-sync-worker`, TypeScript) exposes a single endpoint, `POST /sync/:engine`, and performs incremental synchronization between R2 and EdgeQuake.
+The sync worker (`nexus-sync-worker`, TypeScript) exposes a single endpoint, `POST /sync/:engine`, and performs incremental synchronization between R2 and the target GraphRAG engine.
 
 Internal Architecture:
 
 1. Authentication — the request must carry `Authorization: Bearer <SYNC_API_KEY>`. The API key is stored as a Cloudflare Secret, never appearing in source code or configuration files.
-2. Engine Routing — the `URLPattern` API matches `/:engine` from the path. Currently `eq` maps to `EdgeQuakeHandler`; adding a new engine requires implementing an `EngineHandler` interface and registering it in the engines map.
+2. Engine Routing — the `URLPattern` API matches `/:engine` from the path. Each registered engine key maps to an `EngineHandler` implementation:
+   - `lightrag` → `LightRAGHandler` — PostgreSQL‑based GraphRAG backend
+   - `qd` → `QdrantHandler` — Qdrant vector DB + external graph backend
+   - `neo4j` → `Neo4jHandler` — Neo4j native graph backend
+
+   Adding a new engine requires implementing the `EngineHandler` interface and registering it in the engines map. The same R2 artifact can be synced to multiple engines simultaneously by issuing `POST /sync/lightrag` and `POST /sync/qd`.
 3. Diff Computation — the producer compares two data sets:
    - R2 inventory: all objects in the bucket, each with an `ETag` (MD5 hash of content).
-   - KV mapping: a persistent record of `{r2_key: {doc_id, etag}}` stored in Cloudflare KV.
-   
-   The diff produces three task lists: deletions (in KV but not in R2), uploads (in R2 but not in KV, or ETag mismatch), and no‑ops (ETag match).
+   - KV mapping: a persistent record of `{engine}/{r2_key: {doc_id, etag}}` stored in Cloudflare KV, partitioned by engine.
+
+   The diff produces three task lists per engine: deletions (in KV but not in R2), uploads (in R2 but not in KV, or ETag mismatch), and no‑ops (ETag match).
 4. Queue‑Based Processing — tasks are chunked (≤10 items per message) and pushed to a Cloudflare Queue (`nexus-sync-queue`). This is the critical design element that avoids the free‑plan subrequest limit (50 external `fetch` calls per worker invocation).
-5. Consumer Processing — queue consumers receive chunks and execute the actual EdgeQuake API calls (`DELETE` then `POST` for modified files). After each successful upload, the KV mapping is updated with the new document ID and ETag.
+5. Consumer Processing — queue consumers receive chunks and execute the actual GraphRAG engine API calls (`DELETE` then `POST` for modified files) against the target backend. After each successful upload, the KV mapping is updated with the new document ID and ETag for that engine.
 
 Queue Consumer Concurrency: Cloudflare Queues support automatic horizontal scaling. Consumers are invoked in parallel when the backlog grows, up to the platform maximum — typically 250 concurrent invocations. This means a large sync (hundreds of changed documents) will scale out automatically without any configuration changes.
 
@@ -227,13 +233,13 @@ dot("""
 digraph ArtifactPipeline {
     splines=ortho;
     nodesep=0.5;
-    
+
     ci [label="CI/CD\n(aws s3 sync)", shape=box, fillcolor="#d4f1f9"];
     r2 [label="Cloudflare R2\nssccs-nexus-af", shape=cylinder, fillcolor="#ffebcd"];
     producer [label="Producer Worker\n/sync/:engine", shape=box, fillcolor="#e6ffe6"];
     kv [label="KV\nmapping", shape=note, fillcolor="#fffacd"];
     queue [label="Queue\nnexus-sync-queue", shape=box, fillcolor="#f0f0f0"];
-    
+
     subgraph cluster_consumers {
         label="Queue Consumers (auto‑scale)";
         style="dashed";
@@ -241,22 +247,27 @@ digraph ArtifactPipeline {
         c2 [label="Consumer 2", shape=box, fillcolor="#ffe4e1"];
         cn [label="Consumer N", shape=box, fillcolor="#ffe4e1"];
     }
-    
-    edgequake [label="EdgeQuake(RAG+Graph)\nDELETE + POST", shape=cylinder, fillcolor="#ffe4e1"];
-    
+
+    subgraph cluster_backends {
+        label="GraphRAG Backends";
+        style="dashed";
+        lightrag [label="LightRAG\n(PG+pgvector+AGE)", shape=cylinder, fillcolor="#ffe4e1"];
+        qd [label="Qdrant‑based", shape=cylinder, fillcolor="#ffe4e1"];
+        neo4j [label="Neo4j‑based", shape=cylinder, fillcolor="#ffe4e1"];
+    }
+
     ci -> r2; r2 -> producer;
     producer -> kv; producer -> queue;
     queue -> c1; queue -> c2; queue -> cn;
-    c1 -> edgequake; c2 -> edgequake; cn -> edgequake;
-    edgequake -> kv [style=dashed];
+    c1 -> lightrag; c2 -> qd; cn -> neo4j;
+    lightrag -> kv [style=dashed]; qd -> kv [style=dashed]; neo4j -> kv [style=dashed];
 }
 """)
 ```
 
 Design Decision: KV for Mapping
 
-Workers KV is eventually consistent: changes made in one edge location may take up to 60 seconds to propagate globally. However, all sync worker invocations for our architecture are triggered from a single entry point (`/sync/eq`), and the producer writes the mapping and immediately uses it within the same invocation — read‑your‑own‑writes consistency is guaranteed. The eventual consistency of KV is therefore not a practical concern for this design: we never rely on multiple concurrent producers writing the same mapping keys.
-
+Workers KV is eventually consistent: changes made in one edge location may take up to 60 seconds to propagate globally. However, all sync worker invocations for our architecture are triggered from a single entry point per engine (e.g., `/sync/lightrag`), and the producer writes the mapping and immediately uses it within the same invocation — read‑your‑own‑writes consistency is guaranteed. The eventual consistency of KV is therefore not a practical concern for this design: we never rely on multiple concurrent producers writing the same mapping keys.
 
 ### Layer 3: Agentic Research Loop — Planner, Executor, Verifier, Generator
 
@@ -274,7 +285,7 @@ digraph NexusOrganic {
     contract [label="Contract (contract.json)", shape=note, fillcolor="#e6f2ff"];
     r2 [label="R2 Artifact Store\n(strong consistency)", shape=cylinder, fillcolor="#ffebcd"];
     worker [label="Sync Worker\n/sync/:engine", shape=box, fillcolor="#e6ffe6"];
-    edgequake [label="EdgeQuake KG\n(PostgreSQL + pgvector + AGE)", shape=cylinder, fillcolor="#ffe4e1"];
+    graphrag [label="GraphRAG KG\n(Engine‑Agnostic)", shape=cylinder, fillcolor="#ffe4e1"];
     planner [label="Planner\n(trainable)", shape=box, fillcolor="#d4f1f9"];
     verifier [label="Verifier\n(KG grounding)", shape=box, fillcolor="#d4f1f9"];
     generator [label="Generator\n(contract‑compliant)", shape=box, fillcolor="#d4f1f9"];
@@ -283,8 +294,8 @@ digraph NexusOrganic {
 
     contract -> worker; contract -> generator [style=dashed, label="constrains"];
     r2 -> worker [label="read + diff"];
-    worker -> edgequake [label="sync"];
-    edgequake -> planner [label="query"]; edgequake -> verifier;
+    worker -> graphrag [label="sync"];
+    graphrag -> planner [label="query"]; graphrag -> verifier;
     planner -> verifier [label="hypotheses"]; verifier -> generator [label="terminate?"];
     generator -> output;
     generator -> flowgrpo [label="reward"];
@@ -305,7 +316,7 @@ The architecture compresses the Organic Growth model into a concrete, implementa
 The Planner is an LLM — initially a frozen instruct model (Qwen2.5‑7B or equivalent), later fine‑tuned via Flow‑GRPO. Its responsibilities:
 
 - Decompose a research question into sub‑goals.
-- Select the appropriate EdgeQuake query mode (`hybrid` for complex reasoning, `local` for entity lookup, `global` for thematic surveys).
+- Select the appropriate GraphRAG query mode and backend (`hybrid` for complex reasoning, `local` for entity lookup, `global` for thematic surveys).
 - Decide when to crawl external sources or execute Python code.
 - Evaluate intermediate results and decide whether evidence is sufficient to terminate.
 
@@ -315,7 +326,7 @@ The Planner is trained on trajectories collected from actual research sessions �
 
 The Executor invokes registered tools on the Planner's behalf and returns structured results to the Evolving Memory. Tool examples:
 
-- `search_kg(query, mode)` — calls EdgeQuake's `/query` with the specified mode.
+- `search_kg(query, mode, backend?)` — calls the GraphRAG engine's `/query` with the specified mode, optionally routing to a specific backend.
 - `crawl_external(url)` — fetches and uploads external documents to R2 (and thus into the KG).
 - `run_python(code)` — executes computational snippets.
 - `generate_hypothesis_step(context)` — uses a frozen LLM to propose candidate hypothesis links.
@@ -325,7 +336,7 @@ The Executor invokes registered tools on the Planner's behalf and returns struct
 
 The Verifier acts as both the HypoChainer‑style validation engine and the Story2Proposal evaluation agent. For each hypothesis step, it:
 
-1. Queries EdgeQuake (Hybrid or Local mode) for entities and relationships semantically aligned with the claim.
+1. Queries the GraphRAG layer (Hybrid or Local mode) for entities and relationships semantically aligned with the claim.
 2. Computes a support score: fraction of steps that have at least one grounded KG path.
 3. Computes a novelty score: counts how many new KG edges would be created if the hypothesis were validated — bridging previously disconnected entity clusters earns higher novelty.
 4. Checks the `contract.json` rules (required sections, citation formats, novelty thresholds).
@@ -346,7 +357,6 @@ A Reporter agent performs a final cross‑check against `contract.json` before t
 
 All research activity is recorded in an append‑only `Evolving Memory` (JSONL files). Each session logs the query, every planning turn (tool choice, arguments, results, verifier feedback), the final output, and any human feedback. These trajectories are the raw material for RL training.
 
-
 ### Layer 4: Learning Loop — Flow‑GRPO
 
 The collected trajectories feed a Flow‑GRPO pipeline that refines the Planner:
@@ -359,7 +369,6 @@ The collected trajectories feed a Flow‑GRPO pipeline that refines the Planner:
 
 Training can run on a consumer GPU (7B model) or be deferred to cloud resources. The Planner checkpoint is versioned and stored alongside the repository.
 
-
 ### Layer 5: Contract Governance (Future)
 
 The SSCCS Organic Growth diagram in `index.qmd` envisions a system where Contract‑Governed Ingestion feeds a Unified Knowledge Graph, driving Hypothesis Generation and Validation. Nexus currently implements this as `contract.json` — a JSON schema that defines required hypothesis steps, evidence thresholds, novelty minimums, and report section requirements. As the project matures, the contract can expand to enforce:
@@ -370,37 +379,33 @@ The SSCCS Organic Growth diagram in `index.qmd` envisions a system where Contrac
 
 Because the contract is versioned, machine‑readable, and enforced at both the Verifier and Reporter layers, it provides an evolvable governance surface without requiring architectural changes.
 
-
 ### Component Interaction Matrix
 
-| Component | EdgeQuake | R2 | Sync Worker | Planner | Verifier | Generator |
+| Component | GraphRAG | R2 | Sync Worker | Planner | Verifier | Generator |
 |-----------|:---:|:---:|:---:|:---:|:---:|:---:|
-| EdgeQuake | — | — | ← syncs | ← queries | ← grounds | — |
+| GraphRAG | — | — | ← syncs | ← queries | ← grounds | — |
 | R2 | — | — | ← reads | — | — | — |
 | Sync Worker | → DELETE/POST | → list/get | — | — | — | — |
 | Planner | → queries | — | — | — | → delegates | — |
 | Verifier | → hybrid queries | — | — | ← receives | — | → signals |
 | Generator | — | — | — | — | ← triggered | — |
 
-
 ## Strategic Value & Open‑Source Alignment
 
-- No lock‑in: EdgeQuake runs on any PostgreSQL 15+ instance; R2 and Workers are replaceable with any S3‑compatible store and any serverless function platform.
+- No lock‑in: every GraphRAG backend is replaceable; the engine‑agnostic interface isolates the system from any particular implementation. R2 and Workers are replaceable with any S3‑compatible store and any serverless function platform.
 - Free tier viability: the entire stack operates within Cloudflare's free tier (R2: 10 GB, 1M writes/month; Workers: 100k requests/day; Queues: included) and OCI's Always Free tier.
 - Research‑first design: optimized for the academic exploration cycle — hypothesize, validate, publish — rather than for commercial RAG benchmarks.
 - Autonomous learning: among the first applications of on‑policy reinforcement learning to scientific knowledge management.
 
-
 ## Integration with AWS Ecosystem as a Strategic Collaboration
 
-Project Nexus serves as the knowledge backbone for the broader [SSCCS × AWS Strategic Collaboration Roadmap](./aws.html), which outlines autonomous compiler optimization and pre‑silicon hardware emulation workstreams. The Nexus agentic loop and Graph‑RAG infrastructure are directly applicable to the experiments proposed in that roadmap:
+Project Nexus serves as the knowledge backbone for the broader [SSCCS × AWS Strategic Collaboration Roadmap](/proposal/aws.html), which outlines autonomous compiler optimization and pre‑silicon hardware emulation workstreams. The Nexus agentic loop and Graph‑RAG infrastructure are directly applicable to the experiments proposed in that roadmap:
 
-- **AI‑Driven Compiler Optimization on Graviton**: Autonomous agents, powered by the Planner and Verifier, can explore compiler pass sequences, evaluate metrics (CEI, FGR, buffer reduction), and store experimental results in EdgeQuake. This accelerates the closed‑loop tuning cycle described in the roadmap.
-- **Pre‑Silicon Hardware Emulation on AWS HPC**: The same hypothesis‑generation and validation pipeline can manage the massive parameter space of structural observations across simulated HPC environments, tracking determinism, energy efficiency, and latency. Results from these emulations feed back into the knowledge graph, enabling cross‑domain discovery between software and hardware research.
+- AI‑Driven Compiler Optimization on Graviton: Autonomous agents, powered by the Planner and Verifier, can explore compiler pass sequences, evaluate metrics (CEI, FGR, buffer reduction), and store experimental results in the GraphRAG knowledge graph. This accelerates the closed‑loop tuning cycle described in the roadmap.
+- Pre‑Silicon Hardware Emulation on AWS HPC: The same hypothesis‑generation and validation pipeline can manage the massive parameter space of structural observations across simulated HPC environments, tracking determinism, energy efficiency, and latency. Results from these emulations feed back into the knowledge graph, enabling cross‑domain discovery between software and hardware research.
 
 The ingestion pipeline ensures that benchmark data, compiler configurations, and emulation traces are continuously integrated with Nexus, turning every AWS experiment into a reusable knowledge asset.
 
-
 {{< include ./_include/_nexus_ref.qmd >}}
 
-{{< include ../_include/_license.md >}}
+{{< include ../../_include/_license.md >}}
