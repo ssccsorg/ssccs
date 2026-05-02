@@ -20,6 +20,14 @@ target_config:
   #   output_dir: false
   #   to: null
 
+# Pre-build commands
+# Commands to execute before any build process begins.
+# Each entry is a command list [executable, arg1, arg2, ...].
+# If the executable is not found on PATH, the command is silently skipped.
+# If a command fails, an error is logged but the main build process continues.
+pre_build:
+  - ["rumdl", "fmt", ".", "--silent", "--disable", "MD036"]
+
 # Exclude patterns (gitignore-style)
 # Files and directories matching these patterns will be excluded from target discovery.
 # Supports:

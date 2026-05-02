@@ -5,6 +5,8 @@ ENV QUARTO_VER="1.9.35" \
     C2PA_VER="0.9.12" \
     PIP_BREAK_SYSTEM_PACKAGES=1 \
     UV_SYSTEM_PYTHON=1 \
+    UV_TOOL_BIN_DIR=/usr/local/bin \
+    UV_TOOL_DIR=/opt/uv-tools \
     # Avoid Pandoc emulation crashes (required when using Apple Silicon)
     GHCRTS="-V0" \
     LUAOTFLOD_CACHE_DIR="/tmp/luaotfload-cache" \
@@ -32,10 +34,14 @@ RUN sed -i 's/archive.ubuntu.com/azure.archive.ubuntu.com/g' /etc/apt/sources.li
     && chmod +x /usr/local/bin/c2patool \
     && rm -rf /tmp/c2patool*
 
+# Install binary
+RUN uv tool install rumdl==0.1.86
+
 # Install TinyTeX and LaTeX packages
 RUN /opt/quarto/bin/quarto install tinytex --no-prompt \
     && mv /root/.TinyTeX /opt/tinytex \
     && /opt/tinytex/bin/x86_64-linux/tlmgr path add \
+    && /opt/tinytex/bin/x86_64-linux/fmtutil-sys --all \
     && chmod -R 755 /opt/tinytex \
     && tlmgr install \
         babel-english \

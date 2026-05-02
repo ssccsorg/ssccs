@@ -2421,6 +2421,9 @@ def build_targets(
         logger.info("No targets specified. Nothing to build.")
         return True
 
+    # Execute pre-build commands from build.yml (e.g., rumdl fmt)
+    run_pre_build_commands(EXTERNAL_CONFIG, DOCS_ROOT)
+
     # Capture the initial cache state before building starts
     capture_initial_cached_targets()
 
@@ -2668,6 +2671,54 @@ def build_targets(
 
     logger.info(f"All targets completed successfully: {list(results.keys())}")
     return True
+
+
+def run_pre_build_commands(external_config: Dict[str, Any], docs_root: Path) -> None:
+    """
+    Execute pre-build commands defined in build.yml's pre_build section.
+    
+    Each command is a list: [executable, arg1, arg2, ...].
+    If the executable is not found on PATH, the command is silently skipped.
+    If a command fails, an error is logged but execution continues (non-blocking).
+    
+    Args:
+        external_config: External configuration dictionary from build.yml
+        docs_root: Root directory of documentation (docs/)
+    """
+    pre_build_commands = external_config.get("pre_build", [])
+    if not pre_build_commands:
+        return
+    
+    logger.info(f"Running {len(pre_build_commands)} pre-build command(s)...")
+    for cmd in pre_build_commands:
+        if not cmd or not isinstance(cmd, list):
+            logger.warning(f"Invalid pre_build entry: {cmd}, skipping.")
+            continue
+        
+        executable = cmd[0]
+        # Check if executable exists on PATH
+        if not shutil.which(executable):
+            logger.info(f"Pre-build: '{executable}' not found in PATH, skipping.")
+            continue
+        
+        logger.info(f"Pre-build: running {' '.join(cmd)}")
+        try:
+            result = subprocess.run(
+                cmd,
+                cwd=docs_root,
+                capture_output=True,
+                text=True,
+            )
+            if result.stdout:
+                logger.debug(result.stdout.strip())
+            if result.stderr:
+                logger.warning(result.stderr.strip())
+            if result.returncode != 0:
+                logger.warning(f"Pre-build command '{executable}' failed with exit code {result.returncode}, continuing build...")
+            else:
+                logger.info(f"Pre-build command '{executable}' succeeded.")
+        except Exception as e:
+            logger.warning(f"Pre-build command '{executable}' raised an exception: {e}, continuing build...")
 
 
 def main() -> None:
