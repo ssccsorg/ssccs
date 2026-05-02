@@ -41,7 +41,6 @@ RUN uv tool install rumdl==0.1.86
 RUN /opt/quarto/bin/quarto install tinytex --no-prompt \
     && mv /root/.TinyTeX /opt/tinytex \
     && /opt/tinytex/bin/x86_64-linux/tlmgr path add \
-    && /opt/tinytex/bin/x86_64-linux/fmtutil-sys --all \
     && chmod -R 755 /opt/tinytex \
     && tlmgr install \
         babel-english \

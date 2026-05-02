@@ -1,6 +1,8 @@
 #!/bin/bash
 set -e
 
+echo "Setup TinyTeX permissions..."
+sudo chown -R "$(whoami)" /opt/tinytex
 quarto check
 
 if [ -f "build.py" ]; then
