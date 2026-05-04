@@ -16,8 +16,39 @@ from pathlib import Path
 
 DOCS_ROOT = Path(__file__).parent.parent
 INCLUDE_DIR = DOCS_ROOT / "_include"
-OUTPUT = INCLUDE_DIR / "updated_docs_list.qmd"
+OUTPUT = INCLUDE_DIR / "_updated_docs_list.qmd"
 ITEM_LENGTH = 6
+
+
+def _ensure_git_safe() -> None:
+    """Mark the repo root as safe (handles CI owner mismatch) without calling git first."""
+    # Register parent (``/work`` in Docker CI) — avoids the fatal git-rev-parse error
+    parent = str(DOCS_ROOT.parent.resolve())
+    subprocess.run(
+        ["git", "config", "--global", "--add", "safe.directory", parent],
+        capture_output=True,
+        text=True,
+    )
+    # Walk up to find .git and register it too (covers edge cases)
+    candidate = DOCS_ROOT.resolve()
+    for _ in range(5):
+        if (candidate / ".git").is_dir():
+            if str(candidate) != parent:
+                subprocess.run(
+                    [
+                        "git",
+                        "config",
+                        "--global",
+                        "--add",
+                        "safe.directory",
+                        str(candidate),
+                    ],
+                    capture_output=True,
+                    text=True,
+                )
+            break
+        candidate = candidate.parent
+
 
 # Mirror of build.yml exclude patterns (only those affecting .qmd/.md files)
 EXCLUDE_PATTERNS = [
@@ -40,7 +71,10 @@ def matches_exclude(rel_path: str) -> bool:
     for pattern in EXCLUDE_PATTERNS:
         # Directory-only pattern (trailing slash)
         if pattern.endswith("/"):
+            # Strip ``**/`` prefix before matching individual components
             dir_pat = pattern.rstrip("/")
+            if dir_pat.startswith("**/"):
+                dir_pat = dir_pat[3:]
             for part in parts[:-1]:  # all path components except filename
                 if fnmatch.fnmatch(part, dir_pat):
                     return True
@@ -81,6 +115,7 @@ def get_tracked_doc_files() -> list[tuple[str, str]]:
     doc file.  Later commits override earlier ones for the same path,
     giving us the *last* modification time of each file.
     """
+    _ensure_git_safe()
     result = subprocess.run(
         [
             "git",
@@ -228,7 +263,9 @@ def breadcrumb(rel_path: str, title: str) -> str:
 
     if not parents:
         return ""
-    crumbs = " > ".join(p.replace("_", " ").replace("-", " ").strip().title() for p in parents)
+    crumbs = " > ".join(
+        p.replace("_", " ").replace("-", " ").strip().title() for p in parents
+    )
     return f"{crumbs} > "
 
 
@@ -239,6 +276,7 @@ def get_creation_dates() -> dict[str, str]:
     Uses ``git log --diff-filter=A``.  Only the date portion (``YYYY-MM-DD``)
     is kept so it can be compared directly with modification dates.
     """
+    _ensure_git_safe()
     result = subprocess.run(
         [
             "git",
@@ -279,7 +317,7 @@ def get_creation_dates() -> dict[str, str]:
 
 def is_new_file(rel_path: str, creation_dates: dict[str, str]) -> bool:
     """A file is "new" if its first creation was within the last 7 days."""
-    from datetime import datetime, timedelta
+    from datetime import datetime
 
     creation = creation_dates.get(rel_path)
     if not creation:
