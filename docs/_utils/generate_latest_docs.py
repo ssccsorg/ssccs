@@ -319,6 +319,13 @@ def is_new_file(rel_path: str, creation_dates: dict[str, str]) -> bool:
     """A file is "new" if its first creation was within the last 7 days."""
     from datetime import datetime
 
+    # Shallow clone guard: if every tracked file has the same creation date,
+    # the repo was likely cloned with --depth=1 — skip new-file badges entirely.
+    if creation_dates:
+        dates = list(creation_dates.values())
+        if len(dates) >= 5 and len(set(dates)) == 1:
+            return False
+
     creation = creation_dates.get(rel_path)
     if not creation:
         return False
