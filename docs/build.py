@@ -2702,8 +2702,12 @@ def build_targets(
         logger.info("No targets specified. Nothing to build.")
         return True
 
-    # Execute pre-build commands from build.yml (e.g., rumdl fmt)
+    # Execute global pre-build commands from build.yml (e.g., rumdl fmt)
     run_pre_build_commands(EXTERNAL_CONFIG, DOCS_ROOT)
+
+    # Execute target-specific pre-build commands for each target
+    for t in targets:
+        run_pre_build_commands(EXTERNAL_CONFIG, DOCS_ROOT, target_name=t)
 
     # Capture the initial cache state before building starts
     capture_initial_cached_targets()
@@ -2998,9 +3002,24 @@ def build_targets(
     return True
 
 
-def run_pre_build_commands(external_config: Dict[str, Any], docs_root: Path) -> None:
+def run_pre_build_commands(
+    external_config: Dict[str, Any],
+    docs_root: Path,
+    target_name: Optional[str] = None,
+) -> None:
     """
     Execute pre-build commands defined in build.yml's pre_build section.
+
+    Supports two formats:
+      1. List-style (backward compatible): all commands are global.
+         pre_build:
+           - [executable, arg1, ...]
+      2. Dict-style (recommended):
+         pre_build:
+           _global:
+             - [executable, arg1, ...]   # Always run once before any target
+           target-name:
+             - [executable, arg1, ...]   # Run only for a specific target
 
     Each command is a list: [executable, arg1, arg2, ...].
     If the executable is not found on PATH, the command is silently skipped.
@@ -3009,13 +3028,64 @@ def run_pre_build_commands(external_config: Dict[str, Any], docs_root: Path) -> 
     Args:
         external_config: External configuration dictionary from build.yml
         docs_root: Root directory of documentation (docs/)
+        target_name: If provided, only run commands for this target (not global).
+                     If None, only run global commands.
     """
-    pre_build_commands = external_config.get("pre_build", [])
-    if not pre_build_commands:
+    pre_build_section = external_config.get("pre_build", [])
+    if not pre_build_section:
         return
 
-    logger.info(f"Running {len(pre_build_commands)} pre-build command(s)...")
-    for cmd in pre_build_commands:
+    # Normalize: support both old list format and new dict format
+    if isinstance(pre_build_section, list):
+        # Old format: all commands are global
+        global_commands = pre_build_section
+        target_commands: Dict[str, Any] = {}
+    elif isinstance(pre_build_section, dict):
+        # New format: _global for global, other keys for target-specific
+        global_commands = pre_build_section.get("_global", [])
+        target_commands = {k: v for k, v in pre_build_section.items() if k != "_global"}
+    else:
+        logger.warning(
+            f"Invalid pre_build format: expected list or dict, got {type(pre_build_section).__name__}"
+        )
+        return
+
+    # Collect commands to run based on target context
+    commands_to_run: List[List[str]] = []
+
+    if target_name is None:
+        # Global mode: only run global commands
+        commands_to_run.extend(global_commands)
+    elif target_name in target_commands:
+        # Target-specific mode: only run commands for the matching target
+        target_cmds = target_commands[target_name]
+        if isinstance(target_cmds, list):
+            # Check if it's a list of commands or a single command
+            if target_cmds and isinstance(target_cmds[0], list):
+                # List of commands: [["cmd1", "arg1"], ["cmd2", "arg2"]]
+                commands_to_run.extend(target_cmds)
+            else:
+                # Single command: ["cmd", "arg1", ...]
+                commands_to_run.append(target_cmds)
+        elif isinstance(target_cmds, str):
+            # Single string command (convenience): "cmd arg1 arg2"
+            commands_to_run.append(target_cmds.split())
+        else:
+            logger.warning(
+                f"Invalid pre_build entry for target '{target_name}': {target_cmds}, skipping."
+            )
+
+    if not commands_to_run:
+        return
+
+    if target_name:
+        logger.info(
+            f"Running {len(commands_to_run)} pre-build command(s) for target '{target_name}'..."
+        )
+    else:
+        logger.info(f"Running {len(commands_to_run)} global pre-build command(s)...")
+
+    for cmd in commands_to_run:
         if not cmd or not isinstance(cmd, list):
             logger.warning(f"Invalid pre_build entry: {cmd}, skipping.")
             continue
