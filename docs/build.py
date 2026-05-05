@@ -135,19 +135,12 @@ import re
 import shutil
 import subprocess
 import sys
-import tempfile
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from pathlib import Path
-from typing import List, Optional, Dict, Callable, Tuple, Any
-from functools import lru_cache
 from dataclasses import dataclass, field
-
-try:
-    import yaml
-    YAML_AVAILABLE = True
-except ImportError:
-    YAML_AVAILABLE = False
+from functools import lru_cache
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 DOCS_PARENT = Path(__file__).parent.parent.resolve()
 DOCS_ROOT = Path(__file__).parent.absolute()
@@ -157,27 +150,41 @@ BUILD_CACHE_DIR = "_cached"
 JUPYTER_CACHE_DIR = "_jupyter_cache"
 QUARTO_CONFIG_FILES = ["_quarto.yml", "_quarto-website.yml"]
 
+
+def load_yaml_file(file_path: Path) -> Dict[str, Any]:
+    """
+    Load a YAML configuration file and return its contents as a dictionary.
+
+    Centralized YAML loading used by all config-loading functions.
+    Returns an empty dict if the file does not exist, PyYAML is unavailable,
+    or the file cannot be parsed.
+    """
+    if not file_path.exists():
+        logger.debug(f"Config file not found: {file_path}")
+        return {}
+
+    try:
+        import yaml
+    except ImportError:
+        logger.debug("PyYAML not available, cannot read YAML config")
+        return {}
+    try:
+        with open(file_path, "r") as f:
+            config = yaml.safe_load(f)
+        return config or {}
+    except Exception as e:
+        logger.warning(f"Failed to load YAML config from {file_path}: {e}")
+        return {}
+
+
 @lru_cache(maxsize=1)
 def get_website_config(docs_root: Path) -> Dict[str, Any]:
     """
     Load website configuration from _quarto-website.yml.
     Returns a dictionary with configuration values.
     """
-    import logging
-    logger = logging.getLogger(__name__)
-    config_path = docs_root / "_quarto-website.yml"
-    if not config_path.exists():
-        return {}
-    if not YAML_AVAILABLE:
-        logger.warning("YAML not available, cannot read website config")
-        return {}
-    try:
-        with open(config_path, 'r') as f:
-            config = yaml.safe_load(f)
-        return config or {}
-    except Exception as e:
-        logger.warning(f"Failed to load website config from {config_path}: {e}")
-        return {}
+    return load_yaml_file(docs_root / "_quarto-website.yml")
+
 
 BUILD_TEMP_PATH = DOCS_PARENT / BUILD_TEMP_DIR
 BUILD_CACHE_PATH = DOCS_PARENT / BUILD_CACHE_DIR
@@ -218,8 +225,9 @@ CLEANING_ARTIFACT_PATTERNS = IGNORING_ARTIFACT_PATTERNS + [
     os.path.join("..", BUILD_TEMP_DIR),
     os.path.join("..", BUILD_CACHE_DIR),
     os.path.join("..", JUPYTER_CACHE_DIR),
-    "**/.jupyter_cache"
+    "**/.jupyter_cache",
 ]
+
 
 def ignore_quarto_artifacts() -> Callable[[str, List[str]], List[str]]:
     """
@@ -229,14 +237,16 @@ def ignore_quarto_artifacts() -> Callable[[str, List[str]], List[str]]:
     # Convert glob patterns to basename patterns (strip leading '**/')
     basename_patterns = []
     for pat in IGNORING_ARTIFACT_PATTERNS:
-        if pat.startswith('**/'):
+        if pat.startswith("**/"):
             pat = pat[3:]
         basename_patterns.append(pat)
-    return shutil.ignore_patterns(*basename_patterns)
+    return shutil.ignore_patterns(*basename_patterns)  # type: ignore[return-value]
+
 
 # Per‑QMD locks to prevent concurrent Quarto renders on the same source file
 _QUARTO_FILE_LOCKS = {}
 _QUARTO_FILE_LOCKS_LOCK = threading.Lock()
+
 
 def _lock_for_quarto_file(qmd_path: Path) -> threading.Lock:
     """Return a dedicated lock for the given QMD path."""
@@ -246,6 +256,7 @@ def _lock_for_quarto_file(qmd_path: Path) -> threading.Lock:
             lock = threading.Lock()
             _QUARTO_FILE_LOCKS[qmd_path] = lock
         return lock
+
 
 # Configure logging
 logging.basicConfig(
@@ -260,8 +271,8 @@ logger = logging.getLogger(__name__)
 def compute_file_hash(path: Path) -> str:
     """Compute SHA-256 hash of a file."""
     try:
-        with open(path, 'rb') as f:
-            return hashlib.file_digest(f, 'sha256').hexdigest()
+        with open(path, "rb") as f:
+            return hashlib.file_digest(f, "sha256").hexdigest()
     except FileNotFoundError:
         raise
 
@@ -274,6 +285,7 @@ def compute_quarto_file_hash_with_deps(file_path: Path) -> str:
     Python files referenced by `%run` directives in code cells.
     """
     visited = set()
+
     # Helper to resolve relative paths relative to a base file
     def resolve(base: Path, rel: str) -> Path:
         # rel may be relative with '..' or '.'
@@ -320,6 +332,7 @@ def compute_quarto_file_hash_with_deps(file_path: Path) -> str:
                 line = line.strip()
                 if line.startswith("%run"):
                     import shlex
+
                     tokens = shlex.split(line)
                     # tokens[0] is '%run', tokens[1] is the path (if exists)
                     if len(tokens) >= 2:
@@ -378,7 +391,7 @@ def compute_quarto_file_hash_with_deps(file_path: Path) -> str:
             # If a dependency disappears, we treat it as changed, causing a rebuild
             # by including a placeholder.
             hasher.update(b"<missing>")
-            
+
     # Compute file extention
     hasher.update(file_path.suffix.encode("utf-8"))
 
@@ -506,7 +519,9 @@ def find_existing_output(
     # Add moved location if applicable
     if config:
         docs_root = Path(__file__).parent.absolute()
-        moved = get_moved_path_for_format(qmd_path, fmt, config, output_dir, docs_root, primary)
+        moved = get_moved_path_for_format(
+            qmd_path, fmt, config, output_dir, docs_root, primary
+        )
         if moved and moved != primary:
             candidates.append(moved)
 
@@ -529,11 +544,11 @@ def get_cache_dir_for_target(qmd_path: Path, target_name: str) -> Path:
     """
     Return the _cached directory for a QMD file.
     Uses the target name for the cache directory.
-    
+
     Args:
         qmd_path: Path to the QMD file
         target_name: The target name (hyphenated path convention)
-    
+
     Returns:
         Path to the cache directory adjacent to the QMD file
     """
@@ -573,9 +588,11 @@ def format_to_extension(fmt: str) -> str:
 #   3. Generating the linked file (e.g. C2PA signing)
 #   4. Returning the path to the generated file
 
+
 @dataclass
 class LinkedArtifactHandler:
     """Base class for linked artifact handlers."""
+
     name: str
     # Map of primary format -> linked file extension
     extensions: Dict[str, str] = field(default_factory=dict)
@@ -605,7 +622,7 @@ class LinkedArtifactHandler:
         Generate the linked artifact file.
         Returns the path to the generated file, or None if generation failed.
         Subclasses should override this.
-        
+
         Args:
             qmd_path: Path to the source QMD file
             fmt: Output format
@@ -642,10 +659,14 @@ class C2PAArtifactHandler(LinkedArtifactHandler):
         output_c2pa = primary_path.parent / f"{c2pa_stem}.c2pa"
         output_c2pa.parent.mkdir(parents=True, exist_ok=True)
         sign_cmd = [
-            "python3", str(docs_root / "_utils" / "sign_c2pa.py"),
-            "--pdf", str(primary_path),
-            "--manifest", str(manifest_path),
-            "--output", str(output_c2pa),
+            "python3",
+            str(docs_root / "_utils" / "sign_c2pa.py"),
+            "--pdf",
+            str(primary_path),
+            "--manifest",
+            str(manifest_path),
+            "--output",
+            str(output_c2pa),
         ]
         if run_command(sign_cmd, cwd=docs_root):
             return output_c2pa
@@ -732,7 +753,7 @@ def should_rerender_for_sidebar(build_targets: set) -> bool:
     Returns True if:
       - Any target in the build set is not yet cached (new files added), OR
       - Any cached target is not in the build set (files deleted/changed)
-    
+
     This ensures the sidebar is updated whenever the document set changes,
     whether by addition, deletion, or modification of source files.
     """
@@ -809,10 +830,10 @@ def read_hash_pair(cache_file: Path) -> Optional[Tuple[str, str]]:
     if not cache_file.exists():
         return None
     try:
-        with open(cache_file, 'r') as f:
+        with open(cache_file, "r") as f:
             line = f.read().strip()
-        if '_' in line:
-            a, b = line.split('_', 1)
+        if "_" in line:
+            a, b = line.split("_", 1)
             if len(a) == 64 and len(b) == 64:  # SHA-256 hex length
                 return (a, b)
     except Exception:
@@ -823,7 +844,7 @@ def read_hash_pair(cache_file: Path) -> Optional[Tuple[str, str]]:
 def write_hash_pair(cache_file: Path, qmd_hash: str, output_hash: str) -> None:
     """Write hash pair to cache file."""
     cache_file.parent.mkdir(parents=True, exist_ok=True)
-    with open(cache_file, 'w') as f:
+    with open(cache_file, "w") as f:
         f.write(f"{qmd_hash}_{output_hash}")
 
 
@@ -848,45 +869,57 @@ def should_render_format(
         return True
 
     qmd_hash = compute_quarto_file_hash_with_deps(file_path)
-    logger.info(f"Checking cache for {target_name} ({fmt}): QMD hash {qmd_hash[:16]}...")
-    
+    logger.info(
+        f"Checking cache for {target_name} ({fmt}): QMD hash {qmd_hash[:16]}..."
+    )
+
     # Check if cached artifact exists
     cached = find_cached_artifact(target_name, qmd_hash, fmt)
     if cached is not None:
         # Cache hit: copy the artifact to the output location
         output_path = get_format_output_path(file_path, fmt)
         if output_path is None:
-            logger.warning(f"Cannot determine output path for {target_name} ({fmt}), proceeding with render.")
+            logger.warning(
+                f"Cannot determine output path for {target_name} ({fmt}), proceeding with render."
+            )
             return True
         # Ensure parent directory exists
         output_path.parent.mkdir(parents=True, exist_ok=True)
         try:
             shutil.copy2(cached, output_path)
-            logger.info(f"Cache hit for {target_name} ({fmt}), copied cached artifact to {output_path}")
+            logger.info(
+                f"Cache hit for {target_name} ({fmt}), copied cached artifact to {output_path}"
+            )
         except Exception as e:
-            logger.warning(f"Failed to copy cached artifact for {target_name} ({fmt}): {e}, proceeding with render.")
+            logger.warning(
+                f"Failed to copy cached artifact for {target_name} ({fmt}): {e}, proceeding with render."
+            )
             return True
         # Also restore linked artifacts if they exist
         cfg = config or {}
         for linked_ext in get_linked_artifact_extensions(fmt, cfg):
-            cached_linked = find_cached_artifact(target_name, qmd_hash, fmt, linked_ext=linked_ext)
+            cached_linked = find_cached_artifact(
+                target_name, qmd_hash, fmt, linked_ext=linked_ext
+            )
             if cached_linked is not None:
                 linked_stem = file_path.stem
                 linked_output_path = output_path.parent / f"{linked_stem}.{linked_ext}"
                 try:
                     shutil.copy2(cached_linked, linked_output_path)
-                    logger.info(f"Restored cached linked artifact ({linked_ext}) to {linked_output_path}")
+                    logger.info(
+                        f"Restored cached linked artifact ({linked_ext}) to {linked_output_path}"
+                    )
                 except Exception as e:
-                    logger.warning(f"Failed to copy cached linked artifact for {target_name} ({fmt}): {e}")
+                    logger.warning(
+                        f"Failed to copy cached linked artifact for {target_name} ({fmt}): {e}"
+                    )
         # Also update the old-style cache file for compatibility (optional)
         # For now, we skip updating the old cache.
         return False
-    
+
     # Cache miss: need render
     logger.info(f"Cache miss for {target_name} ({fmt}) – QMD hash {qmd_hash[:16]}...")
     return True
-
-
 
 
 def update_format_cache(
@@ -897,7 +930,7 @@ def update_format_cache(
     linked_artifacts: Optional[Dict[str, Path]] = None,
 ) -> None:
     """Update cache after successful render of a specific format.
-    
+
     Args:
         file_path: Path to the source QMD file
         fmt: Output format (pdf, html, etc.)
@@ -907,8 +940,10 @@ def update_format_cache(
     """
     qmd_hash = compute_quarto_file_hash_with_deps(file_path)
     output_hash = compute_file_hash(output_path)
-    logger.info(f"Updating {fmt} cache for {file_path.name}: output hash {output_hash[:16]}...")
-    
+    logger.info(
+        f"Updating {fmt} cache for {file_path.name}: output hash {output_hash[:16]}..."
+    )
+
     # New cache system: store artifact file in _cached/{target_name}/{hash}/{target_name}.{ext}
     if target_name is not None:
         # Delete existing cache entries for this target with different hash to prevent infinite accumulation
@@ -917,12 +952,19 @@ def update_format_cache(
         if target_cache_dir.exists():
             try:
                 for existing_hash_dir in target_cache_dir.iterdir():
-                    if existing_hash_dir.is_dir() and existing_hash_dir.name != qmd_hash:
+                    if (
+                        existing_hash_dir.is_dir()
+                        and existing_hash_dir.name != qmd_hash
+                    ):
                         shutil.rmtree(existing_hash_dir)
-                        logger.info(f"Deleted old cache directory for target '{target_name}' (hash: {existing_hash_dir.name[:16]}...) to prevent accumulation")
+                        logger.info(
+                            f"Deleted old cache directory for target '{target_name}' (hash: {existing_hash_dir.name[:16]}...) to prevent accumulation"
+                        )
             except Exception as e:
-                logger.warning(f"Failed to delete old cache for target '{target_name}': {e}")
-        
+                logger.warning(
+                    f"Failed to delete old cache for target '{target_name}': {e}"
+                )
+
         cache_dir = get_cache_base() / target_name / qmd_hash
         cache_dir.mkdir(parents=True, exist_ok=True)
         ext = format_to_extension(fmt)
@@ -933,7 +975,7 @@ def update_format_cache(
             logger.info(f"Cached artifact for {target_name} ({fmt}) at {artifact_path}")
         except Exception as e:
             logger.warning(f"Failed to cache artifact for {target_name} ({fmt}): {e}")
-        
+
         # Cache linked artifacts if they exist
         if linked_artifacts:
             for linked_ext, linked_path in linked_artifacts.items():
@@ -942,10 +984,14 @@ def update_format_cache(
                     linked_cache_path = cache_dir / linked_cache_name
                     try:
                         shutil.copy2(linked_path, linked_cache_path)
-                        logger.info(f"Cached linked artifact ({linked_ext}) for {target_name} ({fmt}) at {linked_cache_path}")
+                        logger.info(
+                            f"Cached linked artifact ({linked_ext}) for {target_name} ({fmt}) at {linked_cache_path}"
+                        )
                     except Exception as e:
-                        logger.warning(f"Failed to cache linked artifact ({linked_ext}) for {target_name} ({fmt}): {e}")
-    
+                        logger.warning(
+                            f"Failed to cache linked artifact ({linked_ext}) for {target_name} ({fmt}): {e}"
+                        )
+
     # Legacy cache system: keep hash pair file for compatibility
     cache_file = get_cache_file(file_path, fmt)
     write_hash_pair(cache_file, qmd_hash, output_hash)
@@ -973,7 +1019,9 @@ def refresh_cache_for_target(target: str, output_dir: Optional[Path] = None) -> 
     # Determine all formats defined in the QMD
     formats = get_formats_from_quarto_file(qmd_path)
     if not formats:
-        logger.info(f"Target {target} has no defined output formats, skipping cache refresh.")
+        logger.info(
+            f"Target {target} has no defined output formats, skipping cache refresh."
+        )
         return True
 
     current_qmd_hash = compute_quarto_file_hash_with_deps(qmd_path)
@@ -994,16 +1042,22 @@ def refresh_cache_for_target(target: str, output_dir: Optional[Path] = None) -> 
                 # QMD changed or cache missing – we cannot trust the output; remove cache to force rebuild
                 if cache_file.exists():
                     cache_file.unlink()
-                    logger.info(f"Removed cache file for {target} ({fmt}) – QMD changed or cache missing")
+                    logger.info(
+                        f"Removed cache file for {target} ({fmt}) – QMD changed or cache missing"
+                    )
                 else:
-                    logger.info(f"No cache file for {target} ({fmt}) – will rebuild on next run")
+                    logger.info(
+                        f"No cache file for {target} ({fmt}) – will rebuild on next run"
+                    )
                 # Also remove new cache system directory if exists
                 if existing_cache is not None:
                     old_hash = existing_cache[0]
                     old_cache_dir = get_cache_base() / target / old_hash
                     if old_cache_dir.exists():
                         shutil.rmtree(old_cache_dir)
-                        logger.info(f"Removed new cache directory for {target} ({fmt}) – QMD changed")
+                        logger.info(
+                            f"Removed new cache directory for {target} ({fmt}) – QMD changed"
+                        )
         else:
             # No output file (or output path unknown), remove cache file for this format
             if cache_file.exists():
@@ -1053,49 +1107,42 @@ DEFAULT_EXCLUDE_PATTERNS: List[str] = []
 def load_external_config(config_path: Optional[Path]) -> Dict[str, Any]:
     """
     Load external configuration from YAML file.
-    Returns empty dict if file doesn't exist or YAML is not available.
+    Returns empty dict if config_path is None, file doesn't exist, or YAML is not available.
     """
-    if config_path is None or not config_path.exists():
+    if config_path is None:
         return {}
-    
-    if not YAML_AVAILABLE:
-        logger.warning(f"YAML support not available (install PyYAML). Using default config.")
-        return {}
-    
-    try:
-        with open(config_path, 'r') as f:
-            config = yaml.safe_load(f)
+    config = load_yaml_file(config_path)
+    if config:
         logger.info(f"Loaded external config from {config_path}")
-        return config or {}
-    except Exception as e:
-        logger.warning(f"Failed to load config from {config_path}: {e}. Using default config.")
-        return {}
+    return config
 
 
 def get_exclude_patterns(external_config: Dict[str, Any]) -> List[str]:
     """Get exclude patterns from external config or use defaults."""
-    return external_config.get('exclude', DEFAULT_EXCLUDE_PATTERNS)
+    return external_config.get("exclude", DEFAULT_EXCLUDE_PATTERNS)
 
 
-def get_target_config_from_external(external_config: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+def get_target_config_from_external(
+    external_config: Dict[str, Any],
+) -> Dict[str, Dict[str, Any]]:
     """Get target configurations from external config.
-    
+
     Note: build.py does not know about target names - they are defined externally.
     This function returns only what is specified in the external config.
     """
     # Note: YAML uses 'target_config' key (not 'target')
-    return external_config.get('target_config', {})
+    return external_config.get("target_config", {})
 
 
 def matches_gitignore_pattern(rel_path: Path, patterns: List[str]) -> bool:
     """
     Check if a relative path matches any of the gitignore-style patterns.
-    
+
     Supports:
     - Glob patterns: **/*.md, **/README.md
     - Directory patterns: **/_include/, **/*_libs/ (trailing slash for directories)
     - Simple patterns: README.md, contributing.md
-    
+
     Pattern matching rules (gitignore-style):
     - "**/" at start matches any directory depth
     - "*" matches any characters except "/"
@@ -1104,67 +1151,73 @@ def matches_gitignore_pattern(rel_path: Path, patterns: List[str]) -> bool:
     - Pattern without "/" matches filename at any level
     """
     import fnmatch
-    
+
     path_str = str(rel_path)
-    path_str_forward = path_str.replace('\\', '/')  # Normalize to forward slashes
+    path_str_forward = path_str.replace("\\", "/")  # Normalize to forward slashes
     name = rel_path.name
-    
+
     for pattern in patterns:
         # Normalize pattern
         pattern = pattern.strip()
         if not pattern:
             continue
-            
+
         # Check if pattern is for directories only (trailing slash)
-        is_dir_only = pattern.endswith('/')
+        is_dir_only = pattern.endswith("/")
         if is_dir_only:
             pattern = pattern[:-1]
             # For directory patterns, check if path is under a matching directory
             # Match against each directory component
-            parts = path_str_forward.split('/')
+            parts = path_str_forward.split("/")
             for i, part in enumerate(parts[:-1]):  # Exclude filename
-                if fnmatch.fnmatch(part, pattern) or fnmatch.fnmatch(parts[i], pattern.split('/')[-1] if '/' in pattern else pattern):
+                if fnmatch.fnmatch(part, pattern) or fnmatch.fnmatch(
+                    parts[i], pattern.split("/")[-1] if "/" in pattern else pattern
+                ):
                     return True
             continue
-        
+
         # Check full path match
         if fnmatch.fnmatch(path_str_forward, pattern):
             return True
         if fnmatch.fnmatch(path_str, pattern):
             return True
-            
+
         # Check filename-only match (for patterns without directory separators)
-        if '/' not in pattern and '\\' not in pattern:
+        if "/" not in pattern and "\\" not in pattern:
             if fnmatch.fnmatch(name, pattern):
                 return True
-        
+
         # Check if pattern starts with **/ (matches any depth)
-        if pattern.startswith('**/'):
+        if pattern.startswith("**/"):
             subpattern = pattern[3:]
             # Match against filename
             if fnmatch.fnmatch(name, subpattern):
                 return True
             # Match against any suffix of the path
-            parts = path_str_forward.split('/')
+            parts = path_str_forward.split("/")
             for i in range(len(parts)):
-                suffix = '/'.join(parts[i:])
+                suffix = "/".join(parts[i:])
                 if fnmatch.fnmatch(suffix, subpattern):
                     return True
-        
+
         # Check if pattern ends with /** (matches anything under directory)
-        if pattern.endswith('/**'):
+        if pattern.endswith("/**"):
             dirpattern = pattern[:-3]
-            if path_str_forward.startswith(dirpattern + '/') or path_str.startswith(dirpattern + '/'):
+            if path_str_forward.startswith(dirpattern + "/") or path_str.startswith(
+                dirpattern + "/"
+            ):
                 return True
-    
+
     return False
 
 
-def discover_quarto_targets(docs_root: Path, exclude_patterns: Optional[List[str]] = None) -> Dict[str, Dict[str, Any]]:
+def discover_quarto_targets(
+    docs_root: Path, exclude_patterns: Optional[List[str]] = None
+) -> Dict[str, Dict[str, Any]]:
     """
     Scan docs_root for .qmd and .md files and return target configurations.
     Excludes files/directories matching gitignore-style patterns.
-    
+
     Target Naming:
       - Target names are derived from the relative path of each .qmd/.md file
         with path separators replaced by hyphens.
@@ -1175,7 +1228,7 @@ def discover_quarto_targets(docs_root: Path, exclude_patterns: Optional[List[str
           docs/research/file_name.qmd → research-file_name
       - This ensures unique target names even for same‑filename documents in different directories.
       - `target_name.qmd` and `target_name.md` CANNOT be located at the same path.
-    
+
     Args:
         docs_root: Root directory to scan
         exclude_patterns: List of gitignore-style patterns for files/dirs to exclude
@@ -1187,15 +1240,13 @@ def discover_quarto_targets(docs_root: Path, exclude_patterns: Optional[List[str
     # Process .qmd files first, then .md files
     for ext in ("*.qmd", "*.md"):
         for file_path in docs_root.rglob(ext):
-            file_resolved = file_path.resolve()
-            
             rel_path = file_path.relative_to(docs_root)
-            
+
             # Check exclude patterns (gitignore-style)
             if matches_gitignore_pattern(rel_path, exclude_patterns):
                 logger.info(f"Ignoring {rel_path} (matches exclude pattern)")
                 continue
-            
+
             # Determine target name from relative path
             # Replace path separators with hyphens, then remove extension
             parts = list(rel_path.parts)
@@ -1203,20 +1254,20 @@ def discover_quarto_targets(docs_root: Path, exclude_patterns: Optional[List[str
             if parts:
                 last_part = parts[-1]
                 # Remove .qmd or .md extension
-                if last_part.endswith('.qmd'):
+                if last_part.endswith(".qmd"):
                     parts[-1] = last_part[:-4]
-                elif last_part.endswith('.md'):
+                elif last_part.endswith(".md"):
                     parts[-1] = last_part[:-3]
-            
+
             # Join parts with hyphens
-            target_name = '-'.join(parts).lower()
+            target_name = "-".join(parts).lower()
             # Sanitize: replace spaces and special chars (keep hyphens, underscores, alphanumeric)
             # Only remove characters that are not alphanumeric, hyphen, or underscore
-            target_name = re.sub(r'[^a-z0-9_-]', '', target_name)
+            target_name = re.sub(r"[^a-z0-9_-]", "", target_name)
             # Replace multiple consecutive hyphens with single hyphen (but preserve underscores)
-            target_name = re.sub(r'-+', '-', target_name)
+            target_name = re.sub(r"-+", "-", target_name)
             # Remove leading/trailing hyphens (but not underscores within)
-            target_name = target_name.strip('-')
+            target_name = target_name.strip("-")
 
             # Handle name conflicts (should not happen with new naming, but keep for safety)
             if target_name in targets:
@@ -1239,32 +1290,34 @@ def discover_quarto_targets(docs_root: Path, exclude_patterns: Optional[List[str
     return targets
 
 
-def get_target_config(docs_root: Path, external_config: Optional[Dict[str, Any]] = None) -> Dict[str, Dict[str, Any]]:
+def get_target_config(
+    docs_root: Path, external_config: Optional[Dict[str, Any]] = None
+) -> Dict[str, Dict[str, Any]]:
     """
     Return configuration from external config.
-    
+
     Note: build.py does not know about target names - they are defined externally.
     The target names in build.yml must match the naming convention:
       - Target names are derived from the relative path with separators replaced by hyphens.
       - Example: docs/legal/index.qmd → legal-index
-    
+
     Args:
         docs_root: Root directory of documentation
         external_config: Optional external configuration dictionary
     """
     if external_config is None:
         external_config = {}
-    
+
     exclude_patterns = get_exclude_patterns(external_config)
     target_config = get_target_config_from_external(external_config)
-    
+
     discovered = discover_quarto_targets(docs_root, exclude_patterns)
-    
+
     # Update discovered config with target config, preserving missing keys
     for target, config in target_config.items():
         if target in discovered:
             discovered[target].update(config)
-    
+
     return discovered
 
 
@@ -1311,9 +1364,10 @@ def _render_formats_parallel(
     format_output_paths: Dict[str, Path],
     docs_root: Path,
     website: bool = False,
-    target_name: Optional[str] = None
+    target_name: Optional[str] = None,
 ) -> bool:
     """Render each format in its own Quarto command, running in parallel threads."""
+
     def render_single_format(fmt: str) -> bool:
         lock = _lock_for_quarto_file(qmd_path)
         with lock:
@@ -1322,14 +1376,20 @@ def _render_formats_parallel(
                 quarto_cmd.append("--profile")
                 quarto_cmd.append("website")
             if not run_command(quarto_cmd, cwd=docs_root):
-                logger.error(f"Quarto render failed for {qmd_path.name} (format {fmt}).")
+                logger.error(
+                    f"Quarto render failed for {qmd_path.name} (format {fmt})."
+                )
                 return False
             if fmt in NON_DETERMINISTIC_FORMATS:
                 output_path = format_output_paths[fmt]
                 if output_path.exists():
-                    update_format_cache(qmd_path, fmt, output_path, target_name=target_name)
+                    update_format_cache(
+                        qmd_path, fmt, output_path, target_name=target_name
+                    )
                 else:
-                    logger.warning(f"Expected output {output_path} not found after render for {fmt}")
+                    logger.warning(
+                        f"Expected output {output_path} not found after render for {fmt}"
+                    )
             return True
 
     with ThreadPoolExecutor(max_workers=len(formats)) as executor:
@@ -1355,7 +1415,7 @@ def _render_formats_single(
     format_output_paths: Dict[str, Path],
     docs_root: Path,
     website: bool = False,
-    target_name: Optional[str] = None
+    target_name: Optional[str] = None,
 ) -> bool:
     """Render all formats using a single Quarto command (--to fmt1,fmt2)."""
     lock = _lock_for_quarto_file(qmd_path)
@@ -1366,16 +1426,22 @@ def _render_formats_single(
             quarto_cmd.append("--profile")
             quarto_cmd.append("website")
         if not run_command(quarto_cmd, cwd=docs_root):
-            logger.error(f"Quarto render failed for {qmd_path.name} (formats {formats_str}).")
+            logger.error(
+                f"Quarto render failed for {qmd_path.name} (formats {formats_str})."
+            )
             return False
         # Update cache for each rendered format
         for fmt in formats:
             if fmt in NON_DETERMINISTIC_FORMATS:
                 output_path = format_output_paths[fmt]
                 if output_path.exists():
-                    update_format_cache(qmd_path, fmt, output_path, target_name=target_name)
+                    update_format_cache(
+                        qmd_path, fmt, output_path, target_name=target_name
+                    )
                 else:
-                    logger.warning(f"Expected output {output_path} not found after render for {fmt}")
+                    logger.warning(
+                        f"Expected output {output_path} not found after render for {fmt}"
+                    )
         return True
 
 
@@ -1386,29 +1452,41 @@ def _render_formats(
     docs_root: Path,
     single_command: bool,
     website: bool = False,
-    target_name: Optional[str] = None
+    target_name: Optional[str] = None,
 ) -> bool:
     """Dispatch to the appropriate rendering strategy."""
     if single_command:
-        return _render_formats_single(qmd_path, formats, format_output_paths, docs_root, website, target_name)
+        return _render_formats_single(
+            qmd_path, formats, format_output_paths, docs_root, website, target_name
+        )
     else:
-        return _render_formats_parallel(qmd_path, formats, format_output_paths, docs_root, website, target_name)
+        return _render_formats_parallel(
+            qmd_path, formats, format_output_paths, docs_root, website, target_name
+        )
 
 
-def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path] = None, single_command: bool = True, website: bool = False, docs_root: Optional[Path] = None, build_targets_set: Optional[set] = None) -> bool:
+def build_generic(
+    target: str,
+    config: Dict[str, Any],
+    output_dir: Optional[Path] = None,
+    single_command: bool = True,
+    website: bool = False,
+    docs_root: Optional[Path] = None,
+    build_targets_set: Optional[set] = None,
+) -> bool:
     """
     Generic build function that renders a .qmd or .md file and performs optional post‑processing.
     Formats are rendered in a single command by default. Set `single_command=False`
     to render each format in separate commands (parallel per format).
     If `website` is True, adds `--profile website` to Quarto render commands.
-    
+
     Important: In website mode, formats are NOT rendered individually. Instead, quarto render
     is called without --to to let Quarto handle all formats defined in the document's YAML.
     This is required because website mode uses a shared project configuration.
-    
+
     For .md files without explicit format configuration, quarto render is called without --to
     to let Quarto handle the file natively.
-    
+
     If `docs_root` is provided, use it as the docs directory (for isolated mode).
     """
     logger.info(f"Building {target}...")
@@ -1422,7 +1500,7 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
 
     # Check if this is a .md file (not .qmd)
     is_md_file = source_path.suffix.lower() == ".md"
-    
+
     # For .md files without explicit 'to' config, render directly without format inspection
     if is_md_file and config.get("to") is None:
         # In website mode, we keep the simple render (no caching) because output location differs
@@ -1431,14 +1509,30 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
             qmd_hash = compute_quarto_file_hash_with_deps(source_path)
             if not should_render_format(source_path, fmt, target, config, output_dir):
                 if not should_rerender_for_sidebar(build_targets_set or set()):
-                    logger.info(f"Cache hit for {target} ({fmt}), document set unchanged, using cached version.")
+                    logger.info(
+                        f"Cache hit for {target} ({fmt}), document set unchanged, using cached version."
+                    )
                     site_dir = docs_root / "_site"
                     restore_site_directory(target, qmd_hash, site_dir)
-                    logger.info(f"{target} build completed successfully (native Markdown, website).")
+                    logger.info(
+                        f"{target} build completed successfully (native Markdown, website)."
+                    )
                     return True
-                logger.info(f"Cache hit for {target} ({fmt}), document set changed, re-rendering HTML to update sidebar.")
-            logger.info(f"Rendering {source_path.name} as native Markdown (website mode, HTML only)")
-            quarto_cmd = ["quarto", "render", str(source_path), "--to", "html", "--profile", "website"]
+                logger.info(
+                    f"Cache hit for {target} ({fmt}), document set changed, re-rendering HTML to update sidebar."
+                )
+            logger.info(
+                f"Rendering {source_path.name} as native Markdown (website mode, HTML only)"
+            )
+            quarto_cmd = [
+                "quarto",
+                "render",
+                str(source_path),
+                "--to",
+                "html",
+                "--profile",
+                "website",
+            ]
             if not run_command(quarto_cmd, cwd=docs_root):
                 logger.error(f"Quarto render failed for {source_path.name}.")
                 return False
@@ -1451,53 +1545,59 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
                 if docs_root:
                     try:
                         rel = source_path.relative_to(docs_root)
-                        site_path = docs_root / "_site" / rel.with_suffix('.html')
+                        site_path = docs_root / "_site" / rel.with_suffix(".html")
                         if site_path.exists():
-                            update_format_cache(source_path, fmt, site_path, target_name=target)
+                            update_format_cache(
+                                source_path, fmt, site_path, target_name=target
+                            )
                     except ValueError:
                         pass
             # Cache the entire _site directory for future reuse
             site_dir = docs_root / "_site"
             cache_site_directory(target, qmd_hash, site_dir)
-            logger.info(f"{target} build completed successfully (native Markdown, website).")
+            logger.info(
+                f"{target} build completed successfully (native Markdown, website)."
+            )
             return True
-        
+
         # Non‑website mode: apply _cached cache policy
         # Determine formats via inspect_quarto_file (may be empty)
         formats = get_formats_from_quarto_file(source_path)
         if not formats:
             # No YAML formats, assume default HTML
             formats = ["html"]
-        
+
         # Determine which formats need rendering
         formats_to_render = []
         for fmt in formats:
             if should_render_format(source_path, fmt, target, config, output_dir):
                 formats_to_render.append(fmt)
-        
+
         if not formats_to_render:
             logger.info(f"All formats for {target} are up‑to‑date, skipping render.")
             return True
-        
+
         # Render all formats with a single quarto render (no --to)
-        logger.info(f"Rendering {source_path.name} as native Markdown (formats: {', '.join(formats)})")
+        logger.info(
+            f"Rendering {source_path.name} as native Markdown (formats: {', '.join(formats)})"
+        )
         quarto_cmd = ["quarto", "render", str(source_path)]
         if not run_command(quarto_cmd, cwd=docs_root):
             logger.error(f"Quarto render failed for {source_path.name}.")
             return False
-        
+
         # Update cache for each format that was rendered
         for fmt in formats:
             output_path = get_format_output_path(source_path, fmt)
             if output_path and output_path.exists():
                 update_format_cache(source_path, fmt, output_path, target_name=target)
-        
+
         logger.info(f"{target} build completed successfully (native Markdown).")
         return True
 
     # For .qmd files or .md with explicit 'to' config, use full format handling
     qmd_path = source_path
-    
+
     # Determine generated files early for caching
     # For index.qmd files, use parent folder name for output files (e.g., whitepaper.pdf)
     # For other files, use the file stem
@@ -1506,16 +1606,16 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
         stem = parent_name if parent_name and parent_name != "." else qmd_path.stem
     else:
         stem = qmd_path.stem
-    parent = qmd_path.parent
-
     # Determine formats to render
     target_format = config.get("to")
     if target_format is None:
         # inspect the QMD to get all formats
         formats = get_formats_from_quarto_file(qmd_path)
         if not formats:
-            logger.error(f"Could not determine output formats for {qmd_path}. "
-                         f"Please specify a format in the target config or ensure 'quarto inspect' works.")
+            logger.error(
+                f"Could not determine output formats for {qmd_path}. "
+                f"Please specify a format in the target config or ensure 'quarto inspect' works."
+            )
             return False
     else:
         formats = [target_format]
@@ -1525,8 +1625,10 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
     for fmt in formats:
         output_path = get_format_output_path(qmd_path, fmt)
         if output_path is None:
-            logger.error(f"Cannot determine output path for format '{fmt}' of {qmd_path}. "
-                         f"Please ensure 'quarto inspect' provides an 'output-file' or that the format is properly defined.")
+            logger.error(
+                f"Cannot determine output path for format '{fmt}' of {qmd_path}. "
+                f"Please ensure 'quarto inspect' provides an 'output-file' or that the format is properly defined."
+            )
             return False
         format_output_paths[fmt] = output_path
 
@@ -1536,6 +1638,9 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
         for fmt in formats:
             if should_render_format(qmd_path, fmt, target, config, output_dir):
                 formats_to_render.append(fmt)
+
+    # qmd_hash placeholder — only used when website=True, initialized here to keep type checker happy
+    qmd_hash = ""
 
     # In website mode, render without --to to let Quarto handle all formats from YAML
     # This is required because website mode uses shared project configuration
@@ -1549,30 +1654,44 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
         if all_cached:
             if "html" in formats:
                 if not should_rerender_for_sidebar(build_targets_set or set()):
-                    logger.info(f"All formats for {target} are cached, document set unchanged, using cached version.")
+                    logger.info(
+                        f"All formats for {target} are cached, document set unchanged, using cached version."
+                    )
                     for fmt in formats:
                         cached = find_cached_artifact(target, qmd_hash, fmt)
+                        output_path = format_output_paths.get(fmt)
                         if cached:
-                            output_path = format_output_paths.get(fmt)
                             if output_path:
                                 output_path.parent.mkdir(parents=True, exist_ok=True)
                                 shutil.copy2(cached, output_path)
                         # Also restore linked artifacts if they exist
                         for linked_ext in get_linked_artifact_extensions(fmt, config):
-                            cached_linked = find_cached_artifact(target, qmd_hash, fmt, linked_ext=linked_ext)
+                            cached_linked = find_cached_artifact(
+                                target, qmd_hash, fmt, linked_ext=linked_ext
+                            )
                             if cached_linked is not None:
                                 linked_stem = qmd_path.stem
-                                linked_output_path = output_path.parent / f"{linked_stem}.{linked_ext}" if output_path else None
+                                linked_output_path = (
+                                    output_path.parent / f"{linked_stem}.{linked_ext}"
+                                    if output_path
+                                    else None
+                                )
                                 if linked_output_path:
                                     try:
                                         shutil.copy2(cached_linked, linked_output_path)
-                                        logger.info(f"Restored cached linked artifact ({linked_ext}) to {linked_output_path}")
+                                        logger.info(
+                                            f"Restored cached linked artifact ({linked_ext}) to {linked_output_path}"
+                                        )
                                     except Exception as e:
-                                        logger.warning(f"Failed to copy cached linked artifact for {target} ({fmt}): {e}")
+                                        logger.warning(
+                                            f"Failed to copy cached linked artifact for {target} ({fmt}): {e}"
+                                        )
                     site_dir = docs_root / "_site"
                     restore_site_directory(target, qmd_hash, site_dir)
                     return True
-                logger.info(f"All formats for {target} are cached, document set changed, re-rendering HTML to update sidebar.")
+                logger.info(
+                    f"All formats for {target} are cached, document set changed, re-rendering HTML to update sidebar."
+                )
                 # Copy non-HTML cached artifacts to output locations
                 for fmt in formats:
                     if fmt == "html":
@@ -1594,31 +1713,52 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
                             except ValueError:
                                 pass
                 # Re-render HTML only with --to html to avoid re-rendering PDF/beamer
-                logger.info(f"Re-rendering {source_path.name} in website mode (HTML only, to update sidebar)")
-                quarto_cmd = ["quarto", "render", str(source_path), "--to", "html", "--profile", "website"]
+                logger.info(
+                    f"Re-rendering {source_path.name} in website mode (HTML only, to update sidebar)"
+                )
+                quarto_cmd = [
+                    "quarto",
+                    "render",
+                    str(source_path),
+                    "--to",
+                    "html",
+                    "--profile",
+                    "website",
+                ]
                 if not run_command(quarto_cmd, cwd=docs_root):
-                    logger.error(f"Quarto render failed for {source_path.name} (website mode, HTML refresh).")
+                    logger.error(
+                        f"Quarto render failed for {source_path.name} (website mode, HTML refresh)."
+                    )
                     return False
                 # Cache the updated HTML artifact
                 output_path = format_output_paths.get("html")
                 if output_path and output_path.exists():
-                    update_format_cache(qmd_path, "html", output_path, target_name=target)
+                    update_format_cache(
+                        qmd_path, "html", output_path, target_name=target
+                    )
                 else:
                     # Try under _site subdirectory
                     if docs_root:
                         try:
-                            rel = output_path.relative_to(docs_root)
-                            site_path = docs_root / "_site" / rel
-                            if site_path.exists():
-                                update_format_cache(qmd_path, "html", site_path, target_name=target)
+                            if output_path:
+                                rel = output_path.relative_to(docs_root)
+                                site_path = docs_root / "_site" / rel
+                                if site_path.exists():
+                                    update_format_cache(
+                                        qmd_path, "html", site_path, target_name=target
+                                    )
+                            else:
+                                pass
+
                         except (ValueError, AttributeError):
                             pass
-                # Cache the entire _site directory for future reuse
                 site_dir = docs_root / "_site"
                 cache_site_directory(target, qmd_hash, site_dir)
             else:
                 # No HTML format defined – restore all cached artifacts, no re-render needed
-                logger.info(f"All formats for {target} are cached (no HTML), restoring from cache.")
+                logger.info(
+                    f"All formats for {target} are cached (no HTML), restoring from cache."
+                )
                 for fmt in formats:
                     cached = find_cached_artifact(target, qmd_hash, fmt)
                     if cached:
@@ -1628,25 +1768,39 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
                             shutil.copy2(cached, output_path)
                         # Also restore linked artifacts if they exist
                         for linked_ext in get_linked_artifact_extensions(fmt, config):
-                            cached_linked = find_cached_artifact(target, qmd_hash, fmt, linked_ext=linked_ext)
+                            cached_linked = find_cached_artifact(
+                                target, qmd_hash, fmt, linked_ext=linked_ext
+                            )
                             if cached_linked is not None:
                                 linked_stem = qmd_path.stem
-                                linked_output_path = output_path.parent / f"{linked_stem}.{linked_ext}" if output_path else None
+                                linked_output_path = (
+                                    output_path.parent / f"{linked_stem}.{linked_ext}"
+                                    if output_path
+                                    else None
+                                )
                                 if linked_output_path:
                                     try:
                                         shutil.copy2(cached_linked, linked_output_path)
-                                        logger.info(f"Restored cached linked artifact ({linked_ext}) to {linked_output_path}")
+                                        logger.info(
+                                            f"Restored cached linked artifact ({linked_ext}) to {linked_output_path}"
+                                        )
                                     except Exception as e:
-                                        logger.warning(f"Failed to copy cached linked artifact for {target} ({fmt}): {e}")
+                                        logger.warning(
+                                            f"Failed to copy cached linked artifact for {target} ({fmt}): {e}"
+                                        )
                 # Restore cached site directory
                 site_dir = docs_root / "_site"
                 restore_site_directory(target, qmd_hash, site_dir)
         else:
             # Not all formats cached, proceed with render
-            logger.info(f"Rendering {source_path.name} in website mode (no --to, all formats from YAML)")
+            logger.info(
+                f"Rendering {source_path.name} in website mode (no --to, all formats from YAML)"
+            )
             quarto_cmd = ["quarto", "render", str(source_path), "--profile", "website"]
             if not run_command(quarto_cmd, cwd=docs_root):
-                logger.error(f"Quarto render failed for {source_path.name} (website mode).")
+                logger.error(
+                    f"Quarto render failed for {source_path.name} (website mode)."
+                )
                 return False
             # Cache artifacts for each format
             for fmt in formats:
@@ -1657,16 +1811,32 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
                     # Try under _site subdirectory
                     if docs_root:
                         try:
-                            rel = output_path.relative_to(docs_root)
+                            if output_path is not None:
+                                try:
+                                    rel = output_path.relative_to(docs_root)
+                                except ValueError:
+                                    continue
+                            else:
+                                continue
                             site_path = docs_root / "_site" / rel
                             if site_path.exists():
-                                update_format_cache(qmd_path, fmt, site_path, target_name=target)
+                                update_format_cache(
+                                    qmd_path, fmt, site_path, target_name=target
+                                )
                         except (ValueError, AttributeError):
                             pass
     else:
         if formats_to_render:
             logger.info(f"Rendering {len(formats_to_render)} format(s) for {target}")
-            if not _render_formats(qmd_path, formats_to_render, format_output_paths, docs_root, single_command, website, target_name=target):
+            if not _render_formats(
+                qmd_path,
+                formats_to_render,
+                format_output_paths,
+                docs_root,
+                single_command,
+                website,
+                target_name=target,
+            ):
                 return False
         else:
             logger.info(f"All formats for {target} are up‑to‑date, skipping render.")
@@ -1712,22 +1882,36 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
                 existing_linked = primary_path.parent / f"{linked_stem}.{ext}"
                 if existing_linked.exists():
                     linked_artifacts[fmt][ext] = existing_linked
-                    logger.info(f"Linked artifact ({ext}) already exists at {existing_linked}, skipping generation.")
+                    logger.info(
+                        f"Linked artifact ({ext}) already exists at {existing_linked}, skipping generation."
+                    )
                     continue
                 # Generate the linked artifact
-                generated_path = handler.generate(qmd_path, fmt, primary_path, docs_root, config, target_name=target)
+                generated_path = handler.generate(
+                    qmd_path, fmt, primary_path, docs_root, config, target_name=target
+                )
                 if generated_path:
                     linked_artifacts[fmt][ext] = generated_path
-                    logger.info(f"Generated linked artifact ({ext}) for {fmt} at {generated_path}")
+                    logger.info(
+                        f"Generated linked artifact ({ext}) for {fmt} at {generated_path}"
+                    )
                 else:
-                    logger.warning(f"Failed to generate linked artifact ({ext}) for {fmt}")
+                    logger.warning(
+                        f"Failed to generate linked artifact ({ext}) for {fmt}"
+                    )
 
         # Update cache with linked artifacts
         for fmt, artifacts in linked_artifacts.items():
             if artifacts:
                 primary_path = primary_paths.get(fmt)
                 if primary_path and primary_path.exists():
-                    update_format_cache(qmd_path, fmt, primary_path, target_name=target, linked_artifacts=artifacts)
+                    update_format_cache(
+                        qmd_path,
+                        fmt,
+                        primary_path,
+                        target_name=target,
+                        linked_artifacts=artifacts,
+                    )
 
     # In website mode, cache site directory AFTER linked artifact generation
     if website:
@@ -1738,7 +1922,7 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
     if config.get("copy_pdf"):
         # Determine possible primary output paths
         candidates = []
-        primary = format_output_paths.get('pdf') or format_output_paths.get('beamer')
+        primary = format_output_paths.get("pdf") or format_output_paths.get("beamer")
         if primary:
             candidates.append(primary)
             if website:
@@ -1756,25 +1940,35 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
         if primary_path and primary_path.exists():
             dest_dir = Path(output_dir).absolute() if output_dir else docs_root
             dest_dir.mkdir(parents=True, exist_ok=True)
-            primary_ext = format_to_extension('pdf' if 'pdf' in format_output_paths else 'beamer')
+            primary_ext = format_to_extension(
+                "pdf" if "pdf" in format_output_paths else "beamer"
+            )
             dest_primary = dest_dir / f"{stem}.{primary_ext}"
             # Determine linked artifact paths (uses original QMD stem to preserve original filename)
             linked_stem = qmd_path.stem
             source_linked = {}
             dest_linked = {}
-            for linked_ext in get_linked_artifact_extensions('pdf' if 'pdf' in format_output_paths else 'beamer', config):
-                source_linked[linked_ext] = primary_path.parent / f"{linked_stem}.{linked_ext}"
+            for linked_ext in get_linked_artifact_extensions(
+                "pdf" if "pdf" in format_output_paths else "beamer", config
+            ):
+                source_linked[linked_ext] = (
+                    primary_path.parent / f"{linked_stem}.{linked_ext}"
+                )
                 dest_linked[linked_ext] = dest_dir / f"{linked_stem}.{linked_ext}"
             # Avoid moving if source and destination are the same
             if dest_primary.resolve() != primary_path.resolve():
                 try:
                     shutil.move(str(primary_path), str(dest_primary))
-                    logger.info(f"Moved primary output ({primary_ext}) to {dest_primary}")
+                    logger.info(
+                        f"Moved primary output ({primary_ext}) to {dest_primary}"
+                    )
                     # Also move linked artifacts if they exist
                     for linked_ext, src_path in source_linked.items():
                         if src_path.exists():
                             shutil.move(str(src_path), str(dest_linked[linked_ext]))
-                            logger.info(f"Moved linked artifact ({linked_ext}) to {dest_linked[linked_ext]}")
+                            logger.info(
+                                f"Moved linked artifact ({linked_ext}) to {dest_linked[linked_ext]}"
+                            )
                 except Exception as e:
                     logger.error(f"Failed to move primary output: {e}")
                     return False
@@ -1784,7 +1978,7 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
     # Step 5: Copy HTML/Markdown to output_dir (if enabled)
     if output_dir:
         if config.get("copy_html"):
-            html_path = format_output_paths.get('html')
+            html_path = format_output_paths.get("html")
             if html_path and html_path.exists():
                 dest_dir = Path(output_dir).absolute()
                 dest_dir.mkdir(parents=True, exist_ok=True)
@@ -1796,10 +1990,14 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
                     logger.error(f"Failed to copy index.html: {e}")
                     return False
             else:
-                logger.warning(f"copy_html enabled but HTML output not found for {target}")
+                logger.warning(
+                    f"copy_html enabled but HTML output not found for {target}"
+                )
         if config.get("copy_md"):
             # Note: assumes Markdown format is either 'gfm' or 'markdown'
-            md_path = format_output_paths.get('gfm') or format_output_paths.get('markdown')
+            md_path = format_output_paths.get("gfm") or format_output_paths.get(
+                "markdown"
+            )
             if md_path and md_path.exists():
                 dest_dir = Path(output_dir).absolute()
                 dest_dir.mkdir(parents=True, exist_ok=True)
@@ -1811,7 +2009,9 @@ def build_generic(target: str, config: Dict[str, Any], output_dir: Optional[Path
                     logger.error(f"Failed to copy {stem}.md: {e}")
                     return False
             else:
-                logger.warning(f"copy_md enabled but Markdown output not found for {target}")
+                logger.warning(
+                    f"copy_md enabled but Markdown output not found for {target}"
+                )
 
     logger.info(f"{target} build completed successfully.")
     return True
@@ -1822,25 +2022,44 @@ TARGET_CONFIG: Dict[str, Dict[str, Any]] = {}
 BUILD_FUNCTIONS: Dict[str, Callable[..., bool]] = {}
 OUTPUT_DIR_TARGETS: set = set()
 
+
 def initialize_config(config_path: Optional[Path]) -> None:
     """Initialize global configuration from external file."""
     global EXTERNAL_CONFIG, TARGET_CONFIG, BUILD_FUNCTIONS, OUTPUT_DIR_TARGETS
     EXTERNAL_CONFIG = load_external_config(config_path)
     TARGET_CONFIG = get_target_config(DOCS_ROOT, EXTERNAL_CONFIG)
     JUPYTER_CACHE_PATH.mkdir(parents=True, exist_ok=True)
-    
+
     # Build function mapping per target (auto-generated from TARGET_CONFIG)
     BUILD_FUNCTIONS = {}
     for target, config in TARGET_CONFIG.items():
         # Create a closure that captures target and config
         def make_builder(tgt, cfg):
-            def builder(output_dir: Optional[Path] = None, single_command: bool = True, website: bool = False, docs_root: Optional[Path] = None, build_targets_set: Optional[set] = None) -> bool:
-                return build_generic(tgt, cfg, output_dir, single_command, website, docs_root, build_targets_set)
+            def builder(
+                output_dir: Optional[Path] = None,
+                single_command: bool = True,
+                website: bool = False,
+                docs_root: Optional[Path] = None,
+                build_targets_set: Optional[set] = None,
+            ) -> bool:
+                return build_generic(
+                    tgt,
+                    cfg,
+                    output_dir,
+                    single_command,
+                    website,
+                    docs_root,
+                    build_targets_set,
+                )
+
             return builder
+
         BUILD_FUNCTIONS[target] = make_builder(target, config)
-    
+
     # list of targets that receive output_dir argument (those with output_dir=True in config)
-    OUTPUT_DIR_TARGETS = {t for t, cfg in TARGET_CONFIG.items() if cfg.get("output_dir")}
+    OUTPUT_DIR_TARGETS = {
+        t for t, cfg in TARGET_CONFIG.items() if cfg.get("output_dir")
+    }
 
 
 def parse_targets(targets_arg: List[str]) -> List[str]:
@@ -1862,20 +2081,37 @@ def validate_targets(targets: List[str]) -> List[str]:
     """Validate target names against available functions."""
     invalid = [t for t in targets if t not in BUILD_FUNCTIONS]
     if invalid:
-        logger.error(f"Unknown target(s): {invalid}. Available: {list(BUILD_FUNCTIONS.keys())}")
+        logger.error(
+            f"Unknown target(s): {invalid}. Available: {list(BUILD_FUNCTIONS.keys())}"
+        )
         sys.exit(1)
     return targets
 
 
-def build_single_target(target: str, output_dir: Optional[Path], single_command: bool, website: bool = False, build_targets_set: Optional[set] = None) -> Tuple[str, bool]:
+def build_single_target(
+    target: str,
+    output_dir: Optional[Path],
+    single_command: bool,
+    website: bool = False,
+    build_targets_set: Optional[set] = None,
+) -> Tuple[str, bool]:
     """Wrapper to run a single build function and return (target_name, success)."""
     logger.info(f"Starting build: {target}")
     func = BUILD_FUNCTIONS[target]
     try:
         if target in OUTPUT_DIR_TARGETS:
-            success = func(output_dir=output_dir, single_command=single_command, website=website, build_targets_set=build_targets_set)
+            success = func(
+                output_dir=output_dir,
+                single_command=single_command,
+                website=website,
+                build_targets_set=build_targets_set,
+            )
         else:
-            success = func(single_command=single_command, website=website, build_targets_set=build_targets_set)
+            success = func(
+                single_command=single_command,
+                website=website,
+                build_targets_set=build_targets_set,
+            )
         logger.info(f"Finished build: {target} -> {'✓' if success else '✗'}")
         return target, success
     except Exception as e:
@@ -1893,21 +2129,24 @@ def build_single_target(target: str, output_dir: Optional[Path], single_command:
 #   2. Merging source content into destination content appropriately
 #   3. Handling the case when destination doesn't exist (simple copy)
 
+
 @dataclass
 class SharedAssetMerger:
     """Base class for shared asset merger handlers."""
+
     name: str
     # Filename patterns this handler handles (exact match or glob pattern)
     filename_patterns: List[str] = field(default_factory=list)
-    
+
     def handles_file(self, filename: str) -> bool:
         """Check if this handler handles the given filename."""
         import fnmatch
+
         for pattern in self.filename_patterns:
             if fnmatch.fnmatch(filename, pattern):
                 return True
         return False
-    
+
     def merge(self, src_path: Path, dst_path: Path) -> bool:
         """
         Merge source file into destination file.
@@ -1920,13 +2159,13 @@ class SharedAssetMerger:
 
 class SearchJsonMerger(SharedAssetMerger):
     """Merger for search.json files (JSON array concatenation with deduplication)."""
-    
+
     def __init__(self):
         super().__init__(
             name="search_json",
             filename_patterns=["search.json"],
         )
-    
+
     def merge(self, src_path: Path, dst_path: Path) -> bool:
         """
         Merge two search.json files by concatenating their arrays and deduplicating by objectID.
@@ -1935,19 +2174,22 @@ class SearchJsonMerger(SharedAssetMerger):
         """
         try:
             import json
+
             # Read source
-            with open(src_path, 'r', encoding='utf-8') as f:
+            with open(src_path, "r", encoding="utf-8") as f:
                 src_data = json.load(f)
             # If destination doesn't exist, copy
             if not dst_path.exists():
                 shutil.copy2(src_path, dst_path)
                 return True
             # Read destination
-            with open(dst_path, 'r', encoding='utf-8') as f:
+            with open(dst_path, "r", encoding="utf-8") as f:
                 dst_data = json.load(f)
             # Ensure both are lists
             if not isinstance(src_data, list) or not isinstance(dst_data, list):
-                logger.warning(f"search.json does not contain a JSON array, overwriting with source.")
+                logger.warning(
+                    "search.json does not contain a JSON array, overwriting with source."
+                )
                 shutil.copy2(src_path, dst_path)
                 return True
             # Merge: concatenate
@@ -1961,7 +2203,7 @@ class SearchJsonMerger(SharedAssetMerger):
                     seen[obj_id] = True
                     unique.append(item)
             # Write back
-            with open(dst_path, 'w', encoding='utf-8') as f:
+            with open(dst_path, "w", encoding="utf-8") as f:
                 json.dump(unique, f, ensure_ascii=False, indent=2)
             logger.debug(f"Merged search.json from {src_path} into {dst_path}")
             return True
@@ -1972,13 +2214,13 @@ class SearchJsonMerger(SharedAssetMerger):
 
 class SitemapXmlMerger(SharedAssetMerger):
     """Merger for sitemap.xml files (XML URL set union)."""
-    
+
     def __init__(self):
         super().__init__(
             name="sitemap_xml",
             filename_patterns=["sitemap.xml"],
         )
-    
+
     def merge(self, src_path: Path, dst_path: Path) -> bool:
         """
         Merge two sitemap.xml files by combining their URL entries.
@@ -1988,49 +2230,55 @@ class SitemapXmlMerger(SharedAssetMerger):
         """
         try:
             import xml.etree.ElementTree as ET
-            
+
             # If destination doesn't exist, copy
             if not dst_path.exists():
                 shutil.copy2(src_path, dst_path)
                 return True
-            
+
             # Parse both XML files
             src_tree = ET.parse(src_path)
             dst_tree = ET.parse(dst_path)
-            
+
             src_root = src_tree.getroot()
             dst_root = dst_tree.getroot()
-            
+
             # Extract namespace if present
             ns = {}
-            if src_root.tag.startswith('{'):
-                ns_uri = src_root.tag.split('}')[0][1:]
-                ns['ns'] = ns_uri
-            
+            if src_root.tag.startswith("{"):
+                ns_uri = src_root.tag.split("}")[0][1:]
+                ns["ns"] = ns_uri
+
             # Collect existing URLs from destination
             existing_urls = set()
-            for url in dst_root.findall('.//ns:url', ns) if ns else dst_root.findall('.//url'):
-                loc = url.find('ns:loc', ns) if ns else url.find('loc')
+            for url in (
+                dst_root.findall(".//ns:url", ns) if ns else dst_root.findall(".//url")
+            ):
+                loc = url.find("ns:loc", ns) if ns else url.find("loc")
                 if loc is not None and loc.text:
                     existing_urls.add(loc.text)
-            
+
             # Collect URL elements from source that don't exist in destination
             url_elements_to_add = []
-            for url in src_root.findall('.//ns:url', ns) if ns else src_root.findall('.//url'):
-                loc = url.find('ns:loc', ns) if ns else url.find('loc')
+            for url in (
+                src_root.findall(".//ns:url", ns) if ns else src_root.findall(".//url")
+            ):
+                loc = url.find("ns:loc", ns) if ns else url.find("loc")
                 if loc is not None and loc.text:
                     if loc.text not in existing_urls:
                         url_elements_to_add.append(url)
-            
+
             # Add new URL elements to destination
             for url_elem in url_elements_to_add:
                 dst_root.append(url_elem)
-            
+
             # Write merged result
             ET.indent(dst_tree, space="  ")
-            dst_tree.write(dst_path, encoding='utf-8', xml_declaration=True)
-            
-            logger.debug(f"Merged sitemap.xml from {src_path} into {dst_path} (added {len(url_elements_to_add)} new URLs)")
+            dst_tree.write(dst_path, encoding="utf-8", xml_declaration=True)
+
+            logger.debug(
+                f"Merged sitemap.xml from {src_path} into {dst_path} (added {len(url_elements_to_add)} new URLs)"
+            )
             return True
         except Exception as e:
             logger.error(f"Failed to merge sitemap.xml {src_path} -> {dst_path}: {e}")
@@ -2043,13 +2291,13 @@ class RobotsTxtMerger(SharedAssetMerger):
     Since robots.txt is typically a simple configuration file, we use source precedence.
     This can be customized based on project needs.
     """
-    
+
     def __init__(self):
         super().__init__(
             name="robots_txt",
             filename_patterns=["robots.txt"],
         )
-    
+
     def merge(self, src_path: Path, dst_path: Path) -> bool:
         """
         For robots.txt, source takes precedence (overwrite destination).
@@ -2058,7 +2306,9 @@ class RobotsTxtMerger(SharedAssetMerger):
         """
         try:
             shutil.copy2(src_path, dst_path)
-            logger.debug(f"Copied robots.txt from {src_path} to {dst_path} (source precedence)")
+            logger.debug(
+                f"Copied robots.txt from {src_path} to {dst_path} (source precedence)"
+            )
             return True
         except Exception as e:
             logger.error(f"Failed to copy robots.txt {src_path} -> {dst_path}: {e}")
@@ -2070,13 +2320,13 @@ class LlmsTxtMerger(SharedAssetMerger):
     Merger for llms.txt files (markdown list of page links).
     Combines page entries from multiple targets and deduplicates by URL.
     """
-    
+
     def __init__(self):
         super().__init__(
             name="llms_txt",
             filename_patterns=["llms.txt"],
         )
-    
+
     def _parse_page_entries(self, content: str) -> List[Tuple[str, str]]:
         """
         Parse llms.txt content and extract page entries as (name, url) tuples.
@@ -2084,15 +2334,17 @@ class LlmsTxtMerger(SharedAssetMerger):
         """
         entries = []
         # Match markdown list items with links: - [name](url)
-        pattern = re.compile(r'^\s*-\s*\[([^\]]+)\]\(([^)]+)\)\s*$')
+        pattern = re.compile(r"^\s*-\s*\[([^\]]+)\]\(([^)]+)\)\s*$")
         for line in content.splitlines():
             match = pattern.match(line)
             if match:
                 name, url = match.groups()
                 entries.append((name.strip(), url.strip()))
         return entries
-    
-    def _generate_content(self, entries: List[Tuple[str, str]], title: str = "Untitled") -> str:
+
+    def _generate_content(
+        self, entries: List[Tuple[str, str]], title: str = "Untitled"
+    ) -> str:
         """
         Generate llms.txt content from page entries.
         Returns formatted markdown content.
@@ -2101,7 +2353,7 @@ class LlmsTxtMerger(SharedAssetMerger):
         for name, url in entries:
             lines.append(f"- [{name}]({url})")
         return "\n".join(lines) + "\n"
-    
+
     def merge(self, src_path: Path, dst_path: Path) -> bool:
         """
         Merge two llms.txt files by combining their page entries.
@@ -2111,53 +2363,55 @@ class LlmsTxtMerger(SharedAssetMerger):
         """
         try:
             # Read source
-            with open(src_path, 'r', encoding='utf-8') as f:
+            with open(src_path, "r", encoding="utf-8") as f:
                 src_content = f.read()
-            
+
             # If destination doesn't exist, copy
             if not dst_path.exists():
                 shutil.copy2(src_path, dst_path)
                 return True
-            
+
             # Read destination
-            with open(dst_path, 'r', encoding='utf-8') as f:
+            with open(dst_path, "r", encoding="utf-8") as f:
                 dst_content = f.read()
-            
+
             # Parse entries from both files
             src_entries = self._parse_page_entries(src_content)
             dst_entries = self._parse_page_entries(dst_content)
-            
+
             # Extract title from destination (or use default)
             title = "Untitled"
             for line in dst_content.splitlines():
-                if line.startswith('# '):
+                if line.startswith("# "):
                     title = line[2:].strip()
                     break
-            
+
             # Merge entries: start with destination, add source entries not in destination
             seen_urls = set()
             merged_entries = []
-            
+
             # Add destination entries first (they take precedence)
             for name, url in dst_entries:
                 if url not in seen_urls:
                     seen_urls.add(url)
                     merged_entries.append((name, url))
-            
+
             # Add source entries that don't exist in destination
             for name, url in src_entries:
                 if url not in seen_urls:
                     seen_urls.add(url)
                     merged_entries.append((name, url))
-            
+
             # Generate merged content
             merged_content = self._generate_content(merged_entries, title)
-            
+
             # Write back
-            with open(dst_path, 'w', encoding='utf-8') as f:
+            with open(dst_path, "w", encoding="utf-8") as f:
                 f.write(merged_content)
-            
-            logger.debug(f"Merged llms.txt from {src_path} into {dst_path} (added {len(merged_entries) - len(dst_entries)} new entries)")
+
+            logger.debug(
+                f"Merged llms.txt from {src_path} into {dst_path} (added {len(merged_entries) - len(dst_entries)} new entries)"
+            )
             return True
         except Exception as e:
             logger.error(f"Failed to merge llms.txt {src_path} -> {dst_path}: {e}")
@@ -2195,26 +2449,26 @@ def merge_shared_asset(src_path: Path, dst_path: Path) -> bool:
 def _is_target_specific_file(file_path: Path, target_name: str, base_dir: Path) -> bool:
     """
     Determine if a file is target-specific and should not be overwritten by other targets.
-    
+
     Target-specific files include:
     - {target}/{target}.html (e.g., whitepaper/whitepaper.html)
     - {target}/index.html when target name matches folder (e.g., legal/index.html for legal target)
     - {target}.pdf at root level
     - Files under a directory matching the target name
-    
+
     Returns True if the file is target-specific to the given target.
     """
     try:
         rel_path = file_path.relative_to(base_dir)
         parts = rel_path.parts
-        
+
         # Check if any directory component matches target name
         for i, part in enumerate(parts[:-1]):  # Exclude filename
             if part == target_name:
                 # File is under target directory
                 filename = parts[-1]
-                stem = filename.rsplit('.', 1)[0] if '.' in filename else filename
-                
+                stem = filename.rsplit(".", 1)[0] if "." in filename else filename
+
                 # index.html/index.pdf under target dir belongs to that target
                 if filename in ("index.html", "index.pdf"):
                     return True
@@ -2223,55 +2477,55 @@ def _is_target_specific_file(file_path: Path, target_name: str, base_dir: Path) 
                     return True
                 # Any file under target dir is target-specific
                 return True
-        
+
         # Check root-level files: {target}.html, {target}.pdf belong to that target
         if len(parts) == 1:
             filename = parts[0]
-            stem = filename.rsplit('.', 1)[0] if '.' in filename else filename
-            if stem == target_name and filename.endswith(('.html', '.pdf')):
+            stem = filename.rsplit(".", 1)[0] if "." in filename else filename
+            if stem == target_name and filename.endswith((".html", ".pdf")):
                 return True
     except ValueError:
         pass
-    
+
     return False
 
 
 def merge_dirs(src: Path, dst: Path, target_name: Optional[str] = None) -> bool:
     """
     Merge contents of src directory into dst directory using rsync-style algorithm.
-    
+
     Core principle: The final _site result is a "union without duplicates" at the file content level.
     - All files from all sources are included (nothing should be missing)
     - Shared files like search.json are merged at the content level
     - Target-specific files (e.g., target/target.html) are protected from being overwritten by other targets
     - For index.qmd targets, the folder name IS the target name, so index.html/index.pdf
       from that target belongs to it (e.g., legal/index.html is the legal target's file)
-    
+
     This function uses rsync for efficient file synchronization with the following behavior:
     - Files in src are copied to dst (overwriting if needed, except for target-specific files)
     - Files in dst that don't exist in src are preserved (union behavior)
     - Directory structure is preserved
-    
+
     Args:
         src: Source directory to merge from
         dst: Destination directory to merge into
         target_name: Optional target name for determining file ownership
-    
+
     Returns True on success, False on error.
     """
     try:
         # Ensure destination exists
         dst.mkdir(parents=True, exist_ok=True)
-        
+
         # First, handle shared assets that need content-level merging
         # Get list of filenames handled by shared asset mergers
         shared_filenames = set()
         for merger in SHARED_ASSET_MERGERS:
             for pattern in merger.filename_patterns:
                 # Add exact pattern (e.g., "search.json")
-                if '*' not in pattern and '?' not in pattern:
+                if "*" not in pattern and "?" not in pattern:
                     shared_filenames.add(pattern)
-        
+
         # Process shared assets
         for filename in shared_filenames:
             src_file = src / filename
@@ -2281,34 +2535,40 @@ def merge_dirs(src: Path, dst: Path, target_name: Optional[str] = None) -> bool:
                     # No merger found or error - fall back to copy
                     if not dst_file.exists():
                         shutil.copy2(src_file, dst_file)
-                        logger.debug(f"Copied shared file {src_file} to {dst_file} (no merger)")
-        
+                        logger.debug(
+                            f"Copied shared file {src_file} to {dst_file} (no merger)"
+                        )
+
         # Build exclude list for rsync (files handled by shared asset mergers)
         rsync_excludes = []
         for filename in shared_filenames:
             rsync_excludes.extend(["--exclude", filename])
-        
+
         # Use rsync for the rest of the files
         # Flags:
         #   -a: archive mode (preserves permissions, timestamps, etc.)
         #   --ignore-existing: skip files that already exist in dst (union behavior)
         #   --exclude: skip files we handle specially
-        
-        rsync_cmd = [
-            "rsync",
-            "-a",
-            "--ignore-existing",  # Keep existing files in dst (union behavior)
-        ] + rsync_excludes + [
-            str(src) + "/",  # Trailing slash means "contents of src"
-            str(dst) + "/",
-        ]
-        
+
+        rsync_cmd = (
+            [
+                "rsync",
+                "-a",
+                "--ignore-existing",  # Keep existing files in dst (union behavior)
+            ]
+            + rsync_excludes
+            + [
+                str(src) + "/",  # Trailing slash means "contents of src"
+                str(dst) + "/",
+            ]
+        )
+
         result = subprocess.run(rsync_cmd, capture_output=True, text=True)
         if result.returncode not in (0, 23, 24):
             # 0 = success, 23 = some files vanished, 24 = vanished during transfer
             # These are acceptable for our use case
             logger.debug(f"rsync completed with code {result.returncode}")
-        
+
         # Second pass: copy target-specific files from src, overwriting any existing files
         # (target-specific files have highest priority)
         if target_name:
@@ -2316,84 +2576,105 @@ def merge_dirs(src: Path, dst: Path, target_name: Optional[str] = None) -> bool:
                 if src_file.is_file():
                     rel_path = src_file.relative_to(src)
                     dst_file = dst / rel_path
-                    
+
                     # Check if this is a target-specific file
                     if _is_target_specific_file(src_file, target_name, src):
                         # Copy target-specific file regardless of existence (overwrite)
                         dst_file.parent.mkdir(parents=True, exist_ok=True)
                         shutil.copy2(src_file, dst_file)
-                        logger.debug(f"Copied target-specific file {src_file} -> {dst_file}")
-        
+                        logger.debug(
+                            f"Copied target-specific file {src_file} -> {dst_file}"
+                        )
+
         return True
     except Exception as e:
         logger.error(f"Failed to merge {src} into {dst}: {e}")
         return False
 
 
-def _render_target_isolated(target: str, output_dir: Optional[Path], single_command: bool, website: bool, temp_docs: Path, build_targets_set: Optional[set] = None) -> bool:
+def _render_target_isolated(
+    target: str,
+    output_dir: Optional[Path],
+    single_command: bool,
+    website: bool,
+    temp_docs: Path,
+    build_targets_set: Optional[set] = None,
+) -> bool:
     """
     Render a single target in isolation using a complete copy of the docs folder.
     This prevents resource conflicts when running multiple quarto renders in parallel.
     """
     logger.info(f"Rendering {target} in isolated docs directory {temp_docs}")
-    
+
     try:
         # Build in the isolated docs directory
         func = BUILD_FUNCTIONS.get(target)
         if func is None:
             logger.error(f"Unknown target: {target}")
             return False
-        
+
         # For isolated mode, we run the build in the temp_docs directory
         # The output will go to temp_docs/_site
-        success = func(output_dir=temp_docs / "_site", single_command=single_command, website=website, docs_root=temp_docs, build_targets_set=build_targets_set)
+        success = func(
+            output_dir=temp_docs / "_site",
+            single_command=single_command,
+            website=website,
+            docs_root=temp_docs,
+            build_targets_set=build_targets_set,
+        )
         return success
     except Exception as e:
         logger.error(f"Exception while rendering {target}: {e}")
         return False
 
-def _cleanup_orphaned_caches(successful_targets: set, cache_base: Optional[Path] = None) -> int:
+
+def _cleanup_orphaned_caches(
+    successful_targets: set, cache_base: Optional[Path] = None
+) -> int:
     """
     Remove cache entries for targets that are no longer in the successful build set.
-    
+
     This prevents accumulation of stale cache data when source files are deleted
     or target names change.
-    
+
     Args:
         successful_targets: Set of target names that were successfully built
         cache_base: Base cache directory (defaults to _cached in parent of docs)
-    
+
     Returns:
         Number of orphaned cache directories removed
     """
     if cache_base is None:
         cache_base = get_cache_base()
-    
+
     if not cache_base.exists():
         return 0
-    
+
     # Get all cached target directories
     cached_targets = {d.name for d in cache_base.iterdir() if d.is_dir()}
-    
+
     # Find orphaned caches: in cache but not in successful targets
     orphaned = cached_targets - successful_targets
-    
+
     if not orphaned:
         logger.debug("No orphaned cache entries found.")
         return 0
-    
+
     removed_count = 0
     for target_name in orphaned:
         cache_dir = cache_base / target_name
         try:
             shutil.rmtree(cache_dir)
-            logger.info(f"Removed orphaned cache for target '{target_name}' at {cache_dir}")
+            logger.info(
+                f"Removed orphaned cache for target '{target_name}' at {cache_dir}"
+            )
             removed_count += 1
         except Exception as e:
             logger.warning(f"Failed to remove orphaned cache for '{target_name}': {e}")
-    
+
     logger.info(f"Cleaned up {removed_count} orphaned cache directorie(s).")
     return removed_count
+
 
 def build_targets(
     targets: List[str],
@@ -2401,7 +2682,7 @@ def build_targets(
     sequence_mode: bool,
     max_jobs: int,
     single_command: bool,
-    website: bool = False
+    website: bool = False,
 ) -> bool:
     """
     Build multiple targets.
@@ -2411,10 +2692,10 @@ def build_targets(
       - If sequence_mode=False and len(targets) > 1: run in parallel (default)
       - If sequence_mode=False and len(targets) == 1: run normally (no threading overhead)
       - If website=True and parallel: use isolated temp directories for each target, then merge
-    
+
     In website mode with parallel execution, each target renders to its own temp directory
     to avoid site_libs conflicts, then results are merged into the final _site directory.
-    
+
     Important: The _site output directory is cleaned before building to ensure no stale files remain.
     """
     if not targets:
@@ -2428,14 +2709,14 @@ def build_targets(
     capture_initial_cached_targets()
 
     results: Dict[str, bool] = {}
-    
+
     # Clean _site directory before building to ensure no stale files remain
     final_site = output_dir if output_dir else (DOCS_ROOT / "_site")
     if final_site.exists():
         logger.info(f"Cleaning existing _site directory: {final_site}")
         try:
             shutil.rmtree(final_site)
-            logger.info(f"Removed existing _site directory")
+            logger.info("Removed existing _site directory")
         except Exception as e:
             logger.error(f"Failed to remove existing _site directory: {e}")
             return False
@@ -2444,26 +2725,30 @@ def build_targets(
     # Each target gets a complete copy of the docs folder in a temp directory
     # This ensures complete isolation of Quarto's project resources
     if website and (not sequence_mode) and (len(targets) > 1):
-        logger.info("Website mode: using isolated docs copies for parallel rendering...")
-        
+        logger.info(
+            "Website mode: using isolated docs copies for parallel rendering..."
+        )
+
         # Fixed absolute path that ensures path consistency for both CI and local
         base_temp = BUILD_TEMP_PATH
-        
+
         if base_temp.exists():
             logger.info(f"Cleaning fixed temp dir: {base_temp}")
-            shutil.rmtree(base_temp, ignore_errors=True)  # Even if you fail, ignore it and proceed
-            
+            shutil.rmtree(
+                base_temp, ignore_errors=True
+            )  # Even if you fail, ignore it and proceed
+
         base_temp.mkdir(parents=True, exist_ok=True)
         logger.info(f"Using fixed temp directory: {base_temp}")
-        
+
         # Copy function (block infinite loop)
         def copy_for_target(t: str) -> Tuple[str, Path]:
             temp_docs = base_temp / t
             if temp_docs.exists():
                 shutil.rmtree(temp_docs, ignore_errors=True)
-                
+
             logger.info(f"Copying docs to {temp_docs} for {t}...")
-            
+
             # Explicitly exclude target folder name + prevent circular references in symbolic links
             def _strict_ignore(src, names):
                 ignored = set(ignore_quarto_artifacts()(src, names))
@@ -2480,10 +2765,12 @@ def build_targets(
             return t, temp_docs
 
         target_temp_dirs: Dict[str, Path] = {}
-        
+
         try:
             with ThreadPoolExecutor(max_workers=max_jobs) as executor:
-                future_to_target = {executor.submit(copy_for_target, t): t for t in targets}
+                future_to_target = {
+                    executor.submit(copy_for_target, t): t for t in targets
+                }
                 for future in as_completed(future_to_target):
                     target = future_to_target[future]
                     try:
@@ -2497,13 +2784,19 @@ def build_targets(
                                 shutil.rmtree(td, ignore_errors=True)
                         shutil.rmtree(base_temp, ignore_errors=True)
                         return False
-            
+
             # Render all targets in parallel, each in its own isolated docs copy
             build_targets_set = set(targets)
             with ThreadPoolExecutor(max_workers=max_jobs) as executor:
                 futures = {
                     executor.submit(
-                        _render_target_isolated, t, output_dir, single_command, website, target_temp_dirs[t], build_targets_set
+                        _render_target_isolated,
+                        t,
+                        output_dir,
+                        single_command,
+                        website,
+                        target_temp_dirs[t],
+                        build_targets_set,
                     ): t
                     for t in targets
                 }
@@ -2515,26 +2808,28 @@ def build_targets(
                     except Exception as e:
                         logger.error(f"Exception while rendering {target}: {e}")
                         results[target] = False
-            
+
             # Merge all successful _site directories into final output
             final_output = output_dir if output_dir else (DOCS_ROOT / "_site")
-            
+
             # Determine which targets succeeded before merging
             succeeded = [t for t, s in results.items() if s]
             failed = [t for t, s in results.items() if not s]
-            
+
             # Clean the output directory once before merging (ensures freshness)
             if final_output.exists():
                 logger.info(f"Cleaning existing output directory {final_output}")
                 shutil.rmtree(final_output)
-            
+
             final_output.mkdir(parents=True, exist_ok=True)
-            
-            logger.info(f"Merging {len(succeeded)} successful targets into {final_output}...")
+
+            logger.info(
+                f"Merging {len(succeeded)} successful targets into {final_output}..."
+            )
             # Merge all targets - target-specific files are now protected by _is_target_specific_file
             # Order doesn't matter for target-specific files, but we still sort for consistency
             # Non-index targets first, then index target (for any shared files at root level)
-            sorted_succeeded = sorted(succeeded, key=lambda x: (x == 'index', x))
+            sorted_succeeded = sorted(succeeded, key=lambda x: (x == "index", x))
             # Iterate over a copy because we may modify results
             for target in sorted_succeeded:
                 temp_docs = target_temp_dirs[target]
@@ -2553,11 +2848,11 @@ def build_targets(
                             src_stem = qmd_path.stem
                             # Copy all files from hash_dir (excluding 'site' directory)
                             for src_file in hash_dir.iterdir():
-                                if src_file.name == 'site':
+                                if src_file.name == "site":
                                     continue
                                 if src_file.is_file():
                                     # Determine destination path preserving original docs structure
-                                    if src_parent == Path('.'):
+                                    if src_parent == Path("."):
                                         dest_parent = final_output
                                     else:
                                         dest_parent = final_output / src_parent
@@ -2566,13 +2861,16 @@ def build_targets(
                                     dest = dest_parent / dest_name
                                     dest.parent.mkdir(parents=True, exist_ok=True)
                                     shutil.copy2(src_file, dest)
-                                    logger.debug(f"Copied cached artifact {src_file} -> {dest}")
+                                    logger.debug(
+                                        f"Copied cached artifact {src_file} -> {dest}"
+                                    )
                 if temp_site.exists():
                     if not merge_dirs(temp_site, final_output, target_name=target):
-                        logger.warning(f"Failed to merge {target} output into {final_output}")
+                        logger.warning(
+                            f"Failed to merge {target} output into {final_output}"
+                        )
                         results[target] = False
-            
-            
+
             # Summary
             succeeded = [t for t, s in results.items() if s]
             failed = [t for t, s in results.items() if not s]
@@ -2582,16 +2880,18 @@ def build_targets(
                 logger.error(f"Failed targets: {failed}")
                 # Clean up partial merge results
                 if final_output.exists():
-                    logger.info(f"Cleaning partial output directory {final_output} due to failures")
+                    logger.info(
+                        f"Cleaning partial output directory {final_output} due to failures"
+                    )
                     shutil.rmtree(final_output)
                 return False
-            
+
             if succeeded:
                 successful_set = set(succeeded)
                 _cleanup_orphaned_caches(successful_set)
-                
+
             logger.info(f"All targets completed successfully: {list(results.keys())}")
-            
+
             # If website mode and llms-txt enabled, run rsync to copy LLMS files
             if website:
                 config = get_website_config(DOCS_ROOT)
@@ -2601,10 +2901,14 @@ def build_targets(
                     source_dir = final_site if output_dir is None else output_dir
                     # Ensure source_dir exists
                     if not source_dir.exists():
-                        logger.warning(f"Source directory {source_dir} does not exist, skipping rsync.")
+                        logger.warning(
+                            f"Source directory {source_dir} does not exist, skipping rsync."
+                        )
                     else:
                         dest_dir = source_dir.parent / "_llms"
-                        logger.info(f"Running rsync to copy LLMS files from {source_dir} to {dest_dir}")
+                        logger.info(
+                            f"Running rsync to copy LLMS files from {source_dir} to {dest_dir}"
+                        )
                         rsync_cmd = [
                             "rsync",
                             "-av",
@@ -2620,15 +2924,25 @@ def build_targets(
                         ]
                         try:
                             subprocess.run(rsync_cmd, check=True)
-                            subprocess.run(["find", str(dest_dir), "-type", "d", "-empty", "-delete"], check=False)
+                            subprocess.run(
+                                [
+                                    "find",
+                                    str(dest_dir),
+                                    "-type",
+                                    "d",
+                                    "-empty",
+                                    "-delete",
+                                ],
+                                check=False,
+                            )
                             logger.info("rsync completed successfully.")
                         except subprocess.CalledProcessError as e:
                             logger.error(f"rsync failed with exit code {e.returncode}")
                         except Exception as e:
                             logger.error(f"Failed to run rsync: {e}")
-            
+
             return True
-            
+
         finally:
             # Clean up temp directory
             logger.info(f"Cleaning up temp directory {base_temp}")
@@ -2645,7 +2959,14 @@ def build_targets(
         logger.info(f"Running {len(targets)} targets in parallel (max_jobs={max_jobs})")
         with ThreadPoolExecutor(max_workers=max_jobs) as executor:
             futures = {
-                executor.submit(build_single_target, t, output_dir, single_command, website, build_targets_set): t
+                executor.submit(
+                    build_single_target,
+                    t,
+                    output_dir,
+                    single_command,
+                    website,
+                    build_targets_set,
+                ): t
                 for t in targets
             }
             for future in as_completed(futures):
@@ -2654,9 +2975,13 @@ def build_targets(
     else:
         # Sequential execution (either forced by --sequence, or single target)
         if len(targets) > 1:
-            logger.info(f"Running {len(targets)} targets sequentially (--sequence mode)")
+            logger.info(
+                f"Running {len(targets)} targets sequentially (--sequence mode)"
+            )
         for target in targets:
-            _, success = build_single_target(target, output_dir, single_command, website, build_targets_set)
+            _, success = build_single_target(
+                target, output_dir, single_command, website, build_targets_set
+            )
             results[target] = success
 
     # Summary of results
@@ -2676,11 +3001,11 @@ def build_targets(
 def run_pre_build_commands(external_config: Dict[str, Any], docs_root: Path) -> None:
     """
     Execute pre-build commands defined in build.yml's pre_build section.
-    
+
     Each command is a list: [executable, arg1, arg2, ...].
     If the executable is not found on PATH, the command is silently skipped.
     If a command fails, an error is logged but execution continues (non-blocking).
-    
+
     Args:
         external_config: External configuration dictionary from build.yml
         docs_root: Root directory of documentation (docs/)
@@ -2688,19 +3013,19 @@ def run_pre_build_commands(external_config: Dict[str, Any], docs_root: Path) -> 
     pre_build_commands = external_config.get("pre_build", [])
     if not pre_build_commands:
         return
-    
+
     logger.info(f"Running {len(pre_build_commands)} pre-build command(s)...")
     for cmd in pre_build_commands:
         if not cmd or not isinstance(cmd, list):
             logger.warning(f"Invalid pre_build entry: {cmd}, skipping.")
             continue
-        
+
         executable = cmd[0]
         # Check if executable exists on PATH
         if not shutil.which(executable):
             logger.info(f"Pre-build: '{executable}' not found in PATH, skipping.")
             continue
-        
+
         logger.info(f"Pre-build: running {' '.join(cmd)}")
         try:
             result = subprocess.run(
@@ -2714,11 +3039,15 @@ def run_pre_build_commands(external_config: Dict[str, Any], docs_root: Path) -> 
             if result.stderr:
                 logger.warning(result.stderr.strip())
             if result.returncode != 0:
-                logger.warning(f"Pre-build command '{executable}' failed with exit code {result.returncode}, continuing build...")
+                logger.warning(
+                    f"Pre-build command '{executable}' failed with exit code {result.returncode}, continuing build..."
+                )
             else:
                 logger.info(f"Pre-build command '{executable}' succeeded.")
         except Exception as e:
-            logger.warning(f"Pre-build command '{executable}' raised an exception: {e}, continuing build...")
+            logger.warning(
+                f"Pre-build command '{executable}' raised an exception: {e}, continuing build..."
+            )
 
 
 def main() -> None:
@@ -2767,17 +3096,19 @@ Examples:
   %(prog)s --parallel-formats whitepaper     # Render each format in separate Quarto command
   %(prog)s --config build.yml whitepaper   # Use external configuration file
   %(prog)s -c ./custom-config.yml whitepaper  # Specify custom config path
-        """
+        """,
     )
 
     parser.add_argument(
-        "--output-dir", "-o",
+        "--output-dir",
+        "-o",
         type=Path,
         default=None,
         help="Directory to place the final PDF (default: docs root)",
     )
     parser.add_argument(
-        "--sequence", "-s",
+        "--sequence",
+        "-s",
         action="store_true",
         help="Force sequential execution even with multiple targets",
     )
@@ -2788,7 +3119,8 @@ Examples:
     _logical_cores = os.cpu_count() or 4
     _default_jobs = max(1, _logical_cores // 2)
     parser.add_argument(
-        "--jobs", "-j",
+        "--jobs",
+        "-j",
         type=int,
         default=_default_jobs,
         help=f"Max number of parallel jobs (default: {_default_jobs} = estimated physical cores, only used in parallel mode)",
@@ -2804,7 +3136,8 @@ Examples:
         help="Use Quarto website profile (adds --profile website to render commands)",
     )
     parser.add_argument(
-        "--config", "-c",
+        "--config",
+        "-c",
         type=Path,
         default=None,
         help="Path to external YAML configuration file (default: build.yml in docs root)",
@@ -2825,7 +3158,7 @@ Examples:
         default_config = DOCS_ROOT / "build.yml"
         if default_config.exists():
             config_path = default_config
-    
+
     initialize_config(config_path)
 
     # Clean special handling

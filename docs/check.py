@@ -25,7 +25,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from threading import Lock
-from typing import Dict, List, Optional, Set, Tuple, Union
+from typing import Dict, List, Optional, Set, Tuple
 from urllib.parse import urlparse
 
 import requests
@@ -380,7 +380,7 @@ def find_uncited_references(
 # ============================================================
 def compare_citations_between_files(
     file_a: Path, file_b: Path, bib_path: Optional[Path] = None, verbose: bool = False
-) -> Dict[str, any]:
+) -> Dict:
     """Compare citation keys between two QMD/MD documents."""
     keys_a = extract_citations_from_file(file_a) if file_a.exists() else set()
     keys_b = extract_citations_from_file(file_b) if file_b.exists() else set()
@@ -522,9 +522,7 @@ def extract_section_references(content: str) -> Dict[str, List[Dict]]:
     return refs
 
 
-def check_all_section_references(
-    target_dir: str, verbose: bool = False
-) -> Dict[str, any]:
+def check_all_section_references(target_dir: str, verbose: bool = False) -> Dict:
     """Check section reference consistency across all QMD/MD files."""
     root = Path(target_dir).resolve()
     if not root.exists():
@@ -586,21 +584,21 @@ def check_all_section_references(
     unused = sorted(defined_ids - referenced_ids)
     broken = sorted(referenced_ids - defined_ids)
 
-    print(f"\nSection Reference Summary:")
+    print("\nSection Reference Summary:")
     print(f"   Total defined sections: {len(defined_ids)}")
     print(f"   Total referenced sections: {len(referenced_ids)}")
     print(f"   Unused definitions: {len(unused)}")
     print(f"   Broken references: {len(broken)}")
 
     if unused and verbose:
-        print(f"\nUnused Section Definitions:")
+        print("\nUnused Section Definitions:")
         for sec_id in unused:
             meta = global_definitions[sec_id]
             rel_file = meta["source_file"].relative_to(root)
             print(f'   - {sec_id} in {rel_file}:{meta["line"]} ("{meta["title"]}")')
     elif unused and not verbose:
         # Only partially visible in non-detailed mode
-        print(f"\nUnused Section Definitions (first 10):")
+        print("\nUnused Section Definitions (first 10):")
         for sec_id in unused[:10]:
             meta = global_definitions[sec_id]
             rel_file = meta["source_file"].relative_to(root)
@@ -609,13 +607,13 @@ def check_all_section_references(
             print(f"   ... and {len(unused) - 10} more")
 
     if broken and verbose:
-        print(f"\nBroken Section References:")
+        print("\nBroken Section References:")
         for sec_id in broken:
             usage = global_references[sec_id][0]
             rel_file = usage["source_file"].relative_to(root)
             print(f"   - {sec_id} in {rel_file}:{usage['line']} ({usage['context']})")
     elif broken and not verbose:
-        print(f"\nBroken Section References (first 10):")
+        print("\nBroken Section References (first 10):")
         for sec_id in broken[:10]:
             usage = global_references[sec_id][0]
             rel_file = usage["source_file"].relative_to(root)
@@ -947,7 +945,7 @@ def validate_all_links(target_dir: str, verbose: bool = False, max_workers: int 
                                     line,
                                 )
                             )
-                        except:
+                        except Exception:
                             if resp.status_code in (403, 418):
                                 continue
                             file_broken_remote.append(
@@ -958,7 +956,8 @@ def validate_all_links(target_dir: str, verbose: bool = False, max_workers: int 
                                     line,
                                 )
                             )
-                except:
+
+                except Exception:
                     file_broken_remote.append(
                         (file_path.relative_to(root), url, "Connection Error", line)
                     )
