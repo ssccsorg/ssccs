@@ -1133,6 +1133,74 @@ def _remove_bib_entries(bib_path: Path, keys_to_remove: Set[str]):
             new_lines.append(line)
     bib_path.write_text("\n".join(new_lines), encoding="utf-8")
 
+def validate_yaml_relative_paths(target_dir: str):
+    """Validate relative paths in YAML front matter of QMD/MD files."""
+    import yaml
+
+    root = Path(target_dir).resolve()
+    print(f"\n{'='*60}\n YAML RELATIVE PATH VALIDATION\n{'='*60}\n")
+
+    PATH_KEYS = {"metadata-files", "bibliography", "csl"}
+    META_LINK_KEYS = {"link"}
+
+    errors = 0
+    checked = 0
+
+    for qmd in sorted(root.rglob("*.qmd")):
+        if _is_ignored_path(qmd, root):
+            continue
+        try:
+            text = qmd.read_text(encoding="utf-8")
+        except Exception:
+            continue
+        if not text.startswith("---"):
+            continue
+        m = re.match(r"^---\s*\n(.*?)\n---", text, re.DOTALL)
+        if not m:
+            continue
+        try:
+            fm = yaml.safe_load(m.group(1)) or {}
+        except Exception:
+            continue
+        if not isinstance(fm, dict):
+            continue
+
+        doc_dir = qmd.parent
+        checked += 1
+
+        def check_path(val, key_name):
+            nonlocal errors
+            if isinstance(val, str):
+                if val.startswith("http") or val.startswith("mailto:"):
+                    return
+                p = (doc_dir / val).resolve()
+                if not p.exists():
+                    rel = qmd.relative_to(root)
+                    print(f"  {rel}: {key_name} -> {val}  [NOT FOUND]")
+                    errors += 1
+            elif isinstance(val, list):
+                for v in val:
+                    check_path(v, key_name)
+
+        for key in PATH_KEYS:
+            if key in fm:
+                check_path(fm[key], key)
+
+        ctm = fm.get("custom-title-meta")
+        if isinstance(ctm, dict):
+            for fmt in ("html", "pdf"):
+                items = ctm.get(fmt)
+                if isinstance(items, list):
+                    for item in items:
+                        if isinstance(item, dict):
+                            for lk in META_LINK_KEYS:
+                                if lk in item:
+                                    check_path(item[lk], f"custom-title-meta.{fmt}.{lk}")
+
+    print(f"\n  Checked {checked} files, {errors} broken relative path(s)")
+    return errors
+
+
 
 # ============================================================
 # CLI Entry Point
@@ -1288,6 +1356,8 @@ if __name__ == "__main__":
         sync_all_links(args.dir)
         print("\n" + "=" * 60 + "\n VALIDATION PHASE\n" + "=" * 60 + "\n")
         validate_all_links(args.dir, verbose=args.verbose)
+        validate_yaml_relative_paths(args.dir)
+        validate_yaml_relative_paths(args.dir)
         print("\n" + "=" * 60 + "\n CITATION CHECK PHASE\n" + "=" * 60 + "\n")
         check_citation_consistency(args.dir, cleanup=args.cleanup_uncited)
         print("\n" + "=" * 60 + "\n SECTION REFERENCE CHECK\n" + "=" * 60 + "\n")
@@ -1296,6 +1366,8 @@ if __name__ == "__main__":
 
     if args.validate_only:
         validate_all_links(args.dir, verbose=args.verbose)
+        validate_yaml_relative_paths(args.dir)
+        validate_yaml_relative_paths(args.dir)
         check_citation_consistency(args.dir, cleanup=args.cleanup_uncited)
     elif args.fix_only:
         sync_all_links(args.dir)
