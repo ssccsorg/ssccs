@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 """
-Generate _include/latest_docs.qmd with the 10 most recently modified documents.
+Generate _include/_updated_docs_list.qmd with the 10 most recently modified
+documents.
 
 Called from build.yml's pre_build section. Uses git history to determine
 the last modification time of each tracked .qmd/.md file, then writes a
 compact Markdown list sorted newest-first.
+
+The script only overwrites the output file when the generated content
+differs from what is already on disk, avoiding spurious git diffs.
 
 Exclude patterns are kept in sync with build.yml's 'exclude' list.
 """
@@ -12,6 +16,7 @@ Exclude patterns are kept in sync with build.yml's 'exclude' list.
 import fnmatch
 import subprocess
 import sys
+from datetime import datetime
 from pathlib import Path
 
 DOCS_ROOT = Path(__file__).parent.parent
@@ -105,15 +110,103 @@ def matches_exclude(rel_path: str) -> bool:
     return False
 
 
+def _normalise_path(raw: str) -> str | None:
+    """Convert a git-log file path to a docs-relative path.
+
+    Git may output paths relative to the repo root (``docs/index.qmd``)
+    or relative to the cwd (``index.qmd``).  This helper accepts both
+    forms and always returns the docs-relative form without the leading
+    ``docs/`` prefix, or ``None`` if the path is outside docs/.
+    """
+    # Strip leading docs/ prefix if present (git output relative to repo root)
+    if raw.startswith("docs/"):
+        rel = raw[len("docs/") :]
+    else:
+        # Path is already relative to docs/ (git output relative to cwd)
+        rel = raw
+
+    if not (rel.endswith(".qmd") or rel.endswith(".md")):
+        return None
+    # Reject paths that escape docs/ (e.g. ../README.md)
+    if rel.startswith("../") or rel.startswith("/"):
+        return None
+    return rel
+
+
+def _is_timestamp_line(line: str) -> bool:
+    """Return True if *line* looks like a git iso-stamp line.
+
+    Matches ``YYYY-MM-DD HH:MM:SS ±HHMM`` at the start of the string.
+    This is stricter than just checking ``line[0:4].isdigit()`` and
+    avoids false-positives on commit subjects that happen to start with
+    a date-like token.
+    """
+    # 19 chars covers "2026-05-04 18:15:09"
+    if len(line) < 19:
+        return False
+    head = line[:19]
+    return (
+        head[0:4].isdigit()
+        and head[4] == "-"
+        and head[5:7].isdigit()
+        and head[7] == "-"
+        and head[8:10].isdigit()
+        and head[10] == " "
+        and head[11:13].isdigit()
+        and head[13] == ":"
+        and head[14:16].isdigit()
+        and head[16] == ":"
+        and head[17:19].isdigit()
+    )
+
+
+def _parse_git_log_nameonly(stdout: str) -> list[tuple[str, str]]:
+    """Parse ``git log --name-only`` output into (timestamp, rel_path) pairs."""
+    entries: list[tuple[str, str]] = []
+    current_ts: str | None = None
+
+    for line in stdout.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        if _is_timestamp_line(line):
+            current_ts = line.split("  ")[0] if "  " in line else line[:25].rstrip()
+            continue
+        # File path line
+        if current_ts is None:
+            continue
+        rel = _normalise_path(line)
+        if rel is None:
+            continue
+        if matches_exclude(rel):
+            continue
+        entries.append((current_ts, rel))
+
+    # Deduplicate by path, keeping the first (newest) occurrence.
+    # git log outputs newest-first, so the first entry per path is the latest.
+    seen: set[str] = set()
+    deduped: list[tuple[str, str]] = []
+    for ts, path in entries:
+        if path not in seen:
+            seen.add(path)
+            deduped.append((ts, path))
+
+    return deduped
+
+
 def get_tracked_doc_files() -> list[tuple[str, str]]:
     """
     Return list of (iso_timestamp, relative_path) for every tracked
     .qmd / .md under docs/, newest first.
 
-    Uses `git log --diff-filter=AM --name-only --pretty=format:%ai`
+    Uses ``git log --diff-filter=AM --name-only --pretty=format:%ai``
     to collect the timestamp of every commit that added or modified a
     doc file.  Later commits override earlier ones for the same path,
     giving us the *last* modification time of each file.
+
+    The commit subject is deliberately omitted from the format string
+    to avoid false parsing when a subject happens to start with
+    ``docs/`` or a date-like token.
     """
     _ensure_git_safe()
     result = subprocess.run(
@@ -122,7 +215,7 @@ def get_tracked_doc_files() -> list[tuple[str, str]]:
             "log",
             "--diff-filter=AM",
             "--name-only",
-            "--pretty=format:%ai  %s",
+            "--pretty=format:%ai",
             "--",
             "*.qmd",
             "*.md",
@@ -138,44 +231,7 @@ def get_tracked_doc_files() -> list[tuple[str, str]]:
         )
         return []
 
-    # Parse the output into (timestamp, path) pairs
-    # Format:
-    #   2026-05-04 18:15:09 +0200  commit subject
-    #   docs/path/file.qmd
-    #   docs/path/other.md
-    entries: list[tuple[str, str]] = []
-    current_ts: str | None = None
-
-    for line in result.stdout.splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        # Detect timestamp line (starts with YYYY-MM-DD)
-        if line[0:4].isdigit() and line[4] == "-":
-            current_ts = line.split("  ")[0]  # keep "2026-05-04 18:15:09 +0200"
-            continue
-        # Otherwise it's a file path
-        if current_ts and line.startswith("docs/"):
-            rel = line[len("docs/") :]  # strip leading "docs/"
-            # Keep only .qmd / .md (should be redundant, but safe)
-            if not (rel.endswith(".qmd") or rel.endswith(".md")):
-                continue
-            if matches_exclude(rel):
-                continue
-            entries.append((current_ts, rel))
-
-    # Deduplicate by path keeping the most recent (last seen) timestamp.
-    # Since git log outputs newest-first, the first occurrence of each
-    # path already has the latest timestamp.
-    seen: set[str] = set()
-    deduped: list[tuple[str, str]] = []
-    for ts, path in entries:
-        if path not in seen:
-            seen.add(path)
-            deduped.append((ts, path))
-
-    # deduped is already newest-first because git log is newest-first
-    return deduped
+    return _parse_git_log_nameonly(result.stdout)
 
 
 def extract_title_from_file(abs_path: Path) -> str | None:
@@ -296,29 +352,32 @@ def get_creation_dates() -> dict[str, str]:
         return {}
 
     created: dict[str, str] = {}
-    current_ts: str | None = None
-
-    for line in result.stdout.splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        if line[0:4].isdigit() and line[4] == "-":
-            current_ts = line.split("  ")[0]
-            continue
-        if current_ts and line.startswith("docs/"):
-            rel = line[len("docs/") :]
-            if not (rel.endswith(".qmd") or rel.endswith(".md")):
-                continue
-            if rel not in created:  # keep earliest (first creation)
-                created[rel] = current_ts.split()[0]  # date only
+    # Walk backwards so earlier commits (first creation) are retained
+    for ts, rel_path in reversed(_parse_git_log_nameonly(result.stdout)):
+        if rel_path not in created:
+            created[rel_path] = ts.split()[0]  # date only
 
     return created
 
 
-def is_new_file(rel_path: str, creation_dates: dict[str, str]) -> bool:
-    """A file is "new" if its first creation was within the last 7 days."""
-    from datetime import datetime
+def _latest_commit_date() -> str | None:
+    """Return the date (YYYY-MM-DD) of the most recent commit in docs/."""
+    _ensure_git_safe()
+    result = subprocess.run(
+        ["git", "log", "-1", "--pretty=format:%ai", "--", "."],
+        cwd=DOCS_ROOT,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0 or not result.stdout.strip():
+        return None
+    return result.stdout.strip().split()[0]  # date portion only
 
+
+def is_new_file(rel_path: str, creation_dates: dict[str, str]) -> bool:
+    """A file is "new" if its first creation was within 7 days of the latest
+    commit date (not wall-clock time), making the output deterministic for
+    a given repo state."""
     # Shallow clone guard: if every tracked file has the same creation date,
     # the repo was likely cloned with --depth=1 — skip new-file badges entirely.
     if creation_dates:
@@ -329,9 +388,15 @@ def is_new_file(rel_path: str, creation_dates: dict[str, str]) -> bool:
     creation = creation_dates.get(rel_path)
     if not creation:
         return False
+
+    ref_date_str = _latest_commit_date()
+    if not ref_date_str:
+        return False
+
     try:
         created = datetime.strptime(creation, "%Y-%m-%d")
-        return (datetime.now() - created).days <= 7
+        ref_date = datetime.strptime(ref_date_str, "%Y-%m-%d")
+        return (ref_date - created).days <= 7
     except ValueError:
         return False
 
@@ -366,23 +431,31 @@ def main() -> None:
     old = [(ts, p) for ts, p in top if not is_new_file(p, creation_dates)]
     sorted_items = new + old  # each group already newest-first from git log
 
+    # Build output in memory first so we can compare with on-disk content
+    new_content = ""
+    if sorted_items:
+        new_content += "\n| Updated | Document |\n"
+        new_content += "|----------|---------|\n"
+        for ts, rel_path in sorted_items:
+            date = ts.split()[0]  # "2026-05-04"
+            title = format_title(rel_path, DOCS_ROOT)
+            path_prefix = breadcrumb(rel_path, title)
+            html = doc_to_html(rel_path)
+            badge = f" {badge_new()}" if is_new_file(rel_path, creation_dates) else ""
+            new_content += f"| {date} | {path_prefix}[{title}]({html}){badge} |\n"
+
+    # Only overwrite when content actually differs (avoids spurious git diffs)
     INCLUDE_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        existing = OUTPUT.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        existing = ""
 
-    with open(OUTPUT, "w") as f:
-        if sorted_items:
-            f.write("\n| Updated | Document |\n")
-            f.write("|----------|---------|\n")
-            for ts, rel_path in sorted_items:
-                date = ts.split()[0]  # "2026-05-04"
-                title = format_title(rel_path, DOCS_ROOT)
-                path_prefix = breadcrumb(rel_path, title)
-                html = doc_to_html(rel_path)
-                badge = (
-                    f" {badge_new()}" if is_new_file(rel_path, creation_dates) else ""
-                )
-                f.write(f"| {date} | {path_prefix}[{title}]({html}){badge} |\n")
-
-    print(f"Generated {OUTPUT} with {len(top)} entries.")
+    if new_content != existing:
+        OUTPUT.write_text(new_content, encoding="utf-8")
+        print(f"Updated {OUTPUT} with {len(top)} entries.")
+    else:
+        print(f"No change – {OUTPUT} is already up to date ({len(top)} entries).")
 
 
 if __name__ == "__main__":
