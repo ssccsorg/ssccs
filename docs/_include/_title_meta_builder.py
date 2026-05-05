@@ -52,9 +52,17 @@ def _get_front_matter(qmd_path: Path) -> dict:
     return yaml.safe_load(m.group(1)) or {}
 
 
-def _auto_other_formats(doc_stem: str, current_fmt: str) -> list[dict]:
-    """Build built-in 'Other Formats' entry (always on by default)."""
-    if current_fmt == "html":
+FORMAT_KEYS = ("html", "pdf", "beamer")
+
+
+def _extract_format_keys(fmt_block: dict) -> set[str]:
+    """Return {html, pdf, ...} for any FORMAT_KEYS present in *fmt_block*."""
+    return {k for k in FORMAT_KEYS if k in fmt_block}
+
+
+def _auto_other_formats(doc_stem: str, current_fmt: str, declared_formats: set[str]) -> list[dict]:
+    """Build built-in 'Other Formats' entry."""
+    if current_fmt == "html" and "pdf" in declared_formats:
         return [
             {
                 "title": "Other Formats",
@@ -74,6 +82,31 @@ def _auto_other_formats(doc_stem: str, current_fmt: str) -> list[dict]:
     return []
 
 
+def _get_declared_formats(front: dict, project_root: Path) -> set[str]:
+    """Return formats declared by the document, falling back to project-level config."""
+    fmt_block = front.get("format")
+    if fmt_block and isinstance(fmt_block, dict):
+        declared = _extract_format_keys(fmt_block)
+        if declared:
+            return declared
+
+    for config_name in ("_quarto-website.yml", "_quarto.yml"):
+        config_path = project_root / config_name
+        if config_path.exists():
+            try:
+                with open(config_path) as f:
+                    proj = yaml.safe_load(f) or {}
+                proj_fmt = proj.get("format")
+                if proj_fmt and isinstance(proj_fmt, dict):
+                    declared = _extract_format_keys(proj_fmt)
+                    if declared:
+                        return declared
+            except Exception:
+                pass
+
+    return {"html"}
+
+
 def _has_other_formats(items: list[dict]) -> bool:
     return any(item.get("title") == "Other Formats" for item in items)
 
@@ -86,6 +119,7 @@ def build_title_meta_items(qmd_path: Path) -> dict:
     auto_other = custom.get("other-formats", True)
     # Derive document stem relative to the project root
     project_root = _find_project_root(qmd_path.parent.resolve())
+    declared_formats = _get_declared_formats(front, project_root)
     try:
         rel = qmd_path.resolve().relative_to(project_root)
         doc_stem = str(rel.with_suffix(""))
@@ -108,7 +142,7 @@ def build_title_meta_items(qmd_path: Path) -> dict:
 
         # 2. Auto-generated "Other Formats" – only for declared formats
         if auto_other and not _has_other_formats(items):
-            items.extend(_auto_other_formats(doc_stem, fmt))
+            items.extend(_auto_other_formats(doc_stem, fmt, declared_formats))
 
         result[fmt] = items
 
