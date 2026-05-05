@@ -11,6 +11,11 @@ version-prefix: 0.2
 bibliography: ./_include/riscv_space_references.bib
 link-citations: true
 colorlinks: true
+title-meta-items:
+  pdf:
+    - title: "SSCCS Foundation"
+      link: https://ssccs.org
+      content: ssccs.org
 metadata-files:
   - ../_include/author.yml
   - ../_include/format.pdf.yml
@@ -40,22 +45,11 @@ abstract: |
 #| include: false
 #| context: local
 
-title_meta_items = {
-    "pdf": [
-      {"title": "SSCCS Foundation", "link": "https://ssccs.org", "content": "ssccs.org"},
-      {"title": "Other Formats", "link": "https://docs.ssccs.org/research/riscv_space.html", "content": "HTML"},
-  ],
-  "html": [
-      {"title": "Other Formats", "link": "/research/riscv_space.pdf", "content": "PDF", "content_class": "bi bi-file-pdf"},
-  ]
-}
-
+%run ../_include/_title_meta_builder.py riscv_space
 %run ../_include/_graphviz.py
 ```
 
-{{< include ../_include/_title_meta_items_if_html.qmd >}}
-
-{{< include ../_include/_title_meta_items_if_pdf.qmd >}}
+{{< include ../_include/_title_meta_items.qmd >}}
 
 ---
 
@@ -308,9 +302,9 @@ This is dramatically lower than the ~200% area penalty of full TMR.
 
 **Latency Model:**
 
-- **Best case (cache hit, simple constraint):** 3–5 cycles  
-- **Typical case (cache hit, moderate constraint):** 8–12 cycles  
-- **Worst case (memory fetch + semantic validation):** 15–30 cycles  
+- **Best case (cache hit, simple constraint):** 3–5 cycles
+- **Typical case (cache hit, moderate constraint):** 8–12 cycles
+- **Worst case (memory fetch + semantic validation):** 15–30 cycles
 
 A configurable `timeout_cycles` field in the Field header prevents indefinite stalls.
 
