@@ -424,12 +424,17 @@ def doc_to_html(rel_path: str) -> str:
 def main() -> None:
     files = get_tracked_doc_files()
     creation_dates = get_creation_dates()
-    top = files[:ITEM_LENGTH]
 
-    # Sort: new files first, then rest — each group sorted newest-first
-    new = [(ts, p) for ts, p in top if is_new_file(p, creation_dates)]
-    old = [(ts, p) for ts, p in top if not is_new_file(p, creation_dates)]
-    sorted_items = new + old  # each group already newest-first from git log
+    # New files always come first (preserved for 7 days), then
+    # fill remaining slots with the most recently modified old files.
+    new_files = [(ts, p) for ts, p in files if is_new_file(p, creation_dates)]
+    old_files = [(ts, p) for ts, p in files if not is_new_file(p, creation_dates)]
+    # new_files already newest-first from git log; take up to ITEM_LENGTH
+    sorted_items = new_files[:ITEM_LENGTH]
+    # Fill remaining slots with old files
+    remaining = ITEM_LENGTH - len(sorted_items)
+    if remaining > 0:
+        sorted_items += old_files[:remaining]
 
     # Build output in memory first so we can compare with on-disk content
     new_content = ""
@@ -453,9 +458,9 @@ def main() -> None:
 
     if new_content != existing:
         OUTPUT.write_text(new_content, encoding="utf-8")
-        print(f"Updated {OUTPUT} with {len(top)} entries.")
+        print(f"Updated {OUTPUT} with {len(sorted_items)} entries.")
     else:
-        print(f"No change – {OUTPUT} is already up to date ({len(top)} entries).")
+        print(f"No change – {OUTPUT} is already up to date ({len(sorted_items)} entries).")
 
 
 if __name__ == "__main__":
