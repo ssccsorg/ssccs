@@ -1,0 +1,78 @@
+::: {.content-visible when-format="html"}
+::: {.title-meta}
+
+```{python}
+#| echo: false
+
+items = title_meta_items['html']
+
+from IPython.display import HTML, display
+html_output = '<div class="title-meta-grid">\n'
+for item in items:
+    html_output += f'''
+    <div class="grid-item">
+        <div class="title-meta-label quarto-title-meta-heading">{item["title"]}</div>
+        <div class="title-meta-label quarto-title-meta-contents"><p><a href="{item["link"]}" class="title-meta-content {item.get("content_class", "")}">{" "+item["content"]}</a></p></div>
+    </div>\n'''
+
+html_output += '</div>'
+display(HTML(html_output))
+```
+
+:::
+
+<style>
+.title-meta-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-column-gap: 1em;
+}
+
+.title-meta-label {
+  text-transform: uppercase;
+  font-size: 0.8em;
+  opacity: 0.8;
+  font-weight: 400;
+  margin-right: 0.3em;
+}
+
+.title-meta-content {
+  font-size: 0.9em;
+}
+</style>
+:::
+
+
+::: {.content-visible when-format="pdf"}
+
+```{python}
+#| include: true
+#| echo: false
+
+from IPython.display import Latex, display
+
+items = title_meta_items['pdf']
+latex_lines = []
+latex_lines.append(r'\setlength{\tabcolsep}{10pt}')
+
+col_spec = '@{} p{0.24\\textwidth} p{0.24\\textwidth} p{0.24\\textwidth} p{0.24\\textwidth} @{}'
+latex_lines.append(r'\begin{tabular}{' + col_spec + '}')
+
+for i in range(0, len(items), 4):
+    row_cells = []
+    for j in range(4):
+        if i + j < len(items):
+            item = items[i + j]
+            cell = r'{\large ' + item['title'] + r'}\newline{\normalsize \texttt{\href{' + item['link'] + '}{' + item['content'] + '}}}'
+        else:
+            cell = ''
+        row_cells.append(cell)
+    row = '    ' + ' & '.join(row_cells) + r' \\[2em]'
+    latex_lines.append(row)
+latex_lines.append(r'\end{tabular}')
+
+latex_output = '\n'.join(latex_lines)
+display(Latex(latex_output))
+```
+
+:::

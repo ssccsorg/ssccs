@@ -17,10 +17,9 @@ bibliography: ./_include/references.bib
 colorlinks: true
 metadata-files:
   - ../_include/author.yml
-  - ../_include/format.html.yml
   - ../_include/format.pdf.yml
 format:
-  html: default
+  html: {}
   pdf:
     mainfont: texgyreheros-regular.otf
     fontsize: 10pt
@@ -54,39 +53,53 @@ format:
           \vspace{2em}
         }
         \makeatother
+title-meta-items:
+  pdf:
+    - title: "SSCCS Foundation"
+      link: "mailto:proposal@ssccs.org"
+      content: "proposal@ssccs.org"
+    - title: "SSCCS Foundation"
+      link: "https://ssccs.org"
+      content: "ssccs.org"
+    - title: "View Slides"
+      link: "https://docs.ssccs.org/proposal/pt.pdf"
+      content: "PDF"
+    - title: "Concept Guide"
+      link: "https://docs.ssccs.org/guide.html"
+      content: "GitHub"
+    - title: "Whitepaper DOI"
+      link: "https://doi.org/10.5281/zenodo.18759106"
+      content: "10.5281/zenodo.18759106"
+    - title: "Diagnosis Report"
+      link: "https://docs.ssccs.org/report/diagnosis.html"
+      content: "Link"
+  html:
+    - title: "View Slides"
+      link: "pt.pdf"
+      content: "PDF"
+      icon: "bi bi-file-pdf"
+    - title: "Whitepaper DOI"
+      link: "https://doi.org/10.5281/zenodo.18759106"
+      content: "10.5281/zenodo.18759106"
+    - title: "Concept Guide"
+      link: "/guide.html"
+      content: "GitHub"
+      icon: "bi bi-file-code"
+    - title: "Diagnosis Report"
+      link: "/report/diagnosis.html"
+      content: "Link"
+      icon: "bi bi-link"
 ---
-
-```{python}
-title_meta_items = {
-    "pdf": [
-      {"title": "SSCCS Foundation", "link": "mailto:proposal@ssccs.org", "content": "proposal@ssccs.org"},
-      {"title": "SSCCS Foundation", "link": "https://ssccs.org", "content": "ssccs.org"},
-      {"title": "Other Formats", "link": "https://docs.ssccs.org/proposal/proposal.html", "content": "HTML"},
-      {"title": "View Slides", "link": "https://docs.ssccs.org/proposal/pt.pdf", "content": "PDF"},
-      {"title": "Concept Guide", "link": "https://docs.ssccs.org/guide.html", "content": "GitHub"},      
-      {"title": "Whitepaper DOI", "link": "https://doi.org/10.5281/zenodo.18759106", "content": "10.5281/zenodo.18759106"},
-      {"title": "Diagnosis Report", "link": "https://docs.ssccs.org/report/diagnosis.html", "content": "Link"},
-  ],
-  "html": [
-      {"title": "Other Formats", "link": "proposal.pdf", "content": "PDF", "content_class": "bi bi-file-pdf"},
-      {"title": "View Slides", "link": "pt.pdf", "content": "PDF", "content_class": "bi bi-file-pdf"},
-      {"title": "Whitepaper DOI", "link": "https://doi.org/10.5281/zenodo.18759106", "content": "10.5281/zenodo.18759106"},
-      {"title": "Concept Guide", "link": "/guide.html", "content": "GitHub", "content_class": "bi bi-file-code"},      
-      {"title": "Diagnosis Report", "link": "/report/diagnosis.html", "content": "Link", "content_class": "bi bi-link"},
-  ]
-}
-```
 
 ```{python}
 #| echo: false
 #| include: false
+%run ../_include/_title_meta_builder.py proposal
 import matplotlib.pyplot as plt
 import numpy as np
 ```
 
-{{< include ../_include/_title_meta_items_if_html.qmd >}}
-
-{{< include ../_include/_title_meta_items_if_pdf.qmd >}}
+{{< include ../_include/_title_meta_items.qmd >}}
 
 ## The Problem We Face
 
@@ -197,7 +210,7 @@ plt.show()
 #| label: fig-ai-damages-real
 
 years_damage = ['2020-2023', '2024', '2025']
-cumulative_damage = [45, 70, 105]  
+cumulative_damage = [45, 70, 105]
 
 plt.figure(figsize=(10, 6))
 bars = plt.bar(years_damage, cumulative_damage, color=['#95a5a6', '#f39c12', '#e74c3c'])
@@ -253,13 +266,13 @@ The same structural principles driving recent advances in AI—such as manifold-
 
 SSCCS emerges from the convergence of three recent technological and scientific trends that make its realisation feasible for the first time.
 
-1. The End of Dennard Scaling and the Data Movement Crisis  
+1. The End of Dennard Scaling and the Data Movement Crisis
    For decades, performance scaled with transistor density. Today, energy per bit moved has become the dominant constraint. Data movement accounts for 60–80% of total energy in modern accelerators. Traditional architectures (even PIM) still move data *between* computational domains. SSCCS eliminates data movement entirely by making data stationary and computation a function of structural observation. This is no longer a theoretical advantage—it is an economic and physical necessity.
 
-2. Maturity of Open‑Source Hardware Ecosystems  
+2. Maturity of Open‑Source Hardware Ecosystems
    The rise of RISC‑V, open FPGA toolchains (Yosys, nextpnr), and open ASIC design flows (OpenLANE, Skywater 130 nm) has drastically lowered the barrier to implementing custom compute models. A new ISA based on `Observation` can now be prototyped on commodity FPGA boards and, if successful, transitioned to silicon without requiring a multi‑billion‑dollar semiconductor company. This enables an agile, open‑source development model.
 
-3. Advances in Formal Methods and Verification  
+3. Advances in Formal Methods and Verification
    Over the past five years, proof assistants like Coq and Lean have matured to the point where they can handle complex, real‑world system verification. The SSCCS model’s determinism and race‑freedom are precisely the kind of properties that can now be mechanised. This allows us to build, from the ground up, a computing system with provable safety guarantees—a feature absent from conventional architectures.
 
 ## Current status and plan

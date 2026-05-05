@@ -8,12 +8,16 @@ version-mark: true
 bibliography: ./_include/riscv_references.bib
 link-citations: true
 colorlinks: true
+title-meta-items:
+  pdf:
+    - title: "SSCCS Foundation"
+      link: https://ssccs.org
+      content: ssccs.org
 metadata-files:
   - ../_include/author.yml
   - ../_include/format.pdf.yml
-  - ../_include/format.html.yml
 format:
-  html: default
+  html: {}
   pdf:
     include-in-header:
       text: |
@@ -36,22 +40,11 @@ format:
 #| include: false
 #| context: local
 
-title_meta_items = {
-    "pdf": [
-      {"title": "SSCCS Foundation", "link": "https://ssccs.org", "content": "ssccs.org"},
-      {"title": "Other Formats", "link": "https://docs.ssccs.org/research/rust_baremetal.html", "content": "HTML"},
-  ],
-  "html": [
-      {"title": "Other Formats", "link": "/research/rust_baremetal.pdf", "content": "PDF", "content_class": "bi bi-file-pdf"},
-  ]
-}
-
+%run ../_include/_title_meta_builder.py rust_baremetal
 %run ../_include/_graphviz.py
 ```
 
-{{< include ../_include/_title_meta_items_if_html.qmd >}}
-
-{{< include ../_include/_title_meta_items_if_pdf.qmd >}}
+{{< include ../_include/_title_meta_items.qmd >}}
 
 ## Abstract
 

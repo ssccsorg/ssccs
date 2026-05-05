@@ -19,7 +19,6 @@ csl: ./../_include/ieee.csl
 date-modified: last-modified
 metadata-files:
     - ../_include/author.yml
-    - ../_include/format.html.yml
     - ../_include/format.pdf.yml
     - ./_include/citation.yml
 colorlinks: true
@@ -64,23 +63,23 @@ format:
           \vspace{4em}
         }
         \makeatother
+title-meta-items:
+  html:
+    - title: "View Slides"
+      link: "/proposal/pt.pdf"
+      content: "PDF"
+      icon: "bi bi-file-pdf"
 ---
 
 ```{python}
 #| echo: false
 #| include: false
 #| context: local
+%run ../_include/_title_meta_builder.py whitepaper
 %run ../_include/_graphviz.py
-
-title_meta_items = {
-   "html": [
-      {"title": "Other Formats", "link": "./whitepaper.pdf", "content": "PDF", "content_class": "bi bi-file-pdf"},
-      {"title": "View Slides", "link": "/proposal/pt.pdf", "content": "PDF", "content_class": "bi bi-file-pdf"},
-  ]
-}
 ```
 
-{{< include ../_include/_title_meta_items_if_html.qmd >}}
+{{< include ../_include/_title_meta_items.qmd >}}
 
 ## Abstract {.unnumbered .unlisted}
 
@@ -140,7 +139,7 @@ digraph SSCCS_Ontology {
     rankdir=LR;
     nodesep=0.5;
 
-    node [style=invis, label=""]; 
+    node [style=invis, label=""];
     spacer_l; spacer_r;
 
     node [shape=rect, style=filled, fillcolor=white, color=black];
@@ -271,7 +270,7 @@ digraph SSCCS_Mapping {
         s2 [xlabel="Segment S₂"];
         s3 [xlabel="Segment S₃"];
         s4 [xlabel="Segment S₄"];
-        s5 [xlabel="Segment S₅"];        
+        s5 [xlabel="Segment S₅"];
     }
 
     // ===== Compiler/Mapper =====
@@ -279,7 +278,7 @@ digraph SSCCS_Mapping {
 
     // ===== Physical Layer (Hardware Abstraction) =====
     subgraph cluster_physical {
-        label="Physical Hardware Substrate (abstract)";               
+        label="Physical Hardware Substrate (abstract)";
 
         // Storage levels (conceptual)
         node [shape=box, style=rounded, fillcolor=white];
@@ -536,15 +535,15 @@ Field composition refers to the combination of two or more Fields to produce a n
 
 Fields support three fundamental binary operations:
 
-1. **Union** ($\cup$): $F = F_1 \cup F_2$ with $C(s) = C_1(s) \lor C_2(s)$ and $T(s_1, s_2) = \max(T_1(s_1, s_2), T_2(s_1, s_2))$.  
+1. **Union** ($\cup$): $F = F_1 \cup F_2$ with $C(s) = C_1(s) \lor C_2(s)$ and $T(s_1, s_2) = \max(T_1(s_1, s_2), T_2(s_1, s_2))$.
    The union broadens the admissible set, allowing any Segment admissible in either Field. Observation under the union yields projections that satisfy at least one of the original constraints. Because the transition matrix entries can be interpreted as preference weights, taking the maximum corresponds to choosing the higher preference when either Field admits the transition.
 
-2. **Intersection** ($\cap$): $F = F_1 \cap F_2$ with $C(s) = C_1(s) \land C_2(s)$ and $T(s_1, s_2) = \min(T_1(s_1, s_2), T_2(s_1, s_2))$.  
+2. **Intersection** ($\cap$): $F = F_1 \cap F_2$ with $C(s) = C_1(s) \land C_2(s)$ and $T(s_1, s_2) = \min(T_1(s_1, s_2), T_2(s_1, s_2))$.
    Intersection restricts admissibility to Segments that satisfy both constraints, producing a more constrained projection. Using the minimum of the preference weights reflects that a transition is only as strong as its weaker constituent.
 
-3. **Product** ($\times$): $F = F_1 \times F_2$ where the resulting Field operates over the Cartesian product of Segment sets, with constraints and transitions defined componentwise:  
-   $C((s_1, s_2)) = C_1(s_1) \land C_2(s_2)$ and  
-   $T((s_1, s_2), (s'_1, s'_2)) = T_1(s_1, s'_1) \cdot T_2(s_2, s'_2)$.  
+3. **Product** ($\times$): $F = F_1 \times F_2$ where the resulting Field operates over the Cartesian product of Segment sets, with constraints and transitions defined componentwise:
+   $C((s_1, s_2)) = C_1(s_1) \land C_2(s_2)$ and
+   $T((s_1, s_2), (s'_1, s'_2)) = T_1(s_1, s'_1) \cdot T_2(s_2, s'_2)$.
    This product enables independent parallel observation of distinct subspaces—for example, when the two Fields govern disjoint coordinate axes (e.g., time and frequency). The overall projection becomes an ordered pair of the individual projections.
 
 Implementing these operations efficiently requires careful handling of constraint representations. Union and intersection can be realized via Boolean satisfiability (SAT) solvers or constraint-propagation engines; the product operation, which expands the state space, may benefit from symbolic techniques (e.g., binary decision diagrams) to avoid exponential blow-up. In hardware, dedicated units for max/min and multiplication can accelerate transition-matrix computations.
@@ -647,7 +646,7 @@ digraph field_composition_fixed {
         label="Composition Operators";
         style=dashed;
         height_shaper [
-            shape=point, 
+            shape=point,
             style=invis
         ];
         {rank=same; MUX; AND; PAR}
@@ -749,7 +748,7 @@ digraph field_composition_fixed {
     subgraph cluster_abstract_execution {
         label="Execution Group (hardware mapping)";
         style=dashed;
-        MUX_out; SubAND_out; PAR_out; SubPAR_out; 
+        MUX_out; SubAND_out; PAR_out; SubPAR_out;
     }
 
     // ===== Additional dotted links (relationships) =====
@@ -1336,7 +1335,7 @@ pub trait Projector {
     type Output;
     fn project(&self, field: &Field, segment: &Segment) -> Option<Self::Output>;
     fn possible_next_coordinates(
-      &self, 
+      &self,
       coords: &SpaceCoordinates
     ) -> Vec<SpaceCoordinates> { vec![] }
 }
@@ -1718,7 +1717,7 @@ The SSCCS front‑end translates a Scheme and its associated Field into an inter
 
 ```mlir
 func.func @observe_vector(
-  %scheme: !ssccs.scheme, 
+  %scheme: !ssccs.scheme,
   %field: !ssccs.field
 ) -> tensor<8xf32> {
   %result = ssccs.observation %scheme, %field
@@ -1737,9 +1736,9 @@ For CPU execution, the compiler emits C/C++ loops that iterate over the logical�
 
 ```c
 void observe_vector(
-  float* projection, 
-  const float* segment_a, 
-  const float* segment_b, 
+  float* projection,
+  const float* segment_a,
+  const float* segment_b,
   size_t N
 ) {
   #pragma omp simd aligned(projection, segment_a, segment_b: 64)
@@ -2310,7 +2309,7 @@ If a trigger causes a Field to update, and that update causes another trigger to
 
 ### Relationship with the Open Format
 
-Future versions of the `.ss` schema may include a `triggers` block inside a Field definition. A possible syntax sketch:
+Future versions of the open format schema may include a `triggers` block inside a Field definition. A possible syntax sketch:
 
 ```yaml
 Field:

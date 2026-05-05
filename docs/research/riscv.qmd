@@ -8,12 +8,16 @@ version-prefix: 0.1
 bibliography: ./_include/riscv_references.bib
 link-citations: true
 colorlinks: true
+title-meta-items:
+  pdf:
+    - title: "SSCCS Foundation"
+      link: https://ssccs.org
+      content: ssccs.org
 metadata-files:
   - ../_include/author.yml
   - ../_include/format.pdf.yml
-  - ../_include/format.html.yml
 format:
-  html: default
+  html: {}
   pdf:
     include-in-header:
       text: |
@@ -38,22 +42,11 @@ abstract: |
 #| include: false
 #| context: local
 
-title_meta_items = {
-    "pdf": [
-      {"title": "SSCCS Foundation", "link": "https://ssccs.org", "content": "ssccs.org"},
-      {"title": "Other Formats", "link": "https://docs.ssccs.org/research/riscv.html", "content": "HTML"},
-  ],
-  "html": [
-      {"title": "Other Formats", "link": "/research/riscv.pdf", "content": "PDF", "content_class": "bi bi-file-pdf"},
-  ]
-}
-
+%run ../_include/_title_meta_builder.py riscv
 %run ../_include/_graphviz.py
 ```
 
-{{< include ../_include/_title_meta_items_if_html.qmd >}}
-
-{{< include ../_include/_title_meta_items_if_pdf.qmd >}}
+{{< include ../_include/_title_meta_items.qmd >}}
 
 ---
 
@@ -364,7 +357,7 @@ digraph XIF_Interface {
 |<-------- R-type Format for OBSERVE instruction --------------->|
 ```
 
-**Opcode:** `custom1` (0x0B) or `custom2` (0x2B)  
+**Opcode:** `custom1` (0x0B) or `custom2` (0x2B)
 **Function:** `OBSERVE rs1, rs2, rs3` → Load Scheme ID, Field ID, and Observation Rule
 
 #### Structured Coprocessor Design

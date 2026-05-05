@@ -13,21 +13,22 @@ Usage:
     python check.py --all                     # Run ALL checks including deep uncited analysis
 """
 
+import fnmatch
+import json
 import os
 import re
-import sys
-import json
-import time
 import shutil
 import subprocess
-import requests
-from pathlib import Path
-from urllib.parse import urlparse
-from typing import Dict, List, Set, Tuple, Optional, Union
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from threading import Lock
-import fnmatch
+import sys
 import threading
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
+from threading import Lock
+from typing import Dict, List, Optional, Set, Tuple
+from urllib.parse import urlparse
+
+import requests
 
 # ============================================================
 # Configuration
@@ -37,10 +38,17 @@ IGNORED_DIRS = {
     ".git",
     "_site",
     ".quarto",
+    "_docsbuild",
+    "_llms",
     "node_modules",
     "__pycache__",
-    "_cached",
-    ".DS_Store",
+    "*_cached",
+    "*_files",
+    "*_libs",
+    "*_output",
+    "*_extensions",
+    ".*",
+    "_jupyter_cache",
 }
 VALID_EXTENSIONS = {".md", ".qmd", ".yml", ".yaml", ".json", ".bib"}
 SOURCE_EXTENSIONS = {
@@ -56,6 +64,21 @@ SOURCE_EXTENSIONS = {
 }
 IGNORE_FILES = {"README.md"}
 IGNORE_URL_PATTERNS = ["*keys.openpgp.org*", "*?token=*"]
+
+
+def _is_ignored_path(file_path: Path, root: Path) -> bool:
+    """Return True if any part of file_path matches an IGNORED_DIRS entry.
+
+    Each IGNORED_DIRS entry is matched via fnmatch, so glob patterns
+    like ``_llms*`` or ``_cached*`` are supported alongside exact names.
+    """
+    parts = file_path.relative_to(root).parts
+    for part in parts:
+        for pattern in IGNORED_DIRS:
+            if fnmatch.fnmatch(part, pattern):
+                return True
+    return False
+
 
 TOPIC_KEYWORDS = {
     "riscv": ["risc", "openhw", "core-v", "riscv", "spike", "verilator", "risc-v"],
@@ -86,6 +109,7 @@ TOPIC_KEYWORDS = {
 # ============================================================
 _quarto_inspect_cache = {}
 
+
 def run_quarto_inspect(filepath: Path) -> Optional[Dict]:
     """Cached version of run_quarto_inspect to avoid repeated subprocess calls."""
     if filepath in _quarto_inspect_cache:
@@ -97,7 +121,7 @@ def run_quarto_inspect(filepath: Path) -> Optional[Dict]:
             ["quarto", "inspect", str(filepath)],
             capture_output=True,
             text=True,
-            timeout=5,               # shortened timeout
+            timeout=5,  # shortened timeout
             check=False,
         )
         if result.returncode != 0:
@@ -232,7 +256,9 @@ def extract_citations_from_file(filepath: Path) -> Set[str]:
 # ============================================================
 # Link Extraction Helpers
 # ============================================================
-def extract_yaml_frontmatter_links(content: str, require_delimiters: bool = True) -> List[Tuple[str, int]]:
+def extract_yaml_frontmatter_links(
+    content: str, require_delimiters: bool = True
+) -> List[Tuple[str, int]]:
     """Extract links from YAML frontmatter (or whole YAML file if require_delimiters=False)."""
     links = []
     lines = content.split("\n")
@@ -277,7 +303,7 @@ def extract_bibtex_links(content: str) -> List[Tuple[str, int]]:
         (
             re.compile(r"^\s*eprint\s*=\s*\{?([^}\s]+)\}?\s*,?\s*$", re.I),
             lambda v: (
-                f'https://arxiv.org/abs/{v.replace("arXiv:", "").split()[0]}'
+                f"https://arxiv.org/abs/{v.replace('arXiv:', '').split()[0]}"
                 if "." in v.replace("arXiv:", "").split()[0]
                 else None
             ),
@@ -354,7 +380,7 @@ def find_uncited_references(
 # ============================================================
 def compare_citations_between_files(
     file_a: Path, file_b: Path, bib_path: Optional[Path] = None, verbose: bool = False
-) -> Dict[str, any]:
+) -> Dict:
     """Compare citation keys between two QMD/MD documents."""
     keys_a = extract_citations_from_file(file_a) if file_a.exists() else set()
     keys_b = extract_citations_from_file(file_b) if file_b.exists() else set()
@@ -410,10 +436,10 @@ def show_citation_context(
             if pattern in line:
                 start = max(0, i - context_lines)
                 end = min(len(lines), i + context_lines + 1)
-                print(f"\n{filepath.name}:{i+1} - @{key}")
+                print(f"\n{filepath.name}:{i + 1} - @{key}")
                 for j in range(start, end):
                     marker = "->" if j == i else " "
-                    print(f"{marker} {j+1:4}: {lines[j]}")
+                    print(f"{marker} {j + 1:4}: {lines[j]}")
                 break
 
 
@@ -452,6 +478,7 @@ def extract_section_definitions(content: str) -> Dict[str, Dict]:
             sections[sec_id] = {"title": title, "level": 0, "line": i, "type": "bare"}
     return sections
 
+
 def extract_section_references(content: str) -> Dict[str, List[Dict]]:
     refs = {}
     lines = content.split("\n")
@@ -468,7 +495,11 @@ def extract_section_references(content: str) -> Dict[str, List[Dict]]:
             if is_inside_inline_code(line, match.start()):
                 continue
             ref_id = match.group(1)
-            ref_type = "inline" if (match.start() > 0 and line[match.start() - 1] == "[") else "citation"
+            ref_type = (
+                "inline"
+                if (match.start() > 0 and line[match.start() - 1] == "[")
+                else "citation"
+            )
             start_ctx = max(0, match.start() - 20)
             end_ctx = min(len(line), match.end() + 20)
             context = line[start_ctx:end_ctx].strip()
@@ -490,9 +521,8 @@ def extract_section_references(content: str) -> Dict[str, List[Dict]]:
 
     return refs
 
-def check_all_section_references(
-    target_dir: str, verbose: bool = False
-) -> Dict[str, any]:
+
+def check_all_section_references(target_dir: str, verbose: bool = False) -> Dict:
     """Check section reference consistency across all QMD/MD files."""
     root = Path(target_dir).resolve()
     if not root.exists():
@@ -507,7 +537,7 @@ def check_all_section_references(
     global_references: Dict[str, List] = {}
 
     for file_path in root.rglob("*.qmd"):
-        if any(part in IGNORED_DIRS for part in file_path.relative_to(root).parts):
+        if _is_ignored_path(file_path, root):
             continue
         if file_path.name in IGNORE_FILES:
             continue
@@ -554,21 +584,21 @@ def check_all_section_references(
     unused = sorted(defined_ids - referenced_ids)
     broken = sorted(referenced_ids - defined_ids)
 
-    print(f"\nSection Reference Summary:")
+    print("\nSection Reference Summary:")
     print(f"   Total defined sections: {len(defined_ids)}")
     print(f"   Total referenced sections: {len(referenced_ids)}")
     print(f"   Unused definitions: {len(unused)}")
     print(f"   Broken references: {len(broken)}")
 
     if unused and verbose:
-        print(f"\nUnused Section Definitions:")
+        print("\nUnused Section Definitions:")
         for sec_id in unused:
             meta = global_definitions[sec_id]
             rel_file = meta["source_file"].relative_to(root)
-            print(f"   - {sec_id} in {rel_file}:{meta['line']} (\"{meta['title']}\")")
+            print(f'   - {sec_id} in {rel_file}:{meta["line"]} ("{meta["title"]}")')
     elif unused and not verbose:
         # Only partially visible in non-detailed mode
-        print(f"\nUnused Section Definitions (first 10):")
+        print("\nUnused Section Definitions (first 10):")
         for sec_id in unused[:10]:
             meta = global_definitions[sec_id]
             rel_file = meta["source_file"].relative_to(root)
@@ -577,13 +607,13 @@ def check_all_section_references(
             print(f"   ... and {len(unused) - 10} more")
 
     if broken and verbose:
-        print(f"\nBroken Section References:")
+        print("\nBroken Section References:")
         for sec_id in broken:
             usage = global_references[sec_id][0]
             rel_file = usage["source_file"].relative_to(root)
             print(f"   - {sec_id} in {rel_file}:{usage['line']} ({usage['context']})")
     elif broken and not verbose:
-        print(f"\nBroken Section References (first 10):")
+        print("\nBroken Section References (first 10):")
         for sec_id in broken[:10]:
             usage = global_references[sec_id][0]
             rel_file = usage["source_file"].relative_to(root)
@@ -597,6 +627,7 @@ def check_all_section_references(
         "definitions": global_definitions,
         "references": global_references,
     }
+
 
 def _comment_out_section_id(file_path: Path, sec_id: str, target_line: int):
     """Convert: ## Title {#sec-foo} -> ## Title <!--{#sec-foo} -->"""
@@ -636,9 +667,7 @@ def build_global_inventory(root_path: Path) -> Dict[str, Path]:
     inventory = {}
     for ext in (".md", ".qmd"):
         for file_path in root_path.rglob(f"*{ext}"):
-            if any(
-                part in IGNORED_DIRS for part in file_path.relative_to(root_path).parts
-            ):
+            if _is_ignored_path(file_path, root_path):
                 continue
             key = get_std_base(file_path.name)
             rel = file_path.relative_to(root_path)
@@ -697,7 +726,7 @@ def sync_all_links(target_dir: str):
     for file_path in root.rglob("*"):
         if file_path.suffix not in VALID_EXTENSIONS:
             continue
-        if any(part in IGNORED_DIRS for part in file_path.relative_to(root).parts):
+        if _is_ignored_path(file_path, root):
             continue
         try:
             content = file_path.read_text(encoding="utf-8")
@@ -742,7 +771,9 @@ def is_valid_quarto_link(link_path: str, source_file: Path, root: Path) -> bool:
     -Minimize side effects: handle all out-of-root links, relative paths, and directory indexes
     """
     clean = link_path.split("#")[0].split("?")[0].strip()
-    if not clean or clean.startswith(("#", "mailto:", "tel:", "data:", "http", "https")):
+    if not clean or clean.startswith(
+        ("#", "mailto:", "tel:", "data:", "http", "https")
+    ):
         return True  # External links or anchors are not subject to separate inspection.
 
     is_html = clean.endswith(".html")
@@ -766,14 +797,16 @@ def is_valid_quarto_link(link_path: str, source_file: Path, root: Path) -> bool:
     # 2. .html → source file mapping (the most important part)
     if is_html:
         base = target.with_suffix("")  # remove .html
-        if (base.with_suffix(".qmd").exists() or
-            base.with_suffix(".md").exists()):
+        if base.with_suffix(".qmd").exists() or base.with_suffix(".md").exists():
             return True
 
         # Safety device: Search again under docs/(when the project structure is docs/)
         if not str(target_path).startswith("docs/"):
             alt_base = (root / "docs" / target_path).with_suffix("")
-            if alt_base.with_suffix(".qmd").exists() or alt_base.with_suffix(".md").exists():
+            if (
+                alt_base.with_suffix(".qmd").exists()
+                or alt_base.with_suffix(".md").exists()
+            ):
                 return True
 
     # 3. Directory index (e.g. /report/→ index.qmd)
@@ -797,10 +830,15 @@ def is_valid_quarto_link(link_path: str, source_file: Path, root: Path) -> bool:
             base = alt.with_suffix("")
             if base.with_suffix(".qmd").exists() or base.with_suffix(".md").exists():
                 return True
-        elif alt.exists() or alt.with_suffix(".qmd").exists() or alt.with_suffix(".md").exists():
+        elif (
+            alt.exists()
+            or alt.with_suffix(".qmd").exists()
+            or alt.with_suffix(".md").exists()
+        ):
             return True
 
     return False
+
 
 def validate_all_links(target_dir: str, verbose: bool = False, max_workers: int = 8):
     root = Path(target_dir).resolve()
@@ -816,7 +854,7 @@ def validate_all_links(target_dir: str, verbose: bool = False, max_workers: int 
         fp
         for fp in root.rglob("*")
         if fp.suffix in VALID_EXTENSIONS
-        and not any(p in IGNORED_DIRS for p in fp.relative_to(root).parts)
+        and not _is_ignored_path(fp, root)
         and fp.name not in IGNORE_FILES
     ]
     total_files = len(files_to_check)
@@ -865,7 +903,9 @@ def validate_all_links(target_dir: str, verbose: bool = False, max_workers: int 
         if file_path.suffix in {".qmd", ".md"}:
             links.update(extract_yaml_frontmatter_links(content))
         if file_path.suffix in {".yml", ".yaml"}:
-            links.update(extract_yaml_frontmatter_links(content, require_delimiters=False))
+            links.update(
+                extract_yaml_frontmatter_links(content, require_delimiters=False)
+            )
         if file_path.suffix == ".bib":
             links.update(extract_bibtex_links(content))
         for url, line in links:
@@ -905,7 +945,7 @@ def validate_all_links(target_dir: str, verbose: bool = False, max_workers: int 
                                     line,
                                 )
                             )
-                        except:
+                        except Exception:
                             if resp.status_code in (403, 418):
                                 continue
                             file_broken_remote.append(
@@ -916,7 +956,8 @@ def validate_all_links(target_dir: str, verbose: bool = False, max_workers: int 
                                     line,
                                 )
                             )
-                except:
+
+                except Exception:
                     file_broken_remote.append(
                         (file_path.relative_to(root), url, "Connection Error", line)
                     )
@@ -954,14 +995,16 @@ def validate_all_links(target_dir: str, verbose: bool = False, max_workers: int 
         print("\nAll links are valid.")
     elapsed = time.time() - start_time
     print(
-        f"\nValidation finished. Checked {checked_links} links, found {len(broken_local)+len(broken_remote)} broken in {elapsed:.1f}s."
+        f"\nValidation finished. Checked {checked_links} links, found {len(broken_local) + len(broken_remote)} broken in {elapsed:.1f}s."
     )
 
 
 # ============================================================
 # Citation Consistency Check
 # ============================================================
-def check_citation_consistency(target_dir: str, cleanup: bool = False, verbose: bool = False):
+def check_citation_consistency(
+    target_dir: str, cleanup: bool = False, verbose: bool = False
+):
     root = Path(target_dir).resolve()
     if not root.exists():
         print(f"ERROR: {root} does not exist")
@@ -973,7 +1016,7 @@ def check_citation_consistency(target_dir: str, cleanup: bool = False, verbose: 
 
     bib_files: Dict[Path, Set[str]] = {}
     for bib_path in root.rglob("*.bib"):
-        if any(part in IGNORED_DIRS for part in bib_path.relative_to(root).parts):
+        if _is_ignored_path(bib_path, root):
             continue
         try:
             bib_files[bib_path] = extract_bibtex_citation_keys(
@@ -989,10 +1032,7 @@ def check_citation_consistency(target_dir: str, cleanup: bool = False, verbose: 
     for file_path in root.rglob("*"):
         if file_path.suffix not in {".qmd", ".md"}:
             continue
-        if (
-            any(part in IGNORED_DIRS for part in file_path.relative_to(root).parts)
-            or file_path.name in IGNORE_FILES
-        ):
+        if _is_ignored_path(file_path, root) or file_path.name in IGNORE_FILES:
             continue
 
         bib_refs = get_bibliography_files(file_path, root)  # Use cached version
@@ -1068,6 +1108,7 @@ def check_citation_consistency(target_dir: str, cleanup: bool = False, verbose: 
         print("\nAll citations are consistent.")
     print(f"\nChecked {len(bib_files)} bibliography files.")
 
+
 def _remove_bib_entries(bib_path: Path, keys_to_remove: Set[str]):
     try:
         content = bib_path.read_text(encoding="utf-8")
@@ -1091,6 +1132,74 @@ def _remove_bib_entries(bib_path: Path, keys_to_remove: Set[str]):
         else:
             new_lines.append(line)
     bib_path.write_text("\n".join(new_lines), encoding="utf-8")
+
+def validate_yaml_relative_paths(target_dir: str):
+    """Validate relative paths in YAML front matter of QMD/MD files."""
+    import yaml
+
+    root = Path(target_dir).resolve()
+    print(f"\n{'='*60}\n YAML RELATIVE PATH VALIDATION\n{'='*60}\n")
+
+    PATH_KEYS = {"metadata-files", "bibliography", "csl"}
+    META_LINK_KEYS = {"link"}
+
+    errors = 0
+    checked = 0
+
+    for qmd in sorted(root.rglob("*.qmd")):
+        if _is_ignored_path(qmd, root):
+            continue
+        try:
+            text = qmd.read_text(encoding="utf-8")
+        except Exception:
+            continue
+        if not text.startswith("---"):
+            continue
+        m = re.match(r"^---\s*\n(.*?)\n---", text, re.DOTALL)
+        if not m:
+            continue
+        try:
+            fm = yaml.safe_load(m.group(1)) or {}
+        except Exception:
+            continue
+        if not isinstance(fm, dict):
+            continue
+
+        doc_dir = qmd.parent
+        checked += 1
+
+        def check_path(val, key_name):
+            nonlocal errors
+            if isinstance(val, str):
+                if val.startswith("http") or val.startswith("mailto:"):
+                    return
+                p = (doc_dir / val).resolve()
+                if not p.exists():
+                    rel = qmd.relative_to(root)
+                    print(f"  {rel}: {key_name} -> {val}  [NOT FOUND]")
+                    errors += 1
+            elif isinstance(val, list):
+                for v in val:
+                    check_path(v, key_name)
+
+        for key in PATH_KEYS:
+            if key in fm:
+                check_path(fm[key], key)
+
+        ctm = fm.get("custom-title-meta")
+        if isinstance(ctm, dict):
+            for fmt in ("html", "pdf"):
+                items = ctm.get(fmt)
+                if isinstance(items, list):
+                    for item in items:
+                        if isinstance(item, dict):
+                            for lk in META_LINK_KEYS:
+                                if lk in item:
+                                    check_path(item[lk], f"custom-title-meta.{fmt}.{lk}")
+
+    print(f"\n  Checked {checked} files, {errors} broken relative path(s)")
+    return errors
+
 
 
 # ============================================================
@@ -1190,7 +1299,7 @@ if __name__ == "__main__":
             bib_files_to_check.append(bib)
         else:
             for qmd in root.rglob("*.qmd"):
-                if any(p in IGNORED_DIRS for p in qmd.relative_to(root).parts):
+                if _is_ignored_path(qmd, root):
                     continue
                 refs = get_bibliography_files(qmd, root)
                 bib_files_to_check.extend(refs)
@@ -1205,7 +1314,7 @@ if __name__ == "__main__":
                 fp
                 for fp in root.rglob("*.qmd")
                 if bib_path in get_bibliography_files(fp, root)
-                and not any(p in IGNORED_DIRS for p in fp.relative_to(root).parts)
+                and not _is_ignored_path(fp, root)
             ]
             if not docs:
                 print(f"Warning: No documents reference {bib_path.relative_to(root)}")
@@ -1214,8 +1323,9 @@ if __name__ == "__main__":
         sys.exit(0)
 
     if args.compare_citations:
-        file_a, file_b = Path(args.compare_citations[0]), Path(
-            args.compare_citations[1]
+        file_a, file_b = (
+            Path(args.compare_citations[0]),
+            Path(args.compare_citations[1]),
         )
         bib = Path(args.bib) if args.bib else None
         if not bib:
@@ -1246,6 +1356,8 @@ if __name__ == "__main__":
         sync_all_links(args.dir)
         print("\n" + "=" * 60 + "\n VALIDATION PHASE\n" + "=" * 60 + "\n")
         validate_all_links(args.dir, verbose=args.verbose)
+        validate_yaml_relative_paths(args.dir)
+        validate_yaml_relative_paths(args.dir)
         print("\n" + "=" * 60 + "\n CITATION CHECK PHASE\n" + "=" * 60 + "\n")
         check_citation_consistency(args.dir, cleanup=args.cleanup_uncited)
         print("\n" + "=" * 60 + "\n SECTION REFERENCE CHECK\n" + "=" * 60 + "\n")
@@ -1254,6 +1366,8 @@ if __name__ == "__main__":
 
     if args.validate_only:
         validate_all_links(args.dir, verbose=args.verbose)
+        validate_yaml_relative_paths(args.dir)
+        validate_yaml_relative_paths(args.dir)
         check_citation_consistency(args.dir, cleanup=args.cleanup_uncited)
     elif args.fix_only:
         sync_all_links(args.dir)
