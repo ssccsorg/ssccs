@@ -439,6 +439,7 @@ def main() -> None:
     # Build output in memory first so we can compare with on-disk content
     new_content = ""
     if sorted_items:
+        new_content += '\n::: {tbl-colwidths="[16, 84]"}\n'
         new_content += "\n| Updated | Document |\n"
         new_content += "|----------|---------|\n"
         for ts, rel_path in sorted_items:
@@ -448,6 +449,7 @@ def main() -> None:
             html = doc_to_html(rel_path)
             badge = f" {badge_new()}" if is_new_file(rel_path, creation_dates) else ""
             new_content += f"| {date} | {path_prefix}[{title}]({html}){badge} |\n"
+        new_content += "\n\n:::"
 
     # Only overwrite when content actually differs (avoids spurious git diffs)
     INCLUDE_DIR.mkdir(parents=True, exist_ok=True)
@@ -460,7 +462,9 @@ def main() -> None:
         OUTPUT.write_text(new_content, encoding="utf-8")
         print(f"Updated {OUTPUT} with {len(sorted_items)} entries.")
     else:
-        print(f"No change – {OUTPUT} is already up to date ({len(sorted_items)} entries).")
+        print(
+            f"No change – {OUTPUT} is already up to date ({len(sorted_items)} entries)."
+        )
 
 
 if __name__ == "__main__":
