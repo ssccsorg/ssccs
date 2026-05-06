@@ -1011,9 +1011,18 @@ digraph SystemStack {
     subgraph cluster_runtime {
         label="SSCCS Runtime (Observation Manager)";
         style=rounded;
-        Runtime [label="Runtime Core\n(Observation Manager)"];
+        Runtime [label="Runtime Core"];
         LayoutCache [label="Layout Cache\n(pre-computed)", style=dashed];
+        FieldVersion [label="Field Version\n& Staleness"];
+        TriggerMonitor [label="Trigger\nMonitor"];
         Projector [label="Projector\n(Ω)"];
+    }
+
+    // Hardware Abstraction Layer
+    subgraph cluster_hal {
+        label="Hardware Abstraction Layer (HAL)";
+        style=dashed;
+        HAL [label="Target-Agnostic\nExecution Interface"];
     }
 
     // Hardware Layer
@@ -1033,23 +1042,29 @@ digraph SystemStack {
 
     // Runtime internal
     Runtime -> LayoutCache [label="load layout", style=dashed];
+    Runtime -> TriggerMonitor [label="monitor", style=dashed];
+    TriggerMonitor -> FieldVersion [label="update", style=dashed];
+    FieldVersion -> LayoutCache [label="invalidate", style=dashed];
     Runtime -> Projector [label="execute Ω"];
+    FieldVersion -> Projector [label="version check", style=dashed];
 
-    // Runtime to Hardware
-    Projector -> CPU [label="observation micro-ops", style=dashed];
-    Projector -> Accelerator [label="in-memory observation", style=dashed];
+    // Runtime to HAL
+    Projector -> HAL [label="observation\nmicro-ops"];
+
+    // HAL to Hardware
+    HAL -> CPU [label="dispatch"];
+    HAL -> Accelerator [label="dispatch"];
 
     // Hardware memory access
-    CPU -> RAM [label="load/store (minimal)"];
-    Accelerator -> RAM [label="direct access"];
+    CPU -> RAM [label="load/store\n(minimal)"];
+    Accelerator -> RAM [label="direct\naccess"];
 
     // Compiler output
     Compiler -> LayoutCache [label="emit layout", style=dashed];
     Compiler -> Projector [label="emit observation code", style=dashed];
 
-    // Optional: Compiler reads hardware profiles
-    Compiler -> CPU [label="target profile", style=dashed, constraint=false];
-    Compiler -> Accelerator [label="target profile", style=dashed, constraint=false];
+    // Compiler reads hardware profiles
+    Compiler -> HAL [label="target profile", style=dashed];
 }
 """
 )
