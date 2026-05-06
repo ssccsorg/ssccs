@@ -6,6 +6,8 @@ Do not use `---` between paragraphs. A horizontal rule is allowed only directly 
 
 Minimize bold (`**`). Only apply it when absolutely necessary to highlight the single most critical point in the entire document.
 
+Minimize use `—` as much as possible except only when absolutely necessary.
+
 ## Code
 
 All code and comments must be written in English.
