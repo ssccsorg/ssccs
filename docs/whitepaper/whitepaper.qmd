@@ -248,6 +248,8 @@ This formulation rests on several assumptions: data exists as intrinsic values i
 
 While new hardware-side paradigms attempt to mitigate this, they remain localized optimizations within the same sequential paradigm. SSCCS proposes a shift from procedural execution to **structural observation.**
 
+This project is made possible by three independent developments. First, the end of Dennard scaling has shifted the dominant energy cost in processors from arithmetic to data movement, creating conditions under which stationary-data models become economically rational. Second, open-source hardware ecosystems now permit a new computational abstraction to be prototyped on commodity FPGA boards and, if validated, transitioned to silicon without the capital requirements that historically restricted architectural innovation. Third, formal methods and proof assistants have advanced to the point where the determinism and race-freedom claimed by the model can be subjected to mechanical verification.
+
 ```{python}
 #| label: fig-ssccs-hardware-mapping
 #| fig-cap: "SSCCS logical-to-physical mapping: stationary segments observed through hardware-agnostic structural projection"
@@ -1140,6 +1142,8 @@ The primary energy sink in modern computing is the movement of operands from mem
 | Execution Latency | $O(N)$ | $O(N/k) + \text{sync}$ | $O(\log N)$ or $O(1)$ |
 | Data Movement | $O(N)$ | $O(N)$ | $O(\text{Output Only})$ |
 | Scalability Limit | Amdahl's Law | Memory Bandwidth | Physical Propagation Delay |
+
+An observation, however structured, must execute on a physical substrate. The compiler's layout decisions carry a bandwidth-compute balance constraint: for any observation unit, the product of its compute footprint and the required data rate must not exceed what the target substrate can supply per cycle. When this condition is unmet, the observation stalls regardless of structural independence. The `MemoryLayout` abstraction is therefore not merely an optimisation—it is a constraint-satisfaction problem whose solution determines whether an observation is executable on a given hardware profile. Empirical analyses of this balance condition in conventional vector architectures are referenced in [*-@sec-appendix-empirical-validation*].
 
 ### Scalability in High-Dimensional AI Workloads
 
@@ -2353,6 +2357,33 @@ F.add_trigger(
 ```
 
 After an observation yields a projection greater than 90, the Field tightens the constraint. Because the projection is deterministic, the entire feedback loop is deterministic.
+
+
+## Empirical Validation References {#sec-appendix-empirical-validation}
+
+This appendix collects references to empirical findings in conventional computer architecture that inform, but do not define, the SSCCS model. They are presented as independent observations that align with the structural principles described in the main text, not as validations of SSCCS itself.
+
+### Bandwidth-Compute Balance
+
+A structural observation model implicitly assumes that the memory hierarchy can supply data at the rate required by the observation operator. Published research on vector processor clusters has identified a balance condition relating compute footprint, memory bandwidth, and register capacity, and has demonstrated that compiler-managed scratchpad memory can sustain high utilisation without hardware caches. These findings, while obtained on conventional von Neumann hardware by unrelated research groups, are consistent with the SSCCS principle that memory layout is a compile-time, declarative property rather than a runtime heuristic. The same independent research confirms that data-level parallelism alone, without complex instruction-level parallelism logic, can saturate compute units. Measurements reported in that literature (95% FPU utilisation on a 2D workload with a 2 KiB vector register file, 30% energy efficiency improvement over scalar clusters) are noted here solely as published data points; they are not SSCCS results and no inference of SSCCS performance should be drawn from them.
+
+### State-of-the-Art Positioning
+
+The following table situates SSCCS among existing computational paradigms. The comparison is structural, not quantitative: it identifies differences in how each paradigm treats data movement, parallelism, and verifiability, rather than claiming performance superiority.
+
+| Paradigm | Data Movement Model | Parallelism Model | Verifiability |
+|----------|---------------------|-------------------|---------------|
+| Von Neumann (CPU/GPU) | Operands move between memory and processor | Explicit (SIMD, SIMT) | Low (runtime-dependent) |
+| Dataflow / Systolic | Tokens move through static graph | Explicit graph | Medium (static graph analysable) |
+| Processing-in-Memory | Compute moves near memory; data still moves between banks | Near-memory, bank-local | Low |
+| FPGA Overlays | Configuration bitstream loaded; data flows through fabric | Spatial, reconfigurable | Medium (netlist analysable) |
+| SSCCS (Structural) | Segments stationary; only Projection transmitted | Implicit (structural independence) | High (deterministic by definition) |
+
+This table does not assert that SSCCS outperforms existing paradigms. It identifies the architectural dimension along which the model differs: the elimination of operand movement as a category, and the elevation of verifiability from an added feature to a structural consequence.
+
+### Layout Algebra Convergence
+
+Independent work on GPU kernel programming has developed type-level layout abstractions that allow memory layouts to be composed, nested, and transformed at compile time without runtime overhead. These layout algebras—which encode shape, stride, tiling, and swizzling as type parameters—converge with SSCCS's `MemoryLayout` abstraction: both treat data placement as a declarative, compile-time property rather than a runtime decision. While these systems target conventional GPU execution and do not implement observation semantics, their existence demonstrates that layout-first, type-driven approaches to memory are not only theoretically sound but practically deployable on current hardware.
 
 
 :::
