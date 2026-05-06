@@ -138,9 +138,24 @@ def get_simple_type(inner: dict) -> str:
     """Get the inner type key from an item's inner dict."""
     if not inner:
         return ""
-    for k in ("module", "struct", "enum", "function", "trait", "impl",
-              "variant", "struct_field", "use", "assoc_type", "static",
-              "constant", "type_alias", "union", "foreign_type", "macro"):
+    for k in (
+        "module",
+        "struct",
+        "enum",
+        "function",
+        "trait",
+        "impl",
+        "variant",
+        "struct_field",
+        "use",
+        "assoc_type",
+        "static",
+        "constant",
+        "type_alias",
+        "union",
+        "foreign_type",
+        "macro",
+    ):
         if k in inner:
             return k
     return "unknown"
@@ -176,9 +191,7 @@ def format_generics(generics: dict | None) -> str:
                 if "type" in kind:
                     bounds = kind["type"].get("bounds", [])
                     if bounds:
-                        bounds_str = ": " + " + ".join(
-                            _fmt_path(b) for b in bounds
-                        )
+                        bounds_str = ": " + " + ".join(_fmt_path(b) for b in bounds)
                         parts.append(f"{name}{bounds_str}")
                     else:
                         parts.append(name)
@@ -195,9 +208,7 @@ def format_generics(generics: dict | None) -> str:
         return ""
     result = "<" + ", ".join(parts) + ">"
     if where_preds:
-        where_str = " where " + ", ".join(
-            _fmt_where_pred(w) for w in where_preds
-        )
+        where_str = " where " + ", ".join(_fmt_where_pred(w) for w in where_preds)
         result += where_str
     return result
 
@@ -478,8 +489,9 @@ def format_trait_items(item: dict, data: dict) -> str:
     return "\n".join(lines)
 
 
-def collect_module_items(module_id: str, data: dict, depth: int = 0,
-                         max_depth: int = 10) -> list:
+def collect_module_items(
+    module_id: str, data: dict, depth: int = 0, max_depth: int = 10
+) -> list:
     """Collect items from a module recursively, sorted by type then name."""
     index = data.get("index", {})
     item = index.get(module_id)
@@ -508,9 +520,7 @@ def collect_module_items(module_id: str, data: dict, depth: int = 0,
 
         # Recursively descend into submodules
         if inner_type == "module" and depth < max_depth:
-            collected.extend(
-                collect_module_items(cid, data, depth + 1, max_depth)
-            )
+            collected.extend(collect_module_items(cid, data, depth + 1, max_depth))
 
     return collected
 
@@ -535,8 +545,9 @@ def _sort_key(item_tuple):
     return (depth, order, (name or "").lower())
 
 
-def render_item(cid: str, citem: dict, inner_type: str, name: str,
-                depth: int, data: dict) -> str:
+def render_item(
+    cid: str, citem: dict, inner_type: str, name: str, depth: int, data: dict
+) -> str:
     """Render a single item as markdown."""
     docs = citem.get("docs", "")
     formatted_docs = format_docs(docs)
@@ -635,8 +646,6 @@ def convert(data: dict) -> str:
     """Convert rustdoc JSON data to markdown string."""
     index = data.get("index", {})
     root_id = str(data.get("root", ""))
-    crate_info = data.get("crate", {})
-
     root_item = index.get(root_id, {})
     crate_name = root_item.get("name", data.get("target", "unknown"))
     crate_version = data.get("crate_version", "")
@@ -778,7 +787,9 @@ def discover_crates(root_dir: str) -> list[dict]:
                 dirnames[:] = [d for d in dirnames if d not in IGNORE_DIRS]
                 if "Cargo.toml" in filenames:
                     try:
-                        with open(os.path.join(dirpath, "Cargo.toml"), "r", encoding="utf-8") as f:
+                        with open(
+                            os.path.join(dirpath, "Cargo.toml"), "r", encoding="utf-8"
+                        ) as f:
                             c = f.read()
                     except (OSError, UnicodeDecodeError):
                         continue
@@ -821,7 +832,9 @@ def _run_cargo_doc_single(ws: dict) -> list[str]:
         json_files = sorted(glob.glob(os.path.join(json_dir, "*.json")))
         if json_files:
             crate_list = ws.get("crate_names", [])
-            print(f"{prefix} rustdoc JSON is fresh ({len(crate_list)} crate(s)) — skipping cargo doc")
+            print(
+                f"{prefix} rustdoc JSON is fresh ({len(crate_list)} crate(s)) — skipping cargo doc"
+            )
             return json_files
         # Fall-through: glob returned nothing despite _is_docs_fresh saying
         # every expected file exists.  Should not happen, but be defensive.
@@ -865,9 +878,9 @@ def _run_cargo_doc_single(ws: dict) -> list[str]:
     return json_files
 
 
-def _convert_single_json(json_file: str, output_dir: str,
-                         known_names: set[str],
-                         ws_prefix: str = "") -> str | None:
+def _convert_single_json(
+    json_file: str, output_dir: str, known_names: set[str], ws_prefix: str = ""
+) -> str | None:
     """Convert a single JSON file to Markdown, returning the output path or None.
 
     When *ws_prefix* is non-empty (e.g. ``"standard/crates/core"``), the
@@ -928,7 +941,9 @@ def generate_docs_parallel(
     # Phase 1: Parallel cargo doc
     # ------------------------------------------------------------------
     print()
-    print(f" Phase 1: Running cargo doc for {len(workspaces)} workspace(s) in parallel...")
+    print(
+        f" Phase 1: Running cargo doc for {len(workspaces)} workspace(s) in parallel..."
+    )
     print()
 
     all_json_files: list[str] = []
@@ -937,8 +952,7 @@ def generate_docs_parallel(
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=worker_count) as executor:
         future_map = {
-            executor.submit(_run_cargo_doc_single, ws): ws
-            for ws in workspaces
+            executor.submit(_run_cargo_doc_single, ws): ws for ws in workspaces
         }
         for future in concurrent.futures.as_completed(future_map):
             ws = future_map[future]
@@ -967,15 +981,22 @@ def generate_docs_parallel(
     # Phase 2: Parallel JSON → MD conversion
     # ------------------------------------------------------------------
     print()
-    print(f" Phase 2: Converting {len(all_json_files)} JSON file(s) to Markdown in parallel...")
+    print(
+        f" Phase 2: Converting {len(all_json_files)} JSON file(s) to Markdown in parallel..."
+    )
     print()
 
     generated_files: list[str] = []
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=worker_count) as executor:
         future_map = {
-            executor.submit(_convert_single_json, jf, output_dir,
-                            all_known_names, json_file_to_ws.get(jf, "")): jf
+            executor.submit(
+                _convert_single_json,
+                jf,
+                output_dir,
+                all_known_names,
+                json_file_to_ws.get(jf, ""),
+            ): jf
             for jf in all_json_files
         }
         for future in concurrent.futures.as_completed(future_map):
@@ -1061,8 +1082,9 @@ def extract_title(md_file: str) -> str:
     return title
 
 
-def generate_llms_txt(output_dir: str, generated_files: list[str],
-                      merged: bool, merged_path: str | None):
+def generate_llms_txt(
+    output_dir: str, generated_files: list[str], merged: bool, merged_path: str | None
+):
     """Generate llms.txt following the llmstxt.org standard."""
     llms_txt = os.path.join(output_dir, "llms.txt")
     print()
@@ -1130,7 +1152,9 @@ def generate_llms_txt(output_dir: str, generated_files: list[str],
         out.write("\n")
 
         if merged and merged_path and os.path.isfile(merged_path):
-            out.write("- [Merged full documentation](llms-full.txt): Consolidated single-file documentation for LLM context\n")
+            out.write(
+                "- [Merged full documentation](llms-full.txt): Consolidated single-file documentation for LLM context\n"
+            )
 
         out.write("\n")
 
@@ -1140,8 +1164,9 @@ def generate_llms_txt(output_dir: str, generated_files: list[str],
 # ===========================================================================
 # index.md (Quarto-compatible)
 # ===========================================================================
-def generate_index_md(output_dir: str, generated_files: list[str],
-                      merged: bool, merged_path: str | None):
+def generate_index_md(
+    output_dir: str, generated_files: list[str], merged: bool, merged_path: str | None
+):
     """Generate index.md (Quarto-compatible) with collection links."""
     index_md = os.path.join(output_dir, "index.md")
     print()
@@ -1174,9 +1199,13 @@ def generate_index_md(output_dir: str, generated_files: list[str],
         out.write("toc: true\n")
         out.write("---\n")
         out.write("\n")
-        out.write("This index provides an overview of all documented Rust crates in the SSCSS project.\n")
+        out.write(
+            "This index provides an overview of all documented Rust crates in the SSCSS project.\n"
+        )
         out.write("\n")
-        out.write("For LLM-friendly consumption, see [llms.txt](llms.txt) following the [llmstxt.org](https://llmstxt.org/) standard.\n")
+        out.write(
+            "For LLM-friendly consumption, see [llms.txt](llms.txt) following the [llmstxt.org](https://llmstxt.org/) standard.\n"
+        )
         out.write("\n")
 
         if core_files:
@@ -1215,7 +1244,9 @@ def generate_index_md(output_dir: str, generated_files: list[str],
         if merged and merged_path and os.path.isfile(merged_path):
             out.write("## Merged LLM Document\n")
             out.write("\n")
-            out.write("The entire documentation has been consolidated into a single file: [llms-full.txt](llms-full.txt)\n")
+            out.write(
+                "The entire documentation has been consolidated into a single file: [llms-full.txt](llms-full.txt)\n"
+            )
             out.write("\n")
 
     print(f" Generated: {index_md}")
@@ -1269,7 +1300,9 @@ def main():
 
     # ── Step 2: Parallel cargo doc + conversion ──
     generated_files, known_names = generate_docs_parallel(
-        workspaces, output_dir, max_workers=args.jobs,
+        workspaces,
+        output_dir,
+        max_workers=args.jobs,
     )
 
     if not generated_files:
