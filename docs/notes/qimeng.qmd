@@ -1,0 +1,658 @@
+---
+title: "QiMeng Insight Analysis & Multi-Agent Autonomous Research Landscape"
+subtitle: "Strategic Absorption Report for SSCCS Nexus RAG-KB Multi-Agent Planning"
+date: last-modified
+metadata-files:
+  - ../_include/author.yml
+abstract: |
+  QiMeng represents a watershed in AI-driven engineering automation: a three-layer LLM-agent architecture that has designed
+  industrial-scale RISC-V CPUs, optimized operating systems, and generated high-performance tensor libraries with results comparable to human expertise. This report provides a deep structural analysis of QiMeng's architecture and places it within the rapidly evolving 2025–2026 landscape of multi-agent autonomous research systems. We identify concrete patterns transferable to the SSCCS Nexus multi-agent research platform and highlight the most critical recent advances.
+---
+
+```{python}
+#| echo: false
+#| include: false
+#| context: local
+%run ../_include/_graphviz.py
+```
+
+## Executive Summary
+
+QiMeng is a three-layer hierarchical agent system that has achieved fully automated design of processor chips, from RISC-V CPU front-end through OS configuration to tensor operator generation. Its taped-out CPU successfully runs Linux and performs comparably to the Intel 80486SX, while its superscalar v2 improves performance by ~380× over prior automated methods and approaches ARM Cortex A53 levels .
+
+This report:
+
+1. Deconstructs QiMeng's multi-agent architecture layer-by-layer.
+2. Maps its design patterns to the [SSCCS Nexus](/projects/nexus) multi-agent research vision.
+3. Surveys 12 critical 2026 multi-agent autonomous research systems that extend, complement, or surpass QiMeng's approach.
+4. Provides actionable architectural recommendations for [SSCCS Nexus Phase 4](/projects/nexus/impl_init.html) (Agentic Research Loop).
+
+## 1. Architectural Deep-Dive
+
+### 1.1 The Three-Layer Hierarchy
+
+QiMeng's architecture comprises three hierarchical layers designed for full-stack chip design automation :
+
+```{python}
+#| label: fig-qimeng-architecture
+#| fig-cap: "QiMeng Three-Layer Hierarchical Architecture"
+
+dot("""
+digraph QiMengArchitecture {
+    rankdir=TB;
+    splines=ortho;
+    nodesep=0.4;
+    ranksep=0.6;
+    fontname="Arial";
+    node [shape=box, style=rounded, fontsize=9];
+    edge [fontsize=8];
+
+    subgraph cluster_layer3 {
+        label="LAYER 3: Software Design Agent";
+        style=filled;
+        fillcolor="#E8F4F8";
+        color="#2B7A9E";
+        fontsize=11;
+
+        AutoOS [label="AutoOS\nOS Kernel Opt", fillcolor="#FFFFFF", style=filled];
+        KernelGen [label="Kernel Generation\nGEMM/Attention/TensorOp", fillcolor="#FFFFFF", style=filled];
+        CompilerGen [label="Compiler Generation\nVEGA/NeuComBack", fillcolor="#FFFFFF", style=filled];
+        Transcompiler [label="Transcompiler\nXpiler/MuPa/BabelTower", fillcolor="#FFFFFF", style=filled];
+    }
+
+    subgraph cluster_layer2 {
+        label="LAYER 2: Hardware Design Agent";
+        style=filled;
+        fillcolor="#E6F0E6";
+        color="#3A7D44";
+        fontsize=11;
+
+        CPU [label="CPU Design\nv1 (IO Examples) / v2 (Data Dep)", fillcolor="#FFFFFF", style=filled];
+        HDL [label="HDL Generation\nCRUX / CodeV (Verilog+Chisel)", fillcolor="#FFFFFF", style=filled];
+        VerilogRL [label="Verilog RL + Reasoning\nSALV (Signal) / CodeV-R1 (CoT)", fillcolor="#FFFFFF", style=filled];
+    }
+
+    subgraph cluster_layer1 {
+        label="LAYER 1: Large Processor Chip Model (LPCM)";
+        style=filled;
+        fillcolor="#F5F0E6";
+        color="#8B7355";
+        fontsize=11;
+
+        LPCM [label="Domain-specialized LLM\n+ Boolean logic generation\n+ Cross-modal: NL-HDL, C-CUDA, IR-Assembly", fillcolor="#FFFFFF", style=filled, width=3.5];
+    }
+
+    LPCM -> {CPU, HDL, VerilogRL, AutoOS, KernelGen, CompilerGen, Transcompiler};
+
+    CPU -> KernelGen [style=dashed, color=gray, label="ISA specs"];
+    CPU -> CompilerGen [style=dashed, color=gray, label="target arch"];
+}
+""")
+```
+
+> Figure: QiMeng's three-layer hierarchy. Layer 1 (LPCM) provides the domain-specialized LLM backbone. Layer 2 handles hardware design: CPU synthesis, HDL generation, and Verilog RL with reasoning. Layer 3 spans software design: OS optimization, kernel generation, compiler generation, and tensor program transcompilation. Dashed lines indicate cross-layer information flow (ISA specs from hardware inform software kernels and compilers).
+
+Layer 1 — LPCM (Foundation Model): A domain-specialized LLM fine-tuned for processor chip design tasks, combining text understanding with Boolean logic generation capabilities. The LPCM serves as the unified backbone across all sub-systems, providing cross-modal translation capabilities (natural language↔HDL, C↔CUDA, IR↔Assembly) that enable the full-stack automation vision.
+
+Layer 2 — Hardware Design Agent: This layer encompasses four major capability domains:
+
+- Automated CPU Design: QiMeng-CPU-v1 learns from input-output examples to design an industrial-scale RISC-V CPU in 5 hours (1,700× larger than prior automated circuits). QiMeng-CPU-v2 advances this by learning data dependencies for automated superscalar processor design, achieving ~380× improvement over prior methods and approaching ARM Cortex A53 performance.
+- HDL Generation (Structured): QiMeng-CRUX treats Verilog generation as a constrained transformation from free-form natural language to strict HDL space via a structured interspace (CRUX). CodeV uses multi-level summarization for fine-tuning LLMs on Verilog and Chisel.
+- Verilog RL + Reasoning: QiMeng-SALV shifts RL optimization from module-level to signal-level rewards using AST analysis. QiMeng-CodeV-R1 incorporates explicit chain-of-thought reasoning before HDL code generation, exhibiting test-time scaling (TTS) behavior.
+
+Layer 3 — Software Design Agent: This layer spans four complementary automation domains:
+
+- OS Optimization: AutoOS automatically optimizes Linux kernel configurations for specific OS distributions on specific hardware without human intervention, primarily targeting AIoT scenarios.
+- High-Performance Library Generation: QiMeng-GEMM (meta-prompts for GEMM), QiMeng-Kernel (Macro-Thinking Micro-Coding for GPU kernels), QiMeng-Attention (self-optimizing attention via LLM-TL), and QiMeng-TensorOp (one-line prompt for tensor operators with hardware primitives).
+- Compiler Generation: VEGA abstracts existing backend functions into templates and uses a pre-trained model to auto-generate target-specific code. QiMeng-NeuComBack enables self-evolving translation from IR to assembly via iterative prompt strategy extraction. ComBack provides the first public dataset (178 backends) for training compiler backend models.
+- Tensor Program Transcompiler: QiMeng-Xpiler uses a neural-symbolic approach integrating LLMs with symbolic program synthesis for cross-platform tensor program translation (GPUs, ASICs, MLUs). QiMeng-MuPa employs mutual-supervised learning with co-evolving Translator and Tester agents. BabelTower (the foundational work) uses back-translation with discriminative reranking for C→CUDA translation.
+
+### 1.2 Key Technical Mechanisms
+
+QiMeng's success rests on a portfolio of interconnected technical mechanisms, each addressing a specific failure mode of LLM-based code generation.
+
+1. Dual-Loop Feedback Architecture:
+
+QiMeng employs a distinctive dual-loop mechanism for feedback-driven reasoning :
+
+1. External Performance Feedback Loop: Measures actual performance (clock frequency, power, benchmark scores) and feeds back into design optimization.
+2. Internal Functional Correctness Feedback Loop: Validates logical correctness through simulation, formal verification, and AST-level signal analysis.
+
+This dual-loop design is the critical enabler for QiMeng's success — it prevents the system from drifting into syntactically valid but functionally broken designs, a common failure mode in LLM-based code generation.
+
+```{python}
+#| label: fig-qimeng-dual-loop
+#| fig-cap: "QiMeng Dual-Loop Feedback Architecture"
+
+dot("""
+digraph DualLoopFeedback {
+    rankdir=TB;
+    splines=ortho;
+    nodesep=0.5;
+    ranksep=0.6;
+    fontname="Arial";
+    node [shape=box, style=rounded, fontsize=9];
+    edge [fontsize=9];
+
+    LLMAgent [label="LLM Agent\n(Code Generation)", shape=box, style=rounded, fillcolor="#FFE4B5", style=filled, width=2.2];
+
+    subgraph cluster_internal {
+        label="Internal: Functional Correctness Loop";
+        style=filled;
+        fillcolor="#E6F0E6";
+        color="#3A7D44";
+        fontsize=10;
+
+        Simulation [label="Simulation\n(RTL/Netlist)", fillcolor="#FFFFFF", style=filled];
+        FormalVerif [label="Formal\nVerification", fillcolor="#FFFFFF", style=filled];
+        ASTSignal [label="AST Signal-Level\nAnalysis (SALV)", fillcolor="#FFFFFF", style=filled];
+    }
+
+    subgraph cluster_external {
+        label="External: Performance Feedback Loop";
+        style=filled;
+        fillcolor="#E8F4F8";
+        color="#2B7A9E";
+        fontsize=10;
+
+        Benchmarks [label="Benchmarks\n(clock/power/throughput)", fillcolor="#FFFFFF", style=filled];
+        TapeOut [label="Physical Validation\n(taped-out silicon, Linux boot)", fillcolor="#FFFFFF", style=filled];
+        Optimization [label="Design\nOptimization", fillcolor="#FFFFFF", style=filled];
+    }
+
+    LLMAgent -> Simulation;
+    LLMAgent -> Benchmarks;
+    Simulation -> FormalVerif [label="fails"];
+    FormalVerif -> ASTSignal [label="partial"];
+    ASTSignal -> LLMAgent [label="signal-level RL reward", color="#3A7D44"];
+    Benchmarks -> Optimization;
+    Optimization -> TapeOut;
+    TapeOut -> LLMAgent [label="performance feedback", color="#2B7A9E"];
+}
+""")
+```
+
+> Figure: The dual-loop architecture is QiMeng's critical enabler. The inner loop (green) validates functional correctness at multiple granularities — from simulation through formal verification to AST-level signal analysis (SALV). The outer loop (blue) measures real-world performance benchmarks and, uniquely, validates against physically taped-out silicon that boots Linux.
+
+2. Macro-Thinking Micro-Coding (MTMC) Paradigm (QiMeng-Kernel):
+
+QiMeng-Kernel introduces a decoupling strategy where high-level optimization strategies ("Macro Thinking") are separated from low-level implementation details ("Micro Coding") . The key insight is that the vast optimization space of GPU kernels and their strong hardware dependence make it difficult for LLMs to search for effective strategies, while the complexity of low-level implementation details leads to frequent compilation failures. MTMC addresses this by: (a) macroscopically generating hardware-semantic-aware optimization decisions, and (b) microscopically implementing those decisions through a multi-step fine-grained process. This directly addresses the tension between correctness and optimization that plagues LLM-based code generation. Results: correctness rate improved by over 50%, maximum speedup of 7.3× on KernelBench and TritonBench.
+
+```{python}
+#| label: fig-qimeng-mtmc
+#| fig-cap: "QiMeng-Kernel MTMC (Macro-Thinking Micro-Coding) Paradigm"
+
+dot("""
+digraph MTMC {
+    rankdir=LR;
+    splines=ortho;
+    nodesep=0.5;
+    ranksep=0.5;
+    fontname="Arial";
+    node [shape=box, style=rounded, fontsize=9];
+    edge [fontsize=9];
+
+    subgraph cluster_macro {
+        label="MACRO: Thinking (Strategy)";
+        style=filled;
+        fillcolor="#FFE4E1";
+        color="#B22222";
+        fontsize=10;
+
+        HardwareSpec [label="Hardware\nSpecifications", fillcolor="#FFFFFF", style=filled];
+        OptimizationSpace [label="Optimization Space\nSearch (LLM)", fillcolor="#FFFFFF", style=filled];
+        Strategy [label="Hardware-Semantic-Aware\nOptimization Decisions", fillcolor="#FFFFFF", style=filled];
+    }
+
+    subgraph cluster_micro {
+        label="MICRO: Coding (Implementation)";
+        style=filled;
+        fillcolor="#E6F0E6";
+        color="#3A7D44";
+        fontsize=10;
+
+        Step1 [label="Step 1: Memory\nHierarchy Mapping", fillcolor="#FFFFFF", style=filled];
+        Step2 [label="Step 2: Thread\nBlock Configuration", fillcolor="#FFFFFF", style=filled];
+        Step3 [label="Step 3: Instruction-\nLevel Tuning", fillcolor="#FFFFFF", style=filled];
+        FinalCode [label="Final Kernel Code\n(Correct + Optimized)", fillcolor="#FFFFFF", style=filled];
+    }
+
+    HardwareSpec -> OptimizationSpace;
+    OptimizationSpace -> Strategy;
+    Strategy -> Step1;
+    Step1 -> Step2;
+    Step2 -> Step3;
+    Step3 -> FinalCode;
+}
+""")
+```
+
+> Figure: The MTMC paradigm decouples strategy from implementation. The Macro level generates hardware-semantic-aware optimization decisions (memory hierarchy, tiling strategies, parallelism schemes). The Micro level implements these through a multi-step fine-grained process: memory mapping, thread block configuration, and instruction-level tuning. This decoupling is what enables the 50%+ correctness improvement and 7.3× speedup.
+
+3. Reasoning-Enhanced Code Generation (CodeV-R1):
+
+QiMeng-CodeV-R1 incorporates explicit chain-of-thought reasoning before HDL code generation, exhibiting test-time scaling (TTS) behavior where a 7B model approaches or surpasses the 671B DeepSeek-R1 on Verilog tasks . This demonstrates that explicit reasoning can compensate for model scale in domain-specific code generation.
+
+4. Core Refined Understanding eXpression — CRUX (QiMeng-CRUX):
+
+CRUX treats Verilog generation as a constrained transformation from free-form natural language to strict HDL space. It introduces a structured interspace — a formal intermediate representation that captures the essential semantics of user intent while enabling precise Verilog code synthesis. The innovation is two-fold: (a) two-stage training improves Verilog accuracy, and (b) CRUX serves as transferable, cross-model guidance that systematically enhances the stability and intent alignment of other hardware code models, even those it was not trained on. Published at AAAI'26.
+
+5. Signal-Aware Learning for Verilog — SALV (QiMeng-SALV):
+
+SALV shifts reinforcement learning optimization from module-level to signal-level rewards. By leveraging AST analysis and signal-aware verification, it extracts functionally correct code segments from partially incorrect modules, enabling more effective RL training. This granular reward signal is a significant departure from typical "pass/fail" module-level evaluation. Published at NeurIPS'25.
+
+6. LLM-Friendly Thinking Language — LLM-TL (QiMeng-Attention):
+
+QiMeng-Attention introduces a self-optimizing framework for high-performance attention code generation. The key innovation is an LLM-friendly Thinking Language (LLM-TL) combined with a two-stage reasoning workflow that enables LLMs to decouple optimization logic from GPU implementation. This reduces development time from months to minutes and achieves up to 35.16× speedup over human-optimized libraries. Published at ACL'25.
+
+7. Mutual-Supervised Co-Evolution (QiMeng-MuPa):
+
+QiMeng-MuPa is an innovative mutual-supervised learning framework for automatic sequential-to-parallel code translation. It features a Translator and a Tester that co-evolve through iterative co-verification, ensuring functional equivalence and high-quality translation. This adversarial-collaborative dynamic produces the first domain-specific LLM capable of automatic code parallelization for HPC. Published at NeurIPS'25.
+
+8. Neural-Symbolic Transcompilation (QiMeng-Xpiler):
+
+QiMeng-Xpiler integrates LLMs with symbolic program synthesis to ensure both correctness and efficiency in cross-platform tensor program translation. It leverages LLM-assisted compilation passes and hierarchical auto-tuning to achieve up to 95% translation accuracy and 2× performance over vendor-optimized libraries across GPUs, ASICs, and MLUs. Published at OSDI'25 — the first QiMeng system at a top systems venue.
+
+```{python}
+#| label: fig-qimeng-xpiler-mupa
+#| fig-cap: "QiMeng Neural-Symbolic Transcompilation (Xpiler) and Mutual-Supervised Co-Evolution (MuPa)"
+
+dot("""
+digraph XpilerMuPa {
+    rankdir=LR;
+    splines=ortho;
+    nodesep=0.4;
+    ranksep=0.5;
+    fontname="Arial";
+    node [shape=box, style=rounded, fontsize=9];
+    edge [fontsize=8];
+
+    subgraph cluster_xpiler {
+        label="QiMeng-Xpiler: Neural-Symbolic (OSDI'25)";
+        style=filled;
+        fillcolor="#E8F4F8";
+        color="#2B7A9E";
+        fontsize=10;
+
+        SourceProgram [label="Source Tensor Program\n(e.g., CUDA)", fillcolor="#FFFFFF", style=filled];
+        LLMCompPass [label="LLM-Assisted\nCompilation Passes", fillcolor="#FFFFFF", style=filled];
+        SymbolicSynth [label="Symbolic Program\nSynthesis", fillcolor="#FFFFFF", style=filled];
+        HierarchTune [label="Hierarchical\nAuto-Tuning", fillcolor="#FFFFFF", style=filled];
+        TargetProgram [label="Target Program\n(GPU/ASIC/MLU)\n95% accuracy, 2× perf", fillcolor="#FFFFFF", style=filled];
+
+        SourceProgram -> LLMCompPass;
+        LLMCompPass -> SymbolicSynth;
+        SymbolicSynth -> HierarchTune;
+        HierarchTune -> TargetProgram;
+    }
+
+    subgraph cluster_mupa {
+        label="QiMeng-MuPa: Co-Evolution (NeurIPS'25)";
+        style=filled;
+        fillcolor="#E6F0E6";
+        color="#3A7D44";
+        fontsize=10;
+
+        SeqCode [label="Sequential Code\n(C/C++)", fillcolor="#FFFFFF", style=filled];
+        Translator [label="Translator Agent\n(C→Parallel)", fillcolor="#FFFFFF", style=filled];
+        Tester [label="Tester Agent\n(Functional Equiv Check)", fillcolor="#FFFFFF", style=filled];
+        ParallelCode [label="Parallel Code\n(CUDA/HPC)\nFirst auto-parallel LLM", fillcolor="#FFFFFF", style=filled];
+
+        SeqCode -> Translator;
+        Translator -> Tester [label="generated code"];
+        Tester -> Translator [label="co-verify feedback", color="#3A7D44", style=dashed];
+        Translator -> ParallelCode;
+        Tester -> ParallelCode;
+    }
+}
+""")
+```
+
+> Figure (top): Xpiler's neural-symbolic pipeline uses LLM-assisted compilation passes to guide symbolic program synthesis, followed by hierarchical auto-tuning. The symbolic component guarantees correctness while LLM reasoning enables cross-platform portability. Figure (bottom): MuPa's Translator↔Tester co-evolution: the Translator generates parallel code, the Tester verifies functional equivalence, and feedback from co-verification improves both agents iteratively — an adversarial-collaborative dynamic producing the first HPC auto-parallelization LLM.
+
+9. Self-Evolving Prompt Strategies (QiMeng-NeuComBack):
+
+NeuComBack enables LLMs to iteratively evolve their internal prompt strategies by extracting insights from prior self-debugging traces. This self-evolution mechanism allows the system to improve its neural compilation capabilities over successive attempts without external intervention. Published at NeurIPS'25.
+
+10. Meta-Prompt Iterative Optimization (QiMeng-GEMM):
+
+QiMeng-GEMM uses a set of informative, adaptive, and iterative meta-prompts to enable LLMs to comprehend the architectural characteristics of different hardware platforms and generate high-performance GEMM implementations. This meta-prompt approach abstracts hardware-specific optimization knowledge into reusable prompt templates. Published at AAAI'25.
+
+### 1.3 Published Results — Complete System Portfolio
+
+QiMeng has produced 18 published systems across 10+ top-tier venues (OSDI, NeurIPS, AAAI, IJCAI, ICML, ACL, CGO, TCAD), spanning hardware design through software automation:
+
+| # | System | Venue | Domain | Key Result |
+|---|--------|-------|--------|------------|
+| 1 | QiMeng-CPU-v1 | IJCAI'24 | CPU Design | First AI-designed CPU running Linux; 1,700× larger than prior automated circuits; comparable to Intel 80486SX |
+| 2 | QiMeng-CPU-v2 | IJCAI'25 | CPU Design | World's first AI-designed superscalar CPU; ~380× improvement; approaches ARM Cortex A53 |
+| 3 | QiMeng-CRUX | AAAI'26 | HDL Gen | Structured interspace for NL→Verilog; transferable cross-model guidance |
+| 4 | QiMeng-SALV | NeurIPS'25 | Verilog RL | Signal-level (not module-level) RL rewards via AST analysis |
+| 5 | QiMeng-CodeV-R1 | NeurIPS'25 | Verilog+Reasoning | 7B model rivals 671B DeepSeek-R1 via test-time scaling (TTS) |
+| 6 | CodeV | TCAD'25 | HDL Gen | Multi-level summarization; multi-lingual (Verilog+Chisel), multi-scenario |
+| 7 | AutoOS | ICML'24 | OS Optimization | First LLM-based automatic Linux kernel config optimization for AIoT |
+| 8 | QiMeng-GEMM | AAAI'25 | HPC Library | Meta-prompt based iterative GEMM optimization across hardware platforms |
+| 9 | QiMeng-Kernel | AAAI'26 | GPU Kernel | MTMC paradigm; correctness +50%, speedup up to 7.3× on KernelBench/TritonBench |
+| 10 | QiMeng-Attention | ACL'25 | GPU Attention | LLM-TL + two-stage reasoning; up to 35.16× speedup; months→minutes development |
+| 11 | QiMeng-TensorOp | IJCAI'25 | Tensor Ops | One-line prompt; 251% of OpenBLAS (RISC-V), 124% of cuBLAS (GPU) |
+| 12 | QiMeng-NeuComBack | NeurIPS'25 | Compiler | Self-evolving IR→Assembly via prompt strategy extraction from self-debugging |
+| 13 | VEGA | CGO'25 | Compiler | Template-based auto-generation of compiler backends from target descriptions |
+| 14 | ComBack | NeurIPS'24 | Compiler Dataset | First public dataset: 178 backends, 3 development scenarios |
+| 15 | QiMeng-MuPa | NeurIPS'25 | Transcompiler | Mutual-supervised Translator↔Tester co-evolution; first HPC auto-parallelization LLM |
+| 16 | QiMeng-Xpiler | OSDI'25 | Transcompiler | Neural-symbolic; 95% translation accuracy; 2× over vendor libs (GPU/ASIC/MLU) |
+| 17 | BabelTower | ICML'22 | Transcompiler | Back-translation + discriminative reranking; C→CUDA; up to 347× speedup |
+
+Venue Distribution: The portfolio spans the full spectrum of top CS venues:
+
+- Systems: OSDI'25 (Xpiler), CGO'25 (VEGA)
+- ML/AI: NeurIPS'24,25 (ComBack, SALV, CodeV-R1, NeuComBack, MuPa), ICML'22,24 (BabelTower, AutoOS), AAAI'25,26 (GEMM, Kernel, CRUX)
+- NLP/CL: ACL'25 (Attention)
+- General AI: IJCAI'24,25 (CPU-v1, CPU-v2, TensorOp)
+- CAS/CAD: TCAD'25 (CodeV)
+
+### 1.4 Critical Insight for SSCCS Nexus
+
+QiMeng is a domain-specific multi-agent system, not a general research agent. Its architecture is tightly coupled to chip design workflows. However, seven patterns are directly transferable to SSCCS Nexus:
+
+1. Hierarchical Agent Layering: Bottom-layer domain-specialized model → middle-layer task-specific agents → top-layer orchestration. This maps directly to Nexus's Planner (top) → Executor (middle) → EdgeQuake KG engine (bottom).
+2. Dual-Loop Feedback: The internal correctness + external performance feedback loop is a concrete implementation of the Verifier → Planner feedback cycle envisioned in Nexus Phase 4.
+3. Macro-Micro Decoupling: The separation of high-level strategy from low-level implementation mirrors the Planner (strategy) → Executor (implementation) separation already designed in Nexus.
+4. Co-Evolution Architecture (MuPa): The Translator↔Tester co-evolution pattern directly maps to Nexus's Generator↔Verifier dynamic — two agents that improve each other through iterative co-verification, producing higher-quality artifacts than either could alone.
+5. Neural-Symbolic Bridge (Xpiler): The integration of LLM reasoning with symbolic program synthesis maps to Nexus's EdgeQuake symbolic retrieval + LLM reasoning — the KG provides the symbolic "correctness guarantee" while LLM reasoning provides flexibility.
+6. Structured Interspace (CRUX): CRUX's formal intermediate representation between free-form NL and strict HDL maps to Nexus's contract.json — both serve as structured constraints that guide generation while ensuring compliance.
+7. Multi-Venue Validation Strategy: QiMeng's approach of validating across systems venues (OSDI, CGO), ML venues (NeurIPS, ICML, AAAI), NLP venues (ACL), and general AI venues (IJCAI) provides a model for validating SSCCS Nexus across multiple academic communities — establishing credibility through diverse peer review.
+
+```{python}
+#| label: fig-qimeng-nexus-mapping
+#| fig-cap: "QiMeng Architectural Patterns Mapped to SSCCS Nexus"
+
+dot("""
+digraph QiMengToNexus {
+    rankdir=TB;
+    splines=ortho;
+    nodesep=0.3;
+    ranksep=0.5;
+    fontname="Arial";
+    node [shape=box, style=rounded, fontsize=8];
+    edge [fontsize=8];
+
+    subgraph cluster_qimeng {
+        label="QiMeng Patterns";
+        style=filled;
+        fillcolor="#FFF8DC";
+        color="#DAA520";
+        fontsize=10;
+
+        q_3layer [label="3-Layer Hierarchy", fillcolor="#FFFFFF", style=filled];
+        q_dualloop [label="Dual-Loop Feedback", fillcolor="#FFFFFF", style=filled];
+        q_mtmc [label="Macro-Micro Decoupling", fillcolor="#FFFFFF", style=filled];
+        q_coevolve [label="Co-Evolution (MuPa)", fillcolor="#FFFFFF", style=filled];
+        q_neurosym [label="Neural-Symbolic (Xpiler)", fillcolor="#FFFFFF", style=filled];
+        q_crux [label="Structured Interspace (CRUX)", fillcolor="#FFFFFF", style=filled];
+        q_selfevolve [label="Self-Evolving Prompts", fillcolor="#FFFFFF", style=filled];
+    }
+
+    subgraph cluster_nexus {
+        label="SSCCS Nexus Mapping";
+        style=filled;
+        fillcolor="#E8F4F8";
+        color="#2B7A9E";
+        fontsize=10;
+
+        n_planner [label="Planner\n(Strategy)", fillcolor="#FFFFFF", style=filled];
+        n_executor [label="Executor\n(Implementation)", fillcolor="#FFFFFF", style=filled];
+        n_verifier [label="Verifier\n(Ground Truth)", fillcolor="#FFFFFF", style=filled];
+        n_generator [label="Generator\n(Contract-Compliant)", fillcolor="#FFFFFF", style=filled];
+        n_kg [label="EdgeQuake KG\n(Symbolic Backend)", fillcolor="#FFFFFF", style=filled];
+        n_contract [label="contract.json\n(Governance)", fillcolor="#FFFFFF", style=filled];
+        n_grpo [label="Flow-GRPO\n(Policy Learning)", fillcolor="#FFFFFF", style=filled];
+    }
+
+    q_3layer -> n_planner [style=dashed, color=gray];
+    q_3layer -> n_kg [style=dashed, color=gray];
+    q_dualloop -> n_verifier [style=dashed, color=gray];
+    q_dualloop -> n_grpo [style=dashed, color=gray];
+    q_mtmc -> n_planner [style=dashed, color=gray];
+    q_mtmc -> n_executor [style=dashed, color=gray];
+    q_coevolve -> n_generator [style=dashed, color=gray];
+    q_coevolve -> n_verifier [style=dashed, color=gray];
+    q_neurosym -> n_kg [style=dashed, color=gray];
+    q_crux -> n_contract [style=dashed, color=gray];
+    q_selfevolve -> n_grpo [style=dashed, color=gray];
+}
+""")
+```
+
+> Figure: Seven QiMeng architectural patterns and their direct mappings to SSCCS Nexus components. The three-layer hierarchy maps to Planner+KG. Dual-loop feedback maps to Verifier+GRPO. Co-evolution maps to Generator↔Verifier dynamic. Neural-symbolic maps to KG+LLM reasoning. CRUX maps to contract.json governance. Self-evolving prompts map to Flow-GRPO policy improvement.
+
+## 2. The 2026 Multi-Agent Autonomous Research Landscape
+
+The year 2026 has seen an explosion of multi-agent scientific research frameworks. Below we survey the most significant systems, categorised by their architectural approach and relevance to SSCCS Nexus.
+
+### 2.1 End-to-End Autonomous Research Frameworks
+
+ResearchEVO (April 2026)
+
+The most philosophically aligned with SSCCS Nexus. ResearchEVO implements a "discover-then-explain" paradigm:
+
+- Evolution Phase: LLM-guided bi-dimensional co-evolution simultaneously optimizes algorithmic logic and overall architecture purely by fitness, without requiring understanding of solutions.
+- Writing Phase: Sentence-level RAG with explicit anti-hallucination verification generates complete, publication-ready LaTeX manuscripts with zero fabricated citations.
+- Validated on Quantum Error Correction (real Google quantum hardware data) and Physics-Informed Neural Networks.
+- Critical finding: Discovered human-interpretable algorithmic mechanisms not previously proposed in domain literature.
+
+> Nexus relevance: This is the closest existing system to Nexus's Phase 4 vision — autonomous hypothesis generation, experimental validation, and contract-governed manuscript generation. ResearchEVO's anti-hallucination verification via RAG is directly applicable to Nexus's Verifier module.
+
+Autonomous Research Loops (May 2026)
+
+End-to-end ML research automation: hypothesis generation → literature search → coding → experiment execution → results analysis → manuscript preparation → peer-style review. Published at a major ACM venue.
+
+The AI Scientist (March 2026, Nature)
+
+Sakana AI's landmark system: full end-to-end automation of the scientific process using foundation models for ideation, literature search, experiment planning, implementation, result analysis, manuscript writing, and peer review. Published in *Nature*, marking mainstream scientific recognition of autonomous research agents.
+
+### 2.2 Multi-Agent Scientific Discovery Systems
+
+MIND (April 2026)
+
+LLM-driven multi-agent framework for automated hypothesis validation in materials research. Organizes discovery into hypothesis refinement → experimentation → debate-based validation. Integrates ML Interatomic Potentials (SevenNet-Omni) for scalable in-silico experiments. Web-based UI for hypothesis testing.
+
+> Nexus relevance: The debate-based validation pattern is a concrete implementation of the Verifier's multi-perspective evaluation. MIND's integration of specialized scientific tools (MLIPs) with agent reasoning mirrors Nexus's tool-registry architecture.
+
+MARS (January 2026)
+
+19 specialized LLM agents coordinated in a hierarchical framework with 16 domain-specific tools and heterogeneous robot clusters. Compressed 4 months of traditional R&D into 4 hours. Published in *Matter*.
+
+S1-NexusAgent (February 2026)
+
+Self-evolving agent framework with hierarchical Plan-and-CodeAct execution paradigm. Dual-loop architecture decouples global scientific planning from subtask-level tool execution. Features a Critic module that distills successful trajectories into reusable skills.
+
+CogGen (April 2026)
+
+Cognitively inspired recursive framework for deep research report generation. Three-agent architecture (Planner, Writer, Reviewer) generates multimodal research reports comparable to professional analysts, surpassing Gemini Deep Research.
+
+### 2.3 Multi-Agent Orchestration & Heterogeneous Systems
+
+Eywa (April 2026)
+
+Heterogeneous agentic framework extending language-centric systems to domain-specific scientific foundation models. Key innovations:
+
+- Augments domain-specific FMs with LLM-based reasoning interfaces.
+- EywaMAS replaces language agents in multi-agent systems.
+- EywaOrchestra: planning-based orchestration with dynamic coordination of language agents and EywaAgents.
+- 6–7% utility improvement, ~30% token reduction vs. pure GPT agents.
+
+> Nexus relevance: Eywa's heterogeneous FM integration pattern directly maps to Nexus's engine-agnostic design. The orchestration framework provides a mature reference for Nexus's Planner when coordinating across multiple knowledge backends.
+
+OrchMAS (March 2026)
+
+Two-tier multi-model orchestration framework with RL-driven dynamic agent direction. Supports heterogeneous LLM integration with different capacities/costs. Consistent improvements over existing multi-agent systems across scientific benchmarks.
+
+SAGE (March 2026)
+
+Closed-loop self-evolution framework: Challenger, Planner, Solver, and Critic agents co-evolve from a shared LLM backbone using only a small seed set. Improves Qwen-2.5-7B by 8.9% on LiveCodeBench and 10.7% on OlympiadBench.
+
+### 2.4 Knowledge-Graph-Integrated Multi-Agent Systems
+
+KARMA (January 2026)
+
+Multi-agent LLM framework for automated KG enrichment through structured analysis of unstructured text. Cross-agent verification enhances reliability of extracted knowledge.
+
+Graph2Eval (March 2026)
+
+KG-driven framework for automated, scalable agent task generation. Uses KG built from heterogeneous data sources as structured task space, generating multimodal agent tasks through subgraph sampling.
+
+Agentic GraphRAG (February 2026)
+
+Multi-agent system that automatically infers schemas from data, constructs knowledge graphs, and provides adaptive retrieval — directly relevant to Nexus's EdgeQuake + sync worker architecture.
+
+### 2.5 Evaluation Benchmarks for Scientific Agents
+
+| Benchmark | Date | Scope | Key Finding |
+|-----------|------|-------|-------------|
+| COMPOSITE-STEM | Apr 2026 | 70 PhD-level tasks across physics, chemistry, biology, math | Current AI agents cannot solve most frontier scientific tasks  |
+| FML-bench | Feb 2026 | 8 fundamental ML research tasks | Exploration Diversity metric predicts research outcomes  |
+| SGI-Bench | Jan 2026 | 1000+ expert-curated samples, 10 disciplines | Full inquiry cycle: Deliberation→Conception→Action→Perception  |
+| AIRS-Bench | Feb 2026 | 20 tasks from SOTA ML papers (Meta) | Diverse domains spanning ML research  |
+| SciAgentGym | Feb 2026 | 1,780 domain-specific tools, 4 disciplines | Stresses agentic capabilities from elementary to long-horizon  |
+
+### 2.6 Scaling & Theoretical Foundations
+
+Multi-Agent Reasoning Scaling Laws (May 2026)
+
+First systematic analysis of inference scaling strategies (self-consistency, self-refinement, multi-agent debate, mixture-of-agents). Finds Pareto-optimal tradeoffs between compute and performance.
+
+Towards a Science of Scaling Agent Systems (January 2026, Google)
+
+First quantitative scaling principles for AI agent systems from 180 agent configurations. Reports that LLM performance scales with agent count, and multi-agent collaboration "often surpasses each individual through collective reasoning."
+
+The Reasoning Trap (May 2026)
+
+Information-theoretic bound on closed-system multi-step LLM reasoning. Integrates metric (SFS), algorithm (EGSR), and theorem (DPI Bound) across five research generations (2017–2026). Provides theoretical grounding for when multi-agent debate can and cannot improve reasoning.
+
+## 3. Architectural Pattern Mapping: QiMeng → SSCCS Nexus
+
+### 3.1 Direct Transfer Patterns
+
+| QiMeng Pattern | SSCCS Nexus Mapping | Implementation Priority |
+|----------------|---------------------|------------------------|
+| 3-Layer Hierarchy (LPCM → Design Agent → Software Agent) | EdgeQuake KG (L1) → Executor/Verifier (L2) → Planner/Generator (L3) | Already designed |
+| Dual-Loop Feedback (Internal Correctness + External Performance) | Verifier ground-truth check + Flow-GRPO reward signal | Phase 4 critical path |
+| Macro-Micro Decoupling (Strategy vs. Implementation) | Planner (strategy) → Executor (implementation) | Already designed |
+| Domain-Specialized Foundation Model (LPCM) | EdgeQuake with SSCCS-specific entity config + knowledge injection | Phase 1 complete |
+| Reasoning-Enhanced Generation (CodeV-R1 CoT) | Planner chain-of-thought before hypothesis generation | Phase 4 enhancement |
+| Self-Evolving Prompt Strategies (NeuComBack) | Flow-GRPO policy improvement from prior trajectories | Phase 4 core |
+| Co-Evolution Architecture (MuPa Translator↔Tester) | Generator↔Verifier co-evolution through iterative co-verification | Phase 4 enhancement |
+| Neural-Symbolic Integration (Xpiler LLM + Symbolic Synthesis) | EdgeQuake KG symbolic retrieval + Planner LLM reasoning | Phase 3-4 bridge |
+| Structured Interspace (CRUX NL→structured IR→HDL) | contract.json as structured constraint between intent and artifact | Already designed |
+| Signal-Level Rewards (SALV AST-level RL) | Verifier granular validation beyond pass/fail; field-level correctness checking | Phase 4 enhancement |
+
+### 3.2 Extension Patterns (from 2026 Landscape)
+
+| 2026 Innovation | Source | Nexus Enhancement | Priority |
+|-----------------|--------|------------------|----------|
+| Discover-then-Explain paradigm | ResearchEVO | Generator: evolve solutions blindly → explain via RAG retroactively | High |
+| Debate-based validation | MIND | Verifier: multi-agent debate before accepting hypothesis | High |
+| Heterogeneous FM orchestration | Eywa | Planner: coordinate multiple KG backends dynamically | Medium |
+| Skill distillation from trajectories | S1-NexusAgent | Critic module: extract reusable skills from successful sessions | Medium |
+| Recursive report generation | CogGen | Generator: Planner→Writer→Reviewer recursive cycle | Medium |
+| Cross-agent verification | KARMA | Verifier: cross-check extracted knowledge across agents | High |
+
+### 3.3 Benchmark Integration Strategy
+
+SSCCS Nexus should integrate evaluation against the following benchmarks to validate its multi-agent research capabilities:
+
+1. COMPOSITE-STEM: Validate hypothesis generation quality on PhD-level STEM tasks.
+2. FML-bench: Measure Exploration Diversity of the Planner across research iterations.
+3. SGI-Bench: Evaluate full inquiry cycle capability (Deliberation→Conception→Action→Perception).
+
+## 4. Critical Analysis: What QiMeng and 2026 Systems Reveal
+
+### 4.1 The Convergence Pattern
+
+All major 2026 systems converge on a hierarchical multi-agent architecture with feedback loops:
+
+- QiMeng: 3-layer hierarchy + dual-loop feedback
+- MIND: Hypothesis refinement → Experimentation → Debate-based validation
+- ResearchEVO: Evolution Phase → Writing Phase with RAG verification
+- S1-NexusAgent: Plan-and-CodeAct with dual-loop + Critic
+- CogGen: Planner → Writer → Reviewer recursive cycle
+- Eywa: Central planner → Heterogeneous agent orchestration
+
+This convergence validates Nexus's architectural choices and indicates that the field has settled on proven patterns.
+
+### 4.2 The Gap: Physical Validation
+
+QiMeng's critical differentiator is physical validation — its CPUs are actually taped out and run Linux. Most 2026 systems (MIND, ResearchEVO, CogGen) operate in purely digital/simulation domains. MARS bridges this gap with robotic laboratory integration but is domain-specific to materials.
+
+Nexus's opportunity: SSCCS Nexus sits at a unique intersection — its knowledge graph can span both digital artifacts (code, documents) and physical validation data (HexaField robot telemetry, RISC-V emulation results). The cross-reality extension of the knowledge graph is the differentiating capability that no 2026 system yet offers.
+
+### 4.3 The Reasoning Ceiling
+
+"The Reasoning Trap" (May 2026) provides formal bounds on when multi-agent reasoning can improve over single-agent. This has direct implications for Nexus's Verifier design: verification Fields should incorporate information-theoretic checks to determine when additional debate rounds yield diminishing returns.
+
+## 5. Actionable Recommendations for SSCCS Nexus
+
+### Immediate (Next 4 Weeks)
+
+1. Integrate debate-based validation into the Verifier module, following MIND's pattern of hypothesis refinement → debate → acceptance/rejection.
+2. Adopt the Discover-then-Explain paradigm from ResearchEVO for hypothesis generation: allow the Planner to explore solution spaces blindly by fitness, then use RAG retroactively to ground discoveries in existing knowledge.
+3. Implement cross-agent verification (KARMA pattern) where extracted knowledge from EdgeQuake is cross-checked by a secondary verification agent before being accepted into the KG.
+
+### Short-Term (Phase 4 Implementation)
+
+4. Build a Critic module (S1-NexusAgent pattern) that analyzes successful research trajectories and distills reusable skills — directly feeding the Flow-GRPO training pipeline.
+5. Integrate COMPOSITE-STEM as validation benchmark for the hypothesis generation pipeline.
+6. Extend the contract.json governance model to include physical validation constraints (measurement precision bounds, reproducibility requirements) as demonstrated by MARS and QiMeng's dual-loop feedback.
+
+### Strategic
+
+7. Position Nexus as the first cross-reality research manifold — bridging digital knowledge (documents, code) with physical validation (robot telemetry, hardware emulation). No 2026 system currently offers this capability.
+8. Monitor the heterogeneous FM orchestration space (Eywa, OrchMAS) as Nexus's engine-agnostic design is a natural fit for multi-backend KG queries.
+
+## 6. Conclusion
+
+QiMeng demonstrates that hierarchical multi-agent LLM systems with dual-loop feedback can achieve engineering results comparable to human expertise — a validation that the SSCCS Nexus multi-agent research architecture is on the right trajectory. The 2026 landscape reveals rapid convergence on hierarchical agent architectures with structured feedback loops, debate-based validation, and self-evolution capabilities.
+
+SSCCS Nexus's unique advantage — its engine-agnostic, cross-reality knowledge graph — positions it to transcend the purely digital or purely physical limitations of existing systems. The immediate priority is to absorb the debate-validation and discover-then-explain patterns into the Verifier and Generator modules, while maintaining the architectural flexibility to integrate heterogeneous foundation models as they mature.
+
+The window of opportunity is open: no 2026 system yet combines structured knowledge graph reasoning, multi-agent hypothesis generation, physical validation, and contract-governed artifact production into a single unified research infrastructure.
+
+## References
+
+### QiMeng Systems (from <https://qimeng-ict.github.io/>)
+
+1. QiMeng-CPU-v1: Shuyao Cheng et al., "Automated CPU Design by Learning from Input-Output Examples." IJCAI'24. First AI-designed CPU running Linux; taped-out RISC-V chip comparable to Intel 80486SX.
+2. QiMeng-CPU-v2: Shuyao Cheng et al., "Automated Superscalar Processor Design by Learning Data Dependencies." IJCAI'25. World's first AI-designed superscalar CPU; ~380× improvement approaching ARM Cortex A53.
+3. QiMeng-CRUX: Lei Huang et al., "Narrowing the Gap between Natural Language and Verilog via Core Refined Understanding eXpression." AAAI'26. Structured interspace + transferable cross-model guidance for NL→HDL.
+4. QiMeng-SALV: Yang Zhang et al., "Signal-Aware Learning for Verilog Code Generation." NeurIPS'25. Signal-level RL rewards via AST analysis.
+5. QiMeng-CodeV-R1: Yaoyu Zhu et al., "Reasoning-Enhanced Verilog Generation." NeurIPS'25. CoT-based HDL generation; 7B model rivals 671B DeepSeek-R1 via test-time scaling.
+6. CodeV: Yang Zhao et al., "Empowering LLMs with HDL Generation through Multi-Level Summarization." TCAD'25. Multi-lingual (Verilog+Chisel), multi-scenario HDL generation.
+7. AutoOS: Huilai Chen et al., "Make Your OS More Powerful by Exploiting Large Language Models." ICML'24. First LLM-based automatic Linux kernel config optimization for AIoT.
+8. QiMeng-GEMM: Qirui Zhou et al., "Automatically Generating High-Performance Matrix Multiplication Code by Exploiting Large Language Models." AAAI'25. Meta-prompt iterative GEMM optimization.
+9. QiMeng-Kernel: Xinguo Zhu et al., "Macro-Thinking Micro-Coding Paradigm for LLM-Based High-Performance GPU Kernel Generation." AAAI'26. MTMC paradigm; +50% correctness, 7.3× speedup.
+10. QiMeng-Attention: Qirui Zhou et al., "SOTA Attention Operator is generated by SOTA Attention Algorithm." ACL'25. LLM-TL + two-stage reasoning; 35.16× speedup; months→minutes.
+11. QiMeng-TensorOp: Xuzhi Zhang et al., "One-Line Prompt is Enough for High-Performance Tensor Operator Generation with Hardware Primitives." IJCAI'25. 251% OpenBLAS (RISC-V), 124% cuBLAS (GPU).
+12. QiMeng-NeuComBack: Hainan Fang et al., "Self-Evolving Translation from IR to Assembly Code." NeurIPS'25. Self-evolving prompt strategies for neural compilation.
+13. VEGA: Ming Zhong et al., "Automatically Generating Compiler Backends using a Pre-trained Transformer Model." CGO'25. Template-based compiler backend auto-generation.
+14. ComBack: Ming Zhong et al., "A Versatile Dataset for Enhancing Compiler Backend Development Efficiency." NeurIPS'24. First public dataset: 178 backends, 3 scenarios.
+15. QiMeng-MuPa: Changxin Ke et al., "Mutual-Supervised Learning for Sequential-to-Parallel Code Translation." NeurIPS'25. Translator↔Tester co-evolution; first HPC auto-parallelization LLM.
+16. QiMeng-Xpiler: Shouyang Dong et al., "Transcompiling Tensor Programs for Deep Learning Systems with a Neural-Symbolic Approach." OSDI'25. Neural-symbolic; 95% accuracy; 2× over vendor libs.
+17. BabelTower: Yuanbo Wen et al., "Learning to Auto-parallelized Program Translation." ICML'22. Foundational C→CUDA translation; up to 347× speedup.
+
+### 2026 Multi-Agent Autonomous Research Systems
+
+18. ResearchEVO: "An End-to-End Framework for Automated Scientific Discovery and Documentation." arXiv:2604.05587 (April 2026).
+3. MIND: AI Co-Scientist for Material Research. arXiv:2604.13699 (April 2026).
+4. MARS: Knowledge-driven autonomous materials research via collaborative multi-agent and robotic system. *Matter* (January 2026).
+5. S1-NexusAgent: a Self-Evolving Agent Framework for Multidisciplinary Scientific Research. arXiv (February 2026).
+6. Eywa: Heterogeneous Scientific Foundation Model Collaboration. arXiv (April 2026).
+7. OrchMAS: Orchestrated Reasoning with Multi Collaborative Heterogeneous Scientific Expert Structured Agents. arXiv (March 2026).
+8. CogGen: A Cognitively Inspired Recursive Framework for Deep Research Report Generation. arXiv (April 2026).
+9. SAGE: Multi-Agent Self-Evolution for LLM Reasoning. arXiv (March 2026).
+10. KARMA: Leveraging Multi-Agent LLMs for Automated Knowledge Graph Enrichment. arXiv (January 2026).
+11. COMPOSITE-STEM: A Benchmark for AI Agents on Frontier Scientific Tasks. arXiv (April 2026).
+12. FML-bench: Benchmarking Machine Learning Agents for Scientific Research. arXiv (February 2026).
+13. Multi-Agent Reasoning Improves Compute Efficiency: Pareto-Optimal Test-Time Scaling. arXiv (May 2026).
+14. The Reasoning Trap: An Information-Theoretic Bound on Closed-System Multi-Step LLM Reasoning. arXiv (May 2026).
+15. Autonomous Research Loops: An LLM-Agent Framework for End-to-End ML Experimentation, Manuscripting, and Self-Evaluation. ACM (May 2026).
+16. Towards a science of scaling agent systems: When and why agent systems work. Google Research (January 2026).
