@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-import os, sys, subprocess, re, yaml
+import os
+import sys
+import subprocess
+import re
+import yaml
 from pathlib import Path
 
 def get_front_matter(qmd_path):

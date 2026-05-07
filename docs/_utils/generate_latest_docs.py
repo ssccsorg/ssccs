@@ -194,6 +194,56 @@ def _parse_git_log_nameonly(stdout: str) -> list[tuple[str, str]]:
     return deduped
 
 
+def _get_current_doc_paths() -> set[str]:
+    """Return the set of doc-relative paths currently tracked by git.
+
+    Uses ``git ls-files`` which reflects the authoritative current state,
+    so renamed files only appear at their current location.
+    """
+    _ensure_git_safe()
+    result = subprocess.run(
+        ["git", "ls-files", "--", "*.qmd", "*.md"],
+        cwd=DOCS_ROOT,
+        capture_output=True,
+        text=True,
+    )
+    paths: set[str] = set()
+    for line in result.stdout.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        rel = _normalise_path(line)
+        if rel and not matches_exclude(rel):
+            paths.add(rel)
+    return paths
+
+
+def _resolve_to_current_paths(
+    entries: list[tuple[str, str]], current_paths: set[str]
+) -> list[tuple[str, str]]:
+    """Remap each entry's path to its current git-tracked location.
+
+    When a file was renamed, ``git log --diff-filter=AM`` only knows
+    the old path.  This maps old paths to current paths by matching
+    the filename, so the generated link always points to the live
+    location.
+    """
+    fname_to_current: dict[str, str] = {}
+    for cp in current_paths:
+        fname = Path(cp).name
+        fname_to_current[fname] = cp
+
+    resolved: list[tuple[str, str]] = []
+    for ts, path in entries:
+        if path in current_paths:
+            resolved.append((ts, path))
+        else:
+            cur = fname_to_current.get(Path(path).name)
+            if cur is not None:
+                resolved.append((ts, cur))
+    return resolved
+
+
 def get_tracked_doc_files() -> list[tuple[str, str]]:
     """
     Return list of (iso_timestamp, relative_path) for every tracked
@@ -231,7 +281,10 @@ def get_tracked_doc_files() -> list[tuple[str, str]]:
         )
         return []
 
-    return _parse_git_log_nameonly(result.stdout)
+    current_paths = _get_current_doc_paths()
+    return _resolve_to_current_paths(
+        _parse_git_log_nameonly(result.stdout), current_paths
+    )
 
 
 def extract_title_from_file(abs_path: Path) -> str | None:
@@ -327,35 +380,41 @@ def breadcrumb(rel_path: str, title: str) -> str:
 
 def get_creation_dates() -> dict[str, str]:
     """
-    Return {rel_path: creation_date} for every .qmd/.md file ever created (Added).
+    Return {rel_path: creation_date} for every current doc file.
 
-    Uses ``git log --diff-filter=A``.  Only the date portion (``YYYY-MM-DD``)
-    is kept so it can be compared directly with modification dates.
+    Uses ``git log --follow --diff-filter=A`` per file to trace through
+    renames back to the original Add event, giving the true initial
+    creation date rather than the rename date.
     """
     _ensure_git_safe()
-    result = subprocess.run(
-        [
-            "git",
-            "log",
-            "--diff-filter=A",
-            "--name-only",
-            "--pretty=format:%ai",
-            "--",
-            "*.qmd",
-            "*.md",
-        ],
-        cwd=DOCS_ROOT,
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        return {}
-
+    current_paths = _get_current_doc_paths()
     created: dict[str, str] = {}
-    # Walk backwards so earlier commits (first creation) are retained
-    for ts, rel_path in reversed(_parse_git_log_nameonly(result.stdout)):
-        if rel_path not in created:
-            created[rel_path] = ts.split()[0]  # date only
+
+    for rel_path in sorted(current_paths):
+        result = subprocess.run(
+            [
+                "git",
+                "log",
+                "--follow",
+                "--diff-filter=A",
+                "--pretty=format:%ai",
+                "--",
+                rel_path,
+            ],
+            cwd=DOCS_ROOT,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            continue
+        # Last timestamp line is the oldest commit (initial Add)
+        lines = [
+            l.strip()
+            for l in result.stdout.splitlines()
+            if l.strip() and l.strip()[0:4].isdigit()
+        ]
+        if lines:
+            created[rel_path] = lines[-1].split()[0]  # date only
 
     return created
 
