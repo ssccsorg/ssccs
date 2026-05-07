@@ -57,9 +57,9 @@ jobs:
       - name: Prepare poc agent artifacts
         run: |
           mkdir -p _agent
-          rsync -av --delete \
-            --exclude='**/README.md' \
-            --include='*.md' \
+          rsync -avm --delete --delete-excluded \
+            --include='_llms/***' \
+            --include='README.md' \
             --exclude='*' \
             poc/ _agent/poc/
 
