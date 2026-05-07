@@ -11,3 +11,7 @@ Minimize use `—` as much as possible except only when absolutely necessary.
 ## Code
 
 All code and comments must be written in English.
+
+## Content
+
+Don't directly write `.ss`: use technical naming in the context of the sentence.
