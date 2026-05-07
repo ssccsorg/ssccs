@@ -409,9 +409,9 @@ def get_creation_dates() -> dict[str, str]:
             continue
         # Last timestamp line is the oldest commit (initial Add)
         lines = [
-            l.strip()
-            for l in result.stdout.splitlines()
-            if l.strip() and l.strip()[0:4].isdigit()
+            line.strip()
+            for line in result.stdout.splitlines()
+            if line.strip() and line.strip()[0:4].isdigit()
         ]
         if lines:
             created[rel_path] = lines[-1].split()[0]  # date only
