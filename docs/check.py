@@ -37,6 +37,8 @@ IGNORED_DIRS = {
     ".venv",
     ".git",
     "_site",
+    "_pages",
+    "_cache*",
     ".quarto",
     "_docsbuild",
     "_llms",
