@@ -112,6 +112,8 @@ TokenSpeed treats kernels as a first-class modular subsystem, not an appendage t
 
 Critically, the kernel subsystem is not merely a collection of optimized functions. It is a *registry with a selection model*: given a workload and a hardware target, the registry selects the appropriate kernel implementation through a deterministic resolution process. This means kernel authors can contribute specialized implementations without modifying the engine core, and the engine can adopt new hardware backends without understanding their internal optimization logic.
 
+The repository structure confirms this is not aspirational. The `tokenspeed-kernel/` directory enforces an explicit organizational contract: third-party code belongs in `thirdparty/`, is imported into `ops/` following a `<family>/<solution>` hierarchy (e.g., `gemm/trtllm.py`, `attention/triton/`), and each kernel is surfaced through an explicit `register_kernel` call. Discovery is not automatic; registration is intentional. This is the selection model made visible in code.
+
 ### 5.2 Mapping to SSCCS Nexus
 
 Nexus's tool-registry architecture — where domain-specific tools (benchmark harnesses, formal verifiers, analysis scripts) are registered and discovered by agents — is the conceptual equivalent of TokenSpeed's kernel registry. The gap is the selection model. TokenSpeed does not merely list available kernels; it resolves which kernel to use based on workload characteristics and hardware target.
@@ -134,6 +136,8 @@ For Nexus Phase 4, this suggests that the Verifier — the component that must b
 
 TokenSpeed targeted TensorRT-LLM — the recognised state of the art — from its first public benchmark. There was no incremental ramp, no preliminary comparison against weaker baselines. This is not a marketing decision; it is an architectural one. Measuring against the strongest available baseline exposes the real gaps in a design, rather than providing the illusion of progress against a weak reference point.
 
+This philosophy extends to TokenSpeed's documentation. The docs follow a "Launch First" pattern: start with concrete, executable commands validated against real model families, then expose the tuning dimensions one at a time. Configuration parameters that share semantics with established APIs retain familiar names; TokenSpeed-specific knobs are documented separately. The result is a documentation surface that mirrors the architecture: declarative contracts (recipes) that the user instantiates, with implementation details (parameters) accessible but not required for first use.
+
 For Nexus, this translates into a benchmarking philosophy: the autonomous research loop should be measured against human researchers performing the same tasks, not against weaker automated systems. COMPOSITE-STEM and FML-bench — already identified as evaluation targets — embody this philosophy. TokenSpeed adds the urgency: measure early, measure against the best, and let the results drive the architecture.
 
 ### 6.3 Short Development Timeline with Production Ambition
@@ -141,6 +145,16 @@ For Nexus, this translates into a benchmarking philosophy: the autonomous resear
 TokenSpeed began in mid-March 2026 and published competitive benchmarks in early May — approximately seven weeks. It accomplished this not by building everything from scratch but by collaborating with existing projects (vLLM, TensorRT-LLM, Triton, FluentLLM) and contributing specialized optimizations (MLA kernel, scheduler FSM) that addressed specific bottlenecks. The core engine leveraged established infrastructure; the innovation focused on the agentic-inference regime where existing solutions were weakest.
 
 For Nexus, this validates the engine-agnostic, collaboration-forward architecture. Nexus does not need to build its own LLM, its own KG store, or its own experiment harness. It needs to contribute the contract-governed agentic loop — the part that no existing system provides.
+
+### 6.4 Shepherd Model Gateway (SMG) as Nexus Orchestration Reference
+
+TokenSpeed's entrypoint layer is built on SMG, a Rust-based gateway that separates CPU-bound tokenization and request routing from GPU-bound inference. SMG's core architectural claim is that GPU resources should be reserved exclusively for tensor operations, with all other work offloaded to a dedicated serving layer free of Python's GIL constraints. This is not an optimization — it is a structural claim about where work belongs.
+
+The SMG architecture is structurally identical to Nexus's proposed query orchestration layer. SMG receives client requests through a gateway, preprocesses them (tokenization, input validation), routes them to the appropriate inference worker, and returns structured results. Nexus's `POST /orchestrate` endpoint performs the same sequence — query preprocessing, complexity classification, routing to the optimal knowledge engine, and result fusion — on a different workload. The pattern is invariant across domains.
+
+Three concrete parallels inform Nexus's design. First, SMG's gateway-to-worker communication uses gRPC over a pure Rust data plane, demonstrating that inter-component protocols can be verifiably correct without sacrificing throughput. This is the same communication model needed between Nexus's Executor and the multi-engine knowledge graph. Second, SMG's gateway and inference workers can be upgraded independently because their interface is the protocol, not the implementation — the same property that enables Nexus to add or remove knowledge engines without modifying the orchestrator. Third, SMG handles output parsing and structured extraction at the gateway layer before returning results to clients, a pattern that maps directly to Nexus's Generator producing structured, contract-validated artifacts from raw engine outputs.
+
+For Nexus Phase 4, SMG provides an existence proof that a Rust-based orchestration gateway with gRPC inter-component communication can serve production workloads at scale. It is not a dependency; it is a reference architecture that validates Nexus's proposed design against an independently developed, independently benchmarked system.
 
 ## 7. Mapping to Nexus Pre-Research Processing Layer
 
