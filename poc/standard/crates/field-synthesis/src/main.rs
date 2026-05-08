@@ -526,7 +526,11 @@ fn test_transition_composition() {
         prod_targets.contains(&coord(2, 0, 0)),
         "Product (no split) should include (2,0,0) common to both"
     );
-    assert_eq!(prod_targets.len(), 1, "Product (no split) should have 1 target");
+    assert_eq!(
+        prod_targets.len(),
+        1,
+        "Product (no split) should have 1 target"
+    );
 
     // Identity: ∅ has no transitions
     let union_with_empty = union(field_x.clone(), IdentityField::Empty);
@@ -539,8 +543,17 @@ fn test_transition_composition() {
     assert!(empty_targets.contains(&coord(1, 0, 0)));
     assert!(empty_targets.contains(&coord(2, 0, 0)));
 
-    println!("  X ∪ Y targets: {:?}", union_targets.iter().map(|c| &c.raw).collect::<Vec<_>>());
-    println!("  X ∩ Y targets: {:?}", inter_targets.iter().map(|c| &c.raw).collect::<Vec<_>>());
-    println!("  X × Y targets: {:?}", prod_targets.iter().map(|c| &c.raw).collect::<Vec<_>>());
+    println!(
+        "  X ∪ Y targets: {:?}",
+        union_targets.iter().map(|c| &c.raw).collect::<Vec<_>>()
+    );
+    println!(
+        "  X ∩ Y targets: {:?}",
+        inter_targets.iter().map(|c| &c.raw).collect::<Vec<_>>()
+    );
+    println!(
+        "  X × Y targets: {:?}",
+        prod_targets.iter().map(|c| &c.raw).collect::<Vec<_>>()
+    );
     println!("  → Transition topology is preserved through Field composition.");
 }
