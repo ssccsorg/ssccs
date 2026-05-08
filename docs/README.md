@@ -40,6 +40,7 @@ enthusiasts.
 - [Official Website](https://ssccs.org)
 - [Documentation](https://docs.ssccs.org)
 - [GitHub Discussions](https://github.com/ssccsorg/ssccs/discussions)
+- [Deep Pair-Coding on Zed](https://zed.dev/channel/ssccsorg-37547): And support the spirit of Zed @zed-industries.
 - [Legal Charter](/docs/legal/index.qmd)
 - [Code of Conduct](/docs/code_of_conduct.md)
 - [Contributing Guidelines](/docs/contributing.md)
