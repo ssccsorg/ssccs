@@ -26,6 +26,14 @@ Create relevent github PR first, then create branch with {created issue number}-
 
 The format of PR title: same as Commit message format with adding a prefix: `PR:`
 
+## Code
+
+Do not generate unnecessary code
+
+Focus on the accurated essentials.
+
+Code as pessimistically and critically as possible.
+
 ## Git
 
 Commit message format: if it's working in a PR branch (skip in main branch). follow the format `{category (e.g. feat, docs, etc)}: #{issue number}: {message or short description}`
