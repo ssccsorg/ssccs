@@ -20,13 +20,13 @@ Don't use sequential "Week 1, Week 2" enumerations. Use numbered experiments, ph
 
 ## Git
 
+Do not push without permission.
+
 Always use English
 
 Create relevent github PR first, then create branch with {created issue number}-{subject alphabets with one or two `-`} when start a new task subject.
 
 The format of PR title: same as Commit message format with adding a prefix: `PR:`
-
-Do not push without permission.
 
 Commit message format: if it's working in a PR branch (skip in main branch). follow the format `{category (e.g. feat, docs, etc)}: #{issue number}: {message or short description}`
 
