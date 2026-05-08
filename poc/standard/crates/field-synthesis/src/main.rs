@@ -3,24 +3,30 @@
 //! Validates that Fields can be composed through union, intersection, and product
 //! operations, and that these compositions satisfy expected algebraic properties.
 //!
-//! ## Background
+//! ## Structure
 //!
-//! The SSCCS philosophy establishes that "the manner in which we combine questions
-//! becomes a form of epistemology":
+//! - Algebraic laws (tests 1–11): commutativity, associativity, distributivity, etc.
+//! - `test_compose_observe`: the bridge from composed Fields to the observation pipeline.
+//! - `Scenario` module: domain-specific scenarios demonstrating composition with
+//!   heterogeneous axes — time, space, temperature, sensor identity, etc.
 //!
-//! - **Union (∪)**: Broadens inquiry — admissible if either Field allows.
-//! - **Intersection (∩)**: Narrows focus — admissible only if both allow.
-//! - **Product (×)**: Parallel independent investigation — each Field governs
-//!   a disjoint axis partition.
+//! Adding a scenario requires only implementing the `Scenario` trait and registering it.
 
 use ssccs_core::{Field, Segment, SpaceCoordinates};
 use ssccs_examples::{CoordinateSumProjector, EvenConstraint, RangeConstraint};
 use ssccs_field_synthesis::{IdentityField, compose_observe, intersection, product, union};
 
+mod scenarios;
+use scenarios::Scenario;
+
 fn main() {
     println!("=== Field Synthesis: Composition Algebra ===\n");
 
-    let tests: Vec<(&str, fn())> = vec![
+    let mut passed = 0u32;
+    let mut failed = 0u32;
+
+    // ── algebraic laws ──
+    let laws: Vec<(&str, fn())> = vec![
         ("1. Identity Elements", test_identity),
         ("2. Commutativity", test_commutativity),
         ("3. Associativity", test_associativity),
@@ -33,42 +39,56 @@ fn main() {
         ("10. Transition Composition", test_transition),
         ("11. Idempotence", test_idempotence),
         ("12. compose_observe Bridge", test_compose_observe),
-        ("13. Inquiry Over Structure", test_inquiry_over_structure),
     ];
 
-    let mut passed = 0u32;
-    let mut failed = 0u32;
-
-    for (name, test_fn) in &tests {
+    for (name, test_fn) in &laws {
         print!("  {} ... ", name);
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(test_fn));
-        match result {
-            Ok(()) => {
-                println!("PASSED");
-                passed += 1;
+        if result.is_ok() {
+            println!("PASSED");
+            passed += 1;
+        } else {
+            println!("FAILED");
+            if let Err(e) = result {
+                if let Some(m) = e.downcast_ref::<&str>() {
+                    println!("    Reason: {}", m);
+                }
             }
-            Err(e) => {
-                println!("FAILED");
+            failed += 1;
+        }
+    }
+
+    // ── scenarios ──
+    for s in scenarios::registry() {
+        print!("  Scenario: {} ... ", s.name());
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| s.run()));
+        if result.is_ok() {
+            println!("PASSED");
+            passed += 1;
+        } else {
+            println!("FAILED");
+            if let Err(e) = result {
                 if let Some(m) = e.downcast_ref::<&str>() {
                     println!("    Reason: {}", m);
                 } else if let Some(m) = e.downcast_ref::<String>() {
                     println!("    Reason: {}", m);
                 }
-                failed += 1;
             }
+            failed += 1;
         }
     }
 
+    let total = laws.len() + scenarios::registry().len();
     println!(
         "\nResults: {} passed, {} failed out of {} tests",
-        passed,
-        failed,
-        tests.len()
+        passed, failed, total
     );
     if failed > 0 {
         std::process::exit(1);
     }
 }
+
+// ==================== HELPERS ====================
 
 fn coord(x: i64, y: i64, z: i64) -> SpaceCoordinates {
     SpaceCoordinates::new(vec![x, y, z])
@@ -96,7 +116,7 @@ fn field_c() -> Field {
     f
 }
 
-// ==================== TESTS ====================
+// ==================== LAWS 1–12 ====================
 
 fn test_identity() {
     let u = union(field_a(), IdentityField::Empty);
@@ -127,7 +147,6 @@ fn test_commutativity() {
     for c in &tests {
         assert_eq!(ab.allows(c), ba.allows(c));
     }
-
     let ab = intersection(field_a(), field_b());
     let ba = intersection(field_b(), field_a());
     for c in &tests {
@@ -152,7 +171,6 @@ fn test_associativity() {
     for t in &tests {
         assert_eq!(l.allows(t), r.allows(t));
     }
-
     let l = intersection(intersection(a.clone(), b.clone()), c.clone());
     let r = intersection(a.clone(), intersection(b.clone(), c.clone()));
     for t in &tests {
@@ -169,16 +187,14 @@ fn test_absorption() {
         coord(3, 1, 0),
         coord(3, 10, 0),
     ];
-
-    let la = union(a.clone(), intersection(a.clone(), b.clone()));
+    let l = union(a.clone(), intersection(a.clone(), b.clone()));
     for t in &tests {
-        assert_eq!(la.allows(t), a.allows(t));
+        assert_eq!(l.allows(t), a.allows(t));
     }
-
-    let la = intersection(a.clone(), union(a, b));
+    let l = intersection(a.clone(), union(a, b));
     let a2 = field_a();
     for t in &tests {
-        assert_eq!(la.allows(t), a2.allows(t));
+        assert_eq!(l.allows(t), a2.allows(t));
     }
 }
 
@@ -208,7 +224,6 @@ fn test_product() {
     let mut fa = Field::new();
     fa.add_constraint(RangeConstraint::new(0, 0, 10));
     fa.add_constraint(EvenConstraint::new(0));
-
     let pa = product(fa.clone(), IdentityField::Unit, 1);
     assert!(pa.allows(&coord_1d(2)));
     assert!(!pa.allows(&coord_1d(3)));
@@ -223,7 +238,6 @@ fn test_nested() {
     assert!(n.allows(&coord(2, 1, 2)));
     assert!(n.allows(&coord(2, 10, 2)));
     assert!(!n.allows(&coord(3, 1, 5)));
-
     let t = intersection(intersection(a.clone(), b.clone()), c.clone());
     assert!(t.allows(&coord(2, 1, 2)));
     assert!(!t.allows(&coord(3, 1, 2)));
@@ -237,12 +251,10 @@ fn test_admissibility() {
     let c = field_c();
     let narrow = intersection(intersection(a.clone(), b.clone()), c.clone());
     let broad = union(union(a.clone(), b.clone()), c.clone());
-
     assert!(narrow.allows(&coord(2, 1, 2)));
     assert!(!narrow.allows(&coord(3, 10, 5)));
     assert!(!narrow.allows(&coord(2, 10, 5)));
     assert!(broad.allows(&coord(2, 10, 5)));
-
     println!("  Same coord (2,10,5): Narrow=false, Broad=true");
 }
 
@@ -262,34 +274,28 @@ fn test_transition() {
     let mut x = Field::new();
     x.add_transition(coord(0, 0, 0), coord(1, 0, 0), 1.0);
     x.add_transition(coord(0, 0, 0), coord(2, 0, 0), 0.5);
-
     let mut y = Field::new();
     y.add_transition(coord(0, 0, 0), coord(2, 0, 0), 0.8);
     y.add_transition(coord(0, 0, 0), coord(3, 0, 0), 1.0);
-
     let o = coord(0, 0, 0);
-
-    let ut = union(x.clone(), y.clone()).transition_targets(&o);
-    assert_eq!(ut.len(), 3);
-
+    assert_eq!(union(x.clone(), y.clone()).transition_targets(&o).len(), 3);
     let it = intersection(x.clone(), y.clone()).transition_targets(&o);
     assert_eq!(it.len(), 1);
     assert!(it.contains(&coord(2, 0, 0)));
-
     println!(
-        "  X ∪ Y: {:?}",
-        ut.iter().map(|c| &c.raw).collect::<Vec<_>>()
+        "  X∪Y: {:?}",
+        union(x, y)
+            .transition_targets(&o)
+            .iter()
+            .map(|c| &c.raw)
+            .collect::<Vec<_>>()
     );
-    println!(
-        "  X ∩ Y: {:?}",
-        it.iter().map(|c| &c.raw).collect::<Vec<_>>()
-    );
+    println!("  X∩Y: {:?}", it.iter().map(|c| &c.raw).collect::<Vec<_>>());
 }
 
 fn test_idempotence() {
     let a = field_a();
-    let tests = [coord(2, 1, 0), coord(3, 1, 0), coord(12, 1, 0)];
-    for t in &tests {
+    for t in &[coord(2, 1, 0), coord(3, 1, 0), coord(12, 1, 0)] {
         assert_eq!(union(a.clone(), a.clone()).allows(t), a.allows(t));
         assert_eq!(intersection(a.clone(), a.clone()).allows(t), a.allows(t));
     }
@@ -302,75 +308,14 @@ fn test_idempotence() {
 fn test_compose_observe() {
     let narrow = intersection(intersection(field_a(), field_b()), field_c());
     let projector = CoordinateSumProjector;
-
     let seg = Segment::new(coord(2, 1, 2));
-    let obs = compose_observe(&narrow, &projector, &seg);
-    assert_eq!(obs, Some(5));
-
-    let seg_bad = Segment::new(coord(3, 10, 5));
-    assert!(compose_observe(&narrow, &projector, &seg_bad).is_none());
-
-    let seg_partial = Segment::new(coord(2, 10, 5));
-    assert!(compose_observe(&narrow, &projector, &seg_partial).is_none());
-
+    assert_eq!(compose_observe(&narrow, &projector, &seg), Some(5));
+    assert!(compose_observe(&narrow, &projector, &Segment::new(coord(3, 10, 5))).is_none());
+    assert!(compose_observe(&narrow, &projector, &Segment::new(coord(2, 10, 5))).is_none());
     println!(
-        "    A∩B∩C at (2,1,2): {:?}",
+        "  A∩B∩C at (2,1,2): {:?}",
         compose_observe(&narrow, &projector, &seg)
     );
-    println!(
-        "    A∩B∩C at (3,10,5): {:?}",
-        compose_observe(&narrow, &projector, &seg_bad)
-    );
-    println!(
-        "    A∩B∩C at (2,10,5): {:?}",
-        compose_observe(&narrow, &projector, &seg_partial)
-    );
+    println!("  A∩B∩C at (3,10,5): None");
     println!("  → Observation through composed Fields is structurally real.");
-}
-
-fn test_inquiry_over_structure() {
-    let mut fp = Field::new();
-    fp.add_constraint(EvenConstraint::new(0));
-    let mut fq = Field::new();
-    fq.add_constraint(RangeConstraint::new(1, 0, 1));
-
-    let segs: Vec<Segment> = (0..=2)
-        .flat_map(|y| (0..=2).map(move |x| Segment::new(SpaceCoordinates::new(vec![x, y]))))
-        .collect();
-    assert_eq!(segs.len(), 9);
-
-    let narrow = intersection(fp.clone(), fq.clone());
-    let narrow_count = segs
-        .iter()
-        .filter(|s| narrow.allows(s.coordinates()))
-        .count();
-    assert_eq!(narrow_count, 4);
-
-    let broad = union(fp.clone(), fq.clone());
-    let broad_count = segs
-        .iter()
-        .filter(|s| broad.allows(s.coordinates()))
-        .count();
-    assert_eq!(broad_count, 8);
-
-    let projector = CoordinateSumProjector;
-    let projections: Vec<i64> = segs
-        .iter()
-        .filter_map(|s| compose_observe(&narrow, &projector, s))
-        .collect();
-    assert_eq!(projections, vec![0, 2, 1, 3]);
-
-    let broad_projections: Vec<i64> = segs
-        .iter()
-        .filter_map(|s| compose_observe(&broad, &projector, s))
-        .collect();
-    assert_eq!(broad_projections.len(), 8);
-
-    println!("  P: axis[0] even, Q: axis[1] in [0,1] over 9-segment 2D space");
-    println!(
-        "  P∩Q (narrow): {} segments → sums: {:?}",
-        narrow_count, projections
-    );
-    println!("  P∪Q (broad):  {} segments", broad_count);
-    println!("  → Same structure, different inquiry, different observables.");
 }
