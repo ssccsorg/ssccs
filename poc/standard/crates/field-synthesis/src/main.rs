@@ -33,6 +33,7 @@ fn main() {
         ("10. Transition Composition", test_transition),
         ("11. Idempotence", test_idempotence),
         ("12. compose_observe Bridge", test_compose_observe),
+        ("13. Inquiry Over Structure", test_inquiry_over_structure),
     ];
 
     let mut passed = 0u32;
@@ -325,4 +326,51 @@ fn test_compose_observe() {
         compose_observe(&narrow, &projector, &seg_partial)
     );
     println!("  → Observation through composed Fields is structurally real.");
+}
+
+fn test_inquiry_over_structure() {
+    let mut fp = Field::new();
+    fp.add_constraint(EvenConstraint::new(0));
+    let mut fq = Field::new();
+    fq.add_constraint(RangeConstraint::new(1, 0, 1));
+
+    let segs: Vec<Segment> = (0..=2)
+        .flat_map(|y| (0..=2).map(move |x| Segment::new(SpaceCoordinates::new(vec![x, y]))))
+        .collect();
+    assert_eq!(segs.len(), 9);
+
+    let narrow = intersection(fp.clone(), fq.clone());
+    let narrow_count = segs
+        .iter()
+        .filter(|s| narrow.allows(s.coordinates()))
+        .count();
+    assert_eq!(narrow_count, 4);
+
+    let broad = union(fp.clone(), fq.clone());
+    let broad_count = segs
+        .iter()
+        .filter(|s| broad.allows(s.coordinates()))
+        .count();
+    assert_eq!(broad_count, 8);
+
+    let projector = CoordinateSumProjector;
+    let projections: Vec<i64> = segs
+        .iter()
+        .filter_map(|s| compose_observe(&narrow, &projector, s))
+        .collect();
+    assert_eq!(projections, vec![0, 2, 1, 3]);
+
+    let broad_projections: Vec<i64> = segs
+        .iter()
+        .filter_map(|s| compose_observe(&broad, &projector, s))
+        .collect();
+    assert_eq!(broad_projections.len(), 8);
+
+    println!("  P: axis[0] even, Q: axis[1] in [0,1] over 9-segment 2D space");
+    println!(
+        "  P∩Q (narrow): {} segments → sums: {:?}",
+        narrow_count, projections
+    );
+    println!("  P∪Q (broad):  {} segments", broad_count);
+    println!("  → Same structure, different inquiry, different observables.");
 }
