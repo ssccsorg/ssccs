@@ -18,7 +18,7 @@ Don't directly write `.ss`: use technical naming in the context of the sentence.
 
 Don't use sequential "Week 1, Week 2" enumerations. Use numbered experiments, phases, or milestones instead.
 
-## Repository interaction
+## Git
 
 Always use English
 
@@ -26,16 +26,16 @@ Create relevent github PR first, then create branch with {created issue number}-
 
 The format of PR title: same as Commit message format with adding a prefix: `PR:`
 
-## Code
-
-Do not generate unnecessary code
-
-Focus on the accurated essentials.
-
-Code as pessimistically and critically as possible.
-
-## Git
+Do not push without permission.
 
 Commit message format: if it's working in a PR branch (skip in main branch). follow the format `{category (e.g. feat, docs, etc)}: #{issue number}: {message or short description}`
 
 Do not test with github push.
+
+## Code
+
+Focus on the accurancy of the goal.
+
+Do not generate unnecessary code unless it was essential for the goal.
+
+Code as pessimistically and critically as possible.
