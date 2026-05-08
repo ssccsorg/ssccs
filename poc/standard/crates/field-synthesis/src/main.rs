@@ -41,6 +41,7 @@ fn main() {
         ),
         ("9. Expression Description", test_expression_description),
         ("10. Transition Composition", test_transition_composition),
+        ("11. Idempotence", test_idempotence),
     ];
 
     let mut passed = 0u32;
@@ -556,4 +557,50 @@ fn test_transition_composition() {
         prod_targets.iter().map(|c| &c.raw).collect::<Vec<_>>()
     );
     println!("  → Transition topology is preserved through Field composition.");
+}
+
+// ==================== TEST 11: IDEMPOTENCE ====================
+
+fn test_idempotence() {
+    // A ∪ A = A
+    let fa = build_field_a();
+    let a_union_a = union(fa.clone(), fa.clone());
+    let test_coords = vec![coord(2, 1, 0), coord(3, 1, 0), coord(12, 1, 0)];
+    for c in &test_coords {
+        assert_eq!(
+            a_union_a.allows(c),
+            fa.allows(c),
+            "A ∪ A should equal A at {:?}",
+            c.raw
+        );
+    }
+
+    // A ∩ A = A
+    let a_inter_a = intersection(fa.clone(), fa.clone());
+    for c in &test_coords {
+        assert_eq!(
+            a_inter_a.allows(c),
+            fa.allows(c),
+            "A ∩ A should equal A at {:?}",
+            c.raw
+        );
+    }
+
+    // ∅ ∪ ∅ = ∅
+    let empty_empty = union(IdentityField::Empty, IdentityField::Empty);
+    assert!(
+        !empty_empty.allows(&coord(0, 0, 0)),
+        "∅ ∪ ∅ should be empty"
+    );
+
+    // ⊤ ∩ ⊤ = ⊤
+    let uni_uni = intersection(IdentityField::Universal, IdentityField::Universal);
+    assert!(
+        uni_uni.allows(&coord(999, 0, 0)),
+        "⊤ ∩ ⊤ should be universal"
+    );
+
+    println!("  A ∪ A = A, A ∩ A = A (verified across multiple coordinates)");
+    println!("  ∅ ∪ ∅ = ∅, ⊤ ∩ ⊤ = ⊤");
+    println!("  → All idempotence laws satisfied.");
 }

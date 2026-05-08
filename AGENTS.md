@@ -18,7 +18,9 @@ Don't directly write `.ss`: use technical naming in the context of the sentence.
 
 Don't use sequential "Week 1, Week 2" enumerations. Use numbered experiments, phases, or milestones instead.
 
-## Task
+## Repository interaction
+
+Always use English
 
 Create relevent github PR first, then create branch with {created issue number}-{subject alphabets with one or two `-`} when start a new task subject.
 

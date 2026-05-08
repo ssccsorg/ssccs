@@ -159,6 +159,9 @@ impl ComposedField {
             CompositionOp::Product => {
                 match self.left_axes {
                     Some(axes) => {
+                        if axes > coords.raw.len() {
+                            return false;
+                        }
                         // Split coordinate space: left gets first `axes` axes, right gets the rest.
                         let left_coords = SpaceCoordinates::new(coords.raw[..axes].to_vec());
                         let right_coords = SpaceCoordinates::new(coords.raw[axes..].to_vec());
@@ -179,7 +182,6 @@ impl ComposedField {
         self.op
     }
 
-    /// Return a human-readable description of the composition expression.
     /// Return the merged transition targets from the composed Field.
     ///
     /// How transitions merge depends on the composition operation:
@@ -214,6 +216,9 @@ impl ComposedField {
             }
             CompositionOp::Product => match self.left_axes {
                 Some(axes) => {
+                    if axes > coords.raw.len() {
+                        return Vec::new();
+                    }
                     let left_coords = SpaceCoordinates::new(coords.raw[..axes].to_vec());
                     let right_coords = SpaceCoordinates::new(coords.raw[axes..].to_vec());
                     let left_targets: Vec<SpaceCoordinates> = self
