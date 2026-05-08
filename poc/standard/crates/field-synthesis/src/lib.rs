@@ -13,6 +13,7 @@
 //!
 //! These are not algebraic conveniences. They are the structure of inquiry made directly executable.
 
+use std::collections::HashSet;
 use std::fmt::Debug;
 
 pub use ssccs_core::{Constraint, Field, Projector, Segment, SpaceCoordinates};
@@ -179,6 +180,77 @@ impl ComposedField {
     }
 
     /// Return a human-readable description of the composition expression.
+    /// Return the merged transition targets from the composed Field.
+    ///
+    /// How transitions merge depends on the composition operation:
+    /// - Union: targets that exist in either sub-field
+    /// - Intersection: targets that exist in both sub-fields
+    /// - Product (no split): targets that exist in both sub-fields
+    /// - Product (with split): each sub-field transitions within its axis partition
+    pub fn transition_targets(&self, coords: &SpaceCoordinates) -> Vec<SpaceCoordinates> {
+        match self.op {
+            CompositionOp::Union => {
+                let left = self.transition_expr(&self.left, coords);
+                let right = self.transition_expr(&self.right, coords);
+                let mut merged: Vec<SpaceCoordinates> = left;
+                merged.extend(right);
+                merged.sort_by(|a, b| a.raw.cmp(&b.raw));
+                merged.dedup();
+                merged
+            }
+            CompositionOp::Intersection => {
+                let left: HashSet<SpaceCoordinates> =
+                    self.transition_expr(&self.left, coords).into_iter().collect();
+                let right: HashSet<SpaceCoordinates> =
+                    self.transition_expr(&self.right, coords).into_iter().collect();
+                let mut merged: Vec<SpaceCoordinates> =
+                    left.intersection(&right).cloned().collect();
+                merged.sort_by(|a, b| a.raw.cmp(&b.raw));
+                merged
+            }
+            CompositionOp::Product => match self.left_axes {
+                Some(axes) => {
+                    let left_coords = SpaceCoordinates::new(coords.raw[..axes].to_vec());
+                    let right_coords = SpaceCoordinates::new(coords.raw[axes..].to_vec());
+                    let left_targets: Vec<SpaceCoordinates> =
+                        self.transition_expr(&self.left, &left_coords)
+                            .into_iter()
+                            .map(|c| {
+                                let mut raw = c.raw;
+                                raw.extend(right_coords.raw.clone());
+                                SpaceCoordinates::new(raw)
+                            })
+                            .collect();
+                    let right_targets: Vec<SpaceCoordinates> =
+                        self.transition_expr(&self.right, &right_coords)
+                            .into_iter()
+                            .map(|c| {
+                                let mut raw = left_coords.raw.clone();
+                                raw.extend(c.raw);
+                                SpaceCoordinates::new(raw)
+                            })
+                            .collect();
+                    let mut merged: Vec<SpaceCoordinates> = left_targets;
+                    merged.extend(right_targets);
+                    merged.sort_by(|a, b| a.raw.cmp(&b.raw));
+                    merged.dedup();
+                    merged
+                }
+                None => {
+                    let left: HashSet<SpaceCoordinates> =
+                        self.transition_expr(&self.left, coords).into_iter().collect();
+                    let right: HashSet<SpaceCoordinates> =
+                        self.transition_expr(&self.right, coords).into_iter().collect();
+                    let mut merged: Vec<SpaceCoordinates> =
+                        left.intersection(&right).cloned().collect();
+                    merged.sort_by(|a, b| a.raw.cmp(&b.raw));
+                    merged
+                }
+            },
+        }
+    }
+
+    /// Return a human-readable description of the composition expression.
     pub fn describe(&self) -> String {
         let left_desc = self.describe_expr(&self.left);
         let right_desc = self.describe_expr(&self.right);
@@ -186,6 +258,14 @@ impl ComposedField {
     }
 
     // ---- internal helpers ----
+
+    fn transition_expr(&self, expr: &ComposedExpr, coords: &SpaceCoordinates) -> Vec<SpaceCoordinates> {
+        match expr {
+            ComposedExpr::Field(f) => f.transition_targets(coords),
+            ComposedExpr::Identity(_) => Vec::new(),
+            ComposedExpr::Composed(inner) => inner.transition_targets(coords),
+        }
+    }
 
     fn eval_left(&self, coords: &SpaceCoordinates) -> bool {
         self.eval_expr(&self.left, coords)

@@ -40,6 +40,7 @@ fn main() {
             test_admissibility_composition,
         ),
         ("9. Expression Description", test_expression_description),
+        ("10. Transition Composition", test_transition_composition),
     ];
 
     let mut passed = 0u32;
@@ -476,4 +477,70 @@ fn test_expression_description() {
     let id_desc = with_id.describe();
     assert!(id_desc.contains('\u{2205}'), "Should contain empty symbol");
     println!("  Identity:   {}", id_desc);
+}
+
+// ==================== TEST 10: TRANSITION COMPOSITION ====================
+
+fn test_transition_composition() {
+    // Build fields with transitions for composition testing
+    let mut field_x = Field::new();
+    field_x.add_transition(coord(0, 0, 0), coord(1, 0, 0), 1.0);
+    field_x.add_transition(coord(0, 0, 0), coord(2, 0, 0), 0.5);
+
+    let mut field_y = Field::new();
+    field_y.add_transition(coord(0, 0, 0), coord(2, 0, 0), 0.8);
+    field_y.add_transition(coord(0, 0, 0), coord(3, 0, 0), 1.0);
+
+    let origin = coord(0, 0, 0);
+
+    // Union: (X ∪ Y) at (0,0,0) → targets from both: [(1,0,0), (2,0,0), (3,0,0)]
+    let union_xy = union(field_x.clone(), field_y.clone());
+    let union_targets = union_xy.transition_targets(&origin);
+    assert!(
+        union_targets.contains(&coord(1, 0, 0)),
+        "Union should include (1,0,0) from X"
+    );
+    assert!(
+        union_targets.contains(&coord(2, 0, 0)),
+        "Union should include (2,0,0) from both"
+    );
+    assert!(
+        union_targets.contains(&coord(3, 0, 0)),
+        "Union should include (3,0,0) from Y"
+    );
+    assert_eq!(union_targets.len(), 3, "Union should have 3 unique targets");
+
+    // Intersection: (X ∩ Y) at (0,0,0) → targets common to both: [(2,0,0)]
+    let inter_xy = intersection(field_x.clone(), field_y.clone());
+    let inter_targets = inter_xy.transition_targets(&origin);
+    assert!(
+        inter_targets.contains(&coord(2, 0, 0)),
+        "Intersection should include (2,0,0) common to both"
+    );
+    assert_eq!(inter_targets.len(), 1, "Intersection should have 1 target");
+
+    // Product (no split): (X × Y) at (0,0,0) → targets common to both: [(2,0,0)]
+    let prod_xy = ComposedField::new(field_x.clone(), field_y.clone(), CompositionOp::Product);
+    let prod_targets = prod_xy.transition_targets(&origin);
+    assert!(
+        prod_targets.contains(&coord(2, 0, 0)),
+        "Product (no split) should include (2,0,0) common to both"
+    );
+    assert_eq!(prod_targets.len(), 1, "Product (no split) should have 1 target");
+
+    // Identity: ∅ has no transitions
+    let union_with_empty = union(field_x.clone(), IdentityField::Empty);
+    let empty_targets = union_with_empty.transition_targets(&origin);
+    assert_eq!(
+        empty_targets.len(),
+        2,
+        "Union with empty should retain all targets from X"
+    );
+    assert!(empty_targets.contains(&coord(1, 0, 0)));
+    assert!(empty_targets.contains(&coord(2, 0, 0)));
+
+    println!("  X ∪ Y targets: {:?}", union_targets.iter().map(|c| &c.raw).collect::<Vec<_>>());
+    println!("  X ∩ Y targets: {:?}", inter_targets.iter().map(|c| &c.raw).collect::<Vec<_>>());
+    println!("  X × Y targets: {:?}", prod_targets.iter().map(|c| &c.raw).collect::<Vec<_>>());
+    println!("  → Transition topology is preserved through Field composition.");
 }
