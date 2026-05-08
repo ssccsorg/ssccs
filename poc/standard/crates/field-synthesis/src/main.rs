@@ -5,8 +5,7 @@
 //!
 //! ## Structure
 //!
-//! - Algebraic laws (tests 1–11): commutativity, associativity, distributivity, etc.
-//! - `test_compose_observe`: the bridge from composed Fields to the observation pipeline.
+//! - Algebraic laws (tests 1–12): commutativity, associativity, distributivity, etc.
 //! - `Scenario` module: domain-specific scenarios demonstrating composition with
 //!   heterogeneous axes — time, space, temperature, sensor identity, etc.
 //!
@@ -17,7 +16,6 @@ use ssccs_examples::{CoordinateSumProjector, EvenConstraint, RangeConstraint};
 use ssccs_field_synthesis::{IdentityField, compose_observe, intersection, product, union};
 
 mod scenarios;
-use scenarios::Scenario;
 
 fn main() {
     println!("=== Field Synthesis: Composition Algebra ===\n");
@@ -44,15 +42,14 @@ fn main() {
     for (name, test_fn) in &laws {
         print!("  {} ... ", name);
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(test_fn));
-        if result.is_ok() {
+        let (ok, msg) = unwind_result(result);
+        if ok {
             println!("PASSED");
             passed += 1;
         } else {
             println!("FAILED");
-            if let Err(e) = result {
-                if let Some(m) = e.downcast_ref::<&str>() {
-                    println!("    Reason: {}", m);
-                }
+            if let Some(m) = msg {
+                println!("    Reason: {}", m);
             }
             failed += 1;
         }
@@ -62,17 +59,14 @@ fn main() {
     for s in scenarios::registry() {
         print!("  Scenario: {} ... ", s.name());
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| s.run()));
-        if result.is_ok() {
+        let (ok, msg) = unwind_result(result);
+        if ok {
             println!("PASSED");
             passed += 1;
         } else {
             println!("FAILED");
-            if let Err(e) = result {
-                if let Some(m) = e.downcast_ref::<&str>() {
-                    println!("    Reason: {}", m);
-                } else if let Some(m) = e.downcast_ref::<String>() {
-                    println!("    Reason: {}", m);
-                }
+            if let Some(m) = msg {
+                println!("    Reason: {}", m);
             }
             failed += 1;
         }
@@ -85,6 +79,19 @@ fn main() {
     );
     if failed > 0 {
         std::process::exit(1);
+    }
+}
+
+fn unwind_result(result: Result<(), Box<dyn std::any::Any + Send>>) -> (bool, Option<String>) {
+    match result {
+        Ok(()) => (true, None),
+        Err(e) => {
+            let msg = e
+                .downcast_ref::<&str>()
+                .map(|s| s.to_string())
+                .or_else(|| e.downcast_ref::<String>().cloned());
+            (false, msg)
+        }
     }
 }
 
@@ -103,13 +110,11 @@ fn field_a() -> Field {
     f.add_constraint(EvenConstraint::new(0));
     f
 }
-
 fn field_b() -> Field {
     let mut f = Field::new();
     f.add_constraint(RangeConstraint::new(1, 0, 5));
     f
 }
-
 fn field_c() -> Field {
     let mut f = Field::new();
     f.add_constraint(RangeConstraint::new(2, 0, 3));
@@ -122,11 +127,9 @@ fn test_identity() {
     let u = union(field_a(), IdentityField::Empty);
     assert!(u.allows(&coord(2, 1, 0)));
     assert!(!u.allows(&coord(3, 1, 0)));
-
     let i = intersection(field_a(), IdentityField::Universal);
     assert!(i.allows(&coord(2, 1, 0)));
     assert!(!i.allows(&coord(3, 1, 0)));
-
     assert!(!union(IdentityField::Empty, IdentityField::Empty).allows(&coord(0, 0, 0)));
     assert!(
         intersection(IdentityField::Universal, IdentityField::Universal)
@@ -260,11 +263,11 @@ fn test_admissibility() {
 
 fn test_description() {
     let d = union(field_a(), field_b()).describe();
-    assert!(d.contains('∪'));
+    assert!(d.contains('\u{222A}'));
     let nd = intersection(union(field_a(), field_b()), field_c()).describe();
-    assert!(nd.contains('∪') && nd.contains('∩'));
+    assert!(nd.contains('\u{222A}') && nd.contains('\u{2229}'));
     let id = union(IdentityField::Empty, field_a()).describe();
-    assert!(id.contains('∅'));
+    assert!(id.contains('\u{2205}'));
     println!("  Expression: {}", d);
     println!("  Nested:     {}", nd);
     println!("  Identity:   {}", id);
@@ -278,19 +281,22 @@ fn test_transition() {
     y.add_transition(coord(0, 0, 0), coord(2, 0, 0), 0.8);
     y.add_transition(coord(0, 0, 0), coord(3, 0, 0), 1.0);
     let o = coord(0, 0, 0);
-    assert_eq!(union(x.clone(), y.clone()).transition_targets(&o).len(), 3);
+    let ut = union(x.clone(), y.clone());
+    assert_eq!(ut.transition_targets(&o).len(), 3);
     let it = intersection(x.clone(), y.clone()).transition_targets(&o);
     assert_eq!(it.len(), 1);
     assert!(it.contains(&coord(2, 0, 0)));
     println!(
-        "  X∪Y: {:?}",
-        union(x, y)
-            .transition_targets(&o)
+        "  X\u{222A}Y: {:?}",
+        ut.transition_targets(&o)
             .iter()
             .map(|c| &c.raw)
             .collect::<Vec<_>>()
     );
-    println!("  X∩Y: {:?}", it.iter().map(|c| &c.raw).collect::<Vec<_>>());
+    println!(
+        "  X\u{2229}Y: {:?}",
+        it.iter().map(|c| &c.raw).collect::<Vec<_>>()
+    );
 }
 
 fn test_idempotence() {
@@ -312,10 +318,7 @@ fn test_compose_observe() {
     assert_eq!(compose_observe(&narrow, &projector, &seg), Some(5));
     assert!(compose_observe(&narrow, &projector, &Segment::new(coord(3, 10, 5))).is_none());
     assert!(compose_observe(&narrow, &projector, &Segment::new(coord(2, 10, 5))).is_none());
-    println!(
-        "  A∩B∩C at (2,1,2): {:?}",
-        compose_observe(&narrow, &projector, &seg)
-    );
-    println!("  A∩B∩C at (3,10,5): None");
-    println!("  → Observation through composed Fields is structurally real.");
+    println!("  A\u{2229}B\u{2229}C at (2,1,2): Some(5)");
+    println!("  A\u{2229}B\u{2229}C at (3,10,5): None");
+    println!("  \u{2192} Observation through composed Fields is structurally real.");
 }
