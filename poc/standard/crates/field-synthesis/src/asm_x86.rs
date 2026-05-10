@@ -7,13 +7,13 @@
 
 use core::arch::global_asm;
 
-global_asm!(include_str!("../../../../asm/observe_x86.S"));
+global_asm!(include_str!("../../../asm/observe_x86.S"));
 
 pub const REJECT_SENTINEL: i64 = i64::MIN;
 pub type ConstraintFn = unsafe extern "C" fn(*const i64) -> u32;
 pub type ProjectorFn = unsafe extern "C" fn(*const i64) -> i64;
 
-extern "C" {
+unsafe extern "C" {
     fn ck_even(coord: *const i64) -> u32;
     fn ck_range_0_10(coord: *const i64) -> u32;
     fn ck_gt(coord: *const i64, threshold: i64) -> u32;
