@@ -1,9 +1,10 @@
-//! SSCCS core concepts in x86-64 assembly with SSE2 SIMD.
+//! SSCCS core concepts in x86-64 AT&T assembly with SSE2 SIMD.
 //!
 //! Branchless constraint evaluation, 4-way SIMD batch checks,
 //! field composition, and the full observation pipeline.
 
 #![cfg(target_arch = "x86_64")]
+#![allow(dead_code)]
 
 use core::arch::global_asm;
 
@@ -13,41 +14,24 @@ pub const REJECT_SENTINEL: i64 = i64::MIN;
 pub type ConstraintFn = unsafe extern "C" fn(*const i64) -> u32;
 pub type ProjectorFn = unsafe extern "C" fn(*const i64) -> i64;
 
+#[allow(dead_code)]
 unsafe extern "C" {
     fn ck_even(coord: *const i64) -> u32;
     fn ck_range_0_10(coord: *const i64) -> u32;
     fn ck_gt(coord: *const i64, threshold: i64) -> u32;
     fn ck_range_4way(coord: *const i64, min: i64, max: i64) -> u32;
     fn ck_even_4way(coord: *const i64) -> u32;
-
     fn compose_and(fa: ConstraintFn, fb: ConstraintFn, coord: *const i64) -> u32;
     fn compose_or(fa: ConstraintFn, fb: ConstraintFn, coord: *const i64) -> u32;
-    fn compose_3way_and(
-        fa: ConstraintFn,
-        fb: ConstraintFn,
-        fc: ConstraintFn,
-        coord: *const i64,
-    ) -> u32;
-
+    fn compose_3way_and(fa: ConstraintFn, fb: ConstraintFn, fc: ConstraintFn, coord: *const i64) -> u32;
     fn proj_id(coord: *const i64) -> i64;
     fn proj_sum2d(coord: *const i64) -> i64;
     fn proj_sum3d(coord: *const i64) -> i64;
     fn proj_parity(coord: *const i64) -> i64;
-
     fn observe(field_fn: ConstraintFn, coord: *const i64, proj_fn: ProjectorFn) -> i64;
-    fn observe_batch(
-        field_fn: ConstraintFn,
-        coords: *const *const i64,
-        count: usize,
-        proj_fn: ProjectorFn,
-        out: *mut i64,
-    );
-
-    static SEG_0: i64;
-    static SEG_1: i64;
-    static SEG_2: i64;
-    static SEG_3: i64;
-    static SEG_4: i64;
+    fn observe_batch(field_fn: ConstraintFn, coords: *const *const i64, count: usize, proj_fn: ProjectorFn, out: *mut i64);
+    static SEG_0: i64;  static SEG_1: i64;  static SEG_2: i64;
+    static SEG_3: i64;  static SEG_4: i64;
     static SEG_4WAY: [i64; 4];
     static BATCH_TABLE: [*const i64; 5];
     static NARROW_RESULTS: [i64; 5];
@@ -70,7 +54,6 @@ pub fn field_or(a: ConstraintFn, b: ConstraintFn) -> impl Fn(&i64) -> bool {
 mod tests {
     use super::*;
 
-    // composed wrappers matching ConstraintFn signature (single-param)
     extern "C" fn narrow_even_range(coord: *const i64) -> u32 {
         unsafe { compose_and(ck_even, ck_range_0_10, coord) }
     }
@@ -81,14 +64,10 @@ mod tests {
     #[test]
     fn test_constraints() {
         unsafe {
-            assert!(ck_even(&2) != 0);
-            assert!(ck_even(&3) == 0);
-            assert!(ck_range_0_10(&5) != 0);
-            assert!(ck_range_0_10(&11) == 0);
-            assert!(ck_range_0_10(&0) != 0);
-            assert!(ck_range_0_10(&10) != 0);
-            assert!(ck_gt(&10, 5) != 0);
-            assert!(ck_gt(&3, 5) == 0);
+            assert!(ck_even(&2) != 0);  assert!(ck_even(&3) == 0);
+            assert!(ck_range_0_10(&5) != 0);  assert!(ck_range_0_10(&11) == 0);
+            assert!(ck_range_0_10(&0) != 0);  assert!(ck_range_0_10(&10) != 0);
+            assert!(ck_gt(&10, 5) != 0);  assert!(ck_gt(&3, 5) == 0);
         }
     }
 
@@ -125,7 +104,6 @@ mod tests {
 
     #[test]
     fn test_observe_identity() {
-        // even ∧ universal ≡ even
         let r2 = observe_one(ck_even, &2, proj_id);
         let r3 = observe_one(ck_even, &3, proj_id);
         assert_eq!(r2, Some(2));
