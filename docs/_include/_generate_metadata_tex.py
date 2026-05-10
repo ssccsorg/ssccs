@@ -11,6 +11,7 @@ import os
 import sys
 import textwrap
 from datetime import datetime
+from pathlib import Path
 
 import yaml
 
@@ -43,6 +44,36 @@ def extract_front_matter(qmd_path):
         return data if data else {}
     except yaml.YAMLError:
         return {}
+
+
+def _resolve_metadata_files(front: dict, qmd_path: str) -> dict:
+    """Resolve metadata-files references and merge into front matter.
+
+    Applies files in order (later files override earlier ones),
+    then the QMD's own front matter takes highest priority.
+    """
+    mf = front.get("metadata-files")
+    if not mf or not isinstance(mf, list):
+        return front
+
+    qmd_dir = Path(qmd_path).resolve().parent
+    merged = {}
+
+    for rel_path in mf:
+        if not isinstance(rel_path, str):
+            continue
+        abs_path = (qmd_dir / rel_path).resolve()
+        if abs_path.exists():
+            try:
+                with open(abs_path, encoding="utf-8") as f:
+                    data = yaml.safe_load(f) or {}
+                merged.update(data)
+            except Exception:
+                pass
+
+    # QMD's own front matter overrides everything
+    merged.update(front)
+    return merged
 
 
 def main():
@@ -115,6 +146,7 @@ def main():
 
     # ----- Extract YAML front matter (author/affiliations are optional) -----
     front = extract_front_matter(qmd_path)
+    front = _resolve_metadata_files(front, qmd_path)
 
     # Default empty values for all author and affiliation fields
     author_name = ""
