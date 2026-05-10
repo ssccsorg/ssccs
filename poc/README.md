@@ -4,7 +4,7 @@ This directory contains proof-of-concept implementations of the Schema-Segment C
 
 ## Directory Layout
 
-```
+```text
 poc/
 ├── standard/               Main Rust workspace (host CPU simulation)
 │   ├── Cargo.toml          Workspace manifest with 18 member crates
@@ -52,6 +52,7 @@ Rust workspace targeting x86_64 / aarch64. Implements the complete SSCCS ontolog
 | Research | `ssccs-compiler-opt` | Compiler optimizations (placeholder) |
 
 Build commands run from `standard/`:
+
 ```bash
 cd standard
 cargo build --release --workspace
@@ -73,6 +74,7 @@ Standalone no_std crate. Depends on `ssccs-core` and `ssccs-primitive` via path 
 | Hardware profile | CoreVXifProfile for OpenHW CORE-V XIF |
 
 Build:
+
 ```bash
 cd baremetal_riscv
 rustup target add riscv32imac-unknown-none-elf

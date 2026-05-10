@@ -20,7 +20,6 @@ Don't use sequential "Week 1, Week 2" enumerations. Use numbered experiments, ph
 
 Avoid negated‑affirmation pairs (“not…, but…”): Express logic directly through affirmative, sequential, or conditional structures.
 
-
 ## Git
 
 Do not push without permission.
@@ -31,7 +30,7 @@ Create relevent github PR first, then create branch with {created issue number}-
 
 The format of PR title: same as Commit message format with adding a prefix: `PR:`
 
-Commit message format: if it's working in a PR branch (skip in main branch). follow the format `{category (e.g. feat, docs, etc)}: #{issue number}: {message or short description}`
+Commit message format: `{category}: {message}`. Include `#{issue}` after category only in PR branches (omit in main branch).
 
 Do not test with github push.
 
