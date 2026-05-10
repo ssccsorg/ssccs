@@ -18,6 +18,9 @@ Don't directly write `.ss`: use technical naming in the context of the sentence.
 
 Don't use sequential "Week 1, Week 2" enumerations. Use numbered experiments, phases, or milestones instead.
 
+Avoid negated‑affirmation pairs (“not…, but…”): Express logic directly through affirmative, sequential, or conditional structures.
+
+
 ## Git
 
 Do not push without permission.
