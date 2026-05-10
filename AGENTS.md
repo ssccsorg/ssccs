@@ -28,11 +28,15 @@ Always use English
 
 Create relevent github PR first, then create branch with {created issue number}-{subject alphabets with one or two `-`} when start a new task subject.
 
+When create a new issue add relevent labels if works on Github.
+
 The format of PR title: same as Commit message format with adding a prefix: `PR:`
 
 Commit message format: `{category}: {message}`. Include `#{issue}` after category only in PR branches (omit in main branch).
 
 Do not test with github push.
+
+Do not merge PR without permission.
 
 ## Code
 
