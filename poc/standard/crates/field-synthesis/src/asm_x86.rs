@@ -23,15 +23,29 @@ unsafe extern "C" {
     fn ck_even_4way(coord: *const i64) -> u32;
     fn compose_and(fa: ConstraintFn, fb: ConstraintFn, coord: *const i64) -> u32;
     fn compose_or(fa: ConstraintFn, fb: ConstraintFn, coord: *const i64) -> u32;
-    fn compose_3way_and(fa: ConstraintFn, fb: ConstraintFn, fc: ConstraintFn, coord: *const i64) -> u32;
+    fn compose_3way_and(
+        fa: ConstraintFn,
+        fb: ConstraintFn,
+        fc: ConstraintFn,
+        coord: *const i64,
+    ) -> u32;
     fn proj_id(coord: *const i64) -> i64;
     fn proj_sum2d(coord: *const i64) -> i64;
     fn proj_sum3d(coord: *const i64) -> i64;
     fn proj_parity(coord: *const i64) -> i64;
     fn observe(field_fn: ConstraintFn, coord: *const i64, proj_fn: ProjectorFn) -> i64;
-    fn observe_batch(field_fn: ConstraintFn, coords: *const *const i64, count: usize, proj_fn: ProjectorFn, out: *mut i64);
-    static SEG_0: i64;  static SEG_1: i64;  static SEG_2: i64;
-    static SEG_3: i64;  static SEG_4: i64;
+    fn observe_batch(
+        field_fn: ConstraintFn,
+        coords: *const *const i64,
+        count: usize,
+        proj_fn: ProjectorFn,
+        out: *mut i64,
+    );
+    static SEG_0: i64;
+    static SEG_1: i64;
+    static SEG_2: i64;
+    static SEG_3: i64;
+    static SEG_4: i64;
     static SEG_4WAY: [i64; 4];
     static BATCH_TABLE: [*const i64; 5];
     static NARROW_RESULTS: [i64; 5];
@@ -64,10 +78,14 @@ mod tests {
     #[test]
     fn test_constraints() {
         unsafe {
-            assert!(ck_even(&2) != 0);  assert!(ck_even(&3) == 0);
-            assert!(ck_range_0_10(&5) != 0);  assert!(ck_range_0_10(&11) == 0);
-            assert!(ck_range_0_10(&0) != 0);  assert!(ck_range_0_10(&10) != 0);
-            assert!(ck_gt(&10, 5) != 0);  assert!(ck_gt(&3, 5) == 0);
+            assert!(ck_even(&2) != 0);
+            assert!(ck_even(&3) == 0);
+            assert!(ck_range_0_10(&5) != 0);
+            assert!(ck_range_0_10(&11) == 0);
+            assert!(ck_range_0_10(&0) != 0);
+            assert!(ck_range_0_10(&10) != 0);
+            assert!(ck_gt(&10, 5) != 0);
+            assert!(ck_gt(&3, 5) == 0);
         }
     }
 
