@@ -88,3 +88,5 @@ mod tests {
         let _ = profile.issue_observation(1, 2, 3);
     }
 }
+
+pub mod ssccs_asm;
