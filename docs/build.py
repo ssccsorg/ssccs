@@ -393,13 +393,11 @@ class HashManager:
     @lru_cache(maxsize=32)
     def compute_quarto_file_hash_with_deps(file_path: Path) -> str:
         visited: set = set()
-        qmd_hash = None
 
         def resolve(base: Path, rel: str) -> Path:
             return (base.parent / rel).resolve()
 
         def collect(path: Path) -> None:
-            nonlocal qmd_hash
             if path in visited:
                 return
             visited.add(path)
@@ -442,8 +440,8 @@ class HashManager:
                                     dep = (base_f / run_path).resolve()
                                     if dep.exists():
                                         visited.add(dep)
-                                except Exception:
-                                    pass
+                                except (OSError, ValueError) as e:
+                                    logger.debug(f"Skipping unresolvable %run dependency '{run_path}': {e}")
             for config_path in data.get("config", []):
                 visited.add(Path(config_path).resolve())
             for resource_path in data.get("configResources", []):
@@ -463,7 +461,7 @@ class HashManager:
 
         hasher = hashlib.sha256()
         hasher.update(file_path.suffix.encode("utf-8"))
-        for dep in sorted(visited, key=lambda p: str(p)):
+        for dep in sorted(visited, key=str):
             try:
                 dep_hash = HashManager.compute_file_hash(dep)
                 hasher.update(dep_hash.encode("utf-8"))
@@ -883,123 +881,7 @@ def compute_file_hash(path: Path) -> str:
 
 @lru_cache(maxsize=32)
 def compute_quarto_file_hash_with_deps(file_path: Path) -> str:
-    """
-    Compute a combined SHA‑256 hash that includes the QMD file itself and all
-    files it directly or indirectly includes (via `includeMap`) as well as
-    Python files referenced by `%run` directives in code cells.
-    """
-    visited = set()
-
-    # Helper to resolve relative paths relative to a base file
-    def resolve(base: Path, rel: str) -> Path:
-        # rel may be relative with '..' or '.'
-        return (base.parent / rel).resolve()
-
-    def collect(path: Path) -> None:
-        if path in visited:
-            return
-        visited.add(path)
-        data = inspect_quarto_file(path)
-        if data is None:
-            # If inspect fails, we still have the file itself; no further dependencies
-            return
-        fi = data.get("fileInformation", {})
-        # fi is a dict keyed by file path (absolute). Use the key that matches path
-        # (might be relative). We'll find the entry whose key ends with path.name
-        entry = None
-        for key, val in fi.items():
-            if Path(key).resolve() == path.resolve():
-                entry = val
-                break
-        if entry is None:
-            # No file information, treat as leaf
-            return
-        # Process Quarto Configs
-        for gcfg in [DOCS_ROOT / file for file in QUARTO_CONFIG_FILES]:
-            if gcfg.exists():
-                visited.add(gcfg.resolve())
-        # Process includeMap
-        for inc in entry.get("includeMap", []):
-            target_rel = inc.get("target")
-            if target_rel:
-                target = resolve(path, target_rel)
-                # Only recurse into QMD files; other files are added as dependencies
-                if target.suffix.lower() == ".qmd":
-                    collect(target)
-                else:
-                    visited.add(target)
-        # Process codeCells for %run directives
-        for cell in entry.get("codeCells", []):
-            source = cell.get("source", "")
-            # Look for lines starting with %run
-            for line in source.splitlines():
-                line = line.strip()
-                if line.startswith("%run"):
-                    import shlex
-
-                    tokens = shlex.split(line)
-                    # tokens[0] is '%run', tokens[1] is the path (if exists)
-                    if len(tokens) >= 2:
-                        run_path = tokens[1]
-                        # Remove any trailing arguments (e.g., --output)
-                        run_path = run_path.split("--")[0].strip()
-                        if run_path:
-                            # Resolve relative to the cell's file (if given) else path
-                            cell_file = cell.get("file")
-                            base = Path(cell_file).parent if cell_file else path.parent
-                            try:
-                                dep = (base / run_path).resolve()
-                                if dep.exists():
-                                    visited.add(dep)
-                            except Exception:
-                                pass
-                    # continue scanning lines for more %run directives
-
-        # Add config files
-        for config_path in data.get("config", []):
-            visited.add(Path(config_path).resolve())
-        for resource_path in data.get("configResources", []):
-            visited.add(Path(resource_path).resolve())
-
-        # Add metadata files, bibliography, and CSL from formats
-        for fmt, fmt_config in data.get("formats", {}).items():
-            pandoc = fmt_config.get("pandoc", {})
-            # metadata-files
-            for mf in pandoc.get("metadata-files", []):
-                mf_path = resolve(path, mf)
-                visited.add(mf_path)
-            # bibliography
-            bib = pandoc.get("bibliography")
-            if bib:
-                bib_path = resolve(path, bib)
-                visited.add(bib_path)
-            # csl
-            csl = pandoc.get("csl")
-            if csl:
-                csl_path = resolve(path, csl)
-                visited.add(csl_path)
-
-    # Start collection
-    collect(file_path.resolve())
-
-    # Compute combined hash
-    hasher = hashlib.sha256()
-    # Include the file extension in the hash to detect extension changes (e.g., .md → .qmd)
-    hasher.update(file_path.suffix.encode("utf-8"))
-    for dep in sorted(visited, key=lambda p: str(p)):
-        # Include each file's hash
-        try:
-            dep_hash = compute_file_hash(dep)
-            hasher.update(dep_hash.encode("utf-8"))
-        except FileNotFoundError:
-            # If a dependency disappears, we treat it as changed, causing a rebuild
-            # by including a placeholder.
-            hasher.update(b"<missing>")
-
-    # Compute file extention
-    hasher.update(file_path.suffix.encode("utf-8"))
-
-    return hasher.hexdigest()
+    return HashManager.compute_quarto_file_hash_with_deps(file_path)
 
 
 def target_produces_pdf(config: Dict[str, Any]) -> bool:
