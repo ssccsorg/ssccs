@@ -14,14 +14,14 @@
 
 .globl ck_even
 ck_even:
-    movq    (%rdi), %rax
+    mov    (%rdi), %rax
     andq    $1, %rax
     xorq    $1, %rax
     ret
 
 .globl ck_range_0_10
 ck_range_0_10:
-    movq    (%rdi), %rax
+    mov    (%rdi), %rax
     xorl    %edx, %edx
     cmpq    $0, %rax
     setge   %dl
@@ -33,7 +33,7 @@ ck_range_0_10:
 
 .globl ck_gt
 ck_gt:
-    movq    (%rdi), %rax
+    mov    (%rdi), %rax
     cmpq    %rsi, %rax
     setg    %al
     movzbl  %al, %eax
@@ -46,9 +46,9 @@ ck_gt:
 .globl ck_range_4way
 ck_range_4way:
     movdqu  (%rdi), %xmm0        # 4×i64
-    movq    %rsi, %xmm1
+    mov    %rsi, %xmm1
     pshufd  $0x44, %xmm1, %xmm1  # broadcast min
-    movq    %rdx, %xmm2
+    mov    %rdx, %xmm2
     pshufd  $0x44, %xmm2, %xmm2  # broadcast max
 
     pcmpgtq %xmm0, %xmm1         # min > coord → -1 : 0
@@ -87,15 +87,15 @@ compose_and:
     pushq   %r12
     pushq   %r13
 
-    movq    %rdi, %rbx
-    movq    %rsi, %r12
-    movq    %rdx, %r13
+    mov    %rdi, %rbx
+    mov    %rsi, %r12
+    mov    %rdx, %r13
 
-    movq    %r13, %rdi
+    mov    %r13, %rdi
     call    *%rbx
     movl    %eax, %r14d
 
-    movq    %r13, %rdi
+    mov    %r13, %rdi
     call    *%r12
 
     andl    %r14d, %eax
@@ -111,15 +111,15 @@ compose_or:
     pushq   %r12
     pushq   %r13
 
-    movq    %rdi, %rbx
-    movq    %rsi, %r12
-    movq    %rdx, %r13
+    mov    %rdi, %rbx
+    mov    %rsi, %r12
+    mov    %rdx, %r13
 
-    movq    %r13, %rdi
+    mov    %r13, %rdi
     call    *%rbx
     movl    %eax, %r14d
 
-    movq    %r13, %rdi
+    mov    %r13, %rdi
     call    *%r12
 
     orl     %r14d, %eax
@@ -136,14 +136,14 @@ compose_3way_and:
     pushq   %r13
     pushq   %r14
 
-    movq    %rdi, %rbx
-    movq    %rsi, %r12
-    movq    %rdx, %r13
-    movq    %rcx, %r14
+    mov    %rdi, %rbx
+    mov    %rsi, %r12
+    mov    %rdx, %r13
+    mov    %rcx, %r14
 
-    movq    %r14, %rdi;  call *%rbx;  movl %eax, %r15d
-    movq    %r14, %rdi;  call *%r12;  andl %eax, %r15d
-    movq    %r14, %rdi;  call *%r13;  andl %r15d, %eax
+    mov    %r14, %rdi;  call *%rbx;  movl %eax, %r15d
+    mov    %r14, %rdi;  call *%r12;  andl %eax, %r15d
+    mov    %r14, %rdi;  call *%r13;  andl %r15d, %eax
 
     popq    %r14
     popq    %r13
@@ -155,24 +155,24 @@ compose_3way_and:
 # 4. PROJECTORS
 # ═══════════════════════════════════════════════════════════════════════
 
-.globl proj_id;  proj_id:  movq (%rdi), %rax;  ret
+.globl proj_id;  proj_id:  mov (%rdi), %rax;  ret
 
 .globl proj_sum2d
 proj_sum2d:
-    movq    (%rdi), %rax
+    mov    (%rdi), %rax
     addq    8(%rdi), %rax
     ret
 
 .globl proj_sum3d
 proj_sum3d:
-    movq    (%rdi), %rax
+    mov    (%rdi), %rax
     addq    8(%rdi), %rax
     addq    16(%rdi), %rax
     ret
 
 .globl proj_parity
 proj_parity:
-    movq    (%rdi), %rax
+    mov    (%rdi), %rax
     andq    $1, %rax
     ret
 
@@ -186,16 +186,16 @@ observe:
     pushq   %r13
     pushq   %r14
 
-    movq    %rdi, %r12          # field_fn
-    movq    %rsi, %r13          # coord
-    movq    %rdx, %r14          # proj_fn
+    mov    %rdi, %r12          # field_fn
+    mov    %rsi, %r13          # coord
+    mov    %rdx, %r14          # proj_fn
 
-    movq    %r13, %rdi
+    mov    %r13, %rdi
     call    *%r12
     testl   %eax, %eax
     jz      .Lobs_reject
 
-    movq    %r13, %rdi
+    mov    %r13, %rdi
     call    *%r14
     jmp     .Lobs_done
 
@@ -218,25 +218,25 @@ observe_batch:
     jz      .Lbatch_exit
     pushq   %r12; pushq %r13; pushq %r14; pushq %r15; pushq %rbx
 
-    movq    %rdi, %r12
-    movq    %rsi, %r13
-    movq    %rdx, %r14
-    movq    %rcx, %r15
-    movq    %r8, %rbx
+    mov    %rdi, %r12
+    mov    %rsi, %r13
+    mov    %rdx, %r14
+    mov    %rcx, %r15
+    mov    %r8, %rbx
 
     xorq    %r10, %r10
 .Lbatch_loop:
     cmpq    %r14, %r10
     jge     .Lbatch_exit
 
-    movq    (%r13, %r10, 8), %rdi
-    movq    %rdi, %r11
+    mov    (%r13, %r10, 8), %rdi
+    mov    %rdi, %r11
 
     call    *%r12
     testl   %eax, %eax
     jz      .Lbatch_skip
 
-    movq    %r11, %rdi
+    mov    %r11, %rdi
     call    *%r15
     jmp     .Lbatch_store
 
@@ -244,7 +244,7 @@ observe_batch:
     movabsq $0x8000000000000000, %rax
 
 .Lbatch_store:
-    movq    %rax, (%rbx, %r10, 8)
+    mov    %rax, (%rbx, %r10, 8)
     incq    %r10
     jmp     .Lbatch_loop
 
