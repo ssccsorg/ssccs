@@ -274,9 +274,15 @@ pub mod fallback {
     }
 
     // ── Field ──
-    pub fn field_add_constraint(field: &mut [u8; 512], constraint_fn: usize, constraint_id: u32) -> i32 {
+    pub fn field_add_constraint(
+        field: &mut [u8; 512],
+        constraint_fn: usize,
+        constraint_id: u32,
+    ) -> i32 {
         let num = u32::from_le_bytes(field[480..484].try_into().unwrap());
-        if num >= 8 { return -1; }
+        if num >= 8 {
+            return -1;
+        }
         let idx = num as usize;
         field[idx * 8..idx * 8 + 8].copy_from_slice(&constraint_fn.to_le_bytes());
         field[64 + idx * 4..64 + idx * 4 + 4].copy_from_slice(&constraint_id.to_le_bytes());
@@ -289,9 +295,14 @@ pub mod fallback {
             let id = u32::from_le_bytes(field[64 + i * 4..64 + i * 4 + 4].try_into().unwrap());
             if id == constraint_id {
                 for j in i..num - 1 {
-                    let src_fn = usize::from_le_bytes(field[(j + 1) * 8..(j + 2) * 8].try_into().unwrap());
+                    let src_fn =
+                        usize::from_le_bytes(field[(j + 1) * 8..(j + 2) * 8].try_into().unwrap());
                     field[j * 8..j * 8 + 8].copy_from_slice(&src_fn.to_le_bytes());
-                    let src_id = u32::from_le_bytes(field[64 + (j + 1) * 4..64 + (j + 2) * 4].try_into().unwrap());
+                    let src_id = u32::from_le_bytes(
+                        field[64 + (j + 1) * 4..64 + (j + 2) * 4]
+                            .try_into()
+                            .unwrap(),
+                    );
                     field[64 + j * 4..64 + j * 4 + 4].copy_from_slice(&src_id.to_le_bytes());
                 }
                 field[480..484].copy_from_slice(&((num as u32) - 1).to_le_bytes());
@@ -303,9 +314,16 @@ pub mod fallback {
     pub fn field_clear(field: &mut [u8; 512]) {
         field[480..488].copy_from_slice(&[0u8; 8]);
     }
-    pub fn field_add_transition(field: &mut [u8; 512], from_id: i64, to_id: i64, weight: i64) -> i32 {
+    pub fn field_add_transition(
+        field: &mut [u8; 512],
+        from_id: i64,
+        to_id: i64,
+        weight: i64,
+    ) -> i32 {
         let num = u32::from_le_bytes(field[484..488].try_into().unwrap());
-        if num >= 16 { return -1; }
+        if num >= 16 {
+            return -1;
+        }
         let idx = num as usize;
         let base = 96 + idx * 24;
         field[base..base + 8].copy_from_slice(&from_id.to_le_bytes());
@@ -314,7 +332,12 @@ pub mod fallback {
         field[484..488].copy_from_slice(&(num + 1).to_le_bytes());
         0
     }
-    pub fn field_update_weight(field: &mut [u8; 512], from_id: i64, to_id: i64, new_weight: i64) -> i32 {
+    pub fn field_update_weight(
+        field: &mut [u8; 512],
+        from_id: i64,
+        to_id: i64,
+        new_weight: i64,
+    ) -> i32 {
         let num = u32::from_le_bytes(field[484..488].try_into().unwrap()) as usize;
         for i in 0..num {
             let base = 96 + i * 24;
