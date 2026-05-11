@@ -417,3 +417,15 @@ BATCH_COORDS: .8byte SEG_0, SEG_1, SEG_2, SEG_3, SEG_4
 .align 3
 .globl SEG_3D_A;  SEG_3D_A: .8byte 2,1,0     # (2,1,0) → sum=3
 .globl SEG_3D_B;  SEG_3D_B: .8byte 1,2,3     # (1,2,3) → sum=6
+
+# ═══════════════════════════════════════════════════════════════════════
+# GOLDEN TEST ANCHOR — do not remove; parsed by Rust tests
+# ═══════════════════════════════════════════════════════════════════════
+#
+# GOLDEN_SEGMENTS: 2,3,5,10,12
+# GOLDEN_NARROW: 2,REJECT,REJECT,10,REJECT
+# GOLDEN_BROAD: 2,3,5,10,12,REJECT
+# GOLDEN_SUM3D_A: 3
+# GOLDEN_SUM3D_B: 6
+# GOLDEN_PARITY_2: 0
+# GOLDEN_PARITY_3: 1

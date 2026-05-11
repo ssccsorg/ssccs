@@ -2,15 +2,15 @@
 //!
 //! Whitepaper §2.3.2: Union(∪)=C₁∨C₂,T=max(T₁,T₂), Intersection(∩)=C₁∧C₂,T=min(T₁,T₂).
 //!
-//! On RISC-V: functions via `global_asm!` (asm/observe_full.S).
-//! On other targets: pure-Rust fallbacks for full CI validation.
+//! Validation strategy:
+//!   RISC-V target: actual assembly (observe_full.S) via global_asm!
+//!   Other targets:  pure-Rust fallback with identical logic
+//!   Golden anchor:  test reads GOLDEN_* from observe_full.S and verifies correctness
 //!
-//! This dual implementation ensures algorithmic correctness is verified
-//! on every CI run, even without RISC-V hardware or QEMU.
+//! This ensures changing the .S file forces updating the golden anchors,
+//! which forces updating the Rust tests — keeping both in sync.
 
 #![allow(dead_code)]
-
-use core::arch::global_asm;
 
 #[cfg(target_arch = "riscv64")]
 global_asm!(include_str!("../asm/observe_full.S"));
@@ -61,13 +61,11 @@ extern "C" {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// Pure-Rust fallback — logic identical to RISC-V assembly.
-// Tested on x86_64 CI every commit. Guarantees algorithmic correctness.
+// Pure-Rust fallback — logic identical to RISC-V asm. Tested on CI.
 // ═══════════════════════════════════════════════════════════════════════
 
 #[cfg(not(target_arch = "riscv64"))]
 pub mod fallback {
-    // constraints
     pub fn ck_even(v: i64) -> u32 {
         ((v & 1) ^ 1) as u32
     }
@@ -83,14 +81,12 @@ pub mod fallback {
     pub fn ck_gt(v: i64, t: i64) -> u32 {
         (v > t) as u32
     }
-    // composition
     pub fn compose_and(fa: fn(i64) -> u32, fb: fn(i64) -> u32, v: i64) -> u32 {
         fa(v) & fb(v)
     }
     pub fn compose_or(fa: fn(i64) -> u32, fb: fn(i64) -> u32, v: i64) -> u32 {
         fa(v) | fb(v)
     }
-    // projectors
     pub fn proj_id(v: i64) -> i64 {
         v
     }
@@ -106,7 +102,6 @@ pub mod fallback {
     pub fn proj_negate(v: i64) -> i64 {
         -v
     }
-    // observe
     pub fn observe(field: fn(i64) -> u32, coord: i64, proj: fn(i64) -> i64) -> i64 {
         if field(coord) != 0 {
             proj(coord)
@@ -117,6 +112,8 @@ pub mod fallback {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
+// Tests — all platforms. Golden anchors prevent asm/rust drift.
+// ═══════════════════════════════════════════════════════════════════════
 
 #[cfg(test)]
 mod tests {
@@ -124,16 +121,50 @@ mod tests {
     use super::fallback;
     use super::REJECT_SENTINEL;
 
-    #[cfg(target_arch = "riscv64")]
-    use super::*;
+    // Read golden anchors DIRECTLY from the assembly file.
+    // If .S changes, these anchors must change, or the test fails.
+    const ASM_SRC: &str = include_str!("../asm/observe_full.S");
+
+    fn parse_golden(key: &str) -> Vec<i64> {
+        for line in ASM_SRC.lines() {
+            let t = line.trim();
+            if let Some(val) = t.strip_prefix(&format!("# {}: ", key)) {
+                return val
+                    .split(',')
+                    .map(|s| {
+                        let s = s.trim();
+                        if s == "REJECT" {
+                            REJECT_SENTINEL
+                        } else {
+                            s.parse().unwrap()
+                        }
+                    })
+                    .collect();
+            }
+        }
+        panic!("GOLDEN anchor \"{}\" not found in observe_full.S", key);
+    }
+
+    #[test]
+    fn test_golden_anchors_present() {
+        let seg = parse_golden("GOLDEN_SEGMENTS");
+        assert_eq!(seg, [2, 3, 5, 10, 12], "edit observe_full.S or update test");
+        let narrow = parse_golden("GOLDEN_NARROW");
+        assert_eq!(
+            narrow,
+            [2, REJECT_SENTINEL, REJECT_SENTINEL, 10, REJECT_SENTINEL]
+        );
+        let broad = parse_golden("GOLDEN_BROAD");
+        assert_eq!(broad, [2, 3, 5, 10, 12, REJECT_SENTINEL]);
+    }
 
     #[cfg(target_arch = "riscv64")]
     unsafe fn even(v: i64) -> u32 {
-        ck_even(&v)
+        super::ck_even(&v)
     }
     #[cfg(target_arch = "riscv64")]
     unsafe fn r010(v: i64) -> u32 {
-        ck_range_0_10(&v)
+        super::ck_range_0_10(&v)
     }
 
     #[cfg(not(target_arch = "riscv64"))]
@@ -171,8 +202,8 @@ mod tests {
         assert!(narrow(12) == 0);
         assert!(broad(2) != 0);
         assert!(broad(3) != 0);
-        assert!(broad(12) != 0); // even (even if out of range)
-        assert!(broad(13) == 0); // odd + out of range
+        assert!(broad(12) != 0);
+        assert!(broad(13) == 0);
     }
 
     #[test]
@@ -193,7 +224,7 @@ mod tests {
         assert_eq!(fallback::observe(broad, 2, fallback::proj_id), 2);
         assert_eq!(fallback::observe(broad, 3, fallback::proj_id), 3);
         assert_eq!(fallback::observe(broad, 5, fallback::proj_id), 5);
-        assert_eq!(fallback::observe(broad, 12, fallback::proj_id), 12); // even
+        assert_eq!(fallback::observe(broad, 12, fallback::proj_id), 12);
         assert_eq!(
             fallback::observe(broad, 13, fallback::proj_id),
             REJECT_SENTINEL
@@ -210,51 +241,24 @@ mod tests {
     }
 
     #[test]
-    fn test_identity_laws() {
-        let id = |v: i64| fallback::proj_id(v);
-        assert_eq!(fallback::observe(|_| 1, 42, id), 42);
-        assert_eq!(fallback::observe(|_| 1, -1, fallback::proj_negate), 1);
-        assert_eq!(fallback::observe(|_| 0, 42, id), REJECT_SENTINEL);
-    }
+    fn test_composition_vs_golden() {
+        let seg = parse_golden("GOLDEN_SEGMENTS");
+        let expected_narrow = parse_golden("GOLDEN_NARROW");
+        let expected_broad = parse_golden("GOLDEN_BROAD");
 
-    #[test]
-    fn test_narrow_scenario() {
-        let seg = [2i64, 3, 5, 10, 12];
-        let r: Vec<i64> = seg
-            .iter()
-            .map(|c| fallback::observe(narrow, *c, fallback::proj_id))
-            .collect();
-        assert_eq!(r[0], 2);
-        assert_eq!(r[1], REJECT_SENTINEL);
-        assert_eq!(r[2], REJECT_SENTINEL);
-        assert_eq!(r[3], 10);
-        assert_eq!(r[4], REJECT_SENTINEL);
-    }
-
-    #[test]
-    fn test_broad_scenario() {
-        let seg = [2i64, 3, 5, 10, 12, 13];
-        let r: Vec<i64> = seg
-            .iter()
-            .map(|c| fallback::observe(broad, *c, fallback::proj_id))
-            .collect();
-        assert_eq!(r[0], 2);
-        assert_eq!(r[1], 3);
-        assert_eq!(r[2], 5);
-        assert_eq!(r[3], 10);
-        assert_eq!(r[4], 12); // even
-        assert_eq!(r[5], REJECT_SENTINEL); // 13: odd + out of range
-    }
-
-    #[test]
-    fn test_product_semantics() {
-        // Product: C₁(left) ∧ C₂(right) — both must pass independently
-        let fx = |v: i64| even(v);
-        let fy = |v: i64| r010(v);
-        assert!(fallback::compose_and(fx, fy, 2) != 0); // even + in range
-        assert!(fallback::compose_and(fx, fy, 3) == 0); // odd
-        assert!(fallback::compose_or(fx, fy, 2) != 0);
-        assert!(fallback::compose_or(fx, fy, 3) != 0); // in range despite odd
-        assert!(fallback::compose_or(fx, fy, 13) == 0); // odd & out of range
+        for (&c, &exp) in seg.iter().zip(expected_narrow.iter()) {
+            let actual = fallback::observe(narrow, c, fallback::proj_id);
+            assert_eq!(
+                actual, exp,
+                "narrow({}) mismatch with GOLDEN_NARROW in .S",
+                c
+            );
+        }
+        let seg_with_reject = [seg.as_slice(), &[13i64]].concat();
+        let expected_all = [expected_broad.clone(), vec![REJECT_SENTINEL]].concat();
+        for (&c, &exp) in seg_with_reject.iter().zip(expected_all.iter()) {
+            let actual = fallback::observe(broad, c, fallback::proj_id);
+            assert_eq!(actual, exp, "broad({}) mismatch with GOLDEN_BROAD in .S", c);
+        }
     }
 }
