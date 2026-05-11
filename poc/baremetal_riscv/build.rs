@@ -56,5 +56,5 @@ fn main() {
     }
     data.push_str("}\n");
     fs::write(&out_path, data).expect("write failed");
-    println!("cargo:warning=asm_data.rs: {} constants", n);
+    println!("cargo:note=asm_data: {} constants from .S", n);
 }
