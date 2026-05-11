@@ -1268,6 +1268,38 @@ def get_target_config(
 
 # run_command — see CommandRunner wrapper above
 
+# ---------------------------------------------------------------------------
+# CommandRunner
+# ---------------------------------------------------------------------------
+
+
+    """Subprocess execution with logging."""
+
+    @staticmethod
+    def run(cmd, cwd=None):
+        return run_command(cmd, cwd)
+
+
+# ---------------------------------------------------------------------------
+# FormatRenderer
+# ---------------------------------------------------------------------------
+
+
+class FormatRenderer:
+    """Renders formats using Quarto."""
+
+    @staticmethod
+    def _parallel(qmd_path, formats, format_output_paths, docs_root, website=False, target_name=None):
+        return _render_formats_parallel(qmd_path, formats, format_output_paths, docs_root, website, target_name)
+
+    @staticmethod
+    def _single(qmd_path, formats, format_output_paths, docs_root, website=False, target_name=None):
+        return _render_formats_single(qmd_path, formats, format_output_paths, docs_root, website, target_name)
+
+    @staticmethod
+    def render(qmd_path, formats, format_output_paths, docs_root, single_command, website=False, target_name=None):
+        return _render_formats(qmd_path, formats, format_output_paths, docs_root, single_command, website, target_name)
+
 
 def _render_formats_parallel(
     qmd_path: Path,
@@ -1374,6 +1406,18 @@ def _render_formats(
         return _render_formats_parallel(
             qmd_path, formats, format_output_paths, docs_root, website, target_name
         )
+
+# ---------------------------------------------------------------------------
+# TargetBuilder
+# ---------------------------------------------------------------------------
+
+
+class TargetBuilder:
+    """Builds a single target."""
+
+    @staticmethod
+    def build(target, config, output_dir=None, single_command=True, website=False, docs_root=None, build_targets_set=None):
+        return build_generic(target, config, output_dir, single_command, website, docs_root, build_targets_set)
 
 
 def build_generic(
@@ -1932,6 +1976,34 @@ EXTERNAL_CONFIG: Dict[str, Any] = {}
 TARGET_CONFIG: Dict[str, Dict[str, Any]] = {}
 BUILD_FUNCTIONS: Dict[str, Callable[..., bool]] = {}
 OUTPUT_DIR_TARGETS: set = set()
+
+# ---------------------------------------------------------------------------
+# BuildOrchestrator
+# ---------------------------------------------------------------------------
+
+
+class BuildOrchestrator:
+    """Orchestrates multi-target builds."""
+
+    @staticmethod
+    def initialize_config(config_path):
+        return initialize_config(config_path)
+
+    @staticmethod
+    def parse_targets(targets_arg):
+        return parse_targets(targets_arg)
+
+    @staticmethod
+    def validate_targets(targets):
+        return validate_targets(targets)
+
+    @staticmethod
+    def build_single_target(target, output_dir, single_command, website=False, build_targets_set=None):
+        return build_single_target(target, output_dir, single_command, website, build_targets_set)
+
+    @staticmethod
+    def _render_target_isolated(target, output_dir, single_command, website, temp_docs, build_targets_set=None):
+        return _render_target_isolated(target, output_dir, single_command, website, temp_docs, build_targets_set)
 
 
 def initialize_config(config_path: Optional[Path]) -> None:
@@ -2998,6 +3070,18 @@ def run_pre_build_commands(
     target_name: Optional[str] = None,
 ) -> None:
     return PreBuildRunner.run(external_config, docs_root, target_name)
+
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
+
+class CLI:
+    """Command-line interface entry point."""
+
+    @staticmethod
+    def main():
+        return main()
 
 
 def main() -> None:
