@@ -184,35 +184,131 @@ class ConfigManager:
 
     @staticmethod
     def load_yaml_file(file_path: Path) -> Dict[str, Any]:
-        return load_yaml_file(file_path)
+        if not file_path.exists():
+            logger.debug(f"Config file not found: {file_path}")
+            return {}
+        try:
+            import yaml
+        except ImportError:
+            logger.debug("PyYAML not available, cannot read YAML config")
+            return {}
+        try:
+            with open(file_path, "r") as f:
+                config = yaml.safe_load(f)
+            return config or {}
+        except Exception as e:
+            logger.warning(f"Failed to load YAML config from {file_path}: {e}")
+            return {}
 
     @staticmethod
+    @lru_cache(maxsize=1)
     def get_website_config(docs_root: Path) -> Dict[str, Any]:
-        return get_website_config(docs_root)
+        return ConfigManager.load_yaml_file(docs_root / "_quarto-website.yml")
 
     @staticmethod
     def load_external_config(config_path: Optional[Path]) -> Dict[str, Any]:
-        return load_external_config(config_path)  # type: ignore[name-defined]
+        if config_path is None:
+            return {}
+        config = ConfigManager.load_yaml_file(config_path)
+        if config:
+            logger.info(f"Loaded external config from {config_path}")
+        return config  # type: ignore[name-defined]
 
     @staticmethod
     def get_exclude_patterns(external_config: Dict[str, Any]) -> List[str]:
-        return get_exclude_patterns(external_config)  # type: ignore[name-defined]
+        return external_config.get("exclude", DEFAULT_EXCLUDE_PATTERNS)
 
     @staticmethod
     def get_target_config_from_external(external_config: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
-        return get_target_config_from_external(external_config)  # type: ignore[name-defined]
+        return external_config.get("target_config", {})
 
     @staticmethod
     def matches_gitignore_pattern(rel_path: Path, patterns: List[str]) -> bool:
-        return matches_gitignore_pattern(rel_path, patterns)  # type: ignore[name-defined]
+        import fnmatch
+        path_str = str(rel_path)
+        path_str_forward = path_str.replace("\\", "/")
+        name = rel_path.name
+        for pattern in patterns:
+            pattern = pattern.strip()
+            if not pattern:
+                continue
+            is_dir_only = pattern.endswith("/")
+            if is_dir_only:
+                pattern = pattern[:-1]
+                parts = path_str_forward.split("/")
+                for i, part in enumerate(parts[:-1]):
+                    if fnmatch.fnmatch(part, pattern) or fnmatch.fnmatch(
+                        parts[i], pattern.split("/")[-1] if "/" in pattern else pattern
+                    ):
+                        return True
+                continue
+            if fnmatch.fnmatch(path_str_forward, pattern):
+                return True
+            if fnmatch.fnmatch(path_str, pattern):
+                return True
+            if "/" not in pattern and "\\" not in pattern:
+                if fnmatch.fnmatch(name, pattern):
+                    return True
+            if pattern.startswith("**/"):
+                subpattern = pattern[3:]
+                if fnmatch.fnmatch(name, subpattern):
+                    return True
+                parts = path_str_forward.split("/")
+                for i in range(len(parts)):
+                    suffix = "/".join(parts[i:])
+                    if fnmatch.fnmatch(suffix, subpattern):
+                        return True
+            if pattern.endswith("/**"):
+                dirpattern = pattern[:-3]
+                if path_str_forward.startswith(dirpattern + "/") or path_str.startswith(dirpattern + "/"):
+                    return True
+        return False
 
     @staticmethod
     def discover_quarto_targets(docs_root: Path, exclude_patterns: Optional[List[str]] = None) -> Dict[str, Dict[str, Any]]:
-        return discover_quarto_targets(docs_root, exclude_patterns)  # type: ignore[name-defined]
+        if exclude_patterns is None:
+            exclude_patterns = DEFAULT_EXCLUDE_PATTERNS
+        targets = {}
+        for ext in ("*.qmd", "*.md"):
+            for file_path in docs_root.rglob(ext):
+                rel_path = file_path.relative_to(docs_root)
+                if ConfigManager.matches_gitignore_pattern(rel_path, exclude_patterns):
+                    logger.info(f"Ignoring {rel_path} (matches exclude pattern)")
+                    continue
+                parts = list(rel_path.parts)
+                if parts:
+                    last_part = parts[-1]
+                    if last_part.endswith(".qmd"):
+                        parts[-1] = last_part[:-4]
+                    elif last_part.endswith(".md"):
+                        parts[-1] = last_part[:-3]
+                target_name = "-".join(parts).lower()
+                target_name = re.sub(r"[^a-z0-9_-]", "", target_name)
+                target_name = re.sub(r"-+", "-", target_name)
+                target_name = target_name.strip("-")
+                if target_name in targets:
+                    suffix = 2
+                    while f"{target_name}-{suffix}" in targets:
+                        suffix += 1
+                    target_name = f"{target_name}-{suffix}"
+                targets[target_name] = {
+                    "qmd": str(rel_path), "output_dir": False, "c2pa": False,
+                    "copy_pdf": False, "copy_to_root": False, "to": None,
+                    "copy_html": False, "copy_md": False,
+                }
+        return targets
 
     @staticmethod
     def get_target_config(docs_root: Path, external_config: Optional[Dict[str, Any]] = None) -> Dict[str, Dict[str, Any]]:
-        return get_target_config(docs_root, external_config)  # type: ignore[name-defined]
+        if external_config is None:
+            external_config = {}
+        exclude_patterns = ConfigManager.get_exclude_patterns(external_config)
+        target_config = ConfigManager.get_target_config_from_external(external_config)
+        discovered = ConfigManager.discover_quarto_targets(docs_root, exclude_patterns)
+        for target, config in target_config.items():
+            if target in discovered:
+                discovered[target].update(config)
+        return discovered
 
 
 # ---------------------------------------------------------------------------
@@ -223,13 +319,57 @@ class ConfigManager:
 class CleanupManager:
     """Manages Quarto artifact patterns and cleanup operations."""
 
-    @staticmethod
-    def ignore_quarto_artifacts():
-        return ignore_quarto_artifacts()
+    IGNORING_ARTIFACT_PATTERNS = [
+        "**/__pycache__", "**/*.pyc", "**/*.pyd", "**/*.log",
+        "**/*_output", "**/*_extensions", "**/*_cached", "**/*_files",
+        "**/*_libs", "**/_llms", "**/_site", "**/_docsbuild",
+        "**/*.tex", "**/*.pdf", "**/*.html",
+        "**/*.quarto_ipynb*", "**/*.quarto",
+        "**/*.c2pa", "**/*.c2pa_identifier.svg",
+    ]
 
-    @staticmethod
-    def clean(docs_root: Path) -> bool:
-        return clean_quarto_artifacts(docs_root)
+    def __init__(self):
+        self._cleaning_patterns: List[str] = self.IGNORING_ARTIFACT_PATTERNS + [
+            os.path.join("..", BUILD_TEMP_DIR),
+            os.path.join("..", BUILD_CACHE_DIR),
+            os.path.join("..", JUPYTER_CACHE_DIR),
+            "**/.jupyter_cache",
+        ]
+
+    def ignore_quarto_artifacts(self) -> Callable[[str, List[str]], List[str]]:
+        basename_patterns = []
+        for pat in self.IGNORING_ARTIFACT_PATTERNS:
+            if pat.startswith("**/"):
+                pat = pat[3:]
+            basename_patterns.append(pat)
+        return shutil.ignore_patterns(*basename_patterns)
+
+    def clean(self, docs_root: Path) -> bool:
+        deleted = []
+        errors = []
+        for pattern in self._cleaning_patterns:
+            for item in docs_root.glob(pattern):
+                if item.is_dir():
+                    try:
+                        shutil.rmtree(item)
+                        deleted.append(str(item))
+                        logger.info(f"Deleted directory: {item}")
+                    except Exception as e:
+                        errors.append(f"Failed to delete {item}: {e}")
+                elif item.is_file():
+                    try:
+                        item.unlink()
+                        deleted.append(str(item))
+                        logger.info(f"Deleted file: {item}")
+                    except Exception as e:
+                        errors.append(f"Failed to delete {item}: {e}")
+        if deleted:
+            logger.info(f"Cleaned {len(deleted)} items.")
+        if errors:
+            for err in errors:
+                logger.error(err)
+            return False
+        return True
 
 
 # ---------------------------------------------------------------------------
@@ -241,12 +381,96 @@ class HashManager:
     """File hashing and QMD dependency graph computation."""
 
     @staticmethod
+    @lru_cache(maxsize=128)
     def compute_file_hash(path: Path) -> str:
-        return compute_file_hash(path)
+        try:
+            with open(path, "rb") as f:
+                return hashlib.file_digest(f, "sha256").hexdigest()
+        except FileNotFoundError:
+            raise
 
     @staticmethod
+    @lru_cache(maxsize=32)
     def compute_quarto_file_hash_with_deps(file_path: Path) -> str:
-        return compute_quarto_file_hash_with_deps(file_path)
+        visited: set = set()
+        qmd_hash = None
+
+        def resolve(base: Path, rel: str) -> Path:
+            return (base.parent / rel).resolve()
+
+        def collect(path: Path) -> None:
+            nonlocal qmd_hash
+            if path in visited:
+                return
+            visited.add(path)
+            data = inspect_quarto_file(path)
+            if data is None:
+                return
+            fi = data.get("fileInformation", {})
+            entry = None
+            for key, val in fi.items():
+                if Path(key).resolve() == path.resolve():
+                    entry = val
+                    break
+            if entry is None:
+                return
+            for gcfg in [DOCS_ROOT / file for file in QUARTO_CONFIG_FILES]:
+                if gcfg.exists():
+                    visited.add(gcfg.resolve())
+            for inc in entry.get("includeMap", []):
+                target_rel = inc.get("target")
+                if target_rel:
+                    target = resolve(path, target_rel)
+                    if target.suffix.lower() == ".qmd":
+                        collect(target)
+                    else:
+                        visited.add(target)
+            for cell in entry.get("codeCells", []):
+                source = cell.get("source", "")
+                for line in source.splitlines():
+                    line = line.strip()
+                    if line.startswith("%run"):
+                        import shlex
+                        tokens = shlex.split(line)
+                        if len(tokens) >= 2:
+                            run_path = tokens[1]
+                            run_path = run_path.split("--")[0].strip()
+                            if run_path:
+                                cell_file = cell.get("file")
+                                base_f = Path(cell_file).parent if cell_file else path.parent
+                                try:
+                                    dep = (base_f / run_path).resolve()
+                                    if dep.exists():
+                                        visited.add(dep)
+                                except Exception:
+                                    pass
+            for config_path in data.get("config", []):
+                visited.add(Path(config_path).resolve())
+            for resource_path in data.get("configResources", []):
+                visited.add(Path(resource_path).resolve())
+            for fmt_config in data.get("formats", {}).values():
+                pandoc = fmt_config.get("pandoc", {})
+                for mf in pandoc.get("metadata-files", []):
+                    visited.add(resolve(path, mf))
+                bib = pandoc.get("bibliography")
+                if bib:
+                    visited.add(resolve(path, bib))
+                csl = pandoc.get("csl")
+                if csl:
+                    visited.add(resolve(path, csl))
+
+        collect(file_path.resolve())
+
+        hasher = hashlib.sha256()
+        hasher.update(file_path.suffix.encode("utf-8"))
+        for dep in sorted(visited, key=lambda p: str(p)):
+            try:
+                dep_hash = HashManager.compute_file_hash(dep)
+                hasher.update(dep_hash.encode("utf-8"))
+            except FileNotFoundError:
+                hasher.update(b"<missing>")
+        hasher.update(file_path.suffix.encode("utf-8"))
+        return hasher.hexdigest()
 
 
 # ---------------------------------------------------------------------------
@@ -259,43 +483,95 @@ class QuartoInspector:
 
     @staticmethod
     def target_produces_pdf(config: Dict[str, Any]) -> bool:
-        return target_produces_pdf(config)
+        target_format = config.get("to")
+        if target_format in ("pdf", "beamer"):
+            return True
+        if target_format is None and config.get("copy_pdf"):
+            return True
+        return False
 
     @staticmethod
+    @lru_cache(maxsize=128)
     def inspect(file_path: Path) -> Optional[Dict[str, Any]]:
-        return inspect_quarto_file(file_path)
+        try:
+            result = subprocess.run(
+                ["quarto", "inspect", str(file_path)],
+                capture_output=True, text=True, check=True,
+            )
+            return json.loads(result.stdout)
+        except Exception as e:
+            logger.warning(f"Failed to inspect {file_path}: {e}")
+            return None
 
     @staticmethod
     def get_formats(file_path: Path) -> List[str]:
-        return get_formats_from_quarto_file(file_path)
+        data = QuartoInspector.inspect(file_path)
+        if data is None:
+            return []
+        return list(data.get("formats", {}).keys())
 
     @staticmethod
     def get_output_path(file_path: Path, fmt: str) -> Optional[Path]:
-        return get_format_output_path(file_path, fmt)
+        data = QuartoInspector.inspect(file_path)
+        if data is None:
+            return None
+        formats = data.get("formats", {})
+        if fmt not in formats:
+            return None
+        pandoc = formats[fmt].get("pandoc", {})
+        output_file = pandoc.get("output-file")
+        if output_file:
+            return file_path.parent / output_file
+        return None
 
     @staticmethod
     def get_moved_path(qmd_path, fmt, config, output_dir, docs_root, source_path):
-        return get_moved_path_for_format(qmd_path, fmt, config, output_dir, docs_root, source_path)
+        stem = qmd_path.stem
+        if fmt in ("pdf", "beamer") and config.get("copy_pdf"):
+            dest_dir = output_dir.absolute() if output_dir else docs_root
+            return dest_dir / f"{stem}.pdf"
+        if fmt == "html" and config.get("copy_html"):
+            dest_dir = output_dir.absolute() if output_dir else docs_root
+            return dest_dir / "index.html"
+        if fmt in ("gfm", "markdown") and config.get("copy_md"):
+            dest_dir = output_dir.absolute() if output_dir else docs_root
+            return dest_dir / f"{stem}.md"
+        if fmt == "gfm" and config.get("copy_to_root"):
+            return docs_root.parent / "README.md"
+        return None
 
     @staticmethod
     def find_existing_output(qmd_path, fmt, config, output_dir):
-        return find_existing_output(qmd_path, fmt, config, output_dir)
+        primary = QuartoInspector.get_output_path(qmd_path, fmt)
+        if primary is None:
+            return None
+        candidates = [primary]
+        if config:
+            docs_root = Path(__file__).parent.absolute()
+            moved = QuartoInspector.get_moved_path(qmd_path, fmt, config, output_dir, docs_root, primary)
+            if moved and moved != primary:
+                candidates.append(moved)
+        for cand in candidates:
+            if cand.exists():
+                return cand
+        return None
 
     @staticmethod
     def get_cache_dir(qmd_path: Path) -> Path:
-        return get_cache_dir(qmd_path)
+        return qmd_path.parent / f"{qmd_path.stem}_cached"
 
     @staticmethod
     def get_cache_dir_for_target(qmd_path: Path, target_name: str) -> Path:
-        return get_cache_dir_for_target(qmd_path, target_name)
+        return qmd_path.parent / f"{target_name}_cached"
 
     @staticmethod
     def get_cache_base() -> Path:
-        return get_cache_base()
+        return Path(__file__).parent.parent / "_cached"
 
     @staticmethod
     def format_to_extension(fmt: str) -> str:
-        return format_to_extension(fmt)
+        mapping = {"pdf": "pdf", "beamer": "pdf", "html": "html", "gfm": "md", "markdown": "md"}
+        return mapping.get(fmt, fmt)
 
 
 # ---------------------------------------------------------------------------
@@ -324,8 +600,25 @@ class CommandRunner:
     """Subprocess execution with logging."""
 
     @staticmethod
-    def run(cmd, cwd=None):
-        return run_command(cmd, cwd)
+    def run(cmd: List[str], cwd: Optional[Path] = None) -> bool:
+        logger.info(f"Running: {' '.join(cmd)}")
+        try:
+            result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, check=False)
+            if result.stdout:
+                logger.debug(result.stdout.strip())
+            if result.stderr:
+                logger.warning(result.stderr.strip())
+            if result.returncode != 0:
+                logger.error(f"Command failed with exit code {result.returncode}")
+                return False
+            logger.info("Command succeeded")
+            return True
+        except FileNotFoundError as e:
+            logger.error(f"Command not found: {cmd[0]}. Is it installed? {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error while running command: {e}")
+            return False
 
 
 # ---------------------------------------------------------------------------
@@ -334,19 +627,51 @@ class CommandRunner:
 
 
 class FormatRenderer:
-    """Renders formats using Quarto."""
+    """Renders formats using Quarto (single command or parallel per format)."""
 
     @staticmethod
     def _parallel(qmd_path, formats, format_output_paths, docs_root, website=False, target_name=None):
-        return _render_formats_parallel(qmd_path, formats, format_output_paths, docs_root, website, target_name)
+        def render_one(fmt):
+            lock = _lock_for_quarto_file(qmd_path)
+            with lock:
+                cmd = ["quarto", "render", str(qmd_path), "--to", fmt]
+                if website:
+                    cmd.extend(["--profile", "website"])
+                if not CommandRunner.run(cmd, cwd=docs_root):
+                    logger.error(f"Quarto render failed for {qmd_path.name} (format {fmt}).")
+                    return False
+                if fmt in NON_DETERMINISTIC_FORMATS:
+                    out = format_output_paths[fmt]
+                    if out.exists():
+                        update_format_cache(qmd_path, fmt, out, target_name=target_name)
+                return True
+        with ThreadPoolExecutor(max_workers=len(formats)) as executor:
+            futures = {executor.submit(render_one, f): f for f in formats}
+            return sum(1 for fu in as_completed(futures) if fu.result()) == len(formats)
 
     @staticmethod
     def _single(qmd_path, formats, format_output_paths, docs_root, website=False, target_name=None):
-        return _render_formats_single(qmd_path, formats, format_output_paths, docs_root, website, target_name)
+        lock = _lock_for_quarto_file(qmd_path)
+        with lock:
+            fmt_str = ",".join(formats)
+            cmd = ["quarto", "render", str(qmd_path), "--to", fmt_str]
+            if website:
+                cmd.extend(["--profile", "website"])
+            if not CommandRunner.run(cmd, cwd=docs_root):
+                logger.error(f"Quarto render failed for {qmd_path.name} (formats {fmt_str}).")
+                return False
+            for fmt in formats:
+                if fmt in NON_DETERMINISTIC_FORMATS:
+                    out = format_output_paths[fmt]
+                    if out.exists():
+                        update_format_cache(qmd_path, fmt, out, target_name=target_name)
+            return True
 
     @staticmethod
     def render(qmd_path, formats, format_output_paths, docs_root, single_command, website=False, target_name=None):
-        return _render_formats(qmd_path, formats, format_output_paths, docs_root, single_command, website, target_name)
+        if single_command:
+            return FormatRenderer._single(qmd_path, formats, format_output_paths, docs_root, website, target_name)
+        return FormatRenderer._parallel(qmd_path, formats, format_output_paths, docs_root, website, target_name)
 
 
 # ---------------------------------------------------------------------------
@@ -372,11 +697,24 @@ class BuildOrchestrator:
 
     @staticmethod
     def parse_targets(targets_arg):
-        return parse_targets(targets_arg)
+        parsed = []
+        for t in targets_arg:
+            if "," in t:
+                parsed.extend([x.strip() for x in t.split(",") if x.strip()])
+            elif t.strip():
+                parsed.append(t.strip())
+        return parsed
 
     @staticmethod
     def validate_targets(targets):
-        return validate_targets(targets)
+        from typing import List
+        # Access BUILD_FUNCTIONS via closure/module-level (initialized by initialize_config)
+        global BUILD_FUNCTIONS
+        invalid = [t for t in targets if t not in BUILD_FUNCTIONS]
+        if invalid:
+            logger.error(f"Unknown target(s): {invalid}. Available: {list(BUILD_FUNCTIONS.keys())}")
+            sys.exit(1)
+        return targets
 
     @staticmethod
     def build_single_target(target, output_dir, single_command, website=False, build_targets_set=None):
@@ -394,8 +732,60 @@ class BuildOrchestrator:
 
 class PreBuildRunner:
     @staticmethod
-    def run(external_config, docs_root, target_name=None):
-        return run_pre_build_commands(external_config, docs_root, target_name)
+    def run(external_config: Dict[str, Any], docs_root: Path, target_name: Optional[str] = None) -> None:
+        pre_build_section = external_config.get("pre_build", [])
+        if not pre_build_section:
+            return
+        if isinstance(pre_build_section, list):
+            global_commands = pre_build_section
+            target_commands: Dict[str, Any] = {}
+        elif isinstance(pre_build_section, dict):
+            global_commands = pre_build_section.get("_global", [])
+            target_commands = {k: v for k, v in pre_build_section.items() if k != "_global"}
+        else:
+            logger.warning(f"Invalid pre_build format: expected list or dict, got {type(pre_build_section).__name__}")
+            return
+        commands_to_run: List[List[str]] = []
+        if target_name is None:
+            commands_to_run.extend(global_commands)
+        elif target_name in target_commands:
+            target_cmds = target_commands[target_name]
+            if isinstance(target_cmds, list):
+                if target_cmds and isinstance(target_cmds[0], list):
+                    commands_to_run.extend(target_cmds)
+                else:
+                    commands_to_run.append(target_cmds)
+            elif isinstance(target_cmds, str):
+                commands_to_run.append(target_cmds.split())
+            else:
+                logger.warning(f"Invalid pre_build entry for target '{target_name}': {target_cmds}, skipping.")
+        if not commands_to_run:
+            return
+        if target_name:
+            logger.info(f"Running {len(commands_to_run)} pre-build command(s) for target '{target_name}'...")
+        else:
+            logger.info(f"Running {len(commands_to_run)} global pre-build command(s)...")
+        for cmd in commands_to_run:
+            if not cmd or not isinstance(cmd, list):
+                logger.warning(f"Invalid pre_build entry: {cmd}, skipping.")
+                continue
+            executable = cmd[0]
+            if not shutil.which(executable):
+                logger.info(f"Pre-build: '{executable}' not found in PATH, skipping.")
+                continue
+            logger.info(f"Pre-build: running {' '.join(cmd)}")
+            try:
+                result = subprocess.run(cmd, cwd=docs_root, capture_output=True, text=True)
+                if result.stdout:
+                    logger.debug(result.stdout.strip())
+                if result.stderr:
+                    logger.warning(result.stderr.strip())
+                if result.returncode != 0:
+                    logger.warning(f"Pre-build command '{executable}' failed with exit code {result.returncode}, continuing build...")
+                else:
+                    logger.info(f"Pre-build command '{executable}' succeeded.")
+            except Exception as e:
+                logger.warning(f"Pre-build command '{executable}' raised an exception: {e}, continuing build...")
 
 
 # ---------------------------------------------------------------------------
@@ -408,38 +798,11 @@ class CLI:
     def main():
         return main()
 def load_yaml_file(file_path: Path) -> Dict[str, Any]:
-    """
-    Load a YAML configuration file and return its contents as a dictionary.
-
-    Centralized YAML loading used by all config-loading functions.
-    Returns an empty dict if the file does not exist, PyYAML is unavailable,
-    or the file cannot be parsed.
-    """
-    if not file_path.exists():
-        logger.debug(f"Config file not found: {file_path}")
-        return {}
-
-    try:
-        import yaml
-    except ImportError:
-        logger.debug("PyYAML not available, cannot read YAML config")
-        return {}
-    try:
-        with open(file_path, "r") as f:
-            config = yaml.safe_load(f)
-        return config or {}
-    except Exception as e:
-        logger.warning(f"Failed to load YAML config from {file_path}: {e}")
-        return {}
+    return ConfigManager.load_yaml_file(file_path)
 
 
-@lru_cache(maxsize=1)
 def get_website_config(docs_root: Path) -> Dict[str, Any]:
-    """
-    Load website configuration from _quarto-website.yml.
-    Returns a dictionary with configuration values.
-    """
-    return load_yaml_file(docs_root / "_quarto-website.yml")
+    return ConfigManager.get_website_config(docs_root)
 
 
 BUILD_TEMP_PATH = DOCS_PARENT / BUILD_TEMP_DIR
@@ -477,26 +840,17 @@ IGNORING_ARTIFACT_PATTERNS = [
     "**/*.c2pa_identifier.svg",
 ]
 
-CLEANING_ARTIFACT_PATTERNS = IGNORING_ARTIFACT_PATTERNS + [
-    os.path.join("..", BUILD_TEMP_DIR),
-    os.path.join("..", BUILD_CACHE_DIR),
-    os.path.join("..", JUPYTER_CACHE_DIR),
-    "**/.jupyter_cache",
-]
+# CLEANING_ARTIFACT_PATTERNS — now inside CleanupManager
+# CLEANING_ARTIFACT_PATTERNS = IGNORING_ARTIFACT_PATTERNS + [
+#    os.path.join("..", BUILD_TEMP_DIR),
+#    os.path.join("..", BUILD_CACHE_DIR),
+#    os.path.join("..", JUPYTER_CACHE_DIR),
+#    "**/.jupyter_cache",
+#]
 
 
 def ignore_quarto_artifacts() -> Callable[[str, List[str]], List[str]]:
-    """
-    Return an ignore function suitable for shutil.copytree that excludes
-    Quarto-generated artifacts.
-    """
-    # Convert glob patterns to basename patterns (strip leading '**/')
-    basename_patterns = []
-    for pat in IGNORING_ARTIFACT_PATTERNS:
-        if pat.startswith("**/"):
-            pat = pat[3:]
-        basename_patterns.append(pat)
-    return shutil.ignore_patterns(*basename_patterns)  # type: ignore[return-value]
+    return CleanupManager().ignore_quarto_artifacts()
 
 
 # Per‑QMD locks to prevent concurrent Quarto renders on the same source file
@@ -523,14 +877,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-@lru_cache(maxsize=128)
 def compute_file_hash(path: Path) -> str:
-    """Compute SHA-256 hash of a file."""
-    try:
-        with open(path, "rb") as f:
-            return hashlib.file_digest(f, "sha256").hexdigest()
-    except FileNotFoundError:
-        raise
+    return HashManager.compute_file_hash(path)
 
 
 @lru_cache(maxsize=32)
@@ -655,182 +1003,43 @@ def compute_quarto_file_hash_with_deps(file_path: Path) -> str:
 
 
 def target_produces_pdf(config: Dict[str, Any]) -> bool:
-    """
-    Return True if the target is expected to produce PDF/beamer output.
-    """
-    target_format = config.get("to")
-    if target_format in ("pdf", "beamer"):
-        return True
-    if target_format is None and config.get("copy_pdf"):
-        # No explicit format but copy_pdf suggests PDF will be generated
-        return True
-    return False
+    return QuartoInspector.target_produces_pdf(config)
 
 
-@lru_cache(maxsize=128)
 def inspect_quarto_file(file_path: Path) -> Optional[Dict[str, Any]]:
-    """
-    Run `quarto inspect` on the QMD file and return the parsed JSON.
-    Returns None on failure.
-    """
-    try:
-        result = subprocess.run(
-            ["quarto", "inspect", str(file_path)],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        return json.loads(result.stdout)
-    except Exception as e:
-        logger.warning(f"Failed to inspect {file_path}: {e}")
-        return None
+    return QuartoInspector.inspect(file_path)
 
 
 def get_formats_from_quarto_file(file_path: Path) -> List[str]:
-    """
-    Inspect the QMD file and return a list of output formats defined in its YAML.
-    Returns empty list on failure.
-    """
-    data = inspect_quarto_file(file_path)
-    if data is None:
-        return []
-    formats = data.get("formats", {})
-    return list(formats.keys())
+    return QuartoInspector.get_formats(file_path)
 
 
 def get_format_output_path(file_path: Path, fmt: str) -> Optional[Path]:
-    """
-    Determine the output file path for a given format using quarto inspect.
-    Returns None if format not found or path cannot be determined.
-    """
-    data = inspect_quarto_file(file_path)
-    if data is None:
-        return None
-    formats = data.get("formats", {})
-    if fmt not in formats:
-        return None
-    # Look for output-file in pandoc section
-    pandoc = formats[fmt].get("pandoc", {})
-    output_file = pandoc.get("output-file")
-    if output_file:
-        # Path is relative to the QMD's parent directory
-        return file_path.parent / output_file
-    # If no explicit output-file, Quarto uses a default based on format.
-    # We do NOT guess; we return None because we cannot be certain.
-    # The caller must handle this as an error.
-    return None
+    return QuartoInspector.get_output_path(file_path, fmt)
 
 
-def get_moved_path_for_format(
-    qmd_path: Path,
-    fmt: str,
-    config: Dict[str, Any],
-    output_dir: Optional[Path],
-    docs_root: Path,
-    source_path: Path,  # the primary output path (must be known)
-) -> Optional[Path]:
-    """
-    Return the path where the output file for the given format is moved
-    after post‑processing, if any. Returns None if no move applies or if
-    the source path is unknown.
-    """
-    stem = qmd_path.stem
-    # PDF moves
-    if fmt in ("pdf", "beamer") and config.get("copy_pdf"):
-        dest_dir = output_dir.absolute() if output_dir else docs_root
-        return dest_dir / f"{stem}.pdf"
-    # HTML moves (manifesto) – note: the moved file is always 'index.html' in the dest dir
-    if fmt == "html" and config.get("copy_html"):
-        dest_dir = output_dir.absolute() if output_dir else docs_root
-        return dest_dir / "index.html"
-    # Markdown moves (manifesto) – moved file keeps stem name
-    if fmt in ("gfm", "markdown") and config.get("copy_md"):
-        dest_dir = output_dir.absolute() if output_dir else docs_root
-        return dest_dir / f"{stem}.md"
-    # README copy to project root (special case for 'readme' target)
-    if fmt == "gfm" and config.get("copy_to_root"):
-        return docs_root.parent / "README.md"
-    return None
+def get_moved_path_for_format(qmd_path, fmt, config, output_dir, docs_root, source_path):
+    return QuartoInspector.get_moved_path(qmd_path, fmt, config, output_dir, docs_root, source_path)
 
 
-def find_existing_output(
-    qmd_path: Path,
-    fmt: str,
-    config: Optional[Dict[str, Any]],
-    output_dir: Optional[Path],
-) -> Optional[Path]:
-    """
-    Find an existing output file for the given format, considering possible
-    moved locations (copy_pdf, copy_html, copy_md, copy_to_root).
-    Returns the path if found, otherwise None.
-    """
-    # Primary output path (must be known)
-    primary = get_format_output_path(qmd_path, fmt)
-    if primary is None:
-        # Cannot determine output path – treat as missing.
-        return None
-
-    candidates = [primary]
-
-    # Add moved location if applicable
-    if config:
-        docs_root = Path(__file__).parent.absolute()
-        moved = get_moved_path_for_format(
-            qmd_path, fmt, config, output_dir, docs_root, primary
-        )
-        if moved and moved != primary:
-            candidates.append(moved)
-
-    # Return first existing candidate
-    for cand in candidates:
-        if cand.exists():
-            return cand
-    return None
+def find_existing_output(qmd_path, fmt, config, output_dir):
+    return QuartoInspector.find_existing_output(qmd_path, fmt, config, output_dir)
 
 
 def get_cache_dir(qmd_path: Path) -> Path:
-    """
-    Return the _cached directory for a QMD file.
-    Uses the QMD file stem for the cache directory name.
-    """
-    return qmd_path.parent / f"{qmd_path.stem}_cached"
+    return QuartoInspector.get_cache_dir(qmd_path)
 
 
 def get_cache_dir_for_target(qmd_path: Path, target_name: str) -> Path:
-    """
-    Return the _cached directory for a QMD file.
-    Uses the target name for the cache directory.
-
-    Args:
-        qmd_path: Path to the QMD file
-        target_name: The target name (hyphenated path convention)
-
-    Returns:
-        Path to the cache directory adjacent to the QMD file
-    """
-    # Cache directory is always adjacent to the QMD file, using target name
-    return qmd_path.parent / f"{target_name}_cached"
+    return QuartoInspector.get_cache_dir_for_target(qmd_path, target_name)
 
 
 def get_cache_base() -> Path:
-    """
-    Return the base directory for the new cache system (_cached).
-    """
-    return Path(__file__).parent.parent / "_cached"
+    return QuartoInspector.get_cache_base()
 
 
 def format_to_extension(fmt: str) -> str:
-    """
-    Map a Quarto format to a file extension.
-    """
-    mapping = {
-        "pdf": "pdf",
-        "beamer": "pdf",
-        "html": "html",
-        "gfm": "md",
-        "markdown": "md",
-    }
-    return mapping.get(fmt, fmt)
+    return QuartoInspector.format_to_extension(fmt)
 
 
 # ---------------------------------------------------------------------------
@@ -1325,35 +1534,7 @@ def refresh_cache_for_target(target: str, output_dir: Optional[Path] = None) -> 
 
 
 def clean_quarto_artifacts(docs_root: Path) -> bool:
-    """
-    Remove Quarto-generated directories matching the patterns
-    """
-    patterns = CLEANING_ARTIFACT_PATTERNS
-    deleted = []
-    errors = []
-    for pattern in patterns:
-        for item in docs_root.glob(pattern):
-            if item.is_dir():
-                try:
-                    shutil.rmtree(item)
-                    deleted.append(str(item))
-                    logger.info(f"Deleted directory: {item}")
-                except Exception as e:
-                    errors.append(f"Failed to delete {item}: {e}")
-            elif item.is_file():
-                try:
-                    item.unlink()
-                    deleted.append(str(item))
-                    logger.info(f"Deleted file: {item}")
-                except Exception as e:
-                    errors.append(f"Failed to delete {item}: {e}")
-    if deleted:
-        logger.info(f"Cleaned {len(deleted)} items.")
-    if errors:
-        for err in errors:
-            logger.error(err)
-        return False
-    return True
+    return CleanupManager().clean(docs_root)
 
 
 # Default exclude patterns (gitignore-style)
@@ -1361,364 +1542,43 @@ DEFAULT_EXCLUDE_PATTERNS: List[str] = []
 
 
 def load_external_config(config_path: Optional[Path]) -> Dict[str, Any]:
-    """
-    Load external configuration from YAML file.
-    Returns empty dict if config_path is None, file doesn't exist, or YAML is not available.
-    """
-    if config_path is None:
-        return {}
-    config = load_yaml_file(config_path)
-    if config:
-        logger.info(f"Loaded external config from {config_path}")
-    return config
+    return ConfigManager.load_external_config(config_path)
 
 
 def get_exclude_patterns(external_config: Dict[str, Any]) -> List[str]:
-    """Get exclude patterns from external config or use defaults."""
-    return external_config.get("exclude", DEFAULT_EXCLUDE_PATTERNS)
+    return ConfigManager.get_exclude_patterns(external_config)
 
 
-def get_target_config_from_external(
-    external_config: Dict[str, Any],
-) -> Dict[str, Dict[str, Any]]:
-    """Get target configurations from external config.
-
-    Note: build.py does not know about target names - they are defined externally.
-    This function returns only what is specified in the external config.
-    """
-    # Note: YAML uses 'target_config' key (not 'target')
-    return external_config.get("target_config", {})
+def get_target_config_from_external(external_config: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+    return ConfigManager.get_target_config_from_external(external_config)
 
 
 def matches_gitignore_pattern(rel_path: Path, patterns: List[str]) -> bool:
-    """
-    Check if a relative path matches any of the gitignore-style patterns.
-
-    Supports:
-    - Glob patterns: **/*.md, **/README.md
-    - Directory patterns: **/_include/, **/*_libs/ (trailing slash for directories)
-    - Simple patterns: README.md, contributing.md
-
-    Pattern matching rules (gitignore-style):
-    - "**/" at start matches any directory depth
-    - "*" matches any characters except "/"
-    - "?" matches single character except "/"
-    - Trailing "/" indicates directory-only match
-    - Pattern without "/" matches filename at any level
-    """
-    import fnmatch
-
-    path_str = str(rel_path)
-    path_str_forward = path_str.replace("\\", "/")  # Normalize to forward slashes
-    name = rel_path.name
-
-    for pattern in patterns:
-        # Normalize pattern
-        pattern = pattern.strip()
-        if not pattern:
-            continue
-
-        # Check if pattern is for directories only (trailing slash)
-        is_dir_only = pattern.endswith("/")
-        if is_dir_only:
-            pattern = pattern[:-1]
-            # For directory patterns, check if path is under a matching directory
-            # Match against each directory component
-            parts = path_str_forward.split("/")
-            for i, part in enumerate(parts[:-1]):  # Exclude filename
-                if fnmatch.fnmatch(part, pattern) or fnmatch.fnmatch(
-                    parts[i], pattern.split("/")[-1] if "/" in pattern else pattern
-                ):
-                    return True
-            continue
-
-        # Check full path match
-        if fnmatch.fnmatch(path_str_forward, pattern):
-            return True
-        if fnmatch.fnmatch(path_str, pattern):
-            return True
-
-        # Check filename-only match (for patterns without directory separators)
-        if "/" not in pattern and "\\" not in pattern:
-            if fnmatch.fnmatch(name, pattern):
-                return True
-
-        # Check if pattern starts with **/ (matches any depth)
-        if pattern.startswith("**/"):
-            subpattern = pattern[3:]
-            # Match against filename
-            if fnmatch.fnmatch(name, subpattern):
-                return True
-            # Match against any suffix of the path
-            parts = path_str_forward.split("/")
-            for i in range(len(parts)):
-                suffix = "/".join(parts[i:])
-                if fnmatch.fnmatch(suffix, subpattern):
-                    return True
-
-        # Check if pattern ends with /** (matches anything under directory)
-        if pattern.endswith("/**"):
-            dirpattern = pattern[:-3]
-            if path_str_forward.startswith(dirpattern + "/") or path_str.startswith(
-                dirpattern + "/"
-            ):
-                return True
-
-    return False
+    return ConfigManager.matches_gitignore_pattern(rel_path, patterns)
 
 
-def discover_quarto_targets(
-    docs_root: Path, exclude_patterns: Optional[List[str]] = None
-) -> Dict[str, Dict[str, Any]]:
-    """
-    Scan docs_root for .qmd and .md files and return target configurations.
-    Excludes files/directories matching gitignore-style patterns.
-
-    Target Naming:
-      - Target names are derived from the relative path of each .qmd/.md file
-        with path separators replaced by hyphens.
-      - Snake_case within filenames is preserved (only path separators become hyphens).
-      - Examples:
-          docs/index.qmd → index
-          docs/legal/index.qmd → legal-index
-          docs/research/file_name.qmd → research-file_name
-      - This ensures unique target names even for same‑filename documents in different directories.
-      - `target_name.qmd` and `target_name.md` CANNOT be located at the same path.
-
-    Args:
-        docs_root: Root directory to scan
-        exclude_patterns: List of gitignore-style patterns for files/dirs to exclude
-    """
-    if exclude_patterns is None:
-        exclude_patterns = DEFAULT_EXCLUDE_PATTERNS
-
-    targets = {}
-    # Process .qmd files first, then .md files
-    for ext in ("*.qmd", "*.md"):
-        for file_path in docs_root.rglob(ext):
-            rel_path = file_path.relative_to(docs_root)
-
-            # Check exclude patterns (gitignore-style)
-            if matches_gitignore_pattern(rel_path, exclude_patterns):
-                logger.info(f"Ignoring {rel_path} (matches exclude pattern)")
-                continue
-
-            # Determine target name from relative path
-            # Replace path separators with hyphens, then remove extension
-            parts = list(rel_path.parts)
-            # Remove the extension from the last part
-            if parts:
-                last_part = parts[-1]
-                # Remove .qmd or .md extension
-                if last_part.endswith(".qmd"):
-                    parts[-1] = last_part[:-4]
-                elif last_part.endswith(".md"):
-                    parts[-1] = last_part[:-3]
-
-            # Join parts with hyphens
-            target_name = "-".join(parts).lower()
-            # Sanitize: replace spaces and special chars (keep hyphens, underscores, alphanumeric)
-            # Only remove characters that are not alphanumeric, hyphen, or underscore
-            target_name = re.sub(r"[^a-z0-9_-]", "", target_name)
-            # Replace multiple consecutive hyphens with single hyphen (but preserve underscores)
-            target_name = re.sub(r"-+", "-", target_name)
-            # Remove leading/trailing hyphens (but not underscores within)
-            target_name = target_name.strip("-")
-
-            # Handle name conflicts (should not happen with new naming, but keep for safety)
-            if target_name in targets:
-                suffix = 2
-                while f"{target_name}-{suffix}" in targets:
-                    suffix += 1
-                target_name = f"{target_name}-{suffix}"
-
-            config = {
-                "qmd": str(rel_path),
-                "output_dir": False,
-                "c2pa": False,
-                "copy_pdf": False,
-                "copy_to_root": False,
-                "to": None,
-                "copy_html": False,
-                "copy_md": False,
-            }
-            targets[target_name] = config
-    return targets
+def discover_quarto_targets(docs_root: Path, exclude_patterns: Optional[List[str]] = None) -> Dict[str, Dict[str, Any]]:
+    return ConfigManager.discover_quarto_targets(docs_root, exclude_patterns)
 
 
-def get_target_config(
-    docs_root: Path, external_config: Optional[Dict[str, Any]] = None
-) -> Dict[str, Dict[str, Any]]:
-    """
-    Return configuration from external config.
-
-    Note: build.py does not know about target names - they are defined externally.
-    The target names in build.yml must match the naming convention:
-      - Target names are derived from the relative path with separators replaced by hyphens.
-      - Example: docs/legal/index.qmd → legal-index
-
-    Args:
-        docs_root: Root directory of documentation
-        external_config: Optional external configuration dictionary
-    """
-    if external_config is None:
-        external_config = {}
-
-    exclude_patterns = get_exclude_patterns(external_config)
-    target_config = get_target_config_from_external(external_config)
-
-    discovered = discover_quarto_targets(docs_root, exclude_patterns)
-
-    # Update discovered config with target config, preserving missing keys
-    for target, config in target_config.items():
-        if target in discovered:
-            discovered[target].update(config)
-
-    return discovered
+def get_target_config(docs_root: Path, external_config: Optional[Dict[str, Any]] = None) -> Dict[str, Dict[str, Any]]:
+    return ConfigManager.get_target_config(docs_root, external_config)
 
 
 def run_command(cmd: List[str], cwd: Optional[Path] = None) -> bool:
-    """
-    Run a shell command and log its output.
-
-    Args:
-        cmd: List of command and arguments.
-        cwd: Working directory (optional).
-
-    Returns:
-        True if the command succeeded (exit code 0), False otherwise.
-    """
-    logger.info(f"Running: {' '.join(cmd)}")
-    try:
-        result = subprocess.run(
-            cmd,
-            cwd=cwd,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        if result.stdout:
-            logger.debug(result.stdout.strip())
-        if result.stderr:
-            logger.warning(result.stderr.strip())
-        if result.returncode != 0:
-            logger.error(f"Command failed with exit code {result.returncode}")
-            return False
-        logger.info("Command succeeded")
-        return True
-    except FileNotFoundError as e:
-        logger.error(f"Command not found: {cmd[0]}. Is it installed? {e}")
-        return False
-    except Exception as e:
-        logger.error(f"Unexpected error while running command: {e}")
-        return False
+    return CommandRunner.run(cmd, cwd)
 
 
-def _render_formats_parallel(
-    qmd_path: Path,
-    formats: List[str],
-    format_output_paths: Dict[str, Path],
-    docs_root: Path,
-    website: bool = False,
-    target_name: Optional[str] = None,
-) -> bool:
-    """Render each format in its own Quarto command, running in parallel threads."""
-
-    def render_single_format(fmt: str) -> bool:
-        lock = _lock_for_quarto_file(qmd_path)
-        with lock:
-            quarto_cmd = ["quarto", "render", str(qmd_path), "--to", fmt]
-            if website:
-                quarto_cmd.append("--profile")
-                quarto_cmd.append("website")
-            if not run_command(quarto_cmd, cwd=docs_root):
-                logger.error(
-                    f"Quarto render failed for {qmd_path.name} (format {fmt})."
-                )
-                return False
-            if fmt in NON_DETERMINISTIC_FORMATS:
-                output_path = format_output_paths[fmt]
-                if output_path.exists():
-                    update_format_cache(
-                        qmd_path, fmt, output_path, target_name=target_name
-                    )
-                else:
-                    logger.warning(
-                        f"Expected output {output_path} not found after render for {fmt}"
-                    )
-            return True
-
-    with ThreadPoolExecutor(max_workers=len(formats)) as executor:
-        futures = {executor.submit(render_single_format, fmt): fmt for fmt in formats}
-        success_count = 0
-        for future in as_completed(futures):
-            fmt = futures[future]
-            try:
-                success = future.result()
-            except Exception as e:
-                logger.error(f"Unexpected error while rendering {fmt}: {e}")
-                success = False
-            if success:
-                success_count += 1
-            else:
-                logger.error(f"Format {fmt} failed.")
-        return success_count == len(formats)
+def _render_formats_parallel(qmd_path, formats, format_output_paths, docs_root, website=False, target_name=None):
+    return FormatRenderer._parallel(qmd_path, formats, format_output_paths, docs_root, website, target_name)
 
 
-def _render_formats_single(
-    qmd_path: Path,
-    formats: List[str],
-    format_output_paths: Dict[str, Path],
-    docs_root: Path,
-    website: bool = False,
-    target_name: Optional[str] = None,
-) -> bool:
-    """Render all formats using a single Quarto command (--to fmt1,fmt2)."""
-    lock = _lock_for_quarto_file(qmd_path)
-    with lock:
-        formats_str = ",".join(formats)
-        quarto_cmd = ["quarto", "render", str(qmd_path), "--to", formats_str]
-        if website:
-            quarto_cmd.append("--profile")
-            quarto_cmd.append("website")
-        if not run_command(quarto_cmd, cwd=docs_root):
-            logger.error(
-                f"Quarto render failed for {qmd_path.name} (formats {formats_str})."
-            )
-            return False
-        # Update cache for each rendered format
-        for fmt in formats:
-            if fmt in NON_DETERMINISTIC_FORMATS:
-                output_path = format_output_paths[fmt]
-                if output_path.exists():
-                    update_format_cache(
-                        qmd_path, fmt, output_path, target_name=target_name
-                    )
-                else:
-                    logger.warning(
-                        f"Expected output {output_path} not found after render for {fmt}"
-                    )
-        return True
+def _render_formats_single(qmd_path, formats, format_output_paths, docs_root, website=False, target_name=None):
+    return FormatRenderer._single(qmd_path, formats, format_output_paths, docs_root, website, target_name)
 
 
-def _render_formats(
-    qmd_path: Path,
-    formats: List[str],
-    format_output_paths: Dict[str, Path],
-    docs_root: Path,
-    single_command: bool,
-    website: bool = False,
-    target_name: Optional[str] = None,
-) -> bool:
-    """Dispatch to the appropriate rendering strategy."""
-    if single_command:
-        return _render_formats_single(
-            qmd_path, formats, format_output_paths, docs_root, website, target_name
-        )
-    else:
-        return _render_formats_parallel(
-            qmd_path, formats, format_output_paths, docs_root, website, target_name
-        )
+def _render_formats(qmd_path, formats, format_output_paths, docs_root, single_command, website=False, target_name=None):
+    return FormatRenderer.render(qmd_path, formats, format_output_paths, docs_root, single_command, website, target_name)
 
 
 def build_generic(
@@ -3263,117 +3123,7 @@ def run_pre_build_commands(
     docs_root: Path,
     target_name: Optional[str] = None,
 ) -> None:
-    """
-    Execute pre-build commands defined in build.yml's pre_build section.
-
-    Supports two formats:
-      1. List-style (backward compatible): all commands are global.
-         pre_build:
-           - [executable, arg1, ...]
-      2. Dict-style (recommended):
-         pre_build:
-           _global:
-             - [executable, arg1, ...]   # Always run once before any target
-           target-name:
-             - [executable, arg1, ...]   # Run only for a specific target
-
-    Each command is a list: [executable, arg1, arg2, ...].
-    If the executable is not found on PATH, the command is silently skipped.
-    If a command fails, an error is logged but execution continues (non-blocking).
-
-    Args:
-        external_config: External configuration dictionary from build.yml
-        docs_root: Root directory of documentation (docs/)
-        target_name: If provided, only run commands for this target (not global).
-                     If None, only run global commands.
-    """
-    pre_build_section = external_config.get("pre_build", [])
-    if not pre_build_section:
-        return
-
-    # Normalize: support both old list format and new dict format
-    if isinstance(pre_build_section, list):
-        # Old format: all commands are global
-        global_commands = pre_build_section
-        target_commands: Dict[str, Any] = {}
-    elif isinstance(pre_build_section, dict):
-        # New format: _global for global, other keys for target-specific
-        global_commands = pre_build_section.get("_global", [])
-        target_commands = {k: v for k, v in pre_build_section.items() if k != "_global"}
-    else:
-        logger.warning(
-            f"Invalid pre_build format: expected list or dict, got {type(pre_build_section).__name__}"
-        )
-        return
-
-    # Collect commands to run based on target context
-    commands_to_run: List[List[str]] = []
-
-    if target_name is None:
-        # Global mode: only run global commands
-        commands_to_run.extend(global_commands)
-    elif target_name in target_commands:
-        # Target-specific mode: only run commands for the matching target
-        target_cmds = target_commands[target_name]
-        if isinstance(target_cmds, list):
-            # Check if it's a list of commands or a single command
-            if target_cmds and isinstance(target_cmds[0], list):
-                # List of commands: [["cmd1", "arg1"], ["cmd2", "arg2"]]
-                commands_to_run.extend(target_cmds)
-            else:
-                # Single command: ["cmd", "arg1", ...]
-                commands_to_run.append(target_cmds)
-        elif isinstance(target_cmds, str):
-            # Single string command (convenience): "cmd arg1 arg2"
-            commands_to_run.append(target_cmds.split())
-        else:
-            logger.warning(
-                f"Invalid pre_build entry for target '{target_name}': {target_cmds}, skipping."
-            )
-
-    if not commands_to_run:
-        return
-
-    if target_name:
-        logger.info(
-            f"Running {len(commands_to_run)} pre-build command(s) for target '{target_name}'..."
-        )
-    else:
-        logger.info(f"Running {len(commands_to_run)} global pre-build command(s)...")
-
-    for cmd in commands_to_run:
-        if not cmd or not isinstance(cmd, list):
-            logger.warning(f"Invalid pre_build entry: {cmd}, skipping.")
-            continue
-
-        executable = cmd[0]
-        # Check if executable exists on PATH
-        if not shutil.which(executable):
-            logger.info(f"Pre-build: '{executable}' not found in PATH, skipping.")
-            continue
-
-        logger.info(f"Pre-build: running {' '.join(cmd)}")
-        try:
-            result = subprocess.run(
-                cmd,
-                cwd=docs_root,
-                capture_output=True,
-                text=True,
-            )
-            if result.stdout:
-                logger.debug(result.stdout.strip())
-            if result.stderr:
-                logger.warning(result.stderr.strip())
-            if result.returncode != 0:
-                logger.warning(
-                    f"Pre-build command '{executable}' failed with exit code {result.returncode}, continuing build..."
-                )
-            else:
-                logger.info(f"Pre-build command '{executable}' succeeded.")
-        except Exception as e:
-            logger.warning(
-                f"Pre-build command '{executable}' raised an exception: {e}, continuing build..."
-            )
+    PreBuildRunner.run(external_config, docs_root, target_name)
 
 
 def main() -> None:
