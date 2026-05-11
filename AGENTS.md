@@ -24,6 +24,8 @@ Avoid negated‑affirmation pairs (“not…, but…”): Express logic directly
 
 Do not push without permission.
 
+DO NOT MERGE PR or any branch without permission.
+
 Always use English
 
 Create relevent github PR first, then create branch with {created issue number}-{subject alphabets with one or two `-`} when start a new task subject.
