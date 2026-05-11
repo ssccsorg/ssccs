@@ -8,8 +8,7 @@ SSCCS Foundation
 
 This issue defines the strategic direction for the SSCCS Proof-of-Concept (PoC) development, drawing from the following documents:
 
-- **Whitepaper Appendix** (`/docs/whitepaper/_include/_appendix.qmd`) – provides detailed implementation notes, open‑format specification, hardware‑profile variants, and concrete examples (vector addition, N‑dimensional tensors, graph processing).
-- **Main Whitepaper** (`/docs/whitepaper/whitepaper.qmd`) – articulates the core SSCCS ontology (Segment, Scheme, Field, Observation, Projection) and the compiler pipeline.
+- **Main Whitepaper** (`/docs/whitepaper/whitepaper.qmd`) – articulates the core SSCCS ontology (Segment, Scheme, Field, Observation, Projection) and the compiler pipeline - also provides detailed implementation notes, open‑format specification, hardware‑profile variants, and concrete examples (vector addition, N‑dimensional tensors, graph processing).
 - **Diagnosis Report** (`/docs/report/poc_diagnosis.qmd`) – offers a rigorous gap assessment and a three‑track implementation roadmap (Field Synthesis, Hardware Mapping, Compiler Optimisations).
 - **Current PoC Workspace** (`/poc/`) – the Rust‑based reference implementation that validates the core concepts.
 
@@ -185,7 +184,7 @@ The whitepaper energy model predicts SSCCS reduces energy consumption by elimina
 
 ## Sub-Project: RISC-V Hardware Integration
 
-A parallel research track investigates Rust bare-metal programming for RISC-V targets as a foundation for SSCCS hardware integration. See [`docs/research/rust_baremetal.qmd`](https://github.com/ssccsorg/ssccs/blob/main/docs/research/rust_baremetal.qmd) for details on leveraging the Rust embedded ecosystem to accelerate SSCCS validation on OpenHW CORE-V and other RISC-V platforms.
+A parallel research track investigates Rust bare-metal programming for RISC-V targets as a foundation for SSCCS hardware integration. See [`docs/research/rust_baremetal`](https://docs.ssccs.org/research/rust_baremetal.html) for details on leveraging the Rust embedded ecosystem to accelerate SSCCS validation on OpenHW CORE-V and other RISC-V platforms.
 
 ## Immediate Next Actions
 
