@@ -32,11 +32,13 @@ Github: When create a new issue, add relevent labels, and after creation add lin
 
 The format of PR title: same as Commit message format with adding a prefix: `PR:`
 
-Commit message format: `{category}: {message}`. Include `#{issue}` after category only in PR branches (omit in main branch).
-
 Do not test with github push.
 
 Do not merge PR without permission.
+
+### Commit message format
+
+- `{category}: {message}`. Include `#{issue}` after category only in PR branches (omit in main branch).
 
 ## Code
 

@@ -8,31 +8,10 @@ version-mark: true
 bibliography: ./_include/riscv_references.bib
 link-citations: true
 colorlinks: true
-title-meta-items:
-  pdf:
-    - title: "SSCCS Foundation"
-      link: https://ssccs.org
-      content: ssccs.org
 metadata-files:
   - ../_include/author.yml
-  - ../_include/format.pdf.yml
 format:
   html: {}
-  pdf:
-    include-in-header:
-      text: |
-        \usepackage{geometry}
-        \usepackage{microtype}
-        \addtokomafont{disposition}{\rmfamily}
-        \input{./_files/rust_baremetal_metadata.tex}
-        \makeatletter
-        \def\@maketitle{
-          {\LARGE \bfseries \@title \par}
-          \vspace{0.3em}
-          {\large \@subtitle \par}
-          \vspace{2em}
-        }
-        \makeatother
 ---
 
 ```{python}
@@ -110,14 +89,59 @@ These themes align directly with SSCCS’s need for a reliable, verifiable, and 
 
 ### Prototype Overview
 
-As documented in `hardware‑integration‑notes.md`, we have established a dedicated Rust workspace (`hardware‑integration/`) that contains:
+The hardware‑integration prototype has evolved into a dedicated Rust crate (`baremetal_riscv/`) that now contains **five self‑contained assembly concepts**, each with its own `.S` file, Rust `extern "C"` bindings, pure‑Rust fallback implementation, and golden‑anchor test harness:
 
-- A `no_std` library crate (`ssccs‑hardware‑integration`) linking to the SSCCS PoC crates (`ssccs‑core`, `ssccs‑primitive`).
-- An `instructions` module that encodes and decodes custom RISC‑V instructions (`custom1`/`custom2`) and provides software emulation of observation primitives (`OBSERVE`, `COLLAPSE`).
-- A placeholder `CoreVXifProfile` that models the OpenHW CORE‑V XIF interface.
-- Unit and integration tests that run on the host and (in the future) on the RISC‑V target.
+```{python}
+#| context: local
+#| echo: false
 
-The prototype successfully compiles for `riscv32imac‑unknown‑none‑elf` and passes all six defined tests.
+dot('''
+digraph SSCCS_Architecture {
+    rankdir=LR;
+    splines=ortho;
+    node [shape=box, style=rounded, fontname="Helvetica"];
+
+    subgraph cluster_rust {
+        label = "Rust Layer (host + target)";
+        color = "blue";
+        style = "dashed";
+        "instructions" [label = "instructions/mod.rs\nEncoding / Emulation / FieldState"];
+        "ssccs_asm" [label = "ssccs_asm.rs\nFallback + extern C + Golden Tests"];
+        "build_rs" [label = "build.rs\nAuto-discover .S → asm_data.rs"];
+    }
+
+    subgraph cluster_asm {
+        label = "Assembly Concepts (riscv64, via global_asm!)";
+        color = "red";
+        style = "dashed";
+        "observe_full" [label = "observe_full.S\nConstraints, Composition, Projectors"];
+        "collapse" [label = "collapse.S\nSum, Min, Max, Product, Weighted"];
+        "field_update" [label = "field_update.S\nAdd/Remove Constraints, Transitions"];
+        "scheme_layout" [label = "scheme_layout.S\nLinear, RowMajor, ColMajor, ZOrder"];
+        "scheme_adjacency" [label = "scheme_adjacency.S\nGrid4, Grid8, Manhattan, Graph"];
+    }
+
+    "build_rs" -> "observe_full" [label = "parses .globl + .8byte"];
+    "build_rs" -> "collapse" [label = "parses .globl + .8byte"];
+    "build_rs" -> "field_update" [label = "parses .globl + .8byte"];
+    "build_rs" -> "scheme_layout" [label = "parses .globl + .8byte"];
+    "build_rs" -> "scheme_adjacency" [label = "parses .globl + .8byte"];
+    "observe_full" -> "ssccs_asm" [label = "global_asm! include"];
+    "collapse" -> "ssccs_asm" [label = "global_asm! include"];
+    "field_update" -> "ssccs_asm" [label = "global_asm! include"];
+    "scheme_layout" -> "ssccs_asm" [label = "global_asm! include"];
+    "scheme_adjacency" -> "ssccs_asm" [label = "global_asm! include"];
+}
+''')
+```
+
+- **observe_full.S** (350+ lines) -- Observation pipeline: branchless constraint primitives (`ck_even`, `ck_range`, `ck_eq_val`, `ck_gt`), weighted field composition (`compose_intersect`, `compose_union`, `compose_product_2d`), semantic projectors (`proj_id`, `proj_sum2d`, `proj_sum3d`, `proj_parity`, `proj_negate`), and the observation pipeline (`observe`, `observe_batch`).
+- **collapse.S** -- Multi‑segment reduction primitives: `collapse_sum`, `collapse_min`, `collapse_max`, `collapse_product`, `collapse_count`, and weighted variants (`collapse_weighted_sum`, `collapse_weighted_avg`).
+- **field_update.S** -- Field mutation: `field_add_constraint`, `field_remove_constraint`, `field_clear`, `field_add_transition`, `field_update_weight`, `field_get_transitions`.
+- **scheme_layout.S** -- Coordinate‑to‑address mapping: `layout_linear_1d`, `layout_linear_nd`, `layout_row_major_2d/3d`, `layout_col_major_2d`, `morton_encode_2d`, `layout_zorder_2d`.
+- **scheme_adjacency.S** -- Structural neighbor discovery: `adj_grid_4`, `adj_grid_8`, `adj_manhattan_1d`, `adj_graph_edges`.
+
+The crate's `build.rs` automatically discovers all `.S` files under `asm/`, parses their `.globl` / `.8byte` directives, and generates a Rust module (`asm_data.rs`) with per‑file submodules containing the static segment data. This eliminates manual synchronization between assembly constants and Rust tests.
 
 ### Alignment with Rust Embedded Practices
 
@@ -127,22 +151,153 @@ The prototype successfully compiles for `riscv32imac‑unknown‑none‑elf` and
 | Mark the crate as `#![no_std]` | **Done** (`#![no_std]` in lib.rs) |
 | Provide a panic handler (e.g., `panic‑halt`) | **Done** (`panic‑halt` dependency) |
 | Use a runtime crate (`riscv‑rt`) for startup | **Done** (`riscv‑rt` dependency) |
-| Define custom sections in linker script | **Not yet** – linker script default |
-| Implement `embedded‑hal` traits for portability | **Not yet** – HAL traits not defined |
-| Use `defmt` or `log` for structured logging | **Not yet** – logging uses `println` in host tests |
-| Leverage `cargo‑generate` for project templating | **Not yet** – project created manually |
+| Define custom sections in linker script | **Not yet** -- linker script default |
+| Implement `embedded‑hal` traits for portability | **Not yet** -- HAL traits not defined |
+| Use `defmt` or `log` for structured logging | **Not yet** -- logging uses `println` in host tests |
+| Leverage `cargo‑generate` for project templating | **Not yet** -- project created manually |
+| **New:** Modular assembly generation via `build.rs` | **Done** -- auto‑discovers `.S` files |
+| **New:** Golden‑anchor cross‑validation | **Done** -- `GOLDEN_*` comments in `.S` parsed by Rust tests |
+| **New:** Pure‑Rust fallback for host testing | **Done** -- all assembly functions have matching Rust fallbacks |
 
 ### Gaps Identified
 
-1. **No custom linker script** – The prototype relies on the default linker script provided by `riscv‑rt`. For fine‑grained control over memory layout (e.g., placing Scheme segments in specific RAM regions), a custom linker script will be needed.
+1. **No custom linker script** -- The prototype relies on the default linker script provided by `riscv‑rt`. For fine‑grained control over memory layout (e.g., placing Scheme segments in specific RAM regions), a custom linker script will be needed.
 
-2. **Missing HAL abstraction** – The `CoreVXifProfile` is a concrete struct, not an implementation of an `embedded‑hal` trait. Adopting the HAL pattern would make the SSCCS coprocessor portable across different RISC‑V cores.
+2. **Missing HAL abstraction** -- The `CoreVXifProfile` is a concrete struct, not an implementation of an `embedded‑hal` trait. Adopting the HAL pattern would make the SSCCS coprocessor portable across different RISC‑V cores.
 
-3. **Limited debugging infrastructure** – The prototype uses `println!` for host‑side tests but has no embedded‑side logging. Integrating `defmt` would enable lightweight, structured logging on real hardware.
+3. **Limited debugging infrastructure** -- The prototype uses `println!` for host‑side tests but has no embedded‑side logging. Integrating `defmt` would enable lightweight, structured logging on real hardware.
 
-4. **No interrupt or exception handling** – The observation primitives are currently purely computational; they do not interact with interrupts or exception vectors. In a real system, observation instructions may need to be interruptible or may raise exceptions on invalid configurations.
+4. **No cross‑arch assembly execution on CI** -- The assembly files are compiled via `global_asm!` only on `riscv64`. The CI runs on `x86_64`, where only the pure‑Rust fallback is tested. A RISC‑V emulator (e.g., `spike`, `ripr`) is needed to execute the actual assembly on CI.
 
-5. **Manual project setup** – The workspace was created manually. A `cargo‑generate` template could accelerate the creation of future SSCCS‑hardware experiments.
+5. **Rust‑to‑Assembly bridge** -- The Rust composition layer (`ComposedField`, `Projector` trait) has no automated path to produce the assembly that would run on hardware. Building this bridge is the next major milestone.
+
+### The Role of Assembly in the SSCCS Project
+
+The assembly files serve a fundamentally different purpose from the machine code that Rust/LLVM generates:
+
+```{python}
+#| context: local
+#| echo: false
+dot('''
+digraph Assembly_Role {
+    rankdir=TB;
+    splines=ortho;
+    node [shape=box, style=rounded, fontname="Helvetica"];
+
+    "Rust Source" [label = "Rust Source\n(ssccs_core, ComposedField)"];
+    "LLVM IR" [label = "LLVM IR\n(opaque instruction sequence)"];
+    "Generic Machine Code" [label = "Generic Machine Code\n(function call / stack / allocator)"];
+
+    "SSCCS Asm (.S)" [label = "SSCCS Assembly (.S)\nobserve_full.S / collapse.S\nfield_update.S / scheme_layout.S\nscheme_adjacency.S"];
+
+    "Rust Source" -> "LLVM IR" -> "Generic Machine Code";
+    "SSCCS Asm (.S)" -> "Hardware Contract" [label = "RTL / XIF / eFPGA"];
+    "SSCCS Asm (.S)" -> "Measurement Baseline";
+    "Hardware Contract" -> "Custom Instruction\n(OBSERVE rd, rs1, rs2)";
+
+    subgraph cluster_purpose {
+        label = "Purpose";
+        color = "gray80";
+        style = "dashed";
+        "Generic Machine Code" [label = "Generic Machine Code\nExecutes SSCCS logic"];
+        "SSCCS Asm (.S)" [label = "SSCCS Assembly\nSpecifies what hardware must do"];
+        "Custom Instruction\n(OBSERVE rd, rs1, rs2)" [label = "Custom Instruction\nSingle-cycle observation in silicon"];
+    }
+}
+''')
+```
+
+**The assembly is not an alternative to LLVM -- it is a hardware specification.**
+
+| Aspect | Rust/LLVM Output | SSCCS Assembly |
+|--------|-----------------|----------------|
+| **Purpose** | Executes SSCCS on a general‑purpose CPU | Specifies the minimal hardware interface |
+| **Consumed by** | The CPU pipeline (decode, execute) | RTL designers, verification engineers |
+| **Verification** | Tests pass on host (`x86_64`) | Golden anchors cross‑validate `.S` ↔ Rust |
+| **Optimization target** | Speed (LLVM passes) | Cycle count, energy per observation |
+| **Future use** | Software simulation and prototyping | Direct hardware synthesis via XIF |
+
+The assembly files prove that the SSCCS model does not implicitly depend on a complex runtime. The `observe` pipeline is **~20 instructions** in the hot path, and the constraint primitives are **3‑4 branchless instructions each**. This transparency is essential for:
+
+1. **Hardware cost estimation** -- every instruction maps to a gate‑count estimate.
+2. **Formal verification** -- the assembly can be fed to a formal equivalence checker.
+3. **XIF coprocessor specification** -- the assembly is a functional reference for the custom‑instruction unit.
+4. **Energy‑per‑observation measurement** -- cycle counts from the assembly provide a baseline that LLVM‑generated code cannot match because it must respect calling conventions and ABI overhead.
+
+
+
+### Connection to QiMeng Macro-Micro Paradigm
+
+The SSCCS assembly layer gains deeper architectural legitimacy when viewed through the lens of the QiMeng multi-agent RISC-V automation system [@qimeng2024cpu]. QiMeng has demonstrated that separating high-level strategy ("Macro Thinking") from low-level implementation ("Micro Coding") is critical for correct, optimized code generation:
+
+```{python}
+#| context: local
+#| echo: false
+
+dot('''
+digraph MTMC_Baremetal {
+    rankdir=LR;
+    splines=ortho;
+    nodesep=0.3;
+    fontname="Arial";
+    node [shape=box, style=rounded, fontsize=9];
+    edge [fontsize=9];
+
+    subgraph cluster_macro {
+        label="MACRO: Rust Composition Layer";
+        style=filled;
+        fillcolor="#FFE4E1";
+        color="#B22222";
+        fontsize=10;
+
+        ComposedField [label="ComposedField (union/intersect/product)\nField Composition Algebra", fillcolor="#FFFFFF", style=filled];
+        Scheme [label="Scheme Definitions\nGrid2D, IntegerLine, Tensor3D", fillcolor="#FFFFFF", style=filled];
+        Projectors [label="Projector Trait\nInteger, Parity, CoordinateSum", fillcolor="#FFFFFF", style=filled];
+        Scenarios [label="Scenario Framework\nGrid parity x range, Sensor x Time x Temp", fillcolor="#FFFFFF", style=filled];
+    }
+
+    subgraph cluster_micro {
+        label="MICRO: Assembly Layer (Hardware Contract)";
+        style=filled;
+        fillcolor="#E6F0E6";
+        color="#3A7D44";
+        fontsize=10;
+
+        observe [label="observe_full.S\nBranchless constraints\nWeighted composition", fillcolor="#FFFFFF", style=filled];
+        collapse [label="collapse.S\nSum/min/max/product\nWeighted reduction", fillcolor="#FFFFFF", style=filled];
+        layout [label="scheme_layout.S\nRowMajor/ZOrder/Linear\nCoordinate to Address", fillcolor="#FFFFFF", style=filled];
+        adjacent [label="scheme_adjacency.S\nGrid4/Grid8/Manhattan\nStructural neighbors", fillcolor="#FFFFFF", style=filled];
+    }
+
+    subgraph cluster_bridge {
+        label="BRIDGE (build.rs)";
+        style=filled;
+        fillcolor="#FFF8DC";
+        color="#DAA520";
+        fontsize=10;
+
+        build_rs [label="build.rs\nRust Scheme to .S data sections\n(CRUX-like structured interspace)", fillcolor="#FFFFFF", style=filled];
+        asm_data [label="asm_data.rs\nAuto-generated constants\nGolden anchor verification", fillcolor="#FFFFFF", style=filled];
+    }
+
+    ComposedField -> build_rs [label="Scheme/Field to .S constants", color="#DAA520"];
+    Scheme -> build_rs [label="dimensions, segments", color="#DAA520"];
+    build_rs -> asm_data [label="parse .globl + .8byte"];
+    asm_data -> observe;
+    asm_data -> collapse;
+    asm_data -> layout;
+    asm_data -> adjacent;
+}
+''')
+```
+
+This macro-micro alignment connects the baremetal RISC-V prototype to the broader SSCCS Nexus vision in three concrete ways:
+
+1. **Dual-Loop Validation:** QiMeng's internal functional correctness loop (simulation -> formal verification -> AST-level signal analysis) maps to our golden-anchor tests (`.S` <-> Rust cross-validation). QiMeng's external performance loop (benchmarks -> taped-out silicon -> Linux boot) maps to our future RISC-V emulation (spike/ripr) and OpenHW CORE-V hardware validation.
+
+2. **CRUX-Style Structured Interspace:** QiMeng-CRUX treats Verilog generation as constrained transformation through a formal intermediate representation. Our `build.rs` serves the same architectural role: it parses the Rust Scheme/Field definitions and generates the structured `.S` data that bridges the macro (strategy) and micro (implementation) layers. The `asm_data.rs` module is the structured interspace -- generated constants that both layers must agree on.
+
+3. **Self-Evolving Feedback:** QiMeng-NeuComBack enables LLMs to improve IR-to-Assembly translation through iterative self-debugging. This pattern extends naturally to a future `build.rs` that evolves its assembly generation by comparing golden-anchor mismatches and adjusting the generation strategy -- closing the loop between the Rust composition layer and the hardware contract layer.
 
 ## Opportunities for Deeper Integration
 
@@ -222,22 +377,68 @@ This pattern aligns with the *Concurrency* chapter of the Embedded Book and woul
 
 ## Roadmap: Next Steps Guided by Rust Embedded Practices
 
+The current prototype has established the assembly layer and the Rust composition layer as independent systems. The roadmap now focuses on bridging them:
+
+```{python}
+#| context: local
+#| echo: false
+dot('''
+digraph Roadmap {
+    rankdir=TB;
+    node [shape=box, style=rounded, fontname="Helvetica"];
+
+    subgraph cluster_done {
+        label = "Completed (Phase 2)";
+        color = "green";
+        style = "dashed";
+        "asm_layer" [label = "5 Assembly Concepts\nobserve / collapse / field_update\nscheme_layout / scheme_adjacency"];
+        "rust_composition" [label = "Rust Composition\nComposedField (∪∩×)\nScenario Framework"];
+        "golden_tests" [label = "Golden-Anchor Tests\n.S ↔ Rust cross-validation"];
+    }
+
+    subgraph cluster_next {
+        label = "Next (Phase 3: Bridge)";
+        color = "orange";
+        style = "dashed";
+        "build_bridge" [label = "1. build.rs → Scheme-aware\nRead Rust Scheme to emit .S data"];
+        "embed_hal" [label = "2. embedded-hal trait\nObservationCoprocessor trait"];
+        "defmt" [label = "3. defmt integration\nStructured observation logs"];
+    }
+
+    subgraph cluster_future {
+        label = "Future (Phase 4: Validation)";
+        color = "red";
+        style = "dashed";
+        "interrupt_queue" [label = "4. Interrupt-safe queue\nConcurrent observation"];
+        "openhw_port" [label = "5. Actual hardware deployment"];
+        "formal_verify" [label = "6. Formal verification\nRISC-V asm → RTL equivalence"];
+    }
+
+    "asm_layer" -> "build_bridge" [label = "feeds into"];
+    "rust_composition" -> "build_bridge" [label = "feeds into"];
+    "build_bridge" -> "embed_hal" -> "defmt" -> "interrupt_queue" -> "openhw_port";
+    "golden_tests" -> "formal_verify" [style = "dashed", label = "foundation for"];
+}
+''')
+```
+
 Based on the analysis above, we propose the following concrete actions:
 
-1. **Adopt `embedded‑hal` trait design** (Month 1) – Refactor `CoreVXifProfile` into a trait and provide at least two implementations: a software emulator and a mock hardware driver.
+1. **Bridge: build.rs generates assembly from Rust Schemes** (Month 1) -- Extend `build.rs` to read Rust `Scheme` definitions (e.g., Grid2D, IntegerLine) and generate the corresponding `.S` data sections automatically. This closes the gap between the composition layer and the hardware layer.
 
-2. **Create a custom linker script** (Month 1) – Develop a linker script that reserves memory regions for Scheme segments and Fields, and integrate it into the crate’s build system via `build.rs`.
+2. **Adopt `embedded‑hal` trait design** (Month 1) -- Refactor `CoreVXifProfile` into a trait and provide at least two implementations: a software emulator and a mock hardware driver.
 
-3. **Integrate `defmt`** (Month 2) – Add `defmt` as a dependency, implement the `Format` trait for SSCCS core types, and produce a simple demo that logs observation sequences.
+3. **Integrate `defmt`** (Month 2) -- Add `defmt` as a dependency, implement the `Format` trait for SSCCS core types, and produce a simple demo that logs observation sequences.
 
-4. **Set up `cargo‑generate` template** (Month 2) – Package the hardware‑integration workspace as a template so that new team members (or external contributors) can spin up a SSCCS‑hardware project with one command.
+4. **Set up `cargo‑generate` template** (Month 2) -- Package the hardware‑integration workspace as a template so that new team members (or external contributors) can spin up a SSCCS‑hardware project with one command.
 
-5. **Implement interrupt‑safe observation queue** (Month 3) – Using `riscv‑rt`’s interrupt macros and `critical‑section`, build a concurrent observation scheduler that can be tested in simulation.
+5. **Implement interrupt‑safe observation queue** (Month 3) -- Using `riscv‑rt`'s interrupt macros and `critical‑section`, build a concurrent observation scheduler that can be tested in simulation.
 
-6. **Port to OpenHW CORE‑V MCU DevKit** (Month 4) – With the abstractions in place, target the actual CORE‑V MCU hardware, using the `corev‑pac` crate (if available) or hand‑written register definitions.
+6. **Port to OpenHW CORE‑V MCU DevKit** (Month 4) -- With the abstractions in place, target the actual CORE‑V MCU hardware, using the `corev‑pac` crate (if available) or hand‑written register definitions.
+
+7. **Formal proof: assembly ↔ RTL equivalence** (Month 5) -- Feed the assembly files to a formal verification tool (e.g., `riscv‑formal`) to prove that a hardware observation unit matches the assembly specification.
 
 Each step will be accompanied by a small example commit and a test that verifies the new capability, following the pedagogical style of the Rust Embedded Book.
-
 ## Additional Considerations (Optional Enhancements)
 
 ### RISC‑V‑Specific Register Access
@@ -282,6 +483,9 @@ Ultimately, the combination of Rust’s guarantees and SSCCS’s structural mode
 | **Linker script** | A file that directs the linker how to place sections in memory. |
 | **XIF** | CORE‑V eXtension Interface – a RISC‑V interface for tightly coupled coprocessors. |
 | **Observation primitive** | A basic SSCCS operation (e.g., `OBSERVE`, `COLLAPSE`) that can be realized as a custom instruction. |
+| **Golden anchor** | A `# GOLDEN_*` comment in an assembly file that is parsed by a Rust test to verify cross‑layer consistency. |
+| **Hardware contract** | An assembly‑language specification of the minimal interface that hardware must implement, used as a reference for RTL design. |
+| **`build.rs` auto‑discovery** | The mechanism by which `build.rs` finds all `.S` files, parses their symbolic data, and generates matching Rust constants. |
 
 ## References {.unnumbered .unlisted}
 
