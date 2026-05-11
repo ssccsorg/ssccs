@@ -95,67 +95,37 @@ layout_col_major_2d:
 # 4. Z-ORDER (MORTON) LAYOUT
 # ═══════════════════════════════════════════════════════════════════════
 
-# ── 4.1 Helper: interleave bits (x, y → morton) ──
-# Part 1 of 2: spread lower 16 bits of a0 to every other bit
-# Internal helper, not globally exposed
-# ── 4.2 morton_encode_2d: Z-order for 2D ──
-# Input:  a0 = x (i64), a1 = y (i64)
-# Output: a0 = morton code
+# ── 4.1 morton_encode_2d: Z-order for 2D (bit-by-bit, correct for 32-bit) ──
+# Input:  a0 = x (i64), a1 = y (i64), only lower 16 bits are used
+# Output: a0 = morton code (32-bit)
+# Method: bit-by-bit interleaving — slower but correct for any 16-bit input
 .globl morton_encode_2d
 morton_encode_2d:
-    # Simple bit interleaving for 32-bit coordinates
-    # Using the classic spread-and-shift method
-
-    # Spread x: (x | (x << 8)) & 0x00FF00FF, etc.
-    mv      t0, a0
-    mv      t1, a1
-
-    # Spread lower 16 bits of t0
     li      t2, 0x0000FFFF
-    and     t0, t0, t2
-    and     t1, t1, t2
+    and     t0, a0, t2           # mask x to 16 bits
+    and     t1, a1, t2           # mask y to 16 bits
+    li      a0, 0                # result
+    li      t3, 0                # loop index
+.Lmorton_loop:
+    # Extract bit i from x, place at position 2*i
+    srl     t4, t0, t3
+    andi    t4, t4, 1
+    sll     t4, t4, t3           # << i
+    sll     t4, t4, t3           # << 2*i
 
-    # Stage 1: spread 16→32
-    li      t2, 0x00FF00FF
-    or      t3, t0, t0
-    slli    t3, t0, 8
-    or      t0, t0, t3
-    and     t0, t0, t2
-    or      t3, t1, t1
-    slli    t3, t1, 8
-    or      t1, t1, t3
-    and     t1, t1, t2
+    # Extract bit i from y, place at position 2*i+1
+    srl     t5, t1, t3
+    andi    t5, t5, 1
+    sll     t5, t5, t3           # << i
+    sll     t5, t5, t3           # << 2*i
+    slli    t5, t5, 1            # << 2*i+1
 
-    # Stage 2: spread 8→16
-    li      t2, 0x0F0F0F0F
-    slli    t3, t0, 4
-    or      t0, t0, t3
-    and     t0, t0, t2
-    slli    t3, t1, 4
-    or      t1, t1, t3
-    and     t1, t1, t2
-
-    # Stage 3: spread 4→8
-    li      t2, 0x33333333
-    slli    t3, t0, 2
-    or      t0, t0, t3
-    and     t0, t0, t2
-    slli    t3, t1, 2
-    or      t1, t1, t3
-    and     t1, t1, t2
-
-    # Stage 4: spread 2→4
-    li      t2, 0x55555555
-    slli    t3, t0, 1
-    or      t0, t0, t3
-    and     t0, t0, t2
-    slli    t3, t1, 1
-    or      t1, t1, t3
-    and     t1, t1, t2
-
-    # Interleave: (x bits) | (y bits << 1)
-    slli    t1, t1, 1
-    or      a0, t0, t1
+    or      a0, a0, t4
+    or      a0, a0, t5
+    addi    t3, t3, 1
+    li      t2, 16
+    blt     t3, t2, .Lmorton_loop
+    
     ret
 
 # ── 4.3 layout_zorder_2d: offset = morton(x,y) × elem_size ──

@@ -36,10 +36,7 @@ field_add_constraint:
     slli    t2, t0, 3           # offset in fn ptr array (8 bytes each)
     add     t2, a0, t2
     sd      a1, 0(t2)           # store constraint_fn
-    slli    t2, t0, 2           # offset in id array (4 bytes each)
-    add     t2, a0, 64
-    add     t2, t2, t2          # already at offset 64, just add id offset
-    # fix: id array starts at offset 64
+    # Store constraint_id at offset 64 + idx*4
     li      t2, 64
     add     t2, a0, t2
     slli    t3, t0, 2

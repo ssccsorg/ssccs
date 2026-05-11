@@ -274,23 +274,75 @@ pub mod fallback {
     }
 
     // ── Field ──
-    pub fn field_add_constraint(
-        field: &mut [u8; 512],
-        constraint_fn: usize,
-        constraint_id: u32,
-    ) -> i32 {
+    pub fn field_add_constraint(field: &mut [u8; 512], constraint_fn: usize, constraint_id: u32) -> i32 {
         let num = u32::from_le_bytes(field[480..484].try_into().unwrap());
-        if num >= 8 {
-            return -1;
-        }
+        if num >= 8 { return -1; }
         let idx = num as usize;
         field[idx * 8..idx * 8 + 8].copy_from_slice(&constraint_fn.to_le_bytes());
         field[64 + idx * 4..64 + idx * 4 + 4].copy_from_slice(&constraint_id.to_le_bytes());
         field[480..484].copy_from_slice(&(num + 1).to_le_bytes());
         0
     }
+    pub fn field_remove_constraint(field: &mut [u8; 512], constraint_id: u32) -> i32 {
+        let num = u32::from_le_bytes(field[480..484].try_into().unwrap()) as usize;
+        for i in 0..num {
+            let id = u32::from_le_bytes(field[64 + i * 4..64 + i * 4 + 4].try_into().unwrap());
+            if id == constraint_id {
+                for j in i..num - 1 {
+                    let src_fn = usize::from_le_bytes(field[(j + 1) * 8..(j + 2) * 8].try_into().unwrap());
+                    field[j * 8..j * 8 + 8].copy_from_slice(&src_fn.to_le_bytes());
+                    let src_id = u32::from_le_bytes(field[64 + (j + 1) * 4..64 + (j + 2) * 4].try_into().unwrap());
+                    field[64 + j * 4..64 + j * 4 + 4].copy_from_slice(&src_id.to_le_bytes());
+                }
+                field[480..484].copy_from_slice(&((num as u32) - 1).to_le_bytes());
+                return 0;
+            }
+        }
+        0
+    }
+    pub fn field_clear(field: &mut [u8; 512]) {
+        field[480..488].copy_from_slice(&[0u8; 8]);
+    }
+    pub fn field_add_transition(field: &mut [u8; 512], from_id: i64, to_id: i64, weight: i64) -> i32 {
+        let num = u32::from_le_bytes(field[484..488].try_into().unwrap());
+        if num >= 16 { return -1; }
+        let idx = num as usize;
+        let base = 96 + idx * 24;
+        field[base..base + 8].copy_from_slice(&from_id.to_le_bytes());
+        field[base + 8..base + 16].copy_from_slice(&to_id.to_le_bytes());
+        field[base + 16..base + 24].copy_from_slice(&weight.to_le_bytes());
+        field[484..488].copy_from_slice(&(num + 1).to_le_bytes());
+        0
+    }
+    pub fn field_update_weight(field: &mut [u8; 512], from_id: i64, to_id: i64, new_weight: i64) -> i32 {
+        let num = u32::from_le_bytes(field[484..488].try_into().unwrap()) as usize;
+        for i in 0..num {
+            let base = 96 + i * 24;
+            let fid = i64::from_le_bytes(field[base..base + 8].try_into().unwrap());
+            let tid = i64::from_le_bytes(field[base + 8..base + 16].try_into().unwrap());
+            if fid == from_id && tid == to_id {
+                field[base + 16..base + 24].copy_from_slice(&new_weight.to_le_bytes());
+                return 0;
+            }
+        }
+        -1
+    }
+    pub fn field_get_transitions(field: &[u8; 512], from_id: i64) -> Vec<(i64, i64)> {
+        let num = u32::from_le_bytes(field[484..488].try_into().unwrap()) as usize;
+        let mut out = Vec::new();
+        for i in 0..num {
+            let base = 96 + i * 24;
+            let fid = i64::from_le_bytes(field[base..base + 8].try_into().unwrap());
+            if fid == from_id {
+                let tid = i64::from_le_bytes(field[base + 8..base + 16].try_into().unwrap());
+                let w = i64::from_le_bytes(field[base + 16..base + 24].try_into().unwrap());
+                out.push((tid, w));
+            }
+        }
+        out
+    }
 
-    // ── Layout ──
+    // ── Layout ──    // ── Layout ──
     pub fn layout_linear_1d(coord: i64, stride: i64) -> i64 {
         coord * stride
     }
@@ -562,6 +614,35 @@ mod tests {
             assert_eq!(d2.len(), 4);
             let edges = fallback::adj_graph_edges(&[(0, 1), (0, 2), (1, 3)], 0);
             assert_eq!(edges, vec![1, 2]);
+        }
+
+        // Field
+        #[test]
+        fn test_field_fallback() {
+            let mut field = [0u8; 512];
+            assert_eq!(fallback::field_add_constraint(&mut field, 0x1000, 1), 0);
+            assert_eq!(fallback::field_add_constraint(&mut field, 0x2000, 2), 0);
+            assert_eq!(u32::from_le_bytes(field[480..484].try_into().unwrap()), 2);
+
+            // Transitions
+            assert_eq!(fallback::field_add_transition(&mut field, 10, 20, 100), 0);
+            let trans = fallback::field_get_transitions(&field, 10);
+            assert_eq!(trans.len(), 1);
+            assert_eq!(trans[0], (20, 100));
+
+            // Update weight
+            assert_eq!(fallback::field_update_weight(&mut field, 10, 20, 200), 0);
+            let trans = fallback::field_get_transitions(&field, 10);
+            assert_eq!(trans[0].1, 200);
+
+            // Remove constraint
+            assert_eq!(fallback::field_remove_constraint(&mut field, 1), 0);
+            assert_eq!(u32::from_le_bytes(field[480..484].try_into().unwrap()), 1);
+
+            // Clear
+            fallback::field_clear(&mut field);
+            assert_eq!(u32::from_le_bytes(field[480..484].try_into().unwrap()), 0);
+            assert_eq!(u32::from_le_bytes(field[484..488].try_into().unwrap()), 0);
         }
     }
 }

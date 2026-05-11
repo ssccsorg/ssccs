@@ -77,84 +77,107 @@ adj_grid_4:
 # Output: a0 = number of valid neighbors
 .globl adj_grid_8
 adj_grid_8:
-    addi    sp, sp, -16
-    sd      ra, 8(sp)
-    sd      a6, 0(sp)
+    addi    sp, sp, -48
+    sd      ra, 40(sp)
+    sd      s0, 32(sp)          # x
+    sd      s1, 24(sp)          # y
+    sd      s2, 16(sp)          # min_x
+    sd      s3, 8(sp)           # max_x
+    sd      s4, 0(sp)           # min_y / temp count
+    # s5 = max_y (not saved, recompute from sp)
+    # a6 = out buffer (saved on stack)
 
-    # First get 4-connected neighbors
+    mv      s0, a0              # x
+    mv      s1, a1              # y
+    mv      s2, a2              # min_x
+    mv      s3, a3              # max_x
+    mv      s4, a4              # min_y
+    mv      s5, a5              # max_y
+
+    # Step 1: get 4-connected neighbors via adj_grid_4
+    # a0-a5 already set, a6 needs to be on stack
+    addi    sp, sp, -16
+    sd      a6, 8(sp)           # save out buffer
+    sd      s5, 0(sp)           # save max_y (a5 position)
+    mv      a6, a6              # out buffer (already in a6)
     jal     adj_grid_4
     mv      t0, a0              # count from 4-connected
-    ld      a6, 0(sp)           # restore out buffer
+    ld      a6, 8(sp)           # restore out buffer
+    ld      s5, 0(sp)           # restore max_y
+    addi    sp, sp, 16
 
-    # Add 4 diagonals
-    ld      a2, 16(sp)          # restore bounds from stack
-    # Actually, let's recompute bounds since they're still in a2-a5
-    # a2=min_x, a3=max_x, a4=min_y, a5=max_y
+    # Step 2: add 4 diagonals using saved s0-s5
+    # s0=x, s1=y, s2=min_x, s3=max_x, s4=min_y, s5=max_y
 
     # Diagonal 1: (x+1, y+1)
-    blt     a0, a3, .Lag8_d1_right
-    j       .Lag8_check_d2
-.Lag8_d1_right:
-    blt     a1, a5, .Lag8_d1
-    j       .Lag8_check_d2
+    blt     s0, s3, .Lag8_d1r
+    j       .Lag8_cd2
+.Lag8_d1r:
+    blt     s1, s5, .Lag8_d1
+    j       .Lag8_cd2
 .Lag8_d1:
     slli    t1, t0, 4
     add     t1, a6, t1
-    addi    t2, a0, 1
+    addi    t2, s0, 1
     sd      t2, 0(t1)
-    addi    t2, a1, 1
+    addi    t2, s1, 1
     sd      t2, 8(t1)
     addi    t0, t0, 1
-.Lag8_check_d2:
+.Lag8_cd2:
     # Diagonal 2: (x-1, y+1)
-    bgt     a0, a2, .Lag8_d2_left
-    j       .Lag8_check_d3
-.Lag8_d2_left:
-    blt     a1, a5, .Lag8_d2
-    j       .Lag8_check_d3
+    bgt     s0, s2, .Lag8_d2l
+    j       .Lag8_cd3
+.Lag8_d2l:
+    blt     s1, s5, .Lag8_d2
+    j       .Lag8_cd3
 .Lag8_d2:
     slli    t1, t0, 4
     add     t1, a6, t1
-    addi    t2, a0, -1
+    addi    t2, s0, -1
     sd      t2, 0(t1)
-    addi    t2, a1, 1
+    addi    t2, s1, 1
     sd      t2, 8(t1)
     addi    t0, t0, 1
-.Lag8_check_d3:
+.Lag8_cd3:
     # Diagonal 3: (x+1, y-1)
-    blt     a0, a3, .Lag8_d3_right
-    j       .Lag8_check_d4
-.Lag8_d3_right:
-    bgt     a1, a4, .Lag8_d3
-    j       .Lag8_check_d4
+    blt     s0, s3, .Lag8_d3r
+    j       .Lag8_cd4
+.Lag8_d3r:
+    bgt     s1, s4, .Lag8_d3
+    j       .Lag8_cd4
 .Lag8_d3:
     slli    t1, t0, 4
     add     t1, a6, t1
-    addi    t2, a0, 1
+    addi    t2, s0, 1
     sd      t2, 0(t1)
-    addi    t2, a1, -1
+    addi    t2, s1, -1
     sd      t2, 8(t1)
     addi    t0, t0, 1
-.Lag8_check_d4:
+.Lag8_cd4:
     # Diagonal 4: (x-1, y-1)
-    bgt     a0, a2, .Lag8_d4_left
+    bgt     s0, s2, .Lag8_d4l
     j       .Lag8_done
-.Lag8_d4_left:
-    bgt     a1, a4, .Lag8_d4
+.Lag8_d4l:
+    bgt     s1, s4, .Lag8_d4
     j       .Lag8_done
 .Lag8_d4:
     slli    t1, t0, 4
     add     t1, a6, t1
-    addi    t2, a0, -1
+    addi    t2, s0, -1
     sd      t2, 0(t1)
-    addi    t2, a1, -1
+    addi    t2, s1, -1
     sd      t2, 8(t1)
     addi    t0, t0, 1
 
 .Lag8_done:
     mv      a0, t0
-    ld      ra, 8(sp)
-    addi    sp, sp, 16
+    ld      s4, 0(sp)
+    ld      s3, 8(sp)
+    ld      s2, 16(sp)
+    ld      s1, 24(sp)
+    ld      s0, 32(sp)
+    ld      ra, 40(sp)
+    addi    sp, sp, 48
     ret
 
 # ═══════════════════════════════════════════════════════════════════════
