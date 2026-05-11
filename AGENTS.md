@@ -42,6 +42,6 @@ Do not merge PR without permission.
 
 Focus on the accurancy of the goal.
 
-Do not generate unnecessary code unless it was essential for the goal.
+Do not generate too much unnecessary code unless it was essential for the goal.
 
 Code as pessimistically and critically as possible.
