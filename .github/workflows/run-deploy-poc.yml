@@ -5,6 +5,7 @@ on:
     paths:
       - 'poc/Cargo.*'
       - 'poc/**/*.rs'
+      - 'poc/**/*.S'
       - 'poc/rust-toolchain*'
       - '.github/workflows/run-deploy-poc.yml'
       - 'poc/run.sh'
@@ -15,6 +16,7 @@ on:
     paths:
       - 'poc/Cargo.*'
       - 'poc/**/*.rs'
+      - 'poc/**/*.S'
       - 'poc/rust-toolchain*'
       - '.github/workflows/run-deploy-poc.yml'
       - 'poc/run.sh'
@@ -52,6 +54,14 @@ jobs:
           chmod +x run.sh
           ./run.sh --validation
           python3 doc.py
+        shell: bash
+
+      - name: RISC-V Assembly Test (QEMU)
+        working-directory: ./poc/baremetal_riscv
+        run: |
+          rustup target add riscv64gc-unknown-linux-gnu
+          sudo apt-get update -qq && sudo apt-get install -y -qq qemu-user
+          cargo test --target riscv64gc-unknown-linux-gnu -- --test-threads=1 --nocapture
         shell: bash
 
       - name: Prepare poc agent artifacts
