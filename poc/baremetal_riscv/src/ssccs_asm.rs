@@ -262,3 +262,5 @@ mod tests {
         }
     }
 }
+
+include!(concat!(env!("OUT_DIR"), "/asm_data.rs"));
