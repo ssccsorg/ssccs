@@ -51,6 +51,11 @@ digraph NexusUnified {
         worker [label="Sync Worker\n/sync/:engine", shape=box, style=filled, fillcolor="#e6ffe6"];
     }
 
+    // Graph + Analysis Layer
+    graphlayer [label="Memgraph\n(Graph DB + Proxy)", shape=cylinder, style=filled, fillcolor="#dda0dd"];
+    modulehub [label="Module Hub\n(analysis orchestration)", shape=box, style=filled, fillcolor="#e6ffe6"];
+    graphlayer -> modulehub [label="Cypher queries"];
+
     // Agentic Loop
     subgraph cluster_loop {
         label="Agentic Research Loop";
@@ -66,7 +71,8 @@ digraph NexusUnified {
         verifier -> memory; verifier -> generator [label="terminate?"];
     }
 
-    graphrag [label="GraphRAG\n(Engine‑Agnostic Interface)", shape=cylinder, style=filled, fillcolor="#ffe4e1"];
+    graphrag [label="RAG Engine", shape=cylinder, style=filled, fillcolor="#ffe4e1"];
+    graphrag -> graphlayer [label="GraphML export"];
     flowgrpo [label="Flow‑GRPO", shape=box, style=filled, fillcolor="#e6ffe6"];
 
     // Connections
@@ -133,11 +139,14 @@ This abstraction isolates the rest of Nexus from any particular backend's storag
 
 The initial phase deploys and evaluates multiple GraphRAG implementations to inform the long‑term backend strategy:
 
-| Backend | Routing Key | Architecture | Strengths | Evaluation Focus |
-|---------|-------------|-------------|-----------|-----------------|
-| **LightRAG** | `/sync/lightrag` | PostgreSQL + pgvector + Apache AGE | Single‑DB ACID consistency, Louvain community detection, six query modes | Baseline: entity extraction quality, query latency, operational simplicity |
-| **Qdrant‑based** | `/sync/qd` | Qdrant vector DB + external graph store | High‑performance vector search, horizontal scaling, cloud‑native | Vector recall vs. graph‑aware recall, ingestion throughput |
-| **Neo4j‑based** | `/sync/neo4j` | Neo4j native graph + separate vector index | Native graph traversal (Cypher), mature ecosystem, property graph model | Multi‑hop reasoning quality, graph query expressiveness |
+| Layer | Component | Stack | Role | Status |
+|-------|-----------|-------|------|--------|
+| **RAG** | LightRAG | Python/Docker | Document ingest, entity extraction, semantic search | Deployed |
+| **RAG** | Graphiti | Python/Docker + Neo4j | Temporal knowledge graph | Deployed |
+| **Graph** | Memgraph | C++/Docker (in‑memory) | Persistent graph DB, Cypher analysis, native vector search, community detection (Leiden/Louvain), PageRank | Deployed |
+| **Graph** | memgraph-proxy | Python HTTP → Bolt | HTTP‑to‑bolt bridge for Worker access | Deployed |
+| **Infra** | Cloudflare Workers | TypeScript | af-sync (R2→RAG sync), module-hub (orchestration) | Deployed |
+| **Infra** | Cloudflare Tunnels | cloudflared | Public access to local Docker services | Deployed |
 
 Each backend ingests the same corpus through the same sync pipeline. The Verifier benchmarks query quality across modes (Local, Global, Hybrid), and the Planner learns to route questions to the most appropriate backend based on question type and observed performance.
 
@@ -182,6 +191,39 @@ The initial phase includes a benchmarking framework that evaluates each backend 
 | Concurrent query capacity | Simultaneous queries before degradation | > 50 |
 
 Results inform not only backend selection but also the Planner's learned routing policy — a question type that consistently yields better results from a specific backend will bias the Planner toward that backend.
+
+### Graph Analysis Layer — Memgraph
+
+Alongside the RAG engines, Nexus operates a separate graph analysis layer based on [Memgraph](https://memgraph.com/) — an in‑memory graph database with native vector search. Unlike external vector databases that require a separate index, Memgraph integrates vector similarity directly into Cypher queries, enabling combined structural + semantic retrieval in a single query.
+
+The gap-detector module (`module-hub`) runs periodic structural analysis of the knowledge graph via Cypher queries:
+
+| Analysis Type | Cypher Query | Severity |
+|--------------|--------------|----------|
+| **Orphaned concepts** | `MATCH (c:Concept) OPTIONAL MATCH (c)-[r]-() WHERE rc = 0` | Warning |
+| **Missing relationships** | `MATCH (a) MATCH (b) WHERE a.file_path = b.file_path AND NOT EXISTS ((a)-[]-(b))` | Info |
+| **Contradictory edges** | `MATCH (a)-[r1]->(b) MATCH (a)-[r2]->(b) WHERE type(r1) <> type(r2)` | Critical |
+
+Memgraph is accessed by Workers via an HTTP‑to‑Bolt proxy (`memgraph-proxy`) that translates HTTP POST `/cypher` requests to the Memgraph bolt protocol. The proxy runs as a Docker sidecar alongside Memgraph.
+
+**Architecture:**
+
+```text
+LightRAG (RAG ingest)
+  → GraphML export → import_lightrag.py
+Memgraph (graph storage + Cypher analysis)
+  ↑ HTTP proxy (:7689)
+module-hub gap-detector
+  → findings → KV
+```
+
+Access to the graph layer is through a dedicated Cloudflare Tunnel:
+
+| Tunnel | Hostname | Service |
+|--------|----------|---------|
+| `nexus-graph` | `graph-api-dev.nexus.ssccs.org` | Memgraph proxy (:7689) |
+
+This isolation ensures that graph analysis operates independently from the RAG ingest pipeline — a decision driven by the recognition that graph structural analysis and document retrieval have fundamentally different latency, consistency, and update patterns.
 
 ### Layer 2: Artifact Storage & Ingestion Pipeline — Cloudflare R2 + Worker
 
@@ -383,14 +425,16 @@ Because the contract is versioned, machine‑readable, and enforced at both the 
 
 ### Component Interaction Matrix
 
-| Component | GraphRAG | R2 | Sync Worker | Planner | Verifier | Generator |
-|-----------|:---:|:---:|:---:|:---:|:---:|:---:|
-| GraphRAG | — | — | ← syncs | ← queries | ← grounds | — |
-| R2 | — | — | ← reads | — | — | — |
-| Sync Worker | → DELETE/POST | → list/get | — | — | — | — |
-| Planner | → queries | — | — | — | → delegates | — |
-| Verifier | → hybrid queries | — | — | ← receives | — | → signals |
-| Generator | — | — | — | — | ← triggered | — |
+| Component | GraphRAG | Memgraph | R2 | Sync Worker | Module Hub | Planner | Verifier | Generator |
+|-----------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| GraphRAG | — | → GraphML export | — | ← syncs | — | ← queries | ← grounds | — |
+| Memgraph | ← import | — | — | — | → Cypher queries | — | → evidence | — |
+| R2 | — | — | — | ← reads | → artifacts | — | — | — |
+| Sync Worker | → DELETE/POST | — | → list/get | — | — | — | — | — |
+| Module Hub | — | → gap analysis | — | — | — | — | — | — |
+| Planner | → queries | — | — | — | — | — | → delegates | — |
+| Verifier | → hybrid queries | → support score | — | — | — | ← receives | — | → signals |
+| Generator | — | — | — | — | — | — | ← triggered | — |
 
 ## Strategic Value & Open‑Source Alignment
 

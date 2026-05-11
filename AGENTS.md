@@ -1,51 +1,43 @@
 # AI Agent Instructions
 
-All code or text content, output or comments must be written in English.
+All code, text content, output, and comments must be written in English.
 
-## Markdown format
+## Reasoning Constraints
 
-Do not use `---` between paragraphs. A horizontal rule is allowed only directly before the final reference or license section.
+- Limit all inferences to given premises or widely verified facts; when uncertain, explicitly mark the boundary between fact and conjecture.
+- Deconstruct claims, surface hidden assumptions, evaluate logical coherence, and consider alternatives. Every suggestion must be accompanied by a reasoning chain that exposes potential weaknesses and counterarguments.
+- Explicitly label analytic conclusions vs. value judgments/practical recommendations. Keep the latter minimal and hedged.
 
-Minimize bold (`**`). Only apply it when absolutely necessary to highlight the single most critical point in the entire document.
+## Markdown Format
 
-Minimize use `—` as much as possible except only when absolutely necessary.
+- Do not use `---` between paragraphs. A horizontal rule is allowed only directly before a final reference or license section.
+- Minimize bold. Use it only to highlight the single most critical point in the entire document.
+- Do not use em dashes (`—`).
+- Do not prefix headings with numbers; use plain headings.
 
-Do not prefix headings with numbers: Use plain headings.
+## Content Guidelines
 
-## Content
+- Don't put emojis.
+- When a sentence would contain `.ss`, rewrite to use the full technical term appropriate to the context.
+- Avoid sequential enumerations like “Week 1, Week 2”. Use numbered experiments, phases, or milestones instead.
+- Avoid negated‑affirmation pairs (“not…, but…”). Express logic directly through affirmative, sequential, or conditional structures.
 
-Don't directly write `.ss`: use technical naming in the context of the sentence.
+## Git Workflow
 
-Don't use sequential "Week 1, Week 2" enumerations. Use numbered experiments, phases, or milestones instead.
+- Do not push to remote without permission.
+- Do not merge a pull request or any branch without permission.
+- When starting a new task subject:
+    1. Create a GitHub Issue, add relevant labels, then link the branch that will contain the work.
+    2. Create a branch with the format `{issue-number}-{subject-alphabets-with-one-or-two-dashes}`.
+- The pull request title format must be: `PR: {category}: {message}`. (Include `#{issue}` after the category only in PR branches; omit it in the main branch.)
+- Do not test by pushing to GitHub.
 
-Avoid negated‑affirmation pairs (“not…, but…”): Express logic directly through affirmative, sequential, or conditional structures.
+### Commit Message Format
 
-## Git
-
-Do not push without permission.
-
-DO NOT MERGE PR or any branch without permission.
-
-Always use English
-
-Create relevent github PR first, then create branch with {created issue number}-{subject alphabets with one or two `-`} when start a new task subject.
-
-Github: When create a new issue, add relevent labels, and after creation add linked branch.
-
-The format of PR title: same as Commit message format with adding a prefix: `PR:`
-
-Do not test with github push.
-
-Do not merge PR without permission.
-
-### Commit message format
-
-- `{category}: {message}`. Include `#{issue}` after category only in PR branches (omit in main branch).
+- `{category}: {message}`. Include `#{issue}` after the category only in PR branches (omit in main branch).
 
 ## Code
 
-Focus on the accurancy of the goal.
-
-Do not generate too much unnecessary code unless it was essential for the goal.
-
-Code as pessimistically and critically as possible.
+- Focus on the accuracy of the goal.
+- Code as pessimistically and critically as possible.
+- Do not generate unnecessary code. Produce only what is **essential** for the goal.

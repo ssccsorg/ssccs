@@ -224,8 +224,6 @@ The assembly files prove that the SSCCS model does not implicitly depend on a co
 3. **XIF coprocessor specification** -- the assembly is a functional reference for the custom‑instruction unit.
 4. **Energy‑per‑observation measurement** -- cycle counts from the assembly provide a baseline that LLVM‑generated code cannot match because it must respect calling conventions and ABI overhead.
 
-
-
 ### Connection to QiMeng Macro-Micro Paradigm
 
 The SSCCS assembly layer gains deeper architectural legitimacy when viewed through the lens of the QiMeng multi-agent RISC-V automation system [@qimeng2024cpu]. QiMeng has demonstrated that separating high-level strategy ("Macro Thinking") from low-level implementation ("Micro Coding") is critical for correct, optimized code generation:
@@ -439,6 +437,7 @@ Based on the analysis above, we propose the following concrete actions:
 7. **Formal proof: assembly ↔ RTL equivalence** (Month 5) -- Feed the assembly files to a formal verification tool (e.g., `riscv‑formal`) to prove that a hardware observation unit matches the assembly specification.
 
 Each step will be accompanied by a small example commit and a test that verifies the new capability, following the pedagogical style of the Rust Embedded Book.
+
 ## Additional Considerations (Optional Enhancements)
 
 ### RISC‑V‑Specific Register Access
