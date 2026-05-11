@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 //! SSCCS core concepts in RISC-V assembly — the full observation pipeline.
 //!
 //! Whitepaper §2.3.2: Union(∪)=C₁∨C₂,T=max(T₁,T₂), Intersection(∩)=C₁∧C₂,T=min(T₁,T₂).
