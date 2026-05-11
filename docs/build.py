@@ -142,6 +142,27 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+
+# ---------------------------------------------------------------------------
+# BuildContext — immutable runtime state (replaces global mutable variables)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class BuildContext:
+    """Immutable context initialized once at startup from external config.
+
+    Replaces the four module-level globals:
+      EXTERNAL_CONFIG, TARGET_CONFIG, BUILD_FUNCTIONS, OUTPUT_DIR_TARGETS
+    """
+
+    external_config: Dict[str, Any]
+    target_config: Dict[str, Dict[str, Any]]
+    build_functions: Dict[str, Callable[..., bool]]
+    output_dir_targets: set
+    initial_cached_targets: Optional[set] = None
+
+
 DOCS_PARENT = Path(__file__).parent.parent.resolve()
 DOCS_ROOT = Path(__file__).parent.absolute()
 
@@ -151,39 +172,50 @@ JUPYTER_CACHE_DIR = "_jupyter_cache"
 QUARTO_CONFIG_FILES = ["_quarto.yml", "_quarto-website.yml"]
 
 
+# ---------------------------------------------------------------------------
+# ConfigManager
+# ---------------------------------------------------------------------------
+
+
+class ConfigManager:
+    """Configuration loading, target discovery, and gitignore pattern matching."""
+
+    @staticmethod
+    def load_yaml_file(file_path: Path) -> Dict[str, Any]:
+        """Load a YAML configuration file and return its contents as a dictionary.
+
+        Returns an empty dict if the file does not exist, PyYAML is unavailable,
+        or the file cannot be parsed."""
+        if not file_path.exists():
+            logger.debug(f"Config file not found: {file_path}")
+            return {}
+        try:
+            import yaml
+        except ImportError:
+            logger.debug("PyYAML not available, cannot read YAML config")
+            return {}
+        try:
+            with open(file_path, "r") as f:
+                config = yaml.safe_load(f)
+            return config or {}
+        except Exception as e:
+            logger.warning(f"Failed to load YAML config from {file_path}: {e}")
+            return {}
+
+    @staticmethod
+    @lru_cache(maxsize=1)
+    def get_website_config(docs_root: Path) -> Dict[str, Any]:
+        """Load website configuration from _quarto-website.yml."""
+        return ConfigManager.load_yaml_file(docs_root / "_quarto-website.yml")
+
+
+# Backward-compatible module-level delegates
 def load_yaml_file(file_path: Path) -> Dict[str, Any]:
-    """
-    Load a YAML configuration file and return its contents as a dictionary.
-
-    Centralized YAML loading used by all config-loading functions.
-    Returns an empty dict if the file does not exist, PyYAML is unavailable,
-    or the file cannot be parsed.
-    """
-    if not file_path.exists():
-        logger.debug(f"Config file not found: {file_path}")
-        return {}
-
-    try:
-        import yaml
-    except ImportError:
-        logger.debug("PyYAML not available, cannot read YAML config")
-        return {}
-    try:
-        with open(file_path, "r") as f:
-            config = yaml.safe_load(f)
-        return config or {}
-    except Exception as e:
-        logger.warning(f"Failed to load YAML config from {file_path}: {e}")
-        return {}
+    return ConfigManager.load_yaml_file(file_path)
 
 
-@lru_cache(maxsize=1)
 def get_website_config(docs_root: Path) -> Dict[str, Any]:
-    """
-    Load website configuration from _quarto-website.yml.
-    Returns a dictionary with configuration values.
-    """
-    return load_yaml_file(docs_root / "_quarto-website.yml")
+    return ConfigManager.get_website_config(docs_root)
 
 
 BUILD_TEMP_PATH = DOCS_PARENT / BUILD_TEMP_DIR
@@ -195,52 +227,93 @@ os.environ["JUPYTERCACHE"] = str(JUPYTER_CACHE_PATH)
 # Formats that are considered non‑deterministic (cached based on QMD hash only)
 NON_DETERMINISTIC_FORMATS = {"pdf", "beamer", "html", "gfm"}
 
-# Patterns that match Quarto‑generated artifacts (used by clean_quarto_artifacts and copy ignore)
-IGNORING_ARTIFACT_PATTERNS = [
-    "**/__pycache__",
-    "**/*.pyc",
-    "**/*.pyd",
-    "**/*.log",
-    "**/*_output",
-    "**/*_extensions",
-    "**/*_cached",
-    "**/*_files",
-    "**/*_libs",
-    "**/_llms",
-    "**/_site",
-    "**/_docsbuild",
-    # quarto: final artifacts
-    "**/*.tex",
-    "**/*.pdf",
-    "**/*.html",
-    # quarto: global
-    "**/*.quarto_ipynb*",
-    "**/*.quarto",
-    # c2pa
-    "**/*.c2pa",
-    "**/*.c2pa_identifier.svg",
-]
 
-CLEANING_ARTIFACT_PATTERNS = IGNORING_ARTIFACT_PATTERNS + [
-    os.path.join("..", BUILD_TEMP_DIR),
-    os.path.join("..", BUILD_CACHE_DIR),
-    os.path.join("..", JUPYTER_CACHE_DIR),
-    "**/.jupyter_cache",
-]
+# ---------------------------------------------------------------------------
+# CleanupManager
+# ---------------------------------------------------------------------------
+
+
+class CleanupManager:
+    """Manages Quarto artifact patterns and cleanup operations."""
+
+    IGNORING_ARTIFACT_PATTERNS: List[str] = [
+        "**/__pycache__",
+        "**/*.pyc",
+        "**/*.pyd",
+        "**/*.log",
+        "**/*_output",
+        "**/*_extensions",
+        "**/*_cached",
+        "**/*_files",
+        "**/*_libs",
+        "**/_llms",
+        "**/_site",
+        "**/_docsbuild",
+        "**/*.tex",
+        "**/*.pdf",
+        "**/*.html",
+        "**/*.quarto_ipynb*",
+        "**/*.quarto",
+        "**/*.c2pa",
+        "**/*.c2pa_identifier.svg",
+    ]
+
+    def __init__(self) -> None:
+        self._cleaning_patterns: List[str] = self.IGNORING_ARTIFACT_PATTERNS + [
+            os.path.join("..", BUILD_TEMP_DIR),
+            os.path.join("..", BUILD_CACHE_DIR),
+            os.path.join("..", JUPYTER_CACHE_DIR),
+            "**/.jupyter_cache",
+        ]
+
+    def ignore_quarto_artifacts(self) -> Callable[[str, List[str]], List[str]]:
+        basename_patterns = []
+        for pat in self.IGNORING_ARTIFACT_PATTERNS:
+            if pat.startswith("**/"):
+                pat = pat[3:]
+            basename_patterns.append(pat)
+        return shutil.ignore_patterns(*basename_patterns)
+
+    def clean(self, docs_root: Path) -> bool:
+        deleted = []
+        errors = []
+        for pattern in self._cleaning_patterns:
+            for item in docs_root.glob(pattern):
+                if item.is_dir():
+                    try:
+                        shutil.rmtree(item)
+                        deleted.append(str(item))
+                        logger.info(f"Deleted directory: {item}")
+                    except Exception as e:
+                        errors.append(f"Failed to delete {item}: {e}")
+                elif item.is_file():
+                    try:
+                        item.unlink()
+                        deleted.append(str(item))
+                        logger.info(f"Deleted file: {item}")
+                    except Exception as e:
+                        errors.append(f"Failed to delete {item}: {e}")
+        if deleted:
+            logger.info(f"Cleaned {len(deleted)} items.")
+        if errors:
+            for err in errors:
+                logger.error(err)
+            return False
+        return True
+
+
+_cleanup = CleanupManager()
+
+# Backward-compatible module-level references
+IGNORING_ARTIFACT_PATTERNS = CleanupManager.IGNORING_ARTIFACT_PATTERNS
 
 
 def ignore_quarto_artifacts() -> Callable[[str, List[str]], List[str]]:
-    """
-    Return an ignore function suitable for shutil.copytree that excludes
-    Quarto-generated artifacts.
-    """
-    # Convert glob patterns to basename patterns (strip leading '**/')
-    basename_patterns = []
-    for pat in IGNORING_ARTIFACT_PATTERNS:
-        if pat.startswith("**/"):
-            pat = pat[3:]
-        basename_patterns.append(pat)
-    return shutil.ignore_patterns(*basename_patterns)  # type: ignore[return-value]
+    return _cleanup.ignore_quarto_artifacts()
+
+
+def clean_quarto_artifacts(docs_root: Path) -> bool:
+    return _cleanup.clean(docs_root)
 
 
 # Per‑QMD locks to prevent concurrent Quarto renders on the same source file
@@ -267,135 +340,116 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-@lru_cache(maxsize=128)
-def compute_file_hash(path: Path) -> str:
-    """Compute SHA-256 hash of a file."""
-    try:
-        with open(path, "rb") as f:
-            return hashlib.file_digest(f, "sha256").hexdigest()
-    except FileNotFoundError:
-        raise
+# ---------------------------------------------------------------------------
+# HashManager
+# ---------------------------------------------------------------------------
 
 
-@lru_cache(maxsize=32)
-def compute_quarto_file_hash_with_deps(file_path: Path) -> str:
-    """
-    Compute a combined SHA‑256 hash that includes the QMD file itself and all
-    files it directly or indirectly includes (via `includeMap`) as well as
-    Python files referenced by `%run` directives in code cells.
-    """
-    visited = set()
+class HashManager:
+    """File hashing and QMD dependency graph computation."""
 
-    # Helper to resolve relative paths relative to a base file
-    def resolve(base: Path, rel: str) -> Path:
-        # rel may be relative with '..' or '.'
-        return (base.parent / rel).resolve()
-
-    def collect(path: Path) -> None:
-        if path in visited:
-            return
-        visited.add(path)
-        data = inspect_quarto_file(path)
-        if data is None:
-            # If inspect fails, we still have the file itself; no further dependencies
-            return
-        fi = data.get("fileInformation", {})
-        # fi is a dict keyed by file path (absolute). Use the key that matches path
-        # (might be relative). We'll find the entry whose key ends with path.name
-        entry = None
-        for key, val in fi.items():
-            if Path(key).resolve() == path.resolve():
-                entry = val
-                break
-        if entry is None:
-            # No file information, treat as leaf
-            return
-        # Process Quarto Configs
-        for gcfg in [DOCS_ROOT / file for file in QUARTO_CONFIG_FILES]:
-            if gcfg.exists():
-                visited.add(gcfg.resolve())
-        # Process includeMap
-        for inc in entry.get("includeMap", []):
-            target_rel = inc.get("target")
-            if target_rel:
-                target = resolve(path, target_rel)
-                # Only recurse into QMD files; other files are added as dependencies
-                if target.suffix.lower() == ".qmd":
-                    collect(target)
-                else:
-                    visited.add(target)
-        # Process codeCells for %run directives
-        for cell in entry.get("codeCells", []):
-            source = cell.get("source", "")
-            # Look for lines starting with %run
-            for line in source.splitlines():
-                line = line.strip()
-                if line.startswith("%run"):
-                    import shlex
-
-                    tokens = shlex.split(line)
-                    # tokens[0] is '%run', tokens[1] is the path (if exists)
-                    if len(tokens) >= 2:
-                        run_path = tokens[1]
-                        # Remove any trailing arguments (e.g., --output)
-                        run_path = run_path.split("--")[0].strip()
-                        if run_path:
-                            # Resolve relative to the cell's file (if given) else path
-                            cell_file = cell.get("file")
-                            base = Path(cell_file).parent if cell_file else path.parent
-                            try:
-                                dep = (base / run_path).resolve()
-                                if dep.exists():
-                                    visited.add(dep)
-                            except Exception:
-                                pass
-                    # continue scanning lines for more %run directives
-
-        # Add config files
-        for config_path in data.get("config", []):
-            visited.add(Path(config_path).resolve())
-        for resource_path in data.get("configResources", []):
-            visited.add(Path(resource_path).resolve())
-
-        # Add metadata files, bibliography, and CSL from formats
-        for fmt, fmt_config in data.get("formats", {}).items():
-            pandoc = fmt_config.get("pandoc", {})
-            # metadata-files
-            for mf in pandoc.get("metadata-files", []):
-                mf_path = resolve(path, mf)
-                visited.add(mf_path)
-            # bibliography
-            bib = pandoc.get("bibliography")
-            if bib:
-                bib_path = resolve(path, bib)
-                visited.add(bib_path)
-            # csl
-            csl = pandoc.get("csl")
-            if csl:
-                csl_path = resolve(path, csl)
-                visited.add(csl_path)
-
-    # Start collection
-    collect(file_path.resolve())
-
-    # Compute combined hash
-    hasher = hashlib.sha256()
-    # Include the file extension in the hash to detect extension changes (e.g., .md → .qmd)
-    hasher.update(file_path.suffix.encode("utf-8"))
-    for dep in sorted(visited, key=lambda p: str(p)):
-        # Include each file's hash
+    @staticmethod
+    @lru_cache(maxsize=128)
+    def compute_file_hash(path: Path) -> str:
+        """Compute SHA-256 hash of a file."""
         try:
-            dep_hash = compute_file_hash(dep)
-            hasher.update(dep_hash.encode("utf-8"))
+            with open(path, "rb") as f:
+                return hashlib.file_digest(f, "sha256").hexdigest()
         except FileNotFoundError:
-            # If a dependency disappears, we treat it as changed, causing a rebuild
-            # by including a placeholder.
-            hasher.update(b"<missing>")
+            raise
 
-    # Compute file extention
-    hasher.update(file_path.suffix.encode("utf-8"))
+    @staticmethod
+    @lru_cache(maxsize=32)
+    def compute_quarto_file_hash_with_deps(file_path: Path) -> str:
+        """Compute a combined SHA‑256 hash that includes the QMD file itself
+        and all files it directly or indirectly includes (via includeMap) as
+        well as Python files referenced by %run directives in code cells."""
+        visited: set = set()
 
-    return hasher.hexdigest()
+        def resolve(base: Path, rel: str) -> Path:
+            return (base.parent / rel).resolve()
+
+        def collect(path: Path) -> None:
+            if path in visited:
+                return
+            visited.add(path)
+            data = inspect_quarto_file(path)
+            if data is None:
+                return
+            fi = data.get("fileInformation", {})
+            entry = None
+            for key, val in fi.items():
+                if Path(key).resolve() == path.resolve():
+                    entry = val
+                    break
+            if entry is None:
+                return
+            for gcfg in [DOCS_ROOT / file for file in QUARTO_CONFIG_FILES]:
+                if gcfg.exists():
+                    visited.add(gcfg.resolve())
+            for inc in entry.get("includeMap", []):
+                target_rel = inc.get("target")
+                if target_rel:
+                    target = resolve(path, target_rel)
+                    if target.suffix.lower() == ".qmd":
+                        collect(target)
+                    else:
+                        visited.add(target)
+            for cell in entry.get("codeCells", []):
+                source = cell.get("source", "")
+                for line in source.splitlines():
+                    line = line.strip()
+                    if line.startswith("%run"):
+                        import shlex
+                        tokens = shlex.split(line)
+                        if len(tokens) >= 2:
+                            run_path = tokens[1]
+                            run_path = run_path.split("--")[0].strip()
+                            if run_path:
+                                cell_file = cell.get("file")
+                                base = Path(cell_file).parent if cell_file else path.parent
+                                try:
+                                    dep = (base / run_path).resolve()
+                                    if dep.exists():
+                                        visited.add(dep)
+                                except Exception:
+                                    pass
+            for config_path in data.get("config", []):
+                visited.add(Path(config_path).resolve())
+            for resource_path in data.get("configResources", []):
+                visited.add(Path(resource_path).resolve())
+            for fmt_config in data.get("formats", {}).values():
+                pandoc = fmt_config.get("pandoc", {})
+                for mf in pandoc.get("metadata-files", []):
+                    visited.add(resolve(path, mf))
+                bib = pandoc.get("bibliography")
+                if bib:
+                    visited.add(resolve(path, bib))
+                csl = pandoc.get("csl")
+                if csl:
+                    visited.add(resolve(path, csl))
+
+        collect(file_path.resolve())
+
+        hasher = hashlib.sha256()
+        hasher.update(file_path.suffix.encode("utf-8"))
+        for dep in sorted(visited, key=lambda p: str(p)):
+            try:
+                dep_hash = HashManager.compute_file_hash(dep)
+                hasher.update(dep_hash.encode("utf-8"))
+            except FileNotFoundError:
+                hasher.update(b"<missing>")
+        hasher.update(file_path.suffix.encode("utf-8"))
+        return hasher.hexdigest()
+
+
+# Backward-compatible module-level delegates
+def compute_file_hash(path: Path) -> str:
+    return HashManager.compute_file_hash(path)
+
+
+def compute_quarto_file_hash_with_deps(file_path: Path) -> str:
+    return HashManager.compute_quarto_file_hash_with_deps(file_path)
 
 
 def target_produces_pdf(config: Dict[str, Any]) -> bool:
@@ -1068,215 +1122,112 @@ def refresh_cache_for_target(target: str, output_dir: Optional[Path] = None) -> 
     return True
 
 
-def clean_quarto_artifacts(docs_root: Path) -> bool:
-    """
-    Remove Quarto-generated directories matching the patterns
-    """
-    patterns = CLEANING_ARTIFACT_PATTERNS
-    deleted = []
-    errors = []
-    for pattern in patterns:
-        for item in docs_root.glob(pattern):
-            if item.is_dir():
-                try:
-                    shutil.rmtree(item)
-                    deleted.append(str(item))
-                    logger.info(f"Deleted directory: {item}")
-                except Exception as e:
-                    errors.append(f"Failed to delete {item}: {e}")
-            elif item.is_file():
-                try:
-                    item.unlink()
-                    deleted.append(str(item))
-                    logger.info(f"Deleted file: {item}")
-                except Exception as e:
-                    errors.append(f"Failed to delete {item}: {e}")
-    if deleted:
-        logger.info(f"Cleaned {len(deleted)} items.")
-    if errors:
-        for err in errors:
-            logger.error(err)
-        return False
-    return True
+# Backward-compatible — delegates to _cleanup instance (see top of file)
 
 
 # Default exclude patterns (gitignore-style)
 DEFAULT_EXCLUDE_PATTERNS: List[str] = []
 
 
-def load_external_config(config_path: Optional[Path]) -> Dict[str, Any]:
-    """
-    Load external configuration from YAML file.
-    Returns empty dict if config_path is None, file doesn't exist, or YAML is not available.
-    """
+# ConfigManager continuation — methods that depend on module constants
+
+@staticmethod
+def _load_external_config(config_path: Optional[Path]) -> Dict[str, Any]:
     if config_path is None:
         return {}
-    config = load_yaml_file(config_path)
+    config = ConfigManager.load_yaml_file(config_path)
     if config:
         logger.info(f"Loaded external config from {config_path}")
     return config
 
 
-def get_exclude_patterns(external_config: Dict[str, Any]) -> List[str]:
-    """Get exclude patterns from external config or use defaults."""
+@staticmethod
+def _get_exclude_patterns(external_config: Dict[str, Any]) -> List[str]:
     return external_config.get("exclude", DEFAULT_EXCLUDE_PATTERNS)
 
 
-def get_target_config_from_external(
-    external_config: Dict[str, Any],
-) -> Dict[str, Dict[str, Any]]:
-    """Get target configurations from external config.
-
-    Note: build.py does not know about target names - they are defined externally.
-    This function returns only what is specified in the external config.
-    """
-    # Note: YAML uses 'target_config' key (not 'target')
+@staticmethod
+def _get_target_config_from_external(external_config: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
     return external_config.get("target_config", {})
 
 
+@staticmethod
 def matches_gitignore_pattern(rel_path: Path, patterns: List[str]) -> bool:
-    """
-    Check if a relative path matches any of the gitignore-style patterns.
-
-    Supports:
-    - Glob patterns: **/*.md, **/README.md
-    - Directory patterns: **/_include/, **/*_libs/ (trailing slash for directories)
-    - Simple patterns: README.md, contributing.md
-
-    Pattern matching rules (gitignore-style):
-    - "**/" at start matches any directory depth
-    - "*" matches any characters except "/"
-    - "?" matches single character except "/"
-    - Trailing "/" indicates directory-only match
-    - Pattern without "/" matches filename at any level
-    """
+    """Check if a relative path matches any of the gitignore-style patterns."""
     import fnmatch
-
     path_str = str(rel_path)
-    path_str_forward = path_str.replace("\\", "/")  # Normalize to forward slashes
+    path_str_forward = path_str.replace("\\", "/")
     name = rel_path.name
-
     for pattern in patterns:
-        # Normalize pattern
         pattern = pattern.strip()
         if not pattern:
             continue
-
-        # Check if pattern is for directories only (trailing slash)
         is_dir_only = pattern.endswith("/")
         if is_dir_only:
             pattern = pattern[:-1]
-            # For directory patterns, check if path is under a matching directory
-            # Match against each directory component
             parts = path_str_forward.split("/")
-            for i, part in enumerate(parts[:-1]):  # Exclude filename
+            for i, part in enumerate(parts[:-1]):
                 if fnmatch.fnmatch(part, pattern) or fnmatch.fnmatch(
                     parts[i], pattern.split("/")[-1] if "/" in pattern else pattern
                 ):
                     return True
             continue
-
-        # Check full path match
         if fnmatch.fnmatch(path_str_forward, pattern):
             return True
         if fnmatch.fnmatch(path_str, pattern):
             return True
-
-        # Check filename-only match (for patterns without directory separators)
         if "/" not in pattern and "\\" not in pattern:
             if fnmatch.fnmatch(name, pattern):
                 return True
-
-        # Check if pattern starts with **/ (matches any depth)
         if pattern.startswith("**/"):
             subpattern = pattern[3:]
-            # Match against filename
             if fnmatch.fnmatch(name, subpattern):
                 return True
-            # Match against any suffix of the path
             parts = path_str_forward.split("/")
             for i in range(len(parts)):
                 suffix = "/".join(parts[i:])
                 if fnmatch.fnmatch(suffix, subpattern):
                     return True
-
-        # Check if pattern ends with /** (matches anything under directory)
         if pattern.endswith("/**"):
             dirpattern = pattern[:-3]
             if path_str_forward.startswith(dirpattern + "/") or path_str.startswith(
                 dirpattern + "/"
             ):
                 return True
-
     return False
 
 
+@staticmethod
 def discover_quarto_targets(
     docs_root: Path, exclude_patterns: Optional[List[str]] = None
 ) -> Dict[str, Dict[str, Any]]:
-    """
-    Scan docs_root for .qmd and .md files and return target configurations.
-    Excludes files/directories matching gitignore-style patterns.
-
-    Target Naming:
-      - Target names are derived from the relative path of each .qmd/.md file
-        with path separators replaced by hyphens.
-      - Snake_case within filenames is preserved (only path separators become hyphens).
-      - Examples:
-          docs/index.qmd → index
-          docs/legal/index.qmd → legal-index
-          docs/research/file_name.qmd → research-file_name
-      - This ensures unique target names even for same‑filename documents in different directories.
-      - `target_name.qmd` and `target_name.md` CANNOT be located at the same path.
-
-    Args:
-        docs_root: Root directory to scan
-        exclude_patterns: List of gitignore-style patterns for files/dirs to exclude
-    """
+    """Scan docs_root for .qmd and .md files and return target configurations."""
     if exclude_patterns is None:
         exclude_patterns = DEFAULT_EXCLUDE_PATTERNS
-
     targets = {}
-    # Process .qmd files first, then .md files
     for ext in ("*.qmd", "*.md"):
         for file_path in docs_root.rglob(ext):
             rel_path = file_path.relative_to(docs_root)
-
-            # Check exclude patterns (gitignore-style)
-            if matches_gitignore_pattern(rel_path, exclude_patterns):
+            if ConfigManager.matches_gitignore_pattern(rel_path, exclude_patterns):
                 logger.info(f"Ignoring {rel_path} (matches exclude pattern)")
                 continue
-
-            # Determine target name from relative path
-            # Replace path separators with hyphens, then remove extension
             parts = list(rel_path.parts)
-            # Remove the extension from the last part
             if parts:
                 last_part = parts[-1]
-                # Remove .qmd or .md extension
                 if last_part.endswith(".qmd"):
                     parts[-1] = last_part[:-4]
                 elif last_part.endswith(".md"):
                     parts[-1] = last_part[:-3]
-
-            # Join parts with hyphens
             target_name = "-".join(parts).lower()
-            # Sanitize: replace spaces and special chars (keep hyphens, underscores, alphanumeric)
-            # Only remove characters that are not alphanumeric, hyphen, or underscore
             target_name = re.sub(r"[^a-z0-9_-]", "", target_name)
-            # Replace multiple consecutive hyphens with single hyphen (but preserve underscores)
             target_name = re.sub(r"-+", "-", target_name)
-            # Remove leading/trailing hyphens (but not underscores within)
             target_name = target_name.strip("-")
-
-            # Handle name conflicts (should not happen with new naming, but keep for safety)
             if target_name in targets:
                 suffix = 2
                 while f"{target_name}-{suffix}" in targets:
                     suffix += 1
                 target_name = f"{target_name}-{suffix}"
-
-            config = {
+            targets[target_name] = {
                 "qmd": str(rel_path),
                 "output_dir": False,
                 "c2pa": False,
@@ -1286,39 +1237,58 @@ def discover_quarto_targets(
                 "copy_html": False,
                 "copy_md": False,
             }
-            targets[target_name] = config
     return targets
+
+
+@staticmethod
+def get_target_config(
+    docs_root: Path, external_config: Optional[Dict[str, Any]] = None
+) -> Dict[str, Dict[str, Any]]:
+    """Return merged target configuration from external config and discovery."""
+    if external_config is None:
+        external_config = {}
+    exclude_patterns = ConfigManager._get_exclude_patterns(external_config)
+    target_config = ConfigManager._get_target_config_from_external(external_config)
+    discovered = ConfigManager.discover_quarto_targets(docs_root, exclude_patterns)
+    for target, config in target_config.items():
+        if target in discovered:
+            discovered[target].update(config)
+    return discovered
+
+
+# Patch the static methods into ConfigManager
+ConfigManager.load_external_config = staticmethod(ConfigManager._load_external_config)
+ConfigManager.get_exclude_patterns = staticmethod(ConfigManager._get_exclude_patterns)
+ConfigManager.get_target_config_from_external = staticmethod(ConfigManager._get_target_config_from_external)
+
+
+# Backward-compatible module-level delegates
+def load_external_config(config_path: Optional[Path]) -> Dict[str, Any]:
+    return ConfigManager._load_external_config(config_path)
+
+
+def get_exclude_patterns(external_config: Dict[str, Any]) -> List[str]:
+    return ConfigManager._get_exclude_patterns(external_config)
+
+
+def get_target_config_from_external(external_config: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+    return ConfigManager._get_target_config_from_external(external_config)
+
+
+def matches_gitignore_pattern(rel_path: Path, patterns: List[str]) -> bool:
+    return ConfigManager.matches_gitignore_pattern(rel_path, patterns)
+
+
+def discover_quarto_targets(
+    docs_root: Path, exclude_patterns: Optional[List[str]] = None
+) -> Dict[str, Dict[str, Any]]:
+    return ConfigManager.discover_quarto_targets(docs_root, exclude_patterns)
 
 
 def get_target_config(
     docs_root: Path, external_config: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Dict[str, Any]]:
-    """
-    Return configuration from external config.
-
-    Note: build.py does not know about target names - they are defined externally.
-    The target names in build.yml must match the naming convention:
-      - Target names are derived from the relative path with separators replaced by hyphens.
-      - Example: docs/legal/index.qmd → legal-index
-
-    Args:
-        docs_root: Root directory of documentation
-        external_config: Optional external configuration dictionary
-    """
-    if external_config is None:
-        external_config = {}
-
-    exclude_patterns = get_exclude_patterns(external_config)
-    target_config = get_target_config_from_external(external_config)
-
-    discovered = discover_quarto_targets(docs_root, exclude_patterns)
-
-    # Update discovered config with target config, preserving missing keys
-    for target, config in target_config.items():
-        if target in discovered:
-            discovered[target].update(config)
-
-    return discovered
+    return ConfigManager.get_target_config(docs_root, external_config)
 
 
 def run_command(cmd: List[str], cwd: Optional[Path] = None) -> bool:
