@@ -452,305 +452,280 @@ def compute_quarto_file_hash_with_deps(file_path: Path) -> str:
     return HashManager.compute_quarto_file_hash_with_deps(file_path)
 
 
-def target_produces_pdf(config: Dict[str, Any]) -> bool:
-    """
-    Return True if the target is expected to produce PDF/beamer output.
-    """
-    target_format = config.get("to")
-    if target_format in ("pdf", "beamer"):
-        return True
-    if target_format is None and config.get("copy_pdf"):
-        # No explicit format but copy_pdf suggests PDF will be generated
-        return True
-    return False
+# ---------------------------------------------------------------------------
+# QuartoInspector
+# ---------------------------------------------------------------------------
 
 
-@lru_cache(maxsize=128)
-def inspect_quarto_file(file_path: Path) -> Optional[Dict[str, Any]]:
-    """
-    Run `quarto inspect` on the QMD file and return the parsed JSON.
-    Returns None on failure.
-    """
-    try:
-        result = subprocess.run(
-            ["quarto", "inspect", str(file_path)],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        return json.loads(result.stdout)
-    except Exception as e:
-        logger.warning(f"Failed to inspect {file_path}: {e}")
+class QuartoInspector:
+    """Quarto inspect, format detection, output path resolution."""
+
+    @staticmethod
+    def target_produces_pdf(config: Dict[str, Any]) -> bool:
+        target_format = config.get("to")
+        if target_format in ("pdf", "beamer"):
+            return True
+        if target_format is None and config.get("copy_pdf"):
+            return True
+        return False
+
+    @staticmethod
+    @lru_cache(maxsize=128)
+    def inspect(file_path: Path) -> Optional[Dict[str, Any]]:
+        """Run quarto inspect and return parsed JSON. Returns None on failure."""
+        try:
+            result = subprocess.run(
+                ["quarto", "inspect", str(file_path)],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            return json.loads(result.stdout)
+        except Exception as e:
+            logger.warning(f"Failed to inspect {file_path}: {e}")
+            return None
+
+    @staticmethod
+    def get_formats(file_path: Path) -> List[str]:
+        data = QuartoInspector.inspect(file_path)
+        if data is None:
+            return []
+        return list(data.get("formats", {}).keys())
+
+    @staticmethod
+    def get_output_path(file_path: Path, fmt: str) -> Optional[Path]:
+        data = QuartoInspector.inspect(file_path)
+        if data is None:
+            return None
+        formats = data.get("formats", {})
+        if fmt not in formats:
+            return None
+        pandoc = formats[fmt].get("pandoc", {})
+        output_file = pandoc.get("output-file")
+        if output_file:
+            return file_path.parent / output_file
         return None
 
+    @staticmethod
+    def get_moved_path(
+        qmd_path: Path, fmt: str, config: Dict[str, Any],
+        output_dir: Optional[Path], docs_root: Path, source_path: Path,
+    ) -> Optional[Path]:
+        stem = qmd_path.stem
+        if fmt in ("pdf", "beamer") and config.get("copy_pdf"):
+            dest_dir = output_dir.absolute() if output_dir else docs_root
+            return dest_dir / f"{stem}.pdf"
+        if fmt == "html" and config.get("copy_html"):
+            dest_dir = output_dir.absolute() if output_dir else docs_root
+            return dest_dir / "index.html"
+        if fmt in ("gfm", "markdown") and config.get("copy_md"):
+            dest_dir = output_dir.absolute() if output_dir else docs_root
+            return dest_dir / f"{stem}.md"
+        if fmt == "gfm" and config.get("copy_to_root"):
+            return docs_root.parent / "README.md"
+        return None
+
+    @staticmethod
+    def find_existing_output(
+        qmd_path: Path, fmt: str, config: Optional[Dict[str, Any]],
+        output_dir: Optional[Path],
+    ) -> Optional[Path]:
+        primary = QuartoInspector.get_output_path(qmd_path, fmt)
+        if primary is None:
+            return None
+        candidates = [primary]
+        if config:
+            docs_root = Path(__file__).parent.absolute()
+            moved = QuartoInspector.get_moved_path(
+                qmd_path, fmt, config, output_dir, docs_root, primary
+            )
+            if moved and moved != primary:
+                candidates.append(moved)
+        for cand in candidates:
+            if cand.exists():
+                return cand
+        return None
+
+    @staticmethod
+    def get_cache_dir(qmd_path: Path) -> Path:
+        return qmd_path.parent / f"{qmd_path.stem}_cached"
+
+    @staticmethod
+    def get_cache_dir_for_target(qmd_path: Path, target_name: str) -> Path:
+        return qmd_path.parent / f"{target_name}_cached"
+
+    @staticmethod
+    def get_cache_base() -> Path:
+        return Path(__file__).parent.parent / "_cached"
+
+    @staticmethod
+    def format_to_extension(fmt: str) -> str:
+        mapping = {"pdf": "pdf", "beamer": "pdf", "html": "html", "gfm": "md", "markdown": "md"}
+        return mapping.get(fmt, fmt)
+
+
+# Backward-compatible module-level delegates
+def target_produces_pdf(config: Dict[str, Any]) -> bool:
+    return QuartoInspector.target_produces_pdf(config)
+
+def inspect_quarto_file(file_path: Path) -> Optional[Dict[str, Any]]:
+    return QuartoInspector.inspect(file_path)
 
 def get_formats_from_quarto_file(file_path: Path) -> List[str]:
-    """
-    Inspect the QMD file and return a list of output formats defined in its YAML.
-    Returns empty list on failure.
-    """
-    data = inspect_quarto_file(file_path)
-    if data is None:
-        return []
-    formats = data.get("formats", {})
-    return list(formats.keys())
-
+    return QuartoInspector.get_formats(file_path)
 
 def get_format_output_path(file_path: Path, fmt: str) -> Optional[Path]:
-    """
-    Determine the output file path for a given format using quarto inspect.
-    Returns None if format not found or path cannot be determined.
-    """
-    data = inspect_quarto_file(file_path)
-    if data is None:
-        return None
-    formats = data.get("formats", {})
-    if fmt not in formats:
-        return None
-    # Look for output-file in pandoc section
-    pandoc = formats[fmt].get("pandoc", {})
-    output_file = pandoc.get("output-file")
-    if output_file:
-        # Path is relative to the QMD's parent directory
-        return file_path.parent / output_file
-    # If no explicit output-file, Quarto uses a default based on format.
-    # We do NOT guess; we return None because we cannot be certain.
-    # The caller must handle this as an error.
-    return None
-
+    return QuartoInspector.get_output_path(file_path, fmt)
 
 def get_moved_path_for_format(
-    qmd_path: Path,
-    fmt: str,
-    config: Dict[str, Any],
-    output_dir: Optional[Path],
-    docs_root: Path,
-    source_path: Path,  # the primary output path (must be known)
+    qmd_path: Path, fmt: str, config: Dict[str, Any],
+    output_dir: Optional[Path], docs_root: Path, source_path: Path,
 ) -> Optional[Path]:
-    """
-    Return the path where the output file for the given format is moved
-    after post‑processing, if any. Returns None if no move applies or if
-    the source path is unknown.
-    """
-    stem = qmd_path.stem
-    # PDF moves
-    if fmt in ("pdf", "beamer") and config.get("copy_pdf"):
-        dest_dir = output_dir.absolute() if output_dir else docs_root
-        return dest_dir / f"{stem}.pdf"
-    # HTML moves (manifesto) – note: the moved file is always 'index.html' in the dest dir
-    if fmt == "html" and config.get("copy_html"):
-        dest_dir = output_dir.absolute() if output_dir else docs_root
-        return dest_dir / "index.html"
-    # Markdown moves (manifesto) – moved file keeps stem name
-    if fmt in ("gfm", "markdown") and config.get("copy_md"):
-        dest_dir = output_dir.absolute() if output_dir else docs_root
-        return dest_dir / f"{stem}.md"
-    # README copy to project root (special case for 'readme' target)
-    if fmt == "gfm" and config.get("copy_to_root"):
-        return docs_root.parent / "README.md"
-    return None
-
+    return QuartoInspector.get_moved_path(qmd_path, fmt, config, output_dir, docs_root, source_path)
 
 def find_existing_output(
-    qmd_path: Path,
-    fmt: str,
-    config: Optional[Dict[str, Any]],
-    output_dir: Optional[Path],
+    qmd_path: Path, fmt: str, config: Optional[Dict[str, Any]], output_dir: Optional[Path],
 ) -> Optional[Path]:
-    """
-    Find an existing output file for the given format, considering possible
-    moved locations (copy_pdf, copy_html, copy_md, copy_to_root).
-    Returns the path if found, otherwise None.
-    """
-    # Primary output path (must be known)
-    primary = get_format_output_path(qmd_path, fmt)
-    if primary is None:
-        # Cannot determine output path – treat as missing.
-        return None
-
-    candidates = [primary]
-
-    # Add moved location if applicable
-    if config:
-        docs_root = Path(__file__).parent.absolute()
-        moved = get_moved_path_for_format(
-            qmd_path, fmt, config, output_dir, docs_root, primary
-        )
-        if moved and moved != primary:
-            candidates.append(moved)
-
-    # Return first existing candidate
-    for cand in candidates:
-        if cand.exists():
-            return cand
-    return None
-
+    return QuartoInspector.find_existing_output(qmd_path, fmt, config, output_dir)
 
 def get_cache_dir(qmd_path: Path) -> Path:
-    """
-    Return the _cached directory for a QMD file.
-    Uses the QMD file stem for the cache directory name.
-    """
-    return qmd_path.parent / f"{qmd_path.stem}_cached"
-
+    return QuartoInspector.get_cache_dir(qmd_path)
 
 def get_cache_dir_for_target(qmd_path: Path, target_name: str) -> Path:
-    """
-    Return the _cached directory for a QMD file.
-    Uses the target name for the cache directory.
-
-    Args:
-        qmd_path: Path to the QMD file
-        target_name: The target name (hyphenated path convention)
-
-    Returns:
-        Path to the cache directory adjacent to the QMD file
-    """
-    # Cache directory is always adjacent to the QMD file, using target name
-    return qmd_path.parent / f"{target_name}_cached"
-
+    return QuartoInspector.get_cache_dir_for_target(qmd_path, target_name)
 
 def get_cache_base() -> Path:
-    """
-    Return the base directory for the new cache system (_cached).
-    """
-    return Path(__file__).parent.parent / "_cached"
-
+    return QuartoInspector.get_cache_base()
 
 def format_to_extension(fmt: str) -> str:
-    """
-    Map a Quarto format to a file extension.
-    """
-    mapping = {
-        "pdf": "pdf",
-        "beamer": "pdf",
-        "html": "html",
-        "gfm": "md",
-        "markdown": "md",
-    }
-    return mapping.get(fmt, fmt)
+    return QuartoInspector.format_to_extension(fmt)
 
 
 # ---------------------------------------------------------------------------
-# Linked Artifact System
+# LinkedArtifactRegistry
 # ---------------------------------------------------------------------------
-# Linked artifacts are files generated alongside a primary output (e.g. PDF)
-# that should be cached and restored together.  Each handler is responsible
-# for:
-#   1. Declaring which primary formats it applies to
-#   2. Returning the linked file extension
-#   3. Generating the linked file (e.g. C2PA signing)
-#   4. Returning the path to the generated file
 
 
-@dataclass
-class LinkedArtifactHandler:
-    """Base class for linked artifact handlers."""
+class LinkedArtifactRegistry:
+    """Registry of linked artifact handlers (e.g. C2PA signing)."""
 
-    name: str
-    # Map of primary format -> linked file extension
-    extensions: Dict[str, str] = field(default_factory=dict)
-    # Config key to check if this handler is enabled
-    config_key: str = ""
+    @dataclass
+    class Handler:
+        name: str
+        extensions: Dict[str, str] = field(default_factory=dict)
+        config_key: str = ""
 
-    def is_enabled(self, config: Dict[str, Any]) -> bool:
-        """Check if this handler is enabled for the given config."""
-        if not self.config_key:
-            return True
-        return bool(config.get(self.config_key, False))
+        def is_enabled(self, config: Dict[str, Any]) -> bool:
+            if not self.config_key:
+                return True
+            return bool(config.get(self.config_key, False))
 
-    def get_extension(self, fmt: str) -> Optional[str]:
-        """Return the linked file extension for the given primary format."""
-        return self.extensions.get(fmt)
+        def get_extension(self, fmt: str) -> Optional[str]:
+            return self.extensions.get(fmt)
 
-    def generate(
-        self,
-        qmd_path: Path,
-        fmt: str,
-        primary_path: Path,
-        docs_root: Path,
-        config: Dict[str, Any],
-        target_name: Optional[str] = None,
-    ) -> Optional[Path]:
-        """
-        Generate the linked artifact file.
-        Returns the path to the generated file, or None if generation failed.
-        Subclasses should override this.
+        def generate(
+            self, qmd_path: Path, fmt: str, primary_path: Path,
+            docs_root: Path, config: Dict[str, Any],
+            target_name: Optional[str] = None,
+        ) -> Optional[Path]:
+            return None
 
-        Args:
-            qmd_path: Path to the source QMD file
-            fmt: Output format
-            primary_path: Path to the primary output file
-            docs_root: Root directory of documentation
-            config: Target configuration
-            target_name: Optional target name for artifact naming
-        """
-        return None
+    class C2PAHandler(Handler):
+        def __init__(self):
+            super().__init__(
+                name="c2pa",
+                extensions={"pdf": "c2pa", "beamer": "c2pa", "html": "c2pa"},
+                config_key="c2pa",
+            )
 
+        def generate(
+            self, qmd_path: Path, fmt: str, primary_path: Path,
+            docs_root: Path, config: Dict[str, Any],
+            target_name: Optional[str] = None,
+        ) -> Optional[Path]:
+            c2pa_stem = qmd_path.stem
+            manifest_path = qmd_path.parent / f"{c2pa_stem}.c2pa_manifest.json"
+            output_c2pa = primary_path.parent / f"{c2pa_stem}.c2pa"
+            output_c2pa.parent.mkdir(parents=True, exist_ok=True)
+            sign_cmd = [
+                "python3", str(docs_root / "_utils" / "sign_c2pa.py"),
+                "--pdf", str(primary_path),
+                "--manifest", str(manifest_path),
+                "--output", str(output_c2pa),
+            ]
+            if CommandRunner.run(sign_cmd, cwd=docs_root):
+                return output_c2pa
+            logger.warning(f"C2PA signing failed for {qmd_path.name}.")
+            return None
 
-class C2PAArtifactHandler(LinkedArtifactHandler):
-    """C2PA signing handler for PDF/HTML outputs."""
+    _handlers: List[Handler] = field(default_factory=lambda: [LinkedArtifactRegistry.C2PAHandler()])
 
     def __init__(self):
-        super().__init__(
-            name="c2pa",
-            extensions={"pdf": "c2pa", "beamer": "c2pa", "html": "c2pa"},
-            config_key="c2pa",
-        )
-
-    def generate(
-        self,
-        qmd_path: Path,
-        fmt: str,
-        primary_path: Path,
-        docs_root: Path,
-        config: Dict[str, Any],
-        target_name: Optional[str] = None,
-    ) -> Optional[Path]:
-        # Use original QMD stem for artifact naming (preserves original filename)
-        c2pa_stem = qmd_path.stem
-        manifest_path = qmd_path.parent / f"{c2pa_stem}.c2pa_manifest.json"
-        output_c2pa = primary_path.parent / f"{c2pa_stem}.c2pa"
-        output_c2pa.parent.mkdir(parents=True, exist_ok=True)
-        sign_cmd = [
-            "python3",
-            str(docs_root / "_utils" / "sign_c2pa.py"),
-            "--pdf",
-            str(primary_path),
-            "--manifest",
-            str(manifest_path),
-            "--output",
-            str(output_c2pa),
+        self._handlers: List[LinkedArtifactRegistry.Handler] = [
+            LinkedArtifactRegistry.C2PAHandler(),
         ]
-        if run_command(sign_cmd, cwd=docs_root):
-            return output_c2pa
-        logger.warning(f"C2PA signing failed for {qmd_path.name}.")
-        return None
+
+    def get_extensions(self, fmt: str, config: Dict[str, Any]) -> List[str]:
+        result = []
+        for handler in self._handlers:
+            if handler.is_enabled(config):
+                ext = handler.get_extension(fmt)
+                if ext:
+                    result.append(ext)
+        return result
+
+    def get_enabled(self, config: Dict[str, Any]) -> List[Handler]:
+        return [h for h in self._handlers if h.is_enabled(config)]
 
 
-# Registry of linked artifact handlers
-LINKED_ARTIFACT_HANDLERS: List[LinkedArtifactHandler] = [
-    C2PAArtifactHandler(),
-]
+_artifact_registry = LinkedArtifactRegistry()
+
+# Backward-compatible aliases
+LinkedArtifactHandler = LinkedArtifactRegistry.Handler
+C2PAArtifactHandler = LinkedArtifactRegistry.C2PAHandler
+LINKED_ARTIFACT_HANDLERS: List[LinkedArtifactRegistry.Handler] = _artifact_registry._handlers
 
 
 def get_linked_artifact_extensions(fmt: str, config: Dict[str, Any]) -> List[str]:
-    """
-    Return a list of linked artifact extensions for the given primary format.
-    Only returns extensions for enabled handlers.
-    """
-    result = []
-    for handler in LINKED_ARTIFACT_HANDLERS:
-        if handler.is_enabled(config):
-            ext = handler.get_extension(fmt)
-            if ext:
-                result.append(ext)
-    return result
+    return _artifact_registry.get_extensions(fmt, config)
 
 
-def get_enabled_handlers(config: Dict[str, Any]) -> List[LinkedArtifactHandler]:
-    """Return list of enabled handlers for the given config."""
-    return [h for h in LINKED_ARTIFACT_HANDLERS if h.is_enabled(config)]
+def get_enabled_handlers(config: Dict[str, Any]) -> List[LinkedArtifactRegistry.Handler]:
+    return _artifact_registry.get_enabled(config)
+
+
+# ---------------------------------------------------------------------------
+# CommandRunner
+# ---------------------------------------------------------------------------
+
+
+class CommandRunner:
+    """Subprocess execution with logging."""
+
+    @staticmethod
+    def run(cmd: List[str], cwd: Optional[Path] = None) -> bool:
+        logger.info(f"Running: {' '.join(cmd)}")
+        try:
+            result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, check=False)
+            if result.stdout:
+                logger.debug(result.stdout.strip())
+            if result.stderr:
+                logger.warning(result.stderr.strip())
+            if result.returncode != 0:
+                logger.error(f"Command failed with exit code {result.returncode}")
+                return False
+            logger.info("Command succeeded")
+            return True
+        except FileNotFoundError as e:
+            logger.error(f"Command not found: {cmd[0]}. Is it installed? {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error while running command: {e}")
+            return False
+
+
+def run_command(cmd: List[str], cwd: Optional[Path] = None) -> bool:
+    return CommandRunner.run(cmd, cwd)
 
 
 def get_cached_artifact_path(
@@ -1291,41 +1266,7 @@ def get_target_config(
     return ConfigManager.get_target_config(docs_root, external_config)
 
 
-def run_command(cmd: List[str], cwd: Optional[Path] = None) -> bool:
-    """
-    Run a shell command and log its output.
-
-    Args:
-        cmd: List of command and arguments.
-        cwd: Working directory (optional).
-
-    Returns:
-        True if the command succeeded (exit code 0), False otherwise.
-    """
-    logger.info(f"Running: {' '.join(cmd)}")
-    try:
-        result = subprocess.run(
-            cmd,
-            cwd=cwd,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        if result.stdout:
-            logger.debug(result.stdout.strip())
-        if result.stderr:
-            logger.warning(result.stderr.strip())
-        if result.returncode != 0:
-            logger.error(f"Command failed with exit code {result.returncode}")
-            return False
-        logger.info("Command succeeded")
-        return True
-    except FileNotFoundError as e:
-        logger.error(f"Command not found: {cmd[0]}. Is it installed? {e}")
-        return False
-    except Exception as e:
-        logger.error(f"Unexpected error while running command: {e}")
-        return False
+# run_command — see CommandRunner wrapper above
 
 
 def _render_formats_parallel(
@@ -2972,122 +2913,91 @@ def build_targets(
     return True
 
 
+# ---------------------------------------------------------------------------
+# PreBuildRunner
+# ---------------------------------------------------------------------------
+
+
+class PreBuildRunner:
+    """Executes pre-build commands defined in build.yml."""
+
+    @staticmethod
+    def run(
+        external_config: Dict[str, Any],
+        docs_root: Path,
+        target_name: Optional[str] = None,
+    ) -> None:
+        pre_build_section = external_config.get("pre_build", [])
+        if not pre_build_section:
+            return
+        if isinstance(pre_build_section, list):
+            global_commands = pre_build_section
+            target_commands: Dict[str, Any] = {}
+        elif isinstance(pre_build_section, dict):
+            global_commands = pre_build_section.get("_global", [])
+            target_commands = {k: v for k, v in pre_build_section.items() if k != "_global"}
+        else:
+            logger.warning(
+                f"Invalid pre_build format: expected list or dict, got {type(pre_build_section).__name__}"
+            )
+            return
+        commands_to_run: List[List[str]] = []
+        if target_name is None:
+            commands_to_run.extend(global_commands)
+        elif target_name in target_commands:
+            target_cmds = target_commands[target_name]
+            if isinstance(target_cmds, list):
+                if target_cmds and isinstance(target_cmds[0], list):
+                    commands_to_run.extend(target_cmds)
+                else:
+                    commands_to_run.append(target_cmds)
+            elif isinstance(target_cmds, str):
+                commands_to_run.append(target_cmds.split())
+            else:
+                logger.warning(
+                    f"Invalid pre_build entry for target '{target_name}': {target_cmds}, skipping."
+                )
+        if not commands_to_run:
+            return
+        if target_name:
+            logger.info(
+                f"Running {len(commands_to_run)} pre-build command(s) for target '{target_name}'..."
+            )
+        else:
+            logger.info(f"Running {len(commands_to_run)} global pre-build command(s)...")
+        for cmd in commands_to_run:
+            if not cmd or not isinstance(cmd, list):
+                logger.warning(f"Invalid pre_build entry: {cmd}, skipping.")
+                continue
+            executable = cmd[0]
+            if not shutil.which(executable):
+                logger.info(f"Pre-build: '{executable}' not found in PATH, skipping.")
+                continue
+            logger.info(f"Pre-build: running {' '.join(cmd)}")
+            try:
+                result = subprocess.run(cmd, cwd=docs_root, capture_output=True, text=True)
+                if result.stdout:
+                    logger.debug(result.stdout.strip())
+                if result.stderr:
+                    logger.warning(result.stderr.strip())
+                if result.returncode != 0:
+                    logger.warning(
+                        f"Pre-build command '{executable}' failed with exit code {result.returncode}, continuing build..."
+                    )
+                else:
+                    logger.info(f"Pre-build command '{executable}' succeeded.")
+            except Exception as e:
+                logger.warning(
+                    f"Pre-build command '{executable}' raised an exception: {e}, continuing build..."
+                )
+
+
 def run_pre_build_commands(
     external_config: Dict[str, Any],
     docs_root: Path,
     target_name: Optional[str] = None,
 ) -> None:
-    """
-    Execute pre-build commands defined in build.yml's pre_build section.
-
-    Supports two formats:
-      1. List-style (backward compatible): all commands are global.
-         pre_build:
-           - [executable, arg1, ...]
-      2. Dict-style (recommended):
-         pre_build:
-           _global:
-             - [executable, arg1, ...]   # Always run once before any target
-           target-name:
-             - [executable, arg1, ...]   # Run only for a specific target
-
-    Each command is a list: [executable, arg1, arg2, ...].
-    If the executable is not found on PATH, the command is silently skipped.
-    If a command fails, an error is logged but execution continues (non-blocking).
-
-    Args:
-        external_config: External configuration dictionary from build.yml
-        docs_root: Root directory of documentation (docs/)
-        target_name: If provided, only run commands for this target (not global).
-                     If None, only run global commands.
-    """
-    pre_build_section = external_config.get("pre_build", [])
-    if not pre_build_section:
-        return
-
-    # Normalize: support both old list format and new dict format
-    if isinstance(pre_build_section, list):
-        # Old format: all commands are global
-        global_commands = pre_build_section
-        target_commands: Dict[str, Any] = {}
-    elif isinstance(pre_build_section, dict):
-        # New format: _global for global, other keys for target-specific
-        global_commands = pre_build_section.get("_global", [])
-        target_commands = {k: v for k, v in pre_build_section.items() if k != "_global"}
-    else:
-        logger.warning(
-            f"Invalid pre_build format: expected list or dict, got {type(pre_build_section).__name__}"
-        )
-        return
-
-    # Collect commands to run based on target context
-    commands_to_run: List[List[str]] = []
-
-    if target_name is None:
-        # Global mode: only run global commands
-        commands_to_run.extend(global_commands)
-    elif target_name in target_commands:
-        # Target-specific mode: only run commands for the matching target
-        target_cmds = target_commands[target_name]
-        if isinstance(target_cmds, list):
-            # Check if it's a list of commands or a single command
-            if target_cmds and isinstance(target_cmds[0], list):
-                # List of commands: [["cmd1", "arg1"], ["cmd2", "arg2"]]
-                commands_to_run.extend(target_cmds)
-            else:
-                # Single command: ["cmd", "arg1", ...]
-                commands_to_run.append(target_cmds)
-        elif isinstance(target_cmds, str):
-            # Single string command (convenience): "cmd arg1 arg2"
-            commands_to_run.append(target_cmds.split())
-        else:
-            logger.warning(
-                f"Invalid pre_build entry for target '{target_name}': {target_cmds}, skipping."
-            )
-
-    if not commands_to_run:
-        return
-
-    if target_name:
-        logger.info(
-            f"Running {len(commands_to_run)} pre-build command(s) for target '{target_name}'..."
-        )
-    else:
-        logger.info(f"Running {len(commands_to_run)} global pre-build command(s)...")
-
-    for cmd in commands_to_run:
-        if not cmd or not isinstance(cmd, list):
-            logger.warning(f"Invalid pre_build entry: {cmd}, skipping.")
-            continue
-
-        executable = cmd[0]
-        # Check if executable exists on PATH
-        if not shutil.which(executable):
-            logger.info(f"Pre-build: '{executable}' not found in PATH, skipping.")
-            continue
-
-        logger.info(f"Pre-build: running {' '.join(cmd)}")
-        try:
-            result = subprocess.run(
-                cmd,
-                cwd=docs_root,
-                capture_output=True,
-                text=True,
-            )
-            if result.stdout:
-                logger.debug(result.stdout.strip())
-            if result.stderr:
-                logger.warning(result.stderr.strip())
-            if result.returncode != 0:
-                logger.warning(
-                    f"Pre-build command '{executable}' failed with exit code {result.returncode}, continuing build..."
-                )
-            else:
-                logger.info(f"Pre-build command '{executable}' succeeded.")
-        except Exception as e:
-            logger.warning(
-                f"Pre-build command '{executable}' raised an exception: {e}, continuing build..."
-            )
+    return PreBuildRunner.run(external_config, docs_root, target_name)
 
 
 def main() -> None:
