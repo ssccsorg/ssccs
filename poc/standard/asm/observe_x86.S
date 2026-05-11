@@ -200,7 +200,7 @@ observe:
     jmp     .Lobs_done
 
 .Lobs_reject:
-    movabsq $0x8000000000000000, %rax
+    movabs $0x8000000000000000, %rax
 
 .Lobs_done:
     popq    %r14
@@ -241,7 +241,7 @@ observe_batch:
     jmp     .Lbatch_store
 
 .Lbatch_skip:
-    movabsq $0x8000000000000000, %rax
+    movabs $0x8000000000000000, %rax
 
 .Lbatch_store:
     mov    %rax, (%rbx, %r10, 8)
