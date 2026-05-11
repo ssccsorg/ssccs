@@ -275,4 +275,3 @@ pub fn compose_observe<P: Projector>(
         None
     }
 }
-pub mod asm_x86;
