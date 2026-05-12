@@ -480,19 +480,22 @@ impl RelationGraph {
     }
 
     pub fn add_relation(&mut self, from: SegmentId, to: SegmentId, relation: StructuralRelation) {
+        self.incoming
+            .entry(to)
+            .or_default()
+            .push((from, relation.clone()));
         self.outgoing
             .entry(from)
             .or_default()
-            .push((to, relation.clone()));
-        self.incoming.entry(to).or_default().push((from, relation));
+            .push((to, relation));
     }
 
-    pub fn get_outgoing(&self, from: &SegmentId) -> Vec<(SegmentId, StructuralRelation)> {
-        self.outgoing.get(from).cloned().unwrap_or_default()
+    pub fn get_outgoing(&self, from: &SegmentId) -> &[(SegmentId, StructuralRelation)] {
+        self.outgoing.get(from).map(|v| v.as_slice()).unwrap_or_default()
     }
 
-    pub fn get_incoming(&self, to: &SegmentId) -> Vec<(SegmentId, StructuralRelation)> {
-        self.incoming.get(to).cloned().unwrap_or_default()
+    pub fn get_incoming(&self, to: &SegmentId) -> &[(SegmentId, StructuralRelation)] {
+        self.incoming.get(to).map(|v| v.as_slice()).unwrap_or_default()
     }
 
     pub fn get_relations_between(
@@ -577,7 +580,7 @@ impl Scheme {
     ) -> Vec<(SegmentId, StructuralRelation)> {
         self.relations
             .get_outgoing(segment_id)
-            .into_iter()
+            .iter()
             .filter(|(_, relation)| {
                 relation_filter.is_none_or(|filter| match relation {
                     StructuralRelation::Adjacency { relation_type, .. } => {
@@ -587,6 +590,7 @@ impl Scheme {
                     _ => true,
                 })
             })
+            .cloned()
             .collect()
     }
 
