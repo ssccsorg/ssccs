@@ -114,18 +114,50 @@ Collected research trajectories feed an on‑policy reinforcement learning pipel
 
 Over time, the Planner internalises which strategies produce well‑grounded, innovative, and physically reproducible results.
 
-### Layer 5: Contract Governance
+### Layer 5: Contract Governance & Autonomous Research Economy
 
-The contract is a machine‑readable specification that defines:
+The governance contract defines required hypothesis steps, evidence thresholds,
+and novelty minimums. When deployed on-chain, it becomes a self-executing
+protocol — a transparent, unstoppable standard that anyone can submit to,
+verify against, and build upon.
 
-- Required hypothesis steps and evidence thresholds.
-- Novelty minimums (previously unseen graph edges a hypothesis must propose).
-- Mandatory sections and citation formats for generated reports.
-- Physical constraints: measurement precision bounds, reproducibility requirements, safety invariants.
+#### The Research Economy
 
-Because the contract is versioned and enforced at both the Verifier and Reporter layers, it provides evolvable governance that can later incorporate cryptographic provenance, code‑documentation‑hardware traceability, and formal verification — all without architectural changes.
+Five contribution types are recognised, validated, and rewarded:
 
----
+| Contribution | Economic Role |
+|---|---|
+| **Gap Discovery** | Detects missing links between concepts; triggers hypothesis generation |
+| **Hypothesis Submission** | Core unit of research; requires staking as commitment |
+| **Experimental Validation** | Closes the theory-practice loop; rewarded on reproduction |
+| **Concept Drift Detection** | Maintains semantic integrity of the knowledge graph |
+| **Knowledge Ingestion** | Expands the graph; rewarded proportionally to downstream usage |
+
+Every contribution flows through the Verifier. Success mints rewards; failure
+slashes the submitter's stake. The same rules that ensure scientific rigour
+also ensure economic fairness — the contract is the review board.
+
+#### Staking, Provenance, and Decentralisation
+
+Hypothesis submission requires staking tokens as a bond — providing spam
+resistance, quality signalling, and dispute collateral. Validated hypotheses
+return the stake plus a reward; falsified ones are slashed.
+
+Every verification result is recorded on-chain, forming an unbroken chain of
+custody from document to C2PA manifest to knowledge graph to experiment to
+report. Any participant can independently verify the full history of any claim.
+
+Governance transitions over three phases: Foundation (core team) → Delegation
+(elected reviewers) → Full Decentralisation (token-weighted community voting).
+The protocol that governs research is itself governed by researchers.
+
+#### Toward Autonomous Research
+
+The contract, the knowledge graph, and the blockchain form a self-sustaining
+research economy. Contributions are accepted from any human or AI agent,
+anywhere. Rigour is rewarded; sloppiness is penalised. The constitution of
+this economy is the contract itself — its memory the graph, its auditor the
+chain, its citizens the participants.
 
 ## Extension: Boundaryless Research Infrastructure
 
@@ -201,8 +233,6 @@ Three concrete additions to the existing Nexus architecture realize this boundar
 2. Homeomorphic Verification Layer. An extension to the Verifier that applies continuity, trust, and distributional distance metrics to determine when a physical observation and a semantic claim share compatible latent structure. This becomes part of the Contract: a hypothesis step is only “verified” when the homeomorphism criterion is satisfied.
 3. Episodic Knowledge Graph Integration. The Evolving Memory evolves from append‑only JSONL trajectories to a true eKG that preserves temporal ordering, agent provenance, and cross‑modal coherence. This enables the Planner to reason about *when*, *by whom*, and *under what conditions* a discovery was made — essential for reproducibility in physical experiments.
 
----
-
 ## Component Interaction Matrix
 
 | Component | KG Engine | Object Store | Sync Worker | Planner | Verifier | Generator | Simulation / Hardware |
@@ -213,8 +243,6 @@ Three concrete additions to the existing Nexus architecture realize this boundar
 | Planner | → queries | – | – | – | → delegates | – | → invokes sim/robot |
 | Verifier | → hybrid queries + homeomorphic checks | – | – | ← receives | – | → signals | ← validates physical results |
 | Generator | – | – | – | – | ← triggered | – | – |
-
----
 
 ## Strategic Alignment
 
