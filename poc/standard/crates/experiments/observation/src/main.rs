@@ -58,7 +58,10 @@ fn test_observation_concept() -> Result<(), String> {
     println!("3. Possible next coordinates (filtered by field):");
     println!(
         "- {:?}",
-        next_coords.iter().map(|id| id.as_bytes()).collect::<Vec<_>>()
+        next_coords
+            .iter()
+            .map(|id| id.as_bytes())
+            .collect::<Vec<_>>()
     );
 
     Ok(())

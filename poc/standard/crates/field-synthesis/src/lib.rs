@@ -156,8 +156,7 @@ impl ComposedField {
                     transition_expr(&self.left, coords).into_iter().collect();
                 let right: HashSet<SegmentId> =
                     transition_expr(&self.right, coords).into_iter().collect();
-                let mut merged: Vec<SegmentId> =
-                    left.intersection(&right).cloned().collect();
+                let mut merged: Vec<SegmentId> = left.intersection(&right).cloned().collect();
                 merged.sort();
                 merged
             }
