@@ -15,12 +15,49 @@ All code, text content, output, and comments must be written in English.
 - Do not use em dashes (`—`).
 - Do not prefix headings with numbers; use plain headings.
 
-## Content Guidelines
+## Documentation Guidelines
 
 - Don't put emojis.
 - When a sentence would contain `.ss`, rewrite to use the full technical term appropriate to the context.
 - Avoid sequential enumerations like “Week 1, Week 2”. Use numbered experiments, phases, or milestones instead.
 - Avoid negated‑affirmation pairs (“not…, but…”). Express logic directly through affirmative, sequential, or conditional structures.
+
+### Quarto
+
+- Default .qmd template:
+
+```qmd
+---
+title: text
+subtitle: text
+date: last-modified
+metadata-files:
+  - path/to/_include/author.yml
+abstract: |
+  text
+---
+
+\`\`\`{python}
+#| include: false
+#| context: local
+%run ../../../_include/_graphviz.py
+\`\`\`
+
+... contents
+
+```
+
+- Use Python-DOT code blocks for necessary visualizations: the default template of DOT code in .qmd file:
+
+```{python}
+#| label: fig-label
+#| fig-cap: text
+dot("""
+digraph DOTGraph {
+... DOT Code ...
+}
+""")
+```
 
 ## Git Workflow
 
@@ -41,3 +78,4 @@ All code, text content, output, and comments must be written in English.
 - Focus on the accuracy of the goal.
 - Code as pessimistically and critically as possible.
 - Do not generate unnecessary code. Produce only what is **essential** for the goal.
+- Do not use text characters to draw diagrams (e.g., trees or boxes using ╔═) in code comments.
