@@ -2,7 +2,7 @@
 //!
 //! Tests the Field concept - mutable constraint substrate and transition topology.
 
-use ssccs_core::{Field, SpaceCoordinates, segment_id_from_coords};
+use ssccs_core::{segment_id_from_coords, Field, SpaceCoordinates};
 use ssccs_examples::{EvenConstraint, RangeConstraint};
 
 fn main() {

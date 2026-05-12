@@ -484,18 +484,21 @@ impl RelationGraph {
             .entry(to)
             .or_default()
             .push((from, relation.clone()));
-        self.outgoing
-            .entry(from)
-            .or_default()
-            .push((to, relation));
+        self.outgoing.entry(from).or_default().push((to, relation));
     }
 
     pub fn get_outgoing(&self, from: &SegmentId) -> &[(SegmentId, StructuralRelation)] {
-        self.outgoing.get(from).map(|v| v.as_slice()).unwrap_or_default()
+        self.outgoing
+            .get(from)
+            .map(|v| v.as_slice())
+            .unwrap_or_default()
     }
 
     pub fn get_incoming(&self, to: &SegmentId) -> &[(SegmentId, StructuralRelation)] {
-        self.incoming.get(to).map(|v| v.as_slice()).unwrap_or_default()
+        self.incoming
+            .get(to)
+            .map(|v| v.as_slice())
+            .unwrap_or_default()
     }
 
     pub fn get_relations_between(

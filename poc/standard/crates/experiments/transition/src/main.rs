@@ -2,7 +2,7 @@
 //!
 //! Tests the Transition Matrix - relational topology as weighted directed graph.
 
-use ssccs_core::{Field, SpaceCoordinates, segment_id_from_coords};
+use ssccs_core::{segment_id_from_coords, Field, SpaceCoordinates};
 
 fn main() {
     println!("Experiment: Transition Matrix                    ");
