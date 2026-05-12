@@ -625,7 +625,7 @@ impl Scheme {
     }
 }
 
-// ==================== SCHECHE TRAIT IMPLEMENTATION ====================
+// ==================== SCHEME TRAIT IMPLEMENTATION ====================
 
 impl SchemeTrait for Scheme {
     fn id(&self) -> &SchemeId {
