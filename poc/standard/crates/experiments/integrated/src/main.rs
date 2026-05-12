@@ -2,7 +2,7 @@
 //!
 //! This test demonstrates the complete SSCCS pipeline from structure to observation.
 
-use ssccs_core::{Field, Projector, SpaceCoordinates};
+use ssccs_core::{Field, SpaceCoordinates, observe};
 use ssccs_examples::CoordinateSumProjector;
 use ssccs_schemes::Tensor3DTemplate;
 
@@ -34,7 +34,7 @@ fn test_integrated_workflow() -> Result<(), String> {
         .segments()
         .find(|seg| seg.coordinates().raw == vec![0, 0, 0])
         .expect("Segment (0,0,0) should exist");
-    let observation = projector.project(&field, segment);
+    let observation = observe(&field, segment, &projector);
     println!(
         "4. Observation result for segment (0,0,0): {:?}",
         observation

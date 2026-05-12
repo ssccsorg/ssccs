@@ -3,6 +3,7 @@
 //! Scheme abstraction layer -defines structural relationships without physical memory implementation
 
 use ssccs_core::{Constraint, Segment, SegmentId, SpaceCoordinates};
+use crate::SchemeTrait;
 
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
@@ -624,6 +625,57 @@ impl Scheme {
     }
 }
 
+
+// ==================== SCHECHE TRAIT IMPLEMENTATION ====================
+
+impl SchemeTrait for Scheme {
+    fn id(&self) -> &SchemeId {
+        &self.id
+    }
+
+    fn axes(&self) -> &[Axis] {
+        &self.axes
+    }
+
+    fn dimensionality(&self) -> usize {
+        self.axes.len()
+    }
+
+    fn contains_segment(&self, segment_id: &SegmentId) -> bool {
+        self.segments.contains_key(segment_id)
+    }
+
+    fn get_segment(&self, segment_id: &SegmentId) -> Option<&Segment> {
+        self.segments.get(segment_id)
+    }
+
+    fn segments(&self) -> Box<dyn Iterator<Item = &Segment> + '_> {
+        Box::new(self.segments.values())
+    }
+
+    fn validate_structure(&self, coords: &SpaceCoordinates) -> Result<(), String> {
+        self.validate_structure(coords)
+    }
+
+    fn map_to_logical_address(&self, coords: &SpaceCoordinates) -> Option<LogicalAddress> {
+        (self.memory_layout.mapping)(coords)
+    }
+
+    fn describe(&self) -> String {
+        format!(
+            "Scheme {}:\n  Dimensions: {}\n  Segments: {}\n  Relations: {}\n  Constraints: {}",
+            self.id.to_hex(),
+            self.axes.len(),
+            self.segments.len(),
+            self.relations
+                .outgoing
+                .values()
+                .map(|v| v.len())
+                .sum::<usize>(),
+            self.structural_constraints.len()
+        )
+    }
+}
 // ==================== SCHEME BUILDER ====================
 
 /// Scheme Builder (Configuration Pattern)
