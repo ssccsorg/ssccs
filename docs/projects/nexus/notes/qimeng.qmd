@@ -358,7 +358,7 @@ QiMeng is a domain-specific multi-agent system, not a general research agent. It
 3. Macro-Micro Decoupling: The separation of high-level strategy from low-level implementation mirrors the Planner (strategy) → Executor (implementation) separation already designed in Nexus.
 4. Co-Evolution Architecture (MuPa): The Translator↔Tester co-evolution pattern directly maps to Nexus's Generator↔Verifier dynamic — two agents that improve each other through iterative co-verification, producing higher-quality artifacts than either could alone.
 5. Neural-Symbolic Bridge (Xpiler): The integration of LLM reasoning with symbolic program synthesis maps to Nexus's EdgeQuake symbolic retrieval + LLM reasoning — the KG provides the symbolic "correctness guarantee" while LLM reasoning provides flexibility.
-6. Structured Interspace (CRUX): CRUX's formal intermediate representation between free-form NL and strict HDL maps to Nexus's contract.json — both serve as structured constraints that guide generation while ensuring compliance.
+6. Structured Interspace (CRUX): CRUX's formal intermediate representation between free-form NL and strict HDL maps to Nexus's contract — both serve as structured constraints that guide generation while ensuring compliance.
 7. Multi-Venue Validation Strategy: QiMeng's approach of validating across systems venues (OSDI, CGO), ML venues (NeurIPS, ICML, AAAI), NLP venues (ACL), and general AI venues (IJCAI) provides a model for validating SSCCS Nexus across multiple academic communities — establishing credibility through diverse peer review.
 
 ```{python}
@@ -403,7 +403,7 @@ digraph QiMengToNexus {
         n_verifier [label="Verifier\n(Ground Truth)", fillcolor="#FFFFFF", style=filled];
         n_generator [label="Generator\n(Contract-Compliant)", fillcolor="#FFFFFF", style=filled];
         n_kg [label="EdgeQuake KG\n(Symbolic Backend)", fillcolor="#FFFFFF", style=filled];
-        n_contract [label="contract.json\n(Governance)", fillcolor="#FFFFFF", style=filled];
+        n_contract [label="contract\n(Governance)", fillcolor="#FFFFFF", style=filled];
         n_grpo [label="Flow-GRPO\n(Policy Learning)", fillcolor="#FFFFFF", style=filled];
     }
 
@@ -422,7 +422,7 @@ digraph QiMengToNexus {
 """)
 ```
 
-> Figure: Seven QiMeng architectural patterns and their direct mappings to SSCCS Nexus components. The three-layer hierarchy maps to Planner+KG. Dual-loop feedback maps to Verifier+GRPO. Co-evolution maps to Generator↔Verifier dynamic. Neural-symbolic maps to KG+LLM reasoning. CRUX maps to contract.json governance. Self-evolving prompts map to Flow-GRPO policy improvement.
+> Figure: Seven QiMeng architectural patterns and their direct mappings to SSCCS Nexus components. The three-layer hierarchy maps to Planner+KG. Dual-loop feedback maps to Verifier+GRPO. Co-evolution maps to Generator↔Verifier dynamic. Neural-symbolic maps to KG+LLM reasoning. CRUX maps to contract governance. Self-evolving prompts map to Flow-GRPO policy improvement.
 
 ## 2. The 2026 Multi-Agent Autonomous Research Landscape
 
@@ -542,7 +542,7 @@ Information-theoretic bound on closed-system multi-step LLM reasoning. Integrate
 | Self-Evolving Prompt Strategies (NeuComBack) | Flow-GRPO policy improvement from prior trajectories | Phase 4 core |
 | Co-Evolution Architecture (MuPa Translator↔Tester) | Generator↔Verifier co-evolution through iterative co-verification | Phase 4 enhancement |
 | Neural-Symbolic Integration (Xpiler LLM + Symbolic Synthesis) | EdgeQuake KG symbolic retrieval + Planner LLM reasoning | Phase 3-4 bridge |
-| Structured Interspace (CRUX NL→structured IR→HDL) | contract.json as structured constraint between intent and artifact | Already designed |
+| Structured Interspace (CRUX NL→structured IR→HDL) | contract as structured constraint between intent and artifact | Already designed |
 | Signal-Level Rewards (SALV AST-level RL) | Verifier granular validation beyond pass/fail; field-level correctness checking | Phase 4 enhancement |
 
 ### 3.2 Extension Patterns (from 2026 Landscape)
@@ -601,7 +601,7 @@ Nexus's opportunity: SSCCS Nexus sits at a unique intersection — its knowledge
 
 4. Build a Critic module (S1-NexusAgent pattern) that analyzes successful research trajectories and distills reusable skills — directly feeding the Flow-GRPO training pipeline.
 5. Integrate COMPOSITE-STEM as validation benchmark for the hypothesis generation pipeline.
-6. Extend the contract.json governance model to include physical validation constraints (measurement precision bounds, reproducibility requirements) as demonstrated by MARS and QiMeng's dual-loop feedback.
+6. Extend the contract governance model to include physical validation constraints (measurement precision bounds, reproducibility requirements) as demonstrated by MARS and QiMeng's dual-loop feedback.
 
 ### Strategic
 

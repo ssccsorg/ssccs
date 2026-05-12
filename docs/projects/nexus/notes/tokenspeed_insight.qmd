@@ -78,7 +78,7 @@ This is the architectural inverse of the standard approach: rather than building
 
 ### 3.2 Mapping to SSCCS Nexus
 
-Nexus's Phase 4 agentic research loop involves a Planner that generates hypotheses, an Executor that runs experiments, and a Verifier that validates results before artifact generation. The current contract-governed workflow relies on `contract.json` schemas validated at submission time — a runtime check.
+Nexus's Phase 4 agentic research loop involves a Planner that generates hypotheses, an Executor that runs experiments, and a Verifier that validates results before artifact generation. The current contract-governed workflow relies on `contract` schemas validated at submission time — a runtime check.
 
 TokenSpeed's pattern suggests a stronger approach: encode the contract as a type-level FSM where each state transition (hypothesis → experiment → result → verification → artifact) is represented as a typed edge, and the Verifier's acceptance criteria are embedded in the type system itself. Invalid transitions — such as generating an artifact from an unverified result — would be rejected at compile time rather than at submission time.
 

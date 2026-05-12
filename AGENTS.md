@@ -59,6 +59,8 @@ digraph DOTGraph {
 """)
 ```
 
+- When code DOT, do not use `graph` for node or class name.
+
 ## Git Workflow
 
 - Do not push to remote without permission.

@@ -1,6 +1,6 @@
 ---
-title: "Development Roadmap"
-subtitle: Unified Knowledge Pipeline with Learnable Agentic Research
+title: "Nexus Architecture"
+subtitle: Portable Graph Analysis Platform with Agentic Research
 date: last-modified
 title-meta-items:
   html:
@@ -11,7 +11,7 @@ title-meta-items:
 metadata-files:
   - ../../_include/author.yml
 abstract: |
-  Project Nexus unifies everything into a single, queryable knowledge pipeline, and transforms it into a self‑improving agentic research system. At its core is GraphRAG — a class of graph‑native retrieval‑augmented generation engines that decompose documents into structured knowledge and support multiple query modes. The initial phase implements and evaluates multiple GraphRAG backends (e.g., LightRAG, Qdrant‑based, Neo4j‑based) behind a common engine‑agnostic interface, allowing the system to benchmark, compare, and select the optimal backend per workload. An artifact ingestion pipeline ensures strong consistency and decouples CI/CD from the KG. The agentic loop (Planner, Executor, Verifier, Generator) orchestrates research activity, grounded in KG evidence and governed by a contract schema. Finally, a Flow‑GRPO learning loop refines the Planner based on research outcomes and human feedback.
+  Nexus is a standalone graph analysis platform that ingests documents into a knowledge graph, detects structural gaps and contradictions, and orchestrates agentic research loops. The core is implemented in Rust with zero runtime dependencies, with platform bindings for Cloudflare Workers, native servers, and (as a placeholder) blockchain canisters. Design decisions are informed by deep analysis of Memgraph (in-memory graph database with Atomic GraphRAG, MAGE algorithm suite, streaming ingestion) and Grafeo (six-language query translation, push-based execution engine, feature-gated WASM profiles). The architecture follows Unix philosophy: small composable crates communicating through typed JSON pipelines, with contract as the single governance surface.
 ---
 
 ```{python}
@@ -24,433 +24,468 @@ abstract: |
 
 ## Executive Summary
 
-Project Nexus unifies everything into a single, queryable knowledge pipeline, and transforms it into a self‑improving agentic research system.
+Nexus is built on three principles. The Rust core replaces external graph services (Memgraph, LightRAG) with a thin layer of glue code connecting production-grade Rust crates. Graph algorithms come from petgraph and community-detection, persistence from rusqlite, Cypher parsing from cyrs. Our contribution is the ~1000 lines of translation logic between them, informed by patterns extracted from Memgraph and Grafeo codebases.
 
-### Unified Architecture Diagram
+1. Core is platform-independent. The graph engine, Cypher translator, vector index, community detection, and analysis modules live in pure Rust with no runtime dependencies. They compile to WASM (Cloudflare Workers, future targets) or native binaries (self-hosted servers) from the same codebase.
+
+2. Small composable units. Each crate does one thing well. Modules communicate through typed JSON pipelines (Cloudflare Queues in production, Unix pipes locally). No module touches the filesystem directly. contract is the single governance surface.
+
+3. Design by reference, not by dependency. The architecture is informed by detailed analysis of two production-grade graph databases: Memgraph (C++20, in-memory, MAGE algorithms) and Grafeo (Rust, six language translators, push-based execution): but depends on neither. We extract their patterns, not their code.
+
+### Unified Architecture
 
 ```{python}
-#| label: fig-nexus-unified-architecture
-#| fig-cap: "Unified Nexus Architecture"
+#| label: fig-nexus-architecture
+#| fig-cap: "Nexus Architecture: Platform-Independent Core with Bindings"
 dot("""
-digraph NexusUnified {
+digraph NexusArchitecture {
     rankdir=TB;
     splines=ortho;
-    nodesep=0.4;
-    ranksep=0.5;
-    fontname="Arial";
+    nodesep=0.3;
+    ranksep=0.4;
 
-    // External inputs
-    user [label="Researcher Query", shape=plaintext, fontsize=12];
-    contract [label="contract.json", shape=note, style=filled, fillcolor="#e6f2ff", fontsize=11];
+    contract [label="contract", shape=note, style=filled, fillcolor="#e6f2ff"];
 
-    // Artifact Pipeline
-    subgraph cluster_pipeline {
-        label="Artifact Pipeline";
-        style=dashed; color="gray";
-        r2 [label="Cloudflare R2\nssccs-nexus-af", shape=cylinder, style=filled, fillcolor="#ffe4e1"];
-        worker [label="Sync Worker\n/sync/:engine", shape=box, style=filled, fillcolor="#e6ffe6"];
+    subgraph cluster_core {
+        label="nexus-core (Rust — zero platform dependency)";
+        style=filled; fillcolor="#f0f0f0"; color="#666";
+        coregraph [label="core/coregraph
+(petgraph + rusqlite)", shape=cylinder, style=filled, fillcolor="#ffe4e1"];
+        cypher [label="cypher
+(cyrs Plan IR)", shape=box, style=filled, fillcolor="#d4f1f9"];
+        index [label="index
+(vector + text)", shape=box, style=filled, fillcolor="#d4f1f9"];
+        algorithms [label="algorithms
+(Louvain, PageRank)", shape=box, style=filled, fillcolor="#d4f1f9"];
+        modules [label="modules
+(extraction, gap, contract)", shape=box, style=filled, fillcolor="#d4f1f9"];
+        cypher -> coregraph; index -> coregraph;
+        modules -> coregraph; modules -> algorithms;
+        modules -> cypher;
     }
 
-    // Graph + Analysis Layer
-    graphlayer [label="Memgraph\n(Graph DB + Proxy)", shape=cylinder, style=filled, fillcolor="#dda0dd"];
-    modulehub [label="Module Hub\n(analysis orchestration)", shape=box, style=filled, fillcolor="#e6ffe6"];
-    graphlayer -> modulehub [label="Cypher queries"];
-
-    // Agentic Loop
-    subgraph cluster_loop {
-        label="Agentic Research Loop";
-        style=filled;
-        fillcolor="#f8f8f8";
-        color="#999";
-        planner [label="Planner", shape=box, style=filled, fillcolor="#d4f1f9"];
-        executor [label="Executor", shape=box, style=filled, fillcolor="#d4f1f9"];
-        memory  [label="Evolving Memory", shape=box3d, style=filled, fillcolor="#fffacd"];
-        verifier [label="Verifier", shape=box, style=filled, fillcolor="#d4f1f9"];
-        generator [label="Generator", shape=box, style=filled, fillcolor="#d4f1f9"];
-        planner -> executor; executor -> memory; memory -> planner; memory -> verifier;
-        verifier -> memory; verifier -> generator [label="terminate?"];
+    subgraph cluster_bindings {
+        label="Platform Bindings (deployment targets)";
+        style=dashed; color="#999";
+        cf [label="cf-worker
+(wasm-bindgen)", shape=box, style=filled, fillcolor="#e6ffe6"];
+        native [label="server
+(axum)", shape=box, style=filled, fillcolor="#e6ffe6"];
+        aws [label="aws-lambda
+(lambda_runtime)", shape=box, style=filled, fillcolor="#e6ffe6"];
     }
 
-    graphrag [label="RAG Engine", shape=cylinder, style=filled, fillcolor="#ffe4e1"];
-    graphrag -> graphlayer [label="GraphML export"];
-    flowgrpo [label="Flow‑GRPO", shape=box, style=filled, fillcolor="#e6ffe6"];
+    r2 [label="R2 / S3
+(artifacts)", shape=cylinder, style=filled, fillcolor="#ffebcd"];
 
-    // Connections
-    user -> planner;
-    contract -> planner; contract -> generator [style=dashed];
+    coregraph -> cf [label="wasm"];
+    coregraph -> native [label="native"];
+    coregraph -> aws [label="aarch64"];
 
-    executor -> graphrag; verifier -> graphrag;
-    generator -> user;
+    modules -> r2 [dir=both, style=dashed, label="read/write"];
+    contract -> modules;
+    r2 -> modules [label="documents"];
 
-    r2 -> worker [label="aws s3 sync"]; worker -> graphrag [label="sync"];
-    executor -> r2 [style=dotted, label="upload external docs"];
-
-    generator -> flowgrpo [label="final reward"];
-    flowgrpo -> planner [label="policy update"];
-    generator -> contract [dir=both, style=dashed];
-
-    { rank=same; user; contract; }
-    { rank=same; graphrag; flowgrpo; }
-}
-""")
+    { rank=same; contract; r2; }
+}""")
 ```
 
-More than a passive knowledge base, it is a self‑improving agentic research infrastructure that:
+## Design Decisions
 
-- Ingests documentation, code symbols, and external sources into a unified knowledge graph (KG).
-- Detects conceptual gaps and contradictions across these domains.
-- Constructs and validates hypothesis chains, each step grounded in graph‑based evidence.
-- Generates contract‑compliant research artifacts (reports, experiment proposals, structured narratives).
-- Learns from research outcomes, refining its planning strategy through on‑policy reinforcement learning.
+### Why Rust Core, Not Docker Containers
 
-### Research Inspirations
+The initial Nexus architecture used Docker containers (Memgraph + proxy + LightRAG) orchestrated by shell scripts. We are transitioning to a Rust-native core for five reasons:
 
-Three complementary research advances underpin this vision:
+| Reason | Impact |
+|---|---|
+| Single codebase | cargo build produces WASM (CF Worker) or native binary (server) from same source |
+| Zero runtime deps | No Docker, no Python, no bolt proxy, wrangler deploy only |
+| Cypher for LLMs | Cypher is the graph language with the richest LLM training data. Rust parses it; petgraph executes it |
+| Feature-gated profiles | Grafeo-style feature flags: cargo build --features wasm vs native |
+| Portable by construction | Core knows nothing about Cloudflare, bindings/ isolates platform code |
 
-| Paradigm | Source | Core Insight | Role in Nexus |
-|----------|--------|--------------|-----------------|
-| In‑the‑Flow Agentic Optimization | AgentFlow [arXiv:2510.05592](https://arxiv.org/pdf/2510.05592) | A trainable Planner inside a multi‑turn loop, optimized via Flow‑GRPO, learns long‑horizon tool‑use strategies from sparse outcome rewards. | The Nexus Planner learns to decompose research questions, select appropriate tools, and assemble hypothesis chains that improve over time. |
-| Hypothesis‑Driven Discovery | HypoChainer [arXiv:2507.17209](https://arxiv.org/pdf/2507.17209) | LLMs, Knowledge Graphs, and human experts collaboratively build and validate hypothesis chains anchored in KG entities. | The Planner and Verifier embody this cycle: chains are generated, then each step is grounded against entities and relationships retrieved from GraphRAG. |
-| Contract‑Governed Multi‑Agent Generation | Story2Proposal [arXiv:2601.20833](https://arxiv.org/pdf/2601.20833) | Specialized agents (Architect, Writer, Refiner, Renderer) operate under a persistent shared contract that enforces structural obligations and visual‑artifact alignment. | The Generator and Reporter agents enforce `contract.json` to guarantee that every generated report meets required sections, citations, and evidence thresholds. |
+### Why Cypher
+
+Cypher is the only graph query language with sufficient LLM training data for reliable code generation. Grafeo supports six languages, Memgraph supports openCypher 9.0. Our cypher/ crate translates Cypher to petgraph traversals using [cyrs](https://github.com/cyrsdb/cyrs) for parsing → Plan IR.
+
+### Reference Implementations
+
+Two production graph databases were analyzed in depth to inform our design. Neither is a dependency; both are pattern references.
+
+#### Memgraph Insights
+
+| Component | Memgraph Pattern | Our Adaptation |
+|---|---|---|
+| Storage | In-memory LPG + RocksDB WAL | petgraph (in-memory) + rusqlite WAL |
+| Vector search | USearch (C++), Single Store Vector Index (85% less memory) | ndarray cosine, embedding stored as node property |
+| Community detection | Louvain + Leiden (C++ MAGE) | community-detection crate |
+| PageRank | Custom C++ | petgraph built-in |
+| MAGE modules | C API isolation (mg_procedure.h) | Rust trait in modules/ crate |
+| Atomic GraphRAG | Single Cypher query = search + expand + rank | cypher/translate.rs chains iterator operations |
+| Streaming | Kafka/Pulsar → Cypher triggers | Cloudflare Queues → DO method invocation |
+| LLM in Cypher | Python MAGE llm.py → CALL | Worker fetch → Workers AI, result as graph node |
+
+#### Grafeo Insights
+
+| Component | Grafeo Pattern | Our Adaptation |
+|---|---|---|
+| Language translation | 6 query languages → Unified Logical Plan | cyrs Plan IR → petgraph traversal |
+| Execution engine | Push-based operators (Scan, Filter, Expand, Join) | Iterator chain (scan → filter → expand → collect) |
+| Feature profiles | browser, embedded, server, full | wasm, server, edge |
+| WASM bindings | wasm-bindgen + console_error_panic_hook | bindings/cf/ |
+| MVCC | Custom Multi-Version Concurrency Control | rusqlite WAL mode + snapshot isolation |
+| Indexes | HNSW (vector) + BM25 (text) + B-tree | ndarray (vector) + regex (text) |
+| Leapfrog Join | TrieJoin for multi-way intersections | petgraph neighbors() chaining |
 
 ## Architecture Stack
 
-The Nexus architecture is assembled from distinct, purpose‑aligned layers. Each layer addresses a specific concern while maintaining clean interfaces to the others.
+The Rust core is assembled from existing crates, not built from scratch. Each crate maps to a specific capability that Memgraph or Grafeo provides internally through different libraries. The value is in the assembly, not the components.
 
-### Layer 1: Knowledge Graph Engine — GraphRAG
+### External Dependencies: Candidates
 
-At the center of Nexus sits a GraphRAG layer — a class of graph‑native retrieval‑augmented generation engines that decompose documents into structured knowledge: entities, typed relationships, and community clusters. Rather than committing to a single implementation, Nexus adopts an engine‑agnostic design: multiple GraphRAG backends operate behind a common interface, allowing the system to benchmark, compare, and route queries to the optimal backend per workload.
+Where possible, we depend on stable Rust crates rather than implementing from scratch. Rust crate dependencies are permanent.
 
-#### Engine‑Agnostic Interface
+#### Graph Storage & Query
 
-All GraphRAG backends conform to a common `EngineHandler` interface that abstracts the core operations Nexus requires:
+| Concern | Candidate | Justification | Status |
+|---|---|---|---|
+| Graph structure | **petgraph** (0.6) | Standard Rust graph lib, StableGraph, NodeIndex, built-in PageRank and Dijkstra. No reason to reimplement. | Adopted |
+| Persistence / WAL | **rusqlite** (0.31) | SQLite bundled mode works on WASM. 40 years of ACID verification. Memgraph uses RocksDB for the same purpose. | Adopted |
+| Cypher parsing | **cyrs** | Parses Cypher to typed Plan IR in one step. Grafeo's design (multiple languages → unified IR) confirms this pattern. | Adopted |
+| Vector similarity | **ndarray** (0.15) + cosine | Our data volumes do not require HNSW. When they do, USearch has Rust bindings. Memgraph uses USearch internally. | Adopted |
 
-| Operation | Interface Method | Description |
-|-----------|-----------------|-------------|
-| Upload | `upload(document) → doc_id` | Ingest a document, extract entities/relationships, return handle |
-| Delete | `delete(doc_id)` | Remove a document and all associated artifacts |
-| Query | `query(text, mode) → results` | Execute retrieval across supported query modes |
-| List | `list(filter) → documents` | Enumerate ingested documents with metadata |
-| Inject | `inject(terms, workspace)` | Inject domain glossary and entity definitions |
+#### Graph Algorithms
 
-This abstraction isolates the rest of Nexus from any particular backend's storage architecture, query syntax, or API conventions. Adding a new GraphRAG implementation requires only implementing this interface and registering a route in the sync worker (e.g., `/sync/lightrag`, `/sync/qd`).
+| Algorithm | Candidate | Status | Provided By |
+|---|---|---|---|
+| Louvain community | community-detection crate | Adopted | Pure Rust, petgraph compatible |
+| Leiden community | community-detection crate | Adopted | Same crate, variant feature flag |
+| PageRank | petgraph::algo::page_rank | Adopted | Built into petgraph |
+| Dijkstra / shortest path | petgraph::algo::dijkstra | Adopted | Built into petgraph |
+| Betweenness centrality | petgraph + custom | Candidate | Minimal implementation on top of petgraph |
+| Cosine similarity | ndarray | Adopted | Used by vector index; no separate crate needed |
 
-#### Initial Phase: Multi‑Backend Benchmarking
+#### Platform Bindings
 
-The initial phase deploys and evaluates multiple GraphRAG implementations to inform the long‑term backend strategy:
+| Target | Candidate | Deploy Command |
+|---|---|---|
+| Cloudflare Worker | worker crate (worker-rs) | wrangler deploy |
+| AWS Lambda | lambda_runtime crate | cargo lambda deploy |
+| Native server | axum + clap | cargo run |
+| ICP canister | (placeholder) | Future decision |
 
-| Layer | Component | Stack | Role | Status |
-|-------|-----------|-------|------|--------|
-| **RAG** | LightRAG | Python/Docker | Document ingest, entity extraction, semantic search | Deployed |
-| **RAG** | Graphiti | Python/Docker + Neo4j | Temporal knowledge graph | Deployed |
-| **Graph** | Memgraph | C++/Docker (in‑memory) | Persistent graph DB, Cypher analysis, native vector search, community detection (Leiden/Louvain), PageRank | Deployed |
-| **Graph** | memgraph-proxy | Python HTTP → Bolt | HTTP‑to‑bolt bridge for Worker access | Deployed |
-| **Infra** | Cloudflare Workers | TypeScript | af-sync (R2→RAG sync), module-hub (orchestration) | Deployed |
-| **Infra** | Cloudflare Tunnels | cloudflared | Public access to local Docker services | Deployed |
+### Design Principle: Implement Strategically, Depend Widely
 
-Each backend ingests the same corpus through the same sync pipeline. The Verifier benchmarks query quality across modes (Local, Global, Hybrid), and the Planner learns to route questions to the most appropriate backend based on question type and observed performance.
+Where differentiation matters (Cypher-to-petgraph translation, gap detection heuristics, platform bindings), we write code. Where stability matters (graph algorithms, persistence, parsing), we depend on verified Rust crates. The Rust core is the thinnest possible layer that turns a collection of independent crates into a coherent graph analysis platform.
 
-#### Common Entity Extraction Pipeline
+### Rust Core (nexus-core/)
 
-Regardless of backend, all GraphRAG implementations share a common conceptual ingestion pipeline:
-
-1. **Chunking** — documents are split into semantically coherent segments with configurable overlap.
-2. **Entity Extraction** — an LLM parses each chunk into `(entity, type, description)` triples and `(source, target, keywords, description)` relationship tuples.
-3. **Gleaning** — an optional second pass catches entities missed in the first extraction.
-4. **Normalization** — case normalization and description merging reduce duplicate entities.
-5. **Embedding** — document chunks, entity descriptions, and relationship descriptions each receive vector embeddings.
-6. **Community Detection** — graph clustering (e.g., Louvain, Leiden) groups related entities for thematic, high‑level queries.
-
-Each backend implements this pipeline according to its own storage and compute architecture. The common interface ensures that the Planner, Verifier, and Generator need not know which backend produced a given result.
-
-#### Query Modes
-
-The `EngineHandler` interface exposes a standard set of retrieval strategies that all backends must support:
-
-| Mode | Strategy | Best For |
-|------|----------|----------|
-| **Naive** | Pure vector similarity on document chunks | Simple keyword‑like lookups |
-| **Local** | Entity‑centric: keywords → entities → local graph neighborhood | Specific entity questions |
-| **Global** | Relationship‑centric: keywords → relationships → global graph context | Thematic, high‑level surveys |
-| **Hybrid** | Parallel Local + Global, merged context | Complex cross‑domain reasoning |
-| **Mix** | Weighted combination of all retrieval sources | Multi‑faceted queries |
-| **Bypass** | Direct LLM call without retrieval | General questions |
-
-The Planner selects the appropriate mode based on question type. The multi‑backend architecture allows mode performance to be compared across implementations: a Hybrid query might be faster on Qdrant‑based while a Global query yields richer results on Neo4j‑based.
-
-#### Performance Benchmarking Framework
-
-The initial phase includes a benchmarking framework that evaluates each backend on:
-
-| Metric | Description | Target |
-|--------|-------------|--------|
-| Entity extraction quality | Precision/recall against gold‑standard annotations | F1 ≥ 0.85 |
-| Query latency (Hybrid) | End‑to‑end response time for complex queries | < 1s |
-| Ingestion throughput | Documents processed per minute | > 10 docs/min |
-| Storage efficiency | Disk footprint per document | < 5 MB/doc |
-| Concurrent query capacity | Simultaneous queries before degradation | > 50 |
-
-Results inform not only backend selection but also the Planner's learned routing policy — a question type that consistently yields better results from a specific backend will bias the Planner toward that backend.
-
-### Graph Analysis Layer — Memgraph
-
-Alongside the RAG engines, Nexus operates a separate graph analysis layer based on [Memgraph](https://memgraph.com/) — an in‑memory graph database with native vector search. Unlike external vector databases that require a separate index, Memgraph integrates vector similarity directly into Cypher queries, enabling combined structural + semantic retrieval in a single query.
-
-The gap-detector module (`module-hub`) runs periodic structural analysis of the knowledge graph via Cypher queries:
-
-| Analysis Type | Cypher Query | Severity |
-|--------------|--------------|----------|
-| **Orphaned concepts** | `MATCH (c:Concept) OPTIONAL MATCH (c)-[r]-() WHERE rc = 0` | Warning |
-| **Missing relationships** | `MATCH (a) MATCH (b) WHERE a.file_path = b.file_path AND NOT EXISTS ((a)-[]-(b))` | Info |
-| **Contradictory edges** | `MATCH (a)-[r1]->(b) MATCH (a)-[r2]->(b) WHERE type(r1) <> type(r2)` | Critical |
-
-Memgraph is accessed by Workers via an HTTP‑to‑Bolt proxy (`memgraph-proxy`) that translates HTTP POST `/cypher` requests to the Memgraph bolt protocol. The proxy runs as a Docker sidecar alongside Memgraph.
-
-**Architecture:**
+The core is a Cargo workspace with zero platform dependencies.
 
 ```text
-LightRAG (RAG ingest)
-  → GraphML export → import_lightrag.py
-Memgraph (graph storage + Cypher analysis)
-  ↑ HTTP proxy (:7689)
-module-hub gap-detector
-  → findings → KV
+nexus-core/
+├── core/                   ← Graph storage (petgraph + rusqlite WAL)
+│   ├── graph/              ← Node, Edge, Property types
+│   ├── store/              ← MemoryStore + SqliteStore
+│   ├── index/              ← Vector (ndarray) + Text (BM25)
+│   └── mvcc.rs             ← Snapshot isolation via rusqlite
+├── cypher/                 ← Cypher → Plan IR → petgraph
+│   ├── plan.rs             ← cyrs Plan IR types
+│   ├── translate.rs        ← Plan → iterator chain
+│   └── parser.rs           ← cyrs integration
+├── algorithms/             ← Graph algorithms (Memgraph MAGE pattern)
+│   ├── community.rs        ← Louvain/Leiden
+│   ├── pagerank.rs         ← petgraph built-in
+│   └── path.rs             ← Dijkstra, shortest path
+├── modules/                ← Analysis modules
+│   ├── gap.rs              ← Gap Detector
+│   ├── contract.rs         ← contract interpreter
+│   └── trait.rs            ← Module trait definition
+├── bindings/               ← Platform bindings
+│   ├── cf/                 ← worker-rs (wasm-bindgen)
+│   ├── server/             ← axum (native)
+│   └── icp/                ← candid (placeholder)
+└── Cargo.toml              ← Feature-gated profiles
 ```
 
-Access to the graph layer is through a dedicated Cloudflare Tunnel:
+### Cypher Translation
 
-| Tunnel | Hostname | Service |
-|--------|----------|---------|
-| `nexus-graph` | `graph-api-dev.nexus.ssccs.org` | Memgraph proxy (:7689) |
+The cypher/ crate translates Cypher to petgraph operations using cyrs. Our gap-detector needs only three patterns:
 
-This isolation ensures that graph analysis operates independently from the RAG ingest pipeline — a decision driven by the recognition that graph structural analysis and document retrieval have fundamentally different latency, consistency, and update patterns.
+| Cypher Pattern | petgraph Translation |
+|---|---|
+| `MATCH (c:Concept) WHERE... RETURN c` | node_indices().filter(label).filter(condition) |
+| `OPTIONAL MATCH (c)-[r]-() WITH c, count(r) WHERE rc = 0` | neighbors() + count + filter |
+| `MATCH (a)-[r1]->(b) MATCH (a)-[r2]->(b) WHERE type != type` | edges() cartesian product + filter |
 
-### Layer 2: Artifact Storage & Ingestion Pipeline — Cloudflare R2 + Worker
+We do not implement full Cypher. We implement the subset our modules actually need.
 
-Rather than uploading documents directly to a GraphRAG engine from CI/CD (which would couple build pipelines to a specific running instance), Nexus introduces an intermediate artifact store and a synchronization worker.
+### Graph Algorithms
 
-#### Why a Decoupled Pipeline?
+Graph algorithms follow Memgraph's MAGE module pattern: each algorithm is a standalone function that takes a graph reference and returns results.
 
-Direct uploads create several problems:
+| Algorithm | Implementation | Memgraph Source |
+|---|---|---|
+| Louvain | community-detection crate | mage/cpp/community_detection_module/ |
+| Leiden | community-detection crate | mage/cpp/leiden_community_detection_module/ |
+| PageRank | petgraph::algo::page_rank | mage/cpp/pagerank_module/ |
+| Dijkstra | petgraph::algo::dijkstra | mage/cpp/path_module/ |
+| Cosine similarity | ndarray | mage/cpp/node_similarity_module/ |
 
-1. CI coupling: every docs or code build must reach a specific GraphRAG instance. If the instance is unavailable, the build fails.
-2. No change detection: the GraphRAG engine cannot tell whether a re‑uploaded document has actually changed; every upload triggers LLM extraction.
-3. Multiple sources are hard to merge: core documentation, POC code artifacts, and user‑injected documents come from different places and must converge on one KG — potentially across multiple backends.
+### Analysis Modules
 
-The decoupled pipeline addresses all three by establishing a single source of truth (R2) and a dedicated sync process (Worker).
+Modules follow Unix philosophy: JSON in → JSON out. Queue-based pipes.
 
-#### R2: Strongly Consistent Object Store
+| Module | Status |
+|---|---|
+| Gap Detector | TS (deployed) → Rust (porting) |
+| Hypothesis Generator | Future |
+| Concept Validator | Future |
+| Entity extraction | Future |
+| Experimental Contrast | Future |
 
-Cloudflare R2 (bucket: `ssccs-nexus-af`) serves as the artifact repository. Key properties for Nexus:
+### Artifact Storage & Ingestion
 
-- Strong consistency on the S3 API — unlike AWS S3 before 2020, R2 guarantees read‑after‑write consistency, meaning that once `PutObject` returns, the object is immediately visible to the sync worker. This eliminates race conditions during incremental updates.
-- S3‑compatible API — supports `GetObject`, `PutObject`, `DeleteObject`, and `ListObjectsV2`, enabling direct use of `aws s3 sync` from CI without custom tooling.
-- Zero egress fees — no cost for transferring data from R2 to the Worker or GraphRAG backends, even across regions.
-- Free tier: 10 GB storage, 1 million write operations/month, 10 million read operations/month — well within SSCCS's expected usage.
+R2 (bucket: ssccs-nexus-af) is the single source of truth. The af-sync worker performs incremental sync between R2 and LightRAG via Queue-based processing with drift detection. Already deployed; no change in Rust migration.
 
-#### The Sync Worker
+### Platform Bindings
 
-The sync worker (`nexus-sync-worker`, TypeScript) exposes a single endpoint, `POST /sync/:engine`, and performs incremental synchronization between R2 and the target GraphRAG engine.
+| Binding | Crate | Compilation Target |
+|---|---|---|
+| Cloudflare Worker | bindings/cf/ | wasm32-unknown-unknown |
+| Native Server | bindings/server/ | host |
+| ICP Canister | bindings/icp/ | wasm32-wasi (placeholder) |
 
-Internal Architecture:
+### TypeScript Orchestration
 
-1. Authentication — the request must carry `Authorization: Bearer <SYNC_API_KEY>`. The API key is stored as a Cloudflare Secret, never appearing in source code or configuration files.
-2. Engine Routing — the `URLPattern` API matches `/:engine` from the path. Each registered engine key maps to an `EngineHandler` implementation:
-   - `lightrag` → `LightRAGHandler` — PostgreSQL‑based GraphRAG backend
-   - `qd` → `QdrantHandler` — Qdrant vector DB + external graph backend
-   - `neo4j` → `Neo4jHandler` — Neo4j native graph backend
+| Worker | Role | Calls Rust Via |
+|---|---|---|
+| af-sync | R2 artifact sync → RAG engines | HTTP (unchanged) |
+| module-hub | Gap Detector, module dispatch | DO service binding → nexus-gap.run() |
 
-   Adding a new engine requires implementing the `EngineHandler` interface and registering it in the engines map. The same R2 artifact can be synced to multiple engines simultaneously by issuing `POST /sync/lightrag` and `POST /sync/qd`.
-3. Diff Computation — the producer compares two data sets:
-   - R2 inventory: all objects in the bucket, each with an `ETag` (MD5 hash of content).
-   - KV mapping: a persistent record of `{engine}/{r2_key: {doc_id, etag}}` stored in Cloudflare KV, partitioned by engine.
+## Module Communication: Queue-Based Pipes
 
-   The diff produces three task lists per engine: deletions (in KV but not in R2), uploads (in R2 but not in KV, or ETag mismatch), and no‑ops (ETag match).
-4. Queue‑Based Processing — tasks are chunked (≤10 items per message) and pushed to a Cloudflare Queue (`nexus-sync-queue`). This is the critical design element that avoids the free‑plan subrequest limit (50 external `fetch` calls per worker invocation).
-5. Consumer Processing — queue consumers receive chunks and execute the actual GraphRAG engine API calls (`DELETE` then `POST` for modified files) against the target backend. After each successful upload, the KV mapping is updated with the new document ID and ETag for that engine.
+```text
+R2 (documents)
+    ↓
+Queue → Gap Detector (in: doc list JSON, out: gap reports JSON)
+    ↓
+Queue → Hypothesis Generator (in: gap report, out: hypothesis chains)
+    ↓
+Queue → Verifier (in: hypothesis, out: verification result)
+    ↓
+Queue → Generator (in: verified hypothesis, out: .qmd report)
+    ↓
+R2 (published artifact)
+```
 
-Queue Consumer Concurrency: Cloudflare Queues support automatic horizontal scaling. Consumers are invoked in parallel when the backlog grows, up to the platform maximum — typically 250 concurrent invocations. This means a large sync (hundreds of changed documents) will scale out automatically without any configuration changes.
+## Contract Governance & Future DeSci
+
+contract defines research rules (evidence thresholds, novelty minimums, report structure). The Verifier enforces these rules on all outputs.
+
+Future: Token-incentivized research. contract can be promoted to a decentralized smart contract. Research verification becomes a protocol with token rewards:
+
+```text
+contract → Canister (smart contract)
+    ├── Gap discovery → Token reward
+    ├── Hypothesis validation → Staking + reward
+    └── Community governance → Token-weighted decisions
+```
+
+## Architecture Inspirations
+
+### Current Layer (Graph Core)
+
+| Source | Pattern | What We Adopted |
+|---|---|---|
+| Memgraph (C++, production) | Atomic GraphRAG (single query = search + expand + rank + prompt) | Iterator chain translation in cypher/translate.rs |
+| Memgraph | MAGE module isolation (C API, standalone algorithms) | Rust trait isolation in modules/ crate |
+| Memgraph | Single Store Vector Index (embedding as node property) | ndarray cosine on petgraph node weights |
+| Memgraph | WAL + in-memory dual storage | rusqlite WAL + petgraph memory store |
+| Grafeo (Rust, production) | Unified Logical Plan (6 languages → single IR) | cyrs Plan IR → petgraph translation |
+| Grafeo | Push-based execution operators | Iterator chain in cypher/translate.rs |
+| Grafeo | Feature-gated WASM profiles (browser/embedded/server) | Cargo.toml feature profiles |
+| cyrs / cypher-rs ecosystem | Cypher → typed Plan IR | cyrs as primary parser dependency |
+| petgraph ecosystem | StableGraph, NodeIndex, built-in PageRank/Dijkstra | Core graph library |
+
+The key architectural insight from Grafeo is that a unified query IR decouples input languages from execution. Future agent modules (Planner, Verifier, Hypothesis Generator) will query the graph through this same IR. They do not need to know whether the backend is petgraph in memory, SQLite on disk, or a remote CF Worker. The query interface is the plug, the core is the socket. Adding a new query language (GQL, SPARQL, or a future agent DSL) requires only a new parser adapter, not a core change.
+
+### Future Layer (Agentic Loop)
+
+These papers inform the agentic research loop (Planner, Verifier, Generator), which is a future phase built on top of the Rust core:
+
+| Paradigm | Source | Core Insight | Will Inform |
+|---|---|---|---|
+| In-the-Flow Agentic Optimization | AgentFlow [arXiv:2510.05592](https://arxiv.org/pdf/2510.05592) | Trainable Planner, Flow-GRPO learning | modules/planner |
+| Hypothesis-Driven Discovery | HypoChainer [arXiv:2507.17209](https://arxiv.org/pdf/2507.17209) | LLMs + KG + humans build hypothesis chains | modules/verifier |
+| Contract-Governed Generation | Story2Proposal [arXiv:2601.20833](https://arxiv.org/pdf/2601.20833) | Shared contract enforces structural obligations | modules/generator |
+
+## Strategic Value
+
+- No lock-in. Core has zero platform dependencies.
+- LLM-native. Cypher is the graph language LLMs know best.
+- Portable. cargo build for any target.
+- DeSci-ready. contract → canister enables token-incentivized research.
+- Unix philosophy. Pure functions + Queue pipes.
+
+## Current Status (2026-05)
+
+| Component | Status |
+|---|---|
+| af-sync worker (R2 → LightRAG) | Deployed |
+| LightRAG (Docker) | Deployed (reference implementation; sync pipeline active) |
+| module-hub (TS, gap-detector Cypher mode) | Deployed |
+| Memgraph (Docker, analysis reference) | Reference implementation (patterns extracted) |
+| CI/CD (deploy.yml, build.yml) | Deployed |
+| Rust core (nexus-core/) | Starting |
+| cypher translator | Starting |
+| Graph algorithms | Future |
+| Agentic loop | Future |
+| ICP DeSci | Placeholder |
+
+## Edge-to-Cloud Portability & AWS Integration
+
+### Principle: Bindings Are Deployment Targets, Not Architectural Commitments
+
+The platform bindings layer (`bindings/`) isolates deployment-specific code. Adding a new deployment target requires only a new binding crate. The core (`nexus-core/`) never changes.
+
+```text
+nexus-core/ (Rust, zero deps)
+    │
+    ├── bindings/cf/       ← Cloudflare Workers (wasm32-unknown-unknown)
+    ├── bindings/aws/      ← AWS Lambda + Graviton (aarch64-unknown-linux-gnu)
+    ├── bindings/local/    ← Native server (axum, host architecture)
+    └── bindings/icp/      ← ICP Canister (wasm32-wasi, placeholder)
+```
+
+| Environment | Binding | Hardware | Latency Profile | Best For |
+|---|---|---|---|---|
+| Cloudflare Workers | `bindings/cf/` | Edge (300+ locations) | < 50ms cold, sub-ms warm | Real-time queries, API gateway, gap detection on document arrival |
+| AWS Lambda (Graviton) | `bindings/aws/` | ARM64 (Graviton3/4) | < 100ms cold, ms warm | Batch analysis, large-scale community detection, model training |
+| AWS EC2 / HPC | `bindings/aws/` | x86_64 / GPU | Sub-ms (warm resident) | Hardware simulation, compiler optimization loops, pre-silicon emulation |
+| Local / VPS | `bindings/server/` | Any | 0ms | Development, offline research, private data |
+
+### Why This Matters for SSCCS
+
+SSCCS's research agenda spans multiple compute domains that no single platform can satisfy:
+
+| Research Activity | Compute Profile | Optimal Platform |
+|---|---|---|
+| Document ingestion & entity extraction | I/O-bound, bursty | CF Workers (edge proximity to R2) |
+| Knowledge graph query & gap detection | CPU-bound, graph traversal | CF Workers or Lambda |
+| Community detection (Louvain/Leiden) | CPU-bound, iterative | Lambda (Graviton, longer timeout) |
+| Hypothesis generation (LLM) | Memory-bound, GPU-accelerated | EC2 with GPU or Workers AI |
+| Compiler optimization (SSCCS ↔ llvm-project) | CPU-intensive, iterative | EC2 / HPC |
+| Hardware emulation (pre-silicon RTL) | CPU + memory intensive, long-running | EC2 / HPC |
+| Training (Flow-GRPO for Planner) | GPU-bound, hours-long | SageMaker / EC2 GPU |
+
+### AWS Integrations: Concrete Paths
+
+#### AWS Lambda + Graviton (Immediate)
+
+Rust compiles natively to `aarch64-unknown-linux-gnu`. The same `nexus-gap` crate that runs as a CF Worker also runs as a Lambda function on Graviton: no code changes.
+
+#### Amazon S3 ↔ R2 Bridge (Data Gravity)
+
+SSCCS documents live in R2. AWS compute can access them via S3-compatible API:
+
+Or migrate hot data to S3 for lower latency from AWS compute, keeping cold data in R2.
+
+#### AWS Nitro Enclaves for Contract Governance
+
+contract verification can run inside an AWS Nitro Enclave for cryptographic attestation: the verification result comes with a signed proof that the contract was executed faithfully, without relying on blockchain.
+
+#### SageMaker for Flow-GRPO Training
+
+The Learning Loop (Layer 4) trains the Planner via Flow-GRPO. Training trajectories collected from CF Workers are stored in R2, then training runs on SageMaker with GPU instances:
+
+```text
+CF Workers → R2 (trajectory JSONL)
+    ↓
+SageMaker Training Job (ml.g5.xlarge)
+    ↓ policy update
+New Planner checkpoint → R2
+    ↓
+CF Workers pick up new checkpoint
+```
+
+### Future: Hardware Simulation Integration
+
+SSCCS's core research: Segment, Scheme, Field, Observation, Projection: is about rewriting computing's ontology. This extends naturally to hardware:
+
+#### Pre-Silicon Emulation Pipeline
+
+```text
+R2 (RTL designs, benchmark configs)
+    ↓
+EC2 HPC (Graviton4, 64 vCPU, 256GB RAM)
+    ↓
+nexus-core compiled as native binary
+    ├── graph module ingests simulation traces as temporal graphs
+    ├── gap detector finds inefficiencies in pipeline utilization
+    ├── community detection groups related hardware modules
+    └── contract governs which optimizations are valid
+    ↓
+Findings → R2 → LLM analysis → Compiler patch proposals → llvm-project PRs
+```
+
+#### Why Same Core for Hardware Analysis
+
+The gap-detector that today finds orphaned concepts in documentation will tomorrow find underutilized functional units in RTL simulations. Same graph structure, different data:
+
+| Today (Documents) | Tomorrow (Hardware) |
+|---|---|
+| Node = Concept / Document | Node = Functional Unit / Pipeline Stage |
+| Edge = RELATES_TO / APPEARS_IN | Edge = DATA_FLOW / CONTROL_DEPENDENCY |
+| Gap = orphaned concept | Gap = idle functional unit |
+| Community = topic cluster | Community = co-optimized module group |
+| Embedding = text embedding | Embedding = utilization time-series vector |
+
+### Strategic Position
 
 ```{python}
-#| label: fig-nexus-artifact-pipeline
-#| fig-cap: "Artifact ingestion pipeline"
+#| label: fig-nexus-strategic-position
+#| fig-cap: "Strategic Position: Edge-to-Cloud Portability"
 dot("""
-digraph ArtifactPipeline {
+digraph StrategicPosition {
+    rankdir=TB;
     splines=ortho;
     nodesep=0.5;
+    ranksep=0.6;
+    fontname="Arial";
 
-    ci [label="CI/CD\n(aws s3 sync)", shape=box, fillcolor="#d4f1f9"];
-    r2 [label="Cloudflare R2\nssccs-nexus-af", shape=cylinder, fillcolor="#ffebcd"];
-    producer [label="Producer Worker\n/sync/:engine", shape=box, fillcolor="#e6ffe6"];
-    kv [label="KV\nmapping", shape=note, fillcolor="#fffacd"];
-    queue [label="Queue\nnexus-sync-queue", shape=box, fillcolor="#f0f0f0"];
+    core [label="nexus-core (Rust)\nZero platform deps", shape=box, style=filled, fillcolor="#d4f1f9"];
 
-    subgraph cluster_consumers {
-        label="Queue Consumers (auto‑scale)";
-        style="dashed";
-        c1 [label="Consumer 1", shape=box, fillcolor="#ffe4e1"];
-        c2 [label="Consumer 2", shape=box, fillcolor="#ffe4e1"];
-        cn [label="Consumer N", shape=box, fillcolor="#ffe4e1"];
-    }
+    cf [label="Cloudflare Edge\nWorkers + R2\nReal-time", shape=box, style=filled, fillcolor="#e6ffe6"];
+    aws [label="AWS Cloud\nLambda + HPC\nBatch + Training", shape=box, style=filled, fillcolor="#e6ffe6"];
 
-    subgraph cluster_backends {
-        label="GraphRAG Backends";
-        style="dashed";
-        lightrag [label="LightRAG\n(PG+pgvector+AGE)", shape=cylinder, fillcolor="#ffe4e1"];
-        qd [label="Qdrant‑based", shape=cylinder, fillcolor="#ffe4e1"];
-        neo4j [label="Neo4j‑based", shape=cylinder, fillcolor="#ffe4e1"];
-    }
+    shared [label="Shared Data\nR2 + contract.json", shape=cylinder, style=filled, fillcolor="#ffebcd"];
 
-    ci -> r2; r2 -> producer;
-    producer -> kv; producer -> queue;
-    queue -> c1; queue -> c2; queue -> cn;
-    c1 -> lightrag; c2 -> qd; cn -> neo4j;
-    lightrag -> kv [style=dashed]; qd -> kv [style=dashed]; neo4j -> kv [style=dashed];
+    core -> cf [label="wasm"];
+    core -> aws [label="aarch64 / x86"];
+    cf -> shared [dir=both, style=dashed];
+    aws -> shared [dir=both, style=dashed];
+
+    { rank=same; cf; aws; }
 }
 """)
 ```
 
-Design Decision: KV for Mapping
+This is not "CF or AWS." It is "CF for what CF does best, AWS for what AWS does best, core is the same either way." The meeting-ready narrative is: SSCCS is building a portable graph analysis platform whose deployment surface spans edge-to-cloud, with zero architectural commitment to any single vendor.
 
-Workers KV is eventually consistent: changes made in one edge location may take up to 60 seconds to propagate globally. However, all sync worker invocations for our architecture are triggered from a single entry point per engine (e.g., `/sync/lightrag`), and the producer writes the mapping and immediately uses it within the same invocation — read‑your‑own‑writes consistency is guaranteed. The eventual consistency of KV is therefore not a practical concern for this design: we never rely on multiple concurrent producers writing the same mapping keys.
+### AWS Meeting Talking Points
 
-### Layer 3: Agentic Research Loop — Planner, Executor, Verifier, Generator
+1. **Portable core.** Same Rust codebase compiles for Graviton, x86, and WASM. Today CF Workers, tomorrow Lambda.
 
-The agentic loop is the operational brain of Nexus. It is modeled after AgentFlow's four‑component architecture but adapted for the research domain with KG‑grounded verification.
+2. **Data gravity.** R2 (S3-compatible) means AWS compute can access SSCCS data with zero migration. S3 migration path exists if needed.
 
-#### Agent Flow
+3. **Hardware research alignment.** SSCCS's Segment/Scheme/Field ontology maps directly to hardware pipeline analysis. Graviton + HPC are the natural compute targets.
 
-```{python}
-#| label: fig-nexus-organic
-#| fig-cap: "Nexus as the realization of SSCCS Organic Growth"
-dot("""
-digraph NexusOrganic {
-    rankdir=TB;
-    contract [label="Contract (contract.json)", shape=note, fillcolor="#e6f2ff"];
-    r2 [label="R2 Artifact Store\n(strong consistency)", shape=cylinder, fillcolor="#ffebcd"];
-    worker [label="Sync Worker\n/sync/:engine", shape=box, fillcolor="#e6ffe6"];
-    graphrag [label="GraphRAG KG\n(Engine‑Agnostic)", shape=cylinder, fillcolor="#ffe4e1"];
-    planner [label="Planner\n(trainable)", shape=box, fillcolor="#d4f1f9"];
-    verifier [label="Verifier\n(KG grounding)", shape=box, fillcolor="#d4f1f9"];
-    generator [label="Generator\n(contract‑compliant)", shape=box, fillcolor="#d4f1f9"];
-    output [label="Research Artifacts\n(.qmd reports)", shape=note];
-    flowgrpo [label="Flow‑GRPO\n(training loop)", shape=box, fillcolor="#f0f0f0"];
+4. **Contract governance.** `contract` can run in Nitro Enclaves for cryptographic verification of research outputs. No blockchain required for trust; blockchain optional for token incentives.
 
-    contract -> worker; contract -> generator [style=dashed, label="constrains"];
-    r2 -> worker [label="read + diff"];
-    worker -> graphrag [label="sync"];
-    graphrag -> planner [label="query"]; graphrag -> verifier;
-    planner -> verifier [label="hypotheses"]; verifier -> generator [label="terminate?"];
-    generator -> output;
-    generator -> flowgrpo [label="reward"];
-    flowgrpo -> planner [label="policy update"];
-    output -> r2 [style=dashed, label="new knowledge"];
-    generator -> contract [dir=both, style=dashed];
+5. **Training pipeline.** Flow-GRPO training trajectories come from edge workers; training runs on SageMaker. Clean separation of inference (edge) and training (cloud).
 
-    { rank=same; contract; r2; }
-    { rank=same; planner; verifier; generator; }
-}
-""")
-```
-
-The architecture compresses the Organic Growth model into a concrete, implementable pipeline while preserving its foundational insight: knowledge grows organically when governed by explicit, evolvable contracts — and when the system that processes it can learn from its own discoveries.
-
-#### Planner: The Only Trainable Component
-
-The Planner is an LLM — initially a frozen instruct model (Qwen2.5‑7B or equivalent), later fine‑tuned via Flow‑GRPO. Its responsibilities:
-
-- Decompose a research question into sub‑goals.
-- Select the appropriate GraphRAG query mode and backend (`hybrid` for complex reasoning, `local` for entity lookup, `global` for thematic surveys).
-- Decide when to crawl external sources or execute Python code.
-- Evaluate intermediate results and decide whether evidence is sufficient to terminate.
-
-The Planner is trained on trajectories collected from actual research sessions — successful hypothesis chains, tool sequences, and human feedback ratings all become training signals.
-
-#### Executor: Tool Orchestration
-
-The Executor invokes registered tools on the Planner's behalf and returns structured results to the Evolving Memory. Tool examples:
-
-- `search_kg(query, mode, backend?)` — calls the GraphRAG engine's `/query` with the specified mode, optionally routing to a specific backend.
-- `crawl_external(url)` — fetches and uploads external documents to R2 (and thus into the KG).
-- `run_python(code)` — executes computational snippets.
-- `generate_hypothesis_step(context)` — uses a frozen LLM to propose candidate hypothesis links.
-- `feedback(score, comment)` — prompts the researcher for evaluation, which feeds into the reward signal.
-
-#### Verifier: KG‑Grounded Evaluation
-
-The Verifier acts as both the HypoChainer‑style validation engine and the Story2Proposal evaluation agent. For each hypothesis step, it:
-
-1. Queries the GraphRAG layer (Hybrid or Local mode) for entities and relationships semantically aligned with the claim.
-2. Computes a support score: fraction of steps that have at least one grounded KG path.
-3. Computes a novelty score: counts how many new KG edges would be created if the hypothesis were validated — bridging previously disconnected entity clusters earns higher novelty.
-4. Checks the `contract.json` rules (required sections, citation formats, novelty thresholds).
-5. Outputs a structured feedback signal (weak steps, missing evidence) and a binary termination flag.
-
-#### Generator: Contract‑Compliant Output
-
-When the Verifier signals termination, the Generator produces:
-
-- A hypothesis chain diagram with confidence scores.
-- An evidence table (KG‑grounded sources per step).
-- Gap analysis and proposed experiments.
-- A Quarto‑ready `.qmd` file.
-
-A Reporter agent performs a final cross‑check against `contract.json` before the file is committed. If contract rules fail, the Generator is re‑invoked with the error report.
-
-#### Evolving Memory
-
-All research activity is recorded in an append‑only `Evolving Memory` (JSONL files). Each session logs the query, every planning turn (tool choice, arguments, results, verifier feedback), the final output, and any human feedback. These trajectories are the raw material for RL training.
-
-### Layer 4: Learning Loop — Flow‑GRPO
-
-The collected trajectories feed a Flow‑GRPO pipeline that refines the Planner:
-
-1. Rollout Collection: each completed session is stored as `memory/session_<timestamp>.jsonl`.
-2. Reward Computation: the final reward blends KG‑support score, novelty score, contract compliance (binary), and human feedback (score normalized to [0,1]).
-3. Group Sampling: trajectories are batched (typically 8 per group).
-4. Advantage Calculation: group‑normalized advantages (as in GRPO) stabilize training.
-5. Policy Update: PPO‑style clipped objective with KL penalty toward a frozen reference model. Because the reward is broadcast to all steps of a trajectory, the multi‑turn credit assignment problem is decomposed into single‑turn updates.
-
-Training can run on a consumer GPU (7B model) or be deferred to cloud resources. The Planner checkpoint is versioned and stored alongside the repository.
-
-### Layer 5: Contract Governance (Future)
-
-The SSCCS Organic Growth diagram in `index.qmd` envisions a system where Contract‑Governed Ingestion feeds a Unified Knowledge Graph, driving Hypothesis Generation and Validation. Nexus currently implements this as `contract.json` — a JSON schema that defines required hypothesis steps, evidence thresholds, novelty minimums, and report section requirements. As the project matures, the contract can expand to enforce:
-
-- Cryptographic provenance chains (C2PA manifests for generated artifacts).
-- Mandatory code‑documentation traceability for every new hypothesis.
-- Formal verification of experimental proposals against KG evidence.
-
-Because the contract is versioned, machine‑readable, and enforced at both the Verifier and Reporter layers, it provides an evolvable governance surface without requiring architectural changes.
-
-### Component Interaction Matrix
-
-| Component | GraphRAG | Memgraph | R2 | Sync Worker | Module Hub | Planner | Verifier | Generator |
-|-----------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| GraphRAG | — | → GraphML export | — | ← syncs | — | ← queries | ← grounds | — |
-| Memgraph | ← import | — | — | — | → Cypher queries | — | → evidence | — |
-| R2 | — | — | — | ← reads | → artifacts | — | — | — |
-| Sync Worker | → DELETE/POST | — | → list/get | — | — | — | — | — |
-| Module Hub | — | → gap analysis | — | — | — | — | — | — |
-| Planner | → queries | — | — | — | — | — | → delegates | — |
-| Verifier | → hybrid queries | → support score | — | — | — | ← receives | — | → signals |
-| Generator | — | — | — | — | — | — | ← triggered | — |
-
-## Strategic Value & Open‑Source Alignment
-
-- No lock‑in: every GraphRAG backend is replaceable; the engine‑agnostic interface isolates the system from any particular implementation. R2 and Workers are replaceable with any S3‑compatible store and any serverless function platform.
-- Free tier viability: the entire stack operates within Cloudflare's free tier (R2: 10 GB, 1M writes/month; Workers: 100k requests/day; Queues: included) and OCI's Always Free tier.
-- Research‑first design: optimized for the academic exploration cycle — hypothesize, validate, publish — rather than for commercial RAG benchmarks.
-- Autonomous learning: among the first applications of on‑policy reinforcement learning to scientific knowledge management.
-
-## Integration with AWS Ecosystem as a Strategic Collaboration
-
-Project Nexus serves as the knowledge backbone for the broader [SSCCS × AWS Strategic Collaboration Roadmap](/proposal/aws.html), which outlines autonomous compiler optimization and pre‑silicon hardware emulation workstreams. The Nexus agentic loop and Graph‑RAG infrastructure are directly applicable to the experiments proposed in that roadmap:
-
-- AI‑Driven Compiler Optimization on Graviton: Autonomous agents, powered by the Planner and Verifier, can explore compiler pass sequences, evaluate metrics (CEI, FGR, buffer reduction), and store experimental results in the GraphRAG knowledge graph. This accelerates the closed‑loop tuning cycle described in the roadmap.
-- Pre‑Silicon Hardware Emulation on AWS HPC: The same hypothesis‑generation and validation pipeline can manage the massive parameter space of structural observations across simulated HPC environments, tracking determinism, energy efficiency, and latency. Results from these emulations feed back into the knowledge graph, enabling cross‑domain discovery between software and hardware research.
-
-The ingestion pipeline ensures that benchmark data, compiler configurations, and emulation traces are continuously integrated with Nexus, turning every AWS experiment into a reusable knowledge asset.
+6. No lock-in. `bindings/aws/` is a new crate: the core never changes. Same for any future platform.
 
 {{< include ./_include/_nexus_ref.qmd >}}
 
