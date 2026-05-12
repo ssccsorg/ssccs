@@ -12,7 +12,7 @@
 use std::collections::HashSet;
 use std::fmt::Debug;
 
-pub use ssccs_core::{Constraint, Field, Projector, Segment, SpaceCoordinates};
+pub use ssccs_core::{Constraint, Field, Projector, Segment, SegmentId, SpaceCoordinates};
 
 // ==================== COMPOSITION OPERATION ====================
 
@@ -142,23 +142,23 @@ impl ComposedField {
 
     // ---- transitions ----
 
-    pub fn transition_targets(&self, coords: &SpaceCoordinates) -> Vec<SpaceCoordinates> {
+    pub fn transition_targets(&self, coords: &SpaceCoordinates) -> Vec<SegmentId> {
         match self.op {
             CompositionOp::Union => {
                 let mut merged = transition_expr(&self.left, coords);
                 merged.extend(transition_expr(&self.right, coords));
-                merged.sort_by(|a, b| a.raw.cmp(&b.raw));
+                merged.sort();
                 merged.dedup();
                 merged
             }
             CompositionOp::Intersection => {
-                let left: HashSet<SpaceCoordinates> =
+                let left: HashSet<SegmentId> =
                     transition_expr(&self.left, coords).into_iter().collect();
-                let right: HashSet<SpaceCoordinates> =
+                let right: HashSet<SegmentId> =
                     transition_expr(&self.right, coords).into_iter().collect();
-                let mut merged: Vec<SpaceCoordinates> =
+                let mut merged: Vec<SegmentId> =
                     left.intersection(&right).cloned().collect();
-                merged.sort_by(|a, b| a.raw.cmp(&b.raw));
+                merged.sort();
                 merged
             }
             CompositionOp::Product => {
@@ -170,26 +170,11 @@ impl ComposedField {
                 }
                 let left_coords = SpaceCoordinates::new(coords.raw[..axes].to_vec());
                 let right_coords = SpaceCoordinates::new(coords.raw[axes..].to_vec());
-                let left_targets: Vec<SpaceCoordinates> = transition_expr(&self.left, &left_coords)
-                    .into_iter()
-                    .map(|c| {
-                        let mut raw = c.raw;
-                        raw.extend(right_coords.raw.clone());
-                        SpaceCoordinates::new(raw)
-                    })
-                    .collect();
-                let right_targets: Vec<SpaceCoordinates> =
-                    transition_expr(&self.right, &right_coords)
-                        .into_iter()
-                        .map(|c| {
-                            let mut raw = left_coords.raw.clone();
-                            raw.extend(c.raw);
-                            SpaceCoordinates::new(raw)
-                        })
-                        .collect();
+                let left_targets: Vec<SegmentId> = transition_expr(&self.left, &left_coords);
+                let right_targets: Vec<SegmentId> = transition_expr(&self.right, &right_coords);
                 let mut merged = left_targets;
                 merged.extend(right_targets);
-                merged.sort_by(|a, b| a.raw.cmp(&b.raw));
+                merged.sort();
                 merged.dedup();
                 merged
             }
@@ -216,7 +201,7 @@ fn eval_expr(expr: &ComposedExpr, coords: &SpaceCoordinates) -> bool {
     }
 }
 
-fn transition_expr(expr: &ComposedExpr, coords: &SpaceCoordinates) -> Vec<SpaceCoordinates> {
+fn transition_expr(expr: &ComposedExpr, coords: &SpaceCoordinates) -> Vec<SegmentId> {
     match expr {
         ComposedExpr::Field(f) => f.transition_targets(coords),
         ComposedExpr::Identity(_) => Vec::new(),
