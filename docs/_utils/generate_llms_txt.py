@@ -53,18 +53,50 @@ def get_sorted_tree_keys(
     tree: Dict[str, List[Tuple[str, str]]],
 ) -> List[str]:
     """
-    Sort tree keys so root ('') comes first, then top-level dirs,
-    then nested dirs sorted by depth then path.
+    Sort tree keys respecting the directory tree hierarchy.
+
+    Keys are sorted so that root ('') comes first, then each top-level
+    directory alphabetically, with all its nested subdirectories grouped
+    directly under it before the next top-level directory.
+
+    For example:
+      whitepaper
+      whitepaper/notes
+      ...
+      projects/hexafield
+      projects/nexus
+      projects/nexus/notes
     """
     keys = list(tree.keys())
 
-    def sort_key(k: str) -> Tuple[int, str]:
+    def sort_key(k: str) -> Tuple:
         if k == "":
-            return (0, "")
-        depth = k.count("/")
-        return (depth + 1, k)
+            return (0, "", "")
+        parts = k.split("/", 1)
+        return (1, parts[0], parts[1] if len(parts) > 1 else "")
 
     return sorted(keys, key=sort_key)
+
+
+def _ensure_parent_entries(tree: Dict[str, List[Tuple[str, str]]]) -> None:
+    """
+    Insert missing parent directory entries into the tree.
+
+    For every key that has a parent path not present in the tree, insert that
+    parent with an empty entry list. This ensures every heading has a proper
+    parent heading in the hierarchy.
+    """
+    new_keys: set[str] = set()
+    for key in tree:
+        if key == "":
+            continue
+        parts = key.split("/")
+        for i in range(1, len(parts)):
+            parent = "/".join(parts[:i])
+            if parent not in tree:
+                new_keys.add(parent)
+    for parent in new_keys:
+        tree[parent] = []
 
 
 def generate_llms_txt(tree: Dict[str, List[Tuple[str, str]]]) -> str:
@@ -72,9 +104,12 @@ def generate_llms_txt(tree: Dict[str, List[Tuple[str, str]]]) -> str:
     Generate hierarchical llms.txt content from the tree.
 
     Root-level pages are grouped under "## Root".
-    Each directory gets a heading at the appropriate level keyed by its
-    full relative path for unambiguous hierarchy.
+    Each directory gets a heading using only its simple name (last path
+    component), and the heading level reflects the nesting depth.
+    Missing parent directories are inserted automatically.
     """
+    _ensure_parent_entries(tree)
+
     lines: list[str] = []
     lines.append("# SSCCS Documentation")
     lines.append("")
@@ -88,7 +123,8 @@ def generate_llms_txt(tree: Dict[str, List[Tuple[str, str]]]) -> str:
         else:
             depth = dir_key.count("/") + 1
             heading_prefix = "#" * min(depth + 1, 6)
-            lines.append(f"{heading_prefix} {dir_key}")
+            section_name = dir_key.rsplit("/", 1)[-1]
+            lines.append(f"{heading_prefix} {section_name}")
 
         lines.append("")
         for title, url in entries:
