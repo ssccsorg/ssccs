@@ -3012,6 +3012,7 @@ def build_targets(
                             logger.error(f"Failed to run rsync: {e}")
 
             # Execute global post-render commands (e.g., generate hierarchical llms.txt)
+            # Runs after rsync populates _llms with .llms.md files.
             run_post_render_commands(EXTERNAL_CONFIG, DOCS_ROOT)
 
             return True
