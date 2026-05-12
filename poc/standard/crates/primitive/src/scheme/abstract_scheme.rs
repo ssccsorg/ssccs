@@ -2,8 +2,8 @@
 
 //! Scheme abstraction layer -defines structural relationships without physical memory implementation
 
-use ssccs_core::{Constraint, Segment, SegmentId, SpaceCoordinates};
 use crate::SchemeTrait;
+use ssccs_core::{Constraint, Segment, SegmentId, SpaceCoordinates};
 
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
@@ -624,7 +624,6 @@ impl Scheme {
         )
     }
 }
-
 
 // ==================== SCHECHE TRAIT IMPLEMENTATION ====================
 

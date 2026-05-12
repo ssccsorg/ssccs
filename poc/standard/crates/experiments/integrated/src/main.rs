@@ -2,7 +2,7 @@
 //!
 //! This test demonstrates the complete SSCCS pipeline from structure to observation.
 
-use ssccs_core::{Field, SpaceCoordinates, observe};
+use ssccs_core::{observe, Field, SpaceCoordinates};
 use ssccs_examples::CoordinateSumProjector;
 use ssccs_schemes::Tensor3DTemplate;
 
