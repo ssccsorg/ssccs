@@ -109,7 +109,7 @@ pub trait Constraint: Debug + Send + Sync {
 }
 
 /// A set of constraints, used by the Field.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Default)]
 pub struct ConstraintSet {
     constraints: Vec<Arc<dyn Constraint>>,
 }
@@ -143,7 +143,7 @@ impl ConstraintSet {
 /// Relational topology of the Field – currently a weighted directed graph.
 /// This is one possible representation; it may be generalised later.
 /// Uses SegmentId for relationship definitions to align with SSCCS cryptographic identity system.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Default)]
 pub struct TransitionMatrix {
     /// from SegmentId → [(to SegmentId, weight)]
     edges: HashMap<SegmentId, Vec<(SegmentId, f64)>>,
@@ -221,7 +221,7 @@ impl TransitionMatrix {
 
 /// The mutable substrate of computation. Holds constraints and relational topology.
 /// Does **not** own any SchemaSegment.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Default)]
 pub struct Field {
     constraints: ConstraintSet,
     transitions: TransitionMatrix,
