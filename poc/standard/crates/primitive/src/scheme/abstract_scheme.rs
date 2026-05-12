@@ -712,8 +712,8 @@ impl SchemeBuilder {
         self
     }
 
-    pub fn add_segment(mut self, segment: Segment) -> Self {
-        self.segments.insert(*segment.id(), segment);
+    pub fn add_segment(mut self, segment: &Segment) -> Self {
+        self.segments.insert(*segment.id(), segment.clone());
         self
     }
 
@@ -846,7 +846,7 @@ pub mod grid2d {
             for x in 0..self.width {
                 for y in 0..self.height {
                     let segment = Segment::from_values(vec![x, y]);
-                    builder = builder.add_segment(segment);
+                    builder = builder.add_segment(&segment);
                 }
             }
 
@@ -892,7 +892,7 @@ pub mod integer_line {
             let mut value = self.start;
             while value <= self.end {
                 let segment = Segment::from_value(value);
-                builder = builder.add_segment(segment);
+                builder = builder.add_segment(&segment);
                 value += self.step;
             }
 
