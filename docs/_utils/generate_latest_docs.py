@@ -241,7 +241,17 @@ def _resolve_to_current_paths(
             cur = fname_to_current.get(Path(path).name)
             if cur is not None:
                 resolved.append((ts, cur))
-    return resolved
+
+    # After remapping old paths to current paths, multiple entries may
+    # resolve to the same current path (e.g. after a rename).  Since
+    # entries are newest-first, keep only the first occurrence per path.
+    seen: set[str] = set()
+    deduped: list[tuple[str, str]] = []
+    for ts, path in resolved:
+        if path not in seen:
+            seen.add(path)
+            deduped.append((ts, path))
+    return deduped
 
 
 def get_tracked_doc_files() -> list[tuple[str, str]]:
