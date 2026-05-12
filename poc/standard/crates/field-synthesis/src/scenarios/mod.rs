@@ -1,4 +1,4 @@
-use ssccs_core::{Field, Segment, SpaceCoordinates};
+use ssccs_core::{Coordinates, Field, Segment};
 use ssccs_examples::{CoordinateSumProjector, EvenConstraint, RangeConstraint};
 use ssccs_field_synthesis::{compose_observe, intersection, union};
 
@@ -29,7 +29,7 @@ impl Scenario for Grid2D {
         q.add_constraint(RangeConstraint::new(1, 0, 1));
 
         let segs: Vec<Segment> = (0..=2)
-            .flat_map(|y| (0..=2).map(move |x| Segment::new(SpaceCoordinates::new(vec![x, y]))))
+            .flat_map(|y| (0..=2).map(move |x| Segment::new(Coordinates::new(vec![x, y]))))
             .collect();
         assert_eq!(segs.len(), 9);
 
@@ -93,7 +93,7 @@ impl Scenario for SensorTimeTemp {
         let segs: Vec<Segment> = (0..=2)
             .flat_map(|t| {
                 (0..=1).flat_map(move |s| {
-                    (0..=2).map(move |c| Segment::new(SpaceCoordinates::new(vec![t, s, c])))
+                    (0..=2).map(move |c| Segment::new(Coordinates::new(vec![t, s, c])))
                 })
             })
             .collect();

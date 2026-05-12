@@ -2,7 +2,7 @@
 
 //! Scheme abstraction layer -defines structural relationships without physical memory implementation
 
-use ssccs_core::{Constraint, Segment, SegmentId, SpaceCoordinates};
+use ssccs_core::{Constraint, Coordinates, Segment, SegmentId};
 
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 // Type aliases for complex closure types
 type PredicateFn = Arc<dyn Fn(&Segment, &Segment) -> bool + Send + Sync>;
-type MappingFn = Arc<dyn Fn(&SpaceCoordinates) -> Option<LogicalAddress> + Send + Sync>;
+type MappingFn = Arc<dyn Fn(&Coordinates) -> Option<LogicalAddress> + Send + Sync>;
 
 // ==================== SCHEME IDENTITY ====================
 
@@ -591,7 +591,7 @@ impl Scheme {
     }
 
     /// Structural constraint verification
-    pub fn validate_structure(&self, coords: &SpaceCoordinates) -> Result<(), String> {
+    pub fn validate_structure(&self, coords: &Coordinates) -> Result<(), String> {
         for constraint in &self.structural_constraints {
             if !constraint.constraint.allows(coords) {
                 return Err(format!(
@@ -604,7 +604,7 @@ impl Scheme {
     }
 
     /// Logical address mapping (not physical address)
-    pub fn map_to_logical_address(&self, coords: &SpaceCoordinates) -> Option<LogicalAddress> {
+    pub fn map_to_logical_address(&self, coords: &Coordinates) -> Option<LogicalAddress> {
         (self.memory_layout.mapping)(coords)
     }
 

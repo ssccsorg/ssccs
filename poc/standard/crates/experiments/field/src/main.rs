@@ -2,7 +2,7 @@
 //!
 //! Tests the Field concept - mutable constraint substrate and transition topology.
 
-use ssccs_core::{Field, SpaceCoordinates};
+use ssccs_core::{Coordinates, Field};
 use ssccs_examples::{EvenConstraint, RangeConstraint};
 
 fn main() {
@@ -30,9 +30,9 @@ fn test_field_concept() -> Result<(), String> {
     println!("- {}", field.describe_constraints());
 
     // 2. Constraint validation
-    let valid_coords = SpaceCoordinates::new(vec![4, 3, 100]); // Even, within ranges
-    let invalid_range = SpaceCoordinates::new(vec![15, 3, 0]);
-    let invalid_even = SpaceCoordinates::new(vec![3, 2, 0]);
+    let valid_coords = Coordinates::new(vec![4, 3, 100]); // Even, within ranges
+    let invalid_range = Coordinates::new(vec![15, 3, 0]);
+    let invalid_even = Coordinates::new(vec![3, 2, 0]);
 
     println!("2. Constraint validation:");
     println!(
@@ -57,8 +57,8 @@ fn test_field_concept() -> Result<(), String> {
     println!("All constraint validations passed");
 
     // 3. Transition rules (relational topology)
-    let from_coords = SpaceCoordinates::new(vec![1, 2, 3]);
-    let to_coords = SpaceCoordinates::new(vec![2, 2, 3]);
+    let from_coords = Coordinates::new(vec![1, 2, 3]);
+    let to_coords = Coordinates::new(vec![2, 2, 3]);
     field.add_transition(from_coords.clone(), to_coords.clone(), 1.0);
 
     println!("3. Transition rules added:");

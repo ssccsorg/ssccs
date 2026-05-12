@@ -11,7 +11,7 @@
 //!
 //! Adding a scenario requires only implementing the `Scenario` trait and registering it.
 
-use ssccs_core::{Field, Segment, SpaceCoordinates};
+use ssccs_core::{Coordinates, Field, Segment};
 use ssccs_examples::{CoordinateSumProjector, EvenConstraint, RangeConstraint};
 use ssccs_field_synthesis::{IdentityField, compose_observe, intersection, product, union};
 
@@ -97,11 +97,11 @@ fn unwind_result(result: Result<(), Box<dyn std::any::Any + Send>>) -> (bool, Op
 
 // ==================== HELPERS ====================
 
-fn coord(x: i64, y: i64, z: i64) -> SpaceCoordinates {
-    SpaceCoordinates::new(vec![x, y, z])
+fn coord(x: i64, y: i64, z: i64) -> Coordinates {
+    Coordinates::new(vec![x, y, z])
 }
-fn coord_1d(x: i64) -> SpaceCoordinates {
-    SpaceCoordinates::new(vec![x])
+fn coord_1d(x: i64) -> Coordinates {
+    Coordinates::new(vec![x])
 }
 
 fn field_a() -> Field {

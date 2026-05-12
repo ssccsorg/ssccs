@@ -42,7 +42,7 @@ Rust workspace targeting x86_64 / aarch64. Implements the complete SSCCS ontolog
 
 | Layer | Crate | Description |
 |-------|-------|-------------|
-| Primitives | `ssccs-core` | Segment, SpaceCoordinates, Constraint, Field, TransitionMatrix, Projector trait, observe() |
+| Primitives | `ssccs-core` | Segment, Coordinates, Constraint, Field, TransitionMatrix, Projector trait, observe() |
 | Scheme | `ssccs-primitive` | Scheme, SchemeBuilder, SchemeTrait, Axis, StructuralRelation, MemoryLayout, ObservationRules |
 | Scheme | `ssccs-schemes` | Grid2DTemplate, IntegerLineTemplate, GraphTemplate, Tensor3DTemplate, CompositeScheme, TransformedScheme, BooleanSpace, IntegerSpace |
 | Utilities | `ssccs-examples` | IntegerProjector, ArithmeticProjector, ParityProjector, CoordinateSumProjector, CompilerPipeline, .ss parser |

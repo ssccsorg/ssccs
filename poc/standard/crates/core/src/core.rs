@@ -15,11 +15,11 @@ use std::sync::Arc;
 
 /// A coordinate in an abstract space. All axes are equivalent.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct SpaceCoordinates {
+pub struct Coordinates {
     pub raw: Vec<i64>,
 }
 
-impl SpaceCoordinates {
+impl Coordinates {
     pub fn new(raw: Vec<i64>) -> Self {
         Self { raw }
     }
@@ -60,12 +60,12 @@ impl SegmentId {
 /// Contains only coordinates and a cryptographic identity.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Segment {
-    coords: SpaceCoordinates,
+    coords: Coordinates,
     id: SegmentId,
 }
 
 /// Compute SegmentId from coordinates (public helper function).
-pub fn segment_id_from_coords(coords: &SpaceCoordinates) -> SegmentId {
+pub fn segment_id_from_coords(coords: &Coordinates) -> SegmentId {
     let mut hasher = blake3::Hasher::new();
     for v in coords.raw.iter() {
         hasher.update(&v.to_le_bytes());
@@ -76,13 +76,13 @@ pub fn segment_id_from_coords(coords: &SpaceCoordinates) -> SegmentId {
 impl Segment {
     /// Create a new Segment from coordinates.
     /// The cryptographic identity is automatically derived from the coordinates.
-    pub fn new(coords: SpaceCoordinates) -> Self {
+    pub fn new(coords: Coordinates) -> Self {
         let id = segment_id_from_coords(&coords);
         Self { coords, id }
     }
 
     /// Get the coordinates of this segment.
-    pub fn coordinates(&self) -> &SpaceCoordinates {
+    pub fn coordinates(&self) -> &Coordinates {
         &self.coords
     }
 
@@ -93,18 +93,18 @@ impl Segment {
 
     /// Create a Segment from a single value (convenience for 1D spaces).
     pub fn from_value(value: i64) -> Self {
-        Self::new(SpaceCoordinates::new(vec![value]))
+        Self::new(Coordinates::new(vec![value]))
     }
 
     /// Create a Segment from multiple values.
     pub fn from_values(values: Vec<i64>) -> Self {
-        Self::new(SpaceCoordinates::new(values))
+        Self::new(Coordinates::new(values))
     }
 }
 
 /// A constraint on coordinates.
 pub trait Constraint: Debug + Send + Sync {
-    fn allows(&self, coords: &SpaceCoordinates) -> bool;
+    fn allows(&self, coords: &Coordinates) -> bool;
     fn describe(&self) -> String;
 }
 
@@ -123,7 +123,7 @@ impl ConstraintSet {
         self.constraints.push(Arc::new(constraint));
     }
 
-    pub fn allows(&self, coords: &SpaceCoordinates) -> bool {
+    pub fn allows(&self, coords: &Coordinates) -> bool {
         self.constraints.iter().all(|c| c.allows(coords))
     }
 
@@ -148,7 +148,7 @@ pub struct TransitionMatrix {
     /// from SegmentId → [(to SegmentId, weight)]
     edges: HashMap<SegmentId, Vec<(SegmentId, f64)>>,
     /// Mapping from SegmentId to coordinates (for legacy API support)
-    id_to_coords: HashMap<SegmentId, SpaceCoordinates>,
+    id_to_coords: HashMap<SegmentId, Coordinates>,
 }
 
 impl TransitionMatrix {
@@ -163,8 +163,8 @@ impl TransitionMatrix {
         from: SegmentId,
         to: SegmentId,
         weight: f64,
-        from_coords: Option<SpaceCoordinates>,
-        to_coords: Option<SpaceCoordinates>,
+        from_coords: Option<Coordinates>,
+        to_coords: Option<Coordinates>,
     ) {
         self.edges.entry(from).or_default().push((to, weight));
         if let Some(coords) = from_coords {
@@ -176,7 +176,7 @@ impl TransitionMatrix {
     }
 
     /// Add a transition using coordinates (legacy API, converts to SegmentId internally).
-    pub fn add(&mut self, from: SpaceCoordinates, to: SpaceCoordinates, weight: f64) {
+    pub fn add(&mut self, from: Coordinates, to: Coordinates, weight: f64) {
         let from_id = segment_id_from_coords(&from);
         let to_id = segment_id_from_coords(&to);
 
@@ -196,7 +196,7 @@ impl TransitionMatrix {
     }
 
     /// Get transition targets from coordinates (legacy API).
-    pub fn transitions_from(&self, from: &SpaceCoordinates) -> Vec<SpaceCoordinates> {
+    pub fn transitions_from(&self, from: &Coordinates) -> Vec<Coordinates> {
         let from_id = segment_id_from_coords(from);
         self.transitions_from_id(&from_id)
             .into_iter()
@@ -212,7 +212,7 @@ impl TransitionMatrix {
     }
 
     /// Get weight between coordinates (legacy API).
-    pub fn get_weight(&self, from: &SpaceCoordinates, to: &SpaceCoordinates) -> Option<f64> {
+    pub fn get_weight(&self, from: &Coordinates, to: &Coordinates) -> Option<f64> {
         let from_id = segment_id_from_coords(from);
         let to_id = segment_id_from_coords(to);
         self.get_weight_by_id(&from_id, &to_id)
@@ -238,17 +238,17 @@ impl Field {
     }
 
     /// Add a transition rule (from → to with weight).
-    pub fn add_transition(&mut self, from: SpaceCoordinates, to: SpaceCoordinates, weight: f64) {
+    pub fn add_transition(&mut self, from: Coordinates, to: Coordinates, weight: f64) {
         self.transitions.add(from, to, weight);
     }
 
     /// Check whether a coordinate is allowed by all current constraints.
-    pub fn allows(&self, coords: &SpaceCoordinates) -> bool {
+    pub fn allows(&self, coords: &Coordinates) -> bool {
         self.constraints.allows(coords)
     }
 
     /// Return all transition targets from a given coordinate (defined by the field only).
-    pub fn transition_targets(&self, from: &SpaceCoordinates) -> Vec<SpaceCoordinates> {
+    pub fn transition_targets(&self, from: &Coordinates) -> Vec<Coordinates> {
         self.transitions.transitions_from(from)
     }
 
@@ -270,7 +270,7 @@ pub trait Projector: Debug + Send + Sync {
     /// Given a coordinate, return the possible next coordinates according to this projector's interpretation.
     /// This is where the projector defines the "adjacency" semantics (e.g., arithmetic operations, graph edges, etc.).
     /// The default implementation returns an empty vector, meaning no intrinsic adjacency.
-    fn possible_next_coordinates(&self, _: &SpaceCoordinates) -> Vec<SpaceCoordinates> {
+    fn possible_next_coordinates(&self, _: &Coordinates) -> Vec<Coordinates> {
         Vec::new()
     }
 }

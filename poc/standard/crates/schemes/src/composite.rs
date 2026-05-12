@@ -1,6 +1,6 @@
 //! Composite and Transformed Scheme extensions
 
-use ssccs_core::{Segment, SegmentId, SpaceCoordinates};
+use ssccs_core::{Coordinates, Segment, SegmentId};
 use ssccs_primitive::{Axis, LogicalAddress, SchemeId, SchemeImpl, SchemeTrait};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -157,12 +157,12 @@ impl SchemeTrait for CompositeScheme {
         Box::new(iter)
     }
 
-    fn validate_structure(&self, _coords: &SpaceCoordinates) -> Result<(), String> {
+    fn validate_structure(&self, _coords: &Coordinates) -> Result<(), String> {
         // For composite schemes, validation may be complex; just return OK.
         Ok(())
     }
 
-    fn map_to_logical_address(&self, _coords: &SpaceCoordinates) -> Option<LogicalAddress> {
+    fn map_to_logical_address(&self, _coords: &Coordinates) -> Option<LogicalAddress> {
         // Mapping undefined for composite scheme.
         None
     }
@@ -266,11 +266,11 @@ impl SchemeTrait for TransformedScheme {
         self.base.segments()
     }
 
-    fn validate_structure(&self, coords: &SpaceCoordinates) -> Result<(), String> {
+    fn validate_structure(&self, coords: &Coordinates) -> Result<(), String> {
         self.base.validate_structure(coords)
     }
 
-    fn map_to_logical_address(&self, coords: &SpaceCoordinates) -> Option<LogicalAddress> {
+    fn map_to_logical_address(&self, coords: &Coordinates) -> Option<LogicalAddress> {
         self.base.map_to_logical_address(coords)
     }
 

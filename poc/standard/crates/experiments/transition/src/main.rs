@@ -2,7 +2,7 @@
 //!
 //! Tests the Transition Matrix - relational topology as weighted directed graph.
 
-use ssccs_core::{Field, SpaceCoordinates};
+use ssccs_core::{Coordinates, Field};
 
 fn main() {
     println!("Experiment: Transition Matrix                    ");
@@ -22,9 +22,9 @@ fn test_transition_matrix() -> Result<(), String> {
 
     let mut field = Field::new();
 
-    let from = SpaceCoordinates::new(vec![0]);
-    let to1 = SpaceCoordinates::new(vec![1]);
-    let to2 = SpaceCoordinates::new(vec![2]);
+    let from = Coordinates::new(vec![0]);
+    let to1 = Coordinates::new(vec![1]);
+    let to2 = Coordinates::new(vec![2]);
 
     field.add_transition(from.clone(), to1.clone(), 0.8);
     field.add_transition(from.clone(), to2.clone(), 0.2);

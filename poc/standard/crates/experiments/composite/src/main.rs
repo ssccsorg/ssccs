@@ -2,7 +2,7 @@
 //!
 //! Tests scheme composition and geometric transformation.
 
-use ssccs_core::{Segment, SpaceCoordinates};
+use ssccs_core::{Coordinates, Segment};
 use ssccs_primitive::{GridTopology, SchemeImpl, SchemeTrait};
 use ssccs_schemes::{
     CombinationMethod, CompositeScheme, CompositionRules, ConflictResolution, Grid2DTemplate,
@@ -44,7 +44,7 @@ fn test_composite_and_transformed_schemes() -> Result<(), String> {
     println!("- Composite ID: {}", hex::encode(composite.id().as_bytes()));
 
     // Verify composite contains segments from both grids
-    let test_coords = SpaceCoordinates::new(vec![0, 0]);
+    let test_coords = Coordinates::new(vec![0, 0]);
     let test_segment = Segment::new(test_coords.clone());
     assert!(composite.contains_segment(test_segment.id()));
     println!("Contains segment at (0, 0)");

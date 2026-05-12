@@ -12,7 +12,7 @@
 use std::collections::HashSet;
 use std::fmt::Debug;
 
-pub use ssccs_core::{Constraint, Field, Projector, Segment, SpaceCoordinates};
+pub use ssccs_core::{Constraint, Coordinates, Field, Projector, Segment};
 
 // ==================== COMPOSITION OPERATION ====================
 
@@ -49,7 +49,7 @@ pub enum IdentityField {
 }
 
 impl IdentityField {
-    pub fn allows(&self, coords: &SpaceCoordinates) -> bool {
+    pub fn allows(&self, coords: &Coordinates) -> bool {
         match self {
             IdentityField::Empty => false,
             IdentityField::Universal => true,
@@ -115,7 +115,7 @@ impl ComposedField {
 
     // ---- admissibility ----
 
-    pub fn allows(&self, coords: &SpaceCoordinates) -> bool {
+    pub fn allows(&self, coords: &Coordinates) -> bool {
         match self.op {
             CompositionOp::Union => eval_expr(&self.left, coords) || eval_expr(&self.right, coords),
             CompositionOp::Intersection => {
@@ -128,11 +128,11 @@ impl ComposedField {
                 if axes > coords.raw.len() {
                     return false;
                 }
-                let left_coords = SpaceCoordinates::new(coords.raw[..axes].to_vec());
+                let left_coords = Coordinates::new(coords.raw[..axes].to_vec());
                 let right_pass = if axes >= coords.raw.len() {
                     true // all axes consumed; right field has zero dimensions
                 } else {
-                    let right_coords = SpaceCoordinates::new(coords.raw[axes..].to_vec());
+                    let right_coords = Coordinates::new(coords.raw[axes..].to_vec());
                     eval_expr(&self.right, &right_coords)
                 };
                 eval_expr(&self.left, &left_coords) && right_pass
@@ -142,7 +142,7 @@ impl ComposedField {
 
     // ---- transitions ----
 
-    pub fn transition_targets(&self, coords: &SpaceCoordinates) -> Vec<SpaceCoordinates> {
+    pub fn transition_targets(&self, coords: &Coordinates) -> Vec<Coordinates> {
         match self.op {
             CompositionOp::Union => {
                 let mut merged = transition_expr(&self.left, coords);
@@ -152,12 +152,11 @@ impl ComposedField {
                 merged
             }
             CompositionOp::Intersection => {
-                let left: HashSet<SpaceCoordinates> =
+                let left: HashSet<Coordinates> =
                     transition_expr(&self.left, coords).into_iter().collect();
-                let right: HashSet<SpaceCoordinates> =
+                let right: HashSet<Coordinates> =
                     transition_expr(&self.right, coords).into_iter().collect();
-                let mut merged: Vec<SpaceCoordinates> =
-                    left.intersection(&right).cloned().collect();
+                let mut merged: Vec<Coordinates> = left.intersection(&right).cloned().collect();
                 merged.sort_by(|a, b| a.raw.cmp(&b.raw));
                 merged
             }
@@ -168,25 +167,24 @@ impl ComposedField {
                 if axes > coords.raw.len() {
                     return Vec::new();
                 }
-                let left_coords = SpaceCoordinates::new(coords.raw[..axes].to_vec());
-                let right_coords = SpaceCoordinates::new(coords.raw[axes..].to_vec());
-                let left_targets: Vec<SpaceCoordinates> = transition_expr(&self.left, &left_coords)
+                let left_coords = Coordinates::new(coords.raw[..axes].to_vec());
+                let right_coords = Coordinates::new(coords.raw[axes..].to_vec());
+                let left_targets: Vec<Coordinates> = transition_expr(&self.left, &left_coords)
                     .into_iter()
                     .map(|c| {
                         let mut raw = c.raw;
                         raw.extend(right_coords.raw.clone());
-                        SpaceCoordinates::new(raw)
+                        Coordinates::new(raw)
                     })
                     .collect();
-                let right_targets: Vec<SpaceCoordinates> =
-                    transition_expr(&self.right, &right_coords)
-                        .into_iter()
-                        .map(|c| {
-                            let mut raw = left_coords.raw.clone();
-                            raw.extend(c.raw);
-                            SpaceCoordinates::new(raw)
-                        })
-                        .collect();
+                let right_targets: Vec<Coordinates> = transition_expr(&self.right, &right_coords)
+                    .into_iter()
+                    .map(|c| {
+                        let mut raw = left_coords.raw.clone();
+                        raw.extend(c.raw);
+                        Coordinates::new(raw)
+                    })
+                    .collect();
                 let mut merged = left_targets;
                 merged.extend(right_targets);
                 merged.sort_by(|a, b| a.raw.cmp(&b.raw));
@@ -208,7 +206,7 @@ impl ComposedField {
 
 // ---- free evaluation functions ----
 
-fn eval_expr(expr: &ComposedExpr, coords: &SpaceCoordinates) -> bool {
+fn eval_expr(expr: &ComposedExpr, coords: &Coordinates) -> bool {
     match expr {
         ComposedExpr::Field(f) => f.allows(coords),
         ComposedExpr::Identity(id) => id.allows(coords),
@@ -216,7 +214,7 @@ fn eval_expr(expr: &ComposedExpr, coords: &SpaceCoordinates) -> bool {
     }
 }
 
-fn transition_expr(expr: &ComposedExpr, coords: &SpaceCoordinates) -> Vec<SpaceCoordinates> {
+fn transition_expr(expr: &ComposedExpr, coords: &Coordinates) -> Vec<Coordinates> {
     match expr {
         ComposedExpr::Field(f) => f.transition_targets(coords),
         ComposedExpr::Identity(_) => Vec::new(),

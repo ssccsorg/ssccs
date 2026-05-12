@@ -18,7 +18,7 @@ impl RangeConstraint {
 }
 
 impl Constraint for RangeConstraint {
-    fn allows(&self, coords: &SpaceCoordinates) -> bool {
+    fn allows(&self, coords: &Coordinates) -> bool {
         coords
             .get_axis(self.axis)
             .map(|v| v >= self.min && v <= self.max)
@@ -43,7 +43,7 @@ impl EvenConstraint {
 }
 
 impl Constraint for EvenConstraint {
-    fn allows(&self, coords: &SpaceCoordinates) -> bool {
+    fn allows(&self, coords: &Coordinates) -> bool {
         coords
             .get_axis(self.axis)
             .map(|v| v % 2 == 0)
@@ -73,7 +73,7 @@ pub fn possible_next_coordinates<P: Projector>(
     field: &Field,
     segment: &Segment,
     projector: &P,
-) -> Vec<SpaceCoordinates> {
+) -> Vec<Coordinates> {
     let current = segment.coordinates();
     let mut candidates = projector.possible_next_coordinates(current);
     candidates.extend(field.transition_targets(current));

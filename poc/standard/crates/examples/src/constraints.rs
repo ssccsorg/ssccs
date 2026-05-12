@@ -1,6 +1,6 @@
 //! Test helper constraints for experiments.
 
-use ssccs_core::{Constraint, SpaceCoordinates};
+use ssccs_core::{Constraint, Coordinates};
 
 /// A constraint that requires a coordinate axis to be within a range.
 #[derive(Debug, Clone)]
@@ -17,7 +17,7 @@ impl RangeConstraint {
 }
 
 impl Constraint for RangeConstraint {
-    fn allows(&self, coords: &SpaceCoordinates) -> bool {
+    fn allows(&self, coords: &Coordinates) -> bool {
         if let Some(value) = coords.get_axis(self.axis) {
             value >= self.min && value <= self.max
         } else {
@@ -43,7 +43,7 @@ impl EvenConstraint {
 }
 
 impl Constraint for EvenConstraint {
-    fn allows(&self, coords: &SpaceCoordinates) -> bool {
+    fn allows(&self, coords: &Coordinates) -> bool {
         if let Some(value) = coords.get_axis(self.axis) {
             value % 2 == 0
         } else {
