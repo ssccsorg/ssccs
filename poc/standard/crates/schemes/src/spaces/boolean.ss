@@ -4,7 +4,7 @@
 //! - false → coordinate [0]
 //! - true  → coordinate [1]
 
-use ssccs_core::{Segment, Coordinates};
+use ssccs_core::{Coordinates, Segment};
 use std::ops::Deref;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

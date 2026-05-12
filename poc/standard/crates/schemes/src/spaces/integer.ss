@@ -1,6 +1,6 @@
 //! An integer space: single‑axis.
 
-use ssccs_core::{Segment, Coordinates};
+use ssccs_core::{Coordinates, Segment};
 use std::ops::Deref;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
