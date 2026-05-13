@@ -1,6 +1,6 @@
 ---
-title: "SDBS: SSCCS Document Build System"
-subtitle: "Large-scale static documents artifact management"
+title: "SDBS"
+subtitle: "SSCCS Large-scale Document Build System"
 date: last-modified
 metadata-files:
   - ../../_include/author.yml
@@ -136,6 +136,32 @@ target renders into a physically isolated copy of the entire source tree,
 eliminating cross-target contention for shared resources. Outputs are merged
 into a unified deployment directory after all targets complete.
 
+The same partitioning extends naturally to physical distribution across
+machines, with zero additional coordination. The merge function is
+**commutative**: merging in any order produces the same result, eliminating
+the need for distributed locks, consensus, or shared state. Partial outputs
+move through any transport layer -- shared filesystem, object storage, or CI
+artifact system -- requiring only that remote output be accessible as a local
+directory.
+
+The commutative merge makes the architecture resilient by construction:
+
+| Failure | Effect | Mitigation |
+|---|---|---|
+| Machine fails mid-build | Its targets missing | Rerun on another machine; merge is idempotent |
+| Single target fails | Only that target absent | Rebuild only that target; merge accepts partial results |
+| Network partition | Cannot upload output | Other machines continue; gap detected at merge time |
+
+The same build command and merge function supports four deployment topologies
+by changing only the target assignment:
+
+| Topology | Description |
+|---|---|
+| Single machine | All targets render with logical parallelism; merge is a trivial no-op |
+| CI runner pool | Each runner picks a target subset from a build queue, uploads artifacts; final job merges |
+| Dedicated cluster | Fixed target groups per machine; shared filesystem eliminates transport overhead |
+| Hybrid cloud | Baseline on fixed infrastructure; burst spills to ephemeral cloud instances |
+
 ### Principle 3: Automatic Structural Healing
 
 Common structural defects (broken relative paths, missing includes, incorrect
@@ -190,6 +216,11 @@ digraph Pipeline {
 Each stage is idempotent: running it repeatedly on an unchanged corpus produces
 identical output. All fixes are validated before any writes occur, and a
 dedicated check mode returns exit code 1 on any unresolved issue.
+
+The build system is renderer-agnostic. Quarto is the current engine, but the
+pipeline -- target isolation, resolver chain, commutative merge -- applies to
+any static-site generator that produces a directory tree. Replacing the
+renderer requires no changes outside the single build command invocation.
 
 ## Resolver Chain Architecture
 
@@ -389,55 +420,6 @@ digraph CIPipeline {
 Containerisation ensures environment parity between local development and CI.
 All pipeline stages are declared in a single configuration file, making the
 workflow self-documenting and reproducible.
-
-## Dual-Parallel Build Architecture
-
-The same partitioning that enables logical parallelism within a machine
-extends naturally to physical distribution across machines, with zero
-additional coordination. The architectural diagram at the start of this
-section previewed the two-level hierarchy; the following subsections detail
-the merge semantics, failure model, and deployment topologies.
-
-### Commutative Merge
-
-The merge function that combines outputs is **commutative**: merging in any
-order produces the same result. This property eliminates the need for
-distributed coordination -- no locks, no consensus, no shared state, no leader
-election. Machines can complete in any order, including with partial
-failures. If a machine fails, its targets are simply missing from the output;
-rerun them and merge again.
-
-Partial outputs to the merge point move through any transport layer -- shared
-filesystem, object storage, or CI artifact system -- with the merge function
-requiring only that remote output be accessible as a local directory tree.
-
-### Failure Model
-
-The commutative merge guarantee makes the architecture resilient by
-construction:
-
-| Failure | Effect | Mitigation |
-|---|---|---|
-| Machine fails mid-build | Its targets missing | Rerun on another machine; merge is idempotent |
-| Single target fails | Only that target absent | Rebuild only that target; merge accepts partial results |
-| Network partition | Cannot upload output | Other machines continue; gap detected at merge time |
-
-### Deployment Topologies
-
-The architecture maps to multiple deployment models by changing only the
-target assignment strategy:
-
-- **Single machine**: all targets render with logical parallelism; merge is a
-  trivial no-op
-- **CI runner pool**: each runner picks a target subset from a build queue,
-  uploads artifacts; a final job downloads and merges
-- **Dedicated cluster**: fixed target groups per machine, shared filesystem
-  eliminates transport overhead
-- **Hybrid cloud**: baseline load on fixed infrastructure, burst spills to
-  ephemeral cloud instances provisioned on demand
-
-All four topologies use the same build command, the same merge function, and
-the same deployment pipeline.
 
 ## Comparison with Conventional Approaches
 
