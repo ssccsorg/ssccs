@@ -514,6 +514,8 @@ def doc_to_html(rel_path: str, docs_root: Path = DOCS_ROOT) -> str:
                         else:
                             return f"/{p.with_suffix('.pdf')}"
         except Exception:
+            # Best-effort parse only: on read/front-matter parse errors,
+            # fall back to the default HTML path mapping below.
             pass
     if stem.lower() == "index":
         parent = str(p.parent)
