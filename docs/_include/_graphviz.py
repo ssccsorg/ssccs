@@ -54,7 +54,7 @@ def _clean_dot_text(text):
     return text
 
 
-_FONT_FALLBACK = "Helvetica,Arial,DejaVu Sans"
+_FONT_DOT = "Helvetica"  # single font for Graphviz's own rendering (PDF)
 _WEB_FONT_STACK = (
     "-apple-system, BlinkMacSystemFont, "
     "'Helvetica Neue', Helvetica, Arial, "
@@ -75,7 +75,7 @@ def _normalise_dot_font(code: str) -> str:
     has_font = re.search(r'\bfontname\s*=\s*"', code)
     if not has_font:
         # Inject global default right after the opening brace
-        injection = '\n    fontname="' + _FONT_FALLBACK + '"'
+        injection = '\n    fontname="' + _FONT_DOT + '"'
         code = re.sub(
             r"((?:digraph|graph)\s+\w+\s*\{)",
             r"\1" + injection,
@@ -85,7 +85,7 @@ def _normalise_dot_font(code: str) -> str:
         return code
 
     # Normalise existing fontname values to the cross-platform stack
-    new_val = 'fontname="' + _FONT_FALLBACK + '"'
+    new_val = 'fontname="' + _FONT_DOT + '"'
     code = re.sub(
         r'fontname\s*=\s*"[^"]*"',
         new_val,
@@ -104,9 +104,11 @@ def dot(code):
 def dot_svg(code, h="150px"):
     src = graphviz.Source(_normalise_dot_font(code))
     svg_str = src.pipe(format="svg").decode("utf-8")
-    # Inject CSS font-family so browsers use the system UI font,
-    # overriding Graphviz's hardcoded font-family on text elements.
     import re
+    # Strip Graphviz's hardcoded font-family from every text element
+    # so the injected CSS below takes full control across all platforms.
+    svg_str = re.sub(r'\bfont-family="[^"]*"', '', svg_str)
+    # Inject CSS with browser-native font stack
     style_block = f"<style>text {{ font-family: {_WEB_FONT_STACK}; }}</style>"
     svg_str = re.sub(r'<svg([^>]*)>', rf'<svg\1 style="height:{h}; width:auto;">{style_block}', svg_str)
     return SVG(svg_str)
