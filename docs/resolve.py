@@ -761,7 +761,7 @@ class DocExtResolver(_BaseResolver):
     point to the rendered ``.html`` output instead.
     """
 
-    _APPLY_BUILD_YML_EXCLUDE = False
+    _APPLY_BUILD_YML_EXCLUDE = True
     SOURCE_EXTENSIONS: Set[str] = {".qmd", ".md"}
 
     RE_LINK = re.compile(r"\[([^\]]*)\]\(([^)]+)\)")
