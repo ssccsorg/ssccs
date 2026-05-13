@@ -476,18 +476,20 @@ def badge_new() -> str:
 
 
 def doc_to_html(rel_path: str) -> str:
-    """Map a .qmd/.md relative path to its .html output path."""
+    """Map a .qmd/.md relative path to its absolute site path.
+
+    Returns site-root-absolute paths (``/...``) so the generated
+    links work from any including page depth.
+    """
     p = Path(rel_path)
     stem = p.stem
     if stem.lower() == "index":
-        # docs/foo/index.qmd → foo/index.html → foo/
-        # but keep trailing / for directory-index
         parent = str(p.parent)
         if parent == ".":
-            return "index.html"
-        return f"{parent}/index.html"
+            return "/index.html"
+        return f"/{parent}/index.html"
     else:
-        return str(p.with_suffix(".html"))
+        return f"/{p.with_suffix('.html')}"
 
 
 def main() -> None:
@@ -508,7 +510,7 @@ def main() -> None:
     # Build output in memory first so we can compare with on-disk content
     new_content = ""
     if sorted_items:
-        new_content += '\n::: {tbl-colwidths="[16, 84]"}\n'
+        new_content += '\n::: {tbl-colwidths="[20, 80]"}\n'
         new_content += "\n| Updated | Document |\n"
         new_content += "|----------|---------|\n"
         for ts, rel_path in sorted_items:
