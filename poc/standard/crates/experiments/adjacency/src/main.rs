@@ -42,8 +42,8 @@ fn test_adjacency_memory() -> Result<(), String> {
             axis_type: AxisType::Discrete,
             metadata: HashMap::new(),
         })
-        .add_segment(seg1.clone())
-        .add_segment(seg2.clone())
+        .add_segment(&seg1)
+        .add_segment(&seg2)
         .add_relation(
             *seg1.id(),
             *seg2.id(),
