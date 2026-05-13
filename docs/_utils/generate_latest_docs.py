@@ -393,36 +393,43 @@ def get_creation_dates() -> dict[str, str]:
     """
     Return {rel_path: creation_date} for every current doc file.
 
-    Uses ``git log --diff-filter=A`` per file.
+    Uses a single ``git log --diff-filter=A --name-only`` call across
+    all files.  Much faster than per-file ``git log``.
     """
     _ensure_git_safe()
     current_paths = _get_current_doc_paths()
-    created: dict[str, str] = {}
+    result = subprocess.run(
+        [
+            "git",
+            "log",
+            "--diff-filter=A",
+            "--name-only",
+            "--pretty=format:%ai",
+            "--",
+            "*.qmd",
+            "*.md",
+        ],
+        cwd=DOCS_ROOT,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return {}
 
-    for rel_path in sorted(current_paths):
-        result = subprocess.run(
-            [
-                "git",
-                "log",
-                "--diff-filter=A",
-                "--pretty=format:%ai",
-                "--",
-                rel_path,
-            ],
-            cwd=DOCS_ROOT,
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode != 0:
+    created: dict[str, str] = {}
+    current_ts: str | None = None
+    for line in result.stdout.splitlines():
+        line = line.strip()
+        if not line:
             continue
-        # Last timestamp line is the oldest commit (initial Add)
-        lines = [
-            line.strip()
-            for line in result.stdout.splitlines()
-            if line.strip() and line.strip()[0:4].isdigit()
-        ]
-        if lines:
-            created[rel_path] = lines[-1].split()[0]  # date only
+        if _is_timestamp_line(line):
+            current_ts = line.split()[0]
+            continue
+        if current_ts is None:
+            continue
+        rel = _normalise_path(line)
+        if rel and rel in current_paths and rel not in created:
+            created[rel] = current_ts
 
     return created
 
