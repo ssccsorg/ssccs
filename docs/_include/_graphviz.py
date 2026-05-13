@@ -55,6 +55,11 @@ def _clean_dot_text(text):
 
 
 _FONT_FALLBACK = "Helvetica,Arial,DejaVu Sans"
+_WEB_FONT_STACK = (
+    "-apple-system, BlinkMacSystemFont, "
+    "'Helvetica Neue', Helvetica, Arial, "
+    "'DejaVu Sans', sans-serif"
+)
 
 
 def _normalise_dot_font(code: str) -> str:
@@ -99,5 +104,9 @@ def dot(code):
 def dot_svg(code, h="150px"):
     src = graphviz.Source(_normalise_dot_font(code))
     svg_str = src.pipe(format="svg").decode("utf-8")
-    styled_svg = svg_str.replace("<svg ", f'<svg style="height:{h}; width:auto;" ')
-    return SVG(styled_svg)
+    # Inject CSS font-family so browsers use the system UI font,
+    # overriding Graphviz's hardcoded font-family on text elements.
+    import re
+    style_block = f"<style>text {{ font-family: {_WEB_FONT_STACK}; }}</style>"
+    svg_str = re.sub(r'<svg([^>]*)>', rf'<svg\1 style="height:{h}; width:auto;">{style_block}', svg_str)
+    return SVG(svg_str)
