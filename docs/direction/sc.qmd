@@ -163,9 +163,9 @@ The structural observation model thus provides a framework where adaptation and 
 
 The RISC‑V assembly layer is a scaffolding that will be dismantled when native observation fabrics become available. The replacement is a Field Placement Description Language that feeds a silicon compiler. That compiler produces hardware where computation is not a sequence of instructions but a spatial resolution of constraints. In the furthest horizon, the program is no longer a static artifact. It is a stream that rewrites the hardware's own field with every observation, while the scheme guarantees that every such rewrite is structurally sound.
 
-## Open Questions {.unnumbered}
+## Research Agenda {.unnumbered}
 
-The concepts outlined here are provisional. Several architectural decisions remain unresolved.
+The following architectural problems must be resolved before the silicon compiler can progress beyond a thought experiment. Each represents a prerequisite for any concrete FPDL design or hardware prototype.
 
 **Representation boundary** — Is FPDL a separate language from `.ss`, or an extension of `.ss` with physical placement annotations? A separate language preserves `.ss` purity but introduces a cross-language consistency burden. An extension avoids that but risks making the source format hardware-dependent.
 
@@ -179,4 +179,4 @@ The concepts outlined here are provisional. Several architectural decisions rema
 
 **Cryptographic embedding** — Hardware-level provenance identifiers imply a root of trust embedded in the silicon. The relationship between scheme-level identity (SchemaId, SegmentId) and hardware-anchored identity has not been specified.
 
-These questions are not peripheral. They determine whether the silicon compiler is an incremental improvement over existing HLS tools or a genuinely new compilation paradigm.
+These are not peripheral concerns. They determine whether the silicon compiler is an incremental improvement over existing HLS tools or a genuinely new compilation paradigm. Until at least the representation boundary and mapping formalism are experimentally explored, FPDL remains a direction rather than a design.
