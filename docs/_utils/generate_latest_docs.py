@@ -434,8 +434,15 @@ def get_creation_dates() -> dict[str, str]:
     return created
 
 
+_LATEST_COMMIT_CACHE: str | None = None
+
+
 def _latest_commit_date() -> str | None:
-    """Return the date (YYYY-MM-DD) of the most recent commit in docs/."""
+    """Return the date (YYYY-MM-DD) of the most recent commit in docs/.
+    Result is cached after first call."""
+    global _LATEST_COMMIT_CACHE
+    if _LATEST_COMMIT_CACHE is not None:
+        return _LATEST_COMMIT_CACHE
     _ensure_git_safe()
     result = subprocess.run(
         ["git", "log", "-1", "--pretty=format:%ai", "--", "."],
@@ -444,8 +451,10 @@ def _latest_commit_date() -> str | None:
         text=True,
     )
     if result.returncode != 0 or not result.stdout.strip():
+        _LATEST_COMMIT_CACHE = ""
         return None
-    return result.stdout.strip().split()[0]  # date portion only
+    _LATEST_COMMIT_CACHE = result.stdout.strip().split()[0]
+    return _LATEST_COMMIT_CACHE
 
 
 def is_new_file(rel_path: str, creation_dates: dict[str, str]) -> bool:
