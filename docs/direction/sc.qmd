@@ -18,7 +18,7 @@ abstract: |
 
 ## Where We Stand
 
-The SSCCS compilation pipeline today converts a high‑level Field definition (the source format) into RISC‑V assembly, which then produces Structurally Signed Code. This path is a concession to the available hardware: every constraint check and observation must be expressed as a sequence of general‑purpose instructions. The assembly layer is an emulation scaffold, not an architectural requirement.
+The SSCCS compilation pipeline today converts a high‑level `.ss` definition (the Scheme‑Segment source format) into RISC‑V assembly, which then produces Structurally Signed Code. This path is a concession to the available hardware: every constraint check and observation must be expressed as a sequence of general‑purpose instructions. The assembly layer is an emulation scaffold, not an architectural requirement.
 
 ## Why Assembly Is a Temporary Stage
 
@@ -26,7 +26,7 @@ Traditional assembly languages encode a model of computation built on sequential
 
 ## Field Placement Description Language
 
-When SSCCS targets native hardware, the intermediate layer will shift from instruction encoding to spatial configuration. A Field Placement Description Language (FPDL) would describe which constraints occupy which regions of an observation fabric, how they interconnect, and how the fabric's topology reflects the scheme's adjacency rules. FPDL is not an assembler. It is a silicon compiler that translates structural constraints directly into hardware netlists or FPGA bitstreams.
+When SSCCS targets native hardware, the intermediate layer will shift from instruction encoding to spatial configuration. A Field Placement Description Language (FPDL) describes which constraints occupy which regions of an observation fabric, how they interconnect, and how the fabric's topology reflects the scheme's adjacency rules. FPDL is not an assembler. It is a placement language that feeds a silicon compiler, which translates structural constraints directly into hardware netlists or FPGA bitstreams.
 
 ```{python}
 #| label: fig-evolution
@@ -36,7 +36,7 @@ digraph Evolution {
     rankdir=LR
     node [shape=box, style=filled, fontname="Arial"]
 
-    Source [label="Field Definition\n(high-level .ss)", fillcolor="#E8F4F8"]
+    Source [label="Scheme-Segment Definition\n(high-level .ss)", fillcolor="#E8F4F8"]
 
     subgraph cluster_current {
         label="Current (Emulation)"
@@ -76,7 +76,7 @@ This compiler operates on a different principle from traditional high‑level sy
 
 ```{python}
 #| label: fig-silicon-compilation
-#| fig-cap: "Low‑level compilation of observation and field connections into hardware topology"
+#| fig-cap: "Low‑level compilation of observation and field connections into hardware topology. Scheme defines the structural substrate; Field owns constraints and observation specifications."
 dot("""
 digraph SiliconCompilation {
     rankdir=TB
@@ -84,11 +84,11 @@ digraph SiliconCompilation {
     node [shape=box, style=filled, fontname="Arial"]
 
     subgraph cluster_input {
-        label="Input (Abstract)"
+        label="Input"
         color="#888888"
         style=dashed
-        Scheme [label="Scheme\n(segments, axes, relations)", fillcolor="#E8F4F8"]
-        Field [label="Field Constraints\n(integrity, geometry, ...)", fillcolor="#FFE5B4"]
+        Scheme [label="Scheme (.ss)\nstructural blueprint\nsegments, axes, relations", fillcolor="#E8F4F8"]
+        Field [label="Field\nconstraints + observation specs\nintegrity, geometry, triggers", fillcolor="#FFE5B4"]
     }
 
     subgraph cluster_compiler {
@@ -96,8 +96,8 @@ digraph SiliconCompilation {
         color="#D4B4D8"
         style=dashed
         Partition [label="Segment → Memory\nBlock Partitioning", fillcolor="#D4B4D8"]
-        Route [label="Constraint → Logic\nSignal Routing", fillcolor="#D4B4D8"]
-        Project [label="Observation → Signal\nPath Generation", fillcolor="#D4B4D8"]
+        Route [label="Constraint → Logic\nGate Synthesis", fillcolor="#D4B4D8"]
+        Project [label="Observation Spec →\nSignal Path Routing", fillcolor="#D4B4D8"]
         Embed [label="Cryptographic\nIdentity Embedding", fillcolor="#D4B4D8"]
     }
 
@@ -111,11 +111,10 @@ digraph SiliconCompilation {
         ID [label="Hardware IDs\n(provenance anchors)", fillcolor="#B4E7B4"]
     }
 
-    Scheme -> Partition
-    Field -> Route
-    Scheme -> Project
-    Field -> Project
-    Scheme -> Embed
+    Scheme -> Partition [label="  structure"]
+    Scheme -> Embed [label="  identity"]
+    Field -> Route [label="  constraints"]
+    Field -> Project [label="  observation specs"]
 
     Partition -> Mem
     Route -> Logic
@@ -163,3 +162,21 @@ The structural observation model thus provides a framework where adaptation and 
 ## Summary
 
 The RISC‑V assembly layer is a scaffolding that will be dismantled when native observation fabrics become available. The replacement is a Field Placement Description Language that feeds a silicon compiler. That compiler produces hardware where computation is not a sequence of instructions but a spatial resolution of constraints. In the furthest horizon, the program is no longer a static artifact. It is a stream that rewrites the hardware's own field with every observation, while the scheme guarantees that every such rewrite is structurally sound.
+
+## Open Questions {.unnumbered}
+
+The concepts outlined here are provisional. Several architectural decisions remain unresolved.
+
+**Representation boundary** — Is FPDL a separate language from `.ss`, or an extension of `.ss` with physical placement annotations? A separate language preserves `.ss` purity but introduces a cross-language consistency burden. An extension avoids that but risks making the source format hardware-dependent.
+
+**Constraint and observation ownership** — Do constraints and observation specifications belong exclusively to the Field, with the Scheme providing only the structural substrate? Current draft diagrams reflect an emerging consensus toward Field ownership, but the exact boundary between Scheme-provided observation rules and Field-specified observation triggers is unsettled.
+
+**Mapping formalism** — The silicon compiler's core transformation (scheme topology → spatial partition) has no established formalism. It resembles graph partitioning with wire-length minimization rather than traditional instruction scheduling, but whether this analogy holds under the constraint-composition model is unverified.
+
+**Hardware interface** — How does the compiled observation fabric interface with physical memory controllers, clock domains, and I/O? The claim of no program counter and no instruction fetch unit implies a radically different control path that has no reference implementation.
+
+**Self-adaptive reconfiguration** — When a field update rewrites constraints at runtime, does the fabric require partial reconfiguration (FPGA-style), or are all possible constraint topologies pre-synthesized and selected via multiplexing?
+
+**Cryptographic embedding** — Hardware-level provenance identifiers imply a root of trust embedded in the silicon. The relationship between scheme-level identity (SchemaId, SegmentId) and hardware-anchored identity has not been specified.
+
+These questions are not peripheral. They determine whether the silicon compiler is an incremental improvement over existing HLS tools or a genuinely new compilation paradigm.
