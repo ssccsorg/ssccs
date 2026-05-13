@@ -16,6 +16,8 @@ abstract: |
   Ollama/LM Studio) and any runtime environment (container, serverless, bare-metal).
 ---
 
+{{< include ../../../_include/_title_meta_items.qmd >}}
+
 ```{python}
 #| include: false
 #| context: local
@@ -111,7 +113,7 @@ ACP does not solve every infrastructure problem. It does not manage container li
 Rather than replacing the entire Nexus Layer 3, ACP serves as the **communication backbone** for all agent-LLM interactions. Each agent — whether implemented as a container, a serverless function, or a direct process — communicates with its assigned LLM backend through ACP:
 
 ```{python}
-dot_svg('''
+dot('''
 digraph {
   node [shape=box style=filled];
 
@@ -208,7 +210,7 @@ The KV mapping is updated after each successful write. The Synthesis Agent polls
 The Nexus Planner currently produces a linear sequence of tool calls. With ACP as the communication backbone, the Planner instead produces a **dispatch plan** — a directed graph of agent assignments with dependency edges and LLM backend selection:
 
 ```{python}
-dot_svg('''
+dot('''
 digraph {
   subgraph cluster_linear {
     label="Current: linear sequence";
@@ -417,7 +419,7 @@ The recommended next step is Experiment 1: implementing an ACP client in a singl
 
 1. Nexus Development Roadmap. [/projects/nexus/impl_init.html](/projects/nexus/impl_init.html)
 2. Nexus Project Overview: Boundaryless Autonomous Research Infrastructure. [/projects/nexus/index.html](/projects/nexus/index.html)
-3. QiMeng Insight Analysis & Multi-Agent Autonomous Research Landscape. [notes/qimeng.qmd](/docs/projects/nexus/notes/qimeng.qmd)
-4. TokenSpeed Architectural Insights for SSCCS Nexus. [notes/tokenspeed_insight.qmd](/docs/projects/nexus/notes/tokenspeed_insight.qmd)
+3. QiMeng Insight Analysis & Multi-Agent Autonomous Research Landscape. [notes/qimeng.qmd](/projects/nexus/notes/qimeng.html)
+4. TokenSpeed Architectural Insights for SSCCS Nexus. [notes/tokenspeed_insight.qmd](/projects/nexus/notes/tokenspeed_insight.html)
 5. AgentFlow: In-the-Flow Agentic System Optimization. arXiv:2510.05592
 6. HypoChainer: LLM + KG + Human Collaborative Hypothesis Generation. arXiv:2507.17209

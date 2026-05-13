@@ -11,7 +11,7 @@
 //!
 //! Adding a scenario requires only implementing the `Scenario` trait and registering it.
 
-use ssccs_core::{Field, Segment, SpaceCoordinates};
+use ssccs_core::{Field, Segment, SpaceCoordinates, segment_id_from_coords};
 use ssccs_examples::{CoordinateSumProjector, EvenConstraint, RangeConstraint};
 use ssccs_field_synthesis::{IdentityField, compose_observe, intersection, product, union};
 
@@ -285,17 +285,17 @@ fn test_transition() {
     assert_eq!(ut.transition_targets(&o).len(), 3);
     let it = intersection(x.clone(), y.clone()).transition_targets(&o);
     assert_eq!(it.len(), 1);
-    assert!(it.contains(&coord(2, 0, 0)));
+    assert!(it.contains(&segment_id_from_coords(&coord(2, 0, 0))));
     println!(
         "  X\u{222A}Y: {:?}",
         ut.transition_targets(&o)
             .iter()
-            .map(|c| &c.raw)
+            .map(|id| id.as_bytes())
             .collect::<Vec<_>>()
     );
     println!(
         "  X\u{2229}Y: {:?}",
-        it.iter().map(|c| &c.raw).collect::<Vec<_>>()
+        it.iter().map(|id| id.as_bytes()).collect::<Vec<_>>()
     );
 }
 
