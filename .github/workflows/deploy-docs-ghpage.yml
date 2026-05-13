@@ -98,11 +98,7 @@ jobs:
 
       - name: Prepare Pages artifact
         run: |
-          mkdir -p docs/_pages
-          rsync \
-            -av docs/_site/ \
-            -av docs/_llms/ \
-            docs/_pages/
+          cp -r docs/_site/ docs/_pages/
 
       - name: Upload Pages artifact
         if: ${{ github.actor != 'nektos/act' }}
