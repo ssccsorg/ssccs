@@ -781,7 +781,7 @@ class PreBuildRunner:
                 if result.returncode != 0:
                     logger.warning(f"Pre-build command '{executable}' failed with exit code {result.returncode}, continuing build...")
                 else:
-                    logger.info(f"Pre-build command '{executable}' succeeded.")
+                    logger.info(f"Pre-build command '{' '.join(cmd)}' succeeded.")
             except Exception as e:
                 logger.warning(f"Pre-build command '{executable}' raised an exception: {e}, continuing build...")
 
@@ -849,7 +849,7 @@ class PostRenderRunner:
                 if result.returncode != 0:
                     logger.warning(f"Post-render command '{executable}' failed with exit code {result.returncode}, continuing...")
                 else:
-                    logger.info(f"Post-render command '{executable}' succeeded.")
+                    logger.info(f"Post-render command '{' '.join(cmd)}' succeeded.")
             except Exception as e:
                 logger.warning(f"Post-render command '{executable}' raised an exception: {e}, continuing...")
 
