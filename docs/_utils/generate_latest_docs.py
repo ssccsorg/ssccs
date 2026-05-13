@@ -482,14 +482,39 @@ def badge_new() -> str:
     return '<sup style="background:#2c8;color:#fff;font-size:.65em;padding:0 .4em;border-radius:3px;">N</sup>'
 
 
-def doc_to_html(rel_path: str) -> str:
+def doc_to_html(rel_path: str, docs_root: Path = DOCS_ROOT) -> str:
     """Map a .qmd/.md relative path to its absolute site path.
 
-    Returns site-root-absolute paths (``/...``) so the generated
-    links work from any including page depth.
+    For beamer-only documents (no html format declared), links to
+    the PDF output instead, since no HTML output is generated.
     """
     p = Path(rel_path)
     stem = p.stem
+    abs_path = docs_root / rel_path
+    # Detect beamer-only documents
+    if abs_path.suffix == ".qmd":
+        try:
+            text = abs_path.read_text(encoding="utf-8", errors="ignore")
+            import re
+            fm = re.match(r"^---\s*\n(.*?)\n---", text, re.DOTALL)
+            if fm:
+                import yaml
+                front = yaml.safe_load(fm.group(1)) or {}
+                fmt = front.get("format", {})
+                if isinstance(fmt, dict):
+                    has_html = "html" in fmt
+                    has_beamer = "beamer" in fmt
+                    if has_beamer and not has_html:
+                        # Beamer-only: link to PDF
+                        if stem.lower() == "index":
+                            parent = str(p.parent)
+                            if parent == ".":
+                                return "/index.pdf"
+                            return f"/{parent}/index.pdf"
+                        else:
+                            return f"/{p.with_suffix('.pdf')}"
+        except Exception:
+            pass
     if stem.lower() == "index":
         parent = str(p.parent)
         if parent == ".":
