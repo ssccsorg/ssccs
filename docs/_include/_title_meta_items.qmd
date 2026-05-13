@@ -79,6 +79,27 @@ def _has_other_formats(items: list[dict]) -> bool:
     return any(item.get("title") == "Other Formats" for item in items)
 
 
+def _project_llms_enabled(project_root: Path) -> bool:
+    """Check the project-level master switch from quarto config.
+
+    ``_quarto-website.yml`` → ``website.llms-txt`` must be ``true``
+    for LLMs files to be generated.  ``_quarto.yml`` is the fallback
+    if the website config does not exist.
+    """
+    for config_name in ("_quarto-website.yml", "_quarto.yml"):
+        config_path = project_root / config_name
+        if config_path.exists():
+            try:
+                with open(config_path) as f:
+                    cfg = yaml.safe_load(f) or {}
+                val = cfg.get("website", {}).get("llms-txt")
+                if val is not None:
+                    return bool(val)
+            except Exception:
+                pass
+    return False
+
+
 def _build_title_meta_items(qmd_path: Path) -> dict:
     front = _get_front_matter(qmd_path)
     custom = front.get("title-meta-items", {}) or {}
@@ -90,6 +111,12 @@ def _build_title_meta_items(qmd_path: Path) -> dict:
         doc_stem = str(rel.with_suffix(""))
     except ValueError:
         doc_stem = qmd_path.stem
+    # Resolve llms-txt: master switch → per-document override
+    show_llms = _project_llms_enabled(project_root)
+    if show_llms:
+        front_llms = custom.get("llms-txt")
+        if front_llms is not None:
+            show_llms = bool(front_llms)
     result = {}
     for fmt in ("html", "pdf"):
         items = []
@@ -104,6 +131,13 @@ def _build_title_meta_items(qmd_path: Path) -> dict:
             items.append(entry)
         if auto_other and not _has_other_formats(items):
             items.extend(_auto_other_formats(doc_stem, fmt, declared_formats))
+        if show_llms and fmt == "html":
+            items.append({
+                "title": "Other Formats",
+                "link": f"/{doc_stem}.llms.md",
+                "content": "LLMs",
+                "content_class": "bi bi-file-earmark-text",
+            })
         result[fmt] = items
     return result
 
