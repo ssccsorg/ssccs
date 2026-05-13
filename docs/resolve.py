@@ -46,6 +46,7 @@ class _BaseResolver:
     }
     SOURCE_EXTENSIONS: Set[str] = set()  # subclasses MUST set this
     _APPLY_BUILD_YML_EXCLUDE: bool = True
+    LOCAL_EXCLUDE: List[str] = []  # per-resolver file patterns (relative to root)
 
     # ------------------------------------------------------------------
     # build.yml helpers
@@ -123,6 +124,10 @@ class _BaseResolver:
         if self._APPLY_BUILD_YML_EXCLUDE and exclude_patterns:
             return self._matches_gitignore_pattern(
                 file_path.relative_to(root), exclude_patterns
+            )
+        if self.LOCAL_EXCLUDE:
+            return self._matches_gitignore_pattern(
+                file_path.relative_to(root), self.LOCAL_EXCLUDE
             )
         return False
 
@@ -763,6 +768,7 @@ class DocExtResolver(_BaseResolver):
 
     _APPLY_BUILD_YML_EXCLUDE = True
     SOURCE_EXTENSIONS: Set[str] = {".qmd", ".md"}
+    LOCAL_EXCLUDE = ["index.qmd"]
 
     RE_LINK = re.compile(r"\[([^\]]*)\]\(([^)]+)\)")
 
