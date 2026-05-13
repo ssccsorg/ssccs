@@ -1,0 +1,466 @@
+---
+title: "Large-Scale Document Automation Platform"
+subtitle: "Static site management at scale"
+date: last-modified
+metadata-files:
+  - ../_include/author.yml
+abstract: |
+  A technical account of the document automation infrastructure underlying the
+  SSCCS documentation suite.  The platform manages a growing corpus of
+  technical documents through a multi-layered pipeline combining static-site
+  generation with custom build orchestration, automated structural validation,
+  and intelligent content management.  This report describes the architecture
+  and the dual-parallel build model that together render build time independent
+  of document count at any scale.
+---
+
+{{< include ../_include/_title_meta_items.qmd >}}
+
+```{python}
+#| include: false
+#| context: local
+%run ../_include/_graphviz.py
+```
+
+## The Scale Problem
+
+Technical documentation exhibits a unique growth characteristic: the corpus
+expands monotonically with each research direction, specification, and design
+record. Over a multi-year horizon, a project of this scope accumulates
+thousands of documents across multiple natural languages, output formats, and
+audience levels.
+
+Conventional static-site management breaks down at this scale through several
+well-understood failure modes:
+
+- **Link rot**: moved or renamed files leave dangling references
+- **Include drift**: shared templates change but individual pages are not
+  updated
+- **Format inconsistency**: new pages omit required metadata or cross-format
+  navigation controls
+- **Build-time growth**: sequential rebuilds scale linearly with document count
+- **Cross-reference decay**: references between documents become stale without
+  centralized validation
+
+The platform described here was designed to make these failure modes
+**structurally impossible** rather than depending on human discipline or
+manual review processes.
+
+## Architectural Principles
+
+The platform rests on three architectural principles that together enable
+management at scale:
+
+### Principle 1: Idempotent Pre-Build Validation
+
+All structural checks (link validity, include presence, path correctness) are
+performed before the build step, in a dedicated validation pass. Each check is
+idempotent: running it repeatedly on an unchanged corpus produces the same
+result. A `check` mode reports issues without modifying files, enabling CI/CD
+gating with exit code 1.
+
+### Principle 2: Target-Isolated Parallel Rendering
+
+The document corpus is partitioned into independent render targets. Each
+target renders into a physically isolated copy of the entire source tree,
+eliminating cross-target contention for shared resources. Outputs are merged
+into a unified deployment directory after all targets complete.
+
+### Principle 3: Automatic Structural Healing
+
+Common structural defects (broken relative paths, missing includes, incorrect
+file extensions in links) are detected and corrected automatically by a chain
+of resolvers. Each resolver addresses one class of defect independently and
+can be enabled or disabled without affecting the others.
+
+```{python}
+#| label: fig-pipeline
+#| fig-cap: "Pre-build, render, and post-render pipeline stages"
+dot("""
+digraph Pipeline {
+    rankdir=LR;
+    splines=ortho;
+    node [shape=box, style=rounded, fontsize=9];
+    edge [fontsize=8];
+
+    subgraph cluster_pre {
+        label="Structural validation";
+        style=filled;
+        fillcolor="#E8F4F8";
+        color="#2B7A9E";
+        fontsize=10;
+
+        Check [label="Automated resolver chain\n(link validity, path correctness,\ninclude presence)", fillcolor="#FFFFFF", style=filled];
+        Gen [label="Dynamic index generation\n(git-history-based listing)", fillcolor="#FFFFFF", style=filled];
+        Fix [label="Auto-correction of\ndetectable defects", fillcolor="#FFFFFF", style=filled];
+
+        Check -> Gen -> Fix;
+    }
+
+    Render [label="Isolated parallel rendering\n(partitioned by render target)", fillcolor="#FFF4E6", style=filled, fontsize=10, width=2.5];
+
+    subgraph cluster_post {
+        label="Post-processing";
+        style=filled;
+        fillcolor="#E6F0E6";
+        color="#3A7D44";
+        fontsize=10;
+
+        Extract [label="Extract machine-readable\nformat variants", fillcolor="#FFFFFF", style=filled];
+        Index [label="Generate hierarchical\ncross-format index", fillcolor="#FFFFFF", style=filled];
+    }
+
+    Fix -> Render;
+    Render -> Extract;
+    Extract -> Index;
+}
+""")
+```
+
+Each stage is idempotent: running it repeatedly on an unchanged corpus produces
+identical output. All fixes are validated before any writes occur, and a
+dedicated check mode returns exit code 1 on any unresolved issue.
+
+## Resolver Chain Architecture
+
+The structural validation layer is organised as a sequential chain of
+independent resolvers, each handling one class of defect:
+
+```{python}
+#| label: fig-resolver-chain
+#| fig-cap: "Sequential resolver chain, each stage handling one defect class"
+dot("""
+digraph ResolverChain {
+    rankdir=LR;
+    splines=ortho;
+    node [shape=box, style=rounded, fontsize=9];
+    edge [fontsize=9];
+
+    P [label="Path resolver\\ncorrects relative paths that\\nbroke after file moves", fillcolor="#E8F4F8", style=filled];
+    L [label="Link resolver\\ndetects links to files that\\nwere renamed or restructured", fillcolor="#E8F4F8", style=filled];
+    I [label="Include resolver\\nensures shared templates are\\npresent in every document", fillcolor="#E8F4F8", style=filled];
+    D [label="Link-target resolver\\nconverts source extensions\\nto output extensions", fillcolor="#E8F4F8", style=filled];
+    Result [label="Structurally valid corpus", fillcolor="#E8F8E8", style=filled];
+
+    P -> L -> I -> D -> Result;
+}
+""")
+```
+
+Each resolver operates independently, with its own scope configuration
+inherited from a three-tier model:
+
+- **Global exclusions**: build artifacts, version-control directories
+- **Project-level exclusions**: files excluded from the build pipeline
+- **Local exclusions**: per-resolver patterns for special cases
+
+This ensures that the project configuration remains the single source of truth
+for exclusions while allowing individual resolvers to tighten scope without
+modifying global settings.
+
+## Scaling Properties
+
+The resolver chain operates by scanning file content rather than parsing,
+achieving sub-second completion on corpora of several thousand files. The
+total cost is linear in aggregate file size with extremely small constants,
+independent of the number of render targets or the complexity of the document
+graph.
+
+Build time is determined by the number of render targets, not the number of
+documents:
+
+```{python}
+#| label: fig-scaling
+#| fig-cap: "Build time is a function of target count, invariant to document count"
+dot("""
+digraph BuildScaling {
+    rankdir=LR;
+    splines=ortho;
+    node [shape=box, style=rounded, fontsize=9];
+    edge [fontsize=9];
+
+    subgraph cluster_small {
+        label="100 documents / 5 targets";
+        style=filled;
+        fillcolor="#E8F4F8";
+        color="#2B7A9E";
+        fontsize=10;
+
+        S [label="build time = 5  x  T_render", fillcolor="#FFFFFF", style=filled];
+    }
+
+    subgraph cluster_med {
+        label="1000 documents / 5 targets";
+        style=filled;
+        fillcolor="#E6F0E6";
+        color="#3A7D44";
+        fontsize=10;
+
+        M [label="build time = 5  x  T_render", fillcolor="#FFFFFF", style=filled];
+    }
+
+    subgraph cluster_large {
+        label="10000 documents / 5 targets";
+        style=filled;
+        fillcolor="#FFF4E6";
+        color="#DAA520";
+        fontsize=10;
+
+        L [label="build time = 5  x  T_render", fillcolor="#FFFFFF", style=filled];
+    }
+
+    S -> M -> L [style=dashed, color=gray, label="100x document growth / no change in build time"];
+}
+""")
+```
+
+Since each render target operates in a physically isolated copy of the source
+tree, targets can be distributed across any number of machines without
+architectural changes. A single merge step combines the independently
+generated output directories using content-level merging for shared assets
+(search indexes, site maps) and union semantics for everything else.
+
+```{python}
+#| label: fig-parallel-build
+#| fig-cap: "Target isolation enables distribution without architectural change"
+dot("""
+digraph MachineDist {
+    rankdir=LR;
+    splines=ortho;
+    node [shape=box, style=rounded, fontsize=9];
+    edge [fontsize=8];
+
+    subgraph cluster_machines {
+        label="Independent execution units";
+        style=filled;
+        fillcolor="#F5F5F5";
+        color="#888888";
+        fontsize=10;
+
+        M1 [label="Machine / Container A\nsubset of targets", fillcolor="#E8F4F8", style=filled];
+        M2 [label="Machine / Container B\nsubset of targets", fillcolor="#E6F0E6", style=filled];
+        M3 [label="Machine / Container C\nsubset of targets", fillcolor="#FFF4E6", style=filled];
+    }
+
+    Merge [label="Content-level merge\n(union + deduplication)", fillcolor="#FFFFFF", style=filled, width=2.5];
+
+    M1 -> Merge;
+    M2 -> Merge;
+    M3 -> Merge;
+}
+""")
+```
+
+## Dynamic Content Generation
+
+Beyond structural validation, the platform generates navigational and
+cross-format content at render time based on each document's metadata and the
+project configuration:
+
+- **Cross-format links** (PDF, machine-readable text) are generated
+  automatically, with the link target resolved from project settings
+- **Format variant grouping** consolidates multiple alternatives under a single
+  heading, avoiding redundant labels
+- **Recent-document listings** are generated from version-control history,
+  ensuring the front page always reflects current activity without manual
+  updates
+
+```{python}
+#| label: fig-format-resolve
+#| fig-cap: "Format link resolution follows a deterministic chain from project config to per-document override"
+dot("""
+digraph FormatResolve {
+    rankdir=LR;
+    splines=ortho;
+    node [shape=box, style=rounded, fontsize=9];
+    edge [fontsize=9];
+
+    Proj [label="Project config\n(global switch)", fillcolor="#FFE4E1", style=filled, width=2.2];
+    Gen [label="Format variant files\ngenerated at build time", fillcolor="#E8F4F8", style=filled];
+    Override [label="Per-document\nvisibility control", fillcolor="#FFF4E6", style=filled];
+    Show [label="Format link rendered\nin output", fillcolor="#E8F8E8", style=filled];
+
+    Proj -> Gen [label="enables generation"];
+    Gen -> Override [label="variant exists"];
+    Override -> Show;
+}
+""")
+```
+
+## CI/CD Integration
+
+The full pipeline is containerised and executed in a continuous-deployment
+workflow:
+
+```{python}
+#| label: fig-ci-pipeline
+#| fig-cap: "CI/CD pipeline: validation, build, post-process, deploy"
+dot("""
+digraph CIPipeline {
+    rankdir=LR;
+    splines=ortho;
+    node [shape=box, style=rounded, fontsize=9];
+    edge [fontsize=8];
+
+    Container [label="Container image\n(reproducible environment)", fillcolor="#E8F4F8", style=filled];
+    Validate [label="Structural validation\n(fail-fast on defects)", fillcolor="#FFE4E1", style=filled];
+    Build [label="Parallel render +\\noutput merge", fillcolor="#FFF4E6", style=filled];
+    Post [label="Extract machine-readable\\nvariants + generate index", fillcolor="#E6F0E6", style=filled];
+    Deploy [label="Publish to\\nproduction", fillcolor="#E8F8E8", style=filled];
+
+    Container -> Validate;
+    Validate -> Build;
+    Build -> Post;
+    Post -> Deploy;
+}
+""")
+```
+
+Containerisation ensures environment parity between local development and CI.
+All pipeline stages are declared in a single configuration file, making the
+workflow self-documenting and reproducible.
+
+## Dual-Parallel Build Architecture
+
+The same partitioning that enables logical parallelism within a machine
+extends naturally to physical distribution across machines, with zero
+additional coordination.
+
+```{python}
+#| label: fig-dual-parallel
+#| fig-cap: "Two-level hierarchy: logical parallelism within each unit, physical parallelism across units, unified by recursive merge"
+dot("""
+digraph DualParallel {
+    rankdir=TB;
+    splines=ortho;
+    node [shape=box, style=rounded, fontsize=9];
+    edge [fontsize=8];
+
+    Corpus [label="Document Corpus\nN documents, T targets", fillcolor="#E8F4F8", style=filled, width=2.5];
+
+    subgraph cluster_physical {
+        label="Physical Layer: Machine Boundary";
+        style=dashed;
+        color="#888888";
+        fontsize=11;
+
+        subgraph cluster_m1 {
+            label="Machine 1";
+            style=filled;
+            fillcolor="#E8F4F8";
+            color="#2B7A9E";
+            fontsize=10;
+            M1_T1 [label="A", fillcolor="#FFFFFF", style=filled, width=0.5];
+            M1_T2 [label="B", fillcolor="#FFFFFF", style=filled, width=0.5];
+            M1_T3 [label="C", fillcolor="#FFFFFF", style=filled, width=0.5];
+            M1_M [label="\u2193", shape=plaintext];
+            M1_T1 -> M1_M; M1_T2 -> M1_M; M1_T3 -> M1_M;
+        }
+
+        subgraph cluster_m2 {
+            label="Machine 2";
+            style=filled;
+            fillcolor="#E6F0E6";
+            color="#3A7D44";
+            fontsize=10;
+            M2_T1 [label="D", fillcolor="#FFFFFF", style=filled, width=0.5];
+            M2_T2 [label="E", fillcolor="#FFFFFF", style=filled, width=0.5];
+            M2_M [label="\u2193", shape=plaintext];
+            M2_T1 -> M2_M; M2_T2 -> M2_M;
+        }
+
+        subgraph cluster_m3 {
+            label="Machine N";
+            style=filled;
+            fillcolor="#FFF4E6";
+            color="#DAA520";
+            fontsize=10;
+            M3_T1 [label="F", fillcolor="#FFFFFF", style=filled, width=0.5];
+            M3_T2 [label="G", fillcolor="#FFFFFF", style=filled, width=0.5];
+            M3_T3 [label="H", fillcolor="#FFFFFF", style=filled, width=0.5];
+            M3_M [label="\u2193", shape=plaintext];
+            M3_T1 -> M3_M; M3_T2 -> M3_M; M3_T3 -> M3_M;
+        }
+    }
+
+    Merge [label="Global Merge\n(commutative)", fillcolor="#E8F8E8", style=filled, width=2.0];
+
+    Corpus -> M1_T1; Corpus -> M1_T2; Corpus -> M1_T3;
+    Corpus -> M2_T1; Corpus -> M2_T2;
+    Corpus -> M3_T1; Corpus -> M3_T2; Corpus -> M3_T3;
+
+    M1_M -> Merge; M2_M -> Merge; M3_M -> Merge;
+}
+""")
+```
+
+### Commutative Merge
+
+The merge function that combines outputs is **commutative**: merging in any
+order produces the same result.  This property eliminates the need for
+distributed coordination -- no locks, no consensus, no shared state, no leader
+election.  Machines can complete in any order, including with partial
+failures.  If a machine fails, its targets are simply missing from the output;
+rerun them and merge again.
+
+Partial outputs to the merge point move through any transport layer -- shared
+filesystem, object storage, or CI artifact system -- with the merge function
+requiring only that remote output be accessible as a local directory tree.
+
+### Failure Model
+
+The commutative merge guarantee makes the architecture resilient by
+construction:
+
+| Failure | Effect | Mitigation |
+|---|---|---|
+| Machine fails mid-build | Its targets missing | Rerun on another machine; merge is idempotent |
+| Single target fails | Only that target absent | Rebuild only that target; merge accepts partial results |
+| Network partition | Cannot upload output | Other machines continue; gap detected at merge time |
+
+### Deployment Topologies
+
+The architecture maps to multiple deployment models by changing only the
+target assignment strategy:
+
+- **Single machine**: all targets render with logical parallelism; merge is a
+  trivial no-op
+- **CI runner pool**: each runner picks a target subset from a build queue,
+  uploads artifacts; a final job downloads and merges
+- **Dedicated cluster**: fixed target groups per machine, shared filesystem
+  eliminates transport overhead
+- **Hybrid cloud**: baseline load on fixed infrastructure, burst spills to
+  ephemeral cloud instances provisioned on demand
+
+All four topologies use the same build command, the same merge function, and
+the same deployment pipeline.
+
+## Comparison with Conventional Approaches
+
+| Concern | Conventional approach | This platform |
+|---|---|---|
+| Link validation | Manual or external CI checker | Pre-build automated scan, sub-second |
+| Include management | Manual copy-paste | Automatic insertion of missing includes |
+| Format navigation | Hand-written links per document | Auto-generated from configuration |
+| Build scaling | Sequential per document | Target-parallel, O(targets) not O(documents) |
+| Cross-reference correctness | Manual upkeep | Automatic extension correction |
+| Structural robustness | Relies on author discipline | Automated healing of common defects |
+| Agent/machine feed | Separate manual pipeline | Integrated extraction at build time |
+| CI quality gate | Sparse or absent | Comprehensive check, exit code 1 |
+
+## Conclusion
+
+The platform demonstrates that static-site management at scale is achievable
+through a layered automation architecture combining structural validation with
+dual-parallel build execution.  The key insight is not any individual tool or
+technique but the composition of idempotent passes that collectively guarantee
+integrity regardless of corpus size.
+
+The system exhibits:
+
+- **Document-count independence** in build time
+- **Target-count linearity** in resource requirements
+- **Physical partitionability** for distributed execution
+- **Self-healing** for common structural defects
+- **Configuration-driven** behaviour with a single source of truth
+- **CI-native** integration with pre-build validation and post-render processing
