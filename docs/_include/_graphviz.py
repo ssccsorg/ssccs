@@ -31,17 +31,6 @@ import graphviz
 from IPython.display import SVG
 
 
-def _extract_inner_dot(code):
-    """Extract content inside the first '{' and last '}' if the code starts with 'digraph'."""
-    code = code.strip()
-    if code.startswith("digraph"):
-        start = code.find("{")
-        end = code.rfind("}")
-        if start != -1 and end != -1 and end > start:
-            return code[start + 1 : end].strip()
-    return code
-
-
 def _clean_dot_text(text):
     if not text:
         return ""
@@ -55,7 +44,7 @@ def _clean_dot_text(text):
     return text
 
 
-_FONT_DOT = "Helvetica"  # single font for Graphviz's own rendering
+_FONT_DOT = "sans-serif"  # Graphviz layout font (available everywhere)
 _WEB_FONT_STACK = (
     "-apple-system, BlinkMacSystemFont, "
     "'Helvetica Neue', Helvetica, Arial, "
