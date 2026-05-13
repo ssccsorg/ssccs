@@ -663,6 +663,91 @@ def _run_check_only(
     return 1 if total_broken else 0
 
 
+# ======================================================================
+# IncludeResolver — ensure _title_meta_items.qmd include is present
+# ======================================================================
+class IncludeResolver(_BaseResolver):
+    """Ensure every ``.qmd`` file includes the title-meta-items template.
+
+    If a ``.qmd`` file has no ``{{< include ... _title_meta_items.qmd >}}``
+    directive, inserts one right after the YAML frontmatter, with the
+    relative path computed from the file's location.
+    """
+
+    _APPLY_BUILD_YML_EXCLUDE = True
+    SOURCE_EXTENSIONS: Set[str] = {".qmd"}
+    INCLUDE_FILE = "_include/_title_meta_items.qmd"
+
+    RE_INCLUDE = re.compile(
+        r"\{\{<\s*include\s+[^>]*_title_meta_items\.qmd\s*>\}\}"
+    )
+
+    # ------------------------------------------------------------------
+    # Fix a single file
+    # ------------------------------------------------------------------
+    def fix_one_file(
+        self, file_path: Path, root: Path, dry_run: bool, verbose: bool
+    ) -> int:
+        try:
+            text = file_path.read_text(encoding="utf-8")
+        except Exception:
+            return 0
+
+        # Already has the include — skip
+        if self.RE_INCLUDE.search(text):
+            return 0
+
+        # Find YAML frontmatter end
+        m = re.match(r"^---\s*\n.*?\n(?:---)\s*\n?", text, re.DOTALL)
+        if not m:
+            # No frontmatter — nothing to insert after
+            return 0
+
+        # Compute correct relative path from file to _include/_title_meta_items.qmd
+        include_abs = (root / self.INCLUDE_FILE).resolve()
+        doc_dir = file_path.parent.resolve()
+        include_rel = self._compute_rel_path(doc_dir, include_abs)
+        directive = f"\n{{{{< include {include_rel} >}}}}\n"
+
+        # Insert after frontmatter's closing ---
+        insert_at = m.end()
+        new_text = text[:insert_at] + directive + text[insert_at:]
+
+        rel_display = file_path.relative_to(root)
+        if dry_run:
+            print(f"\n[{rel_display}]")
+            print(f"  + {directive.strip()}")
+        else:
+            try:
+                file_path.write_text(new_text, encoding="utf-8")
+            except Exception as e:
+                print(
+                    f"  ERROR writing {rel_display}: {e}", file=sys.stderr
+                )
+                return 0
+            print(f"  {rel_display}: added {{< include {include_rel} >}}")
+
+        return 1
+
+    # ------------------------------------------------------------------
+    # Batch entry point
+    # ------------------------------------------------------------------
+    def resolve_all(
+        self,
+        root: Path,
+        scan_root: Path,
+        dry_run: bool,
+        verbose: bool,
+    ) -> Tuple[int, int]:
+        return self._run_fix_all(
+            root,
+            scan_root,
+            dry_run,
+            verbose,
+            "Adding missing title-meta-items include",
+        )
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Resolve broken ../ relative asset paths and markdown links in QMD/MD files"
@@ -681,8 +766,8 @@ def main():
     args = parser.parse_args()
 
     root = Path(__file__).parent.resolve()
-    resolvers: List = [PathResolver(), LinkResolver()]
-    headers = ["Asset paths", "Markdown links"]
+    resolvers: List = [PathResolver(), LinkResolver(), IncludeResolver()]
+    headers = ["Asset paths", "Markdown links", "Missing title-meta-items include"]
 
     if args.check:
         scan_root = (root / args.target) if args.target else root
