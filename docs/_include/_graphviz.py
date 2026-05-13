@@ -54,15 +54,50 @@ def _clean_dot_text(text):
     return text
 
 
+_FONT_FALLBACK = "Helvetica,Arial,DejaVu Sans"
+
+
+def _normalise_dot_font(code: str) -> str:
+    """Ensure every DOT graph uses a cross-platform font stack.
+
+    Replaces ``fontname="Arial"`` (macOS-only) with a fallback chain
+    that degrades gracefully on Linux and other systems.  If no
+    ``fontname`` is present at all, injects a global graph-level
+    default so the rendered output is consistent everywhere.
+    """
+    import re
+
+    has_font = re.search(r'\bfontname\s*=\s*"', code)
+    if not has_font:
+        # Inject global default right after the opening brace
+        injection = '\n    fontname="' + _FONT_FALLBACK + '"'
+        code = re.sub(
+            r"((?:digraph|graph)\s+\w+\s*\{)",
+            r"\1" + injection,
+            code,
+            count=1,
+        )
+        return code
+
+    # Normalise existing fontname values to the cross-platform stack
+    new_val = 'fontname="' + _FONT_FALLBACK + '"'
+    code = re.sub(
+        r'fontname\s*=\s*"[^"]*"',
+        new_val,
+        code,
+    )
+    return code
+
+
 def dot(code):
-    src = graphviz.Source(_clean_dot_text(code))
-    src.format = "pdf"  # or 'svg' depending on your needs
+    src = graphviz.Source(_clean_dot_text(_normalise_dot_font(code)))
+    src.format = "pdf"
     with contextlib.redirect_stderr(io.StringIO()):
         return display(src)
 
 
 def dot_svg(code, h="150px"):
-    src = graphviz.Source(code)
+    src = graphviz.Source(_normalise_dot_font(code))
     svg_str = src.pipe(format="svg").decode("utf-8")
     styled_svg = svg_str.replace("<svg ", f'<svg style="height:{h}; width:auto;" ')
     return SVG(styled_svg)
