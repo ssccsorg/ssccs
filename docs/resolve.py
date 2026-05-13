@@ -122,13 +122,15 @@ class _BaseResolver:
                 if fnmatch.fnmatch(part, pattern):
                     return True
         if self._APPLY_BUILD_YML_EXCLUDE and exclude_patterns:
-            return self._matches_gitignore_pattern(
+            if self._matches_gitignore_pattern(
                 file_path.relative_to(root), exclude_patterns
-            )
+            ):
+                return True
         if self.LOCAL_EXCLUDE:
-            return self._matches_gitignore_pattern(
+            if self._matches_gitignore_pattern(
                 file_path.relative_to(root), self.LOCAL_EXCLUDE
-            )
+            ):
+                return True
         return False
 
     def discover_files(
