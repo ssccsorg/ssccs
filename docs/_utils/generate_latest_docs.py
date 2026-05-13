@@ -17,6 +17,7 @@ import fnmatch
 import subprocess
 import sys
 from datetime import datetime
+from functools import lru_cache
 from pathlib import Path
 
 DOCS_ROOT = Path(__file__).parent.parent
@@ -434,15 +435,9 @@ def get_creation_dates() -> dict[str, str]:
     return created
 
 
-_LATEST_COMMIT_CACHE: str | None = None
-
-
+@lru_cache(maxsize=1)
 def _latest_commit_date() -> str | None:
-    """Return the date (YYYY-MM-DD) of the most recent commit in docs/.
-    Result is cached after first call."""
-    global _LATEST_COMMIT_CACHE
-    if _LATEST_COMMIT_CACHE is not None:
-        return _LATEST_COMMIT_CACHE
+    """Return the date (YYYY-MM-DD) of the most recent commit in docs/."""
     _ensure_git_safe()
     result = subprocess.run(
         ["git", "log", "-1", "--pretty=format:%ai", "--", "."],
@@ -451,10 +446,8 @@ def _latest_commit_date() -> str | None:
         text=True,
     )
     if result.returncode != 0 or not result.stdout.strip():
-        _LATEST_COMMIT_CACHE = ""
         return None
-    _LATEST_COMMIT_CACHE = result.stdout.strip().split()[0]
-    return _LATEST_COMMIT_CACHE
+    return result.stdout.strip().split()[0]
 
 
 def is_new_file(rel_path: str, creation_dates: dict[str, str]) -> bool:
