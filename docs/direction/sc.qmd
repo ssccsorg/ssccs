@@ -50,12 +50,13 @@ digraph Evolution {
         label="Future (Native)"
         color="#888888"
         style=dashed
-        FPDL [label="Field Placement\nDescription Language\n(.SS)", fillcolor="#FFF4E6"]
+        FPDL [label="Field Placement\nDescription Language\n(FPDL)", fillcolor="#FFF4E6"]
         Silicon [label="Silicon Topology\n(Netlist / Bitstream)", fillcolor="#E8F8E8"]
     }
 
     Source -> Asm -> SSC_emu
-    Source -> FPDL -> Silicon
+    Source -> FPDL [label="  compiler backend"]
+    FPDL -> Silicon [label="  synthesis"]
 }
 """)
 ```
@@ -72,6 +73,61 @@ A silicon compiler for SSCCS accepts a scheme description and a set of field con
 - Embedding cryptographic identifiers directly into the hardware so that every observation carries an auditable provenance.
 
 This compiler operates on a different principle from traditional high‑level synthesis tools. It does not schedule operations or allocate registers. It resolves spatial adjacency and connectivity. The resulting hardware contains no program counter, no instruction fetch unit, and no data cache in the conventional sense. It is a static fabric that responds to field updates with deterministic projections.
+
+```{python}
+#| label: fig-silicon-compilation
+#| fig-cap: "Low‑level compilation of observation and field connections into hardware topology"
+dot("""
+digraph SiliconCompilation {
+    rankdir=TB
+    compound=true
+    node [shape=box, style=filled, fontname="Arial"]
+
+    subgraph cluster_input {
+        label="Input (Abstract)"
+        color="#888888"
+        style=dashed
+        Scheme [label="Scheme\n(segments, axes, relations)", fillcolor="#E8F4F8"]
+        Field [label="Field Constraints\n(integrity, geometry, ...)", fillcolor="#FFE5B4"]
+    }
+
+    subgraph cluster_compiler {
+        label="Silicon Compiler"
+        color="#D4B4D8"
+        style=dashed
+        Partition [label="Segment → Memory\nBlock Partitioning", fillcolor="#D4B4D8"]
+        Route [label="Constraint → Logic\nSignal Routing", fillcolor="#D4B4D8"]
+        Project [label="Observation → Signal\nPath Generation", fillcolor="#D4B4D8"]
+        Embed [label="Cryptographic\nIdentity Embedding", fillcolor="#D4B4D8"]
+    }
+
+    subgraph cluster_output {
+        label="Output (Hardware)"
+        color="#888888"
+        style=dashed
+        Mem [label="Memory Banks\n(segment storage)", fillcolor="#B4E7B4"]
+        Logic [label="Combinatorial Logic\n(constraint gates)", fillcolor="#B4E7B4"]
+        Paths [label="Signal Paths\n(observation wiring)", fillcolor="#B4E7B4"]
+        ID [label="Hardware IDs\n(provenance anchors)", fillcolor="#B4E7B4"]
+    }
+
+    Scheme -> Partition
+    Field -> Route
+    Scheme -> Project
+    Field -> Project
+    Scheme -> Embed
+
+    Partition -> Mem
+    Route -> Logic
+    Project -> Paths
+    Embed -> ID
+
+    Mem -> Logic [style=dashed, dir=none]
+    Logic -> Paths [style=dashed, dir=none]
+    Paths -> Mem [style=dashed, dir=none]
+}
+""")
+```
 
 ## Self‑Adaptive Systems
 
