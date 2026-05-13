@@ -45,11 +45,7 @@ def _clean_dot_text(text):
 
 
 _FONT_DOT = "sans-serif"  # Graphviz layout font (available everywhere)
-_WEB_FONT_STACK = (
-    "-apple-system, BlinkMacSystemFont, "
-    "'Helvetica Neue', Helvetica, Arial, "
-    "'DejaVu Sans', sans-serif"
-)
+_BODY_FONT = "sans-serif"  # matches Quarto body font family
 
 
 def _normalise_dot_font(code: str) -> str:
@@ -85,7 +81,7 @@ def _render_svg(code: str, h: str = "") -> str:
     # Strip Graphviz's hardcoded font-family from every text element
     svg_str = re.sub(r'\bfont-family="[^"]*"', "", svg_str)
     # Inject CSS (right after opening <svg ...> tag)
-    style_tag = "<style>text { font-family: " + _WEB_FONT_STACK + "; }</style>"
+    style_tag = "<style>text { font-family: " + _BODY_FONT + "; }</style>"
     if h:
         svg_str = re.sub(
             r"<svg ", '<svg style="height:' + h + '; width:auto;" ', svg_str
