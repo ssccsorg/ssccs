@@ -1,12 +1,12 @@
 ---
-title: "Large-Scale Document Automation Platform"
+title: "SSCCS's Large-Scale Document Build System"
 subtitle: "Static site management at scale"
 date: last-modified
 metadata-files:
   - ../_include/author.yml
 abstract: |
   A technical account of the document automation infrastructure underlying the
-  SSCCS documentation suite.  The platform manages a growing corpus of
+  SSCCS documentation suite. The platform manages a growing corpus of
   technical documents through a multi-layered pipeline combining static-site
   generation with custom build orchestration, automated structural validation,
   and intelligent content management.  This report describes the architecture
@@ -397,10 +397,10 @@ digraph DualParallel {
 ### Commutative Merge
 
 The merge function that combines outputs is **commutative**: merging in any
-order produces the same result.  This property eliminates the need for
+order produces the same result. This property eliminates the need for
 distributed coordination -- no locks, no consensus, no shared state, no leader
-election.  Machines can complete in any order, including with partial
-failures.  If a machine fails, its targets are simply missing from the output;
+election. Machines can complete in any order, including with partial
+failures. If a machine fails, its targets are simply missing from the output;
 rerun them and merge again.
 
 Partial outputs to the merge point move through any transport layer -- shared
@@ -452,7 +452,7 @@ the same deployment pipeline.
 
 The platform demonstrates that static-site management at scale is achievable
 through a layered automation architecture combining structural validation with
-dual-parallel build execution.  The key insight is not any individual tool or
+dual-parallel build execution. The key insight is not any individual tool or
 technique but the composition of idempotent passes that collectively guarantee
 integrity regardless of corpus size.
 
