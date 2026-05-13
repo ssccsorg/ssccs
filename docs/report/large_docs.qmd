@@ -49,7 +49,77 @@ manual review processes.
 ## Architectural Principles
 
 The platform rests on three architectural principles that together enable
-management at scale:
+management at scale. The diagram below previews the two-level parallelism
+that underlies the build architecture; the sections that follow detail each
+principle in turn.
+
+```{python}
+#| label: fig-dual-parallel
+#| fig-cap: "Two-level hierarchy: logical parallelism within each unit, physical parallelism across units, unified by recursive merge"
+dot("""
+digraph DualParallel {
+    rankdir=TB;
+    splines=ortho;
+    node [shape=box, style=rounded, fontsize=9];
+    edge [fontsize=8];
+
+    Corpus [label="Document Corpus\nN documents, T targets", fillcolor="#E8F4F8", style=filled, width=2.5];
+
+    subgraph cluster_physical {
+        label="Physical Layer: Machine Boundary";
+        style=dashed;
+        color="#888888";
+        fontsize=11;
+
+        subgraph cluster_m1 {
+            label="Machine 1";
+            style=filled;
+            fillcolor="#E8F4F8";
+            color="#2B7A9E";
+            fontsize=10;
+            M1_T1 [label="A", fillcolor="#FFFFFF", style=filled, width=0.5];
+            M1_T2 [label="B", fillcolor="#FFFFFF", style=filled, width=0.5];
+            M1_T3 [label="C", fillcolor="#FFFFFF", style=filled, width=0.5];
+            M1_M [label="\u2193", shape=plaintext];
+            M1_T1 -> M1_M; M1_T2 -> M1_M; M1_T3 -> M1_M;
+        }
+
+        subgraph cluster_m2 {
+            label="Machine 2";
+            style=filled;
+            fillcolor="#E6F0E6";
+            color="#3A7D44";
+            fontsize=10;
+            M2_T1 [label="D", fillcolor="#FFFFFF", style=filled, width=0.5];
+            M2_T2 [label="E", fillcolor="#FFFFFF", style=filled, width=0.5];
+            M2_M [label="\u2193", shape=plaintext];
+            M2_T1 -> M2_M; M2_T2 -> M2_M;
+        }
+
+        subgraph cluster_m3 {
+            label="Machine N";
+            style=filled;
+            fillcolor="#FFF4E6";
+            color="#DAA520";
+            fontsize=10;
+            M3_T1 [label="F", fillcolor="#FFFFFF", style=filled, width=0.5];
+            M3_T2 [label="G", fillcolor="#FFFFFF", style=filled, width=0.5];
+            M3_T3 [label="H", fillcolor="#FFFFFF", style=filled, width=0.5];
+            M3_M [label="\u2193", shape=plaintext];
+            M3_T1 -> M3_M; M3_T2 -> M3_M; M3_T3 -> M3_M;
+        }
+    }
+
+    Merge [label="Global Merge\n(commutative)", fillcolor="#E8F8E8", style=filled, width=2.0];
+
+    Corpus -> M1_T1; Corpus -> M1_T2; Corpus -> M1_T3;
+    Corpus -> M2_T1; Corpus -> M2_T2;
+    Corpus -> M3_T1; Corpus -> M3_T2; Corpus -> M3_T3;
+
+    M1_M -> Merge; M2_M -> Merge; M3_M -> Merge;
+}
+""")
+```
 
 ### Principle 1: Idempotent Pre-Build Validation
 
@@ -324,75 +394,9 @@ workflow self-documenting and reproducible.
 
 The same partitioning that enables logical parallelism within a machine
 extends naturally to physical distribution across machines, with zero
-additional coordination.
-
-```{python}
-#| label: fig-dual-parallel
-#| fig-cap: "Two-level hierarchy: logical parallelism within each unit, physical parallelism across units, unified by recursive merge"
-dot("""
-digraph DualParallel {
-    rankdir=TB;
-    splines=ortho;
-    node [shape=box, style=rounded, fontsize=9];
-    edge [fontsize=8];
-
-    Corpus [label="Document Corpus\nN documents, T targets", fillcolor="#E8F4F8", style=filled, width=2.5];
-
-    subgraph cluster_physical {
-        label="Physical Layer: Machine Boundary";
-        style=dashed;
-        color="#888888";
-        fontsize=11;
-
-        subgraph cluster_m1 {
-            label="Machine 1";
-            style=filled;
-            fillcolor="#E8F4F8";
-            color="#2B7A9E";
-            fontsize=10;
-            M1_T1 [label="A", fillcolor="#FFFFFF", style=filled, width=0.5];
-            M1_T2 [label="B", fillcolor="#FFFFFF", style=filled, width=0.5];
-            M1_T3 [label="C", fillcolor="#FFFFFF", style=filled, width=0.5];
-            M1_M [label="\u2193", shape=plaintext];
-            M1_T1 -> M1_M; M1_T2 -> M1_M; M1_T3 -> M1_M;
-        }
-
-        subgraph cluster_m2 {
-            label="Machine 2";
-            style=filled;
-            fillcolor="#E6F0E6";
-            color="#3A7D44";
-            fontsize=10;
-            M2_T1 [label="D", fillcolor="#FFFFFF", style=filled, width=0.5];
-            M2_T2 [label="E", fillcolor="#FFFFFF", style=filled, width=0.5];
-            M2_M [label="\u2193", shape=plaintext];
-            M2_T1 -> M2_M; M2_T2 -> M2_M;
-        }
-
-        subgraph cluster_m3 {
-            label="Machine N";
-            style=filled;
-            fillcolor="#FFF4E6";
-            color="#DAA520";
-            fontsize=10;
-            M3_T1 [label="F", fillcolor="#FFFFFF", style=filled, width=0.5];
-            M3_T2 [label="G", fillcolor="#FFFFFF", style=filled, width=0.5];
-            M3_T3 [label="H", fillcolor="#FFFFFF", style=filled, width=0.5];
-            M3_M [label="\u2193", shape=plaintext];
-            M3_T1 -> M3_M; M3_T2 -> M3_M; M3_T3 -> M3_M;
-        }
-    }
-
-    Merge [label="Global Merge\n(commutative)", fillcolor="#E8F8E8", style=filled, width=2.0];
-
-    Corpus -> M1_T1; Corpus -> M1_T2; Corpus -> M1_T3;
-    Corpus -> M2_T1; Corpus -> M2_T2;
-    Corpus -> M3_T1; Corpus -> M3_T2; Corpus -> M3_T3;
-
-    M1_M -> Merge; M2_M -> Merge; M3_M -> Merge;
-}
-""")
-```
+additional coordination. The architectural diagram at the start of this
+section previewed the two-level hierarchy; the following subsections detail
+the merge semantics, failure model, and deployment topologies.
 
 ### Commutative Merge
 
