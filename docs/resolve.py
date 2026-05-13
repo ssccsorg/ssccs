@@ -690,6 +690,17 @@ class IncludeResolver(_BaseResolver):
         r"\{\{<\s*include\s+[^>]*_title_meta_items\.qmd\s*>\}\}"
     )
 
+    @staticmethod
+    def _is_beamer_only(text: str) -> bool:
+        """Return True if the file declares beamer format without html."""
+        fm_data, _ = _BaseResolver._parse_frontmatter(text)
+        if not fm_data or not isinstance(fm_data, dict):
+            return False
+        fmt = fm_data.get("format", {})
+        if isinstance(fmt, dict):
+            return "beamer" in fmt and "html" not in fmt
+        return False
+
     # ------------------------------------------------------------------
     # Fix a single file
     # ------------------------------------------------------------------
@@ -702,6 +713,28 @@ class IncludeResolver(_BaseResolver):
         try:
             text = file_path.read_text(encoding="utf-8")
         except Exception:
+            return 0
+
+        # Beamer-only documents have no HTML output — no header needed.
+        # Remove any existing include so it won't render in beamer PDFs.
+        if self._is_beamer_only(text):
+            m = self.RE_INCLUDE.search(text)
+            if m:
+                # Remove the include directive (and trailing newlines)
+                new_text = self.RE_INCLUDE.sub("", text, count=1).strip()
+                rel_display = file_path.relative_to(root)
+                if dry_run:
+                    print(f"\n[{rel_display}]")
+                    print(f"  - {m.group(0)}")
+                    print(f"  + (removed — beamer-only)")
+                else:
+                    try:
+                        file_path.write_text(new_text, encoding="utf-8")
+                    except Exception as e:
+                        print(f"  ERROR writing {rel_display}: {e}", file=sys.stderr)
+                        return 0
+                    print(f"  {rel_display}: removed {{< include ... >}} (beamer-only)")
+                return 1
             return 0
 
         # Compute correct relative path from file to _include/_title_meta_items.qmd

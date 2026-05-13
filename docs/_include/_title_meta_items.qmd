@@ -33,7 +33,7 @@ def _extract_format_keys(fmt_block: dict) -> set[str]:
 
 
 def _auto_other_formats(doc_stem: str, current_fmt: str, declared_formats: set[str], site_url: str = "") -> list[dict]:
-    if current_fmt == "html" and ("pdf" in declared_formats or "beamer" in declared_formats):
+    if current_fmt == "html" and "pdf" in declared_formats:
         pdf_link = f"{site_url}/{doc_stem}.pdf" if site_url else f"/{doc_stem}.pdf"
         return [
             {
@@ -43,7 +43,7 @@ def _auto_other_formats(doc_stem: str, current_fmt: str, declared_formats: set[s
                 "content_class": "bi bi-file-pdf",
             }
         ]
-    if current_fmt == "pdf" and "pdf" in declared_formats and "beamer" not in declared_formats:
+    if current_fmt == "pdf":
         html_link = f"{site_url}/{doc_stem}.html" if site_url else f"/{doc_stem}.html"
         return [
             {
