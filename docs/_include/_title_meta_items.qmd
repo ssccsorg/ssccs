@@ -32,21 +32,23 @@ def _extract_format_keys(fmt_block: dict) -> set[str]:
     return {k for k in FORMAT_KEYS if k in fmt_block}
 
 
-def _auto_other_formats(doc_stem: str, current_fmt: str, declared_formats: set[str]) -> list[dict]:
+def _auto_other_formats(doc_stem: str, current_fmt: str, declared_formats: set[str], site_url: str = "") -> list[dict]:
     if current_fmt == "html" and "pdf" in declared_formats:
+        pdf_link = f"{site_url}/{doc_stem}.pdf" if site_url else f"/{doc_stem}.pdf"
         return [
             {
                 "title": "Other Formats",
-                "link": f"/{doc_stem}.pdf",
+                "link": pdf_link,
                 "content": "PDF",
                 "content_class": "bi bi-file-pdf",
             }
         ]
     if current_fmt == "pdf":
+        html_link = f"{site_url}/{doc_stem}.html" if site_url else f"https://docs.ssccs.org/{doc_stem}.html"
         return [
             {
                 "title": "Other Formats",
-                "link": f"https://docs.ssccs.org/{doc_stem}.html",
+                "link": html_link,
                 "content": "HTML",
             }
         ]
@@ -145,7 +147,7 @@ def _build_title_meta_items(qmd_path: Path) -> dict:
                 entry["content_class"] = item["icon"]
             items.append(entry)
         if auto_other and not _has_other_formats(items):
-            items.extend(_auto_other_formats(doc_stem, fmt, declared_formats))
+            items.extend(_auto_other_formats(doc_stem, fmt, declared_formats, site_url))
         if show_llms and fmt == "html":
             llms_link = f"{site_url}/{doc_stem}.llms.md" if site_url else f"/{doc_stem}.llms.md"
             items.append({
