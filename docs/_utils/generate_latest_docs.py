@@ -259,7 +259,7 @@ def get_tracked_doc_files() -> list[tuple[str, str]]:
     Return list of (iso_timestamp, relative_path) for every tracked
     .qmd / .md under docs/, newest first.
 
-    Uses ``git log --diff-filter=AM --name-only --pretty=format:%ai``
+    Uses ``git log -n 2000 --diff-filter=AM --name-only --pretty=format:%ai``
     to collect the timestamp of every commit that added or modified a
     doc file.  Later commits override earlier ones for the same path,
     giving us the *last* modification time of each file.
@@ -273,6 +273,7 @@ def get_tracked_doc_files() -> list[tuple[str, str]]:
         [
             "git",
             "log",
+            "-n", "2000",
             "--diff-filter=AM",
             "--name-only",
             "--pretty=format:%ai",
@@ -392,9 +393,7 @@ def get_creation_dates() -> dict[str, str]:
     """
     Return {rel_path: creation_date} for every current doc file.
 
-    Uses ``git log --follow --diff-filter=A`` per file to trace through
-    renames back to the original Add event, giving the true initial
-    creation date rather than the rename date.
+    Uses ``git log --diff-filter=A`` per file.
     """
     _ensure_git_safe()
     current_paths = _get_current_doc_paths()
@@ -405,7 +404,6 @@ def get_creation_dates() -> dict[str, str]:
             [
                 "git",
                 "log",
-                "--follow",
                 "--diff-filter=A",
                 "--pretty=format:%ai",
                 "--",
