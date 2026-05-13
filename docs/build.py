@@ -2984,7 +2984,6 @@ def build_targets(
                             "-av",
                             "--delete",
                             "--delete-excluded",
-                            "--remove-source-files",
                             "--include=*/",
                             "--include=*.llms.md",
                             "--include=llms.txt",
