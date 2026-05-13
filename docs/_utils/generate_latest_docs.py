@@ -14,8 +14,12 @@ Exclude patterns are kept in sync with build.yml's 'exclude' list.
 """
 
 import fnmatch
+import re
 import subprocess
 import sys
+
+import yaml
+
 from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
@@ -482,6 +486,17 @@ def badge_new() -> str:
     return '<sup style="background:#2c8;color:#fff;font-size:.65em;padding:0 .4em;border-radius:3px;">N</sup>'
 
 
+def _site_path(p: Path, ext: str) -> str:
+    """Build a site-root-absolute path from a relative file path and extension."""
+    stem = p.stem
+    if stem.lower() == "index":
+        parent = str(p.parent)
+        if parent == ".":
+            return f"/index.{ext}"
+        return f"/{parent}/index.{ext}"
+    return f"/{p.with_suffix('.' + ext)}"
+
+
 def doc_to_html(rel_path: str, docs_root: Path = DOCS_ROOT) -> str:
     """Map a .qmd/.md relative path to its absolute site path.
 
@@ -489,41 +504,22 @@ def doc_to_html(rel_path: str, docs_root: Path = DOCS_ROOT) -> str:
     the PDF output instead, since no HTML output is generated.
     """
     p = Path(rel_path)
-    stem = p.stem
     abs_path = docs_root / rel_path
-    # Detect beamer-only documents
     if abs_path.suffix == ".qmd":
         try:
             text = abs_path.read_text(encoding="utf-8", errors="ignore")
-            import re
             fm = re.match(r"^---\s*\n(.*?)\n---", text, re.DOTALL)
             if fm:
-                import yaml
                 front = yaml.safe_load(fm.group(1)) or {}
                 fmt = front.get("format", {})
                 if isinstance(fmt, dict):
-                    has_html = "html" in fmt
-                    has_beamer = "beamer" in fmt
-                    if has_beamer and not has_html:
-                        # Beamer-only: link to PDF
-                        if stem.lower() == "index":
-                            parent = str(p.parent)
-                            if parent == ".":
-                                return "/index.pdf"
-                            return f"/{parent}/index.pdf"
-                        else:
-                            return f"/{p.with_suffix('.pdf')}"
+                    if "beamer" in fmt and "html" not in fmt:
+                        return _site_path(p, "pdf")
         except Exception:
             # Best-effort parse only: on read/front-matter parse errors,
             # fall back to the default HTML path mapping below.
             pass
-    if stem.lower() == "index":
-        parent = str(p.parent)
-        if parent == ".":
-            return "/index.html"
-        return f"/{parent}/index.html"
-    else:
-        return f"/{p.with_suffix('.html')}"
+    return _site_path(p, "html")
 
 
 def main() -> None:
