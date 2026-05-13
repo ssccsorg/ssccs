@@ -787,6 +787,74 @@ class PreBuildRunner:
 
 
 # ---------------------------------------------------------------------------
+# PostRenderRunner — post-render command execution
+# ---------------------------------------------------------------------------
+
+
+class PostRenderRunner:
+    """
+    Executes post-render commands from external configuration.
+    Mirrors PreBuildRunner but runs after all targets have been rendered and merged.
+    """
+
+    @staticmethod
+    def run(external_config: Dict[str, Any], docs_root: Path, target_name: Optional[str] = None) -> None:
+        post_render_section = external_config.get("post_render", [])
+        if not post_render_section:
+            return
+        if isinstance(post_render_section, list):
+            global_commands = post_render_section
+            target_commands: Dict[str, Any] = {}
+        elif isinstance(post_render_section, dict):
+            global_commands = post_render_section.get("_global", [])
+            target_commands = {k: v for k, v in post_render_section.items() if k != "_global"}
+        else:
+            logger.warning(f"Invalid post_render format: expected list or dict, got {type(post_render_section).__name__}")
+            return
+        commands_to_run: List[List[str]] = []
+        if target_name is None:
+            commands_to_run.extend(global_commands)
+        elif target_name in target_commands:
+            target_cmds = target_commands[target_name]
+            if isinstance(target_cmds, list):
+                if target_cmds and isinstance(target_cmds[0], list):
+                    commands_to_run.extend(target_cmds)
+                else:
+                    commands_to_run.append(target_cmds)
+            elif isinstance(target_cmds, str):
+                commands_to_run.append(target_cmds.split())
+            else:
+                logger.warning(f"Invalid post_render entry for target '{target_name}': {target_cmds}, skipping.")
+        if not commands_to_run:
+            return
+        if target_name:
+            logger.info(f"Running {len(commands_to_run)} post-render command(s) for target '{target_name}'...")
+        else:
+            logger.info(f"Running {len(commands_to_run)} global post-render command(s)...")
+        for cmd in commands_to_run:
+            if not cmd or not isinstance(cmd, list):
+                logger.warning(f"Invalid post_render entry: {cmd}, skipping.")
+                continue
+            executable = cmd[0]
+            if not shutil.which(executable):
+                logger.info(f"Post-render: '{executable}' not found in PATH, skipping.")
+                continue
+            logger.info(f"Post-render: running {' '.join(cmd)}")
+            try:
+                result = subprocess.run(cmd, cwd=docs_root, capture_output=True, text=True)
+                if result.stdout:
+                    logger.debug(result.stdout.strip())
+                if result.stderr:
+                    logger.warning(result.stderr.strip())
+                if result.returncode != 0:
+                    logger.warning(f"Post-render command '{executable}' failed with exit code {result.returncode}, continuing...")
+                else:
+                    logger.info(f"Post-render command '{executable}' succeeded.")
+            except Exception as e:
+                logger.warning(f"Post-render command '{executable}' raised an exception: {e}, continuing...")
+
+
+# ---------------------------------------------------------------------------
 # CLI — command-line interface entry point
 # ---------------------------------------------------------------------------
 
@@ -2943,6 +3011,10 @@ def build_targets(
                         except Exception as e:
                             logger.error(f"Failed to run rsync: {e}")
 
+            # Execute global post-render commands (e.g., generate hierarchical llms.txt)
+            # Runs after rsync populates _llms with .llms.md files.
+            run_post_render_commands(EXTERNAL_CONFIG, DOCS_ROOT)
+
             return True
 
         finally:
@@ -2997,6 +3069,10 @@ def build_targets(
         return False
 
     logger.info(f"All targets completed successfully: {list(results.keys())}")
+
+    # Execute global post-render commands (e.g., generate hierarchical llms.txt)
+    run_post_render_commands(EXTERNAL_CONFIG, DOCS_ROOT)
+
     return True
 
 
@@ -3006,6 +3082,14 @@ def run_pre_build_commands(
     target_name: Optional[str] = None,
 ) -> None:
     PreBuildRunner.run(external_config, docs_root, target_name)
+
+
+def run_post_render_commands(
+    external_config: Dict[str, Any],
+    docs_root: Path,
+    target_name: Optional[str] = None,
+) -> None:
+    PostRenderRunner.run(external_config, docs_root, target_name)
 
 
 def main() -> None:
