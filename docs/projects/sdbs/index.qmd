@@ -1,12 +1,12 @@
 ---
-title: "SSCCS's Large-Scale Document Build System"
+title: "SDBS: SSCCS Document Build System"
 subtitle: "Static site management at scale"
 date: last-modified
 metadata-files:
-  - ../_include/author.yml
+  - ../../_include/author.yml
 abstract: |
-  A technical account of the document automation infrastructure underlying the
-  SSCCS documentation suite. The platform manages a growing corpus of
+  A technical account of the document build infrastructure underlying the
+  SSCCS documentation suite.  The system manages a growing corpus of
   technical documents through a multi-layered pipeline combining static-site
   generation with custom build orchestration, automated structural validation,
   and intelligent content management.  This report describes the architecture
@@ -14,12 +14,12 @@ abstract: |
   of document count at any scale.
 ---
 
-{{< include ../_include/_title_meta_items.qmd >}}
+{{< include ../../_include/_title_meta_items.qmd >}}
 
 ```{python}
 #| include: false
 #| context: local
-%run ../_include/_graphviz.py
+%run ../../_include/_graphviz.py
 ```
 
 ## The Scale Problem
@@ -42,13 +42,13 @@ well-understood failure modes:
 - **Cross-reference decay**: references between documents become stale without
   centralized validation
 
-The platform described here was designed to make these failure modes
+The build system described here was designed to make these failure modes
 **structurally impossible** rather than depending on human discipline or
 manual review processes.
 
 ## Architectural Principles
 
-The platform rests on three architectural principles that together enable
+The build system rests on three architectural principles that together enable
 management at scale. The diagram below previews the two-level parallelism
 that underlies the build architecture; the sections that follow detail each
 principle in turn.
@@ -441,7 +441,7 @@ the same deployment pipeline.
 
 ## Comparison with Conventional Approaches
 
-| Concern | Conventional approach | This platform |
+| Concern | Conventional approach | This build system |
 |---|---|---|
 | Link validation | Manual or external CI checker | Pre-build automated scan, sub-second |
 | Include management | Manual copy-paste | Automatic insertion of missing includes |
@@ -454,7 +454,7 @@ the same deployment pipeline.
 
 ## Conclusion
 
-The platform demonstrates that static-site management at scale is achievable
+The build system demonstrates that static-site management at scale is achievable
 through a layered automation architecture combining structural validation with
 dual-parallel build execution. The key insight is not any individual tool or
 technique but the composition of idempotent passes that collectively guarantee
