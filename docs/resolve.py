@@ -29,24 +29,22 @@ from typing import Dict, List, Optional, Set, Tuple
 
 
 # ======================================================================
-# PathResolver — fix broken ../ relative asset paths
+# _BaseResolver — shared foundation for all resolvers
 # ======================================================================
-class PathResolver:
-    """Detect and correct ``../`` relative asset paths that broke after a
-    ``.qmd`` file was moved.
+class _BaseResolver:
+    """Shared foundation for all resolvers.
 
-    Covers:
-    * YAML frontmatter: ``metadata-files``, ``bibliography``, ``csl``
-    * Jupyter ``%run`` directives inside code cells
+    Provides build.yml inheritance, file discovery, path resolution, and
+    parallel execution scaffolding.  Subclasses set ``SOURCE_EXTENSIONS``
+    and control whether build.yml exclude patterns apply via
+    ``_APPLY_BUILD_YML_EXCLUDE``.
     """
 
-    # Filesystem-level ignores (VCS, tooling — not configurable in build.yml)
     SYSTEM_IGNORED_DIRS: Set[str] = {
         ".venv", ".git", ".quarto", "node_modules", "__pycache__", ".*",
     }
-    SOURCE_EXTENSIONS: Set[str] = {".qmd"}
-    PATH_KEYS: Set[str] = {"metadata-files", "bibliography", "csl"}
-    RE_RUN = re.compile(r"^\s*%run\s+([^\s#]+)", re.MULTILINE)
+    SOURCE_EXTENSIONS: Set[str] = set()  # subclasses MUST set this
+    _APPLY_BUILD_YML_EXCLUDE: bool = True
 
     # ------------------------------------------------------------------
     # build.yml helpers
@@ -65,12 +63,14 @@ class PathResolver:
 
     @staticmethod
     def _load_exclude_patterns(root: Path) -> List[str]:
-        cfg = PathResolver._load_build_yml(root)
+        cfg = _BaseResolver._load_build_yml(root)
         patterns = cfg.get("exclude", [])
         return patterns if isinstance(patterns, list) else []
 
     @staticmethod
-    def _matches_gitignore_pattern(rel_path: Path, patterns: List[str]) -> bool:
+    def _matches_gitignore_pattern(
+        rel_path: Path, patterns: List[str]
+    ) -> bool:
         """Mirrors ``build.py:matches_gitignore_pattern``."""
         path_str = str(rel_path).replace("\\", "/")
         name = rel_path.name
@@ -85,7 +85,8 @@ class PathResolver:
                 for i in range(len(parts) - 1):
                     part = parts[i]
                     if fnmatch.fnmatch(part, pattern) or fnmatch.fnmatch(
-                        parts[i], pattern.split("/")[-1] if "/" in pattern else pattern
+                        parts[i],
+                        pattern.split("/")[-1] if "/" in pattern else pattern,
                     ):
                         return True
                 continue
@@ -108,15 +109,17 @@ class PathResolver:
         return False
 
     # ------------------------------------------------------------------
-    # File discovery
+    # File filtering and discovery
     # ------------------------------------------------------------------
-    def _is_ignored(self, file_path: Path, root: Path, exclude_patterns: List[str]) -> bool:
+    def _is_ignored(
+        self, file_path: Path, root: Path, exclude_patterns: List[str]
+    ) -> bool:
         parts = file_path.relative_to(root).parts
         for part in parts:
             for pattern in self.SYSTEM_IGNORED_DIRS:
                 if fnmatch.fnmatch(part, pattern):
                     return True
-        if exclude_patterns:
+        if self._APPLY_BUILD_YML_EXCLUDE and exclude_patterns:
             return self._matches_gitignore_pattern(
                 file_path.relative_to(root), exclude_patterns
             )
@@ -126,13 +129,14 @@ class PathResolver:
         self, root: Path, scan_root: Path, exclude_patterns: List[str]
     ) -> List[Path]:
         return sorted(
-            p for p in scan_root.rglob("*")
+            p
+            for p in scan_root.rglob("*")
             if p.suffix in self.SOURCE_EXTENSIONS
             and not self._is_ignored(p, root, exclude_patterns)
         )
 
     # ------------------------------------------------------------------
-    # Path extraction helpers
+    # Path helpers
     # ------------------------------------------------------------------
     @staticmethod
     def _is_url_or_absolute(val: str) -> bool:
@@ -153,20 +157,16 @@ class PathResolver:
             return None, 0
 
     @staticmethod
-    def _search_upward(start_dir: Path, rel: str, root: Path) -> Optional[Path]:
-        # Decompose the broken path into the actual target (strip leading ..)
-        # so we can search for it within root boundaries.
+    def _search_upward(
+        start_dir: Path, rel: str, root: Path
+    ) -> Optional[Path]:
         rel_path = Path(rel)
         parts = rel_path.parts
-        # Find the first non-.. component and build the actual target.
-        # For "../../../_include/_graphviz.py", target = "_include/_graphviz.py".
-        # For "_include/author.yml", target = "_include/author.yml".
         for i, part in enumerate(parts):
             if part != "..":
                 target = Path(*parts[i:])
                 break
         else:
-            # No target component — all are ".." — nothing to search for.
             return None
 
         cur = start_dir
@@ -192,6 +192,86 @@ class PathResolver:
         down = "/".join(to_parts[i:])
         prefix = "../" * up if up > 0 else "./"
         return f"{prefix}{down}" if down else prefix.rstrip("/")
+
+    # ------------------------------------------------------------------
+    # Parallel execution scaffolding
+    # ------------------------------------------------------------------
+    def _run_fix_all(
+        self,
+        root: Path,
+        scan_root: Path,
+        dry_run: bool,
+        verbose: bool,
+        label: str,
+    ) -> Tuple[int, int]:
+        exclude_patterns = self._load_exclude_patterns(root)
+        files = self.discover_files(root, scan_root, exclude_patterns)
+
+        if not files:
+            return 0, 0
+
+        mode = "DRY-RUN" if dry_run else "FIXING"
+        print(f"{label} ({mode}) - {len(files)} file(s)\n")
+
+        total_fixes = 0
+        processed = 0
+
+        if len(files) <= 1:
+            for fp in files:
+                n = self.fix_one_file(fp, root, dry_run, verbose)
+                if n:
+                    total_fixes += n
+                processed += 1
+        else:
+            with ThreadPoolExecutor() as ex:
+                futures = {
+                    ex.submit(
+                        self.fix_one_file, fp, root, dry_run, verbose
+                    ): fp
+                    for fp in files
+                }
+                for fut in as_completed(futures):
+                    fp = futures[fut]
+                    try:
+                        n = fut.result()
+                    except Exception as e:
+                        print(
+                            f"  ERROR processing {fp.relative_to(root)}: {e}",
+                            file=sys.stderr,
+                        )
+                        n = 0
+                    if n:
+                        total_fixes += n
+                    processed += 1
+
+        print(f"{'=' * 60}")
+        print(f"{label}: processed {processed} file(s), fixed {total_fixes} broken path(s)")
+        if dry_run and total_fixes:
+            print("(dry-run -- no files were modified)")
+
+        return processed, total_fixes
+
+
+# ======================================================================
+# PathResolver — fix broken ../ relative asset paths
+# ======================================================================
+class PathResolver(_BaseResolver):
+    """Detect and correct ``../`` relative asset paths that broke after a
+    ``.qmd`` file was moved.
+
+    Covers:
+    * YAML frontmatter: ``metadata-files``, ``bibliography``, ``csl``
+    * Jupyter ``%run`` directives inside code cells
+
+    Inherits build.yml exclusion rules as-is: files like ``README.md``
+    that are excluded from the build are also excluded from asset-path
+    scanning (they contain no ``%run`` directives).
+    """
+
+    _APPLY_BUILD_YML_EXCLUDE = True
+    SOURCE_EXTENSIONS: Set[str] = {".qmd"}
+    PATH_KEYS: Set[str] = {"metadata-files", "bibliography", "csl"}
+    RE_RUN = re.compile(r"^\s*%run\s+([^\s#]+)", re.MULTILINE)
 
     # ------------------------------------------------------------------
     # Extract relative paths from a single file
@@ -349,14 +429,249 @@ class PathResolver:
 
 
 # ======================================================================
+# LinkResolver — fix broken internal markdown links
+# ======================================================================
+class LinkResolver(_BaseResolver):
+    """Detect and correct broken internal markdown links in .qmd and .md
+    files.
+
+    Handles links such as ``[text](/docs/file.md)`` where the target file
+    has been moved to a different location (e.g., ``direction.md``
+    became ``direction/index.md``).
+
+    Extends build.yml exclusion rules: unlike ``PathResolver``, this
+    resolver scans ``.md`` files too (including ``README.md``) because
+    they contain markdown links that need checking.
+    """
+
+    _APPLY_BUILD_YML_EXCLUDE = False
+    SOURCE_EXTENSIONS: Set[str] = {".qmd", ".md"}
+
+    # Match [text](path), [text](<path>), [text](path "title"),
+    # [text](path 'title')
+    RE_LINK = re.compile(r'\[([^\]]*)\]\(([^)]+)\)')
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _clean_url(raw: str) -> str:
+        """Extract the bare file path from a markdown link URL, stripping
+        ``<>`` angle brackets and trailing ``"title"`` / ``'title'``."""
+        url = raw.strip()
+        if url.startswith("<") and ">" in url:
+            url = url[1:url.index(">")]
+        for q in ('"', "'"):
+            idx = url.find(q)
+            if idx > 0 and url.rstrip().endswith(q):
+                url = url[:idx].rstrip()
+        return url.strip()
+
+    @staticmethod
+    def _skip_link(url: str) -> bool:
+        return bool(
+            url.startswith(("http://", "https://", "mailto:", "#", "data:"))
+        )
+
+    @staticmethod
+    def _try_migration(base_dir: Path, rel: str) -> Optional[Path]:
+        """Check the ``<stem>/index.<ext>`` migration pattern.
+
+        When ``direction.md`` no longer exists but ``direction/index.md``
+        does, this method finds it.
+        """
+        p = Path(rel)
+        stem = p.stem
+        ext = p.suffix
+        if ext not in (".md", ".qmd"):
+            return None
+        candidate = (base_dir / stem / f"index{ext}").resolve()
+        if candidate.exists():
+            return candidate
+        alt_ext = ".qmd" if ext == ".md" else ".md"
+        candidate = (base_dir / stem / f"index{alt_ext}").resolve()
+        if candidate.exists():
+            return candidate
+        return None
+
+    # ------------------------------------------------------------------
+    # Extract markdown links from a single file
+    # ------------------------------------------------------------------
+    def _extract_links(
+        self, file_path: Path
+    ) -> List[Tuple[str, int, int]]:
+        results: List[Tuple[str, int, int]] = []
+        try:
+            text = file_path.read_text(encoding="utf-8")
+        except Exception:
+            return results
+
+        for m in self.RE_LINK.finditer(text):
+            raw_url = m.group(2)
+            url = self._clean_url(raw_url)
+            if not url or self._skip_link(url):
+                continue
+            if not url.endswith((".md", ".qmd")):
+                continue
+            results.append((url, m.start(2), m.end(2)))
+
+        return results
+
+    # ------------------------------------------------------------------
+    # Resolve a single link to an existing target
+    # ------------------------------------------------------------------
+    def _resolve_link(
+        self, link_path: str, file_dir: Path, root: Path
+    ) -> Optional[Tuple[Path, str]]:
+        """Try to resolve ``link_path`` to a real file on disk.
+
+        Returns ``(found_abs_path, corrected_link_path)`` if the link
+        can be fixed, or ``None`` if it should be left alone.
+        """
+        if link_path.startswith("/"):
+            rel = link_path.lstrip("/")
+            if rel.startswith("docs/"):
+                rel = rel[5:]
+            candidate = (root / rel).resolve()
+            if candidate.exists():
+                return None
+            found = self._try_migration(root, rel)
+            if found is not None:
+                found_rel = found.relative_to(root)
+                new_link = f"/docs/{found_rel}"
+                return found, new_link
+        else:
+            candidate = (file_dir / link_path).resolve()
+            if candidate.exists():
+                return None
+            found = _BaseResolver._search_upward(
+                file_dir, link_path, root
+            )
+            if found is not None:
+                new_rel = _BaseResolver._compute_rel_path(
+                    file_dir, found
+                )
+                return found, new_rel
+            found = self._try_migration(file_dir, link_path)
+            if found is not None:
+                new_rel = _BaseResolver._compute_rel_path(
+                    file_dir, found
+                )
+                return found, new_rel
+
+        return None
+
+    # ------------------------------------------------------------------
+    # Fix a single file
+    # ------------------------------------------------------------------
+    def fix_one_file(
+        self, file_path: Path, root: Path, dry_run: bool, verbose: bool
+    ) -> int:
+        links = self._extract_links(file_path)
+        if not links:
+            return 0
+
+        try:
+            text = file_path.read_text(encoding="utf-8")
+        except Exception:
+            return 0
+
+        doc_dir = file_path.parent
+        fixes: List[Tuple[int, int, str]] = []
+
+        for link_path, start, end in links:
+            result = self._resolve_link(link_path, doc_dir, root)
+            if result is None:
+                continue
+            found, new_link = result
+            if new_link == link_path:
+                continue
+            fixes.append((start, end, new_link))
+
+        if not fixes:
+            return 0
+
+        fixes.sort(key=lambda x: x[0], reverse=True)
+        new_text = text
+        for start, end, new_val in fixes:
+            new_text = new_text[:start] + new_val + new_text[end:]
+
+        rel_display = file_path.relative_to(root)
+        if dry_run:
+            print(f"\n[{rel_display}]")
+            for start, end, new_val in sorted(fixes, key=lambda x: x[0]):
+                print(f"  - {text[start:end]}")
+                print(f"  + {new_val}")
+        else:
+            try:
+                file_path.write_text(new_text, encoding="utf-8")
+            except Exception as e:
+                print(
+                    f"  ERROR writing {rel_display}: {e}", file=sys.stderr
+                )
+                return 0
+            for start, end, new_val in sorted(fixes, key=lambda x: x[0]):
+                print(
+                    f"  {rel_display}: {text[start:end]} -> {new_val}"
+                )
+
+        return len(fixes)
+
+    # ------------------------------------------------------------------
+    # Batch entry point
+    # ------------------------------------------------------------------
+    def resolve_all(
+        self,
+        root: Path,
+        scan_root: Path,
+        dry_run: bool,
+        verbose: bool,
+    ) -> Tuple[int, int]:
+        return self._run_fix_all(
+            root, scan_root, dry_run, verbose, "Resolving broken markdown links"
+        )
+
+
+# ======================================================================
 # CLI
 # ======================================================================
+def _run_check_only(
+    headers: List[str],
+    resolvers: List,
+    root: Path,
+    scan_root: Path,
+    args: argparse.Namespace,
+) -> int:
+    """Check mode: run all resolvers without modifying files and report
+    issues.  Exits with return code 1 if any broken paths are found.
+    """
+    total_broken = 0
+    for name, resolver in zip(headers, resolvers):
+        exclude_patterns = PathResolver._load_exclude_patterns(root)
+        files = resolver.discover_files(root, scan_root, exclude_patterns)
+        if not files:
+            continue
+        for fp in files:
+            n = resolver.fix_one_file(fp, root, dry_run=True, verbose=False)
+            if n:
+                total_broken += n
+    if total_broken:
+        print(f"\n{'=' * 60}")
+        print(f"FOUND {total_broken} BROKEN PATH(S)")
+    else:
+        print("All paths valid.")
+    return 1 if total_broken else 0
+
+
 def main():
     parser = argparse.ArgumentParser(
-        description="Resolve broken ../ relative asset paths in QMD files"
+        description="Resolve broken ../ relative asset paths and markdown links in QMD/MD files"
     )
     parser.add_argument("--dry-run", action="store_true",
                         help="Show what would change without writing files")
+    parser.add_argument("--check", action="store_true",
+                        help="Check-only: report broken paths without modifying;"
+                             " exits 1 if any found")
     parser.add_argument("--verbose", "-v", action="store_true",
                         help="Show every file checked")
     parser.add_argument("--target", type=str, default=None,
@@ -366,32 +681,51 @@ def main():
     args = parser.parse_args()
 
     root = Path(__file__).parent.resolve()
-    resolver = PathResolver()
+    resolvers: List = [PathResolver(), LinkResolver()]
+    headers = ["Asset paths", "Markdown links"]
+
+    if args.check:
+        scan_root = (root / args.target) if args.target else root
+        if args.file:
+            scan_root = (root / args.file).parent
+        sys.exit(
+            _run_check_only(headers, resolvers, root, scan_root, args)
+        )
+
+    if args.dry_run or args.verbose:
+        mode = "DRY-RUN" if args.dry_run else ""
 
     if args.file:
         file_path = (root / args.file).resolve()
         if not file_path.exists():
             print(f"ERROR: {file_path} does not exist", file=sys.stderr)
             sys.exit(1)
-        files = [file_path]
-        exclude_patterns = resolver._load_exclude_patterns(root)
-        if resolver._is_ignored(file_path, root, exclude_patterns):
+        exclude_patterns = PathResolver._load_exclude_patterns(root)
+        if PathResolver()._is_ignored(file_path, root, exclude_patterns):
             print(f"ERROR: {file_path.relative_to(root)} is excluded by build.yml",
                   file=sys.stderr)
             sys.exit(1)
 
-        mode = "DRY-RUN" if args.dry_run else "FIXING"
-        print(f"Resolving ({mode}) — {args.file}\n")
         total_fixes = 0
-        for fp in files:
-            total_fixes += resolver.fix_one_file(fp, root, args.dry_run, args.verbose)
+        for name, resolver in zip(headers, resolvers):
+            mode = "DRY-RUN" if args.dry_run else "FIXING"
+            print(f"{name} ({mode}) -- {args.file}\n")
+            n = resolver.fix_one_file(file_path, root, args.dry_run, args.verbose)
+            total_fixes += n
         print(f"\n{'='*60}")
-        print(f"Fixed {total_fixes} broken path(s)")
+        print(f"Total: {total_fixes} broken path(s)")
         if args.dry_run and total_fixes:
-            print("(dry-run – no files were modified)")
+            print("(dry-run -- no files were modified)")
     else:
         scan_root = (root / args.target) if args.target else root
-        resolver.resolve_all(root, scan_root, args.dry_run, args.verbose)
+        total_proc = 0
+        total_fixes = 0
+        for name, resolver in zip(headers, resolvers):
+            p, f = resolver.resolve_all(root, scan_root, args.dry_run, args.verbose)
+            total_proc += p
+            total_fixes += f
+        print(f"{'='*60}")
+        print(f"Combined: processed {total_proc} file(s), fixed {total_fixes} broken path(s)")
 
 
 if __name__ == "__main__":
