@@ -113,7 +113,7 @@ ACP does not solve every infrastructure problem. It does not manage container li
 Rather than replacing the entire Nexus Layer 3, ACP serves as the **communication backbone** for all agent-LLM interactions. Each agent — whether implemented as a container, a serverless function, or a direct process — communicates with its assigned LLM backend through ACP:
 
 ```{python}
-dot_svg('''
+dot('''
 digraph {
   node [shape=box style=filled];
 
@@ -210,7 +210,7 @@ The KV mapping is updated after each successful write. The Synthesis Agent polls
 The Nexus Planner currently produces a linear sequence of tool calls. With ACP as the communication backbone, the Planner instead produces a **dispatch plan** — a directed graph of agent assignments with dependency edges and LLM backend selection:
 
 ```{python}
-dot_svg('''
+dot('''
 digraph {
   subgraph cluster_linear {
     label="Current: linear sequence";

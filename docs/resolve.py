@@ -685,11 +685,21 @@ class IncludeResolver(_BaseResolver):
     _APPLY_BUILD_YML_EXCLUDE = True
     SOURCE_EXTENSIONS: Set[str] = {".qmd"}
     INCLUDE_FILE = "_include/_title_meta_items.qmd"
-    LOCAL_EXCLUDE = ["index.qmd"]
 
     RE_INCLUDE = re.compile(
         r"\{\{<\s*include\s+[^>]*_title_meta_items\.qmd\s*>\}\}"
     )
+
+    @staticmethod
+    def _is_beamer_only(text: str) -> bool:
+        """Return True if the file declares beamer format without html."""
+        fm_data, _ = _BaseResolver._parse_frontmatter(text)
+        if not fm_data or not isinstance(fm_data, dict):
+            return False
+        fmt = fm_data.get("format", {})
+        if isinstance(fmt, dict):
+            return "beamer" in fmt and "html" not in fmt
+        return False
 
     # ------------------------------------------------------------------
     # Fix a single file
@@ -697,28 +707,72 @@ class IncludeResolver(_BaseResolver):
     def fix_one_file(
         self, file_path: Path, root: Path, dry_run: bool, verbose: bool
     ) -> int:
+        # Only skip root index.qmd, not index.qmd at other levels
+        if file_path.parent == root and file_path.name == "index.qmd":
+            return 0
         try:
             text = file_path.read_text(encoding="utf-8")
         except Exception:
             return 0
 
-        # Already has the include — skip
-        if self.RE_INCLUDE.search(text):
-            return 0
-
-        # Find YAML frontmatter end
-        m = re.match(r"^---\s*\n.*?\n(?:---)\s*\n?", text, re.DOTALL)
-        if not m:
-            # No frontmatter — nothing to insert after
+        # Beamer-only documents have no HTML output — no header needed.
+        # Remove any existing include so it won't render in beamer PDFs.
+        if self._is_beamer_only(text):
+            m = self.RE_INCLUDE.search(text)
+            if m:
+                # Remove the include directive (and trailing newlines)
+                new_text = self.RE_INCLUDE.sub("", text, count=1).strip()
+                rel_display = file_path.relative_to(root)
+                if dry_run:
+                    print(f"\n[{rel_display}]")
+                    print(f"  - {m.group(0)}")
+                    print(f"  + (removed — beamer-only)")
+                else:
+                    try:
+                        file_path.write_text(new_text, encoding="utf-8")
+                    except Exception as e:
+                        print(f"  ERROR writing {rel_display}: {e}", file=sys.stderr)
+                        return 0
+                    print(f"  {rel_display}: removed {{< include ... >}} (beamer-only)")
+                return 1
             return 0
 
         # Compute correct relative path from file to _include/_title_meta_items.qmd
         include_abs = (root / self.INCLUDE_FILE).resolve()
         doc_dir = file_path.parent.resolve()
-        include_rel = self._compute_rel_path(doc_dir, include_abs)
-        directive = f"\n{{{{< include {include_rel} >}}}}\n"
+        correct_rel = self._compute_rel_path(doc_dir, include_abs)
 
-        # Insert after frontmatter's closing ---
+        # Check if include already exists with a possibly wrong path
+        m = self.RE_INCLUDE.search(text)
+        if m:
+            existing = m.group(0)
+            expected = "{{< include " + correct_rel + " >}}"
+            if existing == expected:
+                return 0  # correct path already in place
+            # Replace wrong path with correct one
+            new_text = text[: m.start()] + expected + text[m.end() :]
+            rel_display = file_path.relative_to(root)
+            if dry_run:
+                print(f"\n[{rel_display}]")
+                print(f"  - {existing}")
+                print(f"  + {expected}")
+            else:
+                try:
+                    file_path.write_text(new_text, encoding="utf-8")
+                except Exception as e:
+                    print(
+                        f"  ERROR writing {rel_display}: {e}", file=sys.stderr
+                    )
+                    return 0
+                print(f"  {rel_display}: {existing} -> {expected}")
+            return 1
+
+        # Include does not exist — insert after YAML frontmatter
+        m = re.match(r"^---\s*\n.*?\n(?:---)\s*\n?", text, re.DOTALL)
+        if not m:
+            return 0
+
+        directive = f"\n{{{{< include {correct_rel} >}}}}\n"
         insert_at = m.end()
         new_text = text[:insert_at] + directive + text[insert_at:]
 
@@ -734,7 +788,7 @@ class IncludeResolver(_BaseResolver):
                     f"  ERROR writing {rel_display}: {e}", file=sys.stderr
                 )
                 return 0
-            print(f"  {rel_display}: added {{< include {include_rel} >}}")
+            print(f"  {rel_display}: added {{< include {correct_rel} >}}")
 
         return 1
 
@@ -887,8 +941,8 @@ def main():
     args = parser.parse_args()
 
     root = Path(__file__).parent.resolve()
-    resolvers: List = [PathResolver(), LinkResolver(), IncludeResolver(), DocExtResolver()]
-    headers = ["Asset paths", "Markdown links", "Missing title-meta-items include", "Doc ext .qmd/.md -> .html"]
+    resolvers: List = [LinkResolver(), IncludeResolver(), DocExtResolver(), PathResolver()]
+    headers = ["Markdown links", "Missing title-meta-items include", "Doc ext .qmd/.md -> .html", "Asset paths"]
 
     if args.check:
         scan_root = (root / args.target) if args.target else root

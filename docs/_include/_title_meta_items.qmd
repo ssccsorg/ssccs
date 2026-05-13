@@ -44,7 +44,7 @@ def _auto_other_formats(doc_stem: str, current_fmt: str, declared_formats: set[s
             }
         ]
     if current_fmt == "pdf":
-        html_link = f"{site_url}/{doc_stem}.html" if site_url else f"https://docs.ssccs.org/{doc_stem}.html"
+        html_link = f"{site_url}/{doc_stem}.html" if site_url else f"/{doc_stem}.html"
         return [
             {
                 "title": "Other Formats",
@@ -193,7 +193,7 @@ for title, group_items in grouped.items():
     else:
         html_output += f'    <div class="title-meta-contents title-meta-row">\n'
         for item in group_items:
-            html_output += f'      <a href="{item["link"]}" class="title-meta-content {item.get("content_class", "")}">{" " + item["content"]}</a>\n'
+            html_output += f'      <p class="title-meta-row-item"><a href="{item["link"]}" class="title-meta-content {item.get("content_class", "")}">{" " + item["content"]}</a></p>\n'
         html_output += f'    </div>\n'
     html_output += f'  </div>\n'
 html_output += '</div>'
