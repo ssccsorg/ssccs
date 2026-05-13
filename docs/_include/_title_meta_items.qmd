@@ -158,14 +158,26 @@ title_meta_items = _build_title_meta_items(qmd_path)
 items = title_meta_items['html']
 
 from IPython.display import HTML, display
-html_output = '<div class="title-meta-grid">\n'
-for item in items:
-    html_output += f'''
-    <div class="grid-item">
-        <div class="title-meta-label quarto-title-meta-heading">{item["title"]}</div>
-        <div class="title-meta-label quarto-title-meta-contents"><p><a href="{item["link"]}" class="title-meta-content {item.get("content_class", "")}">{" "+item["content"]}</a></p></div>
-    </div>\n'''
 
+# Group items by title so shared headings (e.g., "Other Formats")
+# appear once with their contents in a flex row.
+grouped: dict = {}
+for item in items:
+    grouped.setdefault(item["title"], []).append(item)
+
+html_output = '<div class="title-meta-grid">\n'
+for title, group_items in grouped.items():
+    html_output += f'  <div class="grid-item">\n'
+    html_output += f'    <div class="title-meta-label quarto-title-meta-heading">{title}</div>\n'
+    if len(group_items) == 1:
+        item = group_items[0]
+        html_output += f'    <div class="title-meta-contents"><p><a href="{item["link"]}" class="title-meta-content {item.get("content_class", "")}">{" " + item["content"]}</a></p></div>\n'
+    else:
+        html_output += f'    <div class="title-meta-contents title-meta-row">\n'
+        for item in group_items:
+            html_output += f'      <a href="{item["link"]}" class="title-meta-content {item.get("content_class", "")}">{" " + item["content"]}</a>\n'
+        html_output += f'    </div>\n'
+    html_output += f'  </div>\n'
 html_output += '</div>'
 display(HTML(html_output))
 ```
@@ -189,6 +201,12 @@ display(HTML(html_output))
 
 .title-meta-content {
   font-size: 0.9em;
+}
+
+.title-meta-row {
+  display: flex;
+  gap: 1.5em;
+  align-items: center;
 }
 </style>
 :::
