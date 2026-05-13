@@ -162,6 +162,42 @@ by changing only the target assignment:
 | Dedicated cluster | Fixed target groups per machine; shared filesystem eliminates transport overhead |
 | Hybrid cloud | Baseline on fixed infrastructure; burst spills to ephemeral cloud instances |
 
+```{python}
+#| label: fig-target-render
+#| fig-cap: "Target-isolated parallel rendering: each target copies the source tree, renders independently, then merges"
+dot("""
+digraph TargetRender {
+    rankdir=LR;
+    splines=ortho;
+    node [shape=box, style=rounded, fontsize=9];
+    edge [fontsize=8];
+
+    Source [label="Source\ntree", fillcolor="#E8F4F8", style=filled];
+
+    subgraph cluster_isolated {
+        label="Physical copies (parallel)";
+        style=filled;
+        fillcolor="#F5F5F5";
+        color="#888888";
+        fontsize=10;
+
+        CopyA [label="Copy A\nrender A/_site/", fillcolor="#FFFFFF", style=filled];
+        CopyB [label="Copy B\nrender B/_site/", fillcolor="#FFFFFF", style=filled];
+        CopyC [label="Copy C\nrender C/_site/", fillcolor="#FFFFFF", style=filled];
+    }
+
+    Merge [label="merge_dirs\n(final _site/)", fillcolor="#E8F8E8", style=filled, width=1.8];
+
+    Source -> CopyA;
+    Source -> CopyB;
+    Source -> CopyC;
+    CopyA -> Merge;
+    CopyB -> Merge;
+    CopyC -> Merge;
+}
+""")
+```
+
 ### Principle 3: Automatic Structural Healing
 
 Common structural defects (broken relative paths, missing includes, incorrect
@@ -261,11 +297,11 @@ modifying global settings.
 
 ## Scaling Properties
 
-The resolver chain operates by scanning file content rather than parsing,
-achieving sub-second completion on corpora of several thousand files. The
-total cost is linear in aggregate file size with extremely small constants,
-independent of the number of render targets or the complexity of the document
-graph.
+The resolver chain operates by scanning file content rather than parsing.
+Total scan cost grows linearly with aggregate file size with small constants,
+independent of the number of render targets or the document graph
+complexity.  A full pass over the current corpus completes in under four
+seconds.
 
 Build time is determined by the number of render targets, not the number of
 documents:
@@ -425,7 +461,7 @@ workflow self-documenting and reproducible.
 
 | Concern | Conventional approach | This build system |
 |---|---|---|
-| Link validation | Manual or external CI checker | Pre-build automated scan, sub-second |
+| Link validation | Manual or external CI checker | Pre-build automated scan, exits 1 on any defect |
 | Include management | Manual copy-paste | Automatic insertion of missing includes |
 | Format navigation | Hand-written links per document | Auto-generated from configuration |
 | Build scaling | Sequential per document | Target-parallel, O(targets) not O(documents) |
