@@ -154,9 +154,24 @@ class PathResolver:
 
     @staticmethod
     def _search_upward(start_dir: Path, rel: str, root: Path) -> Optional[Path]:
+        # Decompose the broken path into the actual target (strip leading ..)
+        # so we can search for it within root boundaries.
+        rel_path = Path(rel)
+        parts = rel_path.parts
+        # Find the first non-.. component and build the actual target.
+        # For "../../../_include/_graphviz.py", target = "_include/_graphviz.py".
+        # For "_include/author.yml", target = "_include/author.yml".
+        for i, part in enumerate(parts):
+            if part != "..":
+                target = Path(*parts[i:])
+                break
+        else:
+            # No target component — all are ".." — nothing to search for.
+            return None
+
         cur = start_dir
         while cur >= root:
-            candidate = (cur / rel).resolve()
+            candidate = (cur / target).resolve()
             if candidate.exists():
                 return candidate
             if cur == root:
