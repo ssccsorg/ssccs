@@ -683,6 +683,7 @@ class IncludeResolver(_BaseResolver):
     _APPLY_BUILD_YML_EXCLUDE = True
     SOURCE_EXTENSIONS: Set[str] = {".qmd"}
     INCLUDE_FILE = "_include/_title_meta_items.qmd"
+    LOCAL_EXCLUDE = ["index.qmd"]
 
     RE_INCLUDE = re.compile(
         r"\{\{<\s*include\s+[^>]*_title_meta_items\.qmd\s*>\}\}"
@@ -768,7 +769,6 @@ class DocExtResolver(_BaseResolver):
 
     _APPLY_BUILD_YML_EXCLUDE = True
     SOURCE_EXTENSIONS: Set[str] = {".qmd", ".md"}
-    LOCAL_EXCLUDE = ["index.qmd"]
 
     RE_LINK = re.compile(r"\[([^\]]*)\]\(([^)]+)\)")
 
