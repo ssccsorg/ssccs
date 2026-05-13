@@ -41,7 +41,8 @@ class _BaseResolver:
     """
 
     SYSTEM_IGNORED_DIRS: Set[str] = {
-        ".venv", ".git", ".quarto", "node_modules", "__pycache__", ".*",
+        ".venv", ".git", ".quarto", "_site", "_llms",
+        "node_modules", "__pycache__", ".*",
     }
     SOURCE_EXTENSIONS: Set[str] = set()  # subclasses MUST set this
     _APPLY_BUILD_YML_EXCLUDE: bool = True
@@ -748,6 +749,118 @@ class IncludeResolver(_BaseResolver):
         )
 
 
+# ======================================================================
+# DocExtResolver — fix .qmd/.md links to .html
+# ======================================================================
+class DocExtResolver(_BaseResolver):
+    """Replace ``.qmd`` / ``.md`` extensions with ``.html`` in markdown
+    links throughout ``.qmd`` and ``.md`` files.
+
+    Links like ``[text](notes/file.qmd)`` or
+    ``[text](/docs/file.md)`` point to editable sources but should
+    point to the rendered ``.html`` output instead.
+    """
+
+    _APPLY_BUILD_YML_EXCLUDE = False
+    SOURCE_EXTENSIONS: Set[str] = {".qmd", ".md"}
+
+    RE_LINK = re.compile(r"\[([^\]]*)\]\(([^)]+)\)")
+
+    def _extract_links(
+        self, file_path: Path
+    ) -> List[Tuple[str, int, int, str]]:
+        """Return ``(url, start, end, corrected_url)`` for each link
+        whose target ends with ``.qmd`` or ``.md``."""
+        results: List[Tuple[str, int, int, str]] = []
+        try:
+            text = file_path.read_text(encoding="utf-8")
+        except Exception:
+            return results
+
+        for m in self.RE_LINK.finditer(text):
+            raw_url = m.group(2).strip()
+            url = LinkResolver._clean_url(raw_url)
+            if not url or LinkResolver._skip_link(url):
+                continue
+            # Check if it ends with .qmd or .md (optionally followed by #anchor)
+            old_path = url.split("#", 1)[0] if "#" in url else url
+            anchor = "#" + url.split("#", 1)[1] if "#" in url else ""
+            if not old_path.endswith((".qmd", ".md")):
+                continue
+            # Skip .llms.md — those stay as .llms.md
+            if old_path.endswith(".llms.md"):
+                continue
+            new_path = old_path.rsplit(".", 1)[0] + ".html" + anchor
+            # Preserve any < > or title suffix from raw_url
+            if new_path != url:
+                # Rebuild raw replacement preserving original formatting
+                # (angle brackets, title quotes) around the new path
+                new_raw = raw_url.replace(url, new_path, 1)
+                results.append((url, m.start(2), m.end(2), new_raw))
+
+        return results
+
+    def fix_one_file(
+        self, file_path: Path, root: Path, dry_run: bool, verbose: bool
+    ) -> int:
+        links = self._extract_links(file_path)
+        if not links:
+            return 0
+
+        try:
+            text = file_path.read_text(encoding="utf-8")
+        except Exception:
+            return 0
+
+        fixes: List[Tuple[int, int, str]] = []
+        for url, start, end, new_raw in links:
+            if new_raw == text[start:end]:
+                continue  # no effective change
+            fixes.append((start, end, new_raw))
+
+        if not fixes:
+            return 0
+
+        fixes.sort(key=lambda x: x[0], reverse=True)
+        new_text = text
+        for start, end, new_val in fixes:
+            new_text = new_text[:start] + new_val + new_text[end:]
+
+        rel_display = file_path.relative_to(root)
+        if dry_run:
+            print(f"\n[{rel_display}]")
+            for start, end, new_val in sorted(fixes, key=lambda x: x[0]):
+                print(f"  - {text[start:end]}")
+                print(f"  + {new_val}")
+        else:
+            try:
+                file_path.write_text(new_text, encoding="utf-8")
+            except Exception as e:
+                print(
+                    f"  ERROR writing {rel_display}: {e}", file=sys.stderr
+                )
+                return 0
+            for start, end, new_val in sorted(fixes, key=lambda x: x[0]):
+                print(f"  {rel_display}: {text[start:end]} -> {new_val}")
+
+        return len(fixes)
+
+    def resolve_all(
+        self,
+        root: Path,
+        scan_root: Path,
+        dry_run: bool,
+        verbose: bool,
+    ) -> Tuple[int, int]:
+        return self._run_fix_all(
+            root,
+            scan_root,
+            dry_run,
+            verbose,
+            "Fixing .qmd/.md links to .html",
+        )
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Resolve broken ../ relative asset paths and markdown links in QMD/MD files"
@@ -766,8 +879,8 @@ def main():
     args = parser.parse_args()
 
     root = Path(__file__).parent.resolve()
-    resolvers: List = [PathResolver(), LinkResolver(), IncludeResolver()]
-    headers = ["Asset paths", "Markdown links", "Missing title-meta-items include"]
+    resolvers: List = [PathResolver(), LinkResolver(), IncludeResolver(), DocExtResolver()]
+    headers = ["Asset paths", "Markdown links", "Missing title-meta-items include", "Doc ext .qmd/.md -> .html"]
 
     if args.check:
         scan_root = (root / args.target) if args.target else root
