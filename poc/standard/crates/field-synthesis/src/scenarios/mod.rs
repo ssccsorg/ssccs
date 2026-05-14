@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use ssccs_core::{Field, Segment, SpaceCoordinates};
 use ssccs_examples::{CoordinateSumProjector, EvenConstraint, RangeConstraint};
 use ssccs_field_synthesis::{compose_observe, intersection, union};
@@ -23,10 +25,12 @@ impl Scenario for Grid2D {
     }
 
     fn run(&self) {
-        let mut p = Field::new();
-        p.add_constraint(EvenConstraint::new(0));
-        let mut q = Field::new();
-        q.add_constraint(RangeConstraint::new(1, 0, 1));
+        let mut p_field = Field::new();
+        p_field.add_constraint(EvenConstraint::new(0));
+        let p = Arc::new(p_field);
+        let mut q_field = Field::new();
+        q_field.add_constraint(RangeConstraint::new(1, 0, 1));
+        let q = Arc::new(q_field);
 
         let segs: Vec<Segment> = (0..=2)
             .flat_map(|y| (0..=2).map(move |x| Segment::new(SpaceCoordinates::new(vec![x, y]))))
@@ -104,14 +108,17 @@ impl Scenario for SensorTimeTemp {
         // "sensor 0 only"    : axis[1] = 0
         // "high temperature" : axis[2] ∈ [2, 2]  (only band 2)
 
-        let mut early_time = Field::new();
-        early_time.add_constraint(RangeConstraint::new(0, 0, 1));
+        let mut early_time_field = Field::new();
+        early_time_field.add_constraint(RangeConstraint::new(0, 0, 1));
+        let early_time = Arc::new(early_time_field);
 
-        let mut sensor_zero = Field::new();
-        sensor_zero.add_constraint(RangeConstraint::new(1, 0, 0));
+        let mut sensor_zero_field = Field::new();
+        sensor_zero_field.add_constraint(RangeConstraint::new(1, 0, 0));
+        let sensor_zero = Arc::new(sensor_zero_field);
 
-        let mut high_temp = Field::new();
-        high_temp.add_constraint(RangeConstraint::new(2, 2, 2));
+        let mut high_temp_field = Field::new();
+        high_temp_field.add_constraint(RangeConstraint::new(2, 2, 2));
+        let high_temp = Arc::new(high_temp_field);
 
         // ── inquiry compositions ──
         // Narrow: early time ∧ sensor 0 ∧ high temp → very specific

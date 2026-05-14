@@ -11,6 +11,7 @@
 
 use std::collections::HashSet;
 use std::fmt::Debug;
+use std::sync::Arc;
 
 pub use ssccs_core::{Constraint, Field, Projector, Segment, SegmentId, SpaceCoordinates};
 
@@ -70,13 +71,19 @@ pub struct ComposedField {
 
 #[derive(Debug, Clone)]
 pub enum ComposedExpr {
-    Field(Field),
+    Field(Arc<Field>),
     Identity(IdentityField),
     Composed(Box<ComposedField>),
 }
 
 impl From<Field> for ComposedExpr {
     fn from(f: Field) -> Self {
+        ComposedExpr::Field(Arc::new(f))
+    }
+}
+
+impl From<Arc<Field>> for ComposedExpr {
+    fn from(f: Arc<Field>) -> Self {
         ComposedExpr::Field(f)
     }
 }

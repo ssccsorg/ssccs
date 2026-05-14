@@ -11,6 +11,8 @@
 //!
 //! Adding a scenario requires only implementing the `Scenario` trait and registering it.
 
+use std::sync::Arc;
+
 use ssccs_core::{Field, Segment, SpaceCoordinates, segment_id_from_coords};
 use ssccs_examples::{CoordinateSumProjector, EvenConstraint, RangeConstraint};
 use ssccs_field_synthesis::{IdentityField, compose_observe, intersection, product, union};
@@ -104,21 +106,21 @@ fn coord_1d(x: i64) -> SpaceCoordinates {
     SpaceCoordinates::new(vec![x])
 }
 
-fn field_a() -> Field {
+fn field_a() -> Arc<Field> {
     let mut f = Field::new();
     f.add_constraint(RangeConstraint::new(0, 0, 10));
     f.add_constraint(EvenConstraint::new(0));
-    f
+    Arc::new(f)
 }
-fn field_b() -> Field {
+fn field_b() -> Arc<Field> {
     let mut f = Field::new();
     f.add_constraint(RangeConstraint::new(1, 0, 5));
-    f
+    Arc::new(f)
 }
-fn field_c() -> Field {
+fn field_c() -> Arc<Field> {
     let mut f = Field::new();
     f.add_constraint(RangeConstraint::new(2, 0, 3));
-    f
+    Arc::new(f)
 }
 
 // ==================== LAWS 1–12 ====================
@@ -169,13 +171,13 @@ fn test_associativity() {
         coord(3, 10, 5),
         coord(4, 2, 2),
     ];
-    let l = union(union(a.clone(), b.clone()), c.clone());
-    let r = union(a.clone(), union(b.clone(), c.clone()));
+    let l = union(union(Arc::clone(&a), Arc::clone(&b)), Arc::clone(&c));
+    let r = union(Arc::clone(&a), union(Arc::clone(&b), Arc::clone(&c)));
     for t in &tests {
         assert_eq!(l.allows(t), r.allows(t));
     }
-    let l = intersection(intersection(a.clone(), b.clone()), c.clone());
-    let r = intersection(a.clone(), intersection(b.clone(), c.clone()));
+    let l = intersection(intersection(Arc::clone(&a), Arc::clone(&b)), Arc::clone(&c));
+    let r = intersection(Arc::clone(&a), intersection(Arc::clone(&b), Arc::clone(&c)));
     for t in &tests {
         assert_eq!(l.allows(t), r.allows(t));
     }
@@ -190,14 +192,13 @@ fn test_absorption() {
         coord(3, 1, 0),
         coord(3, 10, 0),
     ];
-    let l = union(a.clone(), intersection(a.clone(), b.clone()));
+    let l = union(Arc::clone(&a), intersection(Arc::clone(&a), Arc::clone(&b)));
     for t in &tests {
         assert_eq!(l.allows(t), a.allows(t));
     }
-    let l = intersection(a.clone(), union(a, b));
-    let a2 = field_a();
+    let l = intersection(Arc::clone(&a), union(Arc::clone(&a), Arc::clone(&b)));
     for t in &tests {
-        assert_eq!(l.allows(t), a2.allows(t));
+        assert_eq!(l.allows(t), a.allows(t));
     }
 }
 
@@ -213,10 +214,10 @@ fn test_distributivity() {
         coord(2, 10, 5),
         coord(4, 2, 2),
     ];
-    let lhs = intersection(a.clone(), union(b.clone(), c.clone()));
+    let lhs = intersection(Arc::clone(&a), union(Arc::clone(&b), Arc::clone(&c)));
     let rhs = union(
-        intersection(a.clone(), b.clone()),
-        intersection(a.clone(), c.clone()),
+        intersection(Arc::clone(&a), Arc::clone(&b)),
+        intersection(Arc::clone(&a), Arc::clone(&c)),
     );
     for t in &tests {
         assert_eq!(lhs.allows(t), rhs.allows(t));
@@ -227,6 +228,7 @@ fn test_product() {
     let mut fa = Field::new();
     fa.add_constraint(RangeConstraint::new(0, 0, 10));
     fa.add_constraint(EvenConstraint::new(0));
+    let fa = Arc::new(fa);
     let pa = product(fa.clone(), IdentityField::Unit, 1);
     assert!(pa.allows(&coord_1d(2)));
     assert!(!pa.allows(&coord_1d(3)));
@@ -237,11 +239,11 @@ fn test_nested() {
     let a = field_a();
     let b = field_b();
     let c = field_c();
-    let n = intersection(union(a.clone(), b.clone()), c.clone());
+    let n = intersection(union(Arc::clone(&a), Arc::clone(&b)), Arc::clone(&c));
     assert!(n.allows(&coord(2, 1, 2)));
     assert!(n.allows(&coord(2, 10, 2)));
     assert!(!n.allows(&coord(3, 1, 5)));
-    let t = intersection(intersection(a.clone(), b.clone()), c.clone());
+    let t = intersection(intersection(Arc::clone(&a), Arc::clone(&b)), Arc::clone(&c));
     assert!(t.allows(&coord(2, 1, 2)));
     assert!(!t.allows(&coord(3, 1, 2)));
     assert!(!t.allows(&coord(2, 10, 2)));
@@ -252,8 +254,8 @@ fn test_admissibility() {
     let a = field_a();
     let b = field_b();
     let c = field_c();
-    let narrow = intersection(intersection(a.clone(), b.clone()), c.clone());
-    let broad = union(union(a.clone(), b.clone()), c.clone());
+    let narrow = intersection(intersection(Arc::clone(&a), Arc::clone(&b)), Arc::clone(&c));
+    let broad = union(union(Arc::clone(&a), Arc::clone(&b)), Arc::clone(&c));
     assert!(narrow.allows(&coord(2, 1, 2)));
     assert!(!narrow.allows(&coord(3, 10, 5)));
     assert!(!narrow.allows(&coord(2, 10, 5)));
@@ -274,12 +276,14 @@ fn test_description() {
 }
 
 fn test_transition() {
-    let mut x = Field::new();
-    x.add_transition(coord(0, 0, 0), coord(1, 0, 0), 1.0);
-    x.add_transition(coord(0, 0, 0), coord(2, 0, 0), 0.5);
-    let mut y = Field::new();
-    y.add_transition(coord(0, 0, 0), coord(2, 0, 0), 0.8);
-    y.add_transition(coord(0, 0, 0), coord(3, 0, 0), 1.0);
+    let mut x_field = Field::new();
+    x_field.add_transition(coord(0, 0, 0), coord(1, 0, 0), 1.0);
+    x_field.add_transition(coord(0, 0, 0), coord(2, 0, 0), 0.5);
+    let x = Arc::new(x_field);
+    let mut y_field = Field::new();
+    y_field.add_transition(coord(0, 0, 0), coord(2, 0, 0), 0.8);
+    y_field.add_transition(coord(0, 0, 0), coord(3, 0, 0), 1.0);
+    let y = Arc::new(y_field);
     let o = coord(0, 0, 0);
     let ut = union(x.clone(), y.clone());
     assert_eq!(ut.transition_targets(&o).len(), 3);
