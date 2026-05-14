@@ -61,10 +61,10 @@ digraph DOTGraph {
 
 - When code DOT, do not use `graph` for node or class name.
 
-## Git Workflow
+## Git
 
-- Do not push to remote without permission.
-- Do not merge a pull request or any branch without permission.
+- Do commit only: do not push to remote.
+- Do not merge a pull request or any branch.
 - When starting a new task subject:
     1. Create a GitHub Issue, add relevant labels, then link the branch that will contain the work.
     2. Create a branch with the format `{issue-number}-{subject-alphabets-with-one-or-two-dashes}`.

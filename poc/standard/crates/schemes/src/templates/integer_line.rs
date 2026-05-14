@@ -33,7 +33,7 @@ impl IntegerLineTemplate {
         let mut value = self.start;
         while value <= self.end {
             let segment = Segment::from_value(value);
-            builder = builder.add_segment(segment);
+            builder = builder.add_segment(&segment);
             value += self.step;
         }
 

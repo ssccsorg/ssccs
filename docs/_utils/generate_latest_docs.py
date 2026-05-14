@@ -14,9 +14,14 @@ Exclude patterns are kept in sync with build.yml's 'exclude' list.
 """
 
 import fnmatch
+import re
 import subprocess
 import sys
+
+import yaml
+
 from datetime import datetime
+from functools import lru_cache
 from pathlib import Path
 
 DOCS_ROOT = Path(__file__).parent.parent
@@ -241,7 +246,17 @@ def _resolve_to_current_paths(
             cur = fname_to_current.get(Path(path).name)
             if cur is not None:
                 resolved.append((ts, cur))
-    return resolved
+
+    # After remapping old paths to current paths, multiple entries may
+    # resolve to the same current path (e.g. after a rename).  Since
+    # entries are newest-first, keep only the first occurrence per path.
+    seen: set[str] = set()
+    deduped: list[tuple[str, str]] = []
+    for ts, path in resolved:
+        if path not in seen:
+            seen.add(path)
+            deduped.append((ts, path))
+    return deduped
 
 
 def get_tracked_doc_files() -> list[tuple[str, str]]:
@@ -249,7 +264,7 @@ def get_tracked_doc_files() -> list[tuple[str, str]]:
     Return list of (iso_timestamp, relative_path) for every tracked
     .qmd / .md under docs/, newest first.
 
-    Uses ``git log --diff-filter=AM --name-only --pretty=format:%ai``
+    Uses ``git log -n 100 --diff-filter=AM --name-only --pretty=format:%ai``
     to collect the timestamp of every commit that added or modified a
     doc file.  Later commits override earlier ones for the same path,
     giving us the *last* modification time of each file.
@@ -263,6 +278,7 @@ def get_tracked_doc_files() -> list[tuple[str, str]]:
         [
             "git",
             "log",
+            "-n", "100",
             "--diff-filter=AM",
             "--name-only",
             "--pretty=format:%ai",
@@ -382,43 +398,48 @@ def get_creation_dates() -> dict[str, str]:
     """
     Return {rel_path: creation_date} for every current doc file.
 
-    Uses ``git log --follow --diff-filter=A`` per file to trace through
-    renames back to the original Add event, giving the true initial
-    creation date rather than the rename date.
+    Uses a single ``git log --diff-filter=A --name-only`` call across
+    all files.  Much faster than per-file ``git log``.
     """
     _ensure_git_safe()
     current_paths = _get_current_doc_paths()
-    created: dict[str, str] = {}
+    result = subprocess.run(
+        [
+            "git",
+            "log",
+            "--diff-filter=A",
+            "--name-only",
+            "--pretty=format:%ai",
+            "--",
+            "*.qmd",
+            "*.md",
+        ],
+        cwd=DOCS_ROOT,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return {}
 
-    for rel_path in sorted(current_paths):
-        result = subprocess.run(
-            [
-                "git",
-                "log",
-                "--follow",
-                "--diff-filter=A",
-                "--pretty=format:%ai",
-                "--",
-                rel_path,
-            ],
-            cwd=DOCS_ROOT,
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode != 0:
+    created: dict[str, str] = {}
+    current_ts: str | None = None
+    for line in result.stdout.splitlines():
+        line = line.strip()
+        if not line:
             continue
-        # Last timestamp line is the oldest commit (initial Add)
-        lines = [
-            line.strip()
-            for line in result.stdout.splitlines()
-            if line.strip() and line.strip()[0:4].isdigit()
-        ]
-        if lines:
-            created[rel_path] = lines[-1].split()[0]  # date only
+        if _is_timestamp_line(line):
+            current_ts = line.split()[0]
+            continue
+        if current_ts is None:
+            continue
+        rel = _normalise_path(line)
+        if rel and rel in current_paths and rel not in created:
+            created[rel] = current_ts
 
     return created
 
 
+@lru_cache(maxsize=1)
 def _latest_commit_date() -> str | None:
     """Return the date (YYYY-MM-DD) of the most recent commit in docs/."""
     _ensure_git_safe()
@@ -430,7 +451,7 @@ def _latest_commit_date() -> str | None:
     )
     if result.returncode != 0 or not result.stdout.strip():
         return None
-    return result.stdout.strip().split()[0]  # date portion only
+    return result.stdout.strip().split()[0]
 
 
 def is_new_file(rel_path: str, creation_dates: dict[str, str]) -> bool:
@@ -465,19 +486,40 @@ def badge_new() -> str:
     return '<sup style="background:#2c8;color:#fff;font-size:.65em;padding:0 .4em;border-radius:3px;">N</sup>'
 
 
-def doc_to_html(rel_path: str) -> str:
-    """Map a .qmd/.md relative path to its .html output path."""
-    p = Path(rel_path)
+def _site_path(p: Path, ext: str) -> str:
+    """Build a site-root-absolute path from a relative file path and extension."""
     stem = p.stem
     if stem.lower() == "index":
-        # docs/foo/index.qmd → foo/index.html → foo/
-        # but keep trailing / for directory-index
         parent = str(p.parent)
         if parent == ".":
-            return "index.html"
-        return f"{parent}/index.html"
-    else:
-        return str(p.with_suffix(".html"))
+            return f"/index.{ext}"
+        return f"/{parent}/index.{ext}"
+    return f"/{p.with_suffix('.' + ext)}"
+
+
+def doc_to_html(rel_path: str, docs_root: Path = DOCS_ROOT) -> str:
+    """Map a .qmd/.md relative path to its absolute site path.
+
+    For beamer-only documents (no html format declared), links to
+    the PDF output instead, since no HTML output is generated.
+    """
+    p = Path(rel_path)
+    abs_path = docs_root / rel_path
+    if abs_path.suffix == ".qmd":
+        try:
+            text = abs_path.read_text(encoding="utf-8", errors="ignore")
+            fm = re.match(r"^---\s*\n(.*?)\n---", text, re.DOTALL)
+            if fm:
+                front = yaml.safe_load(fm.group(1)) or {}
+                fmt = front.get("format", {})
+                if isinstance(fmt, dict):
+                    if "beamer" in fmt and "html" not in fmt:
+                        return _site_path(p, "pdf")
+        except Exception:
+            # Best-effort parse only: on read/front-matter parse errors,
+            # fall back to the default HTML path mapping below.
+            pass
+    return _site_path(p, "html")
 
 
 def main() -> None:
@@ -498,7 +540,7 @@ def main() -> None:
     # Build output in memory first so we can compare with on-disk content
     new_content = ""
     if sorted_items:
-        new_content += '\n::: {tbl-colwidths="[16, 84]"}\n'
+        new_content += '\n::: {tbl-colwidths="[20, 80]"}\n'
         new_content += "\n| Updated | Document |\n"
         new_content += "|----------|---------|\n"
         for ts, rel_path in sorted_items:

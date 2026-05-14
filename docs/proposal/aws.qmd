@@ -5,8 +5,10 @@ date: last-modified
 metadata-files:
   - ../_include/author.yml
 abstract: |
-  This document outlines a proposed collaboration between the SSCCS Foundation and AWS to validate SSCCS on Graviton and HPC infrastructure, focusing on AI-driven compiler optimization and pre-silicon hardware emulation. We believe AWS is well-suited to serve as a primary cloud platform for research into next-generation verifiable computing. The document will be updated in real time, as the collaboration develops.
+  This document outlines a proposed collaboration between the SSCCS Foundation and AWS to validate SSCCS on Graviton, HPC, and FPGA infrastructure, focusing on AI-driven compiler optimization and pre-silicon hardware emulation. We believe AWS is uniquely positioned to serve as the primary cloud platform for research into next-generation verifiable computing—no other provider offers the heterogeneous resource portfolio (ARM CPU, HPC cluster, FPGA fabric) that SSCCS validation requires. The document will be updated in real time, as the collaboration develops.
 ---
+
+{{< include ../_include/_title_meta_items.qmd >}}
 
 ```{python}
 #| include: false
@@ -16,16 +18,21 @@ abstract: |
 
 ## Executive Summary
 
-The SSCCS Foundation is advancing a novel computational paradigm that addresses the von Neumann "data movement wall" through structural observation rather than sequential instruction execution. To accelerate the research, validation, and deployment of this architecture, we also developing a project [SSCCS Nexus](/projects/nexus/): SSCCS's proprietary knowledge infrastructure and autonomous research engine. Nexus integrates an engine-agnostic GraphRAG pipeline with a closed-loop agentic workflow (Hypothesis & Research Planning → Execution → Verification → Generation) and contract-governed artifact generation, transforming theoretical compiler and hardware research into reproducible, auditable, and continuously optimized outputs.
+The SSCCS Foundation is advancing a novel computational paradigm that addresses the von Neumann "data movement wall" through structural observation rather than sequential instruction execution. To accelerate the research, validation, and deployment of this architecture, we are also developing [SSCCS Nexus](/projects/nexus/): SSCCS's proprietary knowledge infrastructure and autonomous research engine. Nexus integrates an engine-agnostic GraphRAG pipeline with a closed-loop agentic workflow (Hypothesis & Research Planning → Execution → Verification → Generation) and contract-governed artifact generation, transforming theoretical compiler and hardware research into reproducible, auditable, and continuously optimized outputs.
 
-Specifically, we request AWS Activate credits and technical collaboration to execute two workstreams:
+**Important:** SSCCS is a pure research-stage project. No PoC is complete—all components are under active research and construction. What we have: a published formal model (whitepaper), Rust scaffolding with CI-verified RISC-V assembly, and the Nexus autonomous research infrastructure.
+
+Nexus and SSCCS are inextricably linked. Nexus is the autonomous engine that researches and validates SSCCS as a new computing model; SSCCS is the execution environment that structurally proves the knowledge Nexus generates. Supporting both simultaneously requires a boundaryless research infrastructure where autonomous agents continuously hypothesize, compile, simulate, and verify across heterogeneous compute resources.
+
+Specifically, we request AWS Activate credits and technical collaboration to execute three workstreams:
 
 1. AI‑Driven Autonomous Compiler Optimization on Graviton: Deploying agentic optimization systems on AWS Graviton instances to autonomously tune SSCCS compiler passes using cost models and liveness analysis.
 2. Hardware Emulation at Scale on AWS HPC: Utilizing AWS HPC clusters to simulate SSCCS behavior on future PIM/CIM architectures, and to evaluate energy efficiency and determinism before dedicated silicon becomes available.
+3. FPGA-Based Pre-Silicon Validation on AWS F1: Translating our verified RISC‑V assembly (golden reference model) to Verilog RTL, then synthesizing and validating on AWS F1 FPGA instances as the final hardware verification step before potential tape-out.
 
 ```{python}
 #| label: fig-partnership-overview
-#| fig-cap: "SSCCS × AWS collaboration: three interconnected pillars supporting joint research"
+#| fig-cap: "SSCCS × AWS collaboration: four interconnected pillars supporting joint research"
 dot("""
 digraph PartnershipOverview {
     rankdir=TB
@@ -33,9 +40,9 @@ digraph PartnershipOverview {
 
     SSCCS [label="SSCCS Foundation\n• Structural Observation Paradigm\n• Open Specification (.ss)\n• Cryptographic Auditability", fillcolor="#E8F4F8"]
 
-    AWS [label="AWS Infrastructure\n• Graviton (ARM) Instances\n• HPC Clusters (Hpc7g, Hpc6id)\n• Activate Credits & TAM Support", fillcolor="#F4E8F8"]
+    AWS [label="AWS Infrastructure\n• Graviton (ARM) Instances\n• HPC Clusters (Hpc7g, Hpc6id)\n• FPGA (F1) Instances\n• Activate Credits & SA Support", fillcolor="#F4E8F8"]
 
-    Workstreams [label="Joint Workstreams\n• AI-Driven Compiler Autotuning\n• Pre-Silicon Hardware Emulation\n• Energy & Determinism Evaluation", fillcolor="#F8F4E8"]
+    Workstreams [label="Joint Workstreams\n• AI-Driven Compiler Autotuning\n• Pre-Silicon Hardware Emulation\n• FPGA Golden Reference Validation\n• Energy & Determinism Evaluation", fillcolor="#F8F4E8"]
 
     Launch [label="Joint Publication &\nPartnership Announcement (TBD)", shape=ellipse, fillcolor="#B4E7B4", width=2.8]
 
@@ -65,6 +72,7 @@ SSCCS redefines computation as the deterministic observation of immutable struct
 ```{python}
 #| label: fig-ssccs-concept
 #| fig-cap: "SSCCS ontological model: Field governs observation of Scheme and Segments"
+
 dot("""
 digraph SSCCSConcept {
     rankdir=TB
@@ -112,15 +120,24 @@ A simplified energy model for SSCCS:
 
 $$E_{total} = E_{observation} \times N_{obs} + E_{field-update} \times N_{update}$$
 
-## Why AWS: A Suitable Validation Platform
+## Why AWS: A Unique Validation Platform
 
-SSCCS requires significant computational resources to evaluate its hypotheses before dedicated hardware is available. AWS offers relevant capabilities:
+SSCCS requires significant and heterogeneous computational resources to evaluate its hypotheses before dedicated hardware is available. No other cloud provider currently offers the breadth of resource types needed:
+
+| Provider | ARM CPU | HPC Cluster | FPGA Fabric | Integrated Research Credits |
+|----------|---------|-------------|-------------|---------------------------|
+| **AWS** | Graviton | Hpc7g, Hpc6id | F1 instances | Activate program |
+| NVIDIA | — | GPU-focused | — | Inception (GPU-limited) |
+| Other Clouds | Limited/None | Limited | None | Varies |
+
+NVIDIA, while dominant in GPU computing, is ultimately constrained to a single resource type. What SSCCS requires—simultaneous access to ARM CPUs for compiler optimization, HPC clusters for large-scale simulation, and FPGA fabric for hardware validation—can only be delivered by AWS's heterogeneous infrastructure portfolio, on a pay-as-you-go basis that matches research usage patterns.
 
 | Requirement | AWS Capability | Relevance |
 |-------------|---------------|-----------------|
 | Massively Parallel Compilation | Graviton's price‑performance enables cost‑effective grid search over compiler configuration space | Allows testing SSCCS’s portability across ISAs, starting with ARM |
 | Cross‑Architecture Validation | Diverse instance portfolio (Graviton, x86, HPC) | Assesses generality of SSCCS abstraction layers |
 | Pre‑Silicon Emulation | HPC clusters provide scale to emulate PIM/CIM behaviour | De‑risks future hardware exploration |
+| FPGA Hardware Validation | F1 instances enable synthesis and testing of Verilog RTL translated from verified RISC‑V assembly | Final hardware verification step before potential tape‑out |
 | Reproducibility & Auditability | Consistent cloud infrastructure supports repeatable experiments | Aids research into computational auditability |
 | Research Dissemination | Global reach and visibility | Helps share results with the wider community |
 
@@ -136,12 +153,15 @@ digraph AWSValue {
 
     HPC [label="AWS HPC\n• Hpc7g, Hpc6id clusters\n• Distributed emulation at scale\n• CloudWatch telemetry integration", fillcolor="#F4E8F8"]
 
-    Activate [label="AWS Activate\n• Research credits\n• TAM support\n• Beta feature access", fillcolor="#F8F4E8"]
+    FPGA [label="AWS FPGA (F1)\n• Hardware synthesis\n• Golden reference validation\n• Pre-silicon verification", fillcolor="#E8E8F4"]
 
-    SSCCS_Needs [label="SSCCS Validation Needs\n• Compiler autotuning\n• Hardware emulation\n• Reproducibility protocols", fillcolor="#E8F8E8", shape=note]
+    Activate [label="AWS Activate\n• Research credits\n• TAM/SA support\n• Beta feature access", fillcolor="#F8F4E8"]
+
+    SSCCS_Needs [label="SSCCS Validation Needs\n• Compiler autotuning\n• Hardware emulation\n• FPGA golden ref validation\n• Reproducibility protocols", fillcolor="#E8F8E8", shape=note]
 
     Graviton -> SSCCS_Needs
     HPC -> SSCCS_Needs
+    FPGA -> SSCCS_Needs
     Activate -> SSCCS_Needs
 }
 """)
@@ -249,7 +269,7 @@ digraph EmulationScale {
 We seek access to AWS HPC instances (e.g., Hpc7g, Hpc6id) to:
 
 1. Distributed Emulation: Run the SSCCS runtime across many nodes, treating the cluster as a single structural manifold.
-2. Stress Testing: Examine the “stationary data” hypothesis under high concurrency, using AWS CloudWatch telemetry as energy proxy.
+2. Stress Testing: Examine the "stationary data" hypothesis under high concurrency, using AWS CloudWatch telemetry as energy proxy.
 3. Benchmarking: Generate comparative data against traditional HPC workloads (MPI/OpenMP) to quantify potential latency and energy improvements.
 4. Buffer Allocation Testing: Implement linear‑scan buffer allocators on simulated constrained‑memory environments (simulating NPU SRAM limits).
 
@@ -257,32 +277,112 @@ We seek access to AWS HPC instances (e.g., Hpc7g, Hpc6id) to:
 
 | Benefit | Description |
 |---------|-------------|
-| Research Showcase | Demonstrates AWS’s infrastructure supporting fundamental computing research. |
+| Research Showcase | Demonstrates AWS's infrastructure supporting fundamental computing research. |
 | Sustainability | If energy gains are confirmed, validations on AWS highlight the role of efficient cloud resources. |
 | Community Engagement | May attract researchers interested in alternative architectures to the AWS ecosystem. |
 | Long‑Term Insights | Results could inform future custom silicon considerations, though such outcomes are speculative at this stage. |
 
+## Strategic Workstream C: FPGA Golden Reference Validation on AWS F1
+
+### The RISC‑V Assembly as Golden Reference Model
+
+Our current `observe_full.S` RISC‑V assembly is more than test code—it serves as a **golden reference model** for hardware synthesis. Every constraint function (`ck_even`, `ck_range_0_10`, `compose_and`, `compose_or`, etc.) is already branchless, constant‑time, and directly translatable to Verilog RTL. The assembly has been validated on x86‑64 CI via pure‑Rust fallbacks that mirror the assembly logic exactly.
+
+```{python}
+#| label: fig-golden-ref
+#| fig-cap: "From Rust through RISC‑V assembly to FPGA validation: the golden reference path"
+dot("""
+digraph GoldenRef {
+    rankdir=TB
+    node [shape=box, style=filled, fontname="Arial"]
+
+    Rust [label="Rust Fallback Logic\n• CI-validated on x86-64\n• Mirror of assembly behavior", fillcolor="#E8F4F8"]
+
+    Asm [label="RISC‑V Assembly (observe_full.S)\n• Branchless, constant-time\n• Golden reference model\n• 3–4 instructions per constraint", fillcolor="#F4E8F8"]
+
+    Verilog [label="Verilog RTL (manual/auto translation)\n• 1:1 mapping from assembly\n• ck_even.v, observe_engine.v", fillcolor="#FFF4E6"]
+
+    FPGA [label="AWS F1 FPGA Instance\n• Synthesize & upload bitstream\n• Execute & capture results", fillcolor="#E8F8E8"]
+
+    Compare [label="Comparison & Validation\n• FPGA output vs. Spike (RISC‑V sim) output\n• FPGA output vs. Rust fallback output\n• Prove: Software golden ref ≡ Hardware", fillcolor="#E8E8E8"]
+
+    Rust -> Asm [label="CI validates equivalence"]
+    Asm -> Verilog [label="1:1 translation"]
+    Verilog -> FPGA [label="Synthesize & deploy"]
+    FPGA -> Compare
+    Asm -> Compare [label="Spike simulation output"]
+    Rust -> Compare [label="Rust fallback output"]
+}
+""")
+```
+
+#### Example: From Assembly to Verilog
+
+**RISC‑V Assembly (source):**
+
+```asm
+ck_even:
+    ld      t0, 0(a0)
+    andi    t0, t0, 1
+    xori    a0, t0, 1
+    ret
+```
+
+**Verilog RTL (direct translation):**
+
+```verilog
+module ck_even (
+    input  wire [63:0] coord,
+    output wire        result
+);
+    assign result = (coord[0] ^ 1'b1);  // even check: LSB == 0 → 1
+endmodule
+```
+
+This 1:1 mapping between assembly and Verilog means hardware validation is a straightforward translation step—not a re‑design. Every constraint function in the assembly has already been verified in software on CI before it reaches FPGA.
+
+### The Approach: AWS F1 FPGA Instances
+
+We seek access to AWS F1 instances to:
+
+1. Translate Assembly → Verilog: Convert verified RISC‑V constraint functions to Verilog RTL.
+2. Synthesize on AWS FPGA Developer AMI: Use Vivado toolchain to generate bitstreams.
+3. Deploy to F1: Upload and execute on actual FPGA hardware.
+4. Compare Outputs: Validate FPGA results against both Spike (RISC‑V simulator) output and Rust fallback output.
+5. Prove Equivalence: Demonstrate that the software golden reference model and FPGA hardware implementation produce identical results across all constraint combinations.
+
+This completes the `.ss → .S → SSC` compilation pipeline: Field definitions (`.ss`) are translated to assembly (`.S`), then compiled to Structurally Signed Code (SSC) executing on verified hardware.
+
+#### Value for AWS
+
+| Benefit | Description |
+|---------|-------------|
+| FPGA Customer Story | Demonstrates AWS F1 as a viable platform for pre‑silicon validation of novel compute architectures |
+| Software‑Defined Hardware Narrative | "From Rust to FPGA" is a compelling narrative for AWS's custom silicon messaging |
+| Open‑Source Alignment | The golden reference methodology is publishable as an open validation standard |
+
 ## Proposed Collaboration Model: Exploring a Partnership
 
-We envision a phased collaboration that could, upon mutual agreement, lead to a joint announcement acknowledging AWS’s role in this research.
+We envision a phased collaboration that could, upon mutual agreement, lead to a joint announcement acknowledging AWS's role in this research.
 
 ### Phase Deliverables
 
 | Phase | SSCCS Plans | AWS Support Sought |
 |-------|-----------------|----------------|
-| Phase 1 | Functional autonomous optimizer; preliminary benchmark data; validated liveness analysis module | Cloud credits; Graviton/HPC access; technical onboarding |
-| Phase 2 | Optimized SSCCS compiler stack with composable passes; joint technical publication: “AI‑Driven Compiler Design on AWS Graviton” | TAM support; beta feature access; architecture review sessions |
-| Phase 3 | Potential joint announcement; open specification release; collaboration continuation | Co‑marketing and press support (if mutually agreed) |
+| Phase 1 | Functional autonomous optimizer; preliminary benchmark data; validated liveness analysis module; Verilog RTL for core constraint functions | Cloud credits; Graviton/HPC/FPGA access; technical onboarding |
+| Phase 2 | Optimized SSCCS compiler stack with composable passes; FPGA‑validated observation engine; joint technical publication: "AI‑Driven Compiler Design on AWS Graviton" | SA support; beta feature access; architecture review sessions |
+| Phase 3 | Potential joint announcement; open specification release; FPGA golden reference validation complete; collaboration continuation | Co‑marketing and press support (if mutually agreed) |
 
 ## Immediate Request & Next Steps
 
 To explore this collaboration, we specifically request:
 
-1. Introduction to the AWS Activate Team: To discuss research credits for Graviton and HPC usage (non‑production).
-2. Technical Liaison: A short introductory call with an AWS solutions architect familiar with HPC workloads and Graviton‑based AI inference, to advise on optimal instance selection.
-3. Strategic Discussion: A conversation about potential collaboration pathways and how AWS’s involvement might be acknowledged in future publications.
+1. Introduction to the AWS Activate Team: To discuss research credits for Graviton, HPC, and FPGA usage (non‑production).
+2. Technical Liaison: An introductory call with an AWS solutions architect familiar with HPC workloads, Graviton‑based AI inference, and FPGA development, to advise on optimal instance selection.
+3. Strategic Discussion: A conversation about potential collaboration pathways and how AWS's involvement might be acknowledged in future publications.
+4. FPGA Access: Discussion of F1 instance access and FPGA Developer AMI for the golden reference validation workstream.
 
-We believe this work could be mutually beneficial, and we are eager to begin discussions. Our team has early prototypes; cloud‑scale infrastructure would significantly accelerate the research.
+We believe this work could be mutually beneficial, and we are eager to begin discussions. Our team has a published formal model and validated RISC‑V assembly golden reference; cloud‑scale infrastructure would significantly accelerate the research.
 
 ---
 
@@ -290,5 +390,6 @@ This document serves as the homepage for the SSCCS × AWS collaboration discussi
 
 - Progress on phases 1–3
 - Joint technical publications and benchmark results
+- FPGA validation results and golden reference methodology
 - Details of any joint announcements or consortium activities
 - New validation domains and hardware targets

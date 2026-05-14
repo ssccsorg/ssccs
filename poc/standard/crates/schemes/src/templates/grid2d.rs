@@ -49,7 +49,7 @@ impl Grid2DTemplate {
         for x in 0..self.width {
             for y in 0..self.height {
                 let segment = Segment::from_values(vec![x, y]);
-                builder = builder.add_segment(segment);
+                builder = builder.add_segment(&segment);
             }
         }
 
