@@ -4,7 +4,7 @@
 //! - false → coordinate [0]
 //! - true  → coordinate [1]
 
-use ssccs_core::{Segment, SpaceCoordinates};
+use ssccs_core::{Coordinates, Segment};
 use std::ops::Deref;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -42,8 +42,8 @@ impl Deref for BooleanSpace {
     }
 }
 
-impl From<SpaceCoordinates> for BooleanSpace {
-    fn from(coords: SpaceCoordinates) -> Self {
+impl From<Coordinates> for BooleanSpace {
+    fn from(coords: Coordinates) -> Self {
         // Convert first coordinate to boolean (non‑zero = true)
         let value = coords.raw.first().map(|&v| v != 0).unwrap_or(false);
         Self::new(value)

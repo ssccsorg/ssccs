@@ -18,7 +18,7 @@ impl RangeConstraint {
 }
 
 impl Constraint for RangeConstraint {
-    fn allows(&self, coords: &SpaceCoordinates) -> bool {
+    fn allows(&self, coords: &Coordinates) -> bool {
         coords
             .get_axis(self.axis)
             .map(|v| v >= self.min && v <= self.max)
@@ -43,7 +43,7 @@ impl EvenConstraint {
 }
 
 impl Constraint for EvenConstraint {
-    fn allows(&self, coords: &SpaceCoordinates) -> bool {
+    fn allows(&self, coords: &Coordinates) -> bool {
         coords
             .get_axis(self.axis)
             .map(|v| v % 2 == 0)

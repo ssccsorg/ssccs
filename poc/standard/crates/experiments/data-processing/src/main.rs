@@ -5,7 +5,7 @@
 //! We implement a simple matrix summation operation using SSCCS concepts and
 //! compare it with traditional imperative programming.
 
-use ssccs_core::{Constraint, Field, Projector, SpaceCoordinates};
+use ssccs_core::{Constraint, Coordinates, Field, Projector};
 use ssccs_primitive::observe_scheme;
 use ssccs_primitive::GridTopology;
 use ssccs_schemes::Grid2DTemplate;
@@ -24,7 +24,7 @@ impl MatrixBoundaryConstraint {
 }
 
 impl Constraint for MatrixBoundaryConstraint {
-    fn allows(&self, coords: &SpaceCoordinates) -> bool {
+    fn allows(&self, coords: &Coordinates) -> bool {
         if coords.raw.len() != 2 {
             return false;
         }
@@ -194,8 +194,8 @@ fn main() {
     }
 
     // Show constraint validation
-    let valid_coords = SpaceCoordinates::new(vec![1, 2]);
-    let invalid_coords = SpaceCoordinates::new(vec![10, 10]);
+    let valid_coords = Coordinates::new(vec![1, 2]);
+    let invalid_coords = Coordinates::new(vec![10, 10]);
 
     println!("Constraint validation:");
     println!(
@@ -216,7 +216,7 @@ fn main() {
     struct EvenRowConstraint;
 
     impl Constraint for EvenRowConstraint {
-        fn allows(&self, coords: &SpaceCoordinates) -> bool {
+        fn allows(&self, coords: &Coordinates) -> bool {
             if !coords.raw.is_empty() {
                 coords.raw[0] % 2 == 0 // Only even rows allowed
             } else {

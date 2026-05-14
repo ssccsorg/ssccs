@@ -1,6 +1,6 @@
 //! An integer space: single‑axis.
 
-use ssccs_core::{Segment, SpaceCoordinates};
+use ssccs_core::{Coordinates, Segment};
 use std::ops::Deref;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -28,8 +28,8 @@ impl Deref for IntegerSpace {
     }
 }
 
-impl From<SpaceCoordinates> for IntegerSpace {
-    fn from(coords: SpaceCoordinates) -> Self {
+impl From<Coordinates> for IntegerSpace {
+    fn from(coords: Coordinates) -> Self {
         Self {
             segment: Segment::new(coords),
         }

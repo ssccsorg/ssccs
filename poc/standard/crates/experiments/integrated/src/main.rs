@@ -2,7 +2,7 @@
 //!
 //! This test demonstrates the complete SSCCS pipeline from structure to observation.
 
-use ssccs_core::{observe, Field, SpaceCoordinates};
+use ssccs_core::{observe, Coordinates, Field};
 use ssccs_examples::CoordinateSumProjector;
 use ssccs_schemes::Tensor3DTemplate;
 
@@ -20,8 +20,8 @@ fn test_integrated_workflow() -> Result<(), String> {
     // 2. Create a field with a simple transition
     let mut field = Field::new();
     // Add a transition from (0,0,0) to (1,0,0) with weight 0.5
-    let from_coords = SpaceCoordinates::new(vec![0, 0, 0]);
-    let to_coords = SpaceCoordinates::new(vec![1, 0, 0]);
+    let from_coords = Coordinates::new(vec![0, 0, 0]);
+    let to_coords = Coordinates::new(vec![1, 0, 0]);
     field.add_transition(from_coords.clone(), to_coords.clone(), 0.5);
     println!("2. Created field with transition");
 

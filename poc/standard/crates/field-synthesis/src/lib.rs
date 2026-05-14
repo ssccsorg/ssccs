@@ -13,7 +13,9 @@ use std::collections::HashSet;
 use std::fmt::Debug;
 use std::sync::Arc;
 
-pub use ssccs_core::{Constraint, Field, Projector, Segment, SegmentId, SpaceCoordinates};
+pub use ssccs_core::{
+    Constraint, Coordinates, Field, Projector, Segment, SegmentId, SpaceCoordinates,
+};
 
 // ==================== COMPOSITION OPERATION ====================
 
@@ -50,7 +52,7 @@ pub enum IdentityField {
 }
 
 impl IdentityField {
-    pub fn allows(&self, coords: &SpaceCoordinates) -> bool {
+    pub fn allows(&self, coords: &Coordinates) -> bool {
         match self {
             IdentityField::Empty => false,
             IdentityField::Universal => true,
@@ -122,7 +124,7 @@ impl ComposedField {
 
     // ---- admissibility ----
 
-    pub fn allows(&self, coords: &SpaceCoordinates) -> bool {
+    pub fn allows(&self, coords: &Coordinates) -> bool {
         match self.op {
             CompositionOp::Union => eval_expr(&self.left, coords) || eval_expr(&self.right, coords),
             CompositionOp::Intersection => {
@@ -135,11 +137,11 @@ impl ComposedField {
                 if axes > coords.raw.len() {
                     return false;
                 }
-                let left_coords = SpaceCoordinates::new(coords.raw[..axes].to_vec());
+                let left_coords = Coordinates::new(coords.raw[..axes].to_vec());
                 let right_pass = if axes >= coords.raw.len() {
                     true // all axes consumed; right field has zero dimensions
                 } else {
-                    let right_coords = SpaceCoordinates::new(coords.raw[axes..].to_vec());
+                    let right_coords = Coordinates::new(coords.raw[axes..].to_vec());
                     eval_expr(&self.right, &right_coords)
                 };
                 eval_expr(&self.left, &left_coords) && right_pass
@@ -199,7 +201,7 @@ impl ComposedField {
 
 // ---- free evaluation functions ----
 
-fn eval_expr(expr: &ComposedExpr, coords: &SpaceCoordinates) -> bool {
+fn eval_expr(expr: &ComposedExpr, coords: &Coordinates) -> bool {
     match expr {
         ComposedExpr::Field(f) => f.allows(coords),
         ComposedExpr::Identity(id) => id.allows(coords),

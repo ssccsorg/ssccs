@@ -20,7 +20,7 @@ The PoC is organized as a **Rust workspace** with multiple crates, enabling inde
 
 | Crate | Purpose |
 |-------|---------|
-| **`ssccs-core`** | Absolute primitives: `Segment`, `SpaceCoordinates`, `Constraint`, `Field`, `TransitionMatrix`, `Projector` trait, and observation functions. |
+| **`ssccs-core`** | Absolute primitives: `Segment`, `Coordinates`, `Constraint`, `Field`, `TransitionMatrix`, `Projector` trait, and observation functions. |
 | **`ssccs-primitive`** | Scheme abstraction layer: `Scheme`, `SchemeBuilder`, `SchemeTrait`, structural relations, constraints, observation rules, and memory layout abstractions. |
 | **`ssccs-schemes`** | Concrete Scheme implementations and developer input types: `Grid2DTemplate`, `IntegerLineTemplate`, `GraphTemplate`, `Tensor3DTemplate`, `CompositeScheme`, `TransformedScheme`, `BooleanSpace`, `IntegerSpace`. |
 | **`ssccs-examples`** | Shared utilities for experiments: projector implementations (`IntegerProjector`, `ArithmeticProjector`, `ParityProjector`, `CoordinateSumProjector`), compiler pipeline, `.ss` binary parser, and test constraints. |
@@ -231,8 +231,8 @@ Rust was selected for several reasons:
 
 Contains absolute primitives that cannot be decomposed further:
 
-- **`SpaceCoordinates`** – A vector of axis values representing a point in possibility space.
-- **`Segment`** – An immutable wrapper around `SpaceCoordinates` with a BLAKE3-derived identity.
+- **`Coordinates`** – A vector of axis values representing a point in possibility space.
+- **`Segment`** – An immutable wrapper around `Coordinates` with a BLAKE3-derived identity.
 - **`SegmentId`** – Cryptographic identifier for a Segment.
 - **`Constraint`** – Trait for dynamic constraints that can be attached to a Field.
 - **`ConstraintSet`** – Collection of constraints indexed by name.
@@ -287,7 +287,7 @@ Shared utilities for experiments and examples:
 
 Only absolute primitives that cannot be decomposed further:
 
-- Core ontological types (Segment, SpaceCoordinates, Field, Constraint)
+- Core ontological types (Segment, Coordinates, Field, Constraint)
 - The Projector trait (not implementations)
 - Observation functions
 - Transition matrix

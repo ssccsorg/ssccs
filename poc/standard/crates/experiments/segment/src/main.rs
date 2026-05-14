@@ -2,7 +2,7 @@
 //!
 //! Tests the Segment concept - immutable coordinate existence and cryptographic identity.
 
-use ssccs_core::{Segment, SpaceCoordinates};
+use ssccs_core::{Coordinates, Segment};
 
 fn main() {
     println!("Experiment: Segment Concept                      ");
@@ -19,7 +19,7 @@ fn main() {
 /// Test 1: Segment Concept - Immutable coordinate existence
 fn test_segment_concept() -> Result<(), String> {
     // 1. Coordinate-based existence
-    let coords = SpaceCoordinates::new(vec![1, 2, 3]);
+    let coords = Coordinates::new(vec![1, 2, 3]);
     let segment = Segment::new(coords.clone());
 
     println!(

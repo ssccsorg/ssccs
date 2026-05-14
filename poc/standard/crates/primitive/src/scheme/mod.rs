@@ -5,7 +5,7 @@
 pub mod abstract_scheme;
 pub use abstract_scheme::*;
 
-use ssccs_core::{Segment, SegmentId, SpaceCoordinates};
+use ssccs_core::{Coordinates, Segment, SegmentId};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -33,10 +33,10 @@ pub trait SchemeTrait: std::fmt::Debug + Send + Sync {
     fn segments(&self) -> Box<dyn Iterator<Item = &Segment> + '_>;
 
     /// Structural verification
-    fn validate_structure(&self, coords: &SpaceCoordinates) -> Result<(), String>;
+    fn validate_structure(&self, coords: &Coordinates) -> Result<(), String>;
 
     /// Logical address mapping
-    fn map_to_logical_address(&self, coords: &SpaceCoordinates) -> Option<LogicalAddress>;
+    fn map_to_logical_address(&self, coords: &Coordinates) -> Option<LogicalAddress>;
 
     /// Scheme Description
     fn describe(&self) -> String;
@@ -104,7 +104,7 @@ impl SchemeTrait for SchemeImpl {
         }
     }
 
-    fn validate_structure(&self, coords: &SpaceCoordinates) -> Result<(), String> {
+    fn validate_structure(&self, coords: &Coordinates) -> Result<(), String> {
         match self {
             SchemeImpl::Basic(s) => s.validate_structure(coords),
             SchemeImpl::Composite(s) => s.validate_structure(coords),
@@ -112,7 +112,7 @@ impl SchemeTrait for SchemeImpl {
         }
     }
 
-    fn map_to_logical_address(&self, coords: &SpaceCoordinates) -> Option<LogicalAddress> {
+    fn map_to_logical_address(&self, coords: &Coordinates) -> Option<LogicalAddress> {
         match self {
             SchemeImpl::Basic(s) => s.map_to_logical_address(coords),
             SchemeImpl::Composite(s) => s.map_to_logical_address(coords),
@@ -375,12 +375,12 @@ impl SchemeTrait for CompositeScheme {
         Box::new(iter)
     }
 
-    fn validate_structure(&self, _coords: &SpaceCoordinates) -> Result<(), String> {
+    fn validate_structure(&self, _coords: &Coordinates) -> Result<(), String> {
         // For composite schemes, validation may be complex; just return OK.
         Ok(())
     }
 
-    fn map_to_logical_address(&self, _coords: &SpaceCoordinates) -> Option<LogicalAddress> {
+    fn map_to_logical_address(&self, _coords: &Coordinates) -> Option<LogicalAddress> {
         // Mapping undefined for composite scheme.
         None
     }
@@ -415,12 +415,12 @@ impl SchemeTrait for TransformedScheme {
         self.base.segments()
     }
 
-    fn validate_structure(&self, coords: &SpaceCoordinates) -> Result<(), String> {
+    fn validate_structure(&self, coords: &Coordinates) -> Result<(), String> {
         // Apply transformation before validation? For now delegate to base.
         self.base.validate_structure(coords)
     }
 
-    fn map_to_logical_address(&self, coords: &SpaceCoordinates) -> Option<LogicalAddress> {
+    fn map_to_logical_address(&self, coords: &Coordinates) -> Option<LogicalAddress> {
         // Apply transformation to coordinates before mapping? For now delegate.
         self.base.map_to_logical_address(coords)
     }

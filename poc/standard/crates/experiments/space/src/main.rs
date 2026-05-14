@@ -2,7 +2,7 @@
 //!
 //! Tests the Space concept - structured coordinate spaces (BooleanSpace, IntegerSpace).
 
-use ssccs_core::{Segment, SpaceCoordinates};
+use ssccs_core::{Coordinates, Segment};
 use ssccs_schemes::{BooleanSpace, IntegerSpace};
 
 fn main() {
@@ -53,15 +53,13 @@ fn test_space_concept() -> Result<(), String> {
     }
     println!("From<bool> trait works");
 
-    // Test From<SpaceCoordinates> trait
-    let coords = SpaceCoordinates::new(vec![1]); // 1 = true
+    // Test From<Coordinates> trait
+    let coords = Coordinates::new(vec![1]); // 1 = true
     let from_coords: BooleanSpace = coords.clone().into();
     if !from_coords.value() {
-        return Err(
-            "From<SpaceCoordinates> [1] should create BooleanSpace with true value".to_string(),
-        );
+        return Err("From<Coordinates> [1] should create BooleanSpace with true value".to_string());
     }
-    println!("From<SpaceCoordinates> trait works");
+    println!("From<Coordinates> trait works");
 
     println!("\n2. IntegerSpace - Single-axis convenience:");
 
@@ -74,7 +72,7 @@ fn test_space_concept() -> Result<(), String> {
     println!("Converted from Segment");
 
     let _from_coords: IntegerSpace = coords.clone().into();
-    println!("From<SpaceCoordinates> trait works");
+    println!("From<Coordinates> trait works");
 
     Ok(())
 }

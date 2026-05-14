@@ -1,6 +1,6 @@
 //! Projector implementations for SSCCS examples and experiments.
 
-use ssccs_core::{Field, Projector, Segment, SpaceCoordinates};
+use ssccs_core::{Coordinates, Field, Projector, Segment};
 
 /// A projector that extracts a coordinate along a given axis.
 #[derive(Debug, Clone)]
@@ -35,13 +35,13 @@ impl Projector for ArithmeticProjector {
         segment.coordinates().get_axis(0)
     }
 
-    fn possible_next_coordinates(&self, coords: &SpaceCoordinates) -> Vec<SpaceCoordinates> {
+    fn possible_next_coordinates(&self, coords: &Coordinates) -> Vec<Coordinates> {
         let current = coords.get_axis(0).unwrap_or(0);
         vec![
-            SpaceCoordinates::new(vec![current + 1]),
-            SpaceCoordinates::new(vec![current - 1]),
-            SpaceCoordinates::new(vec![current * 2]),
-            SpaceCoordinates::new(vec![current / 2]), // integer division
+            Coordinates::new(vec![current + 1]),
+            Coordinates::new(vec![current - 1]),
+            Coordinates::new(vec![current * 2]),
+            Coordinates::new(vec![current / 2]), // integer division
         ]
     }
 }

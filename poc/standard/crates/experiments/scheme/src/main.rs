@@ -2,7 +2,7 @@
 //!
 //! Tests the Scheme concept - structural blueprint with Grid2D and IntegerLine templates.
 
-use ssccs_core::{Segment, SpaceCoordinates};
+use ssccs_core::{Coordinates, Segment};
 use ssccs_primitive::scheme::GridTopology;
 use ssccs_schemes::{Grid2DTemplate, IntegerLineTemplate};
 
@@ -32,7 +32,7 @@ fn test_scheme_concept() -> Result<(), String> {
     println!("- Axes count: {}", grid_scheme.axes().len());
 
     // Test segment lookup
-    let test_coords = SpaceCoordinates::new(vec![2, 2]);
+    let test_coords = Coordinates::new(vec![2, 2]);
     let test_segment = Segment::new(test_coords.clone());
 
     if grid_scheme.contains_segment(test_segment.id()) {
@@ -55,7 +55,7 @@ fn test_scheme_concept() -> Result<(), String> {
     println!("- Segment count: {}", int_scheme.segments().count());
 
     // Verify structural constraints
-    let valid_coords = SpaceCoordinates::new(vec![0]);
+    let valid_coords = Coordinates::new(vec![0]);
     if let Err(err) = int_scheme.validate_structure(&valid_coords) {
         // This is OK - depends on implementation
         println!("- Structural constraints checked: {}", err);

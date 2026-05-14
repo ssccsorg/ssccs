@@ -2,7 +2,7 @@
 //!
 //! Tests structural relations and memory layout semantics.
 
-use ssccs_core::{Segment, SpaceCoordinates};
+use ssccs_core::{Coordinates, Segment};
 use ssccs_primitive::scheme::abstract_scheme::{
     AdjacencyType, Axis, AxisType, GridTopology, LayoutType, LogicalAddress, MemoryLayout,
     SchemeBuilder, StructuralRelation,
@@ -55,7 +55,7 @@ fn test_adjacency_memory() -> Result<(), String> {
         )
         .set_memory_layout(MemoryLayout {
             layout_type: LayoutType::RowMajor,
-            mapping: Arc::new(|coords: &SpaceCoordinates| {
+            mapping: Arc::new(|coords: &Coordinates| {
                 if coords.raw.len() >= 2 {
                     let x = coords.raw[0] as u64;
                     let y = coords.raw[1] as u64;
@@ -82,7 +82,7 @@ fn test_adjacency_memory() -> Result<(), String> {
     }
 
     // Test memory mapping
-    let coords = SpaceCoordinates::new(vec![1, 0]);
+    let coords = Coordinates::new(vec![1, 0]);
     if let Some(addr) = scheme.map_to_logical_address(&coords) {
         println!("- Logical address for (1, 0): offset {}", addr.offset);
     } else {
