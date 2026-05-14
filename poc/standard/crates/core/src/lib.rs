@@ -66,17 +66,23 @@ pub fn observe<P: Projector>(field: &Field, segment: &Segment, projector: &P) ->
     }
 }
 
-/// Compute all possible next coordinates from the current segment, taking into account
+/// Compute all possible next SegmentIds from the current segment, taking into account
 /// both the projector's interpretation of adjacency and the field's transition matrix,
 /// filtered by field constraints.
 pub fn possible_next_coordinates<P: Projector>(
     field: &Field,
     segment: &Segment,
     projector: &P,
-) -> Vec<Coordinates> {
+) -> Vec<SegmentId> {
     let current = segment.coordinates();
-    let mut candidates = projector.possible_next_coordinates(current);
+    let projector_candidates = projector.possible_next_coordinates(current);
+    let mut candidates: Vec<SegmentId> = projector_candidates
+        .into_iter()
+        .filter(|c| field.allows(c))
+        .map(|c| segment_id_from_coords(&c))
+        .collect();
     candidates.extend(field.transition_targets(current));
-    candidates.retain(|c| field.allows(c));
+    candidates.sort();
+    candidates.dedup();
     candidates
 }

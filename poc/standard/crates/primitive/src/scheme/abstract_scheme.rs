@@ -2,7 +2,8 @@
 
 //! Scheme abstraction layer -defines structural relationships without physical memory implementation
 
-use ssccs_core::{Constraint, Coordinates, Segment, SegmentId};
+use crate::SchemeTrait;
+use ssccs_core::{Constraint, Coordinates, Segment, SegmentId, SpaceCoordinates};
 
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
@@ -480,19 +481,25 @@ impl RelationGraph {
     }
 
     pub fn add_relation(&mut self, from: SegmentId, to: SegmentId, relation: StructuralRelation) {
-        self.outgoing
-            .entry(from)
+        self.incoming
+            .entry(to)
             .or_default()
-            .push((to, relation.clone()));
-        self.incoming.entry(to).or_default().push((from, relation));
+            .push((from, relation.clone()));
+        self.outgoing.entry(from).or_default().push((to, relation));
     }
 
-    pub fn get_outgoing(&self, from: &SegmentId) -> Vec<(SegmentId, StructuralRelation)> {
-        self.outgoing.get(from).cloned().unwrap_or_default()
+    pub fn get_outgoing(&self, from: &SegmentId) -> &[(SegmentId, StructuralRelation)] {
+        self.outgoing
+            .get(from)
+            .map(|v| v.as_slice())
+            .unwrap_or_default()
     }
 
-    pub fn get_incoming(&self, to: &SegmentId) -> Vec<(SegmentId, StructuralRelation)> {
-        self.incoming.get(to).cloned().unwrap_or_default()
+    pub fn get_incoming(&self, to: &SegmentId) -> &[(SegmentId, StructuralRelation)] {
+        self.incoming
+            .get(to)
+            .map(|v| v.as_slice())
+            .unwrap_or_default()
     }
 
     pub fn get_relations_between(
@@ -577,7 +584,7 @@ impl Scheme {
     ) -> Vec<(SegmentId, StructuralRelation)> {
         self.relations
             .get_outgoing(segment_id)
-            .into_iter()
+            .iter()
             .filter(|(_, relation)| {
                 relation_filter.is_none_or(|filter| match relation {
                     StructuralRelation::Adjacency { relation_type, .. } => {
@@ -587,6 +594,7 @@ impl Scheme {
                     _ => true,
                 })
             })
+            .cloned()
             .collect()
     }
 
@@ -624,6 +632,56 @@ impl Scheme {
     }
 }
 
+// ==================== SCHEME TRAIT IMPLEMENTATION ====================
+
+impl SchemeTrait for Scheme {
+    fn id(&self) -> &SchemeId {
+        &self.id
+    }
+
+    fn axes(&self) -> &[Axis] {
+        &self.axes
+    }
+
+    fn dimensionality(&self) -> usize {
+        self.axes.len()
+    }
+
+    fn contains_segment(&self, segment_id: &SegmentId) -> bool {
+        self.segments.contains_key(segment_id)
+    }
+
+    fn get_segment(&self, segment_id: &SegmentId) -> Option<&Segment> {
+        self.segments.get(segment_id)
+    }
+
+    fn segments(&self) -> Box<dyn Iterator<Item = &Segment> + '_> {
+        Box::new(self.segments.values())
+    }
+
+    fn validate_structure(&self, coords: &SpaceCoordinates) -> Result<(), String> {
+        self.validate_structure(coords)
+    }
+
+    fn map_to_logical_address(&self, coords: &SpaceCoordinates) -> Option<LogicalAddress> {
+        (self.memory_layout.mapping)(coords)
+    }
+
+    fn describe(&self) -> String {
+        format!(
+            "Scheme {}:\n  Dimensions: {}\n  Segments: {}\n  Relations: {}\n  Constraints: {}",
+            self.id.to_hex(),
+            self.axes.len(),
+            self.segments.len(),
+            self.relations
+                .outgoing
+                .values()
+                .map(|v| v.len())
+                .sum::<usize>(),
+            self.structural_constraints.len()
+        )
+    }
+}
 // ==================== SCHEME BUILDER ====================
 
 /// Scheme Builder (Configuration Pattern)
@@ -712,8 +770,8 @@ impl SchemeBuilder {
         self
     }
 
-    pub fn add_segment(mut self, segment: Segment) -> Self {
-        self.segments.insert(*segment.id(), segment);
+    pub fn add_segment(mut self, segment: &Segment) -> Self {
+        self.segments.insert(*segment.id(), segment.clone());
         self
     }
 
@@ -846,7 +904,7 @@ pub mod grid2d {
             for x in 0..self.width {
                 for y in 0..self.height {
                     let segment = Segment::from_values(vec![x, y]);
-                    builder = builder.add_segment(segment);
+                    builder = builder.add_segment(&segment);
                 }
             }
 
@@ -892,7 +950,7 @@ pub mod integer_line {
             let mut value = self.start;
             while value <= self.end {
                 let segment = Segment::from_value(value);
-                builder = builder.add_segment(segment);
+                builder = builder.add_segment(&segment);
                 value += self.step;
             }
 

@@ -48,13 +48,14 @@ pub fn parse<R: Read + Seek>(mut reader: R) -> Result<Scheme, ParseError> {
     // For now, we return a dummy Scheme.
     // TODO: implement full parsing of axis, segment, relation, memory layout,
     // observation rules, and constraints.
+    let seg = Segment::from_values(vec![0]);
     let dummy_scheme = SchemeBuilder::new()
         .add_axis(Axis {
             name: "x".to_string(),
             axis_type: AxisType::Discrete,
             metadata: HashMap::new(),
         })
-        .add_segment(Segment::from_values(vec![0]))
+        .add_segment(&seg)
         .build();
 
     Ok(dummy_scheme)

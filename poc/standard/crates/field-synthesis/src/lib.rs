@@ -11,8 +11,11 @@
 
 use std::collections::HashSet;
 use std::fmt::Debug;
+use std::sync::Arc;
 
-pub use ssccs_core::{Constraint, Coordinates, Field, Projector, Segment};
+pub use ssccs_core::{
+    Constraint, Coordinates, Field, Projector, Segment, SegmentId, SpaceCoordinates,
+};
 
 // ==================== COMPOSITION OPERATION ====================
 
@@ -70,13 +73,19 @@ pub struct ComposedField {
 
 #[derive(Debug, Clone)]
 pub enum ComposedExpr {
-    Field(Field),
+    Field(Arc<Field>),
     Identity(IdentityField),
     Composed(Box<ComposedField>),
 }
 
 impl From<Field> for ComposedExpr {
     fn from(f: Field) -> Self {
+        ComposedExpr::Field(Arc::new(f))
+    }
+}
+
+impl From<Arc<Field>> for ComposedExpr {
+    fn from(f: Arc<Field>) -> Self {
         ComposedExpr::Field(f)
     }
 }
@@ -142,22 +151,22 @@ impl ComposedField {
 
     // ---- transitions ----
 
-    pub fn transition_targets(&self, coords: &Coordinates) -> Vec<Coordinates> {
+    pub fn transition_targets(&self, coords: &SpaceCoordinates) -> Vec<SegmentId> {
         match self.op {
             CompositionOp::Union => {
                 let mut merged = transition_expr(&self.left, coords);
                 merged.extend(transition_expr(&self.right, coords));
-                merged.sort_by(|a, b| a.raw.cmp(&b.raw));
+                merged.sort();
                 merged.dedup();
                 merged
             }
             CompositionOp::Intersection => {
-                let left: HashSet<Coordinates> =
+                let left: HashSet<SegmentId> =
                     transition_expr(&self.left, coords).into_iter().collect();
-                let right: HashSet<Coordinates> =
+                let right: HashSet<SegmentId> =
                     transition_expr(&self.right, coords).into_iter().collect();
-                let mut merged: Vec<Coordinates> = left.intersection(&right).cloned().collect();
-                merged.sort_by(|a, b| a.raw.cmp(&b.raw));
+                let mut merged: Vec<SegmentId> = left.intersection(&right).cloned().collect();
+                merged.sort();
                 merged
             }
             CompositionOp::Product => {
@@ -167,27 +176,13 @@ impl ComposedField {
                 if axes > coords.raw.len() {
                     return Vec::new();
                 }
-                let left_coords = Coordinates::new(coords.raw[..axes].to_vec());
-                let right_coords = Coordinates::new(coords.raw[axes..].to_vec());
-                let left_targets: Vec<Coordinates> = transition_expr(&self.left, &left_coords)
-                    .into_iter()
-                    .map(|c| {
-                        let mut raw = c.raw;
-                        raw.extend(right_coords.raw.clone());
-                        Coordinates::new(raw)
-                    })
-                    .collect();
-                let right_targets: Vec<Coordinates> = transition_expr(&self.right, &right_coords)
-                    .into_iter()
-                    .map(|c| {
-                        let mut raw = left_coords.raw.clone();
-                        raw.extend(c.raw);
-                        Coordinates::new(raw)
-                    })
-                    .collect();
+                let left_coords = SpaceCoordinates::new(coords.raw[..axes].to_vec());
+                let right_coords = SpaceCoordinates::new(coords.raw[axes..].to_vec());
+                let left_targets: Vec<SegmentId> = transition_expr(&self.left, &left_coords);
+                let right_targets: Vec<SegmentId> = transition_expr(&self.right, &right_coords);
                 let mut merged = left_targets;
                 merged.extend(right_targets);
-                merged.sort_by(|a, b| a.raw.cmp(&b.raw));
+                merged.sort();
                 merged.dedup();
                 merged
             }
@@ -214,7 +209,7 @@ fn eval_expr(expr: &ComposedExpr, coords: &Coordinates) -> bool {
     }
 }
 
-fn transition_expr(expr: &ComposedExpr, coords: &Coordinates) -> Vec<Coordinates> {
+fn transition_expr(expr: &ComposedExpr, coords: &SpaceCoordinates) -> Vec<SegmentId> {
     match expr {
         ComposedExpr::Field(f) => f.transition_targets(coords),
         ComposedExpr::Identity(_) => Vec::new(),

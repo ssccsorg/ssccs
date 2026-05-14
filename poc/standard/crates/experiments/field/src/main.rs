@@ -2,7 +2,7 @@
 //!
 //! Tests the Field concept - mutable constraint substrate and transition topology.
 
-use ssccs_core::{Coordinates, Field};
+use ssccs_core::{segment_id_from_coords, Coordinates, Field};
 use ssccs_examples::{EvenConstraint, RangeConstraint};
 
 fn main() {
@@ -69,11 +69,11 @@ fn test_field_concept() -> Result<(), String> {
         "- Transition targets: {:?}",
         transitions
             .iter()
-            .map(|c| c.raw.clone())
+            .map(|id| id.as_bytes())
             .collect::<Vec<_>>()
     );
 
-    if transitions.len() != 1 || transitions[0] != to_coords {
+    if transitions.len() != 1 || transitions[0] != segment_id_from_coords(&to_coords) {
         return Err("Transition should return the correct target coordinates".to_string());
     }
 

@@ -19,6 +19,9 @@ pub struct Coordinates {
     pub raw: Vec<i64>,
 }
 
+/// Type alias for the refactored name.
+pub type SpaceCoordinates = Coordinates;
+
 impl Coordinates {
     pub fn new(raw: Vec<i64>) -> Self {
         Self { raw }
@@ -109,7 +112,7 @@ pub trait Constraint: Debug + Send + Sync {
 }
 
 /// A set of constraints, used by the Field.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Default)]
 pub struct ConstraintSet {
     constraints: Vec<Arc<dyn Constraint>>,
 }
@@ -143,12 +146,10 @@ impl ConstraintSet {
 /// Relational topology of the Field – currently a weighted directed graph.
 /// This is one possible representation; it may be generalised later.
 /// Uses SegmentId for relationship definitions to align with SSCCS cryptographic identity system.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Default)]
 pub struct TransitionMatrix {
     /// from SegmentId → [(to SegmentId, weight)]
     edges: HashMap<SegmentId, Vec<(SegmentId, f64)>>,
-    /// Mapping from SegmentId to coordinates (for legacy API support)
-    id_to_coords: HashMap<SegmentId, Coordinates>,
 }
 
 impl TransitionMatrix {
@@ -156,72 +157,30 @@ impl TransitionMatrix {
         Self::default()
     }
 
-    /// Add a transition using SegmentIds (new preferred API).
-    /// Note: You must also store coordinates if you want to use legacy API later.
-    pub fn add_by_id(
-        &mut self,
-        from: SegmentId,
-        to: SegmentId,
-        weight: f64,
-        from_coords: Option<Coordinates>,
-        to_coords: Option<Coordinates>,
-    ) {
+    /// Add a transition using SegmentIds.
+    pub fn add(&mut self, from: SegmentId, to: SegmentId, weight: f64) {
         self.edges.entry(from).or_default().push((to, weight));
-        if let Some(coords) = from_coords {
-            self.id_to_coords.insert(from, coords);
-        }
-        if let Some(coords) = to_coords {
-            self.id_to_coords.insert(to, coords);
-        }
     }
 
-    /// Add a transition using coordinates (legacy API, converts to SegmentId internally).
-    pub fn add(&mut self, from: Coordinates, to: Coordinates, weight: f64) {
-        let from_id = segment_id_from_coords(&from);
-        let to_id = segment_id_from_coords(&to);
-
-        // Store coordinates for later lookup
-        self.id_to_coords.insert(from_id, from.clone());
-        self.id_to_coords.insert(to_id, to.clone());
-
-        self.edges.entry(from_id).or_default().push((to_id, weight));
-    }
-
-    /// Get transition targets from a SegmentId (new preferred API).
-    pub fn transitions_from_id(&self, from: &SegmentId) -> Vec<SegmentId> {
+    /// Get transition targets from a SegmentId.
+    pub fn transitions_from(&self, from: &SegmentId) -> Vec<SegmentId> {
         self.edges
             .get(from)
             .map(|v| v.iter().map(|(to, _)| *to).collect())
             .unwrap_or_default()
     }
 
-    /// Get transition targets from coordinates (legacy API).
-    pub fn transitions_from(&self, from: &Coordinates) -> Vec<Coordinates> {
-        let from_id = segment_id_from_coords(from);
-        self.transitions_from_id(&from_id)
-            .into_iter()
-            .filter_map(|segment_id| self.id_to_coords.get(&segment_id).cloned())
-            .collect()
-    }
-
-    /// Get weight between SegmentIds (new API).
-    pub fn get_weight_by_id(&self, from: &SegmentId, to: &SegmentId) -> Option<f64> {
+    /// Get weight between SegmentIds.
+    pub fn get_weight(&self, from: &SegmentId, to: &SegmentId) -> Option<f64> {
         self.edges
             .get(from)
             .and_then(|vec| vec.iter().find(|(t, _)| t == to).map(|(_, w)| *w))
-    }
-
-    /// Get weight between coordinates (legacy API).
-    pub fn get_weight(&self, from: &Coordinates, to: &Coordinates) -> Option<f64> {
-        let from_id = segment_id_from_coords(from);
-        let to_id = segment_id_from_coords(to);
-        self.get_weight_by_id(&from_id, &to_id)
     }
 }
 
 /// The mutable substrate of computation. Holds constraints and relational topology.
 /// Does **not** own any SchemaSegment.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Default)]
 pub struct Field {
     constraints: ConstraintSet,
     transitions: TransitionMatrix,
@@ -238,8 +197,11 @@ impl Field {
     }
 
     /// Add a transition rule (from → to with weight).
-    pub fn add_transition(&mut self, from: Coordinates, to: Coordinates, weight: f64) {
-        self.transitions.add(from, to, weight);
+    /// Converts coordinates to SegmentIds internally.
+    pub fn add_transition(&mut self, from: SpaceCoordinates, to: SpaceCoordinates, weight: f64) {
+        let from_id = segment_id_from_coords(&from);
+        let to_id = segment_id_from_coords(&to);
+        self.transitions.add(from_id, to_id, weight);
     }
 
     /// Check whether a coordinate is allowed by all current constraints.
@@ -247,9 +209,10 @@ impl Field {
         self.constraints.allows(coords)
     }
 
-    /// Return all transition targets from a given coordinate (defined by the field only).
-    pub fn transition_targets(&self, from: &Coordinates) -> Vec<Coordinates> {
-        self.transitions.transitions_from(from)
+    /// Return all transition target SegmentIds from a given coordinate (defined by the field only).
+    pub fn transition_targets(&self, from: &SpaceCoordinates) -> Vec<SegmentId> {
+        let from_id = segment_id_from_coords(from);
+        self.transitions.transitions_from(&from_id)
     }
 
     /// Describe the current constraints (for debugging).

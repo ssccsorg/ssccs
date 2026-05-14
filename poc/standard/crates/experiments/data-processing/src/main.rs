@@ -6,6 +6,7 @@
 //! compare it with traditional imperative programming.
 
 use ssccs_core::{Constraint, Coordinates, Field, Projector};
+use ssccs_primitive::observe_scheme;
 use ssccs_primitive::GridTopology;
 use ssccs_schemes::Grid2DTemplate;
 
@@ -170,17 +171,9 @@ fn main() {
     println!("3. Created MatrixSumProjector");
 
     // 4. Observe all segments and sum the results
-    let mut ssccs_result = 0;
-    let mut observed_count = 0;
-
-    for segment in scheme.segments() {
-        if field.allows(segment.coordinates()) {
-            if let Some(value) = projector.project(&field, segment) {
-                ssccs_result += value;
-                observed_count += 1;
-            }
-        }
-    }
+    let projections = observe_scheme(&scheme, &field, &projector);
+    let ssccs_result: i64 = projections.iter().sum();
+    let observed_count = projections.len();
 
     let ssccs_duration = ssccs_start.elapsed();
 
@@ -241,17 +234,9 @@ fn main() {
     println!("- New constraints: {}", field.describe_constraints());
 
     // Show filtered observation with new constraint
-    let mut filtered_sum = 0;
-    let mut filtered_count = 0;
-
-    for segment in scheme.segments() {
-        if field.allows(segment.coordinates()) {
-            if let Some(value) = projector.project(&field, segment) {
-                filtered_sum += value;
-                filtered_count += 1;
-            }
-        }
-    }
+    let filtered_projections = observe_scheme(&scheme, &field, &projector);
+    let filtered_sum: i64 = filtered_projections.iter().sum();
+    let filtered_count = filtered_projections.len();
 
     println!("Filtered observation (only even rows):");
     println!(
@@ -282,14 +267,8 @@ fn main() {
     field.add_constraint(MatrixBoundaryConstraint::new(large_rows, large_cols));
     let projector = MatrixValueProjector::new(large_rows, large_cols, large_values.clone());
 
-    let mut ssccs_sum = 0;
-    for segment in scheme.segments() {
-        if field.allows(segment.coordinates()) {
-            if let Some(value) = projector.project(&field, segment) {
-                ssccs_sum += value;
-            }
-        }
-    }
+    let ssccs_projections = observe_scheme(&scheme, &field, &projector);
+    let ssccs_sum: i64 = ssccs_projections.iter().sum();
     let ssccs_duration = ssccs_start.elapsed();
 
     println!(

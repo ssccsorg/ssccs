@@ -2,8 +2,7 @@
 //!
 //! Tests the Transition Matrix - relational topology as weighted directed graph.
 
-use ssccs_core::{Coordinates, Field};
-
+use ssccs_core::{segment_id_from_coords, Coordinates, Field};
 fn main() {
     println!("Experiment: Transition Matrix                    ");
 
@@ -37,7 +36,7 @@ fn test_transition_matrix() -> Result<(), String> {
     );
 
     for target in &targets {
-        println!("- {:?}", target.raw);
+        println!("- {:?}", target.as_bytes());
     }
 
     if targets.len() != 2 {
@@ -45,10 +44,10 @@ fn test_transition_matrix() -> Result<(), String> {
     }
 
     // Verify targets exist (weights are internal to Field)
-    if !targets.contains(&to1) {
+    if !targets.contains(&segment_id_from_coords(&to1)) {
         return Err("Target to1 should be in transition targets".to_string());
     }
-    if !targets.contains(&to2) {
+    if !targets.contains(&segment_id_from_coords(&to2)) {
         return Err("Target to2 should be in transition targets".to_string());
     }
 
