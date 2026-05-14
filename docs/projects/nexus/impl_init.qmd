@@ -11,7 +11,7 @@ title-meta-items:
 metadata-files:
   - ../../_include/author.yml
 abstract: |
-  Nexus is a standalone graph analysis platform that ingests documents into a knowledge graph, detects structural gaps and contradictions, and orchestrates agentic research loops. The core is implemented in Rust with zero runtime dependencies, with platform bindings for Cloudflare Workers, native servers, and (as a placeholder) blockchain canisters. Design decisions are informed by deep analysis of Memgraph (in-memory graph database with Atomic GraphRAG, MAGE algorithm suite, streaming ingestion) and Grafeo (six-language query translation, push-based execution engine, feature-gated WASM profiles). The architecture follows Unix philosophy: small composable crates communicating through typed JSON pipelines, with contract as the single governance surface.
+  Nexus is a standalone graph analysis platform that ingests documents into a knowledge graph, detects structural gaps and contradictions, and orchestrates agentic research loops. The core is implemented in Rust with zero runtime dependencies, with platform bindings for Cloudflare Workers, native servers, and (as a placeholder) blockchain targets. Design decisions are informed by deep analysis of Memgraph (in-memory graph database with Atomic GraphRAG, MAGE algorithm suite, streaming ingestion) and Grafeo (six-language query translation, push-based execution engine, feature-gated WASM profiles). The architecture follows Unix philosophy: small composable crates communicating through typed JSON pipelines, with contract as the single governance surface.
 ---
 
 ```{python}
@@ -24,19 +24,29 @@ abstract: |
 
 ## Executive Summary
 
-Nexus is built on three principles. The Rust core replaces external graph services (Memgraph, LightRAG) with a thin layer of glue code connecting production-grade Rust crates. Graph algorithms come from petgraph and community-detection, persistence from rusqlite, Cypher parsing from cyrs. Our contribution is the ~1000 lines of translation logic between them, informed by patterns extracted from Memgraph and Grafeo codebases.
+Nexus is a modular research infrastructure built on three principles derived from the SSCCS paradigm. At its center is the Core Blackboard: a shared graph that every module reads from and writes to through a single interface. There is no fixed pipeline. Modules coordinate indirectly through the Blackboard, not through direct communication.
 
-1. Core is platform-independent. The graph engine, Cypher translator, vector index, community detection, and analysis modules live in pure Rust with no runtime dependencies. They compile to WASM (Cloudflare Workers, future targets) or native binaries (self-hosted servers) from the same codebase.
+The Blackboard stores three primitive types. Facts are verified entities, relations, and experimental results. Intents represent gaps, hypotheses, and exploration directions. Hints are governance rules from contract.nex and user feedback. These three types are the only interface between modules.
 
-2. Small composable units. Each crate does one thing well. Modules communicate through typed JSON pipelines (Cloudflare Queues in production, Unix pipes locally). No module touches the filesystem directly. contract is the single governance surface.
+Any method can attach to the Blackboard. An OODA loop based on the Cairn pattern explores open search spaces. A fixed pipeline reproduces validated research workflows. A Flow-GRPO learning loop reinforces successful paths. Human operators inject Hints directly. Future methods attach the same way. All results converge to the same three primitives.
 
-3. Design by reference, not by dependency. The architecture is informed by detailed analysis of two production-grade graph databases: Memgraph (C++20, in-memory, MAGE algorithms) and Grafeo (Rust, six language translators, push-based execution): but depends on neither. We extract their patterns, not their code.
+The Rust core provides the graph storage, Cypher translation, and algorithm implementations. Production-grade crates (petgraph, rusqlite, cyrs, ndarray) are assembled with minimal glue code. Our contribution is the translation and coordination logic, informed by patterns extracted from Memgraph and Grafeo codebases.
+
+1. The Blackboard is the single interface. Every module writes Facts and Intents, reads Facts and Intents, and respects Hints. No module calls another module directly. Communication is indirect through the shared graph.
+
+2. Small composable units. Each crate does one thing well. Modules communicate through the Blackboard, not through message pipes. Contract.nex is the single governance surface.
+
+3. Design by reference, not by dependency. The architecture is informed by Memgraph and Grafeo but depends on neither. We extract their patterns, not their code.
+
+Nexus is itself an instance of the SSCCS paradigm. The Core Blackboard is the Scheme: an immutable coordinate system that every module shares. Intents and Hints are the Field: dynamic constraints that drive exploration. The act of reading the Blackboard, computing, and writing back is the Observation. The resulting Facts are the Projection: the updated state that becomes the input for the next cycle. Nexus implements SSCCS, and SSCCS describes Nexus. This circularity is not a flaw. It is the bootstrap mechanism that makes the system self-consistent.
 
 ### Unified Architecture
 
+The architecture has two layers. The Core Blackboard is the logical layer: a shared graph of Fact, Intent, and Hint primitives that every module reads from and writes to through a single interface. The Rust core is the implementation layer: petgraph stores the graph, cyrs translates Cypher queries, and platform bindings expose the core to different deployment targets.
+
 ```{python}
 #| label: fig-nexus-architecture
-#| fig-cap: "Nexus Architecture: Platform-Independent Core with Bindings"
+#| fig-cap: "Nexus Architecture: Core Blackboard over Rust Platform-Independent Core"
 dot("""
 digraph NexusArchitecture {
     rankdir=TB;
@@ -44,25 +54,20 @@ digraph NexusArchitecture {
     nodesep=0.3;
     ranksep=0.4;
 
-    contract [label="contract", shape=note, style=filled, fillcolor="#e6f2ff"];
-
-    subgraph cluster_core {
-        label="nexus-core (Rust — zero platform dependency)";
-        style=filled; fillcolor="#f0f0f0"; color="#666";
-        coregraph [label="core/coregraph
-(petgraph + rusqlite)", shape=cylinder, style=filled, fillcolor="#ffe4e1"];
+    subgraph cluster_blackboard {
+        label="Core Blackboard (shared graph — Fact / Intent / Hint)";
+        style=filled; fillcolor="#fff8dc"; color="#b8860b";
+        blackboard [label="Blackboard
+(petgraph graph store)", shape=cylinder, style=filled, fillcolor="#ffe4e1"];
         cypher [label="cypher
 (cyrs Plan IR)", shape=box, style=filled, fillcolor="#d4f1f9"];
-        index [label="index
-(vector + text)", shape=box, style=filled, fillcolor="#d4f1f9"];
-        algorithms [label="algorithms
-(Louvain, PageRank)", shape=box, style=filled, fillcolor="#d4f1f9"];
         modules [label="modules
-(extraction, gap, contract)", shape=box, style=filled, fillcolor="#d4f1f9"];
-        cypher -> coregraph; index -> coregraph;
-        modules -> coregraph; modules -> algorithms;
-        modules -> cypher;
+(extraction, gap, ooda, contract)", shape=box, style=filled, fillcolor="#d4f1f9"];
+        cypher -> blackboard;
+        modules -> blackboard [dir=both, label="read/write Fact, Intent, Hint"];
     }
+
+    contract [label="contract.nex", shape=note, style=filled, fillcolor="#e6f2ff"];
 
     subgraph cluster_bindings {
         label="Platform Bindings (deployment targets)";
@@ -78,12 +83,13 @@ digraph NexusArchitecture {
     r2 [label="R2 / S3
 (artifacts)", shape=cylinder, style=filled, fillcolor="#ffebcd"];
 
-    coregraph -> cf [label="wasm"];
-    coregraph -> native [label="native"];
-    coregraph -> aws [label="aarch64"];
+    blackboard -> cf [label="wasm"];
+    blackboard -> native [label="native"];
+    blackboard -> aws [label="aarch64"];
 
     modules -> r2 [dir=both, style=dashed, label="read/write"];
     contract -> modules;
+    contract -> blackboard [style=dashed, label="Hint"];
     r2 -> modules [label="documents"];
 
     { rank=same; contract; r2; }
@@ -172,7 +178,7 @@ Where possible, we depend on stable Rust crates rather than implementing from sc
 | Cloudflare Worker | worker crate (worker-rs) | wrangler deploy |
 | AWS Lambda | lambda_runtime crate | cargo lambda deploy |
 | Native server | axum + clap | cargo run |
-| ICP canister | (placeholder) | Future decision |
+| On-chain (blockchain) | (placeholder) | Future decision |
 
 ### Design Principle: Implement Strategically, Depend Widely
 
@@ -204,7 +210,7 @@ nexus-core/
 ├── bindings/               ← Platform bindings
 │   ├── cf/                 ← worker-rs (wasm-bindgen)
 │   ├── server/             ← axum (native)
-│   └── icp/                ← candid (placeholder)
+│   └── onchain/            ← wasm-runtime (placeholder)
 └── Cargo.toml              ← Feature-gated profiles
 ```
 
@@ -234,15 +240,18 @@ Graph algorithms follow Memgraph's MAGE module pattern: each algorithm is a stan
 
 ### Analysis Modules
 
-Modules follow Unix philosophy: JSON in → JSON out. Queue-based pipes.
+Modules follow Blackboard semantics: read Facts and Hints, emit Intents and new Facts. Every module shares the same graph interface. Internal implementation (Rust native, LLM-driven, heuristic) is invisible to other modules.
 
-| Module | Status |
-|---|---|
-| Gap Detector | TS (deployed) → Rust (porting) |
-| Hypothesis Generator | Future |
-| Concept Validator | Future |
-| Entity extraction | Future |
-| Experimental Contrast | Future |
+| Module | Input | Output | Status |
+|---|---|---|---|
+| Gap Detector | Fact graph + Cypher queries | Intent (gap) | TS (deployed) → Rust (porting) |
+| OODA Loop (Cairn) | Fact + Intent + Hint | Intent (action) | Future (pattern extracted) |
+| Hypothesis Generator | Gap Intent + Fact evidence | Intent (hypothesis) | Future |
+| Concept Validator | Hypothesis Intent + experiment | Fact (validated/rejected) | Future |
+| Entity extraction | Raw document | Fact (entity) | Future |
+| Flow-GRPO Planner | Successful Intent histories | Updated Planner weights | Future |
+
+No module calls another module. All communication passes through the Blackboard. The queue layer serializes writes; the Blackboard handles coordination.
 
 ### Artifact Storage & Ingestion
 
@@ -254,7 +263,7 @@ R2 (bucket: ssccs-nexus-af) is the single source of truth. The af-sync worker pe
 |---|---|---|
 | Cloudflare Worker | bindings/cf/ | wasm32-unknown-unknown |
 | Native Server | bindings/server/ | host |
-| ICP Canister | bindings/icp/ | wasm32-wasi (placeholder) |
+| On-chain (blockchain) | bindings/onchain/ | wasm32-wasi (placeholder) |
 
 ### TypeScript Orchestration
 
@@ -263,34 +272,45 @@ R2 (bucket: ssccs-nexus-af) is the single source of truth. The af-sync worker pe
 | af-sync | R2 artifact sync → RAG engines | HTTP (unchanged) |
 | module-hub | Gap Detector, module dispatch | DO service binding → nexus-gap.run() |
 
-## Module Communication: Queue-Based Pipes
+### Module Communication: Stigmergy Through the Blackboard
+
+Modules do not call each other. Each module reads from the Core Blackboard and writes back to it. Coordination is indirect, inspired by Cairn's stigmergy pattern: agents leave traces in a shared environment, other agents perceive those traces and adapt their behavior.
+
+The Blackboard stores three primitives as node/edge types in the petgraph store. Facts are what the system has learned. Intents are what the system wants to explore. Hints are governance rules and human guidance.
 
 ```text
-R2 (documents)
-    ↓
-Queue → Gap Detector (in: doc list JSON, out: gap reports JSON)
-    ↓
-Queue → Hypothesis Generator (in: gap report, out: hypothesis chains)
-    ↓
-Queue → Verifier (in: hypothesis, out: verification result)
-    ↓
-Queue → Generator (in: verified hypothesis, out: .qmd report)
-    ↓
-R2 (published artifact)
+Core Blackboard (shared graph)
+    ├── Fact: verified entity, relation, experiment result
+    ├── Intent: gap, hypothesis, exploration direction
+    └── Hint: contract.nex rule, user feedback
+
+            ↓ read/write (single interface)
+    ┌───────┼───────┬───────┬───────┐
+    │       │       │       │       │
+  OODA    Fixed   Flow-   Human   Future
+  Loop    Pipe    GRPO    Hint    Method
+(Cairn)  (Gap→   (Learn)  (Inject)
+          Hyp→
+          Conc)
 ```
+
+Key principles. Every method converges on the same three primitives regardless of internal complexity. There is no fixed pipeline. The Blackboard's current state determines which module acts next.
 
 ## Contract Governance & Future DeSci
 
-contract defines research rules (evidence thresholds, novelty minimums, report structure). The Verifier enforces these rules on all outputs.
+Contract.nex defines research rules: evidence thresholds, novelty minimums, report structure, and reward schedules. Every module evaluates contract.nex before writing to the Blackboard. The governance surface is a single file, not distributed across modules.
 
-Future: Token-incentivized research. contract can be promoted to a decentralized smart contract. Research verification becomes a protocol with token rewards:
+Future: Token-incentivized research. Contract.nex can execute on a blockchain. Research contributions become automatically verifiable and rewardable:
 
 ```text
-contract → Canister (smart contract)
+Contract.nex → Smart contract (blockchain)
     ├── Gap discovery → Token reward
     ├── Hypothesis validation → Staking + reward
-    └── Community governance → Token-weighted decisions
+    ├── Experiment replication → Replication reward
+    └── Concept drift detection → Drift token
 ```
+
+Every (origin, intent, result) tuple on the Blackboard has a content-addressable hash. This hash serves as a verifiable proof of contribution, recordable on-chain without storing the full payload.
 
 ## Architecture Inspirations
 
@@ -310,23 +330,29 @@ contract → Canister (smart contract)
 
 The key architectural insight from Grafeo is that a unified query IR decouples input languages from execution. Future agent modules (Planner, Verifier, Hypothesis Generator) will query the graph through this same IR. They do not need to know whether the backend is petgraph in memory, SQLite on disk, or a remote CF Worker. The query interface is the plug, the core is the socket. Adding a new query language (GQL, SPARQL, or a future agent DSL) requires only a new parser adapter, not a core change.
 
-### Future Layer (Agentic Loop)
+### Future Layer: Blackboard + Stigmergy
 
-These papers inform the agentic research loop (Planner, Verifier, Generator), which is a future phase built on top of the Rust core:
+The Blackboard architecture is validated by Cairn, an AI search engine that solved 54 of 54 penetration testing challenges (610 teams, only team to achieve a full clear) with no LLMs, no training, and no prior knowledge. Cairn's core is a 250-line OODA loop that reads from and writes to a shared blackboard of Fact, Intent, and Hint primitives. Modules coordinate indirectly through stigmergy: they leave traces in the shared environment and perceive traces left by others.
 
-| Paradigm | Source | Core Insight | Will Inform |
+This validates the core insight of Nexus. A fixed pipeline (Gap Detector → Hypothesis Generator → Verifier) is one valid module. But it is not the only module. The OODA loop is another. Flow-GRPO learning is another. Human intervention is another. All attach to the same Blackboard through the same interface.
+
+Future research layers will be implemented as Blackboard modules, not as pipeline stages:
+
+| Paradigm | Source | Core Insight | Blackboard Role |
 |---|---|---|---|
-| In-the-Flow Agentic Optimization | AgentFlow [arXiv:2510.05592](https://arxiv.org/pdf/2510.05592) | Trainable Planner, Flow-GRPO learning | modules/planner |
-| Hypothesis-Driven Discovery | HypoChainer [arXiv:2507.17209](https://arxiv.org/pdf/2507.17209) | LLMs + KG + humans build hypothesis chains | modules/verifier |
-| Contract-Governed Generation | Story2Proposal [arXiv:2601.20833](https://arxiv.org/pdf/2601.20833) | Shared contract enforces structural obligations | modules/generator |
+| In-the-Flow Agentic Optimization | AgentFlow [arXiv:2510.05592](https://arxiv.org/pdf/2510.05592) | Trainable Planner, Flow-GRPO learning | Reads successful Intent histories, updates Planner weights |
+| Hypothesis-Driven Discovery | HypoChainer [arXiv:2507.17209](https://arxiv.org/pdf/2507.17209) | LLMs + KG + humans build hypothesis chains | Writes Hypothesis Intents, reads Fact graph for evidence |
+| Contract-Governed Generation | Story2Proposal [arXiv:2601.20833](https://arxiv.org/pdf/2601.20833) | Shared contract enforces structural obligations | contract.nex evaluated before every Blackboard write |
+| Stigmergic Search | Cairn (validated, 54/54) | Indirect coordination through shared traces | Core coordination mechanism; Queue + Blackboard separation |
 
 ## Strategic Value
 
-- No lock-in. Core has zero platform dependencies.
-- LLM-native. Cypher is the graph language LLMs know best.
-- Portable. cargo build for any target.
-- DeSci-ready. contract → canister enables token-incentivized research.
-- Unix philosophy. Pure functions + Queue pipes.
+- Blackboard is the single interface. Every module reads and writes the same three types. Internal complexity is irrelevant.
+- Stigmergy over orchestration. Modules coordinate indirectly through the Blackboard. No module calls another module. No pipeline dependency chain.
+- LLM-optional. Cairn proved 54/54 problems without any LLM. LLMs are accelerators, not requirements.
+- Iteration over planning. Interface design improves through repeated use, not upfront specification. Virtual responses enable continuous iteration.
+- DeSci-ready. Contract.nex enables token-incentivized research. Content-addressable hashes provide verifiable proofs of contribution.
+- Portable core. Same Rust codebase compiles for WASM (edge) and native (server). Zero platform lock-in.
 
 ## Current Status (2026-05)
 
@@ -341,7 +367,7 @@ These papers inform the agentic research loop (Planner, Verifier, Generator), wh
 | cypher translator | Starting |
 | Graph algorithms | Future |
 | Agentic loop | Future |
-| ICP DeSci | Placeholder |
+| On-chain DeSci | Placeholder |
 
 ## Edge-to-Cloud Portability & AWS Integration
 
@@ -355,7 +381,7 @@ nexus-core/ (Rust, zero deps)
     ├── bindings/cf/       ← Cloudflare Workers (wasm32-unknown-unknown)
     ├── bindings/aws/      ← AWS Lambda + Graviton (aarch64-unknown-linux-gnu)
     ├── bindings/local/    ← Native server (axum, host architecture)
-    └── bindings/icp/      ← ICP Canister (wasm32-wasi, placeholder)
+    └── bindings/onchain/      ← Smart contract (wasm32-wasi, placeholder)
 ```
 
 | Environment | Binding | Hardware | Latency Profile | Best For |
@@ -393,7 +419,7 @@ Or migrate hot data to S3 for lower latency from AWS compute, keeping cold data 
 
 #### AWS Nitro Enclaves for Contract Governance
 
-contract verification can run inside an AWS Nitro Enclave for cryptographic attestation: the verification result comes with a signed proof that the contract was executed faithfully, without relying on blockchain.
+contract.nex verification can run inside an AWS Nitro Enclave for cryptographic attestation: the verification result comes with a signed proof that the contract was executed faithfully, without relying on blockchain.
 
 #### SageMaker for Flow-GRPO Training
 
@@ -459,7 +485,7 @@ digraph StrategicPosition {
     cf [label="Cloudflare Edge\nWorkers + R2\nReal-time", shape=box, style=filled, fillcolor="#e6ffe6"];
     aws [label="AWS Cloud\nLambda + HPC\nBatch + Training", shape=box, style=filled, fillcolor="#e6ffe6"];
 
-    shared [label="Shared Data\nR2 + contract.json", shape=cylinder, style=filled, fillcolor="#ffebcd"];
+    shared [label="Shared Data\nR2 + contract.nex", shape=cylinder, style=filled, fillcolor="#ffebcd"];
 
     core -> cf [label="wasm"];
     core -> aws [label="aarch64 / x86"];
@@ -481,7 +507,7 @@ This is not "CF or AWS." It is "CF for what CF does best, AWS for what AWS does 
 
 3. **Hardware research alignment.** SSCCS's Segment/Scheme/Field ontology maps directly to hardware pipeline analysis. Graviton + HPC are the natural compute targets.
 
-4. **Contract governance.** `contract` can run in Nitro Enclaves for cryptographic verification of research outputs. No blockchain required for trust; blockchain optional for token incentives.
+4. **Contract governance.** `contract.nex` can run in Nitro Enclaves for cryptographic verification of research outputs. No blockchain required for trust; blockchain optional for token incentives.
 
 5. **Training pipeline.** Flow-GRPO training trajectories come from edge workers; training runs on SageMaker. Clean separation of inference (edge) and training (cloud).
 
