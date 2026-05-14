@@ -66,18 +66,18 @@ digraph DualParallel {
     Corpus [label="Document Corpus\nN documents, T targets", fillcolor="#E8F4F8", style=filled, width=2.5];
 
     subgraph cluster_physical {
-        label="Physical Layer: Machine Boundary";
+        label="Execution Layer: Runner Boundaries";
         style=dashed;
         color="#888888";
         fontsize=11;
 
         subgraph cluster_m1 {
-            label="Machine 1";
+            label="Physical Runner 1";
             style=filled;
             fillcolor="#E8F4F8";
             color="#2B7A9E";
             fontsize=10;
-            M1_T1 [label="A", fillcolor="#FFFFFF", style=filled, width=0.5];
+            M1_T1 [label="Logical Runner\nA", fillcolor="#FFFFFF", style=filled, width=0.5];
             M1_T2 [label="B", fillcolor="#FFFFFF", style=filled, width=0.5];
             M1_T3 [label="C", fillcolor="#FFFFFF", style=filled, width=0.5];
             M1_M [label="\u2193", shape=plaintext];
@@ -85,7 +85,7 @@ digraph DualParallel {
         }
 
         subgraph cluster_m2 {
-            label="Machine 2";
+            label="Physical Runner 2";
             style=filled;
             fillcolor="#E6F0E6";
             color="#3A7D44";
@@ -97,7 +97,7 @@ digraph DualParallel {
         }
 
         subgraph cluster_m3 {
-            label="Machine N";
+            label="Physical Runner N";
             style=filled;
             fillcolor="#FFF4E6";
             color="#DAA520";
@@ -137,7 +137,7 @@ eliminating cross-target contention for shared resources. Outputs are merged
 into a unified deployment directory after all targets complete.
 
 The same partitioning extends naturally to physical distribution across
-machines, with zero additional coordination. The merge function is
+runner nodes, with zero additional coordination. The merge function is
 **commutative**: merging in any order produces the same result, eliminating
 the need for distributed locks, consensus, or shared state. Partial outputs
 move through any transport layer -- shared filesystem, object storage, or CI
@@ -148,18 +148,18 @@ The commutative merge makes the architecture resilient by construction:
 
 | Failure | Effect | Mitigation |
 |---|---|---|
-| Machine fails mid-build | Its targets missing | Rerun on another machine; merge is idempotent |
+| Runner fails mid-build | Its targets missing | Rerun on another runner; merge is idempotent |
 | Single target fails | Only that target absent | Rebuild only that target; merge accepts partial results |
-| Network partition | Cannot upload output | Other machines continue; gap detected at merge time |
+| Network partition | Cannot upload output | Other runners continue; gap detected at merge time |
 
 The same build command and merge function supports four deployment topologies
 by changing only the target assignment:
 
 | Topology | Description |
 |---|---|
-| Single machine | All targets render with logical parallelism; merge is a trivial no-op |
+| Single runner | All targets render with logical parallelism; merge is a trivial no-op |
 | CI runner pool | Each runner picks a target subset from a build queue, uploads artifacts; final job merges |
-| Dedicated cluster | Fixed target groups per machine; shared filesystem eliminates transport overhead |
+| Dedicated cluster | Fixed target groups per node; shared filesystem eliminates transport overhead |
 | Hybrid cloud | Baseline on fixed infrastructure; burst spills to ephemeral cloud instances |
 
 ```{python}
@@ -352,7 +352,7 @@ digraph BuildScaling {
 ```
 
 Since each render target operates in a physically isolated copy of the source
-tree, targets can be distributed across any number of machines without
+tree, targets can be distributed across any number of runners without
 architectural changes. A single merge step combines the independently
 generated output directories using content-level merging for shared assets
 (search indexes, site maps) and union semantics for everything else.
@@ -361,7 +361,7 @@ generated output directories using content-level merging for shared assets
 #| label: fig-parallel-build
 #| fig-cap: "Target isolation enables distribution without architectural change"
 dot("""
-digraph MachineDist {
+digraph RunnerDist {
     rankdir=LR;
     splines=ortho;
     node [shape=box, style=rounded, fontsize=9];
@@ -374,9 +374,9 @@ digraph MachineDist {
         color="#888888";
         fontsize=10;
 
-        M1 [label="Machine / Container A\nsubset of targets", fillcolor="#E8F4F8", style=filled];
-        M2 [label="Machine / Container B\nsubset of targets", fillcolor="#E6F0E6", style=filled];
-        M3 [label="Machine / Container C\nsubset of targets", fillcolor="#FFF4E6", style=filled];
+        M1 [label="Runner / Container A\nsubset of targets", fillcolor="#E8F4F8", style=filled];
+        M2 [label="Runner / Container B\nsubset of targets", fillcolor="#E6F0E6", style=filled];
+        M3 [label="Runner / Container C\nsubset of targets", fillcolor="#FFF4E6", style=filled];
     }
 
     Merge [label="Content-level merge\n(union + deduplication)", fillcolor="#FFFFFF", style=filled, width=2.5];
@@ -513,7 +513,7 @@ workflow self-documenting and reproducible.
 | Build scaling | Sequential per document | Target-parallel, O(targets) not O(documents) |
 | Cross-reference correctness | Manual upkeep | Automatic extension correction |
 | Structural robustness | Relies on author discipline | Automated healing of common defects |
-| Agent/machine feed | Separate manual pipeline | Integrated extraction at build time |
+| Agent/LLM feed | Separate manual pipeline | Integrated extraction at build time |
 | CI quality gate | Sparse or absent | Comprehensive check, exit code 1 |
 
 ## Conclusion
