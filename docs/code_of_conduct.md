@@ -30,7 +30,7 @@ Every contributor bears 100% responsibility for the integrity of their contribut
 
 ## AI Tooling Policy: Tools as Standard
 
-Using AI (LLMs, etc.) for engineering is as standard as using a compiler or an IDE.
+Using AI (LLMs, etc.) for engineering is as standard as using a compiler or an IDE. Insisting that code is only legitimate when written entirely by bare human hands is like claiming, in the age of the automobile, that "if you didn't walk on your own four legs, you haven't really moved." The tool changed; the destination and the accountability of the driver did not.
 
 - **No Mandatory Disclosure:** Contributors are not required to disclose AI usage in commit messages or PRs.
 - **Human Accountability:** Regardless of the tools used, the human engineer who submits the code bears 100% responsibility for its consequences.
