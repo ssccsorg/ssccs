@@ -890,6 +890,8 @@ Time is treated as one coordinate axis among many. Let $t \in \mathbb{R}$ be a c
 
 Observation is deterministic: for identical $\Sigma$ and $F$, $\Omega$ always yields the same $P$. This follows from the definition of $\Omega$ as a function of $\Sigma$ and $F$; any non-determinism must be explicitly introduced through the resolution strategy in $O$. Determinism enables auditability as a secondary benefit: every projection is a verifiable trace from blueprint to output. However, this is a consequence of the core structural properties, not a primary design goal.
 
+This determinism is concretely realized when the observation log is append-only. Because each observation event is recorded as an immutable entry, replaying the log from its initial state exactly reconstructs any prior projection without requiring auxiliary mechanisms such as snapshots, checkpoints, or incremental state summaries. The append-only invariant guarantees that the sequence of observations is total and irreversible, which is precisely the condition under which $\Omega(\Sigma, F)$ remains a pure function across repeated evaluations. No additional synchronisation or reconciliation layer is needed to preserve deterministic reconstruction.
+
 ## System Architecture and Compilation
 
 ### Compiler: Topology Optimizer
@@ -2202,6 +2204,8 @@ A set of Segments with arbitrary connectivity expressed as graph adjacency. The 
 This appendix provides formal semantics, definitions, and additional examples for the dynamic Field evolution mechanism introduced in §3.3.x. It includes implementation guidelines for versioning and caching, compiler and runtime considerations, and a sketch for extending the open format. While not required for understanding the core model, it offers concrete guidance for compiler and runtime implementors.
 
 ### Formal Semantics of Triggers
+
+All trigger types defined below can be expressed as pattern matching over the accumulated observation log. Because every observation event is recorded as an immutable entry in an append-only sequence, a trigger is simply a query that selects events satisfying a predicate on the log. No separate trigger engine is required: the runtime evaluates a trigger by scanning (or indexing into) the event log, applying the trigger condition as a filter over the history. This unification simplifies the implementation and preserves determinism, because the trigger semantics derive entirely from the event log rather than from an external scheduling mechanism.
 
 Let $\mathcal{F}$ be the set of all Fields, $\mathcal{S}$ the set of all Schemes, and $\mathcal{P}$ the set of all projections.
 

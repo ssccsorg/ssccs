@@ -75,7 +75,9 @@ digraph FIH_Primitives {
 - **Intent** — a proposed exploration. It carries an action, parameters, and a confidence score. It is submitted against a Fact, and when concluded it produces a new Fact.  
 - **Hint** — an injected constraint. Governance rules (`contract.nex`), human feedback, compiler warnings, and safety limits all take the form of Hints. Hints constrain which Intents are admissible and which Facts are valid.
 
-The cycle `Fact \u2192 submit(F) \u2192 Intent \u2192 conclude(I) \u2192 Fact` is recursive and self-similar. It operates identically inside a single agent, across a project Blackboard, and across the entire research ecosystem. This is the foundation on which every other architectural element rests.
+Reading the Blackboard state — the accumulated set of committed Facts, pending Intents, and active Hints at any moment — is the computational equivalent of observation. The read captures a cross-section of everything the system knows, intends, and is constrained by at that instant. Subsequent operations derive from this observed cross-section, not from any hidden internal state, ensuring that all decisions are grounded in the shared Blackboard content.
+
+The cycle is recursive and self-similar. It operates identically inside a single agent, across a project Blackboard, and across the entire research ecosystem. This is the foundation on which every other architectural element rests.
 
 > **Supplementary: module examples built on this foundation.** Three research references demonstrate how how different concerns — learning, reasoning, formatting — attach to the same FIH Blackboard:
 >
@@ -92,143 +94,63 @@ The cycle `Fact \u2192 submit(F) \u2192 Intent \u2192 conclude(I) \u2192 Fact` i
 #| fig-cap: "Recursive Blackboard: every node can contain sub-Blackboards. FIH at every scale."
 dot("""
 digraph RecursiveBlackboard {
-    rankdir=TB;
-    splines=ortho;
-    nodesep=0.3;
-    ranksep=0.4;
-    fontname="Arial";
-    compound=true;
+    rankdir=LR; 
+    fontname="Arial"; compound=true;
 
-    // ============================================================
-    // LEGEND
-    // ============================================================
-    subgraph cluster_legend {
-        label="Self-Similar FIH Protocol at Every Scale";
-        fontsize=11;
-        style=dashed;
-        color="#888888";
-        bgcolor="#f8f8f8";
-        labeljust=l;
+    // Each level is the same FIH pattern, self-similar, scaling inward.
+    // H (Hint) constrains the child level by connecting to its F (Fact).
 
-        legend_f [label="F (Fact)", shape=circle, style=filled, fillcolor="#a8e6cf", fontsize=9, width=0.4];
-        legend_i [label="I (Intent)", shape=diamond, style=filled, fillcolor="#ffd3b6", fontsize=9, width=0.4];
-        legend_h [label="H (Hint)", shape=box, style=filled, fillcolor="#d4a5a5", fontsize=9, width=0.4];
-
-        legend_f -> legend_i [label="submit\nintent", style=bold, color="#5577bb", fontsize=8];
-        legend_h -> legend_f [label="constrain", style=dotted, color="#776666", fontsize=8];
-        legend_i -> legend_f [label="produce\nfact", style=dashed, color="#667766", fontsize=8];
-    }
-
-    // ============================================================
-    // GALAXY LEVEL – Ecosystem Blackboard
-    // ============================================================
     subgraph cluster_galaxy {
-        label="Ecosystem Blackboard";
-        fontsize=14;
-        style=filled;
-        fillcolor="#eef4ff";
-        color="#4477bb";
-        penwidth=3;
+        label="Ecosystem Blackboard Node"; fontsize=14;
 
-        galaxy_F [label="F", shape=circle, style=filled, fillcolor="#a8e6cf", fontsize=11, width=0.5];
-        galaxy_I [label="I", shape=diamond, style=filled, fillcolor="#ffd3b6", fontsize=11, width=0.5];
-        galaxy_H [label="H", shape=box, style=filled, fillcolor="#d4a5a5", fontsize=11, width=0.5];
+        F1 [label="F", shape=circle, style=filled, fillcolor="#a8e6cf", fontsize=11, width=0.5];
+        I1 [label="I", shape=diamond, style=filled, fillcolor="#ffd3b6", fontsize=11, width=0.5];
+        H1 [label="H", shape=box, style=filled, fillcolor="#d4a5a5", fontsize=11, width=0.5];
 
-        galaxy_F -> galaxy_I [label="submit_intent()", style=bold, color="#5577bb", fontsize=9];
-        galaxy_I -> galaxy_F [label="conclude_intent()", style=dashed, color="#667766", fontsize=9];
-        galaxy_H -> galaxy_F [label="constrain", style=dotted, color="#776666", fontsize=9];
+        F1 -> I1 [style=bold, color="#5577bb"];
+        I1 -> F1 [style=dashed, color="#667766"];
+        H1 -> F1 [style=dotted, color="#776666"];
 
-        // Sub-Blackboards inside Galaxy
-        subgraph cluster_project_a {
-            label="Project A Blackboard";
-            fontsize=12;
-            style=filled;
-            fillcolor="#e4f8e4";
-            color="#339933";
-            penwidth=2;
+        subgraph cluster_project {
+            label="Project Blackboard"; fontsize=12;
+            style=filled; fillcolor="#e4f8e4"; color="#339933"; penwidth=2;
 
-            projA_F [label="F", shape=circle, style=filled, fillcolor="#a8e6cf", fontsize=10, width=0.45];
-            projA_I [label="I", shape=diamond, style=filled, fillcolor="#ffd3b6", fontsize=10, width=0.45];
-            projA_H [label="H", shape=box, style=filled, fillcolor="#d4a5a5", fontsize=10, width=0.45];
+            F2 [label="F", shape=circle, style=filled, fillcolor="#a8e6cf", fontsize=10, width=0.45];
+            I2 [label="I", shape=diamond, style=filled, fillcolor="#ffd3b6", fontsize=10, width=0.45];
+            H2 [label="H", shape=box, style=filled, fillcolor="#d4a5a5", fontsize=10, width=0.45];
 
-            projA_F -> projA_I [label="submit_intent()", style=bold, color="#5577bb", fontsize=8];
-            projA_I -> projA_F [label="conclude_intent()", style=dashed, color="#667766", fontsize=8];
+            F2 -> I2 [style=bold, color="#5577bb"];
+            I2 -> F2 [style=dashed, color="#667766"];
 
-            // Experiment Blackboards inside Project A
-            subgraph cluster_exp_a1 {
-                label="Experiment 1 Blackboard";
-                fontsize=10;
-                style=filled;
-                fillcolor="#fef8d8";
-                color="#bb9922";
-                penwidth=1.5;
+            subgraph cluster_exp {
+                label="Experiment Blackboard"; fontsize=10;
+                style=filled; fillcolor="#fef8d8"; color="#bb9922"; penwidth=1.5;
 
-                exp1_F [label="F", shape=circle, style=filled, fillcolor="#a8e6cf", fontsize=9, width=0.4];
-                exp1_I [label="I", shape=diamond, style=filled, fillcolor="#ffd3b6", fontsize=9, width=0.4];
-                exp1_H [label="H", shape=box, style=filled, fillcolor="#d4a5a5", fontsize=9, width=0.4];
+                F3 [label="F", shape=circle, style=filled, fillcolor="#a8e6cf", fontsize=9, width=0.4];
+                I3 [label="I", shape=diamond, style=filled, fillcolor="#ffd3b6", fontsize=9, width=0.4];
+                H3 [label="H", shape=box, style=filled, fillcolor="#d4a5a5", fontsize=9, width=0.4];
 
-                exp1_F -> exp1_I [style=bold, color="#5577bb", fontsize=7];
-                exp1_I -> exp1_F [style=dashed, color="#667766", fontsize=7];
+                F3 -> I3 [style=bold, color="#5577bb"];
+                I3 -> F3 [style=dashed, color="#667766"];
+
+                subgraph cluster_agent {
+                    label="Agent Blackboard (primitive)"; fontsize=9;
+                    style=filled; fillcolor="#fce4e4"; color="#bb4444"; penwidth=1.5;
+
+                    F4 [label="F", shape=circle, style=filled, fillcolor="#a8e6cf", fontsize=8, width=0.35];
+                    I4 [label="I", shape=diamond, style=filled, fillcolor="#ffd3b6", fontsize=8, width=0.35];
+                    H4 [label="H", shape=box, style=filled, fillcolor="#d4a5a5", fontsize=8, width=0.35];
+
+                    F4 -> I4 [style=bold, color="#5577bb"];
+                    I4 -> F4 [style=dashed, color="#667766"];
+                    H4 -> F4 [style=dotted, color="#776666"];
+                }
+                H3 -> F4 [style=dotted, color="#776666"];
             }
-
-            subgraph cluster_exp_a2 {
-                label="Experiment 2 Blackboard";
-                fontsize=10;
-                style=filled;
-                fillcolor="#fef8d8";
-                color="#bb9922";
-                penwidth=1.5;
-
-                exp2_F [label="F", shape=circle, style=filled, fillcolor="#a8e6cf", fontsize=9, width=0.4];
-                exp2_I [label="I", shape=diamond, style=filled, fillcolor="#ffd3b6", fontsize=9, width=0.4];
-                exp2_H [label="H", shape=box, style=filled, fillcolor="#d4a5a5", fontsize=9, width=0.4];
-            }
-
-            projA_H -> exp1_F [style=dotted, color="#776666", fontsize=7, ltail=cluster_project_a, lhead=cluster_exp_a1];
+            H2 -> F3 [style=dotted, color="#776666"];
         }
-
-        subgraph cluster_project_b {
-            label="Project B Blackboard";
-            fontsize=12;
-            style=filled;
-            fillcolor="#e4f8e4";
-            color="#339933";
-            penwidth=2;
-
-            projB_F [label="F", shape=circle, style=filled, fillcolor="#a8e6cf", fontsize=10, width=0.45];
-            projB_I [label="I", shape=diamond, style=filled, fillcolor="#ffd3b6", fontsize=10, width=0.45];
-            projB_H [label="H", shape=box, style=filled, fillcolor="#d4a5a5", fontsize=10, width=0.45];
-
-            projB_F -> projB_I [style=bold, color="#5577bb", fontsize=8];
-            projB_I -> projB_F [style=dashed, color="#667766", fontsize=8];
-        }
-
-        galaxy_H -> projA_F [style=dotted, color="#776666", fontsize=8, ltail=cluster_galaxy, lhead=cluster_project_a];
-        galaxy_H -> projB_F [style=dotted, color="#776666", fontsize=8, ltail=cluster_galaxy, lhead=cluster_project_b];
+        H1 -> F2 [style=dotted, color="#776666"];
     }
-
-    // ============================================================
-    // ATOMIC LEVEL – Agent Blackboard (deepest recursion)
-    // ============================================================
-    subgraph cluster_atomic {
-        label="Agent Blackboard\n(F/I/H primitive)";
-        fontsize=11;
-        style=filled;
-        fillcolor="#fce4e4";
-        color="#bb4444";
-        penwidth=2;
-
-        atomic_F [label="F", shape=circle, style=filled, fillcolor="#a8e6cf", fontsize=11, width=0.5];
-        atomic_I [label="I", shape=diamond, style=filled, fillcolor="#ffd3b6", fontsize=11, width=0.5];
-        atomic_H [label="H", shape=box, style=filled, fillcolor="#d4a5a5", fontsize=11, width=0.5];
-
-        atomic_F -> atomic_I [label="submit_intent()", style=bold, color="#5577bb", fontsize=9];
-        atomic_I -> atomic_F [label="conclude_intent()", style=dashed, color="#667766", fontsize=9];
-        atomic_H -> atomic_F [label="constrain", style=dotted, color="#776666", fontsize=9];
-    }
-
-    // Connect Atomic to Experiment level (showing recursion bottom)
-    exp1_H -> atomic_F [style=dotted, color="#776666", fontsize=8];
 }
 """)
 ```
@@ -264,6 +186,8 @@ Direct uploads from CI/CD, simulators, or robotic platforms to the knowledge gra
 
 The design ensures that every change — whether a commit, a simulation completion, or a robotic demonstration — is reflected in the knowledge graph within seconds.
 
+The storage backend itself is abstracted behind a minimal interface: operations to log a Fact, Intent, or Hint, and operations to load the event history for a given scope. The same core logic operates across SQLite files, blockchain ledgers, in-memory stores, or cloud databases. External implementors can inject custom storage without modifying any core logic, and the pipeline treats every backend identically as long as the interface contract is satisfied.
+
 ## Layer 3: Agentic Research Loop
 
 The Blackboard coordinates agent activity through Stigmergy: agents leave traces in a shared space, other agents perceive those traces and adapt. No module calls another module directly. The same FIH (Fact / Intent / Hint) interface that works at every scale — ecosystem, project, experiment, agent, primitive — governs all interaction.
@@ -275,7 +199,7 @@ The Blackboard coordinates agent activity through Stigmergy: agents leave traces
 - Verifier: grounds hypotheses against the knowledge graph, checks contract.nex compliance, computes support and novelty scores.
 - Generator: produces hypothesis chain diagrams, evidence tables, gap analyses, and structured reports.
 
-All actions are recorded in an append‑only Evolving Memory, which serves as the raw material for reinforcement learning.
+All actions are recorded in an append‑only Evolving Memory, which serves as the raw material for reinforcement learning. Because every operation is appended and never overwritten, any prior state can be exactly reconstructed by replaying events in sequence, and multiple agents can read and write concurrently without conflict — the only serialisation point is the append itself.
 
 ## Layer 4: Learning Loop
 
