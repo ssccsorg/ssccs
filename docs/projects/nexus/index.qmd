@@ -101,12 +101,14 @@ The design ensures that every change — whether a commit, a simulation completi
 
 ### Layer 3: Agentic Research Loop
 
-The multi‑turn loop orchestrates research activity:
+The Blackboard coordinates agent activity through Stigmergy: agents leave traces in a shared space, other agents perceive those traces and adapt. No module calls another module directly. The same FIH (Fact / Intent / Hint) interface that works at every scale — ecosystem, project, experiment, agent, primitive — governs all interaction.
 
-- Planner (the only trainable component): decomposes a research question, selects appropriate retrieval or simulation modes, decides when to invoke physical instruments, and determines evidence sufficiency.
-- Executor: invokes chosen tools and records structured results.
-- Verifier: grounds each hypothesis step against the knowledge graph, computes support and novelty scores, checks compliance with the governance contract, and optionally applies physical‑consistency constraints.
-- Generator: produces a hypothesis chain diagram, evidence table, gap analysis, and a structured report. A Reporter agent cross‑checks the report against the contract before finalisation.
+- Blackboard (shared graph): stores Facts (validated results), Intents (exploration directions), and Hints (governance rules). The only interface between modules.
+- Stigmergy coordination: agents read from and write to the Blackboard. A Gap Detector deposits Intent traces; an exploration loop perceives and acts. No pipeline dependency chain.
+- FIH lifecycle: submit → claim → heartbeat → conclude. Identical lifecycle from document ingestion to hardware validation. Validated on 54 of 54 autonomous penetration testing challenges with zero LLMs.
+- Planner (trainable): decomposes research questions, selects tools, determines evidence sufficiency. Optimized via Flow‑GRPO from accumulated (origin, intent, result) trajectories.
+- Verifier: grounds hypotheses against the knowledge graph, checks contract.nex compliance, computes support and novelty scores.
+- Generator: produces hypothesis chain diagrams, evidence tables, gap analyses, and structured reports.
 
 All actions are recorded in an append‑only Evolving Memory, which serves as the raw material for reinforcement learning.
 

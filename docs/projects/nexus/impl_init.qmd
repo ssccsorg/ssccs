@@ -11,7 +11,7 @@ title-meta-items:
 metadata-files:
   - ../../_include/author.yml
 abstract: |
-  Nexus is a standalone graph analysis platform that ingests documents into a knowledge graph, detects structural gaps and contradictions, and orchestrates agentic research loops. The core is implemented in Rust with zero runtime dependencies, with platform bindings for Cloudflare Workers, native servers, and (as a placeholder) blockchain targets. Design decisions are informed by deep analysis of Memgraph (in-memory graph database with Atomic GraphRAG, MAGE algorithm suite, streaming ingestion) and Grafeo (six-language query translation, push-based execution engine, feature-gated WASM profiles). The architecture follows Unix philosophy: small composable crates communicating through typed JSON pipelines, with contract as the single governance surface.
+  Nexus is a standalone graph analysis platform that ingests documents into a knowledge graph, detects structural gaps and contradictions, and orchestrates agentic research loops. The core is implemented in Rust with zero runtime dependencies, with platform bindings for Cloudflare Workers, native servers, and (as a placeholder) blockchain targets. Design decisions are informed by deep analysis of Memgraph (in-memory graph database with Atomic GraphRAG, MAGE algorithm suite, streaming ingestion) and Grafeo (six-language query translation, push-based execution engine, feature-gated WASM profiles). The architecture follows the Blackboard philosophy: all modules communicate through a shared graph of Fact, Intent, and Hint primitives, with contract.nex as the single governance surface.
 ---
 
 ```{python}
@@ -39,6 +39,19 @@ The Rust core provides the graph storage, Cypher translation, and algorithm impl
 3. Design by reference, not by dependency. The architecture is informed by Memgraph and Grafeo but depends on neither. We extract their patterns, not their code.
 
 Nexus is itself an instance of the SSCCS paradigm. The Core Blackboard is the Scheme: an immutable coordinate system that every module shares. Intents and Hints are the Field: dynamic constraints that drive exploration. The act of reading the Blackboard, computing, and writing back is the Observation. The resulting Facts are the Projection: the updated state that becomes the input for the next cycle. Nexus implements SSCCS, and SSCCS describes Nexus. This circularity is not a flaw. It is the bootstrap mechanism that makes the system self-consistent.
+
+### Multi-Dimensional Blackboard Composition
+
+A Blackboard can contain other Blackboards. A Fact at Dimension N becomes a Scheme at Dimension N+1. An Observation at Dimension N+1 becomes a Hint at Dimension N. This mirrors the bootstrap recursion.
+
+| Dimension | Role | Content |
+|---|---|---|
+| Infrastructure | petgraph Graph, GraphAccess trait | Physical node and edge storage |
+| Domain | Fact / Intent / Hint nodes | Research documents, experiment results, governance rules |
+| Meta | Blackboard composition rules | Rules for how Facts at Domain become Schemes at Meta |
+| Research | Gaps, hypotheses, validations | Domain-specific knowledge exploration |
+
+The Queue layer enforces Stigmergy across dimensions. A write at any dimension is visible to all dimensions. The type conversion (Fact to Scheme, Observation to Hint) happens at the Queue consumer, not at the write stage.
 
 ### Unified Architecture
 
@@ -186,32 +199,24 @@ Where differentiation matters (Cypher-to-petgraph translation, gap detection heu
 
 ### Rust Core (nexus-core/)
 
-The core is a Cargo workspace with zero platform dependencies.
+The core is a Cargo workspace with two abstraction layers:
+
+- `Blackboard` trait (public, stable): the FIH lifecycle interface. Every module submits Facts, Intents, and Hints through this interface. `submit_intent() / claim_intent() / heartbeat() / release_intent() / conclude_intent()` — the Cairn-verified lifecycle. 25 tests passing.
+- `GraphAccess` trait (internal): raw petgraph operations for the Cypher executor. `node_indices() / node_weight() / add_node()` etc.
+- `BlackboardStore`: the petgraph-backed implementation of both traits. Internal methods (`add_fact()`, `add_intent()`, `deposit_signal()`) preserved for Phase 2.
 
 ```text
 nexus-core/
-├── core/                   ← Graph storage (petgraph + rusqlite WAL)
-│   ├── graph/              ← Node, Edge, Property types
-│   ├── store/              ← MemoryStore + SqliteStore
-│   ├── index/              ← Vector (ndarray) + Text (BM25)
-│   └── mvcc.rs             ← Snapshot isolation via rusqlite
-├── cypher/                 ← Cypher → Plan IR → petgraph
-│   ├── plan.rs             ← cyrs Plan IR types
-│   ├── translate.rs        ← Plan → iterator chain
-│   └── parser.rs           ← cyrs integration
-├── algorithms/             ← Graph algorithms (Memgraph MAGE pattern)
-│   ├── community.rs        ← Louvain/Leiden
-│   ├── pagerank.rs         ← petgraph built-in
-│   └── path.rs             ← Dijkstra, shortest path
-├── modules/                ← Analysis modules
-│   ├── gap.rs              ← Gap Detector
-│   ├── contract.rs         ← contract interpreter
-│   └── trait.rs            ← Module trait definition
-├── bindings/               ← Platform bindings
-│   ├── cf/                 ← worker-rs (wasm-bindgen)
-│   ├── server/             ← axum (native)
-│   └── onchain/            ← wasm-runtime (placeholder)
-└── Cargo.toml              ← Feature-gated profiles
+├── graph/         ← Blackboard trait + BlackboardStore + Fact/Intent/Hint
+│   └── src/lib.rs
+├── index/         ← ndarray vector search
+│   └── src/lib.rs
+├── cypher/         ← cyrs Plan IR → petgraph iterator chain
+│   ├── plan.rs
+│   ├── parser.rs
+│   ├── translate.rs
+│   └── lib.rs
+└── Cargo.toml      ← Workspace root
 ```
 
 ### Cypher Translation
@@ -267,10 +272,10 @@ R2 (bucket: ssccs-nexus-af) is the single source of truth. The af-sync worker pe
 
 ### TypeScript Orchestration
 
-| Worker | Role | Calls Rust Via |
+| Worker | Role | Protocol |
 |---|---|---|
-| af-sync | R2 artifact sync → RAG engines | HTTP (unchanged) |
-| module-hub | Gap Detector, module dispatch | DO service binding → nexus-gap.run() |
+| af-sync | R2 artifact sync → RAG engines | HTTP, writes Facts to RAG Blackboard |
+| module-hub | Gap Detector, module dispatch | Blackboard FIH interface (submit_intent, read_state) |
 
 ### Module Communication: Stigmergy Through the Blackboard
 
@@ -340,23 +345,10 @@ Future research layers will be implemented as Blackboard modules, not as pipelin
 
 | Paradigm | Source | Core Insight | Blackboard Role |
 |---|---|---|---|
+| Stigmergic Search | Cairn (validated, 54/54) | Indirect coordination through shared traces | Core coordination mechanism; Queue + Blackboard separation |
 | In-the-Flow Agentic Optimization | AgentFlow [arXiv:2510.05592](https://arxiv.org/pdf/2510.05592) | Trainable Planner, Flow-GRPO learning | Reads successful Intent histories, updates Planner weights |
 | Hypothesis-Driven Discovery | HypoChainer [arXiv:2507.17209](https://arxiv.org/pdf/2507.17209) | LLMs + KG + humans build hypothesis chains | Writes Hypothesis Intents, reads Fact graph for evidence |
 | Contract-Governed Generation | Story2Proposal [arXiv:2601.20833](https://arxiv.org/pdf/2601.20833) | Shared contract enforces structural obligations | contract.nex evaluated before every Blackboard write |
-| Stigmergic Search | Cairn (validated, 54/54) | Indirect coordination through shared traces | Core coordination mechanism; Queue + Blackboard separation |
-
-### Multi-Layered Blackboard Composition
-
-A Blackboard can contain other Blackboards. A Fact at Layer N becomes a Scheme at Layer N+1. An Observation at Layer N+1 becomes a Hint at Layer N. This mirrors the bootstrap recursion: Nexus implements SSCCS, and SSCCS describes Nexus.
-
-| Layer | Role | Content |
-|---|---|---|
-| Layer 0: Infrastructure | petgraph Graph, GraphLike trait | Physical node and edge storage |
-| Layer 1: Domain | Fact / Intent / Hint nodes | Research documents, experiment results, governance rules |
-| Layer 2: Meta | Blackboard composition rules | Rules for how Facts at Layer 1 become Schemes at Layer 2 |
-| Layer N: Research | Gaps, hypotheses, validations | Domain-specific knowledge exploration |
-
-The Queue layer enforces Stigmergy across layers. A write at any layer is visible to all layers. The type conversion (Fact to Scheme, Observation to Hint) happens at the Queue consumer, not at the write stage.
 
 ### Agent Oracle: The Purest Observer
 
@@ -382,12 +374,13 @@ This applies to any domain. Business simulation: Fact = market data, Intent = st
 | af-sync worker (R2 → LightRAG) | Deployed |
 | LightRAG (Docker) | Deployed (reference implementation; sync pipeline active) |
 | module-hub (TS, gap-detector Cypher mode) | Deployed |
-| Memgraph (Docker, analysis reference) | Reference implementation (patterns extracted) |
 | CI/CD (deploy.yml, build.yml) | Deployed |
-| Rust core (nexus-core/) | Starting |
-| cypher translator | Starting |
+| Rust core (nexus-core/) | Phase 1 complete: Blackboard trait, FIH lifecycle, BlackboardStore, 25 tests |
+| Blackboard trait | Implemented: submit/claim/heartbeat/release/conclude lifecycle, BoardState, 4 tests |
+| GraphAccess trait | Implemented: raw petgraph operations for Cypher executor |
+| cypher translator | cyrs pipeline integrated, dual-path executor, 21 tests |
 | Graph algorithms | Future |
-| Agentic loop | Future |
+| Agentic loop | FIH lifecycle extracted (Cairn pattern), OODA module design |
 | On-chain DeSci | Placeholder |
 
 ## Edge-to-Cloud Portability & AWS Integration
