@@ -345,6 +345,27 @@ Future research layers will be implemented as Blackboard modules, not as pipelin
 | Contract-Governed Generation | Story2Proposal [arXiv:2601.20833](https://arxiv.org/pdf/2601.20833) | Shared contract enforces structural obligations | contract.nex evaluated before every Blackboard write |
 | Stigmergic Search | Cairn (validated, 54/54) | Indirect coordination through shared traces | Core coordination mechanism; Queue + Blackboard separation |
 
+### Multi-Layered Blackboard Composition
+
+A Blackboard can contain other Blackboards. A Fact at Layer N becomes a Scheme at Layer N+1. An Observation at Layer N+1 becomes a Hint at Layer N. This mirrors the bootstrap recursion: Nexus implements SSCCS, and SSCCS describes Nexus.
+
+| Layer | Role | Content |
+|---|---|---|
+| Layer 0: Infrastructure | petgraph Graph, GraphLike trait | Physical node and edge storage |
+| Layer 1: Domain | Fact / Intent / Hint nodes | Research documents, experiment results, governance rules |
+| Layer 2: Meta | Blackboard composition rules | Rules for how Facts at Layer 1 become Schemes at Layer 2 |
+| Layer N: Research | Gaps, hypotheses, validations | Domain-specific knowledge exploration |
+
+The Queue layer enforces Stigmergy across layers. A write at any layer is visible to all layers. The type conversion (Fact to Scheme, Observation to Hint) happens at the Queue consumer, not at the write stage.
+
+### Agent Oracle: The Purest Observer
+
+The Agent Oracle is a module that reads from the Blackboard and writes back predictions and simulation results. It has no special privileges. It uses the same Fact / Intent / Hint interface as every other module.
+
+Oracle input: accumulated (origin, intent, result) histories on the Blackboard. Oracle output: new Facts (predicted outcomes) and new Intents (simulation branches to explore). The Oracle does not need direct communication with any other module. It reads the traces left by real-world experiments, market data ingestors, or hardware simulations, and writes its projections back to the same space.
+
+This applies to any domain. Business simulation: Fact = market data, Intent = strategy proposal, Oracle output = projected outcome. Hardware emulation: Fact = RTL trace, Intent = optimization, Oracle output = utilization prediction. The Blackboard does not distinguish between the two. The primitives are the same.
+
 ## Strategic Value
 
 - Blackboard is the single interface. Every module reads and writes the same three types. Internal complexity is irrelevant.
