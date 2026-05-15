@@ -1,7 +1,6 @@
 ---
-title: Nexus
-subtitle: Boundaryless Autonomous Research Infrastructure. Contract-Governed,
-  Hypothesis-Driven, and Cross-Reality
+title: NeXus
+subtitle: "FIH Blackboard Infrastructure. Contract-Governed. Cross-Reality."
 date: last-modified
 title-meta-items:
   html:
@@ -33,15 +32,7 @@ abstract: |
 
 ## Executive Summary
 
-Nexus defines this infrastructure as a self‑improving, contract‑governed, agentic system that not only ingests and connects heterogeneous knowledge, but actively generates, validates, and learns from hypotheses that span the digital‑physical boundary. It rests on three foundational paradigms:
-
-| Paradigm | Core Insight |
-|----------|--------------|
-| In‑the‑Flow Agentic Optimization | A trainable Planner inside a multi‑turn loop, optimized via on‑policy reinforcement learning, learns long‑horizon tool‑use strategies from sparse outcome rewards. |
-| Hypothesis‑Driven Discovery | LLMs, knowledge graphs, and human experts collaboratively build and validate hypothesis chains grounded in graph‑structured evidence. |
-| Contract‑Governed Multi‑Agent Generation | Specialised agents operate under a persistent shared contract that enforces structural obligations, ensuring that generated artifacts meet quality, provenance, and physical‑constraint requirements. |
-
-Nexus assembles a layered architecture that is engine‑agnostic by design, allowing any knowledge‑graph, simulation, or robotic backend to be swapped in without rewriting orchestration logic. This document presents the unified blueprint — from textual document ingestion to embodied experimental validation — as a single cohesive research infrastructure.
+Nexus is a boundaryless research infrastructure built on the Blackboard paradigm. All modules coordinate indirectly through a shared graph of three primitives. There is no fixed pipeline, no orchestrator, and no direct module-to-module communication. Modules leave traces; other modules perceive those traces and act.
 
 The primary document source that feeds this infrastructure is the
 [SDBS (SSCCS Document Build System)](/projects/sdbs/index.html).
@@ -50,7 +41,197 @@ all technical documentation. Nexus reads from the resulting structured
 corpus, using the document graph as a partial knowledge base from which
 hypotheses, constraints, and provenance traces are derived.
 
-### Architecture Overview
+### Universal Primitives: Fact, Intent, Hint
+
+Every interaction inside Nexus — whether a document chunk, a hypothesis, a governance rule, or a simulation output — is expressed through exactly three primitives: **Fact (F)**, **Intent (I)**, and **Hint (H)**. These primitives are the only interface between any two agents, any two Blackboards, or any agent and the knowledge graph.
+
+```{python}
+#| label: fig-FIH-primitives
+#| fig-cap: "Fact → Intent → Fact: a recursive, self‑similar chain. Hint constrains both. Every interaction at every scale obeys this same input/output contract."
+dot("""
+digraph FIH_Primitives {
+    rankdir=LR;
+    splines=ortho;
+    nodesep=0.6;
+    ranksep=0.8;
+    fontname="Arial";
+
+    fact_node [label="Fact", shape=circle, style=filled, fillcolor="#a8e6cf", fontsize=14, width=1.2];
+    intent_node [label="Intent", shape=diamond, style=filled, fillcolor="#ffd3b6", fontsize=14, width=1.2];
+    hint_node [label="Hint", shape=box, style=filled, fillcolor="#d4a5a5", fontsize=14, width=1.2];
+
+    fact_node -> intent_node [label="submit(F) → I\npropose new exploration", style=bold, color="#5577bb", fontsize=10, minlen=3];
+    intent_node -> fact_node [label="conclude(I) → F\nrecord result as Fact", style=dashed, color="#667766", fontsize=10, minlen=3];
+
+    hint_node -> fact_node [label="constrain", style=dotted, color="#c62828", fontsize=10, minlen=2];
+    hint_node -> intent_node [label="constrain", style=dotted, color="#c62828", fontsize=10, minlen=2];
+
+    fact_node -> fact_node [label="parent chain\n(previous F → next F)", style=dashed, color="#888888", fontsize=9, dir=both];
+}
+""")
+```
+
+- **Fact** — a validated observation. Once committed, it is immutable. Every Fact is the output of a concluded Intent, and can become the origin of a new Intent.  
+- **Intent** — a proposed exploration. It carries an action, parameters, and a confidence score. It is submitted against a Fact, and when concluded it produces a new Fact.  
+- **Hint** — an injected constraint. Governance rules (`contract.nex`), human feedback, compiler warnings, and safety limits all take the form of Hints. Hints constrain which Intents are admissible and which Facts are valid.
+
+The cycle `Fact \u2192 submit(F) \u2192 Intent \u2192 conclude(I) \u2192 Fact` is recursive and self-similar. It operates identically inside a single agent, across a project Blackboard, and across the entire research ecosystem. This is the foundation on which every other architectural element rests.
+
+> **Supplementary: module examples built on this foundation.** Three research references demonstrate how how different concerns — learning, reasoning, formatting — attach to the same FIH Blackboard:
+>
+> | Module Pattern | Research Reference | Blackboard Role |
+> |---|---|---|
+> | Planner (Flow‐GRPO) | AgentFlow [arXiv:2510.05592](https://arxiv.org/pdf/2510.05592) | Reads successful Intent histories; writes updated Planner weights as Facts |
+> | Hypothesis Validator | HypoChainer [arXiv:2507.17209](https://arxiv.org/pdf/2507.17209) | Reads Fact graph for evidence; writes validated/rejected Intents |
+> | Contract‐Governed Generator | Story2Proposal [arXiv:2601.20833](https://arxiv.org/pdf/2601.20833) | Evaluates contract.nex before every Intent write; produces structured reports |
+
+## Architecture Overview
+
+```{python}
+#| label: fig-recursive-blackboard
+#| fig-cap: "Recursive Blackboard: every node can contain sub-Blackboards. FIH at every scale."
+dot("""
+digraph RecursiveBlackboard {
+    rankdir=TB;
+    splines=ortho;
+    nodesep=0.3;
+    ranksep=0.4;
+    fontname="Arial";
+    compound=true;
+
+    // ============================================================
+    // LEGEND
+    // ============================================================
+    subgraph cluster_legend {
+        label="Self-Similar FIH Protocol at Every Scale";
+        fontsize=11;
+        style=dashed;
+        color="#888888";
+        bgcolor="#f8f8f8";
+        labeljust=l;
+
+        legend_f [label="F (Fact)", shape=circle, style=filled, fillcolor="#a8e6cf", fontsize=9, width=0.4];
+        legend_i [label="I (Intent)", shape=diamond, style=filled, fillcolor="#ffd3b6", fontsize=9, width=0.4];
+        legend_h [label="H (Hint)", shape=box, style=filled, fillcolor="#d4a5a5", fontsize=9, width=0.4];
+
+        legend_f -> legend_i [label="submit\nintent", style=bold, color="#5577bb", fontsize=8];
+        legend_h -> legend_f [label="constrain", style=dotted, color="#776666", fontsize=8];
+        legend_i -> legend_f [label="produce\nfact", style=dashed, color="#667766", fontsize=8];
+    }
+
+    // ============================================================
+    // GALAXY LEVEL – Ecosystem Blackboard
+    // ============================================================
+    subgraph cluster_galaxy {
+        label="Ecosystem Blackboard";
+        fontsize=14;
+        style=filled;
+        fillcolor="#eef4ff";
+        color="#4477bb";
+        penwidth=3;
+
+        galaxy_F [label="F", shape=circle, style=filled, fillcolor="#a8e6cf", fontsize=11, width=0.5];
+        galaxy_I [label="I", shape=diamond, style=filled, fillcolor="#ffd3b6", fontsize=11, width=0.5];
+        galaxy_H [label="H", shape=box, style=filled, fillcolor="#d4a5a5", fontsize=11, width=0.5];
+
+        galaxy_F -> galaxy_I [label="submit_intent()", style=bold, color="#5577bb", fontsize=9];
+        galaxy_I -> galaxy_F [label="conclude_intent()", style=dashed, color="#667766", fontsize=9];
+        galaxy_H -> galaxy_F [label="constrain", style=dotted, color="#776666", fontsize=9];
+
+        // Sub-Blackboards inside Galaxy
+        subgraph cluster_project_a {
+            label="Project A Blackboard";
+            fontsize=12;
+            style=filled;
+            fillcolor="#e4f8e4";
+            color="#339933";
+            penwidth=2;
+
+            projA_F [label="F", shape=circle, style=filled, fillcolor="#a8e6cf", fontsize=10, width=0.45];
+            projA_I [label="I", shape=diamond, style=filled, fillcolor="#ffd3b6", fontsize=10, width=0.45];
+            projA_H [label="H", shape=box, style=filled, fillcolor="#d4a5a5", fontsize=10, width=0.45];
+
+            projA_F -> projA_I [label="submit_intent()", style=bold, color="#5577bb", fontsize=8];
+            projA_I -> projA_F [label="conclude_intent()", style=dashed, color="#667766", fontsize=8];
+
+            // Experiment Blackboards inside Project A
+            subgraph cluster_exp_a1 {
+                label="Experiment 1 Blackboard";
+                fontsize=10;
+                style=filled;
+                fillcolor="#fef8d8";
+                color="#bb9922";
+                penwidth=1.5;
+
+                exp1_F [label="F", shape=circle, style=filled, fillcolor="#a8e6cf", fontsize=9, width=0.4];
+                exp1_I [label="I", shape=diamond, style=filled, fillcolor="#ffd3b6", fontsize=9, width=0.4];
+                exp1_H [label="H", shape=box, style=filled, fillcolor="#d4a5a5", fontsize=9, width=0.4];
+
+                exp1_F -> exp1_I [style=bold, color="#5577bb", fontsize=7];
+                exp1_I -> exp1_F [style=dashed, color="#667766", fontsize=7];
+            }
+
+            subgraph cluster_exp_a2 {
+                label="Experiment 2 Blackboard";
+                fontsize=10;
+                style=filled;
+                fillcolor="#fef8d8";
+                color="#bb9922";
+                penwidth=1.5;
+
+                exp2_F [label="F", shape=circle, style=filled, fillcolor="#a8e6cf", fontsize=9, width=0.4];
+                exp2_I [label="I", shape=diamond, style=filled, fillcolor="#ffd3b6", fontsize=9, width=0.4];
+                exp2_H [label="H", shape=box, style=filled, fillcolor="#d4a5a5", fontsize=9, width=0.4];
+            }
+
+            projA_H -> exp1_F [style=dotted, color="#776666", fontsize=7, ltail=cluster_project_a, lhead=cluster_exp_a1];
+        }
+
+        subgraph cluster_project_b {
+            label="Project B Blackboard";
+            fontsize=12;
+            style=filled;
+            fillcolor="#e4f8e4";
+            color="#339933";
+            penwidth=2;
+
+            projB_F [label="F", shape=circle, style=filled, fillcolor="#a8e6cf", fontsize=10, width=0.45];
+            projB_I [label="I", shape=diamond, style=filled, fillcolor="#ffd3b6", fontsize=10, width=0.45];
+            projB_H [label="H", shape=box, style=filled, fillcolor="#d4a5a5", fontsize=10, width=0.45];
+
+            projB_F -> projB_I [style=bold, color="#5577bb", fontsize=8];
+            projB_I -> projB_F [style=dashed, color="#667766", fontsize=8];
+        }
+
+        galaxy_H -> projA_F [style=dotted, color="#776666", fontsize=8, ltail=cluster_galaxy, lhead=cluster_project_a];
+        galaxy_H -> projB_F [style=dotted, color="#776666", fontsize=8, ltail=cluster_galaxy, lhead=cluster_project_b];
+    }
+
+    // ============================================================
+    // ATOMIC LEVEL – Agent Blackboard (deepest recursion)
+    // ============================================================
+    subgraph cluster_atomic {
+        label="Agent Blackboard\n(F/I/H primitive)";
+        fontsize=11;
+        style=filled;
+        fillcolor="#fce4e4";
+        color="#bb4444";
+        penwidth=2;
+
+        atomic_F [label="F", shape=circle, style=filled, fillcolor="#a8e6cf", fontsize=11, width=0.5];
+        atomic_I [label="I", shape=diamond, style=filled, fillcolor="#ffd3b6", fontsize=11, width=0.5];
+        atomic_H [label="H", shape=box, style=filled, fillcolor="#d4a5a5", fontsize=11, width=0.5];
+
+        atomic_F -> atomic_I [label="submit_intent()", style=bold, color="#5577bb", fontsize=9];
+        atomic_I -> atomic_F [label="conclude_intent()", style=dashed, color="#667766", fontsize=9];
+        atomic_H -> atomic_F [label="constrain", style=dotted, color="#776666", fontsize=9];
+    }
+
+    // Connect Atomic to Experiment level (showing recursion bottom)
+    exp1_H -> atomic_F [style=dotted, color="#776666", fontsize=8];
+}
+""")
+```
 
 The system is organized into five integrated layers, extended by cross‑reality capabilities that transcend the original digital scope.
 
@@ -64,23 +245,7 @@ The system is organized into five integrated layers, extended by cross‑reality
 
 These layers implement the SSCCS Organic Growth model: contract‑governed ingestion feeds a unified knowledge graph, which drives hypothesis generation and validation, with the system continuously learning from its own discoveries — whether those discoveries occur in a document, a simulation, or a physical laboratory.
 
-### Foundational Research Paradigms
-
-The integration of three complementary paradigms ensures that Nexus can plan, execute, evaluate, and self‑correct within a structured output framework, regardless of domain.
-
-| Concept | AgentFlow | HypoChainer | Story2Proposal |
-|---------|-----------|-------------|----------------|
-| Planner | Trainable policy via on‑policy RL | – | – |
-| Executor | Tool orchestration layer | – | – |
-| Verifier | Termination & state evaluation | KG‑grounded validation | Evaluation feedback |
-| Generator | – | – | Report rendering under contract |
-| Contract | – | – | Persistent structural obligations |
-| Memory | Trajectory storage for RL | – | – |
-| KG Engine | – | Entity‑aligned retrieval | Visual artifact registry (analogy) |
-
-These occupy orthogonal concerns — learning, reasoning, formatting — and their fusion covers the complete research lifecycle.
-
-### Layer 1: Knowledge Graph Engine
+## Layer 1: Knowledge Graph Engine
 
 The knowledge graph engine is a graph‑native retrieval‑augmented generation system. It decomposes incoming artifacts into entities, typed relationships, and community clusters. All data resides in a single transactional database with two extensions:
 
@@ -89,7 +254,7 @@ The knowledge graph engine is a graph‑native retrieval‑augmented generation 
 
 During ingestion, documents, code artifacts, simulation outputs, or sensor streams pass through chunking, LLM‑based entity/relationship extraction, gleaning, normalisation, embedding, and community detection. The engine exposes multiple retrieval strategies (naive, local, global, hybrid, mix, bypass) that the Planner selects based on question type.
 
-### Layer 2: Artifact Ingestion Pipeline
+## Layer 2: Artifact Ingestion Pipeline
 
 Direct uploads from CI/CD, simulators, or robotic platforms to the knowledge graph create coupling, lack change detection, and complicate multi‑source merging. Nexus decouples the pipeline:
 
@@ -99,7 +264,7 @@ Direct uploads from CI/CD, simulators, or robotic platforms to the knowledge gra
 
 The design ensures that every change — whether a commit, a simulation completion, or a robotic demonstration — is reflected in the knowledge graph within seconds.
 
-### Layer 3: Agentic Research Loop
+## Layer 3: Agentic Research Loop
 
 The Blackboard coordinates agent activity through Stigmergy: agents leave traces in a shared space, other agents perceive those traces and adapt. No module calls another module directly. The same FIH (Fact / Intent / Hint) interface that works at every scale — ecosystem, project, experiment, agent, primitive — governs all interaction.
 
@@ -112,7 +277,7 @@ The Blackboard coordinates agent activity through Stigmergy: agents leave traces
 
 All actions are recorded in an append‑only Evolving Memory, which serves as the raw material for reinforcement learning.
 
-### Layer 4: Learning Loop
+## Layer 4: Learning Loop
 
 Collected research trajectories feed an on‑policy reinforcement learning pipeline (Flow‑GRPO):
 
@@ -123,14 +288,14 @@ Collected research trajectories feed an on‑policy reinforcement learning pipel
 
 Over time, the Planner internalises which strategies produce well‑grounded, innovative, and physically reproducible results.
 
-### Layer 5: Contract Governance & Autonomous Research Economy
+## Layer 5: Contract Governance & Autonomous Research Economy
 
 The governance contract defines required hypothesis steps, evidence thresholds,
 and novelty minimums. When deployed on-chain, it becomes a self-executing
 protocol — a transparent, unstoppable standard that anyone can submit to,
 verify against, and build upon.
 
-#### The Research Economy
+### The Research Economy
 
 Five contribution types are recognised, validated, and rewarded:
 

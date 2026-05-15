@@ -1,6 +1,6 @@
 ---
 title: "Nexus Architecture"
-subtitle: Portable Graph Analysis Platform with Agentic Research
+subtitle: "FIH Blackboard: Universal Interface for Multi-Agent Coordination"
 date: last-modified
 title-meta-items:
   html:
@@ -11,7 +11,7 @@ title-meta-items:
 metadata-files:
   - ../../_include/author.yml
 abstract: |
-  Nexus is a standalone graph analysis platform that ingests documents into a knowledge graph, detects structural gaps and contradictions, and orchestrates agentic research loops. The core is implemented in Rust with zero runtime dependencies, with platform bindings for Cloudflare Workers, native servers, and (as a placeholder) blockchain targets. Design decisions are informed by deep analysis of Memgraph (in-memory graph database with Atomic GraphRAG, MAGE algorithm suite, streaming ingestion) and Grafeo (six-language query translation, push-based execution engine, feature-gated WASM profiles). The architecture follows the Blackboard philosophy: all modules communicate through a shared graph of Fact, Intent, and Hint primitives, with contract.nex as the single governance surface.
+  Nexus implements the FIH (Fact / Intent / Hint) Blackboard paradigm. SqlBlackboard (Cairn reference, 54/54) uses SQLite + SQL queries. GraphBlackboard (nexus-core) uses petgraph + Cypher queries with platform bindings for Cloudflare Workers, native servers, and (as a placeholder) blockchain targets. The Blackboard is a shared graph that every module reads from and writes to through a single interface. The core is assembled from production-grade crates (petgraph, rusqlite, cyrs, ndarray) with minimal glue. Multiple graph storage approaches — including petgraph in memory, rusqlite-backed persistence, and reference storage pattern analyses — are documented as implementation options beneath the FIH interface.
 ---
 
 ```{python}
@@ -24,21 +24,100 @@ abstract: |
 
 ## Executive Summary
 
-Nexus is a modular research infrastructure built on three principles derived from the SSCCS paradigm. At its center is the Core Blackboard: a shared graph that every module reads from and writes to through a single interface. There is no fixed pipeline. Modules coordinate indirectly through the Blackboard, not through direct communication.
+Nexus is a modular research infrastructure built on the FIH Blackboard paradigm. Every module reads from and writes to a shared graph through exactly three primitives: Fact (validated result), Intent (exploration direction), and Hint (governance rule). There is no fixed pipeline and no direct module-to-module communication. The Cairn-verified lifecycle — submit → claim → heartbeat → conclude — governs all interaction.
 
-The Blackboard stores three primitive types. Facts are verified entities, relations, and experimental results. Intents represent gaps, hypotheses, and exploration directions. Hints are governance rules from contract.nex and user feedback. These three types are the only interface between modules.
+Nexus is itself an instance of the SSCCS paradigm: the Blackboard is the Scheme, Intents and Hints are the Field, and the act of reading, computing, and writing back is the Observation. GraphBlackboard compiles to WASM (edge) and native (server) from a single codebase assembled from production-grade crates (petgraph, rusqlite, cyrs, ndarray). Contract.nex is the single governance surface.
 
-Any method can attach to the Blackboard. An OODA loop based on the Cairn pattern explores open search spaces. A fixed pipeline reproduces validated research workflows. A Flow-GRPO learning loop reinforces successful paths. Human operators inject Hints directly. Future methods attach the same way. All results converge to the same three primitives.
+### Unified Architecture
 
-The Rust core provides the graph storage, Cypher translation, and algorithm implementations. Production-grade crates (petgraph, rusqlite, cyrs, ndarray) are assembled with minimal glue code. Our contribution is the translation and coordination logic, informed by patterns extracted from Memgraph and Grafeo codebases.
+The architecture has two layers. The Core Blackboard is the logical layer: a shared graph of Fact, Intent, and Hint primitives that every module reads from and writes to through a single interface. The graph-based core implements FIH: petgraph stores the graph, cyrs translates Cypher queries, and platform bindings expose the core to different deployment targets.
 
-1. The Blackboard is the single interface. Every module writes Facts and Intents, reads Facts and Intents, and respects Hints. No module calls another module directly. Communication is indirect through the shared graph.
+```{python}
+#| label: fig-nexus-architecture
+#| fig-cap: "Nexus Architecture"
+dot("""
+digraph NexusArchitecture {
+    splines=ortho;
+    nodesep=0.3;
+    ranksep=0.5;
 
-2. Small composable units. Each crate does one thing well. Modules communicate through the Blackboard, not through message pipes. Contract.nex is the single governance surface.
+    // FIH Primitives (the universal interface spec, above both implementations)
+    fact   [label="Fact", shape=circle, style=filled, fillcolor="#44cc66", fontsize=11];
+    intent [label="Intent", shape=diamond, style=filled, fillcolor="#ffcc33", fontsize=11];
+    hint   [label="Hint", shape=box, style=filled, fillcolor="#dd5555", fontsize=11];
 
-3. Design by reference, not by dependency. The architecture is informed by Memgraph and Grafeo but depends on neither. We extract their patterns, not their code.
+    fact -> intent [label="grounds", style=dashed, color="#667766", fontsize=7];
+    intent -> fact [label="produces", style=dashed, color="#776655", fontsize=7];
+    hint -> fact [label="constrains", style=dotted, color="#776666", fontsize=7];
+    hint -> intent [label="guides", style=dotted, color="#776666", fontsize=7];
 
-Nexus is itself an instance of the SSCCS paradigm. The Core Blackboard is the Scheme: an immutable coordinate system that every module shares. Intents and Hints are the Field: dynamic constraints that drive exploration. The act of reading the Blackboard, computing, and writing back is the Observation. The resulting Facts are the Projection: the updated state that becomes the input for the next cycle. Nexus implements SSCCS, and SSCCS describes Nexus. This circularity is not a flaw. It is the bootstrap mechanism that makes the system self-consistent.
+    // Two FIH Blackboard implementations (equal peers)
+    subgraph cluster_cairn {
+        label="SqlBlackboard (Cairn reference, 54/54)";
+        style=filled; fillcolor="#fff0e0"; color="#dd8822"; fontsize=10;
+
+        cairn_store [label="SQLite\n(tabular)", shape=cylinder, style=filled, fillcolor="#e8e0d8", fontsize=9];
+        cairn_api [label="HTTP API\n(Python)", shape=box, style=filled, fillcolor="#f4e4cc", fontsize=9];
+
+        cairn_api -> cairn_store [label="CRUD", fontsize=7];
+    }
+
+    subgraph cluster_graph {
+        label="GraphBlackboard (nexus-core)";
+        style=filled; fillcolor="#e8ffe8"; color="#4488cc"; fontsize=10;
+
+        store [label="BlackboardStore", shape=box, style=filled, fillcolor="#d4e8d4", fontsize=9];
+        cypher [label="cypher\n(cyrs)", shape=box, style=filled, fillcolor="#d4e8f4", fontsize=9];
+        pgraph [label="petgraph\n(graph)", shape=cylinder, style=filled, fillcolor="#e8e8e8", fontsize=9];
+
+        store -> pgraph [label="wraps", fontsize=7];
+        cypher -> pgraph [label="queries", fontsize=7];
+    }
+
+    // Both implement the same FIH interface
+    cairn_api -> fact [style=dotted, color="#888", dir=both];
+    cairn_api -> intent [style=dotted, color="#888", dir=both];
+    cairn_api -> hint [style=dotted, color="#888", dir=both];
+
+    store -> fact [style=dotted, color="#888", dir=both];
+    store -> intent [style=dotted, color="#888", dir=both];
+    store -> hint [style=dotted, color="#888", dir=both];
+
+    // Modules connect through FIH (any implementation)
+    gap [label="Gap Detector", shape=box, style=filled, fillcolor="#d4f1f9", fontsize=9];
+    ooda [label="OODA Loop", shape=box, style=filled, fillcolor="#d4f1f9", fontsize=9];
+    oracle [label="Agent Oracle", shape=box, style=filled, fillcolor="#d4f1f9", fontsize=9];
+
+    gap -> intent [label="submit Intent", fontsize=8, color="#5588bb"];
+    ooda -> fact [label="read_state()", dir="both", fontsize=8, color="#5588bb"];
+    oracle -> intent [label="submit Intent", fontsize=8, color="#5588bb"];
+    oracle -> fact [label="submit Fact", dir="both", fontsize=8, color="#5588bb"];
+
+    // Ingestion
+    r2 [label="R2 / S3", shape=cylinder, style=filled, fillcolor="#ffebcd", fontsize=9];
+    sync [label="Sync Worker", shape=box, style=filled, fillcolor="#d4f1f9", fontsize=9];
+    r2 -> sync [label="docs", fontsize=8];
+    sync -> fact [label="submit Fact", fontsize=8, color="#44aa44"];
+
+    // Governance
+    contract [label="contract.nex", shape=note, style=filled, fillcolor="#e6f2ff", fontsize=9];
+    contract -> fact [style=dashed, label="validates", fontsize=7, color="#cc4444"];
+    contract -> intent [style=dashed, fontsize=7, color="#cc4444"];
+    contract -> hint [style=dashed, fontsize=7, color="#cc4444"];
+
+    // Platform targets
+    cf [label="CF\nWASM", shape=box, style=filled, fillcolor="#f4e8e8", fontsize=7];
+    native [label="Server\nnative", shape=box, style=filled, fillcolor="#f4e8e8", fontsize=7];
+    onchain [label="Chain\nWASI", shape=box, style=filled, fillcolor="#f4e8e8", fontsize=7];
+
+    pgraph -> cf [style=dotted, color="#999"];
+    pgraph -> native [style=dotted, color="#999"];
+    pgraph -> onchain [style=dotted, color="#999"];
+
+    { rank=same; r2; sync; }
+    { rank=same; gap; ooda; oracle; }
+}""")
+```
 
 ### Multi-Dimensional Blackboard Composition
 
@@ -53,112 +132,59 @@ A Blackboard can contain other Blackboards. A Fact at Dimension N becomes a Sche
 
 The Queue layer enforces Stigmergy across dimensions. A write at any dimension is visible to all dimensions. The type conversion (Fact to Scheme, Observation to Hint) happens at the Queue consumer, not at the write stage.
 
-### Unified Architecture
-
-The architecture has two layers. The Core Blackboard is the logical layer: a shared graph of Fact, Intent, and Hint primitives that every module reads from and writes to through a single interface. The Rust core is the implementation layer: petgraph stores the graph, cyrs translates Cypher queries, and platform bindings expose the core to different deployment targets.
-
-```{python}
-#| label: fig-nexus-architecture
-#| fig-cap: "Nexus Architecture: Core Blackboard over Rust Platform-Independent Core"
-dot("""
-digraph NexusArchitecture {
-    rankdir=TB;
-    splines=ortho;
-    nodesep=0.3;
-    ranksep=0.4;
-
-    subgraph cluster_blackboard {
-        label="Core Blackboard (shared graph — Fact / Intent / Hint)";
-        style=filled; fillcolor="#fff8dc"; color="#b8860b";
-        blackboard [label="Blackboard
-(petgraph graph store)", shape=cylinder, style=filled, fillcolor="#ffe4e1"];
-        cypher [label="cypher
-(cyrs Plan IR)", shape=box, style=filled, fillcolor="#d4f1f9"];
-        modules [label="modules
-(extraction, gap, ooda, contract)", shape=box, style=filled, fillcolor="#d4f1f9"];
-        cypher -> blackboard;
-        modules -> blackboard [dir=both, label="read/write Fact, Intent, Hint"];
-    }
-
-    contract [label="contract.nex", shape=note, style=filled, fillcolor="#e6f2ff"];
-
-    subgraph cluster_bindings {
-        label="Platform Bindings (deployment targets)";
-        style=dashed; color="#999";
-        cf [label="cf-worker
-(wasm-bindgen)", shape=box, style=filled, fillcolor="#e6ffe6"];
-        native [label="server
-(axum)", shape=box, style=filled, fillcolor="#e6ffe6"];
-        aws [label="aws-lambda
-(lambda_runtime)", shape=box, style=filled, fillcolor="#e6ffe6"];
-    }
-
-    r2 [label="R2 / S3
-(artifacts)", shape=cylinder, style=filled, fillcolor="#ffebcd"];
-
-    blackboard -> cf [label="wasm"];
-    blackboard -> native [label="native"];
-    blackboard -> aws [label="aarch64"];
-
-    modules -> r2 [dir=both, style=dashed, label="read/write"];
-    contract -> modules;
-    contract -> blackboard [style=dashed, label="Hint"];
-    r2 -> modules [label="documents"];
-
-    { rank=same; contract; r2; }
-}""")
-```
-
 ## Design Decisions
 
-### Why Rust Core, Not Docker Containers
+### Why graph-based FIH, Not Docker Containers
 
-The initial Nexus architecture used Docker containers (Memgraph + proxy + LightRAG) orchestrated by shell scripts. We are transitioning to a Rust-native core for five reasons:
+The initial Nexus architecture used Docker containers (Memgraph + proxy + LightRAG) orchestrated by shell scripts. The transition to a native codebase eliminated runtime dependencies:
 
 | Reason | Impact |
 |---|---|
 | Single codebase | cargo build produces WASM (CF Worker) or native binary (server) from same source |
 | Zero runtime deps | No Docker, no Python, no bolt proxy, wrangler deploy only |
-| Cypher for LLMs | Cypher is the graph language with the richest LLM training data. Rust parses it; petgraph executes it |
-| Feature-gated profiles | Grafeo-style feature flags: cargo build --features wasm vs native |
+| Cypher for LLMs | Cypher is the graph language with the richest LLM training data |
 | Portable by construction | Core knows nothing about Cloudflare, bindings/ isolates platform code |
 
 ### Why Cypher
 
-Cypher is the only graph query language with sufficient LLM training data for reliable code generation. Grafeo supports six languages, Memgraph supports openCypher 9.0. Our cypher/ crate translates Cypher to petgraph traversals using [cyrs](https://github.com/cyrsdb/cyrs) for parsing → Plan IR.
+Cypher is the only graph query language with sufficient LLM training data for reliable code generation. Multiple languages supported. Our cypher/ crate translates Cypher to petgraph traversals using [cyrs](https://github.com/cyrsdb/cyrs) for parsing → Plan IR.
 
-### Reference Implementations
+### Graph Storage Approaches (Reference Implementations)
 
-Two production graph databases were analyzed in depth to inform our design. Neither is a dependency; both are pattern references.
+The FIH Blackboard can be backed by multiple graph storage approaches. Below are the primary adoptions alongside supplementary analyses of production systems that informed specific design decisions.
 
-#### Memgraph Insights
-
-| Component | Memgraph Pattern | Our Adaptation |
+| Approach | Storage | Adoption |
 |---|---|---|
-| Storage | In-memory LPG + RocksDB WAL | petgraph (in-memory) + rusqlite WAL |
-| Vector search | USearch (C++), Single Store Vector Index (85% less memory) | ndarray cosine, embedding stored as node property |
+| petgraph + rusqlite | In-memory graph + SQLite WAL | Adopted (core) |
+| Memgraph | In-memory LPG + RocksDB WAL | Patterns extracted (supplementary) |
+| Grafeo | Unified Logical Plan + push-based exec | Patterns extracted (supplementary) |
+
+The supplementary analyses provided insights into specific capabilities. The tables below document the mapping between each reference system and our adopted approach for granular traceability.
+
+#### Memgraph Pattern Mapping
+
+| Capability | Memgraph Approach | Our Adaptation |
+|---|---|---|
+| Graph storage | In-memory LPG + RocksDB WAL | petgraph (in-memory) + rusqlite WAL |
+| Vector search | USearch (C++), Single Store Vector Index | ndarray cosine, embedding as node property |
 | Community detection | Louvain + Leiden (C++ MAGE) | community-detection crate |
 | PageRank | Custom C++ | petgraph built-in |
-| MAGE modules | C API isolation (mg_procedure.h) | Rust trait in modules/ crate |
-| Atomic GraphRAG | Single Cypher query = search + expand + rank | cypher/translate.rs chains iterator operations |
-| Streaming | Kafka/Pulsar → Cypher triggers | Cloudflare Queues → DO method invocation |
-| LLM in Cypher | Python MAGE llm.py → CALL | Worker fetch → Workers AI, result as graph node |
+| Module isolation | C API (mg\_procedure.h) | Rust trait in modules/ crate |
+| Atomic GraphRAG | Single query = search + expand + rank + prompt | cypher/translate.rs iterator chain |
 
-#### Grafeo Insights
+#### Grafeo Pattern Mapping
 
-| Component | Grafeo Pattern | Our Adaptation |
+| Capability | Grafeo Approach | Our Adaptation |
 |---|---|---|
-| Language translation | 6 query languages → Unified Logical Plan | cyrs Plan IR → petgraph traversal |
-| Execution engine | Push-based operators (Scan, Filter, Expand, Join) | Iterator chain (scan → filter → expand → collect) |
-| Feature profiles | browser, embedded, server, full | wasm, server, edge |
-| WASM bindings | wasm-bindgen + console_error_panic_hook | bindings/cf/ |
+| Query translation | 6 query languages → Unified Logical Plan | cyrs Plan IR → petgraph traversal |
+| Execution engine | Push-based operators (Scan, Filter, Expand, Join) | Iterator chain |
+| WASM profiles | wasm-bindgen + console\_error\_panic\_hook | bindings/cf/ |
+| Feature profiles | browser / embedded / server / full | wasm / server / edge |
 | MVCC | Custom Multi-Version Concurrency Control | rusqlite WAL mode + snapshot isolation |
-| Indexes | HNSW (vector) + BM25 (text) + B-tree | ndarray (vector) + regex (text) |
-| Leapfrog Join | TrieJoin for multi-way intersections | petgraph neighbors() chaining |
 
 ## Architecture Stack
 
-The Rust core is assembled from existing crates, not built from scratch. Each crate maps to a specific capability that Memgraph or Grafeo provides internally through different libraries. The value is in the assembly, not the components.
+The GraphBlackboard is assembled from existing crates, not built from scratch. Each crate provides a specific capability. The value is in the assembly, not the components.
 
 ### External Dependencies: Candidates
 
@@ -177,7 +203,7 @@ Where possible, we depend on stable Rust crates rather than implementing from sc
 
 | Algorithm | Candidate | Status | Provided By |
 |---|---|---|---|
-| Louvain community | community-detection crate | Adopted | Pure Rust, petgraph compatible |
+| Louvain community | community-detection crate | Adopted | petgraph compatible |
 | Leiden community | community-detection crate | Adopted | Same crate, variant feature flag |
 | PageRank | petgraph::algo::page_rank | Adopted | Built into petgraph |
 | Dijkstra / shortest path | petgraph::algo::dijkstra | Adopted | Built into petgraph |
@@ -195,9 +221,9 @@ Where possible, we depend on stable Rust crates rather than implementing from sc
 
 ### Design Principle: Implement Strategically, Depend Widely
 
-Where differentiation matters (Cypher-to-petgraph translation, gap detection heuristics, platform bindings), we write code. Where stability matters (graph algorithms, persistence, parsing), we depend on verified Rust crates. The Rust core is the thinnest possible layer that turns a collection of independent crates into a coherent graph analysis platform.
+Where differentiation matters (Cypher-to-petgraph translation, gap detection heuristics, platform bindings), we write code. Where stability matters (graph algorithms, persistence, parsing), we depend on verified Rust crates. The GraphBlackboard is the thinnest possible layer that turns a collection of independent crates into a coherent graph analysis platform.
 
-### Rust Core (nexus-core/)
+### nexus-core (graph-based FIH)
 
 The core is a Cargo workspace with two abstraction layers:
 
@@ -233,19 +259,19 @@ We do not implement full Cypher. We implement the subset our modules actually ne
 
 ### Graph Algorithms
 
-Graph algorithms follow Memgraph's MAGE module pattern: each algorithm is a standalone function that takes a graph reference and returns results.
+Graph algorithms follow the MAGE module pattern: each algorithm is a standalone function that takes a graph reference and returns results.
 
-| Algorithm | Implementation | Memgraph Source |
+| Algorithm | Implementation | Notes |
 |---|---|---|
-| Louvain | community-detection crate | mage/cpp/community_detection_module/ |
-| Leiden | community-detection crate | mage/cpp/leiden_community_detection_module/ |
-| PageRank | petgraph::algo::page_rank | mage/cpp/pagerank_module/ |
-| Dijkstra | petgraph::algo::dijkstra | mage/cpp/path_module/ |
-| Cosine similarity | ndarray | mage/cpp/node_similarity_module/ |
+| Louvain | community-detection crate | |
+| Leiden | community-detection crate | Same crate, variant feature flag |
+| PageRank | petgraph::algo::page_rank | Built into petgraph |
+| Dijkstra | petgraph::algo::dijkstra | Built into petgraph |
+| Cosine similarity | ndarray | Used by vector index |
 
 ### Analysis Modules
 
-Modules follow Blackboard semantics: read Facts and Hints, emit Intents and new Facts. Every module shares the same graph interface. Internal implementation (Rust native, LLM-driven, heuristic) is invisible to other modules.
+Modules follow Blackboard semantics: read Facts and Hints, emit Intents and new Facts. Every module shares the same graph interface. Internal implementation (native, LLM-driven, heuristic) is invisible to other modules.
 
 | Module | Input | Output | Status |
 |---|---|---|---|
@@ -260,7 +286,7 @@ No module calls another module. All communication passes through the Blackboard.
 
 ### Artifact Storage & Ingestion
 
-R2 (bucket: ssccs-nexus-af) is the single source of truth. The af-sync worker performs incremental sync between R2 and LightRAG via Queue-based processing with drift detection. Already deployed; no change in Rust migration.
+R2 (bucket: ssccs-nexus-af) is the single source of truth. The af-sync worker performs incremental sync between R2 and LightRAG via Queue-based processing with drift detection. Already deployed; no change required.
 
 ### Platform Bindings
 
@@ -333,7 +359,7 @@ Every (origin, intent, result) tuple on the Blackboard has a content-addressable
 | cyrs / cypher-rs ecosystem | Cypher → typed Plan IR | cyrs as primary parser dependency |
 | petgraph ecosystem | StableGraph, NodeIndex, built-in PageRank/Dijkstra | Core graph library |
 
-The key architectural insight from Grafeo is that a unified query IR decouples input languages from execution. Future agent modules (Planner, Verifier, Hypothesis Generator) will query the graph through this same IR. They do not need to know whether the backend is petgraph in memory, SQLite on disk, or a remote CF Worker. The query interface is the plug, the core is the socket. Adding a new query language (GQL, SPARQL, or a future agent DSL) requires only a new parser adapter, not a core change.
+A key architectural insight is that a unified query IR decouples input languages from execution. Future agent modules (Planner, Verifier, Hypothesis Generator) will query the graph through this same IR. They do not need to know whether the backend is petgraph in memory, SQLite on disk, or a remote CF Worker. The query interface is the plug, the core is the socket. Adding a new query language (GQL, SPARQL, or a future agent DSL) requires only a new parser adapter, not a core change.
 
 ### Future Layer: Blackboard + Stigmergy
 
@@ -365,17 +391,17 @@ This applies to any domain. Business simulation: Fact = market data, Intent = st
 - LLM-optional. Cairn proved 54/54 problems without any LLM. LLMs are accelerators, not requirements.
 - Iteration over planning. Interface design improves through repeated use, not upfront specification. Virtual responses enable continuous iteration.
 - DeSci-ready. Contract.nex enables token-incentivized research. Content-addressable hashes provide verifiable proofs of contribution.
-- Portable core. Same Rust codebase compiles for WASM (edge) and native (server). Zero platform lock-in.
+- Portable core. Same codebase compiles for WASM (edge) and native (server). Zero platform lock-in.
 
 ## Current Status (2026-05)
 
 | Component | Status |
 |---|---|
-| af-sync worker (R2 → LightRAG) | Deployed |
-| LightRAG (Docker) | Deployed (reference implementation; sync pipeline active) |
+| af-sync worker (R2 → engines) | Deployed |
+| RAG engines (LightRAG) | Reference implementation; sync pipeline active |
 | module-hub (TS, gap-detector Cypher mode) | Deployed |
 | CI/CD (deploy.yml, build.yml) | Deployed |
-| Rust core (nexus-core/) | Phase 1 complete: Blackboard trait, FIH lifecycle, BlackboardStore, 25 tests |
+| GraphBlackboard (nexus-core/) | Phase 1 complete: Blackboard trait, FIH lifecycle, BlackboardStore, 25 tests |
 | Blackboard trait | Implemented: submit/claim/heartbeat/release/conclude lifecycle, BoardState, 4 tests |
 | GraphAccess trait | Implemented: raw petgraph operations for Cypher executor |
 | cypher translator | cyrs pipeline integrated, dual-path executor, 21 tests |
@@ -390,7 +416,7 @@ This applies to any domain. Business simulation: Fact = market data, Intent = st
 The platform bindings layer (`bindings/`) isolates deployment-specific code. Adding a new deployment target requires only a new binding crate. The core (`nexus-core/`) never changes.
 
 ```text
-nexus-core/ (Rust, zero deps)
+nexus-core/ (zero deps)
     │
     ├── bindings/cf/       ← Cloudflare Workers (wasm32-unknown-unknown)
     ├── bindings/aws/      ← AWS Lambda + Graviton (aarch64-unknown-linux-gnu)
