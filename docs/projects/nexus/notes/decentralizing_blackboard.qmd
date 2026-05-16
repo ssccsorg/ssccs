@@ -1,0 +1,84 @@
+---
+title: "Blackboard Decentralization: Stigmergy over Distributed State"
+subtitle: "Notes on Ledger-State Stigmergy and its implications for the FIH Blackboard"
+date: last-modified
+metadata-files:
+  - ../../../_include/author.yml
+abstract: |
+  The FIH Blackboard is a stigmergic coordination medium by construction, yet the current
+  implementation centralizes all writes through a single Mutex. The arXiv paper "Ledger-State
+  Stigmergy" formalizes stigmergy over distributed ledger state and provides the theoretical
+  foundation for decentralizing the Blackboard. The Storage trait is the architectural boundary
+  where this decentralization happens.
+---
+
+```{python}
+#| include: false
+#| context: local
+%run ../../../_include/_graphviz.py
+```
+
+## The Centralization Paradox
+
+The FIH Blackboard is a stigmergic coordination medium by construction: agents leave traces in a shared environment, other agents perceive those traces and act. There is no central orchestrator, no fixed pipeline, no direct agent-to-agent communication.
+
+Yet the current implementation has a central bottleneck: the Mutex guarding GraphBlackboard that serializes all writes. In a single-process deployment this is harmless, but it means the Blackboard is not natively distributed. It is a centralized process that simulates a shared medium.
+
+The arXiv paper "Ledger-State Stigmergy: A Formal Framework for Indirect Coordination Grounded in Distributed Ledger State" provides the missing link: **the shared medium itself must be a replicated, append-only, content-addressed ledger**. When the medium IS the ledger, stigmergy becomes naturally distributed.
+
+## Ledger-State Stigmergy: The Formal Mapping
+
+The paper formalizes stigmergy over ledger state as a tuple:
+
+- **StS_t**: Shared state at time t (BoardState from read_state)
+- **delta**: State transition function (Storage::log_fih)
+- **O_i**: Agent i's observation of state (read_state)
+- **P_i**: Agent i's action predicate (Intent filtering and claim logic)
+
+### Pattern 1: State-Flag
+
+An agent sets a flag in shared state; other agents observe it and react. FIH mapping: submit_fact, peers read_state, submit_intent. This is the foundation of the evidence-based hypothesis pipeline. A Fact IS a state flag. An Intent submitted in response IS the reaction.
+
+### Pattern 2: Event-Signal
+
+An agent emits an event observable by others, without requiring a response. FIH mapping: submit_hint, peers read_state, adapt behavior. Hints carry governance rules, focus directives, safety limits. Pure signals that constrain but do not mandate.
+
+### Pattern 3: Threshold-Trigger
+
+An agent acts only when a condition over shared state is satisfied. FIH mapping: Intent.from_facts is non-empty (enforced by submit_intent). The requirement that every Intent be grounded in at least one Fact is the simplest threshold trigger.
+
+### Commit-Reveal Overlay
+
+The paper's Commit-Reveal pattern maps directly to the FIH lifecycle:
+
+```
+Commit:   submit_intent()    Intent appears in read_state
+Reveal:   claim_intent()     Agent publicly commits to work
+Conclude: conclude_intent()  Result published as new Fact
+```
+
+This is not an overlay. It is the FIH lifecycle itself.
+
+## The Storage Trait as the Decentralization Boundary
+
+The key architectural insight is that the Storage trait defines the boundary between centralized execution and distributed coordination.
+
+The Blackboard trait and the FIH lifecycle are medium-agnostic by design. The Storage trait is the concrete boundary where decentralization happens. When Storage is a local SQLite file, the system is centralized. When Storage is a blockchain canister or a distributed hash table, the Blackboard becomes a replicated shared state medium. The exact definition of ledger-state stigmergy.
+
+## Implications
+
+**The Mutex is implementation-specific.** It exists only because the in-memory petgraph is mutable. If Storage is a distributed ledger, each agent operates independently, reading from and writing to the shared ledger without coordination.
+
+**Agents become stateless.** In a distributed Blackboard, agents observe the ledger, decide, and submit transactions. A crashed agent reconstructs its state entirely by replaying the ledger log. The append-only determinism proved with SqliteStorage holds identically over a distributed ledger.
+
+**Hints become constitutional.** In a distributed setting, Hints from known addresses constrain all agents in the network. Hints evolve from advisory signals into constitutional rules.
+
+## Open Questions
+
+Fact finality: how does an agent know when a Fact is confirmed enough? read_state returns all Facts regardless of confirmation depth.
+
+Intent expiration: unclaimed Intents accumulate indefinitely. A distributed Blackboard needs an expiration mechanism.
+
+Spam resistance: anyone can submit_fact. On-chain, staking and gas costs provide natural filters. The grounding requirement (from_facts not empty) is a soft constraint.
+
+Cross-Blackboard composition: the paper treats a single ledger as the coordination medium. FIH's recursive Blackboard model generalizes beyond the paper's scope.
