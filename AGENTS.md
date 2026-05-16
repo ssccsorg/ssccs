@@ -37,10 +37,12 @@ abstract: |
   text
 ---
 
+{{< include [relative_path_to]/_include/_title_meta_items.qmd >}}
+
 \`\`\`{python}
 #| include: false
 #| context: local
-%run ../../../_include/_graphviz.py
+%run [relative_path_to]/_include/_graphviz.py
 \`\`\`
 
 ... contents
@@ -77,6 +79,7 @@ digraph DOTGraph {
 
 ## Code
 
+- Implement → Review → Apply feedback & fix → Build/Test (clean) → Commit → Propose next direction → Await user signal → Repeat
 - Focus on the accuracy of the goal.
 - Code as pessimistically and critically as possible.
 - Do not generate unnecessary code. Produce only what is **essential** for the goal.
