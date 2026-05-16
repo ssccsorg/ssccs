@@ -1,12 +1,12 @@
 ---
-title: "TokenSpeed Architectural Insights for SSCCS Nexus"
+title: "TokenSpeed Architectural Insights for SSCCS neXus"
 subtitle: "Compile-Time Safety, FSM-Driven Orchestration, and Pluggable Kernels in Agentic Inference"
 date: last-modified
 date-format: "MMMM, YYYY"
 metadata-files:
   - ../../../_include/author.yml
 abstract: |
-  TokenSpeed is a speed-of-light LLM inference engine designed from first principles for agentic workloads, achieving ~11% higher throughput than TensorRT-LLM on NVIDIA Blackwell while maintaining a usability model comparable to vLLM. This report extracts three architectural patterns — compile-time resource safety via type-system FSM encoding, static compiler generation of distributed parallelism from placement annotations, and a pluggable layered kernel subsystem with centralized registry — and maps them to SSCCS Nexus's multi-agent research architecture. Each pattern is evaluated for direct applicability to Nexus's Planner, Verifier, Executor, and knowledge graph components, with concrete implementation recommendations for the Phase 4 agentic research loop.
+  TokenSpeed is a speed-of-light LLM inference engine designed from first principles for agentic workloads, achieving ~11% higher throughput than TensorRT-LLM on NVIDIA Blackwell while maintaining a usability model comparable to vLLM. This report extracts three architectural patterns — compile-time resource safety via type-system FSM encoding, static compiler generation of distributed parallelism from placement annotations, and a pluggable layered kernel subsystem with centralized registry — and maps them to SSCCS neXus's multi-agent research architecture. Each pattern is evaluated for direct applicability to neXus's Planner, Verifier, Executor, and knowledge graph components, with concrete implementation recommendations for the Phase 4 agentic research loop.
 ---
 
 {{< include ../../../_include/_title_meta_items.qmd >}}
@@ -21,7 +21,7 @@ abstract: |
 
 TokenSpeed is an inference engine developed by the LightSeek Foundation in collaboration with NVIDIA, AMD, Qwen, Together AI, Mooncake, and others. It began development in mid-March 2026 and published a performance preview in May 2026. Despite its short development timeline, it already outperforms TensorRT-LLM — the current state of the art on NVIDIA Blackwell — by approximately 11% in throughput at typical agentic concurrency levels, while offering vLLM-level usability.
 
-This report is not about inference engine performance. It is about three architectural decisions TokenSpeed made that have direct bearing on the SSCCS Nexus multi-agent research platform. These decisions are not specific to LLM serving; they represent generalisable patterns for systems that must coordinate heterogeneous components under strict correctness guarantees.
+This report is not about inference engine performance. It is about three architectural decisions TokenSpeed made that have direct bearing on the SSCCS neXus multi-agent research platform. These decisions are not specific to LLM serving; they represent generalisable patterns for systems that must coordinate heterogeneous components under strict correctness guarantees.
 
 ## 2. TokenSpeed Architecture Overview
 
@@ -36,7 +36,7 @@ TokenSpeed comprises four layers, each embodying a distinct architectural princi
 
 ```{python}
 #| label: fig-tokenspeed-arch
-#| fig-cap: "TokenSpeed four-layer architecture mapped to SSCCS Nexus concerns"
+#| fig-cap: "TokenSpeed four-layer architecture mapped to SSCCS neXus concerns"
 dot("""
 digraph TokenSpeedArch {
     rankdir=TB
@@ -53,12 +53,12 @@ digraph TokenSpeedArch {
     }
 
     subgraph cluster_nexus {
-        label="Nexus Mapping"
+        label="neXus Mapping"
         style=dashed
         color="#548235"
         Compiler [label="Executor Compiler\nPlacement annotations\n→ coordination logic\nanalogous to static\ncommunication generation", fillcolor="#E2EFDA"]
         Verifier [label="Verifier Agent\nFSM-encoded validation\nanalogous to KV ownership\ncompile-time safety", fillcolor="#DAEEF3"]
-        ToolRegistry [label="Tool Registry\nPluggable kernel registry\nanalogous to Nexus\nbackend plugin system", fillcolor="#FDE9D9"]
+        ToolRegistry [label="Tool Registry\nPluggable kernel registry\nanalogous to neXus\nbackend plugin system", fillcolor="#FDE9D9"]
         Planner [label="Planner Agent\nPlacement annotations\n→ execution strategy\nanalogous to SPMD mapping", fillcolor="#E4DFEC"]
     }
 
@@ -78,15 +78,15 @@ The TokenSpeed scheduler encodes the entire request lifecycle — including KV c
 
 This is the architectural inverse of the standard approach: rather than building a flexible runtime and adding safety checks on top, TokenSpeed builds a verifiable control system and lets the execution plane (Python) operate freely within its constraints.
 
-### 3.2 Mapping to SSCCS Nexus
+### 3.2 Mapping to SSCCS neXus
 
-Nexus's Phase 4 agentic research loop involves a Planner that generates hypotheses, an Executor that runs experiments, and a Verifier that validates results before artifact generation. The current contract-governed workflow relies on `contract` schemas validated at submission time — a runtime check.
+neXus's Phase 4 agentic research loop involves a Planner that generates hypotheses, an Executor that runs experiments, and a Verifier that validates results before artifact generation. The current contract-governed workflow relies on `contract` schemas validated at submission time — a runtime check.
 
 TokenSpeed's pattern suggests a stronger approach: encode the contract as a type-level FSM where each state transition (hypothesis → experiment → result → verification → artifact) is represented as a typed edge, and the Verifier's acceptance criteria are embedded in the type system itself. Invalid transitions — such as generating an artifact from an unverified result — would be rejected at compile time rather than at submission time.
 
 ### 3.3 Actionable Pattern
 
-Define Nexus agent workflows as typed state machines where each transition carries a proof obligation. The Verifier agent becomes not a separate process but a type-level constraint that the compiler checks before allowing the Generator to produce an artifact. This eliminates the possibility of unverified outputs entering the knowledge graph.
+Define neXus agent workflows as typed state machines where each transition carries a proof obligation. The Verifier agent becomes not a separate process but a type-level constraint that the compiler checks before allowing the Generator to produce an artifact. This eliminates the possibility of unverified outputs entering the knowledge graph.
 
 ## 4. Pattern 2: Static Compiler Generation of Distributed Parallelism
 
@@ -96,15 +96,15 @@ TokenSpeed's modeling layer uses a local-SPMD (Single Program, Multiple Data) de
 
 This is a qualitatively different approach from both manual sharding (where engineers explicitly code communication patterns) and full auto-parallelism (where a compiler infers everything from scratch). TokenSpeed asks the developer to specify *what goes where* and lets the compiler handle *how to move it*. The placement annotations serve as a declarative contract; the compiler guarantees that the generated communication satisfies it.
 
-### 4.2 Mapping to SSCCS Nexus
+### 4.2 Mapping to SSCCS neXus
 
-For Nexus, the Planner agent generates execution strategies for multi-step research workflows. Currently, these strategies are expressed as sequential or parallel task graphs. TokenSpeed's SPMD pattern suggests that the Planner could instead emit placement annotations — indicating which computation should run on which backend (knowledge graph query, Python analysis script, external benchmark harness) — and let a static compiler generate the coordination logic. The Planner would specify *what runs where*; the compiler would generate *how they communicate*.
+For neXus, the Planner agent generates execution strategies for multi-step research workflows. Currently, these strategies are expressed as sequential or parallel task graphs. TokenSpeed's SPMD pattern suggests that the Planner could instead emit placement annotations — indicating which computation should run on which backend (knowledge graph query, Python analysis script, external benchmark harness) — and let a static compiler generate the coordination logic. The Planner would specify *what runs where*; the compiler would generate *how they communicate*.
 
 This aligns with the FORGE-UGC insight already absorbed into SSCCS: the compiler defines the admissible space of executions, and the runtime selects among them. TokenSpeed adds the concrete mechanism: placement annotations as the interface between strategic planning and mechanical execution.
 
 ### 4.3 Actionable Pattern
 
-Extend Nexus's Executor module with a lightweight static compiler that accepts placement-annotated task graphs and generates inter-agent communication protocols. The Planner emits placement decisions; the compiler verifies feasibility and generates coordination code. This separates the intellectual work of strategy selection from the mechanical work of protocol generation.
+Extend neXus's Executor module with a lightweight static compiler that accepts placement-annotated task graphs and generates inter-agent communication protocols. The Planner emits placement decisions; the compiler verifies feasibility and generates coordination code. This separates the intellectual work of strategy selection from the mechanical work of protocol generation.
 
 ## 5. Pattern 3: Pluggable Kernel Subsystem with Centralized Registry
 
@@ -116,23 +116,23 @@ Critically, the kernel subsystem is not merely a collection of optimized functio
 
 The repository structure confirms this is not aspirational. The `tokenspeed-kernel/` directory enforces an explicit organizational contract: third-party code belongs in `thirdparty/`, is imported into `ops/` following a `<family>/<solution>` hierarchy (e.g., `gemm/trtllm.py`, `attention/triton/`), and each kernel is surfaced through an explicit `register_kernel` call. Discovery is not automatic; registration is intentional. This is the selection model made visible in code.
 
-### 5.2 Mapping to SSCCS Nexus
+### 5.2 Mapping to SSCCS neXus
 
-Nexus's tool-registry architecture — where domain-specific tools (benchmark harnesses, formal verifiers, analysis scripts) are registered and discovered by agents — is the conceptual equivalent of TokenSpeed's kernel registry. The gap is the selection model. TokenSpeed does not merely list available kernels; it resolves which kernel to use based on workload characteristics and hardware target.
+neXus's tool-registry architecture — where domain-specific tools (benchmark harnesses, formal verifiers, analysis scripts) are registered and discovered by agents — is the conceptual equivalent of TokenSpeed's kernel registry. The gap is the selection model. TokenSpeed does not merely list available kernels; it resolves which kernel to use based on workload characteristics and hardware target.
 
-For Nexus, this translates into a tool selection model where the Planner does not manually choose which backend to invoke. Instead, the Planner specifies requirements (precision mode, measurement protocol, target environment), and the registry resolves the appropriate tool implementation. This enables the same research workflow to execute on different infrastructure without modifying the Planner's strategy.
+For neXus, this translates into a tool selection model where the Planner does not manually choose which backend to invoke. Instead, the Planner specifies requirements (precision mode, measurement protocol, target environment), and the registry resolves the appropriate tool implementation. This enables the same research workflow to execute on different infrastructure without modifying the Planner's strategy.
 
 ### 5.3 Actionable Pattern
 
-Formalize Nexus's tool registry with a selection model: each tool declares its capabilities as typed metadata (precision tier, measurement fidelity, target environment), and the Executor resolves the appropriate tool through deterministic matching against Planner-specified requirements.
+Formalize neXus's tool registry with a selection model: each tool declares its capabilities as typed metadata (precision tier, measurement fidelity, target environment), and the Executor resolves the appropriate tool through deterministic matching against Planner-specified requirements.
 
-## 6. Nexus-Specific Implications
+## 6. neXus-Specific Implications
 
 ### 6.1 Control Plane / Execution Plane Separation
 
-TokenSpeed's split between a C++ control plane (where correctness is verified at compile time) and a Python execution plane (where development velocity is maximized) maps directly to Nexus's proposed Rust/Python split described in the project stack. The insight TokenSpeed adds is *why* the split matters: the control plane carries the proof obligations; the execution plane carries the iteration speed. Neither language choice is arbitrary; each serves the architectural role best suited to its strengths.
+TokenSpeed's split between a C++ control plane (where correctness is verified at compile time) and a Python execution plane (where development velocity is maximized) maps directly to neXus's proposed Rust/Python split described in the project stack. The insight TokenSpeed adds is *why* the split matters: the control plane carries the proof obligations; the execution plane carries the iteration speed. Neither language choice is arbitrary; each serves the architectural role best suited to its strengths.
 
-For Nexus Phase 4, this suggests that the Verifier — the component that must be provably correct — should share implementation infrastructure with the core contract system, while the Generator and Planner can remain in a higher-productivity environment where iteration speed matters more than formal guarantees.
+For neXus Phase 4, this suggests that the Verifier — the component that must be provably correct — should share implementation infrastructure with the core contract system, while the Generator and Planner can remain in a higher-productivity environment where iteration speed matters more than formal guarantees.
 
 ### 6.2 Performance-as-Architecture
 
@@ -140,38 +140,38 @@ TokenSpeed targeted TensorRT-LLM — the recognised state of the art — from it
 
 This philosophy extends to TokenSpeed's documentation. The docs follow a "Launch First" pattern: start with concrete, executable commands validated against real model families, then expose the tuning dimensions one at a time. Configuration parameters that share semantics with established APIs retain familiar names; TokenSpeed-specific knobs are documented separately. The result is a documentation surface that mirrors the architecture: declarative contracts (recipes) that the user instantiates, with implementation details (parameters) accessible but not required for first use.
 
-For Nexus, this translates into a benchmarking philosophy: the autonomous research loop should be measured against human researchers performing the same tasks, not against weaker automated systems. COMPOSITE-STEM and FML-bench — already identified as evaluation targets — embody this philosophy. TokenSpeed adds the urgency: measure early, measure against the best, and let the results drive the architecture.
+For neXus, this translates into a benchmarking philosophy: the autonomous research loop should be measured against human researchers performing the same tasks, not against weaker automated systems. COMPOSITE-STEM and FML-bench — already identified as evaluation targets — embody this philosophy. TokenSpeed adds the urgency: measure early, measure against the best, and let the results drive the architecture.
 
 ### 6.3 Short Development Timeline with Production Ambition
 
 TokenSpeed began in mid-March 2026 and published competitive benchmarks in early May — approximately seven weeks. It accomplished this not by building everything from scratch but by collaborating with existing projects (vLLM, TensorRT-LLM, Triton, FluentLLM) and contributing specialized optimizations (MLA kernel, scheduler FSM) that addressed specific bottlenecks. The core engine leveraged established infrastructure; the innovation focused on the agentic-inference regime where existing solutions were weakest.
 
-For Nexus, this validates the engine-agnostic, collaboration-forward architecture. Nexus does not need to build its own LLM, its own KG store, or its own experiment harness. It needs to contribute the contract-governed agentic loop — the part that no existing system provides.
+For neXus, this validates the engine-agnostic, collaboration-forward architecture. neXus does not need to build its own LLM, its own KG store, or its own experiment harness. It needs to contribute the contract-governed agentic loop — the part that no existing system provides.
 
-### 6.4 Shepherd Model Gateway (SMG) as Nexus Orchestration Reference
+### 6.4 Shepherd Model Gateway (SMG) as neXus Orchestration Reference
 
 TokenSpeed's entrypoint layer is built on SMG, a Rust-based gateway that separates CPU-bound tokenization and request routing from GPU-bound inference. SMG's core architectural claim is that GPU resources should be reserved exclusively for tensor operations, with all other work offloaded to a dedicated serving layer free of Python's GIL constraints. This is not an optimization — it is a structural claim about where work belongs.
 
-The SMG architecture is structurally identical to Nexus's proposed query orchestration layer. SMG receives client requests through a gateway, preprocesses them (tokenization, input validation), routes them to the appropriate inference worker, and returns structured results. Nexus's `POST /orchestrate` endpoint performs the same sequence — query preprocessing, complexity classification, routing to the optimal knowledge engine, and result fusion — on a different workload. The pattern is invariant across domains.
+The SMG architecture is structurally identical to neXus's proposed query orchestration layer. SMG receives client requests through a gateway, preprocesses them (tokenization, input validation), routes them to the appropriate inference worker, and returns structured results. neXus's `POST /orchestrate` endpoint performs the same sequence — query preprocessing, complexity classification, routing to the optimal knowledge engine, and result fusion — on a different workload. The pattern is invariant across domains.
 
-Three concrete parallels inform Nexus's design. First, SMG's gateway-to-worker communication uses gRPC over a pure Rust data plane, demonstrating that inter-component protocols can be verifiably correct without sacrificing throughput. This is the same communication model needed between Nexus's Executor and the multi-engine knowledge graph. Second, SMG's gateway and inference workers can be upgraded independently because their interface is the protocol, not the implementation — the same property that enables Nexus to add or remove knowledge engines without modifying the orchestrator. Third, SMG handles output parsing and structured extraction at the gateway layer before returning results to clients, a pattern that maps directly to Nexus's Generator producing structured, contract-validated artifacts from raw engine outputs.
+Three concrete parallels inform neXus's design. First, SMG's gateway-to-worker communication uses gRPC over a pure Rust data plane, demonstrating that inter-component protocols can be verifiably correct without sacrificing throughput. This is the same communication model needed between neXus's Executor and the multi-engine knowledge graph. Second, SMG's gateway and inference workers can be upgraded independently because their interface is the protocol, not the implementation — the same property that enables neXus to add or remove knowledge engines without modifying the orchestrator. Third, SMG handles output parsing and structured extraction at the gateway layer before returning results to clients, a pattern that maps directly to neXus's Generator producing structured, contract-validated artifacts from raw engine outputs.
 
-For Nexus Phase 4, SMG provides an existence proof that a Rust-based orchestration gateway with gRPC inter-component communication can serve production workloads at scale. It is not a dependency; it is a reference architecture that validates Nexus's proposed design against an independently developed, independently benchmarked system.
+For neXus Phase 4, SMG provides an existence proof that a Rust-based orchestration gateway with gRPC inter-component communication can serve production workloads at scale. It is not a dependency; it is a reference architecture that validates neXus's proposed design against an independently developed, independently benchmarked system.
 
-## 7. Mapping to Nexus Pre-Research Processing Layer
+## 7. Mapping to neXus Pre-Research Processing Layer
 
-Nexus's architecture separates knowledge ingestion from agentic reasoning through a layered pre-processing pipeline: raw sources flow through ingestion, a sync worker routes updates to multiple knowledge engines, a query orchestrator selects the optimal engine per request, and a protocol interface exposes results to research agents. Each layer embodies one of the three TokenSpeed patterns identified above.
+neXus's architecture separates knowledge ingestion from agentic reasoning through a layered pre-processing pipeline: raw sources flow through ingestion, a sync worker routes updates to multiple knowledge engines, a query orchestrator selects the optimal engine per request, and a protocol interface exposes results to research agents. Each layer embodies one of the three TokenSpeed patterns identified above.
 
 ```{python}
 #| label: fig-nexus-tokenspeed-mapping
-#| fig-cap: "Nexus Pre-Research Processing Layer mapped to TokenSpeed architectural patterns"
+#| fig-cap: "neXus Pre-Research Processing Layer mapped to TokenSpeed architectural patterns"
 dot("""
 digraph NexusTokenSpeedMapping {
     node [shape=box, style=rounded, fontname="Arial"]
     edge [fontname="Arial", fontsize=9]
 
     subgraph cluster_pipeline {
-        label="Nexus Pre-Research Processing Layer"
+        label="neXus Pre-Research Processing Layer"
         style=dashed
         color="#548235"
         fontname="Arial"
@@ -242,16 +242,16 @@ The orchestrator receives a query, classifies its complexity and intent, and rou
 
 ### 7.3 Ingestion Pipeline as FSM-Governed State Machine (Pattern 1)
 
-The ingestion-to-query pipeline is a finite-state machine where each transition carries an invariant: raw data becomes an indexed document only after passing through collection, formatting, storage, diff detection, chunking, and engine-specific embedding. A corrupted or partially ingested document must never reach the query layer. This is the same compile-time safety principle TokenSpeed applies to KV cache ownership: encode the lifecycle as typed states, verify transitions before they execute, and ensure the execution plane only operates on data that has cleared every gate. In Nexus, this means the sync worker's ETag-based diff and the queue consumer's acknowledgment form a verifiable chain of custody from source to index.
+The ingestion-to-query pipeline is a finite-state machine where each transition carries an invariant: raw data becomes an indexed document only after passing through collection, formatting, storage, diff detection, chunking, and engine-specific embedding. A corrupted or partially ingested document must never reach the query layer. This is the same compile-time safety principle TokenSpeed applies to KV cache ownership: encode the lifecycle as typed states, verify transitions before they execute, and ensure the execution plane only operates on data that has cleared every gate. In neXus, this means the sync worker's ETag-based diff and the queue consumer's acknowledgment form a verifiable chain of custody from source to index.
 
 ## 8. Conclusion
 
-TokenSpeed is not directly applicable as Nexus infrastructure. Its value lies in three architectural patterns independently validated at production scale on NVIDIA Blackwell:
+TokenSpeed is not directly applicable as neXus infrastructure. Its value lies in three architectural patterns independently validated at production scale on NVIDIA Blackwell:
 
-1. Compile-time resource safety through type-system FSM encoding — directly strengthens Nexus's Verifier contract governance.
-2. Static compiler generation of distributed coordination from placement annotations — provides a concrete mechanism for Nexus's Executor to generate inter-agent communication from Planner-supplied placement decisions.
-3. Pluggable kernel subsystem with centralized selection registry — provides a concrete model for Nexus's tool-registry architecture.
+1. Compile-time resource safety through type-system FSM encoding — directly strengthens neXus's Verifier contract governance.
+2. Static compiler generation of distributed coordination from placement annotations — provides a concrete mechanism for neXus's Executor to generate inter-agent communication from Planner-supplied placement decisions.
+3. Pluggable kernel subsystem with centralized selection registry — provides a concrete model for neXus's tool-registry architecture.
 
-The most immediately actionable insight is pattern 1: encoding Nexus agent workflows as typed state machines where invalid transitions are rejected at compile time. This can be prototyped using the existing Nexus contract infrastructure and applied to the Phase 4 agentic research loop without requiring new external dependencies.
+The most immediately actionable insight is pattern 1: encoding neXus agent workflows as typed state machines where invalid transitions are rejected at compile time. This can be prototyped using the existing neXus contract infrastructure and applied to the Phase 4 agentic research loop without requiring new external dependencies.
 
-The secondary insight is cultural: TokenSpeed demonstrates that a focused team can achieve state-of-the-art results in weeks by targeting the strongest baseline, collaborating aggressively, and innovating only where existing solutions fail. This is the development philosophy Nexus should adopt for its own performance validation.
+The secondary insight is cultural: TokenSpeed demonstrates that a focused team can achieve state-of-the-art results in weeks by targeting the strongest baseline, collaborating aggressively, and innovating only where existing solutions fail. This is the development philosophy neXus should adopt for its own performance validation.

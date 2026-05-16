@@ -1,5 +1,5 @@
 ---
-title: NeXus
+title: neXus
 subtitle: "Boundaryless autonomous research infrastructure for SSCCS"
 date: last-modified
 title-meta-items:
@@ -32,15 +32,15 @@ abstract: |
 
 ## Executive Summary
 
-Nexus is a self‑evolving, modular and contract‑governed agentic research infrastructure that actively generates, validates, and learns from hypotheses or facts that span the SSCCS's software‑hardware boundary. All coordinate indirectly through a shared graph of some simple recursive primitives.
+neXus is a self‑evolving, modular and contract‑governed agentic research infrastructure that actively generates, validates, and learns from hypotheses or facts that span the SSCCS's software‑hardware boundary. All coordinate indirectly through a shared graph of some simple recursive primitives.
 
-The primary document source that feeds this infrastructure is the [SDBS (SSCCS Document Build System)](/projects/sdbs/index.html). SDBS is a parallel build pipeline that validates, renders, and publishes all technical documentation. Nexus reads from the resulting structured corpus, using the document graph as a partial knowledge base from which hypotheses, constraints, and provenance traces are derived.
+The primary document source that feeds this infrastructure is the [SDBS (SSCCS Document Build System)](/projects/sdbs/index.html). SDBS is a parallel build pipeline that validates, renders, and publishes all technical documentation. neXus reads from the resulting structured corpus, using the document graph as a partial knowledge base from which hypotheses, constraints, and provenance traces are derived.
 
-Nexus began as a platform to research the SSCCS computational model but it's being as SSCCS's proof of concept. The platform and the theory describe each other by design.
+neXus began as a platform to research the SSCCS computational model but it's being as SSCCS's proof of concept. The platform and the theory describe each other by design.
 
 ### Universal Primitives: Fact, Intent, Hint
 
-There is no fixed pipeline, orchestrator as a core actor, and direct agent-to-agent communication. Every interaction inside Nexus — whether a document chunk, a hypothesis, a governance rule, or a simulation output — is expressed through exactly three primitives: **Fact (F)**, **Intent (I)**, and **Hint (H)**. These primitives are the only interface between any two agents, any two Blackboards, or any agent and the knowledge graph.
+There is no fixed pipeline, orchestrator as a core actor, and direct agent-to-agent communication. Every interaction inside neXus — whether a document chunk, a hypothesis, a governance rule, or a simulation output — is expressed through exactly three primitives: **Fact (F)**, **Intent (I)**, and **Hint (H)**. These primitives are the only interface between any two agents, any two Blackboards, or any agent and the knowledge graph.
 
 ```{python}
 #| label: fig-FIH-primitives
@@ -175,7 +175,7 @@ During ingestion, documents, code artifacts, simulation outputs, or sensor strea
 
 ## Layer 2: Artifact Ingestion Pipeline
 
-Direct uploads from CI/CD, simulators, or robotic platforms to the knowledge graph create coupling, lack change detection, and complicate multi‑source merging. Nexus decouples the pipeline:
+Direct uploads from CI/CD, simulators, or robotic platforms to the knowledge graph create coupling, lack change detection, and complicate multi‑source merging. neXus decouples the pipeline:
 
 1. Object Store: holds the authoritative copy of all artifacts — documentation, code symbols, simulation results, telemetry logs, video streams, hardware‑in‑the‑loop recordings. It provides strong consistency and a standard API.
 2. Sync Worker: exposes an engine‑agnostic endpoint (`/sync/:engine`). It compares the current state of the object store with a persistent mapping of previously ingested items, computes a diff, and pushes small task chunks into a message queue.
@@ -266,7 +266,7 @@ The infrastructure must, therefore, evolve from a document‑code knowledge grap
 
 Recent work establishes *homeomorphism* — a continuous bijection preserving topological structure — as the criterion for determining when fundamentally different representation pathways share compatible latent structure. Two modalities that capture the same underlying reality, however differently encoded, can be rigorously unified when their latent manifolds are homeomorphic.
 
-This provides the theoretical backbone for Nexus’s boundaryless extension. The same SSCCS primitives that describe compiler behavior can, through a verified homeomorphic mapping, describe robotic motion or hardware telemetry. The mathematics guarantees that reasoning across these domains is structurally valid, not merely heuristic.
+This provides the theoretical backbone for neXus’s boundaryless extension. The same SSCCS primitives that describe compiler behavior can, through a verified homeomorphic mapping, describe robotic motion or hardware telemetry. The mathematics guarantees that reasoning across these domains is structurally valid, not merely heuristic.
 
 The ULHM framework introduces three canonical loss terms applicable to any homeomorphic mapping task:
 
@@ -274,7 +274,7 @@ The ULHM framework introduces three canonical loss terms applicable to any homeo
 - Trust loss: preserves neighborhood relationships across modalities.
 - Wasserstein loss: aligns the global distributions of the latent representations.
 
-These losses can be incorporated into Nexus’s Verifier as contract rules, automatically validating that a physical measurement and a semantic claim share compatible structure before a hypothesis is accepted.
+These losses can be incorporated into neXus’s Verifier as contract rules, automatically validating that a physical measurement and a semantic claim share compatible structure before a hypothesis is accepted.
 
 ### Existing Cross‑Reality Systems Validate the Approach
 
@@ -288,7 +288,7 @@ Multiple systems have already demonstrated that unified representation across di
 
 ### Extended Architecture
 
-Nexus’s existing layered architecture was designed for exactly this extensibility. The extension to physical‑digital domains is not a redesign but a natural expansion:
+neXus’s existing layered architecture was designed for exactly this extensibility. The extension to physical‑digital domains is not a redesign but a natural expansion:
 
 | Layer | Current Scope | Extended Scope |
 |-------|---------------|----------------|
@@ -304,7 +304,7 @@ The key enabler is the existing `/sync/:engine` pattern, the `EngineHandler` int
 
 The Episodic Knowledge Graph (eKG) acts as a long‑term symbolic memory for embodied agents. An event bus collects multimodal signals (vision, language, sensor readings, action outcomes) and posts interpretations as temporal sequences. The eKG aggregates and connects these interpretations, establishing coherence across interactions that span different modalities, agents, and timescales.
 
-For Nexus, this means the Evolving Memory that currently records Planner‑Executor‑Verifier trajectories evolves into an episodic graph that also records physical experimental outcomes. When a hypothesis about compiler behavior is validated through RISC‑V emulation, and that same hypothesis is later tested on a physical robot, both validations reside in the same eKG, connected by the shared conceptual structure they verify.
+For neXus, this means the Evolving Memory that currently records Planner‑Executor‑Verifier trajectories evolves into an episodic graph that also records physical experimental outcomes. When a hypothesis about compiler behavior is validated through RISC‑V emulation, and that same hypothesis is later tested on a physical robot, both validations reside in the same eKG, connected by the shared conceptual structure they verify.
 
 ### Unified Latent Representation: The Homeomorphic Bridge
 
@@ -318,11 +318,11 @@ These capabilities have been empirically validated on cross‑domain classifier 
 
 ### Toward Continuous Research Manifolds
 
-The vision is of Nexus as a continuous research manifold: a unified latent space where a theoretical insight about Field transition dynamics, a compiler pass that optimizes for that dynamics, a simulation of the compiler running on RISC‑V emulation, a robot experiment validating the energy efficiency claims, a sensor stream from a hardware implementation, and a maintenance log from a deployed system all inhabit the same queryable structure. A researcher can ask: *“Show me all physical validations of hypotheses derived from Whitepaper §3.4, grouped by simulation fidelity and hardware platform.”* The system traverses from document entities to simulation outputs to robot logs to sensor traces — because they are all connected in the same graph, grounded by the same primitives, verified by the same contract.
+The vision is of neXus as a continuous research manifold: a unified latent space where a theoretical insight about Field transition dynamics, a compiler pass that optimizes for that dynamics, a simulation of the compiler running on RISC‑V emulation, a robot experiment validating the energy efficiency claims, a sensor stream from a hardware implementation, and a maintenance log from a deployed system all inhabit the same queryable structure. A researcher can ask: *“Show me all physical validations of hypotheses derived from Whitepaper §3.4, grouped by simulation fidelity and hardware platform.”* The system traverses from document entities to simulation outputs to robot logs to sensor traces — because they are all connected in the same graph, grounded by the same primitives, verified by the same contract.
 
 ### What Must Be Built
 
-Three concrete additions to the existing Nexus architecture realize this boundaryless extension:
+Three concrete additions to the existing neXus architecture realize this boundaryless extension:
 
 1. Multi‑Modal Ingestion Handlers. New `EngineHandler` implementations for physics simulation frameworks, robotic platforms, and sensor pipelines. Each presents the same interface but maps to domain‑specific storage and retrieval protocols.
 2. Homeomorphic Verification Layer. An extension to the Verifier that applies continuity, trust, and distributional distance metrics to determine when a physical observation and a semantic claim share compatible latent structure. This becomes part of the Contract: a hypothesis step is only “verified” when the homeomorphism criterion is satisfied.

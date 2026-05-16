@@ -81,7 +81,7 @@ Our Documentation‑First philosophy treats accumulated knowledge not as a stati
 
 Every whitepaper, technical note, governance record, and code artifact is ingested through contract‑governed agents, extracted into the unified graph, and linked by deterministic edges (DEFINES, IMPLEMENTS, VALIDATES, DERIVES_FROM). This creates a closed‑loop ecosystem: hypotheses generated from gaps in the graph are validated against cryptographic provenance, and the resulting insights—along with new code and external references—are fed back into the ingestion pipeline. The graph expands with every commit and research note, enabling the entire knowledge base to grow organically.
 
-This transforms documentation from a passive endpoint into the primary interface between human intent and machine reasoning. AI agents explore the graph, surface emergent connections, and extend the SSCCS paradigm through a continuous generate‑evaluate‑adapt cycle. See [Documentation Home](/index.html) and [Project Nexus](/projects/nexus) for details.
+This transforms documentation from a passive endpoint into the primary interface between human intent and machine reasoning. AI agents explore the graph, surface emergent connections, and extend the SSCCS paradigm through a continuous generate‑evaluate‑adapt cycle. See [Documentation Home](/index.html) and [Project neXus](/projects/nexus) for details.
 
 ## Strategic Posture
 

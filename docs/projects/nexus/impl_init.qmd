@@ -1,5 +1,5 @@
 ---
-title: "Nexus Architecture"
+title: "neXus Architecture"
 subtitle: "FIH Blackboard: Universal Interface for Multi-Agent Coordination"
 date: last-modified
 title-meta-items:
@@ -11,7 +11,7 @@ title-meta-items:
 metadata-files:
   - ../../_include/author.yml
 abstract: |
-  Nexus implements the FIH (Fact / Intent / Hint) Blackboard paradigm. SqlBlackboard (Cairn reference, 54/54) uses SQLite + SQL queries. GraphBlackboard (nexus-core) uses petgraph + Cypher queries with platform bindings for Cloudflare Workers, native servers, and (as a placeholder) blockchain targets. The Blackboard is a shared graph that every module reads from and writes to through a single interface. The core is assembled from production-grade crates (petgraph, rusqlite, cyrs, ndarray) with minimal glue. Multiple graph storage approaches — including petgraph in memory, rusqlite-backed persistence, and reference storage pattern analyses — are documented as implementation options beneath the FIH interface.
+  neXus implements the FIH (Fact / Intent / Hint) Blackboard paradigm. SqlBlackboard (Cairn reference, 54/54) uses SQLite + SQL queries. GraphBlackboard (nexus-core) uses petgraph + Cypher queries with platform bindings for Cloudflare Workers, native servers, and (as a placeholder) blockchain targets. The Blackboard is a shared graph that every module reads from and writes to through a single interface. The core is assembled from production-grade crates (petgraph, rusqlite, cyrs, ndarray) with minimal glue. Multiple graph storage approaches — including petgraph in memory, rusqlite-backed persistence, and reference storage pattern analyses — are documented as implementation options beneath the FIH interface.
 ---
 
 ```{python}
@@ -24,9 +24,9 @@ abstract: |
 
 ## Executive Summary
 
-Nexus is a modular research infrastructure built on the FIH Blackboard paradigm. Every module reads from and writes to a shared graph through exactly three primitives: Fact (validated result), Intent (exploration direction), and Hint (governance rule). There is no fixed pipeline and no direct module-to-module communication. The Cairn-verified lifecycle — submit → claim → heartbeat → conclude — governs all interaction.
+neXus is a modular research infrastructure built on the FIH Blackboard paradigm. Every module reads from and writes to a shared graph through exactly three primitives: Fact (validated result), Intent (exploration direction), and Hint (governance rule). There is no fixed pipeline and no direct module-to-module communication. The Cairn-verified lifecycle — submit → claim → heartbeat → conclude — governs all interaction.
 
-Nexus is itself an instance of the SSCCS paradigm: the Blackboard is the Scheme, Intents and Hints are the Field, and the act of reading, computing, and writing back is the Observation. GraphBlackboard compiles to WASM (edge) and native (server) from a single codebase assembled from production-grade crates (petgraph, rusqlite, cyrs, ndarray). Contract.nex is the single governance surface.
+neXus is itself an instance of the SSCCS paradigm: the Blackboard is the Scheme, Intents and Hints are the Field, and the act of reading, computing, and writing back is the Observation. GraphBlackboard compiles to WASM (edge) and native (server) from a single codebase assembled from production-grade crates (petgraph, rusqlite, cyrs, ndarray). Contract.nex is the single governance surface.
 
 ### Unified Architecture
 
@@ -34,7 +34,7 @@ The architecture has two layers. The Core Blackboard is the logical layer: a sha
 
 ```{python}
 #| label: fig-nexus-architecture
-#| fig-cap: "Nexus Architecture"
+#| fig-cap: "neXus Architecture"
 dot("""
 digraph NexusArchitecture {
     splines=ortho;
@@ -136,7 +136,7 @@ The Queue layer enforces Stigmergy across dimensions. A write at any dimension i
 
 ### Why graph-based FIH, Not Docker Containers
 
-The initial Nexus architecture used Docker containers (Memgraph + proxy + LightRAG) orchestrated by shell scripts. The transition to a native codebase eliminated runtime dependencies:
+The initial neXus architecture used Docker containers (Memgraph + proxy + LightRAG) orchestrated by shell scripts. The transition to a native codebase eliminated runtime dependencies:
 
 | Reason | Impact |
 |---|---|
