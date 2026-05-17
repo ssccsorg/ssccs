@@ -104,7 +104,7 @@ def _project_llms_enabled(project_root: Path) -> bool:
 
 def _build_title_meta_items(qmd_path: Path) -> dict:
     front = _get_front_matter(qmd_path)
-    custom = front.get("title-meta-items", {}) or {}
+    custom = globals().get('title_meta_items', {}) or {}
     auto_other = custom.get("other-formats", True)
     project_root = _find_project_root(qmd_path.parent.resolve())
     declared_formats = _get_declared_formats(front, project_root)
