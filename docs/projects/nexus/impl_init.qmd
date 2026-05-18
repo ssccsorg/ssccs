@@ -227,23 +227,28 @@ Where differentiation matters (Cypher-to-petgraph translation, gap detection heu
 
 ### nexus-core (graph-based FIH)
 
-The core is a Cargo workspace with two abstraction layers:
+The core is a Cargo workspace with a clean separation of interfaces and implementations:
 
-- `Blackboard` trait (public, stable): the FIH lifecycle interface. Every module submits Facts, Intents, and Hints through this interface. `submit_intent() / claim_intent() / heartbeat() / release_intent() / conclude_intent()` — the Cairn-verified lifecycle. 25 tests passing.
-- `GraphAccess` trait (internal): raw petgraph operations for the Cypher executor. `node_indices() / node_weight() / add_node()` etc.
-- `BlackboardStore`: the petgraph-backed implementation of both traits. Internal methods (`add_fact()`, `add_intent()`, `deposit_signal()`) preserved for Phase 2.
+- `core/model/` — `Blackboard` trait (public, stable): the FIH lifecycle interface (`submit_intent / claim_intent / heartbeat / release_intent / conclude_intent`) plus `Storage` trait for pluggable persistence.
+- `core/graph/` — `GraphBlackboard`: petgraph-backed in-memory implementation with Cypher executor and `GraphAccess` trait for raw graph queries.
+- `core/table/` — `SqlBlackboard` (internally `TableBlackboard`): SQLite-backed normalized Cairn-pattern persistence with multi-project scoping, ACID transactions, and FK constraints.
 
 ```text
-nexus-core/
-├── graph/         ← Blackboard trait + BlackboardStore + Fact/Intent/Hint
+core/
+├── model/          ← Blackboard trait + Storage trait + FIH primitives (Fact/Intent/Hint)
 │   └── src/lib.rs
-├── index/         ← ndarray vector search
-│   └── src/lib.rs
-├── cypher/         ← cyrs Plan IR → petgraph iterator chain
-│   ├── plan.rs
-│   ├── parser.rs
-│   ├── translate.rs
-│   └── lib.rs
+├── graph/          ← GraphBlackboard: petgraph-backed FIH implementation
+│   ├── src/lib.rs
+│   ├── tests/ (a_stress_parallel, b_stress_sequential, c_full_flow, d_gateway_scenarios, e_transport_scenarios, z_scenarios)
+│   └── cypher/     ← cyrs Plan IR → petgraph iterator chain
+├── table/          ← TableBlackboard: SQLite-backed normalized Cairn-pattern persistence
+│   ├── src/lib.rs
+│   ├── src/blackboard.rs (SqlBlackboard + Blackboard impl)
+│   ├── src/storage.rs (SqliteStorage, legacy event-log)
+│   ├── src/schema.rs (apply_schema DDL)
+│   ├── src/util.rs (ProjectMeta, utc_now)
+│   └── tests/blackboard.rs (23 integration tests)
+│       tests/concurrent.rs (6 concurrent stress tests)
 └── Cargo.toml      ← Workspace root
 ```
 
@@ -403,8 +408,10 @@ This applies to any domain. Business simulation: Fact = market data, Intent = st
 | RAG engines (LightRAG) | Reference implementation; sync pipeline active |
 | gap-detector (TS, Cypher mode) | Deployed |
 | CI/CD (deploy.yml, build.yml) | Deployed |
-| GraphBlackboard (nexus-core/) | Phase 1 complete: Blackboard trait, FIH lifecycle, BlackboardStore, 25 tests |
-| Blackboard trait | Implemented: submit/claim/heartbeat/release/conclude lifecycle, BoardState, 4 tests |
+| GraphBlackboard (petgraph, in-memory) | Phase 1 complete: Blackboard trait, FIH lifecycle, Cypher executor, 29 tests |
+| TableBlackboard (SQLite, normalized tables) | Cairn-pattern persistence: multi-project scoping, ACID transactions, FK constraints, 29 tests (23 functional + 6 concurrent) |
+| Blackboard trait | Implemented: submit/claim/heartbeat/release/conclude lifecycle, BoardState, project_id() query |
+| Project model | projects table with lifecycle (active/stopped/completed), reason lease fields, project-scoped Blackboard instances |
 | GraphAccess trait | Implemented: raw petgraph operations for Cypher executor |
 | cypher translator | cyrs pipeline integrated, dual-path executor, 21 tests |
 | Graph algorithms | Future |
