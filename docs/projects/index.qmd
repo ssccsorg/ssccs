@@ -1,0 +1,154 @@
+---
+title: "Projects"
+subtitle: "Shared substrate, autonomous growth"
+date: last-modified
+metadata-files:
+  - ../_include/author.yml
+abstract: |
+  A structural computing project grows through autonomous entities that share a common substrate. There is no center, only a starting point: a published formal model, an open blackboard, and a reference implementation that together provide a common language and a set of primitives. Independent entities pick up this substrate, adapt it to specific domains, and produce fact, profit, and knowledge. Each entity that returns with deposits strengthens the substrate, and each strengthened substrate propagates back to every entity, making the next generation easier to start. This document describes how autonomous action, integrated through shared infrastructure, compounds across generations.
+---
+
+{{< include ../_include/_title_meta_items.qmd >}}
+
+```{python}
+#| include: false
+#| context: local
+%run ../_include/_graphviz.py
+```
+
+## Starting Point
+
+The structural observation model is formalized directly into the substrate. It begins with a published model of observation, constraint composition, and deterministic projection, an open blackboard that records three primitives — fact, intent, and hint — and a reference implementation called neXus that validates the full stack: knowledge graph, agentic research loop, learning loop, and contract governance. Together these form the substrate. The substrate does not direct anything. It provides a common language and a set of primitives that any entity can inherit, and a surface where observations made in one domain become legible to every other domain.
+
+[neXus](nexus/) is simultaneously a proof of concept and the infrastructure that validates it. Every implementation decision, every architectural refinement made during its development feeds back into the formal model, correcting assumptions, exposing gaps, and driving conceptual growth. The theory describes the infrastructure; the infrastructure validates the theory. This recursive relationship between model and implementation is the first demonstration of the pattern the substrate exists to propagate.
+
+## Autonomous Entities
+
+```{python}
+#| label: fig-substrate
+#| fig-cap: "Mutual exchange architecture: Every node reads from and writes to the shared substrate. Entities pursue independent domains; the blackboard and contract integrate results and propagate strengthened primitives back to all. neXus bootstraps the system; subsequent entrants inherit a raised baseline."
+dot(""" 
+digraph Substrate {
+    rankdir=LR
+    node [shape=box, style=filled, fontname="Arial", fontsize=10]
+    edge [fontsize=9]
+
+    Substrate [label="SSCCS (Shared Substrate)\n- Formal Model\n- Philosophy or Initiative\n- Published primitives", fillcolor="#E8F4F8", width=3.2]
+
+    neXus [label="neXus\n- Research Infrastructure\n- Recursive PoC\n- Blackboard (Fact/Intent/Hint)\n- Contract governance\n...", fillcolor="#D4E6F1", width=3.0]
+
+    subgraph cluster_early {
+        label="Contributions & Projects"
+        color="#888888"
+        style=dashed
+        node [width=2.5]
+        Entity1 [label="Domain Entity", fillcolor="#F4E8F8"]
+        Entity2 [label="Domain Entity (...)", fillcolor="#F8F4E8"]
+    }
+
+    subgraph cluster_subsequent {
+        label="Subsequent Entrants"
+        color="#AAAAAA"
+        style=dashed
+        node [width=2.5]
+        Entity3 [label="Domain Entity", fillcolor="#E8F8E8"]
+        Entity4 [label="Domain Entity", fillcolor="#FFF4E6"]
+        Entity5 [label="Domain Entity (...)", fillcolor="#F4F4F4"]
+    } 
+
+    // neXus ↔ Substrate
+    neXus -> Substrate [label="validated contract,\nagent traces", style=dashed, arrowhead=none, arrowtail=normal]
+    Substrate -> neXus [label="primitives", style=dotted, arrowhead=normal, arrowtail=none]
+
+    // neXus ↔ Entity1
+    neXus -> Entity1 [label="reference templates,\ncontract scaffolding", style=dashed, arrowhead=none, arrowtail=normal]
+    Entity1 -> neXus [label="domain fact,\nfield feedback", style=dashed, arrowhead=none, arrowtail=normal]
+
+    // neXus ↔ Entity2
+    neXus -> Entity2 [label="reference templates,\ncontract scaffolding", style=dashed, arrowhead=none, arrowtail=normal]
+    Entity2 -> neXus [label="domain fact,\nfield feedback", style=dashed, arrowhead=none, arrowtail=normal]
+
+    // neXus ↔ Entity3
+    neXus -> Entity3 [label="reference templates,\ncontract scaffolding", style=dashed, arrowhead=none, arrowtail=normal]
+    Entity3 -> neXus [label="domain fact,\nfield feedback", style=dashed, arrowhead=none, arrowtail=normal]
+
+    // neXus ↔ Entity4
+    neXus -> Entity4 [label="reference templates,\ncontract scaffolding", style=dashed, arrowhead=none, arrowtail=normal]
+    Entity4 -> neXus [label="domain fact,\nfield feedback", style=dashed, arrowhead=none, arrowtail=normal]
+
+    // neXus ↔ Entity5
+    neXus -> Entity5 [label="reference templates,\ncontract scaffolding", style=dashed, arrowhead=none, arrowtail=normal]
+    Entity5 -> neXus [label="domain fact,\nfield feedback", style=dashed, arrowhead=none, arrowtail=normal]
+
+    // Entity1 ↔ Substrate
+    Entity1 -> Substrate [label="fact, profit (via contract)", style=dashed, arrowhead=none, arrowtail=normal]
+    Substrate -> Entity1 [label="primitives", style=dotted, arrowhead=normal, arrowtail=none]
+
+    // Entity2 ↔ Substrate
+    Entity2 -> Substrate [label="fact, profit (via contract)", style=dashed, arrowhead=none, arrowtail=normal]
+    Substrate -> Entity2 [label="primitives", style=dotted, arrowhead=normal, arrowtail=none]
+
+    // Entity3 ↔ Substrate
+    Entity3 -> Substrate [label="fact, profit (via contract)", style=dashed, arrowhead=none, arrowtail=normal]
+    Substrate -> Entity3 [label="strengthened primitives", style=dotted, arrowhead=normal, arrowtail=none]
+
+    // Entity4 ↔ Substrate
+    Entity4 -> Substrate [label="fact, profit (via contract)", style=dashed, arrowhead=none, arrowtail=normal]
+    Substrate -> Entity4 [label="strengthened primitives", style=dotted, arrowhead=normal, arrowtail=none]
+
+    // Entity5 ↔ Substrate
+    Entity5 -> Substrate [label="fact, profit (via contract)", style=dashed, arrowhead=none, arrowtail=normal]
+    Substrate -> Entity5 [label="strengthened primitives", style=dotted, arrowhead=normal, arrowtail=none]
+}
+""")
+```
+
+An entity is any project, team, or individual that adopts the substrate and dispatches into a specific domain — silicon verification, robotics validation, embedded testing, image processing, or any field where exhaustive constraint composition produces value. Each entity operates under its own brand, its own governance, and its own revenue model. Entities are not subsidiaries of anything. They are not representatives of the substrate. They are independent operators that share a common lineage, each pursuing its own domain with its own methods, each returning with deposits that strengthen the shared foundation.
+
+What an entity deposits flows back through the substrate to every other entity. **Fact**: validated observations committed immutably to the blackboard, where they become permanent reference points for any entity that encounters a similar constraint pattern. **Profit**: a protocol-aligned portion of entity revenue routed through the contract, ensuring the substrate remains economically independent of any single commercial outcome. **Hint**: patterns extracted from accumulated fact — a failure mode discovered in one domain becomes a reusable template that reduces the search space for every other domain, without any entity needing to coordinate directly with the one that made the discovery.
+
+These contributions move through a contract layer, first implemented in neXus and available to every entity. The contract defines contribution types, validation thresholds, and reward schedules — not as aspirational documents but as executable rules. An entity that contributes gains access to a strengthened substrate for its next iteration. An entity that extracts without contributing faces a progressively weaker shared resource. The incentive is built into the system, not administered by any organization.
+
+## How Action Integrates and Propagates
+
+Each entity works on its own problem, in its own domain, with its own methods. No entity waits for permission. No entity coordinates with another before acting. The entities are independent in everything they do.
+
+What integrates their work is the substrate. When an entity commits a fact to the blackboard, that fact is no longer the entity's private result — it becomes a permanent part of the shared surface, available to any other entity that reads it. When an entity discovers a failure pattern, the contract extracts it as a hint and the blackboard distributes it to every entity that might encounter a similar constraint combination. When an entity generates profit, a portion flows through the contract and sustains the substrate that all entities depend on.
+
+The integration happens without a central coordinator because the blackboard and the contract are the coordinators — neutral, executable, transparent. An entity does not need to know which other entity deposited a fact to benefit from it. It does not need to negotiate with another entity to use a hint. It reads from the blackboard, writes to the blackboard, and the contract ensures that contributions are rewarded and the substrate is sustained. The collective intelligence of the system is not in any single entity. It is in the pattern of deposits and withdrawals that accumulate on the shared surface over time.
+
+This integration then propagates back. A strengthened substrate — one with richer facts, more refined hints, and more battle-tested primitives — becomes the new starting point for every entity. The next generation inherits what the previous generation deposited, without needing to repeat the explorations that produced those deposits. A failure mode discovered once prevents failure across every domain that shares the substrate. A verification pattern validated once becomes a reusable template for every entity that follows.
+
+## Maturation Cycles
+
+The substrate does not grow in batches; it accumulates state over time. Early adopters engage with the substrate in its baseline form. neXus, acting as the bootstrap entity, provides the first validated contract, initial agent trajectories, and reference primitives. Other early entities contribute the first domain-specific fact sets. Their deposits are absorbed into the blackboard, encoded as hints, and published as refined primitives.
+
+Subsequent entrants inherit a raised baseline. Primitives are more mature. The blackboard already contains constraint patterns that shrink the search space for new domains. The friction of starting a new entity decreases not because entities are sequenced, but because the substrate carries the compounded experience of every participant that came before. Each new entity begins already standing on the deposits of the collective.
+
+This cycle is continuous. Entities strengthen the substrate; the strengthened substrate lowers the barrier for new entities. There is no upper limit to participation, and the substrate remains open to any team that adopts the model and identifies a domain.
+
+## The Blackboard
+
+The blackboard is the shared surface where autonomous action integrates. It holds three primitives that form the only interface between any entity and the substrate.
+
+**Fact** is a validated observation, committed immutably. A test result, a failure trace, a constraint pattern that produced a specific outcome. Every fact is a permanent deposit — it cannot be retracted, modified, or owned by a single entity. Once committed, it belongs to the substrate.
+
+**Intent** is a proposed exploration — a question posed to the collective, a verification request, a hypothesis to test. Any entity can publish an intent. Any other entity can pick it up and produce facts in response.
+
+**Hint** is an injected constraint — a governance rule, a learned pattern, a safety limit, a resource boundary discovered through field experience. Hints reduce the search space for future explorations. They are extracted from accumulated fact, contributed by entities that have encountered and resolved specific failure modes, and propagated to every entity that might benefit from them.
+
+The blackboard does not enforce semantics. It provides the surface. Entities read from it to understand what the collective knows; they write to it to contribute their own observations. The intelligence of the system resides in the entities that read and write, and in the patterns that emerge from their accumulated deposits over time.
+
+## Contract Governance and Economic Model
+
+Contributions move through the contract layer, first implemented in neXus and available to every entity. The contract defines contribution types, validation thresholds, and reward schedules. It is executable, not aspirational. Five contribution types are recognized: **Gap Discovery**, which detects missing links between facts and triggers new intents; **Hypothesis Submission**, which requires staking as commitment and returns stake plus reward upon validation; **Experimental Validation**, which closes the theory-practice loop and is rewarded upon reproduction; **Concept Drift Detection**, which maintains the semantic integrity of the blackboard; and **Domain Fact Ingestion**, which expands the shared fact set and is rewarded proportionally to downstream usage.
+
+Every contribution flows through a verifier. Success mints rewards. Failure slashes the submitter's stake. The same rules that ensure quality also ensure economic fairness — the contract is the review board. Although this is a primitive model for now, we plan to refine it progressively.
+
+## Participation & Autonomy
+
+Independent entities are not projects of the substrate. They are autonomous—commercial or non-profit, open-source or proprietary—and choose how to operate under its open terms. The substrate's maintainers publish the formal model, operate the blackboard, release primitives, and maintain the reference contract. Their responsibility is to keep the substrate stable, accessible, and honest. Entities are responsible only to their own domains and customers.
+
+Any team can start a new entity without permission or approval. The substrate is published, the blackboard is accessible, the formal model is documented, and the contract is deployed. A new entity begins by internalizing the structural observation model and identifying a domain where exhaustive constraint composition produces value. It builds on published primitives, contributes observations to the blackboard, and grows through its own market dynamics.
+
+The substrate does not fund entities; it reduces the cost of starting one. Entities, through their contributions, raise the baseline for those that follow. The contract ensures the cycle is self-sustaining—not through administrative oversight, but through structural alignment of incentives. Each deposit lifts the floor. Each participant inherits a stronger foundation than the one before. The substrate grows because every entity that uses it also feeds it, and every entity benefits because the substrate it feeds is the substrate it inherits.
