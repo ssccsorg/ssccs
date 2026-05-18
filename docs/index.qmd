@@ -1,7 +1,6 @@
 ---
-title: "SSCCS Documentation neXus"
-subtitle: "Networked Knowledge Base & Autonomous Research Infrastructure"
-
+title: "SSCCS Documentation"
+subtitle: "Networked Knowledge Base"
 ---
 
 ```{python}
@@ -9,8 +8,6 @@ subtitle: "Networked Knowledge Base & Autonomous Research Infrastructure"
 #| context: local
 %run ./_include/_graphviz.py
 ```
-
-## Overview
 
 ```{python}
 #| label: fig-knowledge-galaxy
@@ -251,126 +248,12 @@ Welcome to the SSCCS Documentation Hub. This platform operates as the unified kn
 
 {{< include _include/_updated_docs_list.qmd >}}
 
-## Observable Knowledge Graph
-
-The documentation functions as a versioned network of technical assertions and design decisions. Cross-references, citation backlinks, and code-to-document mappings form explicit dependency paths. This architecture enables researchers to trace technical lineage, validate implementations against original hypotheses, and navigate architectural histories through direct relationship mapping. The graph expands with each commit and research note, maintaining a living record of how SSCCS concepts evolve across documents and codebases.
-
-## Contract-Governed Discovery Pipeline
-
-It functions as a living, unified pipeline where Contract-Governed Ingestion feeds a Unified Knowledge Graph, which in turn drives Hypothesis Generation and Validation. At the core lie the SSCCS Primitives, which continuously evolve with every commit and research note. In this architecture, research, documentation, hypotheses, experiments, and executable code are organically interconnected—functioning like biological cells that grow and adapt in synchronization.
-
-```{python}
-dot("""
-digraph SSCCSOrganicGrowth {
-    rankdir=TB;
-    splines=ortho;
-
-    // ----- Contract Layer -----
-    contract [label="SSCCS CONTRACT
-(required sections, primitive citations,
-code references, visual obligations)",
-        shape=box, style="rounded", fontsize=10, width=2.8];
-
-    // ----- Ingestion Agents -----
-    subgraph cluster_ingest {
-        label="Ingestion Agents";
-        style="dashed"; color="gray"; fontsize=11;
-
-        spec_parser [label="SPEC PARSER\n(Scheme-Segment, \n Markdown docs, etc..)", shape=box, style="rounded"];
-        code_indexer [label="CODE INDEXER\n(Code symbols, etc.)", shape=box, style="rounded"];
-        eco_crawler [label="ECO CRAWLER\n(Research and facts, etc.)", shape=box, style="rounded"];
-    }
-
-    // ----- SSCCS Primitives (core unit) -----
-    primitives [label="SSCCS PRIMITIVES
-Segment · Scheme · Field · Observation
-(immutable coordinates, axes,
-constraints, projections)",
-        shape=box, style="rounded,dashed", fontsize=10, width=2.8];
-
-    // ----- Unified Knowledge Graph -----
-    subgraph cluster_kg {
-        label="SSCCS Knowledge Graph";
-        style="dashed"; color="gray"; fontsize=11;
-
-        kg_core [label="Unified Graph Store
-Nodes: Segment, Scheme, Field, Observation,
-CodeSymbol, ExternalDoc, Hypothesis
-Edges: DEFINES, IMPLEMENTS, REFERENCES,
-VALIDATES, DERIVES_FROM",
-            shape=box, style="rounded", fontsize=9, width=3.4];
-    }
-
-    // ----- Hypothesis Engine -----
-    subgraph cluster_hypo {
-        label="Hypothesis Engine";
-        style="dashed"; color="gray"; fontsize=11;
-
-        gap_detector [label="GAP DETECTOR\n(find undefined links)", shape=box, style="rounded"];
-        chain_gen [label="CHAIN GENERATOR\n(LLM + KG)", shape=box, style="rounded"];
-        validator [label="VALIDATOR\n(edge support, scoring)", shape=box, style="rounded"];
-    }
-
-    // ----- Output Artifacts -----
-    output [label="VALIDATED ARTIFACTS
-Hypothesis reports · Dashboards
-Experiment proposals · Contract‑compliant docs",
-        shape=box, style="rounded", fontsize=10, width=3.2];
-
-    // ===== Primary Flow =====
-    contract -> spec_parser [weight=3];
-    contract -> code_indexer [weight=3];
-    contract -> eco_crawler [weight=3];
-
-    spec_parser -> primitives [label="extracts", weight=2];
-    code_indexer -> kg_core [label="populates symbols", weight=2];
-
-    primitives -> kg_core [label="core nodes", style=dashed, weight=1];
-
-    kg_core -> gap_detector [label="traverses", ltail=cluster_kg, weight=2];
-    gap_detector -> chain_gen [label="gaps", weight=2];
-    chain_gen -> validator [dir=both, label="feedback", style=dashed, weight=1];
-
-    validator -> primitives [label="refines", style=dashed, weight=1];
-    validator -> kg_core [label="enriches", style=dashed, weight=1];
-
-    validator -> output [label="contract‑checked", weight=2];
-    kg_core -> output [label="supports", style=dotted, weight=1];
-
-    // ===== Organic Co‑Evolution Feedback Loops (fully connected, no constraint=false) =====
-    output -> spec_parser [label="new research\nstories", style=dashed, weight=1];
-    validator -> contract [label="contract\namendments", style=dashed, weight=1];
-
-    output -> code_indexer [label="new external\nreferences\ncode updates, ...", style=dashed, weight=1];
-
-    primitives -> spec_parser [style=dashed, weight=1];
-    primitives -> kg_core [style=dashed, weight=1];
-
-    // Invisible edges for balance
-    contract -> primitive;
-    eco_crawler -> output;
-}
-""")
-```
-
-Knowledge ingestion and hypothesis generation operate through a structured, locally executed pipeline. The system indexes rendered documents and integrates external specifications into a unified vector and graph database. Automated agents construct testable hypothesis chains from detected conceptual gaps, validate reasoning paths against cryptographic provenance and graph evidence, and render structured research reports under persistent structural contracts. All outputs remain machine-readable, deterministically indexed, and compatible with standard development workflows.
-
-## Cryptographic Provenance & Structured Licensing
-
-The knowledge supply chain is secured through integrated verification standards. GPG-signed commits authenticate source modifications, while [C2PA manifests](https://c2pa.org/) certify published artifacts. Licensing terms are embedded directly into document metadata and build outputs, ensuring clear usage boundaries across Apache 2.0 technical components and CC BY-NC-ND 4.0 research publications. Every export carries verifiable origin data and dependency hashes, supporting transparent auditing and reliable downstream integration.
-
-## Continuous Research Navigation
-
-New documents, code updates, and external references automatically integrate into the knowledge graph, refreshing dependency maps and surfacing validation candidates. Researchers navigate the infrastructure through deterministic paths, hybrid semantic search, and interactive graph visualizations. The system surfaces hypothesis reports, gap analyses, and experiment proposals as they emerge from the continuous validation cycle.
-
-Explore the unified index, trace conceptual dependencies, and review automatically generated research artifacts to observe how SSCCS structures, validates, and evolves its technical foundation.
-
-## Build and Contribute
-
 <details>
 <summary>Click to expand to see detailed build system guide</summary>
 
-The SSCCS documentation build system orchestrates Quarto renders with intelligent caching and parallelism, enabling fast, reproducible builds of multi‑format outputs. It is designed to handle complex documentation projects with many interdependent files while minimising redundant work. All documentation is written in plain Markdown (`.md` / `.qmd`) with YAML frontmatter. The build is orchestrated by `docs/build.py` using [Quarto](https://quarto.org).
+## Build and Contribute
+
+The [SSCCS documentation build system](https://github.com/ssccsorg/ssccs/tree/main/docs) orchestrates Quarto renders with intelligent caching and parallelism, enabling fast, reproducible builds of multi‑format outputs. It is designed to handle complex documentation projects with many interdependent files while minimising redundant work. All documentation is written in plain Markdown (`.md` / `.qmd`) with YAML frontmatter. The build is orchestrated by `docs/build.py` using [Quarto](https://quarto.org).
 
 ### Environment Setup (Recommended)
 
