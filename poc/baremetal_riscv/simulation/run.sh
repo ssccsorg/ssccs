@@ -8,7 +8,7 @@
 # Prerequisites:
 #   - riscv64-unknown-elf-gcc  (cross-compiler)
 #   - spike                    (RISC-V ISA simulator)
-#   - riscv-pk                  (proxy kernel, passed as file arg to spike)
+#   - riscv-pk                  (proxy kernel "pk" passed as file to spike)
 #
 # Usage:
 #   ./run.sh                    # build and run
@@ -39,40 +39,48 @@ OS="$(uname -s)"
 
 # ── Check prerequisites ──────────────────────────────────────────────
 
-MISSING=""
+HAVE_GCC=true
+HAVE_SPIKE=true
+PK=""
 
 if ! command -v riscv64-unknown-elf-gcc &>/dev/null; then
-    MISSING="$MISSING  - riscv64-unknown-elf-gcc (cross-compiler)\n"
+    HAVE_GCC=false
 fi
 
 if ! command -v spike &>/dev/null; then
-    MISSING="$MISSING  - spike (RISC-V ISA simulator)\n"
+    HAVE_SPIKE=false
 fi
 
-# pk is a file passed to spike (not a command), so command -v may fail
-# even when pk is installed. Check by trying to locate the file directly.
-PK=""
+# pk is a file that spike loads (not a command). Search known locations.
 for candidate in \
-    "pk" \
     "/opt/homebrew/bin/pk" \
     "/usr/local/bin/pk" \
     "/opt/riscv/bin/pk" \
     "/usr/local/riscv64-unknown-elf/bin/pk" \
     "/opt/riscv64-unknown-elf/bin/pk"; do
-    if [ -f "$candidate" ] || [ "$candidate" = "pk" ]; then
+    if [ -f "$candidate" ]; then
         PK="$candidate"
         break
     fi
 done
 
+# If pk was not found at any known path, try bare "pk" as a fallback.
+# spike may resolve it through its own search or the current directory.
 if [ -z "$PK" ]; then
-    MISSING="$MISSING  - riscv-pk (proxy kernel, e.g. /opt/homebrew/bin/pk)\n"
+    PK="pk"
 fi
 
-if [ -n "$MISSING" ]; then
+# ── Report missing tools ─────────────────────────────────────────────
+
+NEED_INSTALL=false
+
+if [ "$HAVE_GCC" = false ] || [ "$HAVE_SPIKE" = false ]; then
+    NEED_INSTALL=true
     echo "============================================"
     echo "  Missing prerequisites:"
-    echo -e "$MISSING"
+    echo ""
+    [ "$HAVE_GCC" = false ]   && echo "  - riscv64-unknown-elf-gcc (cross-compiler)"
+    [ "$HAVE_SPIKE" = false ] && echo "  - spike (RISC-V ISA simulator)"
     echo ""
     if [ "$OS" = "Darwin" ]; then
         echo "  Install on macOS (Homebrew):"
@@ -80,8 +88,6 @@ if [ -n "$MISSING" ]; then
         echo "    brew install riscv-tools"
         echo ""
         echo "  This installs spike, riscv-pk, and the GNU toolchain together."
-        echo "  pk will be at /opt/homebrew/bin/pk (Apple Silicon) or"
-        echo "  /usr/local/bin/pk (Intel)."
     else
         echo "  Install on Ubuntu/Debian:"
         echo "    sudo apt-get install gcc-riscv64-unknown-elf binutils-riscv64-unknown-elf"
@@ -97,10 +103,20 @@ if [ -n "$MISSING" ]; then
         echo "    ../configure --prefix=/usr/local --host=riscv64-unknown-elf"
         echo "    make -j\$(nproc) && sudo make install"
     fi
-    echo ""
-    echo "  After installing, run: spike pk $TARGET"
-    echo "  (pk is a file argument to spike, not a standalone command)"
     echo "============================================"
+fi
+
+# pk not found at any known path — warn but proceed (spike will report
+# the error if it cannot open the file).
+if [ ! -f "$PK" ] && [ "$PK" = "pk" ]; then
+    echo "============================================"
+    echo "  Note: riscv-pk (proxy kernel) not found at any known path."
+    echo "  Will try: spike pk $TARGET"
+    echo "  If this fails, install riscv-pk or set PK=/path/to/pk"
+    echo "============================================"
+fi
+
+if [ "$NEED_INSTALL" = true ]; then
     exit 1
 fi
 
@@ -127,8 +143,13 @@ case "$MODE" in
         echo "Running under Spike..."
         echo ""
         spike "$PK" "$TARGET"
+        STATUS=$?
         echo ""
-        echo "Done (exit code: $?)."
+        if [ $STATUS -eq 0 ]; then
+            echo "Done."
+        else
+            echo "Done (exit code: $STATUS)."
+        fi
         ;;
     check)
         echo "Running under Spike (check mode)..."
