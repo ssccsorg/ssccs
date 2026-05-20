@@ -8,7 +8,7 @@
 # Prerequisites:
 #   - riscv64-unknown-elf-gcc  (cross-compiler)
 #   - spike                    (RISC-V ISA simulator)
-#   - riscv-pk                  (proxy kernel)
+#   - riscv-pk                  (proxy kernel, passed as file arg to spike)
 #
 # Usage:
 #   ./run.sh                    # build and run
@@ -49,22 +49,24 @@ if ! command -v spike &>/dev/null; then
     MISSING="$MISSING  - spike (RISC-V ISA simulator)\n"
 fi
 
-# pk might not be in PATH (spike takes it as a file argument)
+# pk is a file passed to spike (not a command), so command -v may fail
+# even when pk is installed. Check by trying to locate the file directly.
 PK=""
-if command -v pk &>/dev/null; then
-    PK="pk"
-elif [ -f /usr/local/riscv64-unknown-elf/bin/pk ]; then
-    PK="/usr/local/riscv64-unknown-elf/bin/pk"
-elif [ -f /opt/riscv64-unknown-elf/bin/pk ]; then
-    PK="/opt/riscv64-unknown-elf/bin/pk"
-elif [ -f /opt/riscv/bin/pk ]; then
-    PK="/opt/riscv/bin/pk"
-elif [ -f /opt/homebrew/opt/riscv-gnu-toolchain/bin/pk ]; then
-    PK="/opt/homebrew/opt/riscv-gnu-toolchain/bin/pk"
-elif [ -f ./pk ]; then
-    PK="./pk"
-else
-    MISSING="$MISSING  - riscv-pk (proxy kernel)\n"
+for candidate in \
+    "pk" \
+    "/opt/homebrew/bin/pk" \
+    "/usr/local/bin/pk" \
+    "/opt/riscv/bin/pk" \
+    "/usr/local/riscv64-unknown-elf/bin/pk" \
+    "/opt/riscv64-unknown-elf/bin/pk"; do
+    if [ -f "$candidate" ] || [ "$candidate" = "pk" ]; then
+        PK="$candidate"
+        break
+    fi
+done
+
+if [ -z "$PK" ]; then
+    MISSING="$MISSING  - riscv-pk (proxy kernel, e.g. /opt/homebrew/bin/pk)\n"
 fi
 
 if [ -n "$MISSING" ]; then
@@ -74,14 +76,12 @@ if [ -n "$MISSING" ]; then
     echo ""
     if [ "$OS" = "Darwin" ]; then
         echo "  Install on macOS (Homebrew):"
-        echo "    brew install riscv-gnu-toolchain"
-        echo "    brew install riscv-software-src/riscv/spike"
+        echo "    brew tap riscv-software-src/riscv"
+        echo "    brew install riscv-tools"
         echo ""
-        echo "  Build riscv-pk from source:"
-        echo "    git clone https://github.com/riscv-software-src/riscv-pk.git"
-        echo "    cd riscv-pk && mkdir build && cd build"
-        echo "    ../configure --prefix=/usr/local --host=riscv64-unknown-elf"
-        echo "    make -j\$(sysctl -n hw.logicalcpu) && sudo make install"
+        echo "  This installs spike, riscv-pk, and the GNU toolchain together."
+        echo "  pk will be at /opt/homebrew/bin/pk (Apple Silicon) or"
+        echo "  /usr/local/bin/pk (Intel)."
     else
         echo "  Install on Ubuntu/Debian:"
         echo "    sudo apt-get install gcc-riscv64-unknown-elf binutils-riscv64-unknown-elf"
@@ -97,6 +97,9 @@ if [ -n "$MISSING" ]; then
         echo "    ../configure --prefix=/usr/local --host=riscv64-unknown-elf"
         echo "    make -j\$(nproc) && sudo make install"
     fi
+    echo ""
+    echo "  After installing, run: spike pk $TARGET"
+    echo "  (pk is a file argument to spike, not a standalone command)"
     echo "============================================"
     exit 1
 fi
