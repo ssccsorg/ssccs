@@ -82,3 +82,49 @@ jobs:
           token: ${{ secrets.SSCCS_NEXUS_ACTIONS_READWRITE_PAT }}
           repository: ssccsorg/ssccs-nexus
           event-type: ssccs-poc-agent-af
+
+  spike-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            device-tree-compiler \
+            gcc-riscv64-unknown-elf \
+            binutils-riscv64-unknown-elf
+
+      - name: Build spike (RISC-V ISA simulator)
+        run: |
+          git clone https://github.com/riscv-software-src/riscv-isa-sim.git
+          cd riscv-isa-sim
+          mkdir build && cd build
+          ../configure --prefix=/usr/local
+          make -j$(nproc)
+          sudo make install
+          cd ../..
+
+      - name: Build riscv-pk (proxy kernel)
+        run: |
+          git clone https://github.com/riscv-software-src/riscv-pk.git
+          cd riscv-pk
+          mkdir build && cd build
+          ../configure --prefix=/usr/local --host=riscv64-unknown-elf
+          make -j$(nproc)
+          sudo make install
+          cd ../..
+
+      - name: Verify tools
+        run: |
+          spike --version
+          riscv64-unknown-elf-gcc --version
+
+      - name: Build and run spike tests
+        working-directory: ./poc/baremetal_riscv/simulation
+        run: |
+          make check
+        shell: bash
