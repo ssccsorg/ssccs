@@ -31,6 +31,7 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ASMDIR="$SCRIPT_DIR/../asm"
 TEST_C="$SCRIPT_DIR/spike_test.c"
+STUBS_C="$SCRIPT_DIR/stubs.c"
 ASM_S="$ASMDIR/observe_full.S"
 TARGET="$SCRIPT_DIR/spike_test"
 
@@ -133,7 +134,7 @@ echo ""
 # ── Build ────────────────────────────────────────────────────────────
 
 echo "Building..."
-riscv64-unknown-elf-gcc -Wall -Wextra -O0 -g -o "$TARGET" "$TEST_C" "$ASM_S"
+riscv64-unknown-elf-gcc -Wall -Wextra -O0 -g -o "$TARGET" "$TEST_C" "$STUBS_C" "$ASM_S"
 echo "  -> $TARGET"
 echo ""
 
