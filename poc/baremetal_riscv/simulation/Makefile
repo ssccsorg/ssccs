@@ -7,6 +7,11 @@
 #   - riscv64-unknown-elf-gcc  (cross-compiler)
 #   - spike                    (RISC-V ISA simulator)
 #   - riscv-pk                  (proxy kernel, provides C runtime)
+#
+# The PK variable must be a path that spike can open as a file.
+# Set PK as an environment variable (e.g. PK=/usr/local/.../bin/pk)
+# or let it default to bare "pk" (works if pk is in the current
+# directory or discoverable by spike's own file resolution).
 
 CC      := riscv64-unknown-elf-gcc
 CFLAGS  := -Wall -Wextra -O0 -g
@@ -21,9 +26,9 @@ ASM_S   := $(ASMDIR)/observe_full.S
 # Output
 TARGET  := spike_test
 
-# Path to proxy kernel (pk). If pk is installed to a custom location,
-# override this variable:  make PK=/custom/path/to/pk
-PK      := pk
+# Path to proxy kernel (pk). Prefer environment variable, fall back
+# to bare name for local development.
+PK      ?= pk
 
 .PHONY: all clean run check
 
