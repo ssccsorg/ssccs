@@ -34,6 +34,9 @@ TEST_C="$SCRIPT_DIR/spike_test.c"
 ASM_S="$ASMDIR/observe_full.S"
 TARGET="$SCRIPT_DIR/spike_test"
 
+# Detect OS
+OS="$(uname -s)"
+
 # ── Check prerequisites ──────────────────────────────────────────────
 
 MISSING=""
@@ -52,10 +55,12 @@ if command -v pk &>/dev/null; then
     PK="pk"
 elif [ -f /usr/local/riscv64-unknown-elf/bin/pk ]; then
     PK="/usr/local/riscv64-unknown-elf/bin/pk"
-elif [ -f /usr/riscv64-unknown-elf/bin/pk ]; then
-    PK="/usr/riscv64-unknown-elf/bin/pk"
+elif [ -f /opt/riscv64-unknown-elf/bin/pk ]; then
+    PK="/opt/riscv64-unknown-elf/bin/pk"
 elif [ -f /opt/riscv/bin/pk ]; then
     PK="/opt/riscv/bin/pk"
+elif [ -f /opt/homebrew/opt/riscv-gnu-toolchain/bin/pk ]; then
+    PK="/opt/homebrew/opt/riscv-gnu-toolchain/bin/pk"
 elif [ -f ./pk ]; then
     PK="./pk"
 else
@@ -67,19 +72,31 @@ if [ -n "$MISSING" ]; then
     echo "  Missing prerequisites:"
     echo -e "$MISSING"
     echo ""
-    echo "  Install on Ubuntu/Debian:"
-    echo "    sudo apt-get install gcc-riscv64-unknown-elf binutils-riscv64-unknown-elf"
-    echo ""
-    echo "  Build spike from source:"
-    echo "    git clone https://github.com/riscv-software-src/riscv-isa-sim.git"
-    echo "    cd riscv-isa-sim && mkdir build && cd build"
-    echo "    ../configure --prefix=/usr/local && make -j\$(nproc) && sudo make install"
-    echo ""
-    echo "  Build riscv-pk from source:"
-    echo "    git clone https://github.com/riscv-software-src/riscv-pk.git"
-    echo "    cd riscv-pk && mkdir build && cd build"
-    echo "    ../configure --prefix=/usr/local --host=riscv64-unknown-elf"
-    echo "    make -j\$(nproc) && sudo make install"
+    if [ "$OS" = "Darwin" ]; then
+        echo "  Install on macOS (Homebrew):"
+        echo "    brew install riscv-gnu-toolchain"
+        echo "    brew install riscv-software-src/riscv/spike"
+        echo ""
+        echo "  Build riscv-pk from source:"
+        echo "    git clone https://github.com/riscv-software-src/riscv-pk.git"
+        echo "    cd riscv-pk && mkdir build && cd build"
+        echo "    ../configure --prefix=/usr/local --host=riscv64-unknown-elf"
+        echo "    make -j\$(sysctl -n hw.logicalcpu) && sudo make install"
+    else
+        echo "  Install on Ubuntu/Debian:"
+        echo "    sudo apt-get install gcc-riscv64-unknown-elf binutils-riscv64-unknown-elf"
+        echo ""
+        echo "  Build spike from source:"
+        echo "    git clone https://github.com/riscv-software-src/riscv-isa-sim.git"
+        echo "    cd riscv-isa-sim && mkdir build && cd build"
+        echo "    ../configure --prefix=/usr/local && make -j\$(nproc) && sudo make install"
+        echo ""
+        echo "  Build riscv-pk from source:"
+        echo "    git clone https://github.com/riscv-software-src/riscv-pk.git"
+        echo "    cd riscv-pk && mkdir build && cd build"
+        echo "    ../configure --prefix=/usr/local --host=riscv64-unknown-elf"
+        echo "    make -j\$(nproc) && sudo make install"
+    fi
     echo "============================================"
     exit 1
 fi
