@@ -1,0 +1,248 @@
+---
+title: "Nix Store Semantics for FIH Blackboard"
+subtitle: "Content-Addressable Persistence Patterns and Implementation Roadmap"
+date: last-modified
+metadata-files:
+  - ../../../_include/author.yml
+abstract: |
+  The Nix package manager's store model content-addressable immutability, derivation
+  graphs, and garbage collection provides a reference architecture for the FIH
+  Blackboard persistence layer. This note maps Nix concepts to Fact/Intent/Hint
+  semantics, identifies gaps in the current implementation, and proposes a
+  task-based roadmap for semantic integration.
+---
+
+{{< include ../../../_include/_title_meta_items.qmd >}}
+
+\`\`\`{python}
+#| include: false
+#| context: local
+%run ../../../_include/_graphviz.py
+\`\`\`
+
+## Background
+
+The Blackboard ignorance principle states that the storage layer should not
+interpret the data it stores, only preserve and retrieve it faithfully. The Nix
+store is a proven reference for this philosophy: store paths are content-addressed
+hashes, derivations declare dependencies explicitly, and immutability guarantees
+that a given hash always yields identical content.
+
+Our current implementation uses `FihHash` for content addressing and SQLite for
+persistence. The mapping between FIH and Nix semantics is natural, but three
+gaps remain: immutability enforcement, garbage collection, and replay
+determinism.
+
+## Nix to FIH Mapping
+
+### Content-Addressed Store Paths
+
+| Nix | FIH | Status |
+|-----|-----|--------|
+| `/nix/store/<hash>-<name>-<version>` | `FihHash::new(&[...], type_tag)` | **Implemented** |
+| `builtins.hashString "sha256" ...` | `sha2::Sha256::digest(...)` | **Implemented** |
+| Store path uniqueness by hash | `FihHash.0 = hex digest` | **Implemented** |
+
+### Derivation Graphs
+
+| Nix | FIH | Status |
+|-----|-----|--------|
+| `.drv` file (build inputs + builder) | `Intent { from_facts, description }` | **Conceptually mapped** |
+| `buildInputs` = references to store paths | `from_facts: Vec<FihHash>` | **Implemented** |
+| Derivation realisation (build) | `conclude_intent()` | **Implemented** |
+| Build output → new store path | Conclusion fact with `FihHash` | **Implemented** |
+| `builtins.fetchturl` (external input) | `submit_fact()` with `origin` | **Implemented** |
+
+### Project as Profile
+
+| Nix | FIH | Status |
+|-----|-----|--------|
+| `nix-env --profile /nix/profiles/foo` | `SqlBlackboard::memory_with_project("foo")` | **Implemented** |
+| Profile = selective view of the store | `project_id` in every PK | **Implemented** |
+
+### Transaction Safety
+
+| Nix | FIH | Status |
+|-----|-----|--------|
+| Atomic store transactions | `conn.transaction()` in `conclude_intent`, `submit_intent`, `release_intent` | **Implemented (#46)** |
+| No partial writes | Rollback on any failure | **Implemented** |
+
+## Gap Analysis
+
+### Gap 1: Immutability Enforcement
+
+```sql
+-- Current: silent overwrite
+INSERT OR IGNORE INTO facts (id, project_id, description, creator, origin)
+VALUES ('f001', 'default', '{"result": "A"}', ...);
+
+-- Second insert with same id, different content is silently ignored.
+-- Nix: /nix/store/<hash>-fact-f001 already exists with different content → ERROR
+```
+
+**Current behavior:** `INSERT OR IGNORE` means the first write wins. If two agents
+submit different facts with the same id, the second is silently discarded. The
+caller receives a `FihHash` and cannot distinguish between "successfully stored"
+and "already existed."
+
+**Nix behavior:** The store path is determined by content, not by a user-chosen
+identifier. Identical content produces identical paths (idempotent). Different
+content produces different paths (no collision).
+
+**Work required:**
+
+- [ ] Fact and Intent IDs should be derived from content, not assigned by agents
+- [ ] `submit_fact` should return `Result<FihHash, Error>` instead of silently
+      succeeding on conflict
+- [ ] Consider `FihHash::new(&[serialized_content], "fact")` as the default ID
+      computation on `submit_fact`, with the caller-provided ID as optional alias
+
+### Gap 2: Garbage Collection
+
+```sql
+-- After: intent i001 is concluded → to_fact_id points to new fact.
+-- But: intent_sources references to old facts f001, f002 remain valid.
+-- No mechanism to detect or purge orphaned facts.
+```
+
+**Nix:** `nix-store --gc` traverses all reachable store paths from registered
+roots (profiles, GC roots) and deletes everything else. Reference counting
+prevents deletion of paths still in use.
+
+**Current state:** Facts are never deleted. Even after an intent is concluded,
+its source facts are preserved. This is correct for research traceability, but
+ephemeral intermediate data has no lifecycle management.
+
+**Work required:**
+
+- [ ] Add reference tracking from facts back to the intents that source them
+      (currently `intent_sources` tracks fact→intent, but not intent→fact)
+- [ ] Implement `mark_sweep()` that traverses from active projects and collects
+      unreachable facts/intents/hints
+- [ ] Add `expires_at` or `ttl` field for ephemeral fact types
+- [ ] GC should be opt-in per project (research projects probably never GC)
+
+### Gap 3: Replay Determinism
+
+```rust
+// Current: event-log replay on startup
+fn with_storage(storage: Box<dyn Storage>) {
+    let events = self.storage.load_events();
+    for event in &events {
+        self.replay_one(&event.event_type, &event.payload);
+    }
+}
+```
+
+**Nix:** A derivation with the same inputs always produces the same output.
+Builds are sandboxed and pure by default.
+
+**Current state:** Replay depends on `utc_now()` timestamps generated at
+original write time. The event log records the timestamp as a string, so replay
+is deterministic in practice. But nothing enforces that a replayed mutation
+produces the same DB state as the original.
+
+**Work required:**
+
+- [ ] Verify that event-log replay is deterministic across restarts
+- [ ] Add a `replay_hash` field that records the SHA-256 of the full board state
+      after each mutation, verified on replay
+- [ ] Consider replacing event-log replay with snapshot-based restoration
+      (serialise full BoardState to a single row on each mutation)
+
+### Gap 4: Derivation Compaction
+
+**Nix:** `nix-store --optimise` replaces identical store paths with hard links.
+
+**FIH equivalent:** Two agents might submit identical facts independently.
+Currently they get different IDs (since IDs are assigned, not derived from
+content). Content-derived IDs would make deduplication automatic.
+
+**Work required:**
+
+- [ ] Content-derived `FihHash` for facts (as in Gap 1) makes deduplication free
+- [ ] No separate compaction step needed if IDs are content-addressed
+
+## Task Roadmap
+
+### Phase 1: Integrity (Immediate)
+
+Tasks that improve data integrity without changing the API:
+
+1. **Immutable submit**: Change `submit_fact` to warn or error on content-hash
+   mismatch instead of silent `INSERT OR IGNORE`
+2. **Reference tracking**: Add reverse index from facts to the intents that
+   reference them (complement to existing `intent_sources`)
+3. **Replay verification**: Add `replay_hash` check to the event log
+4. **GC prototype**: `SqlBlackboard::gc()` that removes orphaned facts not
+   referenced by any intent or project root
+
+### Phase 2: Content Addressing (Interface Change)
+
+Tasks that require trait or model changes:
+
+5. **Content-derived IDs**: `submit_fact` computes `FihHash` from content if
+   caller passes `FihHash::ZERO`; explicit IDs become an alias table
+6. **Derivation-like Intent**: `submit_intent` auto-derives intent ID from
+   `(from_facts_hashes + description)` to match Nix derivation semantics
+7. **Immutable storage flag**: Per-project flag that rejects overwrites instead
+   of ignoring them (strict Nix mode)
+
+### Phase 3: Lifecycle Management (Operational)
+
+8. **GC scheduling**: Background GC thread configurable per project
+9. **Snapshot/restore**: Full `BoardState` serialisation for faster startup
+   (bypass event-log replay for large states)
+10. **Storage backend abstraction**: Extract `Storage` trait from current
+    event-log into a proper key-value interface that could be backed by
+    Nix store, S3-compatible object storage, or SQLite
+
+## Architecture Impact
+
+```{python}
+#| label: fig-nix-fih-architecture
+#| fig-cap: "Nix Store Semantics for FIH Blackboard"
+dot("""
+digraph NixFIH {
+    rankdir=TB;
+    splines=ortho;
+
+    subgraph cluster_nix {
+        label="Nix Store";
+        style=dashed;
+        drv [label=".drv (derivation)", shape=box];
+        store [label="/nix/store/<hash>-*", shape=cylinder];
+        gc [label="GC roots", shape=box];
+        drv -> store [label="build"];
+        gc -> store [label="reachability"];
+    }
+
+    subgraph cluster_fih {
+        label="FIH Blackboard";
+        style=dashed;
+        intent [label="Intent (derivation)", shape=box];
+        fact [label="Fact (store path)", shape=cylinder];
+        project [label="Project (profile)", shape=box];
+        intent -> fact [label="conclude"];
+        project -> fact [label="scope"];
+        project -> intent [label="scope"];
+    }
+
+    fact -> store [label="content-addressable", style=dotted];
+    intent -> drv [label="dependency graph", style=dotted];
+    project -> gc [label="GC root equivalent", style=dotted];
+}
+""")
+```
+
+## Conclusion
+
+The FIH Blackboard already shares Nix's core insight: data should be identified
+by what it is, not where it is. The remaining gaps immutability enforcement,
+GC, replay determinism are implementation details, not design flaws. Each maps
+directly to a concrete task in the roadmap above.
+
+The Nix analogy is not about adopting Nix as a storage backend. It is about
+adopting Nix's semantic model: content addressing, transitive immutability,
+reference-only GC, and declarative derivation graphs. SQLite can implement all
+of these semantics without leaving the Rust ecosystem.
