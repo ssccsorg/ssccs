@@ -116,12 +116,15 @@ jobs:
           ../configure --prefix=/usr/local --host=riscv64-unknown-elf
           make -j$(nproc)
           sudo make install
+          # riscv-pk installs to /usr/local/riscv64-unknown-elf/bin/pk
+          echo "/usr/local/riscv64-unknown-elf/bin" >> $GITHUB_PATH
           cd ../..
 
       - name: Verify tools
         run: |
           spike --version
           riscv64-unknown-elf-gcc --version
+          which pk
 
       - name: Build and run spike tests
         working-directory: ./poc/baremetal_riscv/simulation
