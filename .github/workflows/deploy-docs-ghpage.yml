@@ -4,34 +4,34 @@ on:
   push:
     branches: ["main"]
     paths:
-      - 'docs/**/*.py'
-      - 'docs/**/*.qmd'
-      - 'docs/**/*.md'
-      - 'docs/**/*.yml'
-      - 'docs/**/*.txt'
-      - 'docs/**/*.svg'
-      - 'docs/**/*.bib'
-      - 'docs/**/*.csl'
-      - 'docs/**/*.c2pa_manifest.json'
-      - '.github/workflows/deploy-docs-ghpage.yml'
-      - '!docs/**/README.md'
+      - "docs/**/*.py"
+      - "docs/**/*.qmd"
+      - "docs/**/*.md"
+      - "docs/**/*.yml"
+      - "docs/**/*.txt"
+      - "docs/**/*.svg"
+      - "docs/**/*.bib"
+      - "docs/**/*.csl"
+      - "docs/**/*.c2pa_manifest.json"
+      - ".github/workflows/deploy-docs-ghpage.yml"
+      - "!docs/**/README.md"
   workflow_dispatch:
   repository_dispatch:
     types: [publish-docs-image-complete]
   pull_request:
     branches: ["main"]
     paths:
-      - 'docs/**/*.py'
-      - 'docs/**/*.qmd'
-      - 'docs/**/*.md'
-      - 'docs/**/*.yml'
-      - 'docs/**/*.txt'
-      - 'docs/**/*.svg'
-      - 'docs/**/*.bib'
-      - 'docs/**/*.csl'
-      - 'docs/**/*.c2pa_manifest.json'
-      - '.github/workflows/deploy-docs-ghpage.yml'
-      - '!docs/**/README.md'
+      - "docs/**/*.py"
+      - "docs/**/*.qmd"
+      - "docs/**/*.md"
+      - "docs/**/*.yml"
+      - "docs/**/*.txt"
+      - "docs/**/*.svg"
+      - "docs/**/*.bib"
+      - "docs/**/*.csl"
+      - "docs/**/*.c2pa_manifest.json"
+      - ".github/workflows/deploy-docs-ghpage.yml"
+      - "!docs/**/README.md"
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -47,7 +47,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -107,12 +107,17 @@ jobs:
         with:
           path: docs/_pages
 
-      - name: Prepare agent artifact with full docs path
+      - name: Prepare agent artifact
         run: |
           mkdir -p _agent/docs
           cp -r docs/_llms _agent/docs/
 
-      - name: Upload agent artifects to R2-S3
+      - name: Deploy to GitHub Pages
+        if: github.ref == 'refs/heads/main'
+        id: deployment
+        uses: actions/deploy-pages@v5
+
+      - name: Upload agent artifacts to R2-S3
         if: ${{ github.actor != 'nektos/act' }}
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.CFR2_USR_API_S3_ACCID }}
@@ -129,15 +134,3 @@ jobs:
           token: ${{ secrets.SSCCS_NEXUS_ACTIONS_READWRITE_PAT }}
           repository: ssccsorg/ssccs-nexus
           event-type: ssccs-docs-agent-af
-
-  deploy:
-    needs: build
-    if: github.ref == 'refs/heads/main'
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v5
