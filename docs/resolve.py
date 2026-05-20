@@ -707,9 +707,6 @@ class IncludeResolver(_BaseResolver):
     def fix_one_file(
         self, file_path: Path, root: Path, dry_run: bool, verbose: bool
     ) -> int:
-        # Only skip root index.qmd, not index.qmd at other levels
-        if file_path.parent == root and file_path.name == "index.qmd":
-            return 0
         try:
             text = file_path.read_text(encoding="utf-8")
         except Exception:
@@ -768,6 +765,10 @@ class IncludeResolver(_BaseResolver):
             return 1
 
         # Include does not exist — insert after YAML frontmatter
+        # Skip auto-insertion for root index.qmd (homepage)
+        if file_path.parent == root and file_path.name == "index.qmd":
+            return 0
+
         m = re.match(r"^---\s*\n.*?\n(?:---)\s*\n?", text, re.DOTALL)
         if not m:
             return 0
