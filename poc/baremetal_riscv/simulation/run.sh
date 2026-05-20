@@ -29,7 +29,7 @@ elif [ -n "$1" ]; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ASMDIR="$SCRIPT_DIR/../../asm"
+ASMDIR="$SCRIPT_DIR/../asm"
 TEST_C="$SCRIPT_DIR/spike_test.c"
 ASM_S="$ASMDIR/observe_full.S"
 TARGET="$SCRIPT_DIR/spike_test"
@@ -54,6 +54,7 @@ fi
 # pk is a file that spike loads (not a command). Search known locations.
 for candidate in \
     "/opt/homebrew/bin/pk" \
+    "/opt/homebrew/Cellar/riscv-pk/main/riscv64-unknown-elf/bin/pk" \
     "/usr/local/bin/pk" \
     "/opt/riscv/bin/pk" \
     "/usr/local/riscv64-unknown-elf/bin/pk" \
@@ -65,7 +66,6 @@ for candidate in \
 done
 
 # If pk was not found at any known path, try bare "pk" as a fallback.
-# spike may resolve it through its own search or the current directory.
 if [ -z "$PK" ]; then
     PK="pk"
 fi
@@ -120,11 +120,12 @@ if [ "$NEED_INSTALL" = true ]; then
     exit 1
 fi
 
+SPIKE_VER="$(spike 2>&1 | head -1)"
 echo "============================================"
 echo "  SSCCS Spike Runtime Validation"
 echo "============================================"
 echo "  Compiler: $(riscv64-unknown-elf-gcc --version | head -1)"
-echo "  Simulator: $(spike --version 2>&1 | head -1)"
+echo "  Simulator: $SPIKE_VER"
 echo "  PK: $PK"
 echo "============================================"
 echo ""
