@@ -47,7 +47,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -118,7 +118,7 @@ jobs:
         uses: actions/deploy-pages@v5
 
       - name: Upload agent artifacts to R2-S3
-        if: github.ref == 'refs/heads/main' && ${{ github.actor != 'nektos/act' }}
+        if: ${{ github.ref == 'refs/heads/main' && github.actor != 'nektos/act' }}
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.CFR2_USR_API_S3_ACCID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CFR2_USR_API_S3_SECKEY }}
