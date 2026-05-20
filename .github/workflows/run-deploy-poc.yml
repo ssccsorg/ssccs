@@ -10,7 +10,6 @@ on:
       - '.github/workflows/run-deploy-poc.yml'
       - 'poc/run.sh'
       - 'poc/doc.py'
-      - 'poc/ripr.config.toml'
   pull_request:
     branches:
       - main
@@ -22,7 +21,6 @@ on:
       - '.github/workflows/run-deploy-poc.yml'
       - 'poc/run.sh'
       - 'poc/doc.py'
-      - 'poc/ripr.config.toml'
   workflow_dispatch:
 
 permissions:
@@ -57,12 +55,6 @@ jobs:
           ./run.sh --validation
           python3 doc.py
         shell: bash
-
-      - name: Install and run ripr
-        run: |
-          cargo install ripr
-          cd poc/standard
-          ripr check 2>&1 || echo "(ripr warnings are advisory)"
 
       - name: Prepare poc agent artifacts
         run: |
