@@ -1,0 +1,278 @@
+---
+title: "Nix Store Semantics for Nexus's FIH Blackboard"
+subtitle: "Content-Addressable Persistence Patterns and Implementation Roadmap"
+date: last-modified
+metadata-files:
+  - ../../../_include/author.yml
+abstract: |
+  The Nix package manager's store model—content-addressable immutability, derivation
+  graphs, and reference counting—provides a reference architecture for the FIH
+  Blackboard persistence layer. However, critical differences exist: Nix is
+  unidirectional and deterministic; the Blackboard is bidirectional and
+  non-deterministic (LLM agents). This note maps Nix concepts to Fact/Intent/Hint
+  semantics, identifies what should **not** be adopted, and consolidates insights
+  from implementation experience.
+
+  **Key insight from implementation:** The current operation-level atomic commit
+  pattern is already optimal. Git/Nix-style batch commits and garbage collection
+  are actively harmful for this use case.
+---
+
+{{< include ../../../_include/_title_meta_items.qmd >}}
+
+```{python}
+#| include: false
+#| context: local
+%run ../../../_include/_graphviz.py
+```
+
+## Background
+
+The Blackboard ignorance principle states that the storage layer should not
+interpret the data it stores, only preserve and retrieve it faithfully. The Nix
+store is a proven reference for this philosophy: store paths are content-addressed
+hashes, derivations declare dependencies explicitly, and immutability guarantees
+that a given hash always yields identical content.
+
+Our current implementation uses `FihHash` for content addressing and SQLite for
+persistence. The mapping between FIH and Nix semantics is natural, but careful
+analysis reveals that some Nix patterns do **not** apply to our bidirectional,
+non-deterministic, online agent system.
+
+## Nix to FIH Mapping
+
+### Content-Addressed Store Paths
+
+| Nix | FIH | Status |
+|-----|-----|--------|
+| `/nix/store/<hash>-<name>-<version>` | `FihHash::new(&[...], type_tag)` | **Implemented** |
+| `builtins.hashString "sha256" ...` | `sha2::Sha256::digest(...)` | **Implemented** |
+| Store path uniqueness by hash | `FihHash.0 = hex digest` | **Implemented** |
+
+### Derivation Graphs
+
+| Nix | FIH | Status |
+|-----|-----|--------|
+| `.drv` file (build inputs + builder) | `Intent { from_facts, description }` | **Implemented** |
+| `buildInputs` = references to store paths | `from_facts: Vec<FihHash>` | **Implemented** |
+| Derivation realisation (build) | `conclude_intent()` | **Implemented** |
+| Build output → new store path | Conclusion fact with `FihHash` | **Implemented** |
+| `builtins.fetchturl` (external input) | `submit_fact()` with `origin` | **Implemented** |
+
+### Project as Profile
+
+| Nix | FIH | Status |
+|-----|-----|--------|
+| `nix-env --profile /nix/profiles/foo` | `SqlBlackboard::memory_with_project("foo")` | **Implemented** |
+| Profile = selective view of the store | `project_id` in every PK | **Implemented** |
+
+### Transaction Safety
+
+| Nix | FIH | Status |
+|-----|-----|--------|
+| Atomic store transactions | `conn.transaction()` in `conclude_intent`, `submit_intent`, `release_intent` | **Implemented (#46)** |
+| No partial writes | Rollback on any failure | **Implemented** |
+
+## Critical Difference: What Nix Is vs. What We Need
+
+| Property | Nix Store | FIH Blackboard |
+|----------|-----------|----------------|
+| Data flow | Unidirectional (input → output) | Bidirectional (read + write) |
+| Determinism | Deterministic (same input → same output) | Non-deterministic (LLM agents) |
+| Update semantics | New version replaces old | Append-only, no replacement |
+| Write pattern | Batch (build time) | Online, µs per operation |
+| Agent presence | Offline (no agents during build) | Online (agents always present) |
+
+These differences are not minor. They determine which Nix patterns are applicable
+and which must be rejected.
+
+## Gap Analysis (Revised)
+
+### Gap 1: Immutability Enforcement → **Not a Gap (Current Behavior is Correct)**
+
+```sql
+-- Current: silent overwrite
+INSERT OR IGNORE INTO facts (id, project_id, description, creator, origin)
+VALUES ('f001', 'default', '{"result": "A"}', ...);
+
+-- Second insert with same id, different content is silently ignored.
+-- Nix: /nix/store/<hash>-fact-f001 already exists with different content → ERROR
+```
+
+**Current behavior is correct:** `INSERT OR IGNORE` ensures idempotency. Agents already assign IDs by content hash in practice. If two agents submit different content with the same ID, that is a caller bug, not a storage bug. Silent ignore is the appropriate error handling (first write wins). The caller receiving a `FihHash` cannot distinguish "newly stored" vs "already existed", but this distinction is not required for correctness.
+
+**No work required.** This is a feature, not a gap.
+
+### Gap 2: Garbage Collection → **Rejected (GC is Actively Harmful)**
+
+```sql
+-- After: intent i001 is concluded → to_fact_id points to new fact.
+-- But: intent_sources references to old facts f001, f002 remain valid.
+-- No mechanism to detect or purge orphaned facts.
+```
+
+**Current state is intentional:** All facts are preserved for traceability and reproducibility. Deletion would break audit trails and replay determinism. Ephemeral data should be explicitly tagged with TTL by agents if lifecycle management is needed, not by automatic garbage collection.
+
+**No GC implementation planned.** If retention policy is required in the future, implement explicit TTL on facts (e.g., `expires_at` column) with agent-driven cleanup, not mark-sweep GC.
+
+### Gap 3: Replay Determinism → **Reduced Scope (Optional, Not Required)**
+
+```rust
+// Current: event-log replay on startup
+fn with_storage(storage: Box<dyn Storage>) {
+    let events = self.storage.load_events();
+    for event in &events {
+        self.replay_one(&event.event_type, &event.payload);
+    }
+}
+```
+
+**Current state is deterministic:** Timestamps are recorded as strings at write time, not regenerated during replay. No additional verification is required for correctness.
+
+**Optional work (low priority):**
+
+- [ ] Add a `replay_hash` field for integrity verification in debug builds only (production not needed)
+- [ ] Snapshot-based restoration is a performance optimization, not a correctness requirement
+
+### Gap 4: Derivation Compaction → **Automatic via Existing Design**
+
+**Nix:** `nix-store --optimise` replaces identical store paths with hard links.
+
+**Already satisfied:** Content-addressed IDs (already implemented) make deduplication automatic. No separate compaction step is required or planned.
+
+**No work required.**
+
+## Why Git/Nix Batch Commit Model Doesn't Apply
+
+Git and Nix assume:
+
+- **Offline work** → commit then push
+- **Batch operations** → write lock held for duration
+- **Merge conflicts** → explicit resolution
+
+Our system has:
+
+- **Always-online agents** → write immediately, no commit step
+- **µs writes** → lock held for microseconds, not seconds
+- **No conflicts by design** → `worker` field prevents concurrent claim
+
+The Git analogy is not applicable. The question "what is the commit unit?" is based on a false premise. The answer is: **there are no commits. Every write is its own transaction.**
+
+## Architecture Summary
+
+```{python}
+#| label: fig-final-architecture
+#| fig-cap: "FIH Blackboard Persistence Architecture (Post-Review)"
+dot("""
+digraph FinalArch {
+    rankdir=TB;
+
+    subgraph cluster_agents {
+        label="Agents (LLM)";
+        agent1 [label="Agent A", shape=box];
+        agent2 [label="Agent B", shape=box];
+    }
+
+    subgraph cluster_blackboard {
+        label="Blackboard (Storage)";
+        labeljust=l;
+
+        subgraph cluster_operations {
+            label="Operations (atomic, µs)";
+            submit_fact [label="submit_fact()", shape=box, style=filled, fillcolor=lightgray];
+            submit_intent [label="submit_intent()", shape=box, style=filled, fillcolor=lightgray];
+            conclude_intent [label="conclude_intent()", shape=box, style=filled, fillcolor=lightgray];
+            heartbeat [label="heartbeat()", shape=box, style=filled, fillcolor=lightgray];
+        }
+
+        store [label="SQLite\n(content-addressed)", shape=cylinder];
+    }
+
+    agent1 -> submit_fact [label="write"];
+    agent2 -> submit_intent [label="write"];
+    submit_fact -> store [label="commit", style=dotted];
+    submit_intent -> store [label="commit", style=dotted];
+
+    intent [label="intent.worker", shape=note, style=dashed];
+    agent1 -> intent [label="claims", color=red, style=dashed];
+    agent2 -> intent [label="cannot claim", color=red, style=dashed, arrowhead=none];
+}
+""")
+```
+
+## Task Roadmap (Revised After Implementation Review)
+
+Based on implementation experience and semantic analysis, most originally-identified "gaps" are not gaps. The current design is already correct.
+
+**Remaining tasks (optional, low priority):**
+
+- [ ] **Bulk ingestion API** – Add `ingest_facts_batch()` to `SqlBlackboard` (not part of `Blackboard` trait) for backfilling large datasets.
+- [ ] **Optional replay hash** – Add `replay_hash` field for debug-mode integrity verification (production not required).
+- [ ] **Explicit TTL for ephemeral facts** – If lifecycle management becomes necessary, add `expires_at` column with agent-driven cleanup (not automatic GC).
+
+**Explicitly removed (not needed):**
+
+- Immutability enforcement changes (current behavior correct)
+- Garbage collection (actively harmful)
+- Content-derived ID enforcement (already content-addressed in practice)
+- Derivation compaction (automatic via existing design)
+- Batch commit model (operation-level atomic commits are optimal)
+- Git-style commit/merge semantics (does not apply to online agents)
+
+## Key Insights from Implementation Discussion
+
+1. **Operation-level commits are optimal** - LLM inference is the bottleneck, not storage
+2. **No Git model** - Commit/merge/batch patterns assume offline work that doesn't exist
+3. **No GC** - Preserve everything for traceability; ephemeral = explicit TTL by agent
+4. **No conflict resolution** - `worker` field prevents conflicts by design
+5. **Bulk ingestion = separate API** - Not part of main `Blackboard` trait
+6. **Nix is analogy, not template** - Adopt what works, reject what doesn't
+
+## Architecture Impact
+
+```{python}
+#| label: fig-nix-fih-architecture
+#| fig-cap: "Nix Store Semantics for FIH Blackboard (Revised)"
+dot("""
+digraph NixFIH {
+    rankdir=TB;
+    splines=ortho;
+
+    subgraph cluster_nix {
+        label="Nix Store (Reference Only)";
+        style=dashed;
+        drv [label=".drv (derivation)", shape=box];
+        store [label="/nix/store/<hash>-*", shape=cylinder];
+        gc [label="GC roots", shape=box];
+        drv -> store [label="build"];
+        gc -> store [label="reachability"];
+    }
+
+    subgraph cluster_fih {
+        label="FIH Blackboard (Our Implementation)";
+        style=solid;
+        intent [label="Intent (derivation)", shape=box];
+        fact [label="Fact (store path)", shape=cylinder];
+        project [label="Project (profile)", shape=box];
+        intent -> fact [label="conclude"];
+        project -> fact [label="scope"];
+        project -> intent [label="scope"];
+    }
+
+    fact -> store [label="content-addressable", style=dotted];
+    intent -> drv [label="dependency graph", style=dotted];
+    project -> gc [label="GC root equivalent?", style=dotted, color=red, labelcolor=red];
+
+    note [label="GC: NOT IMPLEMENTED\n(actively harmful)", shape=note, color=red, fontcolor=red];
+    note -> gc [style=invis];
+}
+""")
+```
+
+## Conclusion
+
+The FIH Blackboard shares Nix's core insight: **data should be identified by what it is, not where it is.** Content addressing, derivation graphs, and transaction safety are already implemented and correct.
+
+However, critical differences between Nix (unidirectional, deterministic, batch-oriented) and the Blackboard (bidirectional, non-deterministic, online) mean that certain Nix features—garbage collection, strict immutability enforcement, batch commits—are **actively harmful** or simply inapplicable. The current operation-level atomic commit pattern is optimal. Git-style commit models and automatic GC solve problems this system does not have.
+
+The Nix analogy helped clarify what **not** to adopt. The implementation is correct as-is.
