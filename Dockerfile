@@ -33,9 +33,6 @@ RUN wget https://github.com/riscv-collab/riscv-gnu-toolchain/releases/download/2
     && ln -sf /opt/riscv/bin/riscv64-unknown-elf-objcopy /usr/local/bin/riscv64-unknown-elf-objcopy
 ENV PATH="/opt/riscv/bin:${PATH}"
 
-# ripr for static mutation analysis
-RUN cargo install ripr
-
 # Spike + pk from source
 RUN git clone https://github.com/riscv-software-src/riscv-isa-sim.git /tmp/spike \
     && cd /tmp/spike && mkdir build && cd build \
