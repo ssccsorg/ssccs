@@ -2,7 +2,8 @@
 #
 # SSCCS POC Full Validation Script
 # Automatically discovers all Rust workspaces (Cargo.toml with [workspace])
-# and standalone crates (Cargo.toml with [package] but not part of a workspace).
+# and standalone crates (Cargo.toml with [package] but not part of a workspace),
+# then runs all local module-level run.sh scripts (Spike tests, etc.).
 #
 # For bare-metal workspaces/crates (those with [package.metadata.rust-analyzer.rustc.target]),
 # this script skips clippy and build steps (as they require cross-compilation),
@@ -337,6 +338,46 @@ for ws in "${WORKSPACES[@]}"; do
 done
 
 # ===========================================================================
+# Step 6: Run all local module-level run.sh scripts
+# ===========================================================================
+echo "─────────────────────────────────────────────────────────────"
+echo "Step 6: Running local module-level run.sh scripts..."
+echo ""
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LOCAL_RUN_FAILED=0
+
+while IFS= read -r -d '' local_run; do
+    # Skip the global run.sh itself
+    [ "$local_run" = "$SCRIPT_DIR/run.sh" ] && continue
+    # Skip anything inside target/ or .git/
+    [[ "$local_run" == */target/* || "$local_run" == */.git/* ]] && continue
+
+    local_dir="$(dirname "$local_run")"
+    rel_path="${local_dir#$SCRIPT_DIR/}"
+
+    echo "  Found: $rel_path/run.sh"
+
+    if [ ! -x "$local_run" ] && ! head -1 "$local_run" 2>/dev/null | grep -q '^#!/'; then
+        echo "    ⊘ Skipped (not executable, no shebang)"
+        continue
+    fi
+
+    echo -n "    Running... "
+    if (cd "$local_dir" && bash "$local_run" --check 2>&1); then
+        echo "    ✓ Passed"
+    else
+        echo "    ✗ Failed"
+        LOCAL_RUN_FAILED=1
+    fi
+    echo ""
+done < <(find "$SCRIPT_DIR" -name "run.sh" -type f -print0 2>/dev/null)
+
+if [ $LOCAL_RUN_FAILED -eq 1 ]; then
+    OVERALL_FAILED+=("local run.sh scripts")
+fi
+
+# ===========================================================================
 # Final Summary
 # ===========================================================================
 echo "═════════════════════════════════════════════════════════════"
@@ -348,9 +389,10 @@ echo "Clippy:        PASSED (bare-metal skipped)"
 echo "Build:         PASSED (bare-metal skipped)"
 echo "Tests:         PASSED"
 echo "Binary crates: $OVERALL_PASSED/$OVERALL_TOTAL passed"
+echo "Local scripts: $([ $LOCAL_RUN_FAILED -eq 0 ] && echo 'PASSED' || echo 'FAILED')"
 echo ""
 
-if [ ${#OVERALL_FAILED[@]} -eq 0 ]; then
+if [ ${#OVERALL_FAILED[@]} -eq 0 ] && [ $LOCAL_RUN_FAILED -eq 0 ]; then
     echo "═════════════════════════════════════════════════════════════"
     echo "  ALL VALIDATIONS PASSED!"
     echo "═════════════════════════════════════════════════════════════"
@@ -361,7 +403,7 @@ else
     echo "  SOME VALIDATIONS FAILED!"
     echo "═════════════════════════════════════════════════════════════"
     echo ""
-    echo "Failed crates:"
+    echo "Failed items:"
     for failed in "${OVERALL_FAILED[@]}"; do
         echo "  - $failed"
     done
