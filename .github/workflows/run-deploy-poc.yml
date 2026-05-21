@@ -34,6 +34,7 @@ env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: "-D warnings"
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  DOCKER_IMAGE: ghcr.io/ssccsorg/ssccs-poc-ci
 
 jobs:
   validate:
@@ -42,63 +43,38 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential \
-            curl \
-            device-tree-compiler \
-            gcc-riscv64-linux-gnu \
-            binutils-riscv64-linux-gnu \
-            git \
-            python3
-          # Alias so riscv-pk configure finds the cross-compiler
-          sudo ln -sf /usr/bin/riscv64-linux-gnu-gcc    /usr/local/bin/riscv64-unknown-elf-gcc
-          sudo ln -sf /usr/bin/riscv64-linux-gnu-g++    /usr/local/bin/riscv64-unknown-elf-g++
-          sudo ln -sf /usr/bin/riscv64-linux-gnu-ar     /usr/local/bin/riscv64-unknown-elf-ar
-          sudo ln -sf /usr/bin/riscv64-linux-gnu-as     /usr/local/bin/riscv64-unknown-elf-as
-          sudo ln -sf /usr/bin/riscv64-linux-gnu-ld     /usr/local/bin/riscv64-unknown-elf-ld
-          sudo ln -sf /usr/bin/riscv64-linux-gnu-objdump /usr/local/bin/riscv64-unknown-elf-objdump
-          sudo ln -sf /usr/bin/riscv64-linux-gnu-objcopy /usr/local/bin/riscv64-unknown-elf-objcopy
-
-      - name: Build spike (RISC-V ISA simulator)
-        run: |
-          git clone https://github.com/riscv-software-src/riscv-isa-sim.git /tmp/spike
-          cd /tmp/spike && mkdir build && cd build
-          ../configure --prefix=/usr/local
-          make -j$(nproc)
-          sudo make install
-          rm -rf /tmp/spike
-
-      - name: Build riscv-pk (proxy kernel)
-        run: |
-          git clone https://github.com/riscv-software-src/riscv-pk.git /tmp/pk
-          cd /tmp/pk && mkdir build && cd build
-          CC=riscv64-unknown-elf-gcc ../configure --prefix=/usr/local --host=riscv64-unknown-elf
-          make -j$(nproc)
-          sudo make install
-          rm -rf /tmp/pk
-          echo "PK=/usr/local/riscv64-unknown-elf/bin/pk" >> "$GITHUB_ENV"
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
         with:
-          components: clippy, rustfmt
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Rust Cache
-        uses: swatinem/rust-cache@v2
+      - name: Build and cache Docker image
+        uses: docker/build-push-action@v6
         with:
-          workspaces: "poc"
+          context: .
+          file: poc/Dockerfile
+          push: false
+          load: true
+          tags: ${{ env.DOCKER_IMAGE }}:${{ github.sha }},${{ env.DOCKER_IMAGE }}:latest
+          cache-from: type=registry,ref=${{ env.DOCKER_IMAGE }}:latest
+          cache-to: type=inline
 
-      - name: Full validation (Rust + Spike)
-        working-directory: ./poc
-        run: ./run.sh --validation
+      - name: Run full validation inside container
+        run: |
+          docker run --rm \
+            -v "$(pwd):/workspace" \
+            ${{ env.DOCKER_IMAGE }}:${{ github.sha }} \
+            bash -c "cd /workspace/poc && bash run.sh --validation"
         shell: bash
 
-      - name: Generate documentation
-        working-directory: ./poc
-        run: python3 doc.py
+      - name: Generate documentation inside container
+        run: |
+          docker run --rm \
+            -v "$(pwd):/workspace" \
+            ${{ env.DOCKER_IMAGE }}:${{ github.sha }} \
+            bash -c "cd /workspace/poc && python3 doc.py"
         shell: bash
 
       - name: Prepare artifacts
