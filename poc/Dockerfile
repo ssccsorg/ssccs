@@ -12,6 +12,7 @@ RUN apt-get update && apt-get install -y \
     wget \
     xz-utils \
     ca-certificates \
+    jq \
     gcc-riscv64-linux-gnu \
     binutils-riscv64-linux-gnu \
     && rm -rf /var/lib/apt/lists/*
