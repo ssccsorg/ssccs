@@ -44,12 +44,10 @@ permissions:
   packages: read
 
 jobs:
-  validate:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v4
@@ -90,7 +88,7 @@ jobs:
         if: ${{ github.actor != 'nektos/act' }}
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.CFR2_USR_API_S3_ACCID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.CFR2_USR_API_S3_SECKEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CFR2_USR_API_S3_SECRET }}
         run: |
           aws s3 sync _agent/poc s3://ssccs-nexus-af/ssccs/poc/ \
             --endpoint-url ${{ secrets.CFR2_USR_API_HOST }} \
