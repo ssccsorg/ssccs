@@ -348,26 +348,31 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOCAL_RUN_FAILED=0
 
 while IFS= read -r -d '' local_run; do
-    # Skip the global run.sh itself
+    # Skip this script itself
     [ "$local_run" = "$SCRIPT_DIR/run.sh" ] && continue
     # Skip anything inside target/ or .git/
     [[ "$local_run" == */target/* || "$local_run" == */.git/* ]] && continue
 
     local_dir="$(dirname "$local_run")"
-    rel_path="${local_dir#$SCRIPT_DIR/}"
 
-    echo "  Found: $rel_path/run.sh"
+    # Compute relative path from SCRIPT_DIR
+    rel="${local_dir#$SCRIPT_DIR/}"
+    # If prefix did not start with SCRIPT_DIR, show absolute path
+    if [ "$rel" = "$local_dir" ]; then
+        rel="$local_dir"
+    fi
+    echo "  Found: $rel/run.sh"
 
     if [ ! -x "$local_run" ] && ! head -1 "$local_run" 2>/dev/null | grep -q '^#!/'; then
         echo "    ⊘ Skipped (not executable, no shebang)"
         continue
     fi
 
-    echo -n "    Running... "
+    echo ""
     if (cd "$local_dir" && bash "$local_run" --check 2>&1); then
-        echo "    ✓ Passed"
+        echo "    ✓ $rel/run.sh passed"
     else
-        echo "    ✗ Failed"
+        echo "    ✗ $rel/run.sh failed"
         LOCAL_RUN_FAILED=1
     fi
     echo ""
