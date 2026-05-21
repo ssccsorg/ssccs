@@ -1,4 +1,4 @@
-name: Rust POC CI
+name: SSCCS POC CI
 
 on:
   push:
@@ -11,6 +11,7 @@ on:
       - 'poc/run.sh'
       - 'poc/doc.py'
       - 'poc/Dockerfile'
+      - 'poc/baremetal_riscv/simulation/**'
   pull_request:
     branches:
       - main
@@ -23,6 +24,7 @@ on:
       - 'poc/run.sh'
       - 'poc/doc.py'
       - 'poc/Dockerfile'
+      - 'poc/baremetal_riscv/simulation/**'
   workflow_dispatch:
 
 permissions:
@@ -34,11 +36,50 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  build:
+  validate:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            curl \
+            device-tree-compiler \
+            gcc-riscv64-linux-gnu \
+            binutils-riscv64-linux-gnu \
+            git \
+            python3
+          # Alias so riscv-pk configure finds the cross-compiler
+          sudo ln -sf /usr/bin/riscv64-linux-gnu-gcc    /usr/local/bin/riscv64-unknown-elf-gcc
+          sudo ln -sf /usr/bin/riscv64-linux-gnu-g++    /usr/local/bin/riscv64-unknown-elf-g++
+          sudo ln -sf /usr/bin/riscv64-linux-gnu-ar     /usr/local/bin/riscv64-unknown-elf-ar
+          sudo ln -sf /usr/bin/riscv64-linux-gnu-as     /usr/local/bin/riscv64-unknown-elf-as
+          sudo ln -sf /usr/bin/riscv64-linux-gnu-ld     /usr/local/bin/riscv64-unknown-elf-ld
+          sudo ln -sf /usr/bin/riscv64-linux-gnu-objdump /usr/local/bin/riscv64-unknown-elf-objdump
+          sudo ln -sf /usr/bin/riscv64-linux-gnu-objcopy /usr/local/bin/riscv64-unknown-elf-objcopy
+
+      - name: Build spike (RISC-V ISA simulator)
+        run: |
+          git clone https://github.com/riscv-software-src/riscv-isa-sim.git /tmp/spike
+          cd /tmp/spike && mkdir build && cd build
+          ../configure --prefix=/usr/local
+          make -j$(nproc)
+          sudo make install
+          rm -rf /tmp/spike
+
+      - name: Build riscv-pk (proxy kernel)
+        run: |
+          git clone https://github.com/riscv-software-src/riscv-pk.git /tmp/pk
+          cd /tmp/pk && mkdir build && cd build
+          CC=riscv64-unknown-elf-gcc ../configure --prefix=/usr/local --host=riscv64-unknown-elf
+          make -j$(nproc)
+          sudo make install
+          rm -rf /tmp/pk
+          echo "PK=/usr/local/riscv64-unknown-elf/bin/pk" >> "$GITHUB_ENV"
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -50,16 +91,17 @@ jobs:
         with:
           workspaces: "poc"
 
-      - name: Run Script (lint/build/test/doc)
+      - name: Full validation (Rust + Spike)
         working-directory: ./poc
-        run: |
-          chmod +x run.sh
-          ./run.sh --validation
-          python3 doc.py
+        run: ./run.sh --validation
         shell: bash
 
+      - name: Generate documentation
+        working-directory: ./poc
+        run: python3 doc.py
+        shell: bash
 
-      - name: Prepare poc agent artifacts
+      - name: Prepare artifacts
         run: |
           mkdir -p _agent
           rsync -avm --delete --delete-excluded \
@@ -68,7 +110,7 @@ jobs:
             --exclude='*' \
             poc/ _agent/poc/
 
-      - name: Upload agent artifects to R2-S3
+      - name: Upload artifacts to R2
         if: ${{ github.actor != 'nektos/act' }}
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.CFR2_USR_API_S3_ACCID }}
@@ -78,57 +120,9 @@ jobs:
             --endpoint-url ${{ secrets.CFR2_USR_API_HOST }} \
             --delete
 
-      - name: Trigger Nexus Build
+      - name: Trigger Nexus build
         uses: peter-evans/repository-dispatch@v4
         with:
           token: ${{ secrets.SSCCS_NEXUS_ACTIONS_READWRITE_PAT }}
           repository: ssccsorg/ssccs-nexus
           event-type: ssccs-poc-agent-af
-
-  spike-validation:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential \
-            device-tree-compiler \
-            gcc-riscv64-unknown-elf \
-            binutils-riscv64-unknown-elf
-
-      - name: Build spike (RISC-V ISA simulator)
-        run: |
-          git clone https://github.com/riscv-software-src/riscv-isa-sim.git
-          cd riscv-isa-sim
-          mkdir build && cd build
-          ../configure --prefix=/usr/local
-          make -j$(nproc)
-          sudo make install
-          cd ../..
-
-      - name: Build riscv-pk (proxy kernel)
-        run: |
-          git clone https://github.com/riscv-software-src/riscv-pk.git
-          cd riscv-pk
-          mkdir build && cd build
-          ../configure --prefix=/usr/local --host=riscv64-unknown-elf
-          make -j$(nproc)
-          sudo make install
-          # Export full path to pk (shell does not resolve PATH for arguments)
-          echo "PK=/usr/local/riscv64-unknown-elf/bin/pk" >> $GITHUB_ENV
-          cd ../..
-
-      - name: Verify tools
-        run: |
-          spike --version
-          riscv64-unknown-elf-gcc --version
-
-      - name: Build and run spike tests
-        working-directory: ./poc/baremetal_riscv/simulation
-        run: |
-          make check
-        shell: bash
