@@ -54,7 +54,7 @@ if [ ${#WORKSPACES[@]} -eq 0 ]; then
             # Read lines between [workspace] and next section
             in_workspace=false
             while IFS= read -r line; do
-                if [[ "$line" =~ ^\[workspace\] ]]; then
+                if [[ "$line" =~ ^\[workspace\] ]; then
                     in_workspace=true
                     continue
                 fi
@@ -357,22 +357,27 @@ while IFS= read -r -d '' local_run; do
 
     # Compute relative path from SCRIPT_DIR
     rel="${local_dir#$SCRIPT_DIR/}"
-    # If prefix did not start with SCRIPT_DIR, show absolute path
     if [ "$rel" = "$local_dir" ]; then
         rel="$local_dir"
     fi
-    echo "  Found: $rel/run.sh"
+
+    echo ""
+    echo "~~~~~~~~~~~~ $rel/run.sh ~~~~~~~~~~~~"
 
     if [ ! -x "$local_run" ] && ! head -1 "$local_run" 2>/dev/null | grep -q '^#!/'; then
-        echo "    ⊘ Skipped (not executable, no shebang)"
+        echo "  ⊘ Skipped (not executable, no shebang)"
         continue
     fi
 
-    echo ""
-    if (cd "$local_dir" && bash "$local_run" --check 2>&1); then
-        echo "    ✓ $rel/run.sh passed"
+    set +e
+    (cd "$local_dir" && bash "$local_run" --check 2>&1)
+    STATUS=$?
+    set -e
+
+    if [ $STATUS -eq 0 ]; then
+        echo "~~~~~~~~~~~~ $rel/run.sh PASSED ~~~~~~~~~~~~"
     else
-        echo "    ✗ $rel/run.sh failed"
+        echo "~~~~~~~~~~~~ $rel/run.sh FAILED (exit code $STATUS) ~~~~~~~~~~~~"
         LOCAL_RUN_FAILED=1
     fi
     echo ""
