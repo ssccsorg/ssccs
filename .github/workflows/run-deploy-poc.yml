@@ -95,7 +95,7 @@ jobs:
         if: ${{ github.actor != 'nektos/act' }}
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.CFR2_USR_API_S3_ACCID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.CFR2_USR_API_S3_SECRET }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CFR2_USR_API_S3_SECKEY }}
         run: |
           aws s3 sync _agent/poc s3://ssccs-nexus-af/ssccs/poc/ \
             --endpoint-url ${{ secrets.CFR2_USR_API_HOST }} \
