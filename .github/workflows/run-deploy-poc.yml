@@ -56,8 +56,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Pull pre-built Docker image
-        run: docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+      - name: Pull or build Docker image
+        run: |
+          if docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest 2>/dev/null; then
+            echo "Image pulled successfully."
+          else
+            echo "Image not found in registry. Building from poc/Dockerfile..."
+            docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest -f poc/Dockerfile .
+          fi
+        shell: bash
 
       - name: Run full validation inside container
         run: |
