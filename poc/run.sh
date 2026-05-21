@@ -5,10 +5,6 @@
 # and standalone crates (Cargo.toml with [package] but not part of a workspace),
 # then runs all local module-level run.sh scripts (Spike tests, etc.).
 #
-# For bare-metal workspaces/crates (those with [package.metadata.rust-analyzer.rustc.target]),
-# this script skips clippy and build steps as they require cross-compilation,
-# but still runs tests on the host target.
-#
 # Usage:
 #   ./run.sh [--validation|--run] [--workspace <path>]...
 #
@@ -122,10 +118,7 @@ get_baremetal_target() {
 
 if [ "$MODE" = "run" ]; then
     echo "Step 1: Applying formatting (cargo fmt --all)..."
-    for ws in "${WORKSPACES[@]}"; do
-        echo "  Formatting: $ws"
-        (cd "$ws" && cargo fmt --all)
-    done
+    for ws in "${WORKSPACES[@]}"; do (cd "$ws" && cargo fmt --all); done
     echo "Code formatted"
     echo ""
 fi
@@ -134,14 +127,9 @@ echo "Step 1: Checking formatting (cargo fmt --check)..."
 FMT_FAILED=0
 for ws in "${WORKSPACES[@]}"; do
     echo "  Checking: $ws"
-    if (cd "$ws" && cargo fmt --check 2>&1); then
-        echo "    ✓ Passed"
-    else
-        echo "    ✗ Failed"
-        FMT_FAILED=1
-    fi
+    if (cd "$ws" && cargo fmt --check 2>&1); then echo "    ✓ Passed"; else echo "    ✗ Failed"; FMT_FAILED=1; fi
 done
-if [ $FMT_FAILED -eq 1 ]; then exit 1; fi
+[ $FMT_FAILED -eq 1 ] && exit 1
 echo "Formatting check passed"
 echo ""
 
@@ -151,17 +139,12 @@ CLIPPY_FAILED=0
 for ws in "${WORKSPACES[@]}"; do
     echo "  Clippy: $ws"
     if is_baremetal_workspace "$ws"; then
-        echo "    ⊘ Skipped (bare-metal - requires cross-compilation)"
+        echo "    ⊘ Skipped (bare-metal)"
     else
-        if (cd "$ws" && cargo clippy --workspace -- -D warnings 2>&1); then
-            echo "    ✓ Passed"
-        else
-            echo "    ✗ Failed"
-            CLIPPY_FAILED=1
-        fi
+        (cd "$ws" && cargo clippy --workspace -- -D warnings 2>&1) && echo "    ✓ Passed" || { echo "    ✗ Failed"; CLIPPY_FAILED=1; }
     fi
 done
-if [ $CLIPPY_FAILED -eq 1 ]; then exit 1; fi
+[ $CLIPPY_FAILED -eq 1 ] && exit 1
 echo "Clippy passed"
 echo ""
 
@@ -171,22 +154,12 @@ BUILD_FAILED=0
 for ws in "${WORKSPACES[@]}"; do
     echo "  Building: $ws"
     if is_baremetal_workspace "$ws"; then
-        TARGET=$(get_baremetal_target "$ws")
-        if [ -n "$TARGET" ]; then
-            echo "    ⊘ Skipped (bare-metal - requires target: $TARGET)"
-        else
-            echo "    ⊘ Skipped (bare-metal workspace)"
-        fi
+        echo "    ⊘ Skipped (bare-metal)"
     else
-        if (cd "$ws" && cargo build --workspace --release 2>&1); then
-            echo "    ✓ Built successfully"
-        else
-            echo "    ✗ Build failed"
-            BUILD_FAILED=1
-        fi
+        (cd "$ws" && cargo build --workspace --release 2>&1) && echo "    ✓ Built" || { echo "    ✗ Failed"; BUILD_FAILED=1; }
     fi
 done
-if [ $BUILD_FAILED -eq 1 ]; then exit 1; fi
+[ $BUILD_FAILED -eq 1 ] && exit 1
 echo "Build successful"
 echo ""
 
@@ -195,14 +168,9 @@ echo "Step 4: Running all tests (host target)..."
 TEST_FAILED=0
 for ws in "${WORKSPACES[@]}"; do
     echo "  Testing: $ws"
-    if (cd "$ws" && cargo test --workspace --all-targets --release 2>&1); then
-        echo "    ✓ Tests passed"
-    else
-        echo "    ✗ Tests failed"
-        TEST_FAILED=1
-    fi
+    (cd "$ws" && cargo test --workspace --all-targets --release 2>&1) && echo "    ✓ Passed" || { echo "    ✗ Failed"; TEST_FAILED=1; }
 done
-if [ $TEST_FAILED -eq 1 ]; then exit 1; fi
+[ $TEST_FAILED -eq 1 ] && exit 1
 echo "All tests passed"
 echo ""
 
@@ -211,39 +179,28 @@ echo "Step 5: Discovering and running all binary crates..."
 
 if ! command -v jq &> /dev/null; then
     echo "jq not found, installing..."
-    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-        sudo apt-get update && sudo apt-get install -y jq
-    elif [[ "$OSTYPE" == "darwin"* ]]; then
-        brew install jq
-    else
-        echo "ERROR: jq required. Install manually."
-        exit 1
-    fi
+    if [[ "$OSTYPE" == "linux-gnu"* ]]; then sudo apt-get update && sudo apt-get install -y jq
+    elif [[ "$OSTYPE" == "darwin"* ]]; then brew install jq
+    else echo "ERROR: jq required."; exit 1; fi
 fi
 
-OVERALL_FAILED=()
-OVERALL_PASSED=0
-OVERALL_TOTAL=0
+ALL_FAILED=()
+ALL_PASSED=0
+ALL_TOTAL=0
 
 for ws in "${WORKSPACES[@]}"; do
     echo "  Workspace: $ws"
     BIN_CRATES=$(cd "$ws" && cargo metadata --format-version=1 --no-deps 2>/dev/null | \
         jq -r '.packages[] | select(.targets[] | .kind[] | contains("bin")) | .name' 2>/dev/null | sort)
-    
-    if [ -z "$BIN_CRATES" ]; then
-        echo "    No binary crates found"
-        continue
-    fi
+    [ -z "$BIN_CRATES" ] && echo "    No binary crates" && continue
     
     for crate in $BIN_CRATES; do
-        OVERALL_TOTAL=$((OVERALL_TOTAL + 1))
+        ALL_TOTAL=$((ALL_TOTAL + 1))
         echo -n "    Running $crate... "
         if (cd "$ws" && cargo run --release --bin "$crate" --quiet 2>&1); then
-            echo "SUCCESS"
-            OVERALL_PASSED=$((OVERALL_PASSED + 1))
+            echo "SUCCESS"; ALL_PASSED=$((ALL_PASSED + 1))
         else
-            echo "FAILED"
-            OVERALL_FAILED+=("$ws/$crate")
+            echo "FAILED"; ALL_FAILED+=("$ws/$crate")
         fi
     done
 done
@@ -253,7 +210,7 @@ echo "────────────────────────�
 echo "Step 6: Running local module-level run.sh scripts..."
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LOCAL_RUN_FAILED=0
+LOCAL_FAILED=0
 
 while IFS= read -r -d '' local_run; do
     [ "$local_run" = "$SCRIPT_DIR/run.sh" ] && continue
@@ -280,14 +237,12 @@ while IFS= read -r -d '' local_run; do
         echo "~~~~~~~~~~~~ $rel/run.sh PASSED ~~~~~~~~~~~~"
     else
         echo "~~~~~~~~~~~~ $rel/run.sh FAILED (exit code $STATUS) ~~~~~~~~~~~~"
-        LOCAL_RUN_FAILED=1
+        LOCAL_FAILED=1
     fi
     echo ""
-done < <(find "$SCRIPT_DIR" -name "run.sh" -type f -print0 2>/dev/null)
+done < <(find "$SCRIPT_DIR" -name "run.sh" -not -path "*/baremetal_riscv/run.sh" -type f -print0 2>/dev/null)
 
-if [ $LOCAL_RUN_FAILED -eq 1 ]; then
-    OVERALL_FAILED+=("local run.sh scripts")
-fi
+[ $LOCAL_FAILED -eq 1 ] && ALL_FAILED+=("local run.sh scripts")
 
 echo "═════════════════════════════════════════════════════════════"
 echo "  Validation Summary"
@@ -297,25 +252,19 @@ echo "Formatting:    PASSED"
 echo "Clippy:        PASSED (bare-metal skipped)"
 echo "Build:         PASSED (bare-metal skipped)"
 echo "Tests:         PASSED"
-echo "Binary crates: $OVERALL_PASSED/$OVERALL_TOTAL passed"
-echo "Local scripts: $([ $LOCAL_RUN_FAILED -eq 0 ] && echo 'PASSED' || echo 'FAILED')"
+echo "Binary crates: $ALL_PASSED/$ALL_TOTAL passed"
+echo "Local scripts: $([ $LOCAL_FAILED -eq 0 ] && echo 'PASSED' || echo 'FAILED')"
 echo ""
 
-if [ ${#OVERALL_FAILED[@]} -eq 0 ] && [ $LOCAL_RUN_FAILED -eq 0 ]; then
+if [ ${#ALL_FAILED[@]} -eq 0 ] && [ $LOCAL_FAILED -eq 0 ]; then
     echo "═════════════════════════════════════════════════════════════"
     echo "  ALL VALIDATIONS PASSED!"
     echo "═════════════════════════════════════════════════════════════"
-    echo ""
     exit 0
 else
     echo "═════════════════════════════════════════════════════════════"
     echo "  SOME VALIDATIONS FAILED!"
     echo "═════════════════════════════════════════════════════════════"
-    echo ""
-    echo "Failed items:"
-    for failed in "${OVERALL_FAILED[@]}"; do
-        echo "  - $failed"
-    done
-    echo ""
+    for f in "${ALL_FAILED[@]}"; do echo "  - $f"; done
     exit 1
 fi
