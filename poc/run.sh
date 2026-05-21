@@ -54,20 +54,17 @@ if [ ${#WORKSPACES[@]} -eq 0 ]; then
             # Read lines between [workspace] and next section
             in_workspace=false
             while IFS= read -r line; do
-                if [[ "$line" =~ ^\[workspace\] ]; then
+                if [[ "$line" =~ ^\[workspace\] ]]; then
                     in_workspace=true
                     continue
                 fi
-                if [[ "$line" =~ ^\[ ]] && [ "$in_workspace" = true ]; then
+                if [[ "$line" =~ ^\[  ]] && [ "$in_workspace" = true ]; then
                     break
                 fi
                 if [ "$in_workspace" = true ]; then
-                    # Extract member path (remove quotes and whitespace)
                     member=$(echo "$line" | sed 's/.*"\([^"]*\)".*/\1/' | tr -d ' ,')
                     if [[ "$member" =~ ^crates/ ]] || [[ "$member" =~ ^[a-zA-Z] ]]; then
-                        # Resolve relative path
                         full_path="$ws_dir/$member"
-                        # Normalize path (remove ./ and resolve ..)
                         full_path=$(cd "$full_path" 2>/dev/null && pwd || echo "$full_path")
                         WORKSPACE_MEMBERS="$WORKSPACE_MEMBERS|$full_path|"
                     fi
@@ -79,24 +76,18 @@ if [ ${#WORKSPACES[@]} -eq 0 ]; then
     # Second pass: find all packages and workspaces
     while IFS= read -r -d '' cargo_toml; do
         ws_dir=$(dirname "$cargo_toml")
-        # Get absolute path
         abs_ws_dir=$(cd "$ws_dir" 2>/dev/null && pwd || echo "$ws_dir")
         
-        # Check if this Cargo.toml defines a workspace
         if grep -q '^\[workspace\]' "$cargo_toml" 2>/dev/null; then
             WORKSPACES+=("$ws_dir")
             echo "  Found workspace: $ws_dir"
-        # Check if it's a standalone package (has [package] but no [workspace])
         elif grep -q '^\[package\]' "$cargo_toml" 2>/dev/null; then
-            # Skip if this is a member of any workspace
             is_member=false
             
-            # Check if path is in WORKSPACE_MEMBERS
             if [[ "$WORKSPACE_MEMBERS" == *"|$abs_ws_dir|"* ]]; then
                 is_member=true
             fi
             
-            # Also check if path is under any workspace root
             if [[ "$WORKSPACE_ROOTS" == *"|"* ]]; then
                 for ws_root in $(echo "$WORKSPACE_ROOTS" | tr '|' '\n' | grep -v '^$'); do
                     if [[ "$abs_ws_dir" == "$ws_root"/* ]]; then
@@ -113,7 +104,6 @@ if [ ${#WORKSPACES[@]} -eq 0 ]; then
         fi
     done < <(find . -name "Cargo.toml" -not -path "*/target/*" -print0 2>/dev/null)
     
-    # If still nothing found, exit with error
     if [ ${#WORKSPACES[@]} -eq 0 ]; then
         echo "ERROR: No Rust workspaces or crates found!"
         exit 1
@@ -129,7 +119,6 @@ echo "Total workspaces: ${#WORKSPACES[@]}"
 echo "─────────────────────────────────────────────────────────────"
 echo ""
 
-# Function to check if a workspace/crate is a bare-metal target
 is_baremetal_workspace() {
     local ws="$1"
     grep -q '^\[package\.metadata\.rust-analyzer\]' "$ws/Cargo.toml" 2>/dev/null || \
@@ -139,15 +128,10 @@ is_baremetal_workspace() {
     grep -q 'target.*=.*"riscv' "$ws/Cargo.toml" 2>/dev/null
 }
 
-# Function to get the target from a bare-metal workspace
 get_baremetal_target() {
     local ws="$1"
     grep -oP 'target\s*=\s*"\K[^"]+' "$ws/Cargo.toml" 2>/dev/null | head -1
 }
-
-# ===========================================================================
-# Step 1: Code Formatting (Mode-dependent) - per workspace
-# ===========================================================================
 
 if [ "$MODE" = "run" ]; then
     echo "Step 1: Applying formatting (cargo fmt --all)..."
@@ -178,9 +162,6 @@ fi
 echo "Formatting check passed"
 echo ""
 
-# ===========================================================================
-# Step 2: Linting (Clippy) - per workspace (skip bare-metal)
-# ===========================================================================
 echo "─────────────────────────────────────────────────────────────"
 echo "Step 2: Running clippy for each workspace..."
 echo ""
@@ -208,9 +189,6 @@ fi
 echo "Clippy passed (no warnings)"
 echo ""
 
-# ===========================================================================
-# Step 3: Build all workspaces (skip bare-metal)
-# ===========================================================================
 echo "─────────────────────────────────────────────────────────────"
 echo "Step 3: Building all workspaces (release mode)..."
 echo ""
@@ -243,9 +221,6 @@ fi
 echo "Build successful"
 echo ""
 
-# ===========================================================================
-# Step 4: Run all tests (host target only)
-# ===========================================================================
 echo "─────────────────────────────────────────────────────────────"
 echo "Step 4: Running all tests (host target)..."
 echo ""
@@ -269,14 +244,10 @@ fi
 echo "All tests passed"
 echo ""
 
-# ===========================================================================
-# Step 5: Discover and run all binary crates (per workspace)
-# ===========================================================================
 echo "─────────────────────────────────────────────────────────────"
 echo "Step 5: Discovering and running all binary crates..."
 echo ""
 
-# Install jq if not available
 if ! command -v jq &> /dev/null; then
     echo "jq not found, attempting to install..."
     if [[ "$OSTYPE" == "linux-gnu"* ]]; then
@@ -296,7 +267,6 @@ OVERALL_TOTAL=0
 for ws in "${WORKSPACES[@]}"; do
     echo "  Workspace: $ws"
     
-    # Extract all binary crate names using cargo metadata
     BIN_CRATES=$(cd "$ws" && cargo metadata --format-version=1 --no-deps 2>/dev/null | \
         jq -r '.packages[] | select(.targets[] | .kind[] | contains("bin")) | .name' 2>/dev/null | \
         sort)
@@ -337,9 +307,6 @@ for ws in "${WORKSPACES[@]}"; do
     echo ""
 done
 
-# ===========================================================================
-# Step 6: Run all local module-level run.sh scripts
-# ===========================================================================
 echo "─────────────────────────────────────────────────────────────"
 echo "Step 6: Running local module-level run.sh scripts..."
 echo ""
@@ -348,14 +315,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOCAL_RUN_FAILED=0
 
 while IFS= read -r -d '' local_run; do
-    # Skip this script itself
     [ "$local_run" = "$SCRIPT_DIR/run.sh" ] && continue
-    # Skip anything inside target/ or .git/
     [[ "$local_run" == */target/* || "$local_run" == */.git/* ]] && continue
 
     local_dir="$(dirname "$local_run")"
-
-    # Compute relative path from SCRIPT_DIR
     rel="${local_dir#$SCRIPT_DIR/}"
     if [ "$rel" = "$local_dir" ]; then
         rel="$local_dir"
@@ -387,9 +350,6 @@ if [ $LOCAL_RUN_FAILED -eq 1 ]; then
     OVERALL_FAILED+=("local run.sh scripts")
 fi
 
-# ===========================================================================
-# Final Summary
-# ===========================================================================
 echo "═════════════════════════════════════════════════════════════"
 echo "  Validation Summary"
 echo "═════════════════════════════════════════════════════════════"
