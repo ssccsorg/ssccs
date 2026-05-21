@@ -28,21 +28,28 @@ RUN wget https://github.com/riscv-collab/riscv-gnu-toolchain/releases/download/2
     && ln -sf /opt/riscv/bin/riscv64-unknown-elf-g++ /usr/local/bin/riscv64-unknown-elf-g++ \
     && ln -sf /opt/riscv/bin/riscv64-unknown-elf-ar /usr/local/bin/riscv64-unknown-elf-ar \
     && ln -sf /opt/riscv/bin/riscv64-unknown-elf-as /usr/local/bin/riscv64-unknown-elf-as \
-    && ln -sf /opt/riscv/bin/riscv64-unknown-elf-ld /usr/local/bin/riscv64-unknown-elf-ld \
-    && ln -sf /opt/riscv/bin/riscv64-unknown-elf-objdump /usr/local/bin/riscv64-unknown-elf-objdump \
-    && ln -sf /opt/riscv/bin/riscv64-unknown-elf-objcopy /usr/local/bin/riscv64-unknown-elf-objcopy
+    && ln -sf /opt/riscv/bin/riscv64-unknown-elf-ld /usr/local/bin/riscv64-unknown-elf-ld
 ENV PATH="/opt/riscv/bin:${PATH}"
 
-# Spike + pk from source
+# Verify the cross-compiler can produce executables
+RUN echo 'int main(){}' | riscv64-unknown-elf-gcc -x c - -o /tmp/test \
+    && riscv64-unknown-elf-objdump -d /tmp/test | head -3 \
+    && rm /tmp/test
+
+# Spike from source
 RUN git clone https://github.com/riscv-software-src/riscv-isa-sim.git /tmp/spike \
     && cd /tmp/spike && mkdir build && cd build \
     && ../configure --prefix=/usr/local && make -j$(nproc) && make install \
     && rm -rf /tmp/spike
 
+# riscv-pk (proxy kernel) from source
 RUN git clone https://github.com/riscv-software-src/riscv-pk.git /tmp/pk \
     && cd /tmp/pk && mkdir build && cd build \
-    && ../configure --prefix=/usr/local --host=riscv64-unknown-elf \
+    && CC=riscv64-unknown-elf-gcc ../configure --prefix=/usr/local --host=riscv64-unknown-elf \
     && make -j$(nproc) && make install \
     && rm -rf /tmp/pk
+
+# Verify pk is installed
+RUN test -f /usr/local/riscv64-unknown-elf/bin/pk && echo "pk installed" || echo "pk not found"
 
 WORKDIR /workspace
