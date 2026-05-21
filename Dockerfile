@@ -2,7 +2,7 @@ FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# System packages
+# System packages including native RISC-V cross-compiler (aarch64 compatible)
 RUN apt-get update && apt-get install -y \
     build-essential \
     curl \
@@ -12,6 +12,8 @@ RUN apt-get update && apt-get install -y \
     wget \
     xz-utils \
     ca-certificates \
+    gcc-riscv64-linux-gnu \
+    binutils-riscv64-linux-gnu \
     && rm -rf /var/lib/apt/lists/*
 
 # Rust installation
@@ -21,18 +23,14 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 # RISC-V targets for Rust cross-compilation
 RUN rustup target add riscv64imac-unknown-none-elf
 
-# Pre-built RISC-V GCC toolchain for bare-metal (riscv64-unknown-elf)
-RUN wget -q https://github.com/riscv-collab/riscv-gnu-toolchain/releases/download/2026.05.19/riscv64-elf-ubuntu-24.04-gcc.tar.xz \
-    && tar -xJf riscv64-elf-ubuntu-24.04-gcc.tar.xz -C /opt \
-    && rm riscv64-elf-ubuntu-24.04-gcc.tar.xz \
-    && ln -sf /opt/riscv/bin/riscv64-unknown-elf-gcc /usr/local/bin/riscv64-unknown-elf-gcc \
-    && ln -sf /opt/riscv/bin/riscv64-unknown-elf-g++ /usr/local/bin/riscv64-unknown-elf-g++ \
-    && ln -sf /opt/riscv/bin/riscv64-unknown-elf-ar /usr/local/bin/riscv64-unknown-elf-ar \
-    && ln -sf /opt/riscv/bin/riscv64-unknown-elf-as /usr/local/bin/riscv64-unknown-elf-as \
-    && ln -sf /opt/riscv/bin/riscv64-unknown-elf-ld /usr/local/bin/riscv64-unknown-elf-ld \
-    && ln -sf /opt/riscv/bin/riscv64-unknown-elf-objdump /usr/local/bin/riscv64-unknown-elf-objdump \
-    && ln -sf /opt/riscv/bin/riscv64-unknown-elf-objcopy /usr/local/bin/riscv64-unknown-elf-objcopy
-ENV PATH="/opt/riscv/bin:${PATH}"
+# Alias so the riscv-pk build and our test scripts find the compiler
+RUN ln -sf /usr/bin/riscv64-linux-gnu-gcc /usr/local/bin/riscv64-unknown-elf-gcc \
+    && ln -sf /usr/bin/riscv64-linux-gnu-g++ /usr/local/bin/riscv64-unknown-elf-g++ \
+    && ln -sf /usr/bin/riscv64-linux-gnu-ar /usr/local/bin/riscv64-unknown-elf-ar \
+    && ln -sf /usr/bin/riscv64-linux-gnu-as /usr/local/bin/riscv64-unknown-elf-as \
+    && ln -sf /usr/bin/riscv64-linux-gnu-ld /usr/local/bin/riscv64-unknown-elf-ld \
+    && ln -sf /usr/bin/riscv64-linux-gnu-objdump /usr/local/bin/riscv64-unknown-elf-objdump \
+    && ln -sf /usr/bin/riscv64-linux-gnu-objcopy /usr/local/bin/riscv64-unknown-elf-objcopy
 
 # Verify cross-compiler
 RUN echo 'int main(){}' | riscv64-unknown-elf-gcc -x c - -o /tmp/test && rm /tmp/test
@@ -43,12 +41,10 @@ RUN git clone https://github.com/riscv-software-src/riscv-isa-sim.git /tmp/spike
     && ../configure --prefix=/usr/local && make -j$(nproc) && make install \
     && rm -rf /tmp/spike
 
-# riscv-pk from source -- use the same toolchain prefix as the build machine
-# pk runs ON the RISC-V target (under Spike), not on the host.
-# The configure script needs --host to find the cross-compiler.
+# riscv-pk (proxy kernel) from source, cross-compiled for RISC-V
 RUN git clone https://github.com/riscv-software-src/riscv-pk.git /tmp/pk \
     && cd /tmp/pk && mkdir build && cd build \
-    && ../configure --prefix=/usr/local --host=riscv64-unknown-elf \
+    && CC=riscv64-unknown-elf-gcc ../configure --prefix=/usr/local --host=riscv64-unknown-elf \
     && make -j$(nproc) && make install \
     && rm -rf /tmp/pk
 
