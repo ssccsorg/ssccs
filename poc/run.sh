@@ -6,17 +6,11 @@
 # then runs all local module-level run.sh scripts (Spike tests, etc.).
 #
 # For bare-metal workspaces/crates (those with [package.metadata.rust-analyzer.rustc.target]),
-# this script skips clippy and build steps (as they require cross-compilation),
+# this script skips clippy and build steps as they require cross-compilation,
 # but still runs tests on the host target.
 #
 # Usage:
 #   ./run.sh [--validation|--run] [--workspace <path>]...
-#
-# Options:
-#   --validation  Run in validation mode (skip auto-formatting)
-#   --run         Run in development mode (apply formatting first)
-#   --workspace   Specify a workspace path (can be used multiple times)
-#                 If not specified, all workspaces/crates are auto-discovered
 #
 
 set -e 
@@ -37,11 +31,9 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
-# Auto-discover workspaces and standalone crates if not specified
 if [ ${#WORKSPACES[@]} -eq 0 ]; then
     echo "Auto-discovering Rust workspaces and crates..."
     
-    # First pass: find all workspace roots and collect their members
     WORKSPACE_ROOTS=""
     WORKSPACE_MEMBERS=""
     
@@ -50,20 +42,18 @@ if [ ${#WORKSPACES[@]} -eq 0 ]; then
             ws_dir=$(dirname "$cargo_toml")
             WORKSPACE_ROOTS="$WORKSPACE_ROOTS|$ws_dir|"
             
-            # Collect members from this workspace
-            # Read lines between [workspace] and next section
             in_workspace=false
             while IFS= read -r line; do
-                if [[ "$line" =~ ^\[workspace\] ]]; then
+                if [[ "$line" == "[workspace]" ]]; then
                     in_workspace=true
                     continue
                 fi
-                if [[ "$line" =~ ^\[  ]] && [ "$in_workspace" = true ]; then
+                if [[ "$line" == "["* ]] && [ "$in_workspace" = true ]; then
                     break
                 fi
                 if [ "$in_workspace" = true ]; then
                     member=$(echo "$line" | sed 's/.*"\([^"]*\)".*/\1/' | tr -d ' ,')
-                    if [[ "$member" =~ ^crates/ ]] || [[ "$member" =~ ^[a-zA-Z] ]]; then
+                    if [[ "$member" =~ ^(crates/|[a-zA-Z]) ]]; then
                         full_path="$ws_dir/$member"
                         full_path=$(cd "$full_path" 2>/dev/null && pwd || echo "$full_path")
                         WORKSPACE_MEMBERS="$WORKSPACE_MEMBERS|$full_path|"
@@ -73,7 +63,6 @@ if [ ${#WORKSPACES[@]} -eq 0 ]; then
         fi
     done < <(find . -name "Cargo.toml" -not -path "*/target/*" -print0 2>/dev/null)
     
-    # Second pass: find all packages and workspaces
     while IFS= read -r -d '' cargo_toml; do
         ws_dir=$(dirname "$cargo_toml")
         abs_ws_dir=$(cd "$ws_dir" 2>/dev/null && pwd || echo "$ws_dir")
@@ -123,8 +112,6 @@ is_baremetal_workspace() {
     local ws="$1"
     grep -q '^\[package\.metadata\.rust-analyzer\]' "$ws/Cargo.toml" 2>/dev/null || \
     grep -q '^\[workspace\.metadata\.rust-analyzer\]' "$ws/Cargo.toml" 2>/dev/null || \
-    grep -q '^\[package\.metadata\.rustc\]' "$ws/Cargo.toml" 2>/dev/null || \
-    grep -q '^\[workspace\.metadata\.rustc\]' "$ws/Cargo.toml" 2>/dev/null || \
     grep -q 'target.*=.*"riscv' "$ws/Cargo.toml" 2>/dev/null
 }
 
@@ -154,23 +141,17 @@ for ws in "${WORKSPACES[@]}"; do
         FMT_FAILED=1
     fi
 done
-
-if [ $FMT_FAILED -eq 1 ]; then
-    echo "Formatting check failed in one or more workspaces"
-    exit 1
-fi
+if [ $FMT_FAILED -eq 1 ]; then exit 1; fi
 echo "Formatting check passed"
 echo ""
 
 echo "─────────────────────────────────────────────────────────────"
 echo "Step 2: Running clippy for each workspace..."
-echo ""
-
 CLIPPY_FAILED=0
 for ws in "${WORKSPACES[@]}"; do
     echo "  Clippy: $ws"
     if is_baremetal_workspace "$ws"; then
-        echo "    ⊘ Skipped (bare-metal workspace - requires cross-compilation)"
+        echo "    ⊘ Skipped (bare-metal - requires cross-compilation)"
     else
         if (cd "$ws" && cargo clippy --workspace -- -D warnings 2>&1); then
             echo "    ✓ Passed"
@@ -179,27 +160,20 @@ for ws in "${WORKSPACES[@]}"; do
             CLIPPY_FAILED=1
         fi
     fi
-    echo ""
 done
-
-if [ $CLIPPY_FAILED -eq 1 ]; then
-    echo "Clippy failed in one or more workspaces"
-    exit 1
-fi
-echo "Clippy passed (no warnings)"
+if [ $CLIPPY_FAILED -eq 1 ]; then exit 1; fi
+echo "Clippy passed"
 echo ""
 
 echo "─────────────────────────────────────────────────────────────"
 echo "Step 3: Building all workspaces (release mode)..."
-echo ""
-
 BUILD_FAILED=0
 for ws in "${WORKSPACES[@]}"; do
     echo "  Building: $ws"
     if is_baremetal_workspace "$ws"; then
         TARGET=$(get_baremetal_target "$ws")
         if [ -n "$TARGET" ]; then
-            echo "    ⊘ Skipped (bare-metal workspace - requires target: $TARGET)"
+            echo "    ⊘ Skipped (bare-metal - requires target: $TARGET)"
         else
             echo "    ⊘ Skipped (bare-metal workspace)"
         fi
@@ -211,20 +185,13 @@ for ws in "${WORKSPACES[@]}"; do
             BUILD_FAILED=1
         fi
     fi
-    echo ""
 done
-
-if [ $BUILD_FAILED -eq 1 ]; then
-    echo "Build failed in one or more workspaces"
-    exit 1
-fi
+if [ $BUILD_FAILED -eq 1 ]; then exit 1; fi
 echo "Build successful"
 echo ""
 
 echo "─────────────────────────────────────────────────────────────"
 echo "Step 4: Running all tests (host target)..."
-echo ""
-
 TEST_FAILED=0
 for ws in "${WORKSPACES[@]}"; do
     echo "  Testing: $ws"
@@ -234,28 +201,22 @@ for ws in "${WORKSPACES[@]}"; do
         echo "    ✗ Tests failed"
         TEST_FAILED=1
     fi
-    echo ""
 done
-
-if [ $TEST_FAILED -eq 1 ]; then
-    echo "Tests failed in one or more workspaces"
-    exit 1
-fi
+if [ $TEST_FAILED -eq 1 ]; then exit 1; fi
 echo "All tests passed"
 echo ""
 
 echo "─────────────────────────────────────────────────────────────"
 echo "Step 5: Discovering and running all binary crates..."
-echo ""
 
 if ! command -v jq &> /dev/null; then
-    echo "jq not found, attempting to install..."
+    echo "jq not found, installing..."
     if [[ "$OSTYPE" == "linux-gnu"* ]]; then
         sudo apt-get update && sudo apt-get install -y jq
     elif [[ "$OSTYPE" == "darwin"* ]]; then
         brew install jq
     else
-        echo "ERROR: jq is required but cannot be automatically installed on this OS."
+        echo "ERROR: jq required. Install manually."
         exit 1
     fi
 fi
@@ -266,50 +227,30 @@ OVERALL_TOTAL=0
 
 for ws in "${WORKSPACES[@]}"; do
     echo "  Workspace: $ws"
-    
     BIN_CRATES=$(cd "$ws" && cargo metadata --format-version=1 --no-deps 2>/dev/null | \
-        jq -r '.packages[] | select(.targets[] | .kind[] | contains("bin")) | .name' 2>/dev/null | \
-        sort)
+        jq -r '.packages[] | select(.targets[] | .kind[] | contains("bin")) | .name' 2>/dev/null | sort)
     
     if [ -z "$BIN_CRATES" ]; then
         echo "    No binary crates found"
-        echo ""
         continue
     fi
     
-    echo "    Binary crates:"
-    echo "$BIN_CRATES" | while read crate; do
-        echo "      - $crate"
-    done
-    echo ""
-    
-    WS_FAILED=()
-    WS_PASSED=0
-    WS_TOTAL=0
-    
     for crate in $BIN_CRATES; do
-        WS_TOTAL=$((WS_TOTAL + 1))
         OVERALL_TOTAL=$((OVERALL_TOTAL + 1))
-        
         echo -n "    Running $crate... "
         if (cd "$ws" && cargo run --release --bin "$crate" --quiet 2>&1); then
             echo "SUCCESS"
-            WS_PASSED=$((WS_PASSED + 1))
             OVERALL_PASSED=$((OVERALL_PASSED + 1))
         else
             echo "FAILED"
-            WS_FAILED+=("$ws/$crate")
             OVERALL_FAILED+=("$ws/$crate")
         fi
     done
-    
-    echo "    Workspace result: $WS_PASSED/$WS_TOTAL passed"
-    echo ""
 done
 
+echo ""
 echo "─────────────────────────────────────────────────────────────"
 echo "Step 6: Running local module-level run.sh scripts..."
-echo ""
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOCAL_RUN_FAILED=0
@@ -320,9 +261,7 @@ while IFS= read -r -d '' local_run; do
 
     local_dir="$(dirname "$local_run")"
     rel="${local_dir#$SCRIPT_DIR/}"
-    if [ "$rel" = "$local_dir" ]; then
-        rel="$local_dir"
-    fi
+    [ "$rel" = "$local_dir" ] && rel="$local_dir"
 
     echo ""
     echo "~~~~~~~~~~~~ $rel/run.sh ~~~~~~~~~~~~"
