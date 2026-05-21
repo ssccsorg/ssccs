@@ -7,7 +7,7 @@
 #
 # Usage:
 #   ./run.sh [--validation|--run]     # delegate to poc/run.sh
-#   ./run.sh --docker                  # build and run poc Docker image
+#   ./run.sh --docker                  # build and run full validation in Docker
 #
 
 set -e
@@ -19,9 +19,9 @@ if [ "$1" = "--docker" ]; then
     echo "Building poc Docker image..."
     docker build -t ssccs-poc -f "$SCRIPT_DIR/poc/Dockerfile" "$SCRIPT_DIR"
     echo ""
-    echo "Running Spike validation in container..."
+    echo "Running full validation in container..."
     docker run --rm -v "$SCRIPT_DIR:/workspace" ssccs-poc \
-        bash -c "cd /workspace/poc/baremetal_riscv/simulation && bash run.sh --check"
+        bash -c "cd /workspace/poc && bash run.sh --validation"
     exit $?
 fi
 
