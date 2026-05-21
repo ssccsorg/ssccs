@@ -12,17 +12,32 @@ and riscv-gnu-toolchain (cross-compiler) in one command.
 
 ## Linux (Docker)
 
+From the repository root:
+
 ```bash
-docker build -t ssccs-poc -f ../../Dockerfile ../../
-docker run --rm -v $(pwd)/../..:/workspace ssccs-poc bash -c "cd /workspace/poc/baremetal_riscv/simulation && ./run.sh --check"
+docker build -t ssccs-poc -f poc/Dockerfile .
+docker run --rm -v "$(pwd):/workspace" ssccs-poc \
+    bash -c "cd /workspace/poc/baremetal_riscv/simulation && bash run.sh --check"
 ```
 
-Or build directly with prerequisites installed per the Dockerfile.
+Or using the root run.sh shortcut:
+
+```bash
+./run.sh --docker
+```
 
 ## Verification
 
+From `poc/baremetal_riscv/simulation/`:
+
 ```bash
-./run.sh --check
+bash run.sh --check
+```
+
+Or from the repository root:
+
+```bash
+./run.sh
 ```
 
 Expected output:
