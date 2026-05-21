@@ -10,6 +10,7 @@ on:
       - '.github/workflows/run-deploy-poc.yml'
       - 'poc/run.sh'
       - 'poc/doc.py'
+      - 'poc/Dockerfile'
   pull_request:
     branches:
       - main
@@ -21,6 +22,7 @@ on:
       - '.github/workflows/run-deploy-poc.yml'
       - 'poc/run.sh'
       - 'poc/doc.py'
+      - 'poc/Dockerfile'
   workflow_dispatch:
 
 permissions:
@@ -55,6 +57,7 @@ jobs:
           ./run.sh --validation
           python3 doc.py
         shell: bash
+
 
       - name: Prepare poc agent artifacts
         run: |
