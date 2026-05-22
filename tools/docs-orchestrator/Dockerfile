@@ -60,6 +60,23 @@ RUN /opt/quarto/bin/quarto install tinytex --no-prompt \
         translator \
     && luaotfload-tool --list=config
 
+# Install Python dependencies for documentation rendering
+# jupyter is required for Quarto Jupyter engine; the rest are used by
+# Python code blocks in QMD files (plotly, networkx, scipy, etc.)
+RUN uv pip install --system --break-system-packages \
+        PyYAML>=6.0 \
+        graphviz>=0.20 \
+        ipython>=8.0 \
+        plotly>=5.0 \
+        jupyter \
+        matplotlib>=3.0 \
+        numpy>=1.21 \
+        cairosvg \
+        jupyter-cache \
+        scipy \
+        networkx \
+        requests
+
 # Install SDBS (pip install from local source or git)
 # When run as standalone repo: pip install sdb
 # When run from monorepo: pip install ./tools/docs-orchestrator
