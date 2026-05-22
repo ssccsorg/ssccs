@@ -1,0 +1,48 @@
+Metadata-Version: 2.4
+Name: ssccs-docs
+Version: 0.1.0
+Summary: Scale-out Documentation Build System (SDBS) — a portable Quarto orchestration layer
+Author-email: SSCCS Foundation <contact@ssccs.org>
+License: Apache-2.0
+Project-URL: Repository, https://github.com/ssccsorg/ssccs
+Project-URL: Documentation, https://docs.ssccs.org
+Keywords: quarto,documentation,build-system,orchestration
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Documentation
+Classifier: Topic :: Software Development :: Build Tools
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: pyyaml>=6.0
+
+# ssccs-docs (SDBS)
+
+Scale-out Documentation Build System — a portable Quarto orchestration layer.
+
+## Installation
+
+```bash
+uv tool install ./tools/docs-orchestrator
+```
+
+## Usage
+
+```bash
+# Scaffold a new docs directory
+ssccs-docs init docs
+
+# Build all targets
+ssccs-docs build .
+
+# Build with website profile (parallel)
+ssccs-docs build . --website -j 4
+
+# Validate links and citations
+ssccs-docs check .
+
+# Resolve broken paths and includes
+ssccs-docs resolve .
+```
+
+## License
+
+Apache 2.0
