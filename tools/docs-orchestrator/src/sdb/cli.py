@@ -1,5 +1,5 @@
 """
-SDBS CLI — entry point for all ssccs-docs commands.
+SDBS CLI — entry point for all sdb commands.
 
 Subcommands:
   init     Scaffold a new docs directory with default templates.
@@ -50,7 +50,7 @@ def _setup_logging() -> None:
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
-        prog="ssccs-docs",
+        prog="sdb",
         description="Scale-out Documentation Build System (SDBS)",
     )
     _add_global_args(parser)
@@ -85,10 +85,10 @@ def main(argv: list[str] | None = None) -> None:
         "Supports parallel execution, website mode, and intelligent caching.",
         epilog=(
             "Examples:\n"
-            "  ssccs-docs build docs whitepaper\n"
-            "  ssccs-docs build docs whitepaper proposal --website -j 4\n"
-            "  ssccs-docs build docs snapshot\n"
-            "  ssccs-docs build docs clean"
+            "  sdb build docs whitepaper\n"
+            "  sdb build docs whitepaper proposal --website -j 4\n"
+            "  sdb build docs snapshot\n"
+            "  sdb build docs clean"
         ),
     )
     build_parser.add_argument(

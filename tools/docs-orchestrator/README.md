@@ -1,4 +1,4 @@
-# ssccs-docs (SDBS)
+# sdb (SDBS)
 
 Scale-out Documentation Build System — a portable Quarto orchestration layer.
 
@@ -12,19 +12,19 @@ uv tool install ./tools/docs-orchestrator
 
 ```bash
 # Scaffold a new docs directory
-ssccs-docs init docs
+sdb init docs
 
 # Build all targets
-ssccs-docs build .
+sdb build .
 
 # Build with website profile (parallel)
-ssccs-docs build . --website -j 4
+sdb build . --website -j 4
 
 # Validate links and citations
-ssccs-docs check .
+sdb check .
 
 # Resolve broken paths and includes
-ssccs-docs resolve .
+sdb resolve .
 ```
 
 ## License

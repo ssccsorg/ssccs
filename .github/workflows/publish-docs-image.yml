@@ -6,11 +6,11 @@ on:
     paths:
       - "tools/docs-orchestrator/Dockerfile"
       - "tools/docs-orchestrator/pyproject.toml"
-      - ".github/workflows/publish-docs-image.yml"
+      - ".github/workflows/publish-sdb-image.yml"
   workflow_dispatch:
 
 concurrency:
-  group: "docs-image"
+  group: "sdb-image"
   cancel-in-progress: false
 
 env:
@@ -58,4 +58,4 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository }}
-          event-type: publish-docs-image-complete
+          event-type: publish-sdb-image-complete

@@ -61,8 +61,8 @@ RUN /opt/quarto/bin/quarto install tinytex --no-prompt \
     && luaotfload-tool --list=config
 
 # Install SDBS (pip install from local source or git)
-# When run as standalone repo: pip install ssccs-docs
+# When run as standalone repo: pip install sdb
 # When run from monorepo: pip install ./tools/docs-orchestrator
-COPY tools/docs-orchestrator /tmp/ssccs-docs
-RUN uv pip install --system --break-system-packages /tmp/ssccs-docs \
-    && rm -rf /tmp/ssccs-docs
+COPY tools/docs-orchestrator /tmp/sdb
+RUN uv pip install --system --break-system-packages /tmp/sdb \
+    && rm -rf /tmp/sdb

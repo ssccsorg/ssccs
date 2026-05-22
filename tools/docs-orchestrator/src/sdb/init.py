@@ -2,7 +2,7 @@
 SDBS init — scaffold a new docs directory with default templates.
 
 Usage:
-    ssccs-docs init [path] [--force]
+    sdb init [path] [--force]
 """
 
 import logging
@@ -88,5 +88,5 @@ def scaffold(target_dir: Path, force: bool = False) -> bool:
     logger.info("  1. Edit _include/author.yml with your information")
     logger.info("  2. Edit _quarto-website.yml with your site URL and repo")
     logger.info("  3. Add your content as .qmd files")
-    logger.info("  4. Run:  ssccs-docs build . --website")
+    logger.info("  4. Run:  sdb build . --website")
     return True

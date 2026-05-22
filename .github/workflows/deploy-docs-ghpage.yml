@@ -18,7 +18,7 @@ on:
       - "!docs/**/README.md"
   workflow_dispatch:
   repository_dispatch:
-    types: [publish-docs-image-complete]
+    types: [publish-sdb-image-complete]
   pull_request:
     branches: ["main"]
     paths:
@@ -95,7 +95,7 @@ jobs:
             -w /work \
             -e QUARTO_PYTHON=python3 \
             ghcr.io/${{ github.repository }}-docs:latest \
-            ssccs-docs build docs --website
+            sdb build docs --website
 
       - name: Prepare Pages artifact
         run: |
