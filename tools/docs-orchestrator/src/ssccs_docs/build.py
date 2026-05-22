@@ -1948,17 +1948,12 @@ def build_targets(
 
 
 # ---------------------------------------------------------------------------
-# Module-level constants (maintained at end for readability)
-# ---------------------------------------------------------------------------
-
-BUILD_TEMP_DIR = BUILD_TEMP_DIR
-BUILD_CACHE_DIR = BUILD_CACHE_DIR
-JUPYTER_CACHE_DIR = JUPYTER_CACHE_DIR
-
-JUPYTER_CACHE_PATH = None  # Set by initialize_config
-
 # Patterns that match Quarto-generated artifacts (used by clean_quarto_artifacts
 # and copy ignore)
+# ---------------------------------------------------------------------------
+
+JUPYTER_CACHE_PATH: Optional[Path] = None  # Set by initialize_config
+
 IGNORING_ARTIFACT_PATTERNS = [
     "**/__pycache__",
     "**/*.pyc",
