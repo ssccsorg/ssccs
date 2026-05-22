@@ -117,29 +117,42 @@ def get_cached_artifact_path(
     target_name: str,
     hash_str: str,
     fmt: str,
-    docs_root: Path,
+    cache_parent: Path,
     linked_ext: Optional[str] = None,
 ) -> Path:
     """
-    Return the path to a cached artifact file for the given target, hash, and format.
-    If linked_ext is provided, returns the path for the linked artifact file.
+    Return the path to a cached artifact file for the given target, hash,
+    and format.
+
+    Parameters
+    ----------
+    cache_parent
+        The project root directory (parent of ``docs/``), under which the
+        ``_cached/`` directory lives.  This mirrors ``PROJECT_ROOT`` in
+        :mod:`sdb.build`.
     """
     ext = linked_ext if linked_ext else ConfigManager.format_to_extension(fmt)
-    return ConfigManager.get_cache_base(docs_root) / target_name / hash_str / f"{target_name}.{ext}"
+    return ConfigManager.get_cache_base(cache_parent) / target_name / hash_str / f"{target_name}.{ext}"
 
 
 def find_cached_artifact(
     target_name: str,
     hash_str: str,
     fmt: str,
-    docs_root: Path,
+    cache_parent: Path,
     linked_ext: Optional[str] = None,
 ) -> Optional[Path]:
     """
     Return the cached artifact path if it exists, otherwise None.
     If linked_ext is provided, looks for the linked artifact file.
+
+    Parameters
+    ----------
+    cache_parent
+        The project root directory (parent of ``docs/``), under which the
+        ``_cached/`` directory lives.
     """
-    path = get_cached_artifact_path(target_name, hash_str, fmt, docs_root, linked_ext=linked_ext)
+    path = get_cached_artifact_path(target_name, hash_str, fmt, cache_parent, linked_ext=linked_ext)
     if path.exists():
         return path
     return None
