@@ -544,6 +544,58 @@ def refresh_cache_for_target(
 # ---------------------------------------------------------------------------
 
 
+# Mapping of known command patterns to (module_path, function_name) tuples.
+# When a command list matches one of these keys (as a tuple), the
+# corresponding function is called directly instead of via subprocess.
+_INLINE_COMMAND_MAP: Dict[Tuple[str, ...], Tuple[str, str]] = {
+    ("python3", "_utils/generate_latest_docs.py"): (
+        "ssccs_docs.utils.latest",
+        "generate_latest_docs",
+    ),
+    ("python3", "resolve.py"): (
+        "ssccs_docs.resolve",
+        "resolve_all",
+    ),
+    ("python3", "_utils/generate_llms_txt.py"): (
+        "ssccs_docs.utils.llms",
+        "generate_llms_txt",
+    ),
+}
+
+
+def _try_dispatch_inline(
+    cmd: List[str],
+    docs_root: Path,
+    log: logging.Logger,
+    phase: str,
+) -> bool:
+    """Try to dispatch *cmd* to an in-process function instead of subprocess.
+
+    Returns ``True`` if the command was handled (success or failure logged),
+    ``False`` if the caller should fall through to subprocess.
+    """
+    key = tuple(cmd)
+    if key not in _INLINE_COMMAND_MAP:
+        logger.debug(f"{phase}: no inline handler for {' '.join(cmd)}, fallback to subprocess")
+        return False
+
+    module_name, func_name = _INLINE_COMMAND_MAP[key]
+    log.info(f"{phase}: calling {module_name}.{func_name}(docs_root={docs_root})")
+    try:
+        import importlib
+
+        module = importlib.import_module(module_name)
+        func = getattr(module, func_name)
+        func(docs_root)
+        log.info(f"{phase}: inline function '{func_name}' completed.")
+    except Exception as e:
+        log.warning(
+            f"{phase}: inline function '{func_name}' raised: {e}, "
+            f"continuing..."
+        )
+    return True
+
+
 def run_pre_build_commands(
     external_config: Dict[str, Any],
     docs_root: Path,
@@ -610,6 +662,11 @@ def run_pre_build_commands(
             logger.warning(f"Invalid pre_build entry: {cmd}, skipping.")
             continue
         executable = cmd[0]
+
+        # Intercept known Python commands and call wrapped functions directly
+        if _try_dispatch_inline(cmd, docs_root, logger, "Pre-build"):
+            continue
+
         if not shutil.which(executable):
             logger.info(f"Pre-build: '{executable}' not found in PATH, skipping.")
             continue
@@ -703,6 +760,11 @@ def run_post_render_commands(
             logger.warning(f"Invalid post_render entry: {cmd}, skipping.")
             continue
         executable = cmd[0]
+
+        # Intercept known Python commands and call wrapped functions directly
+        if _try_dispatch_inline(cmd, docs_root, logger, "Post-render"):
+            continue
+
         if not shutil.which(executable):
             logger.info(
                 f"Post-render: '{executable}' not found in PATH, skipping."

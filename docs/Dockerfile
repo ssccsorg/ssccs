@@ -60,17 +60,9 @@ RUN /opt/quarto/bin/quarto install tinytex --no-prompt \
         translator \
     && luaotfload-tool --list=config
 
-# Install Python dependencies (put the most frequently changing layers at the bottom)
-RUN uv pip install --system --break-system-packages \
-        PyYAML>=6.0 \
-        graphviz>=0.20 \
-        ipython>=8.0 \
-        plotly>=5.0 \
-        jupyter \
-        matplotlib>=3.0 \
-        numpy>=1.21 \
-        cairosvg \
-        jupyter-cache \
-        scipy \
-        networkx \
-        requests
+# Install SDBS (pip install from local source or git)
+# When run as standalone repo: pip install ssccs-docs
+# When run from monorepo: pip install ./tools/docs-orchestrator
+COPY tools/docs-orchestrator /tmp/ssccs-docs
+RUN uv pip install --system --break-system-packages /tmp/ssccs-docs \
+    && rm -rf /tmp/ssccs-docs

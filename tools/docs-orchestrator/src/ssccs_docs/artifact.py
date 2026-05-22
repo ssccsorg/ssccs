@@ -77,18 +77,12 @@ class C2PAArtifactHandler(LinkedArtifactHandler):
         manifest_path = qmd_path.parent / f"{c2pa_stem}.c2pa_manifest.json"
         output_c2pa = primary_path.parent / f"{c2pa_stem}.c2pa"
         output_c2pa.parent.mkdir(parents=True, exist_ok=True)
-        sign_cmd = [
-            "python3",
-            str(docs_root / "_utils" / "sign_c2pa.py"),
-            "--pdf",
-            str(primary_path),
-            "--manifest",
-            str(manifest_path),
-            "--output",
-            str(output_c2pa),
-        ]
-        from .render import CommandRunner
-        if CommandRunner.run(sign_cmd, cwd=docs_root):
+        from ssccs_docs.utils.c2pa import sign_pdf
+        if sign_pdf(
+            pdf_path=primary_path,
+            manifest_path=manifest_path,
+            output_path=output_c2pa,
+        ):
             return output_c2pa
         logger.warning(f"C2PA signing failed for {qmd_path.name}.")
         return None
