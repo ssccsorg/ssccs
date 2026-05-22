@@ -206,6 +206,15 @@ class _BaseResolver:
         prefix = "../" * up if up > 0 else "./"
         return f"{prefix}{down}" if down else prefix.rstrip("/")
 
+    def resolve_all(
+        self,
+        root: Path,
+        scan_root: Path,
+        dry_run: bool,
+        verbose: bool,
+    ) -> Tuple[int, int]:
+        raise NotImplementedError
+
     # ------------------------------------------------------------------
     # Parallel execution scaffolding
     # ------------------------------------------------------------------

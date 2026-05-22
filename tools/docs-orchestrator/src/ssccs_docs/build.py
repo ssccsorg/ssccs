@@ -9,14 +9,10 @@ merge, and cleanup.
 
 from __future__ import annotations
 
-import hashlib
 import logging
-import os
-import re
 import shutil
 import subprocess
 import sys
-import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
@@ -26,8 +22,6 @@ from .artifact import (
     get_enabled_handlers,
     get_linked_artifact_extensions,
     find_cached_artifact as _find_cached_artifact,
-    LINKED_ARTIFACT_HANDLERS,
-    LinkedArtifactHandler,
 )
 from .config import (
     BUILD_CACHE_DIR,
@@ -42,10 +36,7 @@ from .quarto import QuartoInspector
 from .render import (
     NON_DETERMINISTIC_FORMATS,
     CommandRunner,
-    FormatRenderer,
     _render_formats,
-    _render_formats_parallel,
-    _render_formats_single,
 )
 
 logger = logging.getLogger(__name__)
@@ -1689,7 +1680,6 @@ def build_targets(
         return True
 
     build_temp_path = docs_root.parent / BUILD_TEMP_DIR
-    build_cache_path = docs_root.parent / BUILD_CACHE_DIR
 
     run_pre_build_commands(EXTERNAL_CONFIG, docs_root)
 

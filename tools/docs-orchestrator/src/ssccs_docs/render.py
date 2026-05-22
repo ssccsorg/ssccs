@@ -7,8 +7,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import List, Optional
 
-from .quarto import QuartoInspector
-
 logger = logging.getLogger(__name__)
 
 

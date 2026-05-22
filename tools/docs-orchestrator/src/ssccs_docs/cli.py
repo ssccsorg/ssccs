@@ -193,7 +193,6 @@ def main(argv: list[str] | None = None) -> None:
 
         # Handle "clean"
         if "clean" in args.targets:
-            import shutil
             success = build_module.clean_quarto_artifacts(docs_root)
             sys.exit(0 if success else 1)
 
