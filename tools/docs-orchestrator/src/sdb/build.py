@@ -25,7 +25,6 @@ from .artifact import (
     find_cached_artifact as _find_cached_artifact,
 )
 from .config import (
-    BUILD_CACHE_DIR,
     BUILD_TEMP_DIR,
     JUPYTER_CACHE_DIR,
     ConfigManager,
