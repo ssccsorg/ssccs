@@ -51,7 +51,7 @@ def _setup_logging() -> None:
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         prog="sdb",
-        description="Scale-out Documentation Build System (SDBS)",
+        description="SSCCS Documentation Build System (SDBS)",
     )
     _add_global_args(parser)
 

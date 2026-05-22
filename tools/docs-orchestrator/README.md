@@ -1,6 +1,6 @@
-# sdb (SDBS)
+# SDBS
 
-Scale-out Documentation Build System — a portable Quarto orchestration layer.
+SSCCS Documentation Build System — a portable Quarto orchestration layer.
 
 ## Installation
 
