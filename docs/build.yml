@@ -11,55 +11,20 @@ target_config:
   proposal-proposal:
     c2pa: true
 
-  # Example: target with HTML copy enabled
-  # manifesto:
-  #   c2pa: false
-  #   copy_html: true
-  #   copy_pdf: false
-  #   copy_md: false
-  #   output_dir: false
-  #   to: null
-
-# Pre-build commands
-# Commands to execute before the build process begins.
-#
-# Format (dict-style, recommended):
-#   _global:                  # Commands always executed once before any target
-#     - [executable, arg1, ...]
-#   target-name:              # Commands executed only for a specific target
-#     - [executable, arg1, ...]
-#
-# Old format (list-style, still supported for backward compatibility):
-#   - [executable, arg1, ...]  # All commands treated as global
-#
-# If the executable is not found on PATH, the command is silently skipped.
-# If a command fails, an error is logged but the main build process continues.
+# Pre-build commands (additional to built-in defaults)
+# Built-in defaults: generate_latest_docs, resolve, rumdl fmt
+# Commands listed here run AFTER the defaults.
 pre_build:
-  _global:
-    - ["python3", "_utils/generate_latest_docs.py"]
-    - ["python3", "resolve.py"]
-    - ["rumdl", "fmt", ".", "--silent", "--disable", "MD036"]
+  _global: []
 
-# Post-render commands
-# Commands to execute after all targets have been rendered and merged.
-#
-# Same format as pre_build. Useful for:
-#   - Generating hierarchical llms.txt from the output directory structure
-#   - Post-processing merged site artifacts
-#   - Running validation or aggregation scripts
-#
-# If the executable is not found on PATH, the command is silently skipped.
-# If a command fails, an error is logged but the build is considered successful.
+# Post-render commands (additional to built-in defaults)
+# Built-in defaults: generate_llms_txt
+# Commands listed here run AFTER the defaults.
 post_render:
-  _global:
-    - ["python3", "_utils/generate_llms_txt.py"]
+  _global: []
 
 # Exclude patterns (gitignore-style)
 # Files and directories matching these patterns will be excluded from target discovery.
-# Supports:
-#   - Glob patterns: **/*.md, **/README.md
-#   - Directory patterns: **/_include/, **/*_libs/
-#   - Simple patterns: README.md, contributing.md
 exclude:
   - "**/README.md"
   - "**/*.llms.md"
@@ -74,3 +39,4 @@ exclude:
   - "**/*_cached/"
   - "**/*_libs/"
   - "**/*_pages/"
+  - "**/.jupyter_cache"

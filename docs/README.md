@@ -63,11 +63,11 @@ The SSCCS documentation suite consists of several formal documents:
 - **[Research notes](/docs/research)**: Informal technical explorations.
 
 All major documents are authored in Quarto (`.qmd`) and can be rendered
-to PDF, HTML, and Markdown using the centralized build script
-`docs/build.py`. This script handles Quarto rendering, C2PA signing (for
-PDFs), and copying outputs to the appropriate locations. A DevContainer
-configuration is provided to ensure a consistent environment for building
-the documentation; see [`.devcontainer/README.md`](/.devcontainer/README.md).
+to PDF, HTML, and Markdown using the SDBS (SSCCS Documentation Build
+System). SDBS handles Quarto rendering, C2PA signing (for PDFs), and
+output management with intelligent caching and parallel execution.
+See the [SDBS repository](https://github.com/ssccsorg/sdbs) for setup
+instructions and usage documentation.
 
 For detailed prerequisites and advanced rendering options, see
 [docs/whitepaper/README.md](/docs/whitepaper/README.md).

@@ -17,7 +17,7 @@ on:
       - "!docs/**/README.md"
   workflow_dispatch:
   repository_dispatch:
-    types: [publish-docs-image-complete]
+    types: [publish-sdb-image-complete]
   pull_request:
     branches: ["main"]
     paths:
@@ -35,6 +35,8 @@ on:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ssccsorg/sdbs
 
 permissions:
   contents: read
@@ -80,12 +82,13 @@ jobs:
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v4
         with:
-          registry: ghcr.io
+          registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Pull pre-built Docker image
-        run: docker pull ghcr.io/${{ github.repository }}-docs:latest
+      - name: Pull Docker image
+        run: docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+        shell: bash
 
       - name: Run documentation build
         run: |
@@ -93,8 +96,8 @@ jobs:
             -v ${{ github.workspace }}:/work \
             -w /work \
             -e QUARTO_PYTHON=python3 \
-            ghcr.io/${{ github.repository }}-docs:latest \
-            python docs/build.py --website
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
+            sdb build docs --website
 
       - name: Prepare Pages artifact
         run: |
@@ -107,15 +110,15 @@ jobs:
         with:
           path: docs/_pages
 
-      - name: Prepare agent artifact
-        run: |
-          mkdir -p _agent/docs
-          cp -r docs/_llms _agent/docs/
-
       - name: Deploy to GitHub Pages
         if: github.ref == 'refs/heads/main'
         id: deployment
         uses: actions/deploy-pages@v5
+
+      - name: Prepare agent artifact
+        run: |
+          mkdir -p _agent/docs
+          cp -r docs/_llms _agent/docs/
 
       - name: Upload agent artifacts to R2-S3
         if: ${{ github.ref == 'refs/heads/main' && github.actor != 'nektos/act' }}
