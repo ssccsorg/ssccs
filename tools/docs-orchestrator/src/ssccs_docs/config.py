@@ -181,9 +181,14 @@ class ConfigManager:
         return discovered
 
     @staticmethod
-    def get_cache_base(docs_root: Path) -> Path:
-        """Return the base cache directory (``_cached`` adjacent to docs root)."""
-        return docs_root.parent / BUILD_CACHE_DIR
+    def get_cache_base(cache_parent: Path) -> Path:
+        """Return the base cache directory under ``cache_parent``.
+
+        Note: ``cache_parent`` should be the PROJECT root (parent of docs/),
+        not the docs/ directory itself.  In the original build.py this was
+        always ``DOCS_PARENT`` (the hardcoded project root).
+        """
+        return cache_parent / BUILD_CACHE_DIR
 
     @staticmethod
     def get_cache_dir(qmd_path: Path) -> Path:

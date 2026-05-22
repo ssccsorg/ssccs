@@ -51,8 +51,8 @@ EXTERNAL_CONFIG: Dict[str, Any] = {}
 TARGET_CONFIG: Dict[str, Dict[str, Any]] = {}
 BUILD_FUNCTIONS: Dict[str, Callable[..., bool]] = {}
 OUTPUT_DIR_TARGETS: set = set()
-
 _INITIAL_CACHED_TARGETS: Optional[set] = None
+PROJECT_ROOT: Optional[Path] = None  # Set by initialize_config
 
 
 # ---------------------------------------------------------------------------
@@ -121,8 +121,17 @@ def get_cache_dir_for_target(qmd_path: Path, target_name: str) -> Path:
     return QuartoInspector.get_cache_dir_for_target(qmd_path, target_name)
 
 
-def get_cache_base(docs_root: Path) -> Path:
-    return ConfigManager.get_cache_base(docs_root)
+def get_cache_base(docs_root: Optional[Path] = None) -> Path:
+    """Return the system-wide cache base directory.
+
+    Uses the module-level ``PROJECT_ROOT`` (set by ``initialize_config``)
+    when available, falling back to ``docs_root.parent``.
+    """
+    if PROJECT_ROOT is not None:
+        return PROJECT_ROOT / "_cached"
+    if docs_root is not None:
+        return docs_root.parent / "_cached"
+    return Path.cwd().parent / "_cached"
 
 
 def format_to_extension(fmt: str) -> str:
@@ -174,8 +183,10 @@ def get_cached_artifact_path(
     docs_root: Path,
     linked_ext: Optional[str] = None,
 ) -> Path:
+    # Use PROJECT_ROOT for cache paths (consistent across website mode)
+    project_root = PROJECT_ROOT if PROJECT_ROOT else docs_root.parent
     return _get_cached_artifact_path(
-        target_name, hash_str, fmt, docs_root, linked_ext=linked_ext
+        target_name, hash_str, fmt, project_root, linked_ext=linked_ext
     )
 
 
@@ -186,8 +197,9 @@ def find_cached_artifact(
     docs_root: Path,
     linked_ext: Optional[str] = None,
 ) -> Optional[Path]:
+    project_root = PROJECT_ROOT if PROJECT_ROOT else docs_root.parent
     return _find_cached_artifact(
-        target_name, hash_str, fmt, docs_root, linked_ext=linked_ext
+        target_name, hash_str, fmt, project_root, linked_ext=linked_ext
     )
 
 
@@ -1394,9 +1406,12 @@ def initialize_config(docs_root: Path, config_path: Optional[Path] = None) -> No
     ``TARGET_CONFIG`` and ``BUILD_FUNCTIONS``, and ensures the Jupyter
     cache directory exists.
     """
-    global EXTERNAL_CONFIG, TARGET_CONFIG, BUILD_FUNCTIONS, OUTPUT_DIR_TARGETS, JUPYTER_CACHE_PATH
+    global EXTERNAL_CONFIG, TARGET_CONFIG, BUILD_FUNCTIONS, OUTPUT_DIR_TARGETS
+    global JUPYTER_CACHE_PATH, PROJECT_ROOT
 
-    jupyter_cache_path = docs_root.parent / JUPYTER_CACHE_DIR
+    PROJECT_ROOT = docs_root.parent
+
+    jupyter_cache_path = PROJECT_ROOT / JUPYTER_CACHE_DIR
     jupyter_cache_path.mkdir(parents=True, exist_ok=True)
     JUPYTER_CACHE_PATH = jupyter_cache_path
     os.environ["JUPYTERCACHE"] = str(jupyter_cache_path)
