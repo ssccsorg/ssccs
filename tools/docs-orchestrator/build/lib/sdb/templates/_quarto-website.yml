@@ -1,0 +1,30 @@
+project:
+  type: website
+  post-render:
+    - 'find . -type d -name "figure-pdf" -exec rm -rf {} + -o -name "figure-beamer" -exec rm -rf {} + -o -name "mediabag" -exec rm -rf {} +'
+
+website:
+  site-url: https://example.org/docs
+  repo-url: https://github.com/your-org/your-repo
+  repo-subdir: docs
+  repo-actions: [edit, issue]
+  llms-txt: true
+  sidebar:
+    collapse-level: 1
+    contents:
+      - href: index.qmd
+        text: "Home"
+      - auto: "*.{qmd,md}"
+
+page-footer:
+  left: "© Your Organization"
+  right:
+    - icon: github
+      href: https://github.com/your-org/your-repo
+
+metadata-files:
+  - ./_include/format.html.yml
+
+format:
+  html:
+    directory-index: true
