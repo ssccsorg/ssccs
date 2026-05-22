@@ -336,7 +336,7 @@ class CleanupManager:
             "**/.jupyter_cache",
         ]
 
-    def ignore_quarto_artifacts(self) -> Callable[[str, List[str]], List[str]]:
+    def ignore_quarto_artifacts(self) -> Callable[[str, list[str]], set[str]]:
         basename_patterns = []
         for pat in self.IGNORING_ARTIFACT_PATTERNS:
             if pat.startswith("**/"):
@@ -705,7 +705,6 @@ class BuildOrchestrator:
 
     @staticmethod
     def validate_targets(targets):
-        from typing import List
         # Access BUILD_FUNCTIONS via closure/module-level (initialized by initialize_config)
         global BUILD_FUNCTIONS
         invalid = [t for t in targets if t not in BUILD_FUNCTIONS]
@@ -915,7 +914,7 @@ IGNORING_ARTIFACT_PATTERNS = [
 #]
 
 
-def ignore_quarto_artifacts() -> Callable[[str, List[str]], List[str]]:
+def ignore_quarto_artifacts() -> Callable[[str, list[str]], set[str]]:
     return CleanupManager().ignore_quarto_artifacts()
 
 
