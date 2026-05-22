@@ -1,8 +1,8 @@
 """
-SDBS init — scaffold a new docs directory with default templates.
+SDBS init — scaffold a new docs directory with templates.
 
 Usage:
-    sdb init [path] [--force]
+    sdb init [path] [--force] [--ssccs]
 """
 
 import logging
@@ -13,8 +13,9 @@ logger = logging.getLogger(__name__)
 
 TEMPLATES_PACKAGE = Path(__file__).parent / "templates"
 
-TEMPLATE_MAP: dict[str, str] = {
-    # (relative destination path in docs/, template source path)
+# Default template map (minimal Quarto system settings, project-specific
+# values are commented out with # TODO guidance).
+DEFAULT_TEMPLATE_MAP: dict[str, str] = {
     "build.yml": "build.yml",
     "_quarto.yml": "_quarto.yml",
     "_quarto-website.yml": "_quarto-website.yml",
@@ -23,11 +24,16 @@ TEMPLATE_MAP: dict[str, str] = {
     "_include/format.html.yml": "_include/format.html.yml",
     "_include/format.pdf.yml": "_include/format.pdf.yml",
     "_include/format.beamer.yml": "_include/format.beamer.yml",
-    "_include/_graphviz.py": "_include/_graphviz.py",
-    "_include/_title_meta_items.qmd": "_include/_title_meta_items.qmd",
     "_include/ieee.csl": "_include/ieee.csl",
     "index.qmd": "index.qmd",
     ".gitignore": "_gitignore",
+}
+
+# SSCCS-specific template map (adds SSCCS-specific files on top of default)
+SSCCS_TEMPLATE_MAP: dict[str, str] = {
+    **DEFAULT_TEMPLATE_MAP,
+    "_include/_graphviz.py": "_include/_graphviz.py",
+    "_include/_title_meta_items.qmd": "_include/_title_meta_items.qmd",
 }
 
 
@@ -42,12 +48,13 @@ def _copy_template(src: Path, dst: Path, force: bool) -> bool:
     return True
 
 
-def scaffold(target_dir: Path, force: bool = False) -> bool:
-    """Scaffold a docs directory with default SDBS templates.
+def scaffold(target_dir: Path, force: bool = False, ssccs: bool = False) -> bool:
+    """Scaffold a docs directory with SDBS templates.
 
     Args:
         target_dir: Directory to create/initialize.
         force: Overwrite existing files.
+        ssccs: Use SSCCS-specific templates instead of minimal defaults.
 
     Returns:
         True if all files were copied successfully.
@@ -59,11 +66,21 @@ def scaffold(target_dir: Path, force: bool = False) -> bool:
         logger.error(f"Templates directory not found: {TEMPLATES_PACKAGE}")
         return False
 
+    flavour = "ssccs" if ssccs else "default"
+    template_map = SSCCS_TEMPLATE_MAP if ssccs else DEFAULT_TEMPLATE_MAP
+    template_dir = TEMPLATES_PACKAGE / flavour
+
+    if not template_dir.is_dir():
+        logger.error(f"Template flavour '{flavour}' not found: {template_dir}")
+        return False
+
+    logger.info(f"Using {flavour} template set")
+
     total = 0
     errors = 0
 
-    for rel_dst, template_name in TEMPLATE_MAP.items():
-        src = TEMPLATES_PACKAGE / template_name
+    for rel_dst, template_name in template_map.items():
+        src = template_dir / template_name
         dst = target / rel_dst
 
         if not src.exists():
@@ -85,8 +102,15 @@ def scaffold(target_dir: Path, force: bool = False) -> bool:
     logger.info(f"Done. {total} file(s) written to {target}")
     logger.info("")
     logger.info("Next steps:")
-    logger.info("  1. Edit _include/author.yml with your information")
-    logger.info("  2. Edit _quarto-website.yml with your site URL and repo")
-    logger.info("  3. Add your content as .qmd files")
-    logger.info("  4. Run:  sdb build . --website")
+    if ssccs:
+        logger.info("  1. Edit _include/author.yml with your information")
+        logger.info("  2. Edit _quarto-website.yml with your site URL and repo")
+        logger.info("  3. Review _include/_graphviz.py for DOT diagram utilities")
+        logger.info("  4. Add your content as .qmd files")
+        logger.info("  5. Run:  sdb build . --website")
+    else:
+        logger.info("  1. Uncomment and configure _include/author.yml with your information")
+        logger.info("  2. Uncomment and configure _quarto-website.yml with your site URL")
+        logger.info("  3. Add your content as .qmd files")
+        logger.info("  4. Run:  sdb build . --website")
     return True
