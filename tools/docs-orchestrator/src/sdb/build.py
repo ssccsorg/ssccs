@@ -599,33 +599,33 @@ def _try_dispatch_inline(
     return True
 
 
-def run_pre_build_commands(
-    external_config: Dict[str, Any],
+def _run_config_commands(
+    section: Any,
     docs_root: Path,
+    phase: str,
     target_name: Optional[str] = None,
 ) -> None:
-    """Execute pre-build commands from configuration.
+    """Execute commands from a named config section (pre_build / post_render).
 
-    Handles both global commands and target-specific commands defined under
-    ``pre_build`` in the external YAML config.  If ``target_name`` is ``None``
-    only the ``_global`` list is executed.
+    Handles both global commands (``_global``) and target-specific entries.
+    Known Python commands are dispatched inline via ``_try_dispatch_inline``;
+    others are run as subprocesses.
     """
-    pre_build_section = external_config.get("pre_build", [])
-    if not pre_build_section:
+    if not section:
         return
 
-    if isinstance(pre_build_section, list):
-        global_commands = pre_build_section
+    if isinstance(section, list):
+        global_commands = section
         target_commands: Dict[str, Any] = {}
-    elif isinstance(pre_build_section, dict):
-        global_commands = pre_build_section.get("_global", [])
+    elif isinstance(section, dict):
+        global_commands = section.get("_global", [])
         target_commands = {
-            k: v for k, v in pre_build_section.items() if k != "_global"
+            k: v for k, v in section.items() if k != "_global"
         }
     else:
         logger.warning(
-            f"Invalid pre_build format: expected list or dict, "
-            f"got {type(pre_build_section).__name__}"
+            f"Invalid {phase.lower()} format: expected list or dict, "
+            f"got {type(section).__name__}"
         )
         return
 
@@ -643,37 +643,37 @@ def run_pre_build_commands(
             commands_to_run.append(target_cmds.split())
         else:
             logger.warning(
-                f"Invalid pre_build entry for target '{target_name}': "
-                f"{target_cmds}, skipping."
+                f"Invalid {phase.lower()} entry for target "
+                f"'{target_name}': {target_cmds}, skipping."
             )
 
     if not commands_to_run:
         return
 
+    prefix = phase.lower()
     if target_name:
         logger.info(
-            f"Running {len(commands_to_run)} pre-build command(s) "
+            f"Running {len(commands_to_run)} {prefix} command(s) "
             f"for target '{target_name}'..."
         )
     else:
         logger.info(
-            f"Running {len(commands_to_run)} global pre-build command(s)..."
+            f"Running {len(commands_to_run)} global {prefix} command(s)..."
         )
 
     for cmd in commands_to_run:
         if not cmd or not isinstance(cmd, list):
-            logger.warning(f"Invalid pre_build entry: {cmd}, skipping.")
+            logger.warning(f"Invalid {prefix} entry: {cmd}, skipping.")
             continue
         executable = cmd[0]
 
-        # Intercept known Python commands and call wrapped functions directly
-        if _try_dispatch_inline(cmd, docs_root, logger, "Pre-build"):
+        if _try_dispatch_inline(cmd, docs_root, logger, phase):
             continue
 
         if not shutil.which(executable):
-            logger.info(f"Pre-build: '{executable}' not found in PATH, skipping.")
+            logger.info(f"{phase}: '{executable}' not found in PATH, skipping.")
             continue
-        logger.info(f"Pre-build: running {' '.join(cmd)}")
+        logger.info(f"{phase}: running {' '.join(cmd)}")
         try:
             result = subprocess.run(
                 cmd, cwd=docs_root, capture_output=True, text=True
@@ -684,18 +684,32 @@ def run_pre_build_commands(
                 logger.warning(result.stderr.strip())
             if result.returncode != 0:
                 logger.warning(
-                    f"Pre-build command '{executable}' failed with exit code "
-                    f"{result.returncode}, continuing build..."
+                    f"{phase} command '{executable}' failed with exit code "
+                    f"{result.returncode}, continuing..."
                 )
             else:
                 logger.info(
-                    f"Pre-build command '{' '.join(cmd)}' succeeded."
+                    f"{phase} command '{' '.join(cmd)}' succeeded."
                 )
         except Exception as e:
             logger.warning(
-                f"Pre-build command '{executable}' raised an exception: "
-                f"{e}, continuing build..."
+                f"{phase} command '{executable}' raised an exception: "
+                f"{e}, continuing..."
             )
+
+
+def run_pre_build_commands(
+    external_config: Dict[str, Any],
+    docs_root: Path,
+    target_name: Optional[str] = None,
+) -> None:
+    """Execute pre-build commands from configuration."""
+    _run_config_commands(
+        external_config.get("pre_build", []),
+        docs_root,
+        "Pre-build",
+        target_name=target_name,
+    )
 
 
 def run_post_render_commands(
@@ -703,99 +717,13 @@ def run_post_render_commands(
     docs_root: Path,
     target_name: Optional[str] = None,
 ) -> None:
-    """Execute post-render commands from configuration.
-
-    Mirrors ``run_pre_build_commands`` but runs after all targets have been
-    rendered and merged.  Supports both global and target-specific entries.
-    """
-    post_render_section = external_config.get("post_render", [])
-    if not post_render_section:
-        return
-
-    if isinstance(post_render_section, list):
-        global_commands = post_render_section
-        target_commands = {}
-    elif isinstance(post_render_section, dict):
-        global_commands = post_render_section.get("_global", [])
-        target_commands = {
-            k: v for k, v in post_render_section.items() if k != "_global"
-        }
-    else:
-        logger.warning(
-            f"Invalid post_render format: expected list or dict, "
-            f"got {type(post_render_section).__name__}"
-        )
-        return
-
-    commands_to_run: List[List[str]] = []
-    if target_name is None:
-        commands_to_run.extend(global_commands)
-    elif target_name in target_commands:
-        target_cmds = target_commands[target_name]
-        if isinstance(target_cmds, list):
-            if target_cmds and isinstance(target_cmds[0], list):
-                commands_to_run.extend(target_cmds)
-            else:
-                commands_to_run.append(target_cmds)
-        elif isinstance(target_cmds, str):
-            commands_to_run.append(target_cmds.split())
-        else:
-            logger.warning(
-                f"Invalid post_render entry for target '{target_name}': "
-                f"{target_cmds}, skipping."
-            )
-
-    if not commands_to_run:
-        return
-
-    if target_name:
-        logger.info(
-            f"Running {len(commands_to_run)} post-render command(s) "
-            f"for target '{target_name}'..."
-        )
-    else:
-        logger.info(
-            f"Running {len(commands_to_run)} global post-render command(s)..."
-        )
-
-    for cmd in commands_to_run:
-        if not cmd or not isinstance(cmd, list):
-            logger.warning(f"Invalid post_render entry: {cmd}, skipping.")
-            continue
-        executable = cmd[0]
-
-        # Intercept known Python commands and call wrapped functions directly
-        if _try_dispatch_inline(cmd, docs_root, logger, "Post-render"):
-            continue
-
-        if not shutil.which(executable):
-            logger.info(
-                f"Post-render: '{executable}' not found in PATH, skipping."
-            )
-            continue
-        logger.info(f"Post-render: running {' '.join(cmd)}")
-        try:
-            result = subprocess.run(
-                cmd, cwd=docs_root, capture_output=True, text=True
-            )
-            if result.stdout:
-                logger.debug(result.stdout.strip())
-            if result.stderr:
-                logger.warning(result.stderr.strip())
-            if result.returncode != 0:
-                logger.warning(
-                    f"Post-render command '{executable}' failed with exit code "
-                    f"{result.returncode}, continuing..."
-                )
-            else:
-                logger.info(
-                    f"Post-render command '{' '.join(cmd)}' succeeded."
-                )
-        except Exception as e:
-            logger.warning(
-                f"Post-render command '{executable}' raised an exception: "
-                f"{e}, continuing..."
-            )
+    """Execute post-render commands from configuration."""
+    _run_config_commands(
+        external_config.get("post_render", []),
+        docs_root,
+        "Post-render",
+        target_name=target_name,
+    )
 
 
 # ---------------------------------------------------------------------------
