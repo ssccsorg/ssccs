@@ -1,36 +1,30 @@
-# HTML output format configuration.
-# This file is referenced by _quarto-website.yml as a metadata-file,
-# so its settings are applied to every page in the website build.
-
 format:
   html:
-    # Default image format for figures rendered from code cells.
     default-figure-format: "svg"
     fig-format: "svg"
-    # Do not embed resources (images, fonts) directly into the HTML.
-    # Resources are served as separate files for faster loading.
     embed-resources: false
-    # Render math as SVG images instead of self-contained MathJax.
-    # Reduces page weight and avoids JavaScript dependency for math.
     self-contained-math: false
-    # Use a minimal HTML template without boilerplate chrome.
     minimal: true
-    # Visual theme for the site. "minimal" is a clean, unstyled theme.
     theme: minimal
-    # Show a table of contents sidebar on each page.
     toc: true
     toc-title: "Contents"
-    # Base font size for the body text.
     font-size: 11pt
-    # Allow content to span the full page width.
     page-layout: full
-    # Wrap long code lines instead of showing a horizontal scrollbar.
     code-overflow: wrap
-    # Show links to other format versions (PDF, etc.) in the page header.
+    include-in-header:
+      text: |
+        <style>
+        a {
+            text-decoration: none !important;
+        }
+        img {
+            max-width: 100%;
+        }
+        body.nav-sidebar #title-block-header {
+            margin-block-end: 1em !important;
+        }
+        </style>
     format-links: true
-    # Code cell execution options specific to HTML output.
     execute:
-      # Execute all code cells during render.
-      eval: true
-      # Hide code source in the output (show only results).
-      echo: false
+        eval: true
+        echo: false

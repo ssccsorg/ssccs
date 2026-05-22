@@ -1,43 +1,18 @@
-# Quarto website profile configuration.
-# This file is used when building with `sdb build . --website`.
-# Quarto merges these settings with _quarto.yml at render time.
-
 project:
-  # Set the project type to "website" to enable website-specific
-  # features: sidebar, page navigation, search, site rendering, etc.
   type: website
-  # File patterns to include in the published site output beyond the
-  # standard rendered documents. Glob patterns relative to docs/.
   resources:
     - "**/*.c2pa"
-  # Shell commands executed by Quarto after each page render.
-  # Here: remove temporary figure directories and Mediabag artifacts
-  # that Quarto generates but are not needed in the final site.
   post-render:
     - 'find . -type d -name "figure-pdf" -exec rm -rf {} + -o -name "figure-beamer" -exec rm -rf {} + -o -name "mediabag" -exec rm -rf {} +'
-
-# Website-level metadata: URL, repository links, navigation.
 website:
-  # Canonical URL of the published site (no trailing slash).
-  # Used for sitemap generation and Open Graph metadata.
-  site-url: https://docs.ssccs.org
-  # URL of the source repository. Enables "Edit this page" and
-  # "Report issue" links in the rendered site.
   repo-url: https://github.com/ssccsorg/ssccs
-  # Subdirectory within the repository that contains the docs source.
+  site-url: https://docs.ssccs.org
   repo-subdir: docs
-  # Which repository actions to expose in the site UI.
-  # Options: edit (opens source file), issue (opens new issue),
-  #          source (links to repository root).
   repo-actions: [edit, issue]
-  # Enable generation of llms.txt and .llms.md files for LLM-friendly
-  # documentation consumption (llmstxt.org standard).
   llms-txt: true
-  # Footer displayed at the bottom of every page.
-  page-footer:
+  page-footer: 
     left: "© [SSCCS Foundation](https://ssccs.org) &bull; [*CC BY-NC-ND 4.0*](https://creativecommons.org/licenses/by-nc-nd/4.0/)"
-    # Icon links in the footer. Icons are sourced from Bootstrap Icons.
-    right:
+    right: 
       - icon: house
         href: https://ssccs.org
       - icon: envelope
@@ -45,28 +20,16 @@ website:
         href: mailto:contact@ssccs.org
       - icon: github
         href: https://github.com/ssccsorg/ssccs
-  # Sidebar navigation configuration.
-  sidebar:
-    # How many levels of nesting are visible by default.
-    # 1 means only top-level sections are expanded.
+  sidebar:  
     collapse-level: 1
-    # Sidebar contents: explicit entries and auto-discovered files.
     contents:
-      # Explicit link to the homepage.
-      - href: index.qmd
-        text: "Home"
-      # Automatically include all .qmd and .md files in the docs root
-      # as sidebar entries. Nested files appear under their directory.
-      - auto: "*.{qmd,md}"
-
-# YAML files whose content is merged into every page's front matter.
-# Typically used to share format options (HTML, PDF, Beamer) across
-# all documents without repeating them in each .qmd file.
+        - href: index.qmd
+          text: "Home"
+        - auto: "*.{qmd,md}"
+        
 metadata-files:
   - ./_include/format.html.yml
 
-# Global format overrides applied to all documents.
 format:
   html:
-    # Use directory-index URLs: /page/ instead of /page.html.
     directory-index: true
