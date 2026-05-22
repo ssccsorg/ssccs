@@ -17,9 +17,7 @@ from pathlib import Path
 from ssccs_docs import __version__
 
 from . import build as build_module
-from . import check as check_module
 from . import init as init_module
-from . import resolve as resolve_module
 
 
 logging.basicConfig(
@@ -247,8 +245,8 @@ def main(argv: list[str] | None = None) -> None:
 
     elif args.command == "check":
         _setup_logging()
-        from . import check as check_module
-        success = check_module.run_check(
+        from .check import run_check as check_fn
+        success = check_fn(
             docs_root=args.docs_root.resolve(),
             validate_only=args.validate_only,
             cleanup_uncited=args.cleanup_uncited,
@@ -257,8 +255,8 @@ def main(argv: list[str] | None = None) -> None:
 
     elif args.command == "resolve":
         _setup_logging()
-        from . import resolve as resolve_module
-        success = resolve_module.resolve_all(
+        from .resolve import resolve_all as resolve_fn
+        success = resolve_fn(
             docs_root=args.docs_root.resolve(),
             check_only=args.check_only,
         )
