@@ -2741,6 +2741,50 @@ def _cleanup_orphaned_caches(
     return removed_count
 
 
+def _sync_llms_files(source_dir: Path) -> None:
+    """
+    Sync LLMS files (llms.txt and *.llms.md) from source_dir to a sibling _llms directory.
+
+    Only operates if the website config has llms-txt enabled.
+    """
+    config = get_website_config(DOCS_ROOT)
+    llms_txt_enabled = config.get("website", {}).get("llms-txt", False)
+    if not llms_txt_enabled:
+        return
+    if not source_dir.exists():
+        logger.warning(
+            f"Source directory {source_dir} does not exist, skipping rsync."
+        )
+        return
+    dest_dir = source_dir.parent / "_llms"
+    logger.info(
+        f"Running rsync to copy LLMS files from {source_dir} to {dest_dir}"
+    )
+    rsync_cmd = [
+        "rsync",
+        "-av",
+        "--delete",
+        "--delete-excluded",
+        "--include=*/",
+        "--include=*.llms.md",
+        "--include=llms.txt",
+        "--exclude=*",
+        f"{source_dir}/",
+        f"{dest_dir}/",
+    ]
+    try:
+        subprocess.run(rsync_cmd, check=True)
+        subprocess.run(
+            ["find", str(dest_dir), "-type", "d", "-empty", "-delete"],
+            check=False,
+        )
+        logger.info("rsync completed successfully.")
+    except subprocess.CalledProcessError as e:
+        logger.error(f"rsync failed with exit code {e.returncode}")
+    except Exception as e:
+        logger.error(f"Failed to run rsync: {e}")
+
+
 def build_targets(
     targets: List[str],
     output_dir: Optional[Path],
@@ -2961,56 +3005,8 @@ def build_targets(
 
             logger.info(f"All targets completed successfully: {list(results.keys())}")
 
-            # If website mode and llms-txt enabled, run rsync to copy LLMS files
-            if website:
-                config = get_website_config(DOCS_ROOT)
-                llms_txt_enabled = config.get("website", {}).get("llms-txt", False)
-                if llms_txt_enabled:
-                    # Determine source and destination directories
-                    source_dir = final_site if output_dir is None else output_dir
-                    # Ensure source_dir exists
-                    if not source_dir.exists():
-                        logger.warning(
-                            f"Source directory {source_dir} does not exist, skipping rsync."
-                        )
-                    else:
-                        dest_dir = source_dir.parent / "_llms"
-                        logger.info(
-                            f"Running rsync to copy LLMS files from {source_dir} to {dest_dir}"
-                        )
-                        rsync_cmd = [
-                            "rsync",
-                            "-av",
-                            "--delete",
-                            "--delete-excluded",
-                            "--include=*/",
-                            "--include=*.llms.md",
-                            "--include=llms.txt",
-                            "--exclude=*",
-                            f"{source_dir}/",
-                            f"{dest_dir}/",
-                        ]
-                        try:
-                            subprocess.run(rsync_cmd, check=True)
-                            subprocess.run(
-                                [
-                                    "find",
-                                    str(dest_dir),
-                                    "-type",
-                                    "d",
-                                    "-empty",
-                                    "-delete",
-                                ],
-                                check=False,
-                            )
-                            logger.info("rsync completed successfully.")
-                        except subprocess.CalledProcessError as e:
-                            logger.error(f"rsync failed with exit code {e.returncode}")
-                        except Exception as e:
-                            logger.error(f"Failed to run rsync: {e}")
-
             # Execute global post-render commands (e.g., generate hierarchical llms.txt)
-            # Runs after rsync populates _llms with .llms.md files.
+            _sync_llms_files(final_output)
             run_post_render_commands(EXTERNAL_CONFIG, DOCS_ROOT)
 
             return True
@@ -3067,6 +3063,10 @@ def build_targets(
         return False
 
     logger.info(f"All targets completed successfully: {list(results.keys())}")
+
+    # Sync LLMS files (llms.txt and *.llms.md) into a sibling _llms directory
+    if website:
+        _sync_llms_files(source_dir=final_site if output_dir is None else output_dir)
 
     # Execute global post-render commands (e.g., generate hierarchical llms.txt)
     run_post_render_commands(EXTERNAL_CONFIG, DOCS_ROOT)
