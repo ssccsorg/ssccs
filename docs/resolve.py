@@ -49,6 +49,13 @@ class _BaseResolver:
     LOCAL_EXCLUDE: List[str] = []  # per-resolver file patterns (relative to root)
 
     # ------------------------------------------------------------------
+    # Subclasses MUST override
+    # ------------------------------------------------------------------
+    def fix_one_file(self, file_path: Path, root: Path, dry_run: bool, verbose: bool) -> int:
+        """Fix references in a single file. Subclasses override this."""
+        raise NotImplementedError
+
+    # ------------------------------------------------------------------
     # build.yml helpers
     # ------------------------------------------------------------------
     @staticmethod
@@ -723,7 +730,7 @@ class IncludeResolver(_BaseResolver):
                 if dry_run:
                     print(f"\n[{rel_display}]")
                     print(f"  - {m.group(0)}")
-                    print(f"  + (removed — beamer-only)")
+                    print("  + (removed -- beamer-only)")
                 else:
                     try:
                         file_path.write_text(new_text, encoding="utf-8")
