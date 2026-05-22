@@ -1969,6 +1969,7 @@ IGNORING_ARTIFACT_PATTERNS = [
     "**/_llms",
     "**/_site",
     "**/_docsbuild",
+    "**/.jupyter_cache",
     "**/*.tex",
     "**/*.pdf",
     "**/*.html",

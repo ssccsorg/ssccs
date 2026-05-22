@@ -292,6 +292,7 @@ class CleanupManager:
         "**/__pycache__", "**/*.pyc", "**/*.pyd", "**/*.log",
         "**/*_output", "**/*_extensions", "**/*_cached", "**/*_files",
         "**/*_libs", "**/_llms", "**/_site", "**/_docsbuild",
+        "**/.jupyter_cache",
         "**/*.tex", "**/*.pdf", "**/*.html",
         "**/*.quarto_ipynb*", "**/*.quarto",
         "**/*.c2pa", "**/*.c2pa_identifier.svg",
