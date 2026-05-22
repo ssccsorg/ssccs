@@ -10,12 +10,16 @@ Subcommands:
 
 import argparse
 import logging
+import os
 import sys
 from pathlib import Path
 
 from ssccs_docs import __version__
 
+from . import build as build_module
+from . import check as check_module
 from . import init as init_module
+from . import resolve as resolve_module
 
 
 logging.basicConfig(
@@ -31,6 +35,19 @@ def _add_global_args(parser: argparse.ArgumentParser) -> None:
         action="version",
         version=f"%(prog)s {__version__}",
     )
+
+
+def _setup_logging() -> None:
+    """Configure proper logging with timestamps when running commands."""
+    root = logging.getLogger()
+    if not root.handlers:
+        handler = logging.StreamHandler(sys.stderr)
+        handler.setFormatter(
+            logging.Formatter("%(asctime)s - %(levelname)s - %(message)s",
+                              datefmt="%Y-%m-%d %H:%M:%S")
+        )
+        root.addHandler(handler)
+        root.setLevel(logging.INFO)
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -87,7 +104,8 @@ def main(argv: list[str] | None = None) -> None:
         "targets",
         nargs="*",
         default=["all"],
-        help="Build targets (default: all)",
+        help="Build targets: any discovered .qmd/.md file, 'all' (default), "
+        "'snapshot' to refresh cache, or 'clean' to remove Quarto artifacts",
     )
     build_parser.add_argument(
         "--output-dir", "-o", type=Path, default=None,
@@ -163,16 +181,88 @@ def main(argv: list[str] | None = None) -> None:
         sys.exit(0 if success else 1)
 
     elif args.command == "build":
-        sys.exit(0)
-        # TODO: delegate to build.build_targets(docs_root=args.docs_root, ...)
+        _setup_logging()
+        docs_root = args.docs_root.resolve()
+
+        # Load config
+        config_path = args.config
+        if config_path is None:
+            default_config = docs_root / "build.yml"
+            if default_config.exists():
+                config_path = default_config
+
+        build_module.initialize_config(docs_root, config_path)
+
+        # Handle "clean"
+        if "clean" in args.targets:
+            import shutil
+            success = build_module.clean_quarto_artifacts(docs_root)
+            sys.exit(0 if success else 1)
+
+        # Handle "snapshot"
+        if "snapshot" in args.targets:
+            snapshot_targets = [t for t in args.targets if t != "snapshot"]
+            if not snapshot_targets:
+                snapshot_targets = list(build_module.BUILD_FUNCTIONS.keys())
+            else:
+                snapshot_targets = build_module.parse_targets(snapshot_targets)
+                if "all" in snapshot_targets:
+                    snapshot_targets = list(build_module.BUILD_FUNCTIONS.keys())
+                else:
+                    snapshot_targets = build_module.validate_targets(snapshot_targets)
+            success = True
+            for target in snapshot_targets:
+                if not build_module.refresh_cache_for_target(
+                    target, output_dir=args.output_dir,
+                    docs_root=docs_root,
+                    target_config=build_module.TARGET_CONFIG,
+                ):
+                    success = False
+            sys.exit(0 if success else 1)
+
+        # Handle "all"
+        if "all" in args.targets:
+            targets = list(build_module.BUILD_FUNCTIONS.keys())
+        else:
+            targets = build_module.parse_targets(args.targets)
+            targets = build_module.validate_targets(targets)
+
+        # Compute default jobs
+        if args.jobs is not None:
+            max_jobs = args.jobs
+        else:
+            _logical_cores = os.cpu_count() or 4
+            max_jobs = max(1, _logical_cores // 2)
+
+        success = build_module.build_targets(
+            targets=targets,
+            output_dir=args.output_dir,
+            sequence_mode=args.sequence,
+            max_jobs=max_jobs,
+            single_command=not args.parallel_formats,
+            website=args.website,
+            docs_root=docs_root,
+        )
+        sys.exit(0 if success else 1)
 
     elif args.command == "check":
-        sys.exit(0)
-        # TODO: delegate to check.run_check(docs_root=args.docs_root, ...)
+        _setup_logging()
+        from . import check as check_module
+        success = check_module.run_check(
+            docs_root=args.docs_root.resolve(),
+            validate_only=args.validate_only,
+            cleanup_uncited=args.cleanup_uncited,
+        )
+        sys.exit(0 if success else 1)
 
     elif args.command == "resolve":
-        sys.exit(0)
-        # TODO: delegate to resolve.resolve_all(docs_root=args.docs_root, ...)
+        _setup_logging()
+        from . import resolve as resolve_module
+        success = resolve_module.resolve_all(
+            docs_root=args.docs_root.resolve(),
+            check_only=args.check_only,
+        )
+        sys.exit(0 if success else 1)
 
 
 if __name__ == "__main__":
