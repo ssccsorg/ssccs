@@ -86,8 +86,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Pull pre-built Docker image
-        run: docker pull ghcr.io/${{ github.repository_owner }}/sdbs:latest
+      - name: Pull or build Docker image
+        run: |
+          IMAGE="ghcr.io/${{ github.repository_owner }}/sdbs:latest"
+          if docker pull "$IMAGE" 2>/dev/null; then
+            echo "Image pulled successfully."
+          else
+            echo "Image not found in registry. Building locally..."
+            docker build -t "$IMAGE" -f tools/docs-orchestrator/Dockerfile .
+          fi
+        shell: bash
 
       - name: Run documentation build
         run: |
