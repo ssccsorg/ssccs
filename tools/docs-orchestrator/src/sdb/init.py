@@ -2,7 +2,7 @@
 SDBS init — scaffold a new docs directory with templates.
 
 Usage:
-    sdb init [path] [--force] [--ssccs]
+    sdb init [path] [--force] [--template NAME]
 """
 
 import logging
@@ -48,13 +48,14 @@ def _copy_template(src: Path, dst: Path, force: bool) -> bool:
     return True
 
 
-def scaffold(target_dir: Path, force: bool = False, ssccs: bool = False) -> bool:
+def scaffold(target_dir: Path, force: bool = False, template: str = "default") -> bool:
     """Scaffold a docs directory with SDBS templates.
 
     Args:
         target_dir: Directory to create/initialize.
         force: Overwrite existing files.
-        ssccs: Use SSCCS-specific templates instead of minimal defaults.
+        template: Template flavour name (subdirectory under templates/).
+                  Falls back to 'default' if not found.
 
     Returns:
         True if all files were copied successfully.
@@ -66,15 +67,18 @@ def scaffold(target_dir: Path, force: bool = False, ssccs: bool = False) -> bool
         logger.error(f"Templates directory not found: {TEMPLATES_PACKAGE}")
         return False
 
-    flavour = "ssccs" if ssccs else "default"
-    template_map = SSCCS_TEMPLATE_MAP if ssccs else DEFAULT_TEMPLATE_MAP
-    template_dir = TEMPLATES_PACKAGE / flavour
-
+    template_dir = TEMPLATES_PACKAGE / template
     if not template_dir.is_dir():
-        logger.error(f"Template flavour '{flavour}' not found: {template_dir}")
-        return False
+        logger.warning(
+            f"Template '{template}' not found at {template_dir}, "
+            f"falling back to 'default'."
+        )
+        template = "default"
+        template_dir = TEMPLATES_PACKAGE / template
 
-    logger.info(f"Using {flavour} template set")
+    template_map = SSCCS_TEMPLATE_MAP if template == "ssccs" else DEFAULT_TEMPLATE_MAP
+
+    logger.info(f"Using '{template}' template set")
 
     total = 0
     errors = 0
@@ -102,7 +106,7 @@ def scaffold(target_dir: Path, force: bool = False, ssccs: bool = False) -> bool
     logger.info(f"Done. {total} file(s) written to {target}")
     logger.info("")
     logger.info("Next steps:")
-    if ssccs:
+    if template == "ssccs":
         logger.info("  1. Edit _include/author.yml with your information")
         logger.info("  2. Edit _quarto-website.yml with your site URL and repo")
         logger.info("  3. Review _include/_graphviz.py for DOT diagram utilities")

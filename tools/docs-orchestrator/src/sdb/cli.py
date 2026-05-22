@@ -77,9 +77,10 @@ def main(argv: list[str] | None = None) -> None:
         help="Overwrite existing files",
     )
     init_parser.add_argument(
-        "--ssccs",
-        action="store_true",
-        help="Use SSCCS-specific templates (graphviz, title-meta items, etc.)",
+        "--template",
+        type=str,
+        default="default",
+        help="Template flavour to use (default: 'default', available: 'default', 'ssccs')",
     )
 
     # --- build ---
@@ -180,7 +181,7 @@ def main(argv: list[str] | None = None) -> None:
     args = parser.parse_args(argv)
 
     if args.command == "init":
-        success = init_module.scaffold(args.path, force=args.force, ssccs=args.ssccs)
+        success = init_module.scaffold(args.path, force=args.force, template=args.template)
         sys.exit(0 if success else 1)
 
     elif args.command == "build":
