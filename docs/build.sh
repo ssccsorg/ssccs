@@ -1,28 +1,57 @@
 #!/usr/bin/env bash
 #
-# Build SSCCS documentation using the SDBS Docker image.
+# Build SSCCS documentation using SDBS.
 #
 # Usage:
 #   ./build.sh               # build all docs with website profile
 #
-# Prerequisites: Docker
+# SDBS is installed automatically via one of:
+#   uv tool install git+https://github.com/ssccsorg/sdbs.git
+#   pip install git+https://github.com/ssccsorg/sdbs.git
 #
-# The SDBS image is published at ghcr.io/ssccsorg/sdbs:latest
-# from the https://github.com/ssccsorg/sdbs repository.
+# Falls back to Docker if neither uv, pip, nor sdb are available.
 #
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 IMAGE="ghcr.io/ssccsorg/sdbs:latest"
+SDBS_REPO="git+https://github.com/ssccsorg/sdbs.git"
 
-echo "Pulling SDBS Docker image..."
-docker pull "$IMAGE"
+# ---- 1. Install SDBS if not already available ----
+if ! command -v sdb &>/dev/null; then
+  if command -v uv &>/dev/null; then
+    echo "Installing SDBS via uv..."
+    uv tool install "$SDBS_REPO"
+  elif command -v pip &>/dev/null; then
+    echo "Installing SDBS via pip..."
+    pip install "$SDBS_REPO"
+  else
+    echo "Neither uv nor pip found. Falling back to Docker."
+    echo "Pulling SDBS Docker image..."
+    docker pull "$IMAGE"
+    exec docker run --rm \
+      -v "$SCRIPT_DIR/..":/work \
+      -w /work \
+      -e QUARTO_PYTHON=python3 \
+      "$IMAGE" \
+      sdb build docs --website
+  fi
+fi
 
-# Run the build (mirrors .github/workflows/deploy-docs-ghpage.yml)
-exec docker run --rm \
-  -v "$SCRIPT_DIR/..":/work \
-  -w /work \
-  -e QUARTO_PYTHON=python3 \
-  "$IMAGE" \
-  sdb build docs --website
+# ---- 2. Check Quarto ----
+if ! command -v quarto &>/dev/null; then
+  echo "Quarto not found on PATH. Falling back to Docker."
+  echo "Pulling SDBS Docker image..."
+  docker pull "$IMAGE"
+  exec docker run --rm \
+    -v "$SCRIPT_DIR/..":/work \
+    -w /work \
+    -e QUARTO_PYTHON=python3 \
+    "$IMAGE" \
+    sdb build docs --website
+fi
+
+# ---- 3. Run directly ----
+echo "Running: sdb build docs --website"
+exec sdb build docs --website
