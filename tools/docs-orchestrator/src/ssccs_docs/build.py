@@ -10,6 +10,7 @@ merge, and cleanup.
 from __future__ import annotations
 
 import logging
+import os
 import shutil
 import subprocess
 import sys
@@ -1393,10 +1394,12 @@ def initialize_config(docs_root: Path, config_path: Optional[Path] = None) -> No
     ``TARGET_CONFIG`` and ``BUILD_FUNCTIONS``, and ensures the Jupyter
     cache directory exists.
     """
-    global EXTERNAL_CONFIG, TARGET_CONFIG, BUILD_FUNCTIONS, OUTPUT_DIR_TARGETS
+    global EXTERNAL_CONFIG, TARGET_CONFIG, BUILD_FUNCTIONS, OUTPUT_DIR_TARGETS, JUPYTER_CACHE_PATH
 
     jupyter_cache_path = docs_root.parent / JUPYTER_CACHE_DIR
     jupyter_cache_path.mkdir(parents=True, exist_ok=True)
+    JUPYTER_CACHE_PATH = jupyter_cache_path
+    os.environ["JUPYTERCACHE"] = str(jupyter_cache_path)
 
     EXTERNAL_CONFIG = load_external_config(config_path)
     TARGET_CONFIG = get_target_config(docs_root, EXTERNAL_CONFIG)
