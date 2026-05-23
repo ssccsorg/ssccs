@@ -1,24 +1,26 @@
 #!/usr/bin/env bash
-#
-# Build SSCCS documentation using the SDBS Docker image.
-#
-# Usage:
-#   ./build.sh               # build all docs with website profile
-#
-# Prerequisites: Docker
-#
-
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-IMAGE="ghcr.io/ssccsorg/sdbs:latest"
+cd "$(dirname "$0")"
 
-echo "Pulling SDBS Docker image..."
-docker pull "$IMAGE"
+if command -v sdb &> /dev/null; then
+    sdb build . --website && exit 0
+fi
 
-exec docker run --rm \
-  -v "$SCRIPT_DIR/..":/work \
-  -w /work \
-  -e QUARTO_PYTHON=python3 \
-  "$IMAGE" \
-  sdb build docs --website
+cat <<'EOF'
+sdb not available locally. For native execution, install the following:
+
+  System packages (Ubuntu 24.04):
+    build-essential curl git python3 wget ca-certificates
+
+  Additional:
+    Quarto CLI        https://quarto.org/docs/download/
+    rsync             apt install rsync
+    sdb CLI           uv tool install git+https://github.com/ssccsorg/sdbs
+    (see https://github.com/ssccsorg/sdbs)
+
+Falling back to Docker execution.
+EOF
+
+cd "$(dirname "$0")/.."
+exec docker run --rm -v "$(pwd):/work" -w /work/docs ghcr.io/ssccsorg/sdbs:latest sdb build . --website
