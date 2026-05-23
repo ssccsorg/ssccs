@@ -398,6 +398,53 @@ digraph RunnerDist {
 
 ## Dynamic Content Generation
 
+```{python}
+#| label: fig-sdbs-artifect
+#| fig-cap: "SDBS artifects: from source documents to published outputs"
+dot("""
+digraph SDBSArchitecture {
+    rankdir=TB;
+    node [shape=box, style=rounded, fillcolor=lightyellow, style=filled];
+
+    subgraph cluster_source {
+        label="Source Documents";
+        style=dashed;
+        color=gray60;
+        QMD [label="*.qmd/*.md files"];
+        INC [label="_include/\n(shared fragments)"];
+        YML [label="build.yml\n(configuration)"];
+    }
+
+    subgraph cluster_build {
+        label="SDBS Build Engine";
+        style=dashed;
+        color=gray60;
+        SCHED [label="Concurrent Scheduler\nwith an analytical dependency graph"];
+        CACHE [label="Cache\n(content-addressed)"];
+        PAR [label="Worker Pool\n(parallel renders)"];
+        SCHED -> CACHE;
+        SCHED -> PAR;
+    }
+
+    subgraph cluster_output {
+        label="Output Formats";
+        style=dashed;
+        color=gray60;
+        HTML [label="HTML\n(website)"];
+        PDF [label="PDF\n(print/archive)"];
+    }
+
+    CACHE -> HTML;
+    CACHE -> PDF;
+    QMD -> SCHED;
+    INC -> SCHED;
+    YML -> SCHED;
+    PAR -> HTML;
+    PAR -> PDF;
+}
+""")
+```
+
 Beyond structural validation, the platform generates navigational and
 cross-format content at render time based on each document's metadata and the
 project configuration:
