@@ -28,9 +28,9 @@ We support equal opportunity regardless of background. However, we recognize tha
 
 Every contributor bears 100% responsibility for the integrity of their contributions. Tools (including AI) are aids, but the human engineer is ultimately accountable.
 
-## AI Tooling Policy: Tools as Standard
+## AI-driven Development Policy
 
-Using AI (LLMs, etc.) for engineering is as standard as using a compiler or an IDE. Insisting that code is only legitimate when written entirely by bare human hands is like claiming, in the age of the automobile, that "if you didn't walk on your own four legs, you haven't really moved." The tool changed; the destination and the accountability of the driver did not.
+Using AI for engineering is as standard as using a compiler or an IDE. Insisting on purely human‑written code is like claiming, in the age of the automobile, that walking is the only real movement. The tool has changed, but the driver’s destination and accountability have not. The era of driving demands fitness for purpose (racing, highway, city, off‑road), vehicle inspections, and basic controls (lights, gears). Likewise, engineering with AI requires us to improve our ability to match capabilities to tasks, validate outputs, and maintain control per terrain. Our sole concern is the discussion of these activities—matching, validation, control, and terrain‑specific driving.
 
 - **No Mandatory Disclosure:** Contributors are not required to disclose AI usage in commit messages or PRs.
 - **Human Accountability:** Regardless of the tools used, the human engineer who submits the code bears 100% responsibility for its consequences.
