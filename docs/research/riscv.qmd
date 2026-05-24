@@ -256,6 +256,8 @@ digraph Compiler_Pipeline {
 | **4. Hardware Mapping** | Logical address map | Physical placement | Cache-line boundary consideration, bank interleaving, PIM capability utilization |
 | **5. Observation Code Gen** | Physical placement | Executable code/config | Native code emission, FPGA bitstream generation, observation operator implementation |
 
+Unlike traditional compilers that produce instruction sequences, the SSCCS compiler produces geometric mappings: Scheme topology is partitioned across spatial coordinates with wire-length minimization as the primary cost function. This is graph partitioning, not instruction scheduling. Where Processing-In-Memory (PIM) reduces data movement distance, SSCCS eliminates data movement as a concept: data remains stationary at its scheme coordinate, and computation comprises only the constraint resolution across the topology.
+
 ### Automated Optimization
 
 Traditional manual optimizations become automatic consequences of structural specification in SSCCS [@lee2026]:
@@ -365,6 +367,8 @@ The SSCCS coprocessor implements a **structured architecture** to minimize side 
 - This design aims to reduce pipeline stalls and simplify interaction with core speculation mechanisms.
 - Direct write‑back through the XIF result interface ensures returned data follows standard pipeline forwarding paths, with careful coordination to avoid conflicts with core register‑file operations [@openhw2025xifguide].
 
+The ultimate hardware target for the Observation operator is a fabric where an Observation trigger causes simultaneous constraint-gate resolution across the coordinate space: no sequential instruction fetch, only signal propagation through the topology. The XIF coprocessor represents an intermediate step toward this architecture.
+
 ## Research Roadmap
 
 ### Phase 1: Software Emulation
@@ -376,6 +380,8 @@ The SSCCS coprocessor implements a **structured architecture** to minimize side 
 - Use **riscvOVPsimCOREV** (the Imperas reference simulator for OpenHW cores) [@imperas2025] as a primary validation environment to develop and test SSCCS custom instructions
 - Define a set of **observation primitives** (e.g., `OBSERVE`, `COLLAPSE`) as custom RISC-V instructions using the R-type format (opcode = `custom1` or `custom2`) [@riscv2019spec]
 - Implement an SSCCS runtime library that translates structural descriptions (`.ss` files) into sequences of these custom instructions, ensuring compatibility with generic RISC‑V toolchains
+
+This RISC‑V assembly emulation layer is a temporary scaffold—a concession to available instruction-set hardware. SSCCS's native primitives are not instructions but constraints, Segments, Schemes, and Observations. The translation gap between structural specification and sequential assembly is bridged by compiler heuristics; a native structural fabric would dissolve this gap, collapsing observation directly into signal propagation.
 
 **Expected Outcomes:**
 
@@ -429,6 +435,8 @@ The SSCCS coprocessor implements a **structured architecture** to minimize side 
 - Use the APB interface from the CV32E40P core to configure the eFPGA with SSCCS accelerators dynamically [@quicklogic2024]
 - Develop a demonstration application (e.g., real-time sensor processing on the DevKit's Himax camera) that uses SSCCS to evaluate energy and latency characteristics [@himax2023]
 - Document the methodology for adapting SSCCS acceleration to other RISC‑V MCU platforms with eFPGA capabilities
+
+The open-source silicon compiler ecosystem (SiliconCompiler, Yosys, OpenROAD, Chisel, CIRCT, FABulous eFPGA) provides the hardware target infrastructure that the SSCCS compiler pipeline will eventually target, making Phase 3 and beyond more feasible than they appear from a traditional ASIC development perspective.
 
 **Expected Outcomes:**
 

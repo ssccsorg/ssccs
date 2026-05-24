@@ -457,6 +457,8 @@ digraph SSCCS_MultiField {
 
 Through immutable Segments and Schemes, SSCCS achieves emergent parallelism without locks, eliminates data movement via structural mapping, and ensures deterministic results. Observation events can occur concurrently without temporal ordering, and the resulting projections are independent. **Time is not a fundamental dimension that governs state changes**; instead, the structure of Schemes and the constraints of Fields govern what can be observed and when.
 
+Recent work on classical parallelism provides convergent evidence. Erementchouk and Mazumder [@erementchouk2026symmetry] prove that relaxed spin networks with continuous symmetry perform multiple simultaneous computations under isotonicity constraints, while Kish [@kish2025exponential] demonstrates that classical noise-based logic achieves exponential speedups for certain search problems. These results independently reinforce the viability of deterministic parallel computation without quantum resources. A detailed comparison with SSCCS primitives is provided in [*-@sec-appendix-classical-parallelism*].
+
 {{< include _include/_ontology3d.qmd >}}
 
 ## Definition of Primitives
@@ -782,7 +784,7 @@ $$
 P(s) = \pi(s, F) \quad \text{for } s \in \mathcal{A}(\Sigma, F).
 $$
 
-If the resolution strategy is deterministic, $\Omega$ is a function; if probabilistic, it samples from a distribution defined by the transition weights $T$. Observation occurs when the structure and Field together create an instability—i.e., multiple admissible configurations. $\Omega$ deterministically selects one configuration and returns it as $P$. No data is moved during observation; Segments remain in place.
+If the resolution strategy is deterministic, Ω is a function; if probabilistic, it samples from a distribution defined by the transition weights $T$. Observation occurs when the structure and Field together create an instability—i.e., multiple admissible configurations. Ω deterministically selects one configuration and returns it as $P$. No data is moved during observation; Segments remain in place.
 
 ### Field Evolution and Observation Transition
 
@@ -898,7 +900,7 @@ This determinism is concretely realized when the observation log is append-only.
 
 ### Compiler: Topology Optimizer
 
-A key engineering contribution of SSCCS is that the compiler, rather than generating a sequence of instructions, performs structural mapping of the Schema onto the target hardware. The compiler analyses the adjacency relations and memory layout semantics declared in the Schema written in the open format(`.ss`) [*-@sec-appendix-openformat*] and produces a physical placement of Segments that maximises locality.
+A key engineering contribution of SSCCS is that the compiler, rather than generating a sequence of instructions, performs structural mapping of the Schema onto the target hardware. Where a traditional compiler schedules instructions onto functional units, the SSCCS compiler partitions a graph onto a spatial substrate—it solves a graph-partitioning problem with wire-length minimization, not an instruction-scheduling problem. The compiler analyses the adjacency relations and memory layout semantics declared in the Schema written in the open format(`.ss`) [*-@sec-appendix-openformat*] and produces a physical placement of Segments that maximises locality.
 
 For example, if a Schema defines a two-dimensional grid of Segments with nearest-neighbour adjacency, the compiler can lay out those Segments in memory in row-major or column-major order such that adjacent Segments occupy adjacent cache lines. This is analogous to data layout optimisations performed manually in high-performance computing, but here it is automated and guaranteed by the Schema's specification.
 
@@ -1083,6 +1085,8 @@ While SSCCS can be implemented in software, its benefits are most pronounced wit
 - **OpenHW Ecosystem**: The OpenHW CORE‑V MCU [@openhw2025cvmcu] and SDK provide ready‑to‑use platforms for prototyping SSCCS observation units, while the Imperas simulation environment enables pre‑silicon verification. The CVA6 core and other OpenHW MCU variants offer scalable performance targets. Integration proposals outline concrete steps for mapping SSCCS primitives to RISC‑V extensions.
 - **Edge and Peripheral Integration**: Peripheral integration with eFPGA fabrics [@quicklogic2024] and always‑on vision sensors demonstrates the versatility of the RISC‑V ecosystem for edge deployment, while formal verification tools [@smith2025] and coprocessor examples [@xifcopro2025] ensure correctness and extensibility. Efficient I/O for large‑scale machine learning [@emlio2025] further highlights the importance of minimizing data movement.
 - **Space‑Grade Resilience**: Radiation‑hardened RISC‑V implementations such as HARV‑SoC and StarRISC, together with ESA’s TRISTAN roadmap [@tristan2025], demonstrate the industry shift toward deterministic, mixed‑criticality aware processors. Recent advances in multi‑bit fault‑tolerant instruction decoding [@ghosh2025], dynamic lockstep redundancy [@simoes2024], and high‑performance space computing platforms [@microchip2025pic64; @starlab2026] further illustrate the RISC‑V community’s focus on resilience. SSCCS complements these efforts by providing a software‑defined resilience layer that can be deployed as cryptographically signed Fields. [@elash2025efficacy; @walsemann2023radiation].
+
+Taken together, these hardware directions point toward a deeper departure from conventional computing than PIM alone achieves. PIM reduces data-movement distance by placing compute near memory. SSCCS eliminates data movement as a concept: data remains stationary at its scheme coordinate, and computation consists only of constraint resolution across the topology. Native SSCCS hardware would replace the instruction pipeline with a constraint-resolution fabric.
 
 ### Implementation Cases
 
@@ -2402,6 +2406,36 @@ This table does not assert that SSCCS outperforms existing paradigms. It identif
 
 Independent work on GPU kernel programming has developed type-level layout abstractions that allow memory layouts to be composed, nested, and transformed at compile time without runtime overhead. These layout algebras—which encode shape, stride, tiling, and swizzling as type parameters—converge with SSCCS's `MemoryLayout` abstraction: both treat data placement as a declarative, compile-time property rather than a runtime decision. While these systems target conventional GPU execution and do not implement observation semantics, their existence demonstrates that layout-first, type-driven approaches to memory are not only theoretically sound but practically deployable on current hardware.
 
+
+## Classical Parallelism Comparisons {#sec-appendix-classical-parallelism}
+
+This appendix provides a detailed structural comparison between SSCCS and two independently developed classical parallelism mechanisms: symmetry-induced parallelism in relaxed spin networks (Erementchouk and Mazumder [@erementchouk2026symmetry]) and exponential parallelism in instantaneous noise-based logic (Kish [@kish2025exponential]). The comparisons are structural, not quantitative.
+
+### Symmetry-Induced Parallelism (Erementchouk and Mazumder)
+
+The V2 model is a relaxation-based dynamical Ising machine whose terminal states exhibit strongly clustered structure: relaxed spins at equilibrium coalesce into groups with coinciding continuous components. The system possesses a one-parameter continuous symmetry: the objective function is invariant under homogeneous translation of all continuous components, equivalent to rotation of the phase circle. For strictly quadratic Hamiltonians, the relaxation correction term vanishes at equilibrium, so every discrete spin configuration reached by symmetry transformation produces the identical objective value.
+
+Symmetry-induced parallelism arises because a single rotation of the phase circle traverses a chain of discrete spin configurations. The authors formalize this through isotonicity: a Boolean function is evaluated along the induced bit-flip chain, and when isotonicity holds, the V2 model admits a unique stable equilibrium encoding all computations along the chain. An N-bit ripple-carry adder demonstration reproduces the carry-select effect without dedicated hardware blocks.
+
+**Mapping to SSCCS primitives:**
+
+| V2 Model | SSCCS |
+|----------|-------|
+| Clustered terminal states (coinciding continuous components) | Segments bound by a Scheme |
+| Objective function | Field constraints |
+| Stability theorem (unique equilibrium under isotonicity) | Deterministic Observation |
+| Symmetry transformation producing multiple spin configurations | Concurrent Observation paths |
+| Relaxation correction vanishing at equilibrium | Projection correctness guarantee |
+
+**Limitations acknowledged by the authors:** isotonicity for complex multi-output functions remains an open problem; dynamical bottlenecks can lead to metastable states; mitigation requires careful weight assignment (prime-number scaling). These inform SSCCS's compiler optimization strategy.
+
+### Exponential Parallelism in INBL (Kish)
+
+Instantaneous Noise-based Logic (INBL) exploits the product space of classical noise processes rather than quantum superposition to realize an exponentially large Hilbert space on conventional hardware equipped with a true random number generator. INBL is currently universal only for Boolean logic; it lacks essential superposition operations and therefore cannot implement algorithms such as Shor's.
+
+For certain problem classes, INBL achieves speedups exceeding quantum algorithms: O(log n) for phonebook lookup versus Grover's O(sqrt(n)). INBL hardware is considerably simpler than quantum hardware, requiring only modest modifications to conventional PC architectures, and inherently avoids decoherence and error correction challenges.
+
+**Relationship with SSCCS:** INBL and SSCCS occupy distinct positions on the classical parallelism spectrum. INBL utilizes stochastic noise processes to achieve probabilistic parallelism; SSCCS achieves deterministic parallelism through structural constraint composition. The two approaches are complementary: INBL demonstrates that classical systems can match or exceed quantum performance for specific tasks, while SSCCS provides a framework for verifiable, deterministic computation through structural observation rather than statistical sampling.
 
 :::
 

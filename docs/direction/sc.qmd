@@ -28,6 +28,8 @@ Traditional assembly languages encode a model of computation built on sequential
 
 When SSCCS targets native hardware, the intermediate layer will shift from instruction encoding to spatial configuration. A Field Placement Description Language (FPDL) describes which constraints occupy which regions of an observation fabric, how they interconnect, and how the fabric's topology reflects the scheme's adjacency rules. FPDL is not an assembler. It is a placement language that feeds a silicon compiler, which translates structural constraints directly into hardware netlists or FPGA bitstreams.
 
+The conceptual framework beneath FPDL treats Fact, Intent, and Hint as orthogonal axes in a three‑dimensional coordinate system, not merely as a classification scheme. Every placement in the observation fabric is a geometric configuration in this FIH space: a Fact occupies a coordinate along one axis, an Intent projects along another, and Hints modulate the constraint topology between them. FPDL descriptions are therefore spatial declarations of where each structural element sits in this volume and how signals propagate along the axes. This geometry is what distinguishes FPDL from traditional high‑level synthesis: HLS schedules operations in time; FPDL places constraints in space.
+
 ```{python}
 #| label: fig-evolution
 #| fig-cap: "The compilation pipeline evolves from assembly emulation to direct silicon configuration"
@@ -73,6 +75,10 @@ A silicon compiler for SSCCS accepts a scheme description and a set of field con
 - Embedding cryptographic identifiers directly into the hardware so that every observation carries an auditable provenance.
 
 This compiler operates on a different principle from traditional high‑level synthesis tools. It does not schedule operations or allocate registers. It resolves spatial adjacency and connectivity. The resulting hardware contains no program counter, no instruction fetch unit, and no data cache in the conventional sense. It is a static fabric that responds to field updates with deterministic projections.
+
+The distinction runs deeper than the absence of a von Neumann control path. Processing‑in‑memory architectures reduce data movement distance by placing compute near storage. SSCCS eliminates data movement as a concept: data remains stationary at its scheme coordinate, and computation is the resolution of constraints across the topology. The resulting hardware is a constraint‑resolution fabric, not a sequential processor.
+
+The hardware targets for FPDL already exist in mature open‑source form. The silicon compiler toolchain (SiliconCompiler, Yosys, OpenROAD) and hardware description frameworks (Chisel, CIRCT, Amaranth HDL) provide the synthesis and place‑and‑route infrastructure needed to translate FPDL spatial declarations into physical netlists and bitstreams.
 
 ```{python}
 #| label: fig-silicon-compilation
@@ -155,7 +161,9 @@ digraph Adaptive {
 """)
 ```
 
-In this regime, a robotic system does not run a fixed control program. It continuously recomposes its own constraints based on what it observes. The hardware remains structurally verifiable because every field update is a composition of known constraints on an immutable scheme. The system adapts, but the path of its adaptation remains auditable back to the primordial field definition.
+In this regime, a robotic system does not run a fixed control program. It continuously recomposes its own constraints based on what it observes. Each Observation produces a Projection, and the Projection may recompose the Field's own constraint set, altering which observations fire next. This recursive loop (Field → Observation → Projection → new Field constraint) means the FPDL description evolves at runtime; the silicon compiler must either pre‑synthesize the reachable constraint topologies or support partial reconfiguration.
+
+The hardware remains structurally verifiable because every field update is a composition of known constraints on an immutable scheme. The system adapts, but the path of its adaptation remains auditable back to the primordial field definition.
 
 The structural observation model thus provides a framework where adaptation and verifiability coexist. Statistical learning systems sacrifice auditability for flexibility. Fixed logic sacrifices flexibility for auditability. SSCCS, by making constraint composition the primitive act of computation, aims to collapse that trade‑off.
 
