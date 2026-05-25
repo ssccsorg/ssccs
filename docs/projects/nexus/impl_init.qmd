@@ -37,83 +37,87 @@ The architecture has two layers. The Core Blackboard is the logical layer: a sha
 
 ```{python}
 #| label: fig-nexus-architecture
-#| fig-cap: "neXus Architecture"
+#| fig-cap: "Stigmergy communication: detectors observe and record Facts, agents create Intents, the Scheduler orchestrates the OODA cycle"
 dot("""
 digraph NexusArchitecture {
+    rankdir=LR;
     splines=ortho;
-    nodesep=0.3;
-    ranksep=0.5;
+    nodesep=0.2;
+    ranksep=0.3;
+    node [fontsize=9, width=1.3, height=0.35];
+    edge [fontsize=7];
 
-    // FIH Primitives (the universal interface spec)
-    fact   [label="Fact", shape=circle, style=filled, fillcolor="#44cc66", fontsize=11];
-    intent [label="Intent", shape=diamond, style=filled, fillcolor="#ffcc33", fontsize=11];
-    hint   [label="Hint", shape=box, style=filled, fillcolor="#dd5555", fontsize=11];
+    // FIH Primitives (center)
+    fact   [label="Fact", shape=circle, style=filled, fillcolor="#44cc66", fontsize=10, width=0.6];
+    intent [label="Intent", shape=diamond, style=filled, fillcolor="#ffcc33", fontsize=10, width=0.6];
+    hint   [label="Hint", shape=box, style=filled, fillcolor="#dd5555", fontsize=10, width=0.6];
 
-    fact -> intent [label="grounds", style=dashed, color="#667766", fontsize=7];
-    intent -> fact [label="produces", style=dashed, color="#776655", fontsize=7];
-    hint -> fact [label="constrains", style=dotted, color="#776666", fontsize=7];
-    hint -> intent [label="guides", style=dotted, color="#776666", fontsize=7];
+    fact -> intent [label="grounds", style=dashed, color="#667766"];
+    intent -> fact [label="produces", style=dashed, color="#776655"];
+    hint -> fact [label="constrains", style=dotted, color="#776666"];
+    hint -> intent [label="guides", style=dotted, color="#776666"];
 
-    // GraphBlackboard with DualStorage (hot + cold)
+    // GraphBlackboard (left column)
     subgraph cluster_graph {
-        label="GraphBlackboard (nexus-core)";
-        style=filled; fillcolor="#e8ffe8"; color="#4488cc"; fontsize=10;
+        label="GraphBlackboard";
+        style=filled; fillcolor="#e8ffe8"; color="#4488cc"; fontsize=9;
 
-        bb [label="GraphBlackboard", shape=box, style=filled, fillcolor="#d4e8d4", fontsize=9];
-        dual [label="DualStorage", shape=box, style=filled, fillcolor="#c8e8c8", fontsize=9];
-        hot [label="PetgraphStorage\n(FihPersistence + EvictCapable)", shape=cylinder, style=filled, fillcolor="#b8e8b8", fontsize=9];
-        cold [label="SqlNormalizedStorage\n(FihPersistence + FilterCapable)", shape=cylinder, style=filled, fillcolor="#e8d4b8", fontsize=9];
-        cypher [label="cypher\n(cyrs)", shape=box, style=filled, fillcolor="#d4e8f4", fontsize=9];
-        pgraph [label="petgraph\n(graph)", shape=cylinder, style=filled, fillcolor="#e8e8e8", fontsize=9];
+        bb [label="GraphBlackboard", shape=box, style=filled, fillcolor="#d4e8d4", fontsize=8, width=1.5];
+        dual [label="DualStorage", shape=box, style=filled, fillcolor="#c8e8c8", fontsize=8, width=1.5];
+        hot [label="PetgraphStorage", shape=cylinder, style=filled, fillcolor="#b8e8b8", fontsize=8, width=1.5];
+        cold [label="SqlNormalizedStorage", shape=cylinder, style=filled, fillcolor="#e8d4b8", fontsize=8, width=1.5];
+        cypher [label="cypher (cyrs)", shape=box, style=filled, fillcolor="#d4e8f4", fontsize=8, width=1.5];
+        pgraph [label="petgraph", shape=cylinder, style=filled, fillcolor="#e8e8e8", fontsize=8, width=1.5];
 
-        bb -> dual [label="owns", fontsize=7];
-        dual -> hot [label="hot", fontsize=7];
-        dual -> cold [label="cold", fontsize=7];
-        hot -> pgraph [label="wraps", fontsize=7, style=dashed];
-        cypher -> pgraph [label="queries", fontsize=7];
+        bb -> dual;
+        dual -> hot;
+        dual -> cold;
+        hot -> pgraph [style=dashed];
+        cypher -> pgraph;
     }
 
-    // GraphBlackboard implements the FIH interface
-    bb -> fact [style=dotted, color="#888", dir=both];
-    bb -> intent [style=dotted, color="#888", dir=both];
-    bb -> hint [style=dotted, color="#888", dir=both];
+    // Modules (right column)
+    gap [label="Gap Detector", shape=box, style=filled, fillcolor="#d4f1f9", fontsize=8];
+    cont [label="Contradiction Detector", shape=box, style=filled, fillcolor="#d4f1f9", fontsize=8];
+    state [label="State Change Detector", shape=box, style=filled, fillcolor="#d4f1f9", fontsize=8];
+    sched [label="Scheduler (OODA)", shape=box, style=filled, fillcolor="#d4f1f9", fontsize=8];
+    agent [label="Agent", shape=box, style=filled, fillcolor="#ffe0b2", fontsize=8];
 
-    // Modules connect through FIH
-    gap [label="Gap\nDetector", shape=box, style=filled, fillcolor="#d4f1f9", fontsize=9];
-    cont [label="Contradiction\nDetector", shape=box, style=filled, fillcolor="#d4f1f9", fontsize=9];
-    state [label="State Change\nDetector", shape=box, style=filled, fillcolor="#d4f1f9", fontsize=9];
-    sched [label="Scheduler\n(OODA Loop)", shape=box, style=filled, fillcolor="#d4f1f9", fontsize=9];
-    agent [label="Agent", shape=box, style=filled, fillcolor="#ffe0b2", fontsize=9];
+    gap -> fact;
+    cont -> fact;
+    state -> fact;
+    sched -> fact [dir=both];
+    agent -> fact [dir=both];
+    agent -> intent;
 
-    gap -> fact [label="observe\n(Fact)", fontsize=8, color="#44aa44"];
-    cont -> fact [label="observe\n(Fact)", fontsize=8, color="#44aa44"];
-    state -> fact [label="observe\n(Fact)", fontsize=8, color="#44aa44"];
-    sched -> fact [label="read_state()", dir="both", fontsize=8, color="#5588bb"];
-    agent -> fact [label="read detector Facts", dir="both", fontsize=8, color="#5588bb"];
-    agent -> intent [label="create Intent", fontsize=8, color="#ff8800"];
+    // Bottom row: ingestion + ev + fx + WASM
+    r2 [label="R2 / S3", shape=cylinder, style=filled, fillcolor="#ffebcd", fontsize=8, width=1.2];
+    sync [label="Sync Worker", shape=box, style=filled, fillcolor="#d4f1f9", fontsize=8, width=1.2];
+    ev [label="ev (ExaVerif)", shape=box, style=filled, fillcolor="#d4f1f9", fontsize=8, width=1.2];
+    fx [label="fx (Economy)", shape=box, style=filled, fillcolor="#fce4ec", fontsize=8, width=1.2];
+    contract [label="contract.nex", shape=note, style=filled, fillcolor="#e6f2ff", fontsize=8, width=1.2];
 
-    // Ingestion
-    r2 [label="R2 / S3", shape=cylinder, style=filled, fillcolor="#ffebcd", fontsize=9];
-    sync [label="Sync Worker", shape=box, style=filled, fillcolor="#d4f1f9", fontsize=9];
-    r2 -> sync [label="docs", fontsize=8];
-    sync -> fact [label="submit Fact", fontsize=8, color="#44aa44"];
+    cf [label="CF Worker", shape=box, style=filled, fillcolor="#f4e8e8", fontsize=7, width=1.0];
+    lambda [label="Lambda", shape=box, style=filled, fillcolor="#f4e8e8", fontsize=7, width=1.0];
+    native [label="Native", shape=box, style=filled, fillcolor="#f4e8e8", fontsize=7, width=1.0];
+    chain [label="Chain (WASI)", shape=box, style=filled, fillcolor="#f4e8e8", fontsize=7, width=1.0];
 
-    // Governance (evaluated by agents, not enforced by the Blackboard)
-    contract [label="contract.nex\n(evaluated by modules)", shape=note, style=filled, fillcolor="#e6f2ff", fontsize=9];
-    gap -> contract [style=dotted, label="reads", fontsize=7, color="#888"];
-    oracle -> contract [style=dotted, label="reads", fontsize=7, color="#888"];
+    r2 -> sync;
+    sync -> fact;
+    ev -> fact;
+    fx -> ev [style=dashed];
+    fx -> fact [style=dashed];
+    agent -> contract;
+    agent -> ev [style=dashed];
 
-    // Platform targets
-    cf [label="CF\nWASM", shape=box, style=filled, fillcolor="#f4e8e8", fontsize=7];
-    native [label="Server\nnative", shape=box, style=filled, fillcolor="#f4e8e8", fontsize=7];
-    onchain [label="Chain\nWASI", shape=box, style=filled, fillcolor="#f4e8e8", fontsize=7];
+    bb -> cf [style=dotted];
+    bb -> lambda [style=dotted];
+    bb -> native [style=dotted];
+    bb -> chain [style=dotted];
 
-    pgraph -> cf [style=dotted, color="#999"];
-    pgraph -> native [style=dotted, color="#999"];
-    pgraph -> onchain [style=dotted, color="#999"];
-
-    { rank=same; r2; sync; }
-    { rank=same; gap; ooda; oracle; }
+    { rank=same; r2; sync; ev; fx; contract; }
+    { rank=same; cf; lambda; native; chain; }
+    { rank=same; gap; cont; state; }
 }""")
 ```
 
@@ -131,6 +135,61 @@ A Blackboard can contain other Blackboards. A Fact at Dimension N becomes a Sche
 Storage backends are swappable per dimension via capability traits. A dimension requiring filtered reads uses a ColdStorage backend; a dimension requiring low-latency access uses a HotStorage backend. Each dimension can compose hot and cold backends independently. The Queue layer enables stigmergic visibility across dimensions. A write at any dimension is visible to all dimensions. The type conversion (Fact to Scheme, Observation to Hint) happens at the Queue consumer, not at the write stage.
 
 ## Design Decisions
+
+### Why WebAssembly
+
+The decision to compile the core to WASM is not about web browsers. It is about a set of constraints that WASM uniquely satisfies and that together form the non-negotiable foundation of the SSCCS ecosystem.
+
+```{python}
+#| label: fig-wasm-rationale
+#| fig-cap: "Why WASM — layered constraints that no other runtime satisfies"
+
+dot("""
+digraph WasmRationale {
+    rankdir=TB;
+    splines=ortho;
+    nodesep=0.2;
+    ranksep=0.25;
+    node [shape=box, style="rounded,filled", fontsize=8, width=1.6, height=0.4];
+    edge [fontsize=7];
+
+    wasm [label="WASM Runtime", fillcolor="#d4f1f9"];
+
+    sandbox [label="Sandbox Isolation\nper-instance memory isolation", fillcolor="#a8d8ea"];
+    deterministic [label="Deterministic Execution\nsame input → same output", fillcolor="#a8d8ea"];
+    coldstart [label="Cold Start < 1ms\ninstant spawn", fillcolor="#a8d8ea"];
+    portable [label="Portable Binary\nx86 / ARM / RISC-V", fillcolor="#a8d8ea"];
+
+    field [label="Field Sandboxing\nper-instance constraint space", fillcolor="#90caf9"];
+    proof [label="vIP Proof\ndeterminism anchors value", fillcolor="#90caf9"];
+    agent [label="Agent Isolation\none WASM instance per Agent", fillcolor="#90caf9"];
+    deploy [label="Frictionless Deploy\nwrangler / cargo-lambda / native", fillcolor="#90caf9"];
+
+    wasm -> sandbox;
+    wasm -> deterministic;
+    wasm -> coldstart;
+    wasm -> portable;
+
+    sandbox -> field [label="Field × WASM = double sandbox", style=dashed];
+    field -> proof [label="both must be breached to forge", style=dashed];
+    deterministic -> proof [label="same binary → same result = provable", style=dashed];
+    coldstart -> agent [label="spawn per tick, no pool overhead", style=dashed];
+    portable -> deploy [label="same binary everywhere", style=dashed];
+}
+""")
+```
+
+**Sandbox isolation.** Every Agent, every projector, every verification module runs in its own WASM instance. Memory is isolated at the hardware level. A compromised projector cannot read another projector's Fact cache. This is not configurable discipline — it is structural impossibility.
+
+**Deterministic execution.** WASM's specification guarantees that the same bytecode with the same input produces the same output, across all hosts and all platforms. A vIP asset's value is that its verification result is reproducible by any party. WASM determinism is the mechanism that makes reproducibility a mathematical guarantee rather than a procedural hope.
+
+**Cold start under 1 millisecond.** The OODA loop spawns and despawns agents on every tick. An agent that takes 100ms to start cannot participate in sub-second iteration. WASM instances start in microseconds and consume megabytes, not gigabytes. Docker is not an alternative here — it is a different category of tool for a different problem.
+
+**Portable binary.** The same compiled WASM module runs on Cloudflare Workers (edge), AWS Lambda (Graviton), a researcher's laptop (ARM), and a future on-chain contract environment (WASM blockchain host). The core never needs recompilation for a new deployment target. Platform bindings are thin adapters, not architectural commitments.
+
+**Double sandbox.** WASM isolates execution at the machine level. Field isolates operation at the SSCCS level. An agent that escapes its WASM sandbox still cannot execute a constraint combination that its Field does not permit. An agent whose Field permits a combination still cannot read host memory. The two sandboxes are orthogonal and cumulative. Forging a verification proof requires breaking both.
+
+Together, these properties are not conveniences. They are the minimal set of constraints that make a cross-reality verification economy possible. No other runtime satisfies all of them.
 
 ### Why graph-based FIH, Not Docker Containers
 
