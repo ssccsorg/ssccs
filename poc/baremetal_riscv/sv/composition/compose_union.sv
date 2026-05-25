@@ -14,9 +14,9 @@
 module compose_union #(
     parameter int NUM_CONSTRAINTS = 2
 ) (
-    input  wire logic [63:0]             coord,
-    input  wire logic [NUM_CONSTRAINTS-1:0] constraint_results,
-    output wire logic                    result
+    input  logic [63:0]             coord,
+    input  logic [NUM_CONSTRAINTS-1:0] constraint_results,
+    output logic                    result
 );
 
     assign result = |constraint_results;

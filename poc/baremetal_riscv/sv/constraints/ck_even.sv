@@ -11,8 +11,8 @@
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 module ck_even (
-    input  wire logic [63:0] coord,
-    output wire logic        result
+    input  logic [63:0] coord,
+    output logic        result
 );
 
     // coord[0] == 0  →  even  →  result = 1

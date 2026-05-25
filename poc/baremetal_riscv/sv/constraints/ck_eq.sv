@@ -10,10 +10,10 @@
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 module ck_eq #(
-    parameter logic [63:0] TARGET = 64'd0
+    parameter [63:0] TARGET = 64'd0
 ) (
-    input  wire logic [63:0] coord,
-    output wire logic        result
+    input  logic [63:0] coord,
+    output logic        result
 );
 
     assign result = (coord == TARGET);

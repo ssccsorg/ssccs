@@ -11,10 +11,10 @@
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 module proj_sum3d (
-    input  wire logic [63:0] coord_a,
-    input  wire logic [63:0] coord_b,
-    input  wire logic [63:0] coord_c,
-    output wire logic [63:0] result
+    input  logic [63:0] coord_a,
+    input  logic [63:0] coord_b,
+    input  logic [63:0] coord_c,
+    output logic [63:0] result
 );
 
     assign result = coord_a + coord_b + coord_c;

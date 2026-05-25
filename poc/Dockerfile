@@ -3,6 +3,7 @@ FROM ubuntu:24.04
 ENV DEBIAN_FRONTEND=noninteractive
 
 # System packages including native RISC-V cross-compiler (aarch64 compatible)
+# + Verilator for SystemVerilog hardware verification
 RUN apt-get update && apt-get install -y \
     build-essential \
     curl \
@@ -15,6 +16,7 @@ RUN apt-get update && apt-get install -y \
     jq \
     gcc-riscv64-linux-gnu \
     binutils-riscv64-linux-gnu \
+    verilator \
     && rm -rf /var/lib/apt/lists/*
 
 # Rust installation
@@ -51,5 +53,8 @@ RUN git clone https://github.com/riscv-software-src/riscv-pk.git /tmp/pk \
 
 # Verify pk binary
 RUN test -f /usr/local/riscv64-unknown-elf/bin/pk
+
+# Verify Verilator
+RUN verilator --version
 
 WORKDIR /workspace

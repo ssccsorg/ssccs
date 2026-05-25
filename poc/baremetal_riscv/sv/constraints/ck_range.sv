@@ -11,11 +11,11 @@
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 module ck_range #(
-    parameter logic [63:0] MIN_VAL = 64'd0,
-    parameter logic [63:0] MAX_VAL = 64'd10
+    parameter [63:0] MIN_VAL = 64'd0,
+    parameter [63:0] MAX_VAL = 64'd10
 ) (
-    input  wire logic [63:0] coord,
-    output wire logic        result
+    input  logic [63:0] coord,
+    output logic        result
 );
 
     assign result = (coord >= MIN_VAL) && (coord <= MAX_VAL);

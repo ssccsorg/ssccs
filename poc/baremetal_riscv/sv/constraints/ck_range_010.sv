@@ -9,8 +9,8 @@
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 module ck_range_010 (
-    input  wire logic [63:0] coord,
-    output wire logic        result
+    input  logic [63:0] coord,
+    output logic        result
 );
 
     // Unsigned comparison: coord < 11 covers [0,10]

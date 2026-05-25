@@ -11,11 +11,11 @@
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 module compose_product_2d (
-    input  wire logic [63:0] coord_left,
-    input  wire logic [63:0] coord_right,
-    input  wire logic        c1_result,
-    input  wire logic        c2_result,
-    output wire logic        result
+    input  logic [63:0] coord_left,
+    input  logic [63:0] coord_right,
+    input  logic        c1_result,
+    input  logic        c2_result,
+    output logic        result
 );
 
     assign result = c1_result && c2_result;

@@ -14,14 +14,14 @@
 // ║   combinational).                                                   ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
-`include "../_golden_anchors.svh"
+`include "_golden_anchors.svh"
 
 module observe (
-    input  wire logic [63:0] coord,
-    input  wire logic        constraint_result,
-    input  wire logic [63:0] projection,
-    output wire logic [63:0] result,
-    output wire logic        valid
+    input  logic [63:0] coord,
+    input  logic        constraint_result,
+    input  logic [63:0] projection,
+    output logic [63:0] result,
+    output logic        valid
 );
 
     assign valid  = constraint_result;

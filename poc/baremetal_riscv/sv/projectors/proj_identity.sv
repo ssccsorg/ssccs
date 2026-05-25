@@ -7,8 +7,8 @@
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 module proj_identity (
-    input  wire logic [63:0] coord,
-    output wire logic [63:0] result
+    input  logic [63:0] coord,
+    output logic [63:0] result
 );
 
     assign result = coord;

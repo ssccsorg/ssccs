@@ -9,9 +9,9 @@
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 module proj_sum2d (
-    input  wire logic [63:0] coord_a,
-    input  wire logic [63:0] coord_b,
-    output wire logic [63:0] result
+    input  logic [63:0] coord_a,
+    input  logic [63:0] coord_b,
+    output logic [63:0] result
 );
 
     assign result = coord_a + coord_b;
