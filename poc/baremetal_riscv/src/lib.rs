@@ -2,9 +2,10 @@
 //! Provides primitives for observing SSCCS Schemas via custom RISC-V instructions
 //! and interfaces with the OpenHW CORE-V XIF coprocessor.
 
-#![cfg_attr(not(test), no_std)]
+// no_std only on actual RISC-V target (not on host for testing)
+#![cfg_attr(all(not(test), target_arch = "riscv64"), no_std)]
 
-#[cfg(not(test))]
+#[cfg(all(not(test), target_arch = "riscv64"))]
 use panic_halt as _;
 
 pub mod instructions;
