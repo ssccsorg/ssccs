@@ -1,24 +1,22 @@
-// ╔══════════════════════════════════════════════════════════════════════╗
-// ║  SSCCS SCENARIO: Narrow vs Broad Inquiry                            ║
-// ║  Golden Bridge Testbench — Rust ↔ RISC-V asm ↔ SystemVerilog        ║
-// ║                                                                    ║
-// ║  BATCH_COORDS = {2, 3, 5, 10, 12}                                   ║
-// ║                                                                    ║
-// ║  Narrow (∩): even ∧ range[0,10]                                     ║
-// ║    Expected: 2, REJECT, REJECT, 10, REJECT                          ║
-// ║                                                                    ║
-// ║  Broad (∪):  even ∨ range[0,10]                                     ║
-// ║    Expected: 2, 3, 5, 10, 12                                        ║
-// ║                                                                    ║
-// ║  This testbench instantiates the same logic as observe_full.S       ║
-// ║  and asserts against GOLDEN_NARROW / GOLDEN_BROAD anchors.          ║
-// ╚══════════════════════════════════════════════════════════════════════╝
+// SSCCS Scenario: Narrow vs Broad Inquiry
+// Golden Bridge Testbench — Rust ↔ RISC-V asm ↔ SystemVerilog
+//
+// BATCH_COORDS = {2, 3, 5, 10, 12}
+//
+// Narrow (∩): even ∧ range[0,10]
+//   Expected: 2, REJECT, REJECT, 10, REJECT
+//
+// Broad (∪):  even ∨ range[0,10]
+//   Expected: 2, 3, 5, 10, 12
+//
+// This testbench instantiates the same logic as observe_full.S
+// and asserts against GOLDEN_NARROW / GOLDEN_BROAD anchors.
 
 `include "_golden_anchors.svh"
 
 module scenario_narrow_broad_tb;
 
-    // ── DUT instantiations ──
+    // DUT instantiations
 
     // Individual constraints
     wire ck_even_result [0:4];
@@ -37,7 +35,7 @@ module scenario_narrow_broad_tb;
 
     genvar i;
 
-    // ── 5 test coordinates ──
+    // 5 test coordinates
     localparam logic [63:0] SEG_0 = `GOLDEN_SEG_0;   // 2
     localparam logic [63:0] SEG_1 = `GOLDEN_SEG_1;   // 3
     localparam logic [63:0] SEG_2 = `GOLDEN_SEG_2;   // 5
@@ -94,7 +92,7 @@ module scenario_narrow_broad_tb;
         end
     endgenerate
 
-    // ── Golden anchor assertions ──
+    // Golden anchor assertions
     initial begin
         #1;  // allow combinational logic to settle
 

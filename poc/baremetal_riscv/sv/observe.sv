@@ -1,18 +1,16 @@
-// ╔══════════════════════════════════════════════════════════════════════╗
-// ║  SSCCS OBSERVATION ENGINE — Core Pipeline                           ║
-// ║                                                                    ║
-// ║  Connects constraint evaluation and projection into the single      ║
-// ║  SSCCS observation event: Ω(F, s, π) → Projection                  ║
-// ║                                                                    ║
-// ║  RISC-V asm equivalent (observe_full.S:observe):                    ║
-// ║    call field_fn(coord) → C                                         ║
-// ║    beqz C → REJECT                                                  ║
-// ║    call proj_fn(coord) → result                                     ║
-// ║                                                                    ║
-// ║  Hot path: 1 comparison + 1 projection, 0 cycles latency            ║
-// ║  (purely combinational when constraint and projector are both       ║
-// ║   combinational).                                                   ║
-// ╚══════════════════════════════════════════════════════════════════════╝
+// SSCCS Observation Engine — Core Pipeline
+//
+// Connects constraint evaluation and projection into the single
+// SSCCS observation event: Ω(F, s, π) → Projection
+//
+// RISC-V asm equivalent (observe_full.S:observe):
+//   call field_fn(coord) → C
+//   beqz C → REJECT
+//   call proj_fn(coord) → result
+//
+// Hot path: 1 comparison + 1 projection, 0 cycles latency
+// (purely combinational when constraint and projector are both
+//  combinational).
 
 `include "_golden_anchors.svh"
 

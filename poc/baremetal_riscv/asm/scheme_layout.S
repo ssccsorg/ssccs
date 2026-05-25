@@ -1,21 +1,17 @@
-# ╔══════════════════════════════════════════════════════════════════════╗
-# ║  SSCCS SCHEME LAYOUT ENGINE — Coordinate-to-Address Mapping        ║
-# ║                                                                    ║
-# ║  Maps abstract Scheme coordinates to logical addresses using       ║
-# ║  various layout strategies (Linear, RowMajor, ColumnMajor, ZOrder).║
-# ║                                                                    ║
-# ║  Whitepaper §4.1:                                                  ║
-# ║    Memory layout = structural locality → spatial locality          ║
-# ║    Cache-line-aligned segments preserve relational topology.       ║
-# ╚══════════════════════════════════════════════════════════════════════╝
+# SSCCS Scheme Layout Engine — Coordinate-to-Address Mapping
+#
+# Maps abstract Scheme coordinates to logical addresses using
+# various layout strategies (Linear, RowMajor, ColumnMajor, ZOrder).
+#
+# Whitepaper §4.1:
+#   Memory layout = structural locality → spatial locality
+#   Cache-line-aligned segments preserve relational topology.
 
 .section .text
 
-# ═══════════════════════════════════════════════════════════════════════
-# 1. LINEAR LAYOUT
-# ═══════════════════════════════════════════════════════════════════════
+# Section 1: Linear Layout
 
-# ── 1.1 layout_linear_1d: offset = coord × stride ──
+# 1.1 layout_linear_1d: offset = coord × stride
 # Input:  a0 = coord (i64), a1 = stride (i64)
 # Output: a0 = byte offset
 .globl layout_linear_1d
@@ -23,7 +19,7 @@ layout_linear_1d:
     mul     a0, a0, a1
     ret
 
-# ── 1.2 layout_linear_nd: offset = Σ (coord_i × stride_i) ──
+# 1.2 layout_linear_nd: offset = Σ (coord_i × stride_i)
 # Input:  a0 = *coords (i64 array), a1 = *strides (i64 array),
 #         a2 = dimensions (u32)
 # Output: a0 = byte offset
@@ -50,11 +46,9 @@ layout_linear_nd:
     li      a0, 0
     ret
 
-# ═══════════════════════════════════════════════════════════════════════
-# 2. ROW-MAJOR LAYOUT (2D)
-# ═══════════════════════════════════════════════════════════════════════
+# Section 2: Row-Major Layout (2D)
 
-# ── 2.1 layout_row_major_2d: offset = (y × width + x) × elem_size ──
+# 2.1 layout_row_major_2d: offset = (y × width + x) × elem_size
 # Input:  a0 = x, a1 = y, a2 = width, a3 = elem_size
 # Output: a0 = byte offset
 .globl layout_row_major_2d
@@ -64,7 +58,7 @@ layout_row_major_2d:
     mul     a0, t0, a3          # × elem_size
     ret
 
-# ── 2.2 layout_row_major_3d: offset = ((z × height + y) × width + x) × elem_size ──
+# 2.2 layout_row_major_3d: offset = ((z × height + y) × width + x) × elem_size
 # Input:  a0 = x, a1 = y, a2 = z, a3 = width, a4 = height,
 #         a5 = elem_size
 # Output: a0 = byte offset
@@ -77,11 +71,9 @@ layout_row_major_3d:
     mul     a0, t0, a5          # × elem_size
     ret
 
-# ═══════════════════════════════════════════════════════════════════════
-# 3. COLUMN-MAJOR LAYOUT (2D)
-# ═══════════════════════════════════════════════════════════════════════
+# Section 3: Column-Major Layout (2D)
 
-# ── 3.1 layout_col_major_2d: offset = (x × height + y) × elem_size ──
+# 3.1 layout_col_major_2d: offset = (x × height + y) × elem_size
 # Input:  a0 = x, a1 = y, a2 = height, a3 = elem_size
 # Output: a0 = byte offset
 .globl layout_col_major_2d
@@ -91,11 +83,9 @@ layout_col_major_2d:
     mul     a0, t0, a3          # × elem_size
     ret
 
-# ═══════════════════════════════════════════════════════════════════════
-# 4. Z-ORDER (MORTON) LAYOUT
-# ═══════════════════════════════════════════════════════════════════════
+# Section 4: Z-Order (Morton) Layout
 
-# ── 4.1 morton_encode_2d: Z-order for 2D (bit-by-bit, correct for 32-bit) ──
+# 4.1 morton_encode_2d: Z-order for 2D (bit-by-bit, correct for 32-bit)
 # Input:  a0 = x (i64), a1 = y (i64), only lower 16 bits are used
 # Output: a0 = morton code (32-bit)
 # Method: bit-by-bit interleaving — slower but correct for any 16-bit input
@@ -128,7 +118,7 @@ morton_encode_2d:
     
     ret
 
-# ── 4.3 layout_zorder_2d: offset = morton(x,y) × elem_size ──
+# 4.3 layout_zorder_2d: offset = morton(x,y) × elem_size
 # Input:  a0 = x, a1 = y, a2 = elem_size
 # Output: a0 = byte offset
 .globl layout_zorder_2d
@@ -143,11 +133,9 @@ layout_zorder_2d:
     addi    sp, sp, 16
     ret
 
-# ═══════════════════════════════════════════════════════════════════════
-# 5. BATCH ADDRESS TRANSLATION
-# ═══════════════════════════════════════════════════════════════════════
+# Section 5: Batch Address Translation
 
-# ── 5.1 layout_batch: translate array of coordinate sets ──
+# 5.1 layout_batch: translate array of coordinate sets
 # Input:  a0 = *coord_sets (array of pointers to coord arrays)
 #         a1 = *strides (or dims descriptor)
 #         a2 = count (number of coord sets)
@@ -197,9 +185,7 @@ layout_batch:
 .Llb_done:
     ret
 
-# ═══════════════════════════════════════════════════════════════════════
 # GOLDEN TEST ANCHORS
-# ═══════════════════════════════════════════════════════════════════════
 #
 # GOLDEN_LAYOUT_LINEAR_1D: 42
 # GOLDEN_LAYOUT_ROW_MAJOR_2D: 42

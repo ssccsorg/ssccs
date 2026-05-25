@@ -1,22 +1,18 @@
-# ╔══════════════════════════════════════════════════════════════════════╗
-# ║  SSCCS OBSERVATION ENGINE — Maximum-Complexity RISC-V Assembly     ║
-# ║                                                                    ║
-# ║  Every instruction here is the collapse of a possibility.          ║
-# ║  No heap. No allocation. No runtime. Structure mapped to silicon.  ║
-# ║                                                                    ║
-# ║  Whitepaper §2.3.2 alignment:                                      ║
-# ║    Union (∪):     C₁∨C₂,  T = max(T₁,T₂)                         ║
-# ║    Intersection (∩): C₁∧C₂,  T = min(T₁,T₂)                      ║
-# ║    Product (×):    C((s₁,s₂)) = C₁(s₁)∧C₂(s₂)                    ║
-# ╚══════════════════════════════════════════════════════════════════════╝
+# SSCCS Observation Engine — Maximum-Complexity RISC-V Assembly
+#
+# Every instruction here is the collapse of a possibility.
+# No heap. No allocation. No runtime. Structure mapped to silicon.
+#
+# Whitepaper §2.3.2 alignment:
+#   Union (∪):     C₁∨C₂,  T = max(T₁,T₂)
+#   Intersection (∩): C₁∧C₂,  T = min(T₁,T₂)
+#   Product (×):    C((s₁,s₂)) = C₁(s₁)∧C₂(s₂)
 
 .section .text
 
-# ═══════════════════════════════════════════════════════════════════════
-# 1. BRANCHLESS CONSTRAINT PRIMITIVES (constant-time)
-# ═══════════════════════════════════════════════════════════════════════
+# Section 1: Branchless Constraint Primitives (constant-time)
 
-# ── 1.1 Even check: 3 instructions, zero branches ──
+# 1.1 Even check: 3 instructions, zero branches
 .globl ck_even
 ck_even:
     ld      t0, 0(a0)           # load i64
@@ -24,7 +20,7 @@ ck_even:
     xori    a0, t0, 1           # 1=even, 0=odd
     ret
 
-# ── 1.2 Range [0,10] check: 4 instructions, zero branches ──
+# 1.2 Range [0,10] check: 4 instructions, zero branches
 .globl ck_range_0_10
 ck_range_0_10:
     ld      t0, 0(a0)
@@ -39,7 +35,7 @@ ck_range_0_10:
     sltu    a0, t0, t1          # coord < 11 → 1, else 0
     ret
 
-# ── 1.3 General range [min,max]: 4 instructions, zero branches ──
+# 1.3 General range [min,max]: 4 instructions, zero branches
 .globl ck_range
 ck_range:
     ld      t0, 0(a0)           # coord
@@ -49,7 +45,7 @@ ck_range:
     xori    a0, t0, 1           # invert: 1 = in range
     ret
 
-# ── 1.4 Equality: 2 instructions ──
+# 1.4 Equality: 2 instructions
 .globl ck_eq_val
 ck_eq_val:
     ld      t0, 0(a0)
@@ -57,19 +53,17 @@ ck_eq_val:
     seqz    a0, t0              # 1 if equal
     ret
 
-# ── 1.5 Greater-than: 2 instructions ──
+# 1.5 Greater-than: 2 instructions
 .globl ck_gt
 ck_gt:
     ld      t0, 0(a0)
     slt     a0, a1, t0          # 1 if target < coord
     ret
 
-# ═══════════════════════════════════════════════════════════════════════
-# 2. WEIGHTED FIELD COMPOSITION
-#    Returns constraint result in a0, transition weight in fa0 (float)
-# ═══════════════════════════════════════════════════════════════════════
+# Section 2: Weighted Field Composition
+# Returns constraint result in a0, transition weight in fa0 (float)
 
-# ── 2.1 Intersection (∩): C = C₁∧C₂, weight = min(w₁, w₂) ──
+# 2.1 Intersection (∩): C = C₁∧C₂, weight = min(w₁, w₂)
 .globl compose_intersect
 compose_intersect:
     addi    sp, sp, -64
@@ -111,7 +105,7 @@ compose_intersect:
     addi    sp, sp, 64
     ret
 
-# ── 2.2 Union (∪): C = C₁∨C₂, weight = max(w₁, w₂) ──
+# 2.2 Union (∪): C = C₁∨C₂, weight = max(w₁, w₂)
 .globl compose_union
 compose_union:
     addi    sp, sp, -64
@@ -141,7 +135,7 @@ compose_union:
     addi    sp, sp, 64
     ret
 
-# ── 2.3 Product (×) for 2×1D: C = C₁(left_coord) ∧ C₂(right_coord) ──
+# 2.3 Product (×) for 2×1D: C = C₁(left_coord) ∧ C₂(right_coord)
 .globl compose_product_2d
 compose_product_2d:
     addi    sp, sp, -48
@@ -172,9 +166,7 @@ compose_product_2d:
     addi    sp, sp, 48
     ret
 
-# ═══════════════════════════════════════════════════════════════════════
-# 3. PROJECTORS (semantic interpretation)
-# ═══════════════════════════════════════════════════════════════════════
+# Section 3: Projectors (semantic interpretation)
 
 .globl proj_id;  proj_id:  ld a0, 0(a0);  ret
 
@@ -202,9 +194,7 @@ proj_parity:
 
 .globl proj_negate;  proj_negate:  ld t0, 0(a0);  neg a0, t0;  ret
 
-# ═══════════════════════════════════════════════════════════════════════
-# 4. OBSERVATION PIPELINE (the core SSCCS event)
-# ═══════════════════════════════════════════════════════════════════════
+# Section 4: Observation Pipeline (the core SSCCS event)
 
 # observe(field_fn, coord_ptr, proj_fn) → i64
 # Hot path: constraint-call → beqz → project → ret  (5 instructions)
@@ -235,9 +225,7 @@ observe:
     addi    sp, sp, 32
     ret
 
-# ═══════════════════════════════════════════════════════════════════════
-# 5. BATCH OBSERVATION (tight loop, ~8 insn/segment)
-# ═══════════════════════════════════════════════════════════════════════
+# Section 5: Batch Observation (tight loop, ~8 insn/segment)
 
 # observe_batch(field_fn, coords, count, proj_fn, out)
 .globl observe_batch
@@ -281,14 +269,12 @@ observe_batch:
     addi    sp, sp, 64
     ret
 
-# ═══════════════════════════════════════════════════════════════════════
-# 6. SCENARIO: Narrow vs Broad Inquiry (self-contained demo)
-# ═══════════════════════════════════════════════════════════════════════
+# Section 6: Scenario: Narrow vs Broad Inquiry (self-contained demo)
 
 # Builds Fields, composes them, runs batch observation, stores results.
 # No external dependencies beyond the functions in this file.
 
-# ── generic constraint with embedded weight ──
+# generic constraint with embedded weight
 # ck_even_w(coord) → C in a0, weight=1.0 in fa0
 .globl ck_even_w
 ck_even_w:
@@ -312,7 +298,7 @@ ck_range_w:
     addi    sp, sp, 16
     ret
 
-# ── run_narrow: (even ∧ range) over 5 segments → NARROW_RESULTS ──
+# run_narrow: (even ∧ range) over 5 segments → NARROW_RESULTS
 .globl run_narrow
 run_narrow:
     addi    sp, sp, -16
@@ -362,7 +348,7 @@ run_narrow:
     addi    sp, sp, 16
     ret
 
-# ── run_broad: (even ∨ range) over 5 segments → BROAD_RESULTS ──
+# run_broad: (even ∨ range) over 5 segments → BROAD_RESULTS
 .globl run_broad
 run_broad:
     addi    sp, sp, -16
@@ -394,9 +380,7 @@ run_broad:
     addi    sp, sp, 16
     ret
 
-# ═══════════════════════════════════════════════════════════════════════
-# 7. STATIC SEGMENT DATA (the immutable structure)
-# ═══════════════════════════════════════════════════════════════════════
+# Section 7: Static Segment Data (the immutable structure)
 
 .section .rodata
 .align 4
@@ -413,14 +397,12 @@ BATCH_COORDS: .8byte SEG_0, SEG_1, SEG_2, SEG_3, SEG_4
 .globl NARROW_RESULTS;  NARROW_RESULTS: .8byte 0,0,0,0,0
 .globl BROAD_RESULTS;   BROAD_RESULTS:  .8byte 0,0,0,0,0
 
-# ── 3D segments for projector tests ──
+# 3D segments for projector tests
 .align 3
 .globl SEG_3D_A;  SEG_3D_A: .8byte 2,1,0     # (2,1,0) → sum=3
 .globl SEG_3D_B;  SEG_3D_B: .8byte 1,2,3     # (1,2,3) → sum=6
 
-# ═══════════════════════════════════════════════════════════════════════
 # GOLDEN TEST ANCHOR — do not remove; parsed by Rust tests
-# ═══════════════════════════════════════════════════════════════════════
 #
 # GOLDEN_SEGMENTS: 2,3,5,10,12
 # GOLDEN_NARROW: 2,REJECT,REJECT,10,REJECT

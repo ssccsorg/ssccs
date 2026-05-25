@@ -1,21 +1,17 @@
-# ╔══════════════════════════════════════════════════════════════════════╗
-# ║  SSCCS SCHEME ADJACENCY ENGINE — Structural Neighbor Discovery     ║
-# ║                                                                    ║
-# ║  Discovers neighboring Segments based on Scheme structural         ║
-# ║  relations: grid adjacency, Manhattan distance, graph edges.       ║
-# ║                                                                    ║
-# ║  Whitepaper §2.3.1:                                                ║
-# ║    Adjacency = structural relationships in the Scheme.             ║
-# ║    Neighbors are not stored; they are generated from structure.    ║
-# ╚══════════════════════════════════════════════════════════════════════╝
+# SSCCS Scheme Adjacency Engine — Structural Neighbor Discovery
+#
+# Discovers neighboring Segments based on Scheme structural
+# relations: grid adjacency, Manhattan distance, graph edges.
+#
+# Whitepaper §2.3.1:
+#   Adjacency = structural relationships in the Scheme.
+#   Neighbors are not stored; they are generated from structure.
 
 .section .text
 
-# ═══════════════════════════════════════════════════════════════════════
-# 1. GRID ADJACENCY
-# ═══════════════════════════════════════════════════════════════════════
+# Section 1: Grid Adjacency
 
-# ── 1.1 adj_grid_4: 4-connected neighbors (up, down, left, right) ──
+# 1.1 adj_grid_4: 4-connected neighbors (up, down, left, right)
 # Input:  a0 = x, a1 = y, a2 = min_x, a3 = max_x,
 #         a4 = min_y, a5 = max_y
 #         a6 = *out_buffer (i64 pairs, room for 4 × 2 = 64 bytes)
@@ -70,7 +66,7 @@ adj_grid_4:
     mv      a0, t0
     ret
 
-# ── 1.2 adj_grid_8: 8-connected neighbors (includes diagonals) ──
+# 1.2 adj_grid_8: 8-connected neighbors (includes diagonals)
 # Input:  a0 = x, a1 = y, a2 = min_x, a3 = max_x,
 #         a4 = min_y, a5 = max_y
 #         a6 = *out_buffer (i64 pairs, room for 8 × 2 = 128 bytes)
@@ -180,11 +176,9 @@ adj_grid_8:
     addi    sp, sp, 48
     ret
 
-# ═══════════════════════════════════════════════════════════════════════
-# 2. MANHATTAN DISTANCE ADJACENCY
-# ═══════════════════════════════════════════════════════════════════════
+# Section 2: Manhattan Distance Adjacency
 
-# ── 2.1 adj_manhattan_1d: neighbors within L1 distance d on a line ──
+# 2.1 adj_manhattan_1d: neighbors within L1 distance d on a line
 # Input:  a0 = coord (i64), a1 = distance (u32),
 #         a2 = min_coord, a3 = max_coord,
 #         a4 = *out_buffer
@@ -217,11 +211,9 @@ adj_manhattan_1d:
     mv      a0, t0
     ret
 
-# ═══════════════════════════════════════════════════════════════════════
-# 3. GRAPH EDGE TRAVERSAL
-# ═══════════════════════════════════════════════════════════════════════
+# Section 3: Graph Edge Traversal
 
-# ── 3.1 adj_graph_edges: walk adjacency list ──
+# 3.1 adj_graph_edges: walk adjacency list
 # Input:  a0 = *edge_pairs (array of {from, to} i64 pairs),
 #         a1 = num_edges (u32),
 #         a2 = from_id (i64),
@@ -251,11 +243,9 @@ adj_graph_edges:
     mv      a0, t0
     ret
 
-# ═══════════════════════════════════════════════════════════════════════
-# 4. BATCH NEIGHBOR ENUMERATION
-# ═══════════════════════════════════════════════════════════════════════
+# Section 4: Batch Neighbor Enumeration
 
-# ── 4.1 adj_batch: enumerate neighbors for multiple coordinates ──
+# 4.1 adj_batch: enumerate neighbors for multiple coordinates
 # Input:  a0 = *coords (array of i64), a1 = num_coords,
 #         a2 = adj_fn, a3 = *out (concatenated, with counts prefix)
 #         a4 = out_capacity (max total neighbors)
@@ -308,9 +298,7 @@ adj_batch:
     li      a0, 0
     ret
 
-# ═══════════════════════════════════════════════════════════════════════
 # GOLDEN TEST ANCHORS
-# ═══════════════════════════════════════════════════════════════════════
 #
 # GOLDEN_ADJ_GRID_4_CENTER: 4
 # GOLDEN_ADJ_GRID_4_CORNER: 2
