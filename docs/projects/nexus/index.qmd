@@ -37,6 +37,8 @@ title_meta_items = {
 
 neXus is a self‑evolving, modular and contract‑governed agentic research infrastructure that actively generates, validates, and learns from hypotheses or facts that span the SSCCS's software‑hardware boundary. All coordinate indirectly through a shared graph of some simple recursive primitives.
 
+The design rests on a single observation: large language models are context‑conditioned Fact generators — non‑deterministic engines that produce tokens without inherent direction, consistency, or auditability. neXus does not attempt to make the model deterministic. It provides the deterministic skeleton within which model outputs acquire structure, traceability, and permanence. Where the model is analogous to a CPU — powerful but unsteered — neXus is the operating system: it defines where outputs reside, how they connect across processes, and under what constraints they execute.
+
 The primary document source that feeds this infrastructure is the [SDBS (SSCCS Document Build System)](/projects/sdbs/index.html). SDBS is a parallel build pipeline that validates, renders, and publishes all technical documentation. neXus reads from the resulting structured corpus, using the document graph as a partial knowledge base from which hypotheses, constraints, and provenance traces are derived.
 
 neXus began as a platform to research the SSCCS computational model but it's being as SSCCS's proof of concept. The platform and the theory describe each other by design.
@@ -75,9 +77,13 @@ digraph FIH_Primitives {
 - **Intent** — a proposed exploration. It carries an action, parameters, and a confidence score. It is submitted against a Fact, and when concluded it produces a new Fact.  
 - **Hint** — an injected constraint. Governance rules (`contract.nex`), human feedback, compiler warnings, and safety limits all take the form of Hints. Agents read Hints from the Blackboard to determine which Intents are admissible and which Facts satisfy stated constraints. The Blackboard itself does not enforce Hint semantics.
 
+Because every Fact is immutable once committed and every Intent carries a provenance hash linking it to its originating Fact, the chain F₁ → I₁ → F₂ → I₂ → F₃ forms a deterministic, fully auditable path across the Blackboard. This path is the computational trace: it records what was known, what was explored, and what was concluded, in a sequence that can be replayed and verified indefinitely. In pipeline‑based orchestration each execution may produce different intermediate states; on the Blackboard, the path is fixed the moment each Fact is committed. The computation is the graph, and the graph is the audit trail.
+
 Reading the Blackboard state — the accumulated set of committed Facts, pending Intents, and active Hints at any moment — is the computational equivalent of observation. The read captures a cross-section of everything the system knows, intends, and is constrained by at that instant. Subsequent operations derive from this observed cross-section, not from any hidden internal state, ensuring that all decisions are grounded in the shared Blackboard content.
 
 The cycle is recursive and self-similar. It operates identically inside a single agent, across a project Blackboard, and across the entire research ecosystem. This is the foundation on which every other architectural element rests.
+
+A critical refinement emerges when the F‑I‑H cycle is implemented at scale: not all system output should be an Intent. Automated observers — gap analysers, contradiction finders, state‑change monitors — examine the accumulated Facts and record their findings as new Facts. These observer Facts are immutable records about the knowledge state, not actions to be claimed. An Intent is always a decision to act on an observation. The separation prevents a category error that would otherwise fill the Blackboard with unclaimed, unconcluded Intents. The rule is simple: observe as Fact, act as Intent.
 
 ## Architecture Overview
 
@@ -157,6 +163,8 @@ The system is organized into five integrated layers, extended by cross‑reality
 | 4 | Learning Loop | Refine the Planner on‑policy using outcome‑based rewards, novelty scores, physical reproducibility metrics, and human feedback. |
 | 5 | Contract Governance | Define structural, evidential, and physical‑constraint rules for all generated artifacts; enable evolvable, machine‑readable governance across domains. |
 
+The architecture is vertical rather than horizontal: it does not chain model outputs through a fixed code path. It structures the space within which models operate. Facts accumulate on the Blackboard; Intents emerge from the pattern of accumulated Facts; Hints constrain which Intents are admissible. The path from question to answer is not pre‑scripted — it is discovered through the recursive F‑I‑H cycle and, once discovered, permanently recorded as a graph traversal. Scaling the system means adding new Facts to the Blackboard, not redesigning pipelines.
+
 These layers implement the SSCCS Organic Growth model: contract‑governed ingestion feeds a unified knowledge graph, which drives hypothesis generation and validation, with the system continuously learning from its own discoveries — whether those discoveries occur in a document, a simulation, or a physical laboratory.
 
 ## Layer 1: Knowledge Graph Engine
@@ -185,13 +193,15 @@ The storage backend itself is abstracted behind a minimal interface: operations 
 Agents coordinate through the Blackboard via Stigmergy: agents leave traces in a shared space, other agents perceive those traces and adapt. No module calls another module directly. The same FIH (Fact / Intent / Hint) interface that works at every scale — ecosystem, project, experiment, agent, primitive — governs all interaction.
 
 - Blackboard (shared graph): stores Facts (validated results), Intents (exploration directions), and Hints (governance rules). The only interface between modules.
-- Stigmergy coordination: agents read from and write to the Blackboard. A Gap Detector deposits Intent traces; an exploration loop perceives and acts. No pipeline dependency chain.
+- Stigmergy coordination: agents read from and write to the Blackboard. Detectors — gap analysers, contradiction finders, state‑change monitors — observe patterns in the Fact graph and record their findings as new Facts. Agents perceive these detector Facts and decide which to act on by creating Intents. No pipeline dependency chain. The detectors themselves follow the Cairn pattern: simple, count‑based heuristics applied every OODA tick, with content‑addressed Fact IDs ensuring that repeated observation of the same pattern produces the same Fact — idempotent, harmless, and requiring no state beyond the Blackboard itself.
 - FIH lifecycle: submit → claim → heartbeat → conclude. Identical lifecycle from document ingestion to hardware validation. Validated on 54 of 54 autonomous penetration testing challenges with zero LLMs.
 - Planner (trainable): decomposes research questions, selects tools, determines evidence sufficiency. Optimized via Flow‑GRPO from accumulated (origin, intent, result) trajectories.
 - Verifier: grounds hypotheses against the knowledge graph, checks contract.nex compliance, computes support and novelty scores.
 - Generator: produces hypothesis chain diagrams, evidence tables, gap analyses, and structured reports.
 
 All actions are recorded in an append‑only Evolving Memory, which serves as the raw material for reinforcement learning. Because every operation is appended and never overwritten, any prior state can be exactly reconstructed by replaying events in sequence, and multiple agents can read and write concurrently without conflict — the only serialisation point is the append itself.
+
+The detection architecture mirrors the same capability‑trait pattern as the storage layer. Where storage backends implement only the capabilities they support (read, write, filter, evict), detectors implement only the observation types they provide (gap detection, contradiction detection, state‑change monitoring). The Scheduler composes them uniformly; custom detectors for domain‑specific needs plug in without modifying core logic. Cross‑worker continuity is preserved through the Blackboard snapshot mechanism: when state is serialised to blob storage and restored by another worker, observer state is carried alongside the graph, preventing duplicate analysis of already‑observed patterns.
 
 ## Layer 4: Learning Loop
 

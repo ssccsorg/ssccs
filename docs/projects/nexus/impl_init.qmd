@@ -79,14 +79,18 @@ digraph NexusArchitecture {
     bb -> hint [style=dotted, color="#888", dir=both];
 
     // Modules connect through FIH
-    gap [label="Gap Detector", shape=box, style=filled, fillcolor="#d4f1f9", fontsize=9];
-    ooda [label="OODA Loop", shape=box, style=filled, fillcolor="#d4f1f9", fontsize=9];
-    oracle [label="Agent Oracle", shape=box, style=filled, fillcolor="#d4f1f9", fontsize=9];
+    gap [label="Gap\nDetector", shape=box, style=filled, fillcolor="#d4f1f9", fontsize=9];
+    cont [label="Contradiction\nDetector", shape=box, style=filled, fillcolor="#d4f1f9", fontsize=9];
+    state [label="State Change\nDetector", shape=box, style=filled, fillcolor="#d4f1f9", fontsize=9];
+    sched [label="Scheduler\n(OODA Loop)", shape=box, style=filled, fillcolor="#d4f1f9", fontsize=9];
+    agent [label="Agent", shape=box, style=filled, fillcolor="#ffe0b2", fontsize=9];
 
-    gap -> intent [label="submit Intent", fontsize=8, color="#5588bb"];
-    ooda -> fact [label="read_state()", dir="both", fontsize=8, color="#5588bb"];
-    oracle -> intent [label="submit Intent", fontsize=8, color="#5588bb"];
-    oracle -> fact [label="submit Fact", dir="both", fontsize=8, color="#5588bb"];
+    gap -> fact [label="observe\n(Fact)", fontsize=8, color="#44aa44"];
+    cont -> fact [label="observe\n(Fact)", fontsize=8, color="#44aa44"];
+    state -> fact [label="observe\n(Fact)", fontsize=8, color="#44aa44"];
+    sched -> fact [label="read_state()", dir="both", fontsize=8, color="#5588bb"];
+    agent -> fact [label="read detector Facts", dir="both", fontsize=8, color="#5588bb"];
+    agent -> intent [label="create Intent", fontsize=8, color="#ff8800"];
 
     // Ingestion
     r2 [label="R2 / S3", shape=cylinder, style=filled, fillcolor="#ffebcd", fontsize=9];
@@ -234,31 +238,12 @@ Aggregate trait aliases:
 
 Crate structure:
 
-- `core/model/` — `Blackboard` trait (public, stable): the FIH lifecycle interface (`submit_intent / claim_intent / heartbeat / release_intent / conclude_intent`) plus capability traits and `DualStorage`.
-- `core/graph/` — `GraphBlackboard`: the single `Blackboard` implementation backed by `DualStorage`, sharing `Arc<Mutex<petgraph::Graph>>` with `PetgraphStorage`, plus Cypher executor.
-- `core/storage/sqlite/` — `SqlNormalizedStorage` (implements `ColdStorage = FihPersistence + FilterCapable`) and `SqliteStorage` (legacy).
-
-```text
-core/
-├── model/          ← Blackboard trait + capability traits + FIH primitives (Fact/Intent/Hint) + DualStorage
-│   └── src/lib.rs
-├── graph/          ← GraphBlackboard: DualStorage-backed FIH implementation (SINGLE Blackboard)
-│   ├── src/lib.rs
-│   ├── tests/ (a_stress_parallel, b_stress_sequential, c_full_flow, d_gateway_scenarios, e_transport_scenarios, z_scenarios)
-│   └── cypher/     ← cyrs Plan IR → petgraph iterator chain
-├── storage/
-│   └── sqlite/     ← SqlNormalizedStorage (ColdStorage): capability-based, normalized Cairn-pattern persistence
-│       ├── src/lib.rs
-│       ├── src/normalized.rs (SqlNormalizedStorage + capability impls)
-│       ├── src/storage.rs (SqliteStorage, legacy event-log)
-│       ├── src/schema.rs (apply_schema DDL)
-│       ├── src/util.rs (ProjectMeta, utc_now)
-│       ├── src/filter.rs (FilterCapable implementation)
-│       └── tests/
-│           ├── blackboard.rs (23 integration tests)
-│           └── concurrent.rs (6 concurrent stress tests)
-└── Cargo.toml      ← Workspace root
-```
+- `core/model/` — `Blackboard` trait (public, stable): the FIH lifecycle interface plus capability traits, `DualStorage`, and detection traits (`DetectionCapable`, `GapDetection`, `ContradictionDetection`, `StateChangeDetection`).
+- `core/graph/` — `GraphBlackboard`: the single `Blackboard` implementation backed by `DualStorage`, plus Cypher executor.
+- `core/process/` — OODA loop runtime: `Scheduler`, `Eviction`, and stigmergy task handlers (`GapDetector`, `ContradictionDetector`, `StateChangeDetector`, `NewDocumentAnalyzer`).
+- `core/storage/sqlite/` — `SqlNormalizedStorage` and `SqliteStorage` (legacy).
+- `core/storage/petgraph/` — `PetgraphStorage`: in-memory hot storage with snapshot support.
+- `core/storage/duckdb/` — `DuckDbStorage`: cold Parquet read-only storage.
 
 ### Cypher Translation
 
@@ -286,18 +271,21 @@ Graph algorithms follow the MAGE module pattern: each algorithm is a standalone 
 
 ### Analysis Modules
 
-Modules follow Blackboard semantics: read Facts and Hints, emit Intents and new Facts. Every module shares the same graph interface. Internal implementation (native, LLM-driven, heuristic) is invisible to other modules.
+Modules follow Blackboard semantics: read Facts and Hints, emit Facts (detectors) or Intents (agents). Every module shares the same graph interface. Internal implementation (native, LLM-driven, heuristic) is invisible to other modules. Detectors observe patterns and record them as immutable Facts; agents read detector Facts and decide which to act on by creating Intents. This separation — observe as Fact, act as Intent — is enforced architecturally through the `DetectionCapable` trait hierarchy.
 
 | Module | Input | Output | Status |
 |---|---|---|---|
-| Gap Detector | Fact graph + Cypher queries | Intent (gap) | TS (deployed) → Rust (porting) |
-| OODA Loop (Cairn) | Fact + Intent + Hint | Intent (action) | Future (pattern extracted) |
-| Hypothesis Generator | Gap Intent + Fact evidence | Intent (hypothesis) | Future |
+| Gap Detector | Fact graph | Fact (gap pattern) | Rust (origin + cross-origin topic levels) |
+| Contradiction Detector | Fact graph | Fact (contradiction) | Rust (same-topic/different-position) |
+| State Change Detector | Fact graph | Fact (state transition) | Rust (Cairn ReasonCheckpoint) |
+| New Document Analyzer | Fact graph | Fact (+factor/-factor/gap) | Rust (baseline-aware) |
+| OODA Loop (Cairn) | Fact + Intent + Hint | Scheduler tick | Rust (in-process, detection traits) |
+| Hypothesis Generator | Gap Fact + Fact evidence | Intent (hypothesis) | Future |
 | Concept Validator | Hypothesis Intent + experiment | Fact (validated/rejected) | Future |
 | Entity extraction | Raw document | Fact (entity) | Future |
 | Flow-GRPO Planner | Successful Intent histories | Updated Planner weights | Future |
 
-No module calls another module. All communication passes through the Blackboard. The queue layer serializes writes; coordination is emergent from agents observing and responding to Blackboard state.
+No module calls another module. All communication passes through the Blackboard. The queue layer serializes writes; coordination is emergent from agents observing and responding to Blackboard state. Detectors implement fine-grained capability traits (`GapDetection`, `ContradictionDetection`, `StateChangeDetection`) mirroring the storage trait architecture — each detector provides only the capabilities it supports, and the Scheduler composes them via `Vec<Box<dyn DetectionCapable>>`.
 
 ### Artifact Storage & Ingestion
 
@@ -316,28 +304,94 @@ R2 (bucket: ssccs-nexus-af) is the single source of truth. The af-sync worker pe
 | Worker | Role | Protocol |
 |---|---|---|
 | af-sync | R2 artifact sync → RAG engines | HTTP, writes Facts to RAG Blackboard |
-| gap-detector | Gap Detector, reads Facts and submits Gap Intents | Blackboard FIH interface (submit_intent, read_state) |
+
+The gap-detector and other analysis modules have been migrated to Rust in the process layer (`core/process/`), where they run as in-process `DetectionCapable` implementations composed by the Scheduler. The TypeScript layer retains only the sync worker for R2 artifact ingestion.
 
 ### Module Communication: Stigmergy Through the Blackboard
 
 Modules do not call each other. Each module reads from the Core Blackboard and writes back to it. Coordination is indirect, inspired by Cairn's stigmergy pattern: agents leave traces in a shared environment, other agents perceive those traces and adapt their behavior.
 
-The Blackboard stores three primitives as node/edge types in the petgraph store. Facts are what the system has learned. Intents are what the system wants to explore. Hints are governance rules and human guidance.
+The Blackboard stores three primitives. Facts are what the system has learned — including detector observations about the knowledge state. Intents are what agents want to explore. Hints are governance rules and human guidance. Detectors observe the Fact graph and record patterns as Facts; agents read detector Facts and decide which to act on by creating Intents. The Scheduler drives the OODA cycle, calling each detector every tick.
 
-```text
-Core Blackboard (shared graph)
-    ├── Fact: verified entity, relation, experiment result
-    ├── Intent: gap, hypothesis, exploration direction
-    └── Hint: contract.nex rule, user feedback
+```{python}
+#| label: fig-stigmergy-communication
+#| fig-cap: "Stigmergy communication: detectors observe and record Facts, agents create Intents, the Scheduler orchestrates the OODA cycle"
+dot("""
+digraph StigmergyCommunication {
+    rankdir=TB;
+    splines=ortho;
+    nodesep=0.4;
+    ranksep=0.5;
+    fontname="Arial";
 
-            ↓ read/write (single interface)
-    ┌───────┼───────┬───────┬───────┐
-    │       │       │       │       │
-  OODA    Fixed   Flow-   Human   Future
-  Loop    Pipe    GRPO    Hint    Method
-(Cairn)  (Gap→   (Learn)  (Inject)
-          Hyp→
-          Conc)
+    // Blackboard — the shared space
+    subgraph cluster_blackboard {
+        label="Core Blackboard (shared graph)";
+        style=filled; fillcolor="#f0f4f0"; color="#4488cc"; fontsize=12;
+
+        fact [label="Fact", shape=circle, style=filled, fillcolor="#a8e6cf", fontsize=11];
+        intent [label="Intent", shape=diamond, style=filled, fillcolor="#ffd3b6", fontsize=11];
+        hint [label="Hint", shape=box, style=filled, fillcolor="#d4a5a5", fontsize=11];
+    }
+
+    // Detectors — observe and record Facts
+    subgraph cluster_detectors {
+        label="Detectors (automated observers)";
+        style=filled; fillcolor="#e8f4fd"; color="#5588bb"; fontsize=11;
+
+        gap [label="Gap\nDetector", shape=box, style=filled, fillcolor="#d4f1f9", fontsize=9];
+        cont [label="Contradiction\nDetector", shape=box, style=filled, fillcolor="#d4f1f9", fontsize=9];
+        state [label="State Change\nDetector", shape=box, style=filled, fillcolor="#d4f1f9", fontsize=9];
+        nda [label="New Document\nAnalyzer", shape=box, style=filled, fillcolor="#d4f1f9", fontsize=9];
+    }
+
+    // Scheduler — drives the OODA loop
+    sched [label="Scheduler\n(OODA Loop)", shape=box, style=filled, fillcolor="#fff9c4", fontsize=10];
+
+    // Agents — the only source of Intents
+    subgraph cluster_agents {
+        label="Agents (decision-makers)";
+        style=filled; fillcolor="#fff3e0"; color="#ff9800"; fontsize=11;
+
+        agent1 [label="Research\nAgent", shape=box, style=filled, fillcolor="#ffe0b2", fontsize=9];
+        agent2 [label="Review\nAgent", shape=box, style=filled, fillcolor="#ffe0b2", fontsize=9];
+        human [label="Human", shape=box, style=filled, fillcolor="#ffcc80", fontsize=9];
+    }
+
+    // Learning
+    flowgrpo [label="Flow-GRPO\n(Learning Loop)", shape=box, style=filled, fillcolor="#e1bee7", fontsize=9];
+
+    // Scheduler → Detectors
+    sched -> gap [label="tick", style=dashed, color="#888", fontsize=7];
+    sched -> cont [label="tick", style=dashed, color="#888", fontsize=7];
+    sched -> state [label="tick", style=dashed, color="#888", fontsize=7];
+    sched -> nda [label="tick", style=dashed, color="#888", fontsize=7];
+
+    // Detectors → observe → Fact
+    gap -> fact [label="observe", color="#44aa44", fontsize=8];
+    cont -> fact [label="observe", color="#44aa44", fontsize=8];
+    state -> fact [label="observe", color="#44aa44", fontsize=8];
+    nda -> fact [label="observe", color="#44aa44", fontsize=8];
+
+    // Agent reads Facts, creates Intents
+    agent1 -> fact [label="read", dir="both", color="#5588bb", fontsize=8];
+    agent1 -> intent [label="create", color="#ff8800", fontsize=8];
+    agent2 -> fact [label="read", dir="both", color="#5588bb", fontsize=8];
+    agent2 -> intent [label="create", color="#ff8800", fontsize=8];
+
+    // Intent → conclude → Fact
+    intent -> fact [label="conclude", style=dashed, color="#667766", fontsize=8];
+
+    // Human → Hint
+    human -> hint [label="inject", color="#c62828", fontsize=8];
+    hint -> fact [label="constrain", style=dotted, color="#c62828", fontsize=8];
+    hint -> intent [label="constrain", style=dotted, color="#c62828", fontsize=8];
+
+    // Learning loop
+    intent -> flowgrpo [label="trajectories", style=dotted, color="#9c27b0", fontsize=8];
+    flowgrpo -> sched [label="update policy", style=dotted, color="#9c27b0", fontsize=8];
+}
+""")
 ```
 
 Key principles. Every method converges on the same three primitives regardless of internal complexity. There is no fixed pipeline. The Blackboard's current state determines which module acts next.
@@ -370,18 +424,18 @@ Every (origin, intent, result) tuple on the Blackboard has a content-addressable
 | Memgraph | WAL + in-memory dual storage | rusqlite WAL + petgraph memory store |
 | cyrs / cypher-rs ecosystem | Cypher → typed Plan IR | cyrs as primary parser dependency |
 | petgraph ecosystem | StableGraph, NodeIndex, built-in PageRank/Dijkstra | Core graph library |
-| Capability-based traits | Fine-grained Rust traits replacing monolithic interfaces | StorageRead, FactCapable, FilterCapable, EvictCapable, etc. |
+| Capability-based traits | Fine-grained Rust traits replacing monolithic interfaces | StorageRead, FactCapable, FilterCapable, EvictCapable, etc. — also DetectionCapable, GapDetection, ContradictionDetection, StateChangeDetection for the detection layer |
 | DualStorage pattern | Hot + cold composition for edge-cloud routing | DualStorage { hot: HotStorage, cold: ColdStorage } |
 
 A key architectural insight is that a unified query IR decouples input languages from execution. Future agent modules (Planner, Verifier, Hypothesis Generator) will query the graph through this same IR. They do not need to know whether the backend is petgraph in memory, SQLite on disk, or a remote CF Worker. The query interface is the plug, the core is the socket. Adding a new query language (GQL, SPARQL, or a future agent DSL) requires only a new parser adapter, not a core change.
 
-### Future Layer: Blackboard + Stigmergy
+### Stigmergy Layer (Implemented)
 
-The Blackboard architecture is validated by Cairn, an AI search engine that solved 54 of 54 penetration testing challenges (610 teams, only team to achieve a full clear) with no LLMs, no training, and no prior knowledge. Cairn's core is a 250-line OODA loop that reads from and writes to a shared blackboard of Fact, Intent, and Hint primitives. Modules coordinate indirectly through stigmergy: they leave traces in the shared environment and perceive traces left by others.
+The Blackboard architecture is validated by Cairn, an AI search engine that solved 54 of 54 penetration testing challenges (610 teams, only team to achieve a full clear) with no LLMs, no training, and no prior knowledge. Cairn's core is a 250-line OODA loop that reads from and writes to a shared blackboard of Fact, Intent, and Hint primitives.
 
-This validates the core insight of Nexus. A fixed pipeline (Gap Detector → Hypothesis Generator → Verifier) is one valid module. But it is not the only module. The OODA loop is another. Flow-GRPO learning is another. Human intervention is another. All attach to the same Blackboard through the same interface.
+The stigmergy layer is now implemented in `core/process/`. The Scheduler drives the OODA loop, calling detectors every tick. Detectors (Gap, Contradiction, State Change, New Document) observe the Fact graph and record patterns as Facts. Agents read these detector Facts and create Intents. The Cairn ReasonCheckpoint pattern — simple count-based state change detection — is built into `StateChangeDetector`. All detectors implement the `DetectionCapable` trait hierarchy, which mirrors the storage capability trait architecture.
 
-Future research layers will be implemented as Blackboard modules, not as pipeline stages:
+Beyond the current implementation, future research layers will attach to the same Blackboard through the same interface:
 
 | Paradigm | Source | Core Insight | Blackboard Role |
 |---|---|---|---|
@@ -413,35 +467,30 @@ This applies to any domain. Business simulation: Fact = market data, Intent = st
 |---|---|
 | af-sync worker (R2 → engines) | Deployed |
 | RAG engines (LightRAG) | Reference implementation; sync pipeline active |
-| gap-detector (TS, Cypher mode) | Deployed |
 | CI/CD (deploy.yml, build.yml) | Deployed |
-| GraphBlackboard (DualStorage: hot + cold) | Phase 1 complete: Blackboard trait, FIH lifecycle, Cypher executor, DualStorage composition, 29 tests |
-| SqlNormalizedStorage (ColdStorage) | Capability-based persistence implementing FihPersistence + FilterCapable: multi-project scoping, ACID transactions, FK constraints, 29 tests (23 functional + 6 concurrent) |
-| PetgraphStorage (HotStorage) | In-memory graph backend implementing FihPersistence + EvictCapable, Arc<Mutex<petgraph::Graph>> shared with GraphBlackboard |
-| Blackboard trait | Implemented: submit/claim/heartbeat/release/conclude lifecycle, BoardState, project_id() query |
-| Capability traits | StorageRead, FactCapable, IntentCapable, HintCapable, FilterCapable, ScanCapable, EvictCapable, FlushCapable, TimeRangeCapable |
-| DualStorage | Dual-write hot + cold composition, hot for fast reads, cold for filtered queries |
-| Project model | projects table with lifecycle (active/stopped/completed), reason lease fields, project-scoped Blackboard instances |
-| GraphAccess trait | Implemented: raw petgraph operations for Cypher executor |
-| cypher translator | cyrs pipeline integrated, dual-path executor, 21 tests |
-| Graph algorithms | Future |
-| Agentic loop | FIH lifecycle extracted (Cairn pattern), OODA module design |
+| GraphBlackboard (DualStorage: hot + cold) | Phase 1 complete: Blackboard trait, FIH lifecycle, Cypher executor |
+| SqlNormalizedStorage (ColdStorage) | Capability-based persistence (FihPersistence + FilterCapable) |
+| PetgraphStorage (HotStorage) | In-memory graph backend (FihPersistence + EvictCapable) |
+| Blackboard trait | submit/claim/heartbeat/release/conclude lifecycle |
+| Storage capability traits | StorageRead, FactCapable, IntentCapable, HintCapable, FilterCapable, ScanCapable, EvictCapable, FlushCapable, TimeRangeCapable |
+| DualStorage | Dual-write hot + cold composition |
+| Scheduler (OODA loop) | Tick-based polling, heartbeat TTL, eviction trigger, stale intent cleanup |
+| Gap Detector | Rust: origin-based + cross-origin topic gap detection, emits Facts |
+| Contradiction Detector | Rust: same-topic/different-position contradiction detection, emits Facts |
+| State Change Detector | Rust: Cairn ReasonCheckpoint pattern, count-based, snapshot-safe |
+| New Document Analyzer | Rust: +factor/-factor/gap analysis with baseline pre-seeding |
+| Detection capability traits | DetectionCapable, GapDetection, ContradictionDetection, StateChangeDetection — mirrors storage trait architecture |
+| Cypher translator | cyrs pipeline integrated, dual-path executor |
+| Scenario tests | 21 tests across 5 test files: lifecycle, foundational consistency, real-world workflows, cross-worker persistence |
+| Agentic loop | FIH lifecycle complete (detector→Fact→agent→Intent→conclude), OODA scheduler operational |
+| Detector state persistence | task_states in StorageSnapshot, cross-worker checkpoint continuity |
 | On-chain DeSci | Placeholder |
 
 ## Edge-to-Cloud Portability & AWS Integration
 
 ### Principle: Bindings Are Deployment Targets, Not Architectural Commitments
 
-The platform bindings layer (`bindings/`) isolates deployment-specific code. Adding a new deployment target requires only a new binding crate. The core (`nexus-core/`) never changes.
-
-```text
-nexus-core/ (zero deps)
-    │
-    ├── bindings/cf/       ← Cloudflare Workers (wasm32-unknown-unknown)
-    ├── bindings/aws/      ← AWS Lambda + Graviton (aarch64-unknown-linux-gnu)
-    ├── bindings/local/    ← Native server (axum, host architecture)
-    └── bindings/onchain/      ← Smart contract (wasm32-wasi, placeholder)
-```
+The platform bindings layer (`bindings/`) isolates deployment-specific code. Adding a new deployment target requires only a new binding crate. The core (`nexus-core/`) never changes. Available targets: Cloudflare Workers (wasm32-unknown-unknown), AWS Lambda + Graviton (aarch64-unknown-linux-gnu), Native server (axum, host architecture), On-chain (wasm32-wasi, placeholder).
 
 | Environment | Binding | Hardware | Latency Profile | Best For |
 |---|---|---|---|---|
