@@ -1,14 +1,31 @@
-# SSCCS Validation with OpenHW CORE-V Ecosystem
-
-May 2026, [SSCCS Foundation](https://ssccs.org)
-
-**For technical details, see:**
-
-- [RISC‑V integration research report](/research/riscv.html)
-- [SSCCS Whitepaper](/whitepaper/whitepaper.html)
-- [ev — ExaVerif repository](https://github.com/ssccsorg/ev)
-
 ---
+title: "SSCCS Validation with OpenHW CORE-V Ecosystem"
+date: last-modified
+metadata-files:
+  - ../_include/author.yml
+abstract: |
+  This document outlines a proposed collaboration between the SSCCS Foundation and AWS to validate SSCCS on Graviton, HPC, and FPGA infrastructure, focusing on AI-driven compiler optimization and pre-silicon hardware emulation. We believe AWS is uniquely positioned to serve as the primary cloud platform for research into next-generation verifiable computing—no other provider offers the heterogeneous resource portfolio (ARM CPU, HPC cluster, FPGA fabric) that SSCCS validation requires. The document will be updated in real time, as the collaboration develops.
+---
+
+```{python}
+#| include: false
+#| context: local
+title_meta_items = {
+    "html": [
+        {"title": "Code", "link": "https://github.com/ssccsorg/ev", "content": "Github", "icon": "bi bi-link"},
+        {"title": "References", "link": "https://docs.ssccs.org/projects/ev", "content": "ExaVerif", "icon": "bi bi-link"},
+        {"title": "References", "link": "https://docs.ssccs.org/whitepaper/whitepaper.html", "content": "SSCCS Whitepaper", "icon": "bi bi-link"}        
+    ],
+}
+```
+
+{{< include ../_include/_title_meta_items.qmd >}}
+
+```{python}
+#| include: false
+#| context: local
+%run ../_include/_graphviz.py
+```
 
 ## Executive Summary
 
@@ -38,7 +55,7 @@ This collaboration thus offers OpenHW a concrete, open‑source tool to evaluate
 | **Open-Source Verification** | CORE-V-VERIF <a href="#ref-2">[2]</a> testbench uses RVVI methodology and Imperas reference models. | **ev (ExaVerif)** provides a pluggable exhaustive verification CLI — YAML in, PASS/FAIL out — that can complement CORE‑V‑VERIF with structural constraint testing. |
 | **Hardware Platform** | CORE-V MCU DevKit (CV32E40P core + Quicklogic eFPGA <a href="#ref-3">[3]</a>). | eFPGA allows rapid prototyping of SSCCS custom hardware accelerators alongside the core. |
 | **Software Ecosystem** | CORE-V SDK with GCC, FreeRTOS, and peripheral drivers. | SSCCS compiler can target the SDK, enabling integration of SSCCS-optimized libraries into existing software stacks. |
-| **Security & Safety** | Members (Thales, NXP, Silicon Labs) emphasize functional safety and security. | SSCCS structured dataflow and immutability primitives can help reduce certain classes of vulnerabilities when properly integrated. |
+| **Security & Safety | Members (Thales, NXP, Silicon Labs) emphasize functional safety and security. | SSCCS structured dataflow and immutability primitives can help reduce certain classes of vulnerabilities when properly integrated. |
 
 ### Structured Coprocessor Design
 
@@ -75,7 +92,7 @@ The SSCCS Proof of Concept (PoC) is a fully functional Rust‑based reference im
 
 **Triple‑Substrate Cross‑Validation:**
 
-```
+```text
 RISC‑V Assembly (.S)  ──┐
                          ├── Golden Anchors (19, auto‑verified by Python)
 SystemVerilog (.sv)    ──┤
@@ -109,7 +126,7 @@ ev is built with a **pluggable capability‑trait architecture** (same pattern a
 
 The `scripts/demo-ssccs-poc.sh` script clones the SSCCS repository, extracts golden anchors from hand‑written RISC‑V assembly, generates YAML fixtures, and runs ev to independently verify each anchor:
 
-```
+```text
 narrow:   even ∧ range_0_10  →  2,REJECT,REJECT,10,REJECT  ✓
 broad:    no constraints     →  2,3,5,10,12                ✓
 sum3d_a:  (2,1,0)            →  3                          ✓
@@ -294,6 +311,7 @@ To execute this roadmap, SSCCS Foundation seeks:
 SSCCS offers an opportunity to bring a working open‑source verification tool — **ev** — into the OpenHW ecosystem. While earlier proposals described future research, ev is **available today** at [github.com/ssccsorg/ev](https://github.com/ssccsorg/ev), Apache 2.0, with a channel demo that cross‑verifies against proven RISC‑V assembly.
 
 We propose:
+
 1. **Immediate:** Share ev with the OpenHW Verification Task Group for evaluation.
 2. **Phase 1.5:** Integrate ev's YAML‑based constraint testing with CORE‑V‑VERIF.
 3. **Phase 2+:** Explore the structural observation computing model on CORE‑V hardware through the XIF interface and eFPGA.

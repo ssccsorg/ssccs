@@ -7,9 +7,41 @@ Bare-metal (`no_std`) Rust crate for integrating SSCCS (Schema–Segment Composi
 This crate provides:
 
 - **Custom RISC-V Instructions**: SSCCS observation primitives encoded as `custom1`/`custom2` opcodes
-- **Software Emulation**: Host-compatible fallback for testing without hardware
+- **Software Fallback**: Host-compatible pure-Rust fallback for testing without RISC-V hardware
+- **Golden Anchor Cross-Validation**: Automatically verified against SystemVerilog and a separate independent verification CLI (`ev`)
 - **XIF Interface Profile**: Stub for OpenHW CORE-V coprocessor integration
 - **Zero-Overhead Abstraction**: Direct mapping from SSCCS concepts to hardware operations
+
+## Triple-Substrate Validation
+
+The same constraint pipeline is independently implemented across **three computational substrates**, with automated cross-verification:
+
+```
+RISC-V Assembly (.S)  ──┐
+                         ├── Golden Anchors (19, auto-verified by Python)
+SystemVerilog (.sv)    ──┤
+                         │
+Rust Fallback          ──┘
+```
+
+The golden anchor system (`sv/check_golden_anchors.py`) reads constants from `observe_full.S` and checks them against `_golden_anchors.svh`. Any change to the assembly forces an anchor update, which forces the Python check to either pass or fail — keeping all three implementations in sync.
+
+### ev (ExaVerif) Channel Verification
+
+The open-source [ev](https://github.com/ssccsorg/ev) verification CLI independently reproduces the golden anchor results through its own constraint engine — a **fourth path** that cross-checks the triple-substrate validation:
+
+```bash
+git clone https://github.com/ssccsorg/ev
+cd ev
+bash scripts/demo-ssccs-poc.sh
+
+# 5/5 channels match RISC-V assembly golden anchors:
+#   narrow:   even ∧ range_0_10  →  2,REJECT,REJECT,10,REJECT
+#   broad:    no constraints     →  2,3,5,10,12
+#   sum3d_a:  (2,1,0)            →  3
+#   sum3d_b:  (1,2,3)            →  6
+#   parity:   {2,3}              →  0,1
+```
 
 ## Target Platform
 
@@ -22,7 +54,7 @@ This crate provides:
 
 ## Relationship to Standard Workspace
 
-This crate is **separate** from the `standard/` workspace:
+This crate is **separate** from the `standard/` workspace but shares its core types via dependency on `ssccs-core`.
 
 | Aspect | `standard/` Workspace | `baremetal_riscv/` Crate |
 |--------|----------------------|-------------------------|
@@ -31,129 +63,68 @@ This crate is **separate** from the `standard/` workspace:
 | **Panic Handler** | Default (unwind) | `panic-halt` (abort) |
 | **Use Case** | Simulation, testing, benchmarking | Embedded hardware deployment |
 
-## Installation
+## Assembly Modules
 
-### Prerequisites
+Five hand-written RISC-V assembly files implement the SSCCS observation pipeline with branchless, constant-time constraint primitives:
+
+| Module | File | Functions |
+|--------|------|-----------|
+| **Observe** | `asm/observe_full.S` | Constraints (`ck_even`, `ck_range`, `ck_eq_val`, `ck_gt`), composition (`compose_and`, `compose_or`, `compose_intersect`, `compose_union`, `compose_product_2d`), projectors (`proj_id`, `proj_sum2d`, `proj_sum3d`, `proj_parity`, `proj_negate`), `observe()` hot path, batch mode, narrow/broad scenario |
+| **Collapse** | `asm/collapse.S` | `collapse_sum`, `collapse_min`, `collapse_max`, `collapse_product`, `collapse_count`, `collapse_weighted_sum`, `collapse_weighted_avg` |
+| **Field Update** | `asm/field_update.S` | `field_add_constraint`, `field_remove_constraint`, `field_clear`, `field_add_transition`, `field_update_weight`, `field_get_transitions` |
+| **Scheme Layout** | `asm/scheme_layout.S` | `layout_linear_1d`, `layout_linear_nd`, `layout_row_major_2d`, `layout_row_major_3d`, `layout_col_major_2d`, `morton_encode_2d`, `layout_zorder_2d` |
+| **Scheme Adjacency** | `asm/scheme_adjacency.S` | `adj_grid_4`, `adj_grid_8`, `adj_manhattan_1d`, `adj_graph_edges` |
+
+## SystemVerilog Modules
+
+18 SystemVerilog modules independently implement the same pipeline:
+
+- **Constraints** (5): `ck_eq`, `ck_even`, `ck_gt`, `ck_range`, `ck_range_010`
+- **Projectors** (5): `proj_identity`, `proj_negate`, `proj_parity`, `proj_sum2d`, `proj_sum3d`
+- **Composition** (3): `compose_intersect`, `compose_product_2d`, `compose_union`
+- **Pipeline**: `observe`, `ssccs_xif_coprocessor`, `scenario_narrow_broad_tb`, `xif_integration_tb`
+- **Testbench**: `composition_tb`
+
+## Test Suite
+
+All tests pass on host (x86_64/aarch64) via the Rust fallback, and can be cross-compiled for RISC-V targets:
 
 ```bash
-# Install Rust toolchain (if not already installed)
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+# Host fallback tests
+cargo test
 
-# Add RISC-V target
-rustup target add riscv32imac-unknown-none-elf
-
-# (Optional) Install cargo-binutils for object file inspection
-rustup component add llvm-tools-preview
-cargo install cargo-binutils
-```
-
-### Building
-
-```bash
-# Build for RISC-V target (release mode)
-cargo build --target riscv32imac-unknown-none-elf --release
-
-# Check without building (faster for development)
-cargo check --target riscv32imac-unknown-none-elf
-
-# Inspect the generated binary
-cargo size --target riscv32imac-unknown-none-elf --release -- -A
-```
-
-### Rust Analyzer Configuration
-
-For IDE support, add to `.vscode/settings.json`:
-
-```json
-{
-  "rust-analyzer.cargo.target": "riscv32imac-unknown-none-elf"
-}
-```
-
-## API Reference
-
-### Core Functions
-
-#### `observe_custom(scheme_id, field_id, rule_id) -> u32`
-
-Software emulation of the SSCCS observation primitive. In hardware, this would be a `custom1` instruction.
-
-```rust
-use ssccs_baremetal_riscv::observe_custom;
-
-// Perform observation (software emulation)
-let result = unsafe { observe_custom(0x01, 0x02, 0x03) };
-```
-
-#### `observe_asm(scheme_id, field_id, rule_id) -> u32` (RISC-V only)
-
-Inline assembly wrapper for the actual `custom1` instruction. Only available when compiling for `riscv32`.
-
-```rust
-#[cfg(target_arch = "riscv32")]
-use ssccs_baremetal_riscv::observe_asm;
-
-// Perform observation (hardware instruction)
-let result = unsafe { observe_asm(0x01, 0x02, 0x03) };
-```
-
-### Instruction Encodings
-
-The `instructions` module provides:
-
-| Function | Description |
-|----------|-------------|
-| `encode_custom_rtype(rs3, rs2, rs1, funct3, opcode)` | Encode R-type custom instruction |
-| `decode_custom(inst)` | Decode custom instruction fields |
-| `observe_emulate(scheme_id, field_id, rule_id)` | Software emulation of OBSERVE |
-| `collapse_emulate(scheme_id, segment_mask, field_id)` | Software emulation of COLLAPSE |
-
-#### Custom Instruction Format
-
-```text
-OBSERVE (custom1):
-  31    27 26    20 19    15 14  12 11     7 6      0
-  ┌──────┬────────┬────────┬─────┬─────────┬────────┐
-  │  rs3 │  rs2   │  rs1   │funct3│ opcode  │  rd    │
-  │scheme│ field  │  rule  │ 000 │ 0001011 │  (out) │
-  └──────┴────────┴────────┴─────┴─────────┴────────┘
-```
-
-### Hardware Profile
-
-#### `CoreVXifProfile`
-
-Hardware profile for OpenHW CORE-V XIF (eXtension Interface) coprocessor integration.
-
-```rust
-use ssccs_baremetal_riscv::CoreVXifProfile;
-
-let profile = CoreVXifProfile;
-let result = profile.issue_observation(0x01, 0x02, 0x03);
+# RISC-V assembly golden anchor verification (host)
+cargo test -- test_observe_golden_anchors
+cargo test -- test_collapse_golden_anchors
+cargo test -- test_field_update_golden_anchors
+cargo test -- test_layout_golden_anchors
+cargo test -- test_adjacency_golden_anchors
 ```
 
 ## Research Goals
 
 1. **Custom Instruction Implementation**: Map SSCCS observation primitives to RISC-V `custom1`/`custom2` opcodes
 2. **CORE-V XIF Integration**: Develop coprocessor interface for offloading observation to hardware accelerator
-3. **Simulation Validation**: Compare results with `standard/` workspace PoC using riscvOVPsimCOREV
+3. **Simulation Validation**: Compare results with Rust fallback using riscvOVPsimCOREV
 4. **Verification IP**: Create testbenches for CORE-V-VERIF framework integration
 5. **eFPGA Acceleration**: Explore QuickLogic fabric integration on CORE-V MCU DevKit
 6. **OpenHW Contribution**: Upstream documentation and reference implementation
 
 ## Integration with OpenHW CORE-V
 
-### Phase 1: Software Emulation (Current)
+### Phase 1: Software Emulation (Complete)
 
 - Custom instruction encodings defined
 - Software emulation functions implemented
 - XIF interface stub created
+- Triple-substrate cross-validation operational (Rust ↔ Assembly ↔ SystemVerilog)
+- **ev channel demo verifies all golden anchors independently**
 
-### Phase 2: Verification IP
+### Phase 2: Verification IP (Next)
 
 - [ ] CORE-V simulation integration
-- [ ] Test suite for observation primitives
-- [ ] Performance benchmarking against PoC
+- [ ] ev YAML schemas for CORE-V XIF instructions
+- [ ] cocotb/Verilator integration for ev ↔ simulation cross-verification
 
 ### Phase 3: Hardware Implementation
 
@@ -163,6 +134,7 @@ let result = profile.issue_observation(0x01, 0x02, 0x03);
 
 ## Links
 
+- [ev (ExaVerif)](https://github.com/ssccsorg/ev) — open-source exhaustive verification CLI
 - [SSCCS RISC-V Integration Research](/docs/research/riscv.qmd)
 - [OpenHW Integration Proposal](/docs/proposal/openhw_integration.md)
 - [OpenHW Group](https://www.openhwgroup.org/)
@@ -172,4 +144,4 @@ let result = profile.issue_observation(0x01, 0x02, 0x03);
 
 ## License
 
-This project is licensed under the same terms as the main SSCCS repository.
+This project is licensed under the same terms as the main SSCCS repository. Apache 2.0.
