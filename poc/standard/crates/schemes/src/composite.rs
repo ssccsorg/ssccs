@@ -4,6 +4,6 @@
 //! which hosts the canonical definitions used by SchemeImpl.
 
 pub use ssccs_primitive::{
-    AlignmentRules, CombinationMethod, CompositeScheme, CompositionRules,
-    ConflictResolution, Matrix, TransformType, Transformation, TransformedScheme,
+    AlignmentRules, CombinationMethod, CompositeScheme, CompositionRules, ConflictResolution,
+    Matrix, TransformType, Transformation, TransformedScheme,
 };

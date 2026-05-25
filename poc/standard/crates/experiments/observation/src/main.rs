@@ -2,7 +2,7 @@
 //!
 //! Tests the Observation concept - the sole active event that produces actuality.
 
-use ssccs_core::{observe, possible_next_coordinates, Field, Segment};
+use ssccs_core::{Field, Segment, observe, possible_next_coordinates};
 use ssccs_examples::{ArithmeticProjector, IntegerProjector, RangeConstraint};
 
 fn main() {
