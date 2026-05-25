@@ -51,7 +51,7 @@ $(BIN): $(SVSRCS) $(SVDIR)/_golden_anchors.svh
 run: $(BIN)
 	$(BIN)
 
-check: $(BIN) compose-check
+check: $(BIN) compose-check golden-anchor-check
 	$(BIN); \
 	status=$$?; \
 	if [ $$status -eq 0 ]; then \
@@ -62,6 +62,11 @@ check: $(BIN) compose-check
 		echo "SystemVerilog golden bridge: FAILED (exit $$status)"; \
 	fi; \
 	exit $$status
+
+# ── Golden anchor consistency ──
+
+golden-anchor-check:
+	python3 $(SVDIR)/check_golden_anchors.py
 
 # ── Composition build / check ──
 

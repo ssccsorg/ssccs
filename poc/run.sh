@@ -135,6 +135,15 @@ done
 echo "Auto-fix complete"
 echo ""
 
+# ── Golden anchor consistency ──
+
+ANCHOR_CHECK="$(dirname "${BASH_SOURCE[0]}")/baremetal_riscv/sv/check_golden_anchors.py"
+if [ -f "$ANCHOR_CHECK" ]; then
+    echo "Step 0b: Checking golden anchor consistency (asm ↔ svh)..."
+    python3 "$ANCHOR_CHECK" || exit 1
+    echo ""
+fi
+
 if [ "$MODE" = "run" ]; then
     echo "Step 1: Applying formatting (cargo fmt --all)..."
     for ws in "${WORKSPACES[@]}"; do (cd "$ws" && cargo fmt --all); done
