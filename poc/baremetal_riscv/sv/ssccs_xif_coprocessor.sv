@@ -37,6 +37,11 @@
 `define FUNCT3_COLLAPSE   3'b001
 
 // Sub-operation IDs (passed via rs2[2:0] for CONSTRAINT, COMPOSE, PROJECT)
+//
+// Operand mapping:
+//   rs1 = coordinate
+//   rs2[2:0] = sub-op ID, rs2[63:3] = parameter
+//   rs3 = extra operand (MIN_VAL for ck_range, coord_c for proj_sum3d)
 `define OP_CK_EVEN       3'd0
 `define OP_CK_RANGE_010  3'd1
 `define OP_CK_RANGE      3'd2
@@ -94,8 +99,9 @@ module ssccs_xif_coprocessor (
     ck_even u_ck_even (.coord(coord), .result(ck_even_r));
     ck_range_010 u_ck_range010 (.coord(coord), .result(ck_range010_r));
 
+    // Range check: MIN_VAL from rs3 (defaults to 0), MAX_VAL from rs2
     ck_range #(
-        .MIN_VAL(64'd0),
+        .MIN_VAL(extra),
         .MAX_VAL(param)
     ) u_ck_range (.coord(coord), .result(ck_range_r));
 
