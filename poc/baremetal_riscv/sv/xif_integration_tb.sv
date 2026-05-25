@@ -8,20 +8,7 @@
 //   → composition → projection → XIF result → RISC-V core
 
 `include "_golden_anchors.svh"
-
-// Opcode and funct3 constants (must match ssccs_xif_coprocessor.sv)
-`define OPCODE_CUSTOM1  7'b0001011
-`define OPCODE_CUSTOM2  7'b0101011
-`define FUNCT3_CONSTRAINT 3'b001
-`define FUNCT3_COMPOSE    3'b010
-`define FUNCT3_PROJECT    3'b000
-`define OP_CK_EVEN        3'd0
-`define OP_CK_RANGE_010   3'd1
-`define OP_COMPOSE_AND    3'd0
-`define OP_COMPOSE_OR     3'd1
-`define OP_PROJ_ID        3'd0
-`define OP_PROJ_SUM2D     3'd1
-`define OP_PROJ_PARITY    3'd3
+`include "_xif_constants.svh"
 
 module xif_integration_tb;
 
@@ -154,28 +141,32 @@ module xif_integration_tb;
         $display("-- Scenario: Narrow Inquiry (even ∩ range) --");
         $display("  BATCH_COORDS = {2, 3, 5, 10, 12}");
 
-        // Build narrow results by querying each constraint then composing in software
-        // coord=2: even=1, range=1 → and=1 → proj=2
+        // Build narrow results by querying each constraint then composing
+        // coord=2: even=1, range=1 -> narrow=VALID
         issue_custom1(`FUNCT3_CONSTRAINT, 5'd11, `GOLDEN_SEG_0, {61'd0, `OP_CK_EVEN});
-        $display("  coord=2:  even=%0d", result_data[0]);
+        assert(result_data[0] == 1'b1) else $error("ck_even(2): expected 1");
         issue_custom1(`FUNCT3_CONSTRAINT, 5'd12, `GOLDEN_SEG_0, {61'd0, `OP_CK_RANGE_010});
-        $display("            range=%0d → narrow=VALID", result_data[0]);
+        assert(result_data[0] == 1'b1) else $error("ck_range_010(2): expected 1");
+        $display("  coord=2:  even=1, range=1 -> narrow=VALID");
 
-        // coord=3: even=0, range=1 → and=0 → REJECT
+        // coord=3: even=0 -> narrow=REJECT regardless of range
         issue_custom1(`FUNCT3_CONSTRAINT, 5'd11, `GOLDEN_SEG_1, {61'd0, `OP_CK_EVEN});
-        $display("  coord=3:  even=%0d → narrow=REJECT (odd)", result_data[0]);
+        assert(result_data[0] == 1'b0) else $error("ck_even(3): expected 0");
+        $display("  coord=3:  even=0 -> narrow=REJECT (odd)");
 
-        // coord=10: even=1, range=1 → and=1 → proj=10
+        // coord=10: even=1, range=1 -> narrow=VALID
         issue_custom1(`FUNCT3_CONSTRAINT, 5'd11, `GOLDEN_SEG_3, {61'd0, `OP_CK_EVEN});
-        $display("  coord=10: even=%0d", result_data[0]);
+        assert(result_data[0] == 1'b1) else $error("ck_even(10): expected 1");
         issue_custom1(`FUNCT3_CONSTRAINT, 5'd12, `GOLDEN_SEG_3, {61'd0, `OP_CK_RANGE_010});
-        $display("            range=%0d → narrow=VALID", result_data[0]);
+        assert(result_data[0] == 1'b1) else $error("ck_range_010(10): expected 1");
+        $display("  coord=10: even=1, range=1 -> narrow=VALID");
 
-        // coord=12: even=1, range=0 → and=0 → REJECT
+        // coord=12: even=1, range=0 -> narrow=REJECT
         issue_custom1(`FUNCT3_CONSTRAINT, 5'd11, `GOLDEN_SEG_4, {61'd0, `OP_CK_EVEN});
-        $display("  coord=12: even=%0d", result_data[0]);
+        assert(result_data[0] == 1'b1) else $error("ck_even(12): expected 1");
         issue_custom1(`FUNCT3_CONSTRAINT, 5'd12, `GOLDEN_SEG_4, {61'd0, `OP_CK_RANGE_010});
-        $display("            range=%0d → narrow=REJECT (out of range)", result_data[0]);
+        assert(result_data[0] == 1'b0) else $error("ck_range_010(12): expected 0");
+        $display("  coord=12: even=1, range=0 -> narrow=REJECT (out of range)");
 
         // Test 4: Composition operators
         $display("");

@@ -8,8 +8,8 @@
 //   beqz C → REJECT
 //   call proj_fn(coord) → result
 //
-// Hot path: 1 comparison + 1 projection, 0 cycles latency
-// (purely combinational when constraint and projector are both
+// Hot path: gated projection, 0 cycles latency
+// (purely combinational when constraint_result and projection are both
 //  combinational).
 
 `include "_golden_anchors.svh"

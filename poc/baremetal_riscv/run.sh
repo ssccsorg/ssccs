@@ -73,16 +73,20 @@ if [ -z "$SKIP_SV" ] && [ -f "$SV_DIR/Makefile" ]; then
 
     if command -v verilator &>/dev/null; then
         set +e
-        make -C "$SV_DIR" check 2>&1 | tail -5
+        SV_LOG=$(mktemp)
+        make -C "$SV_DIR" check >"$SV_LOG" 2>&1
         STATUS_SV=$?
-        set -e
         if [ $STATUS_SV -eq 0 ]; then
+            tail -5 "$SV_LOG"
             echo "  SystemVerilog: PASSED"
             PASSED=$((PASSED + 1))
         else
+            cat "$SV_LOG"
             echo "  SystemVerilog: FAILED (exit $STATUS_SV)"
             FAILED=$((FAILED + 1))
         fi
+        rm -f "$SV_LOG"
+        set -e
     else
         echo "  Verilator not found — install with: brew install verilator"
         echo "  SystemVerilog: SKIPPED"
