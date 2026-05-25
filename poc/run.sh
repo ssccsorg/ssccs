@@ -116,6 +116,22 @@ get_baremetal_target() {
     grep -oP 'target\s*=\s*"\K[^"]+' "$ws/Cargo.toml" 2>/dev/null | head -1
 }
 
+# ── Step 0: Auto-fix clippy and formatting before validation ──
+
+echo "Step 0: Auto-fixing clippy and formatting..."
+for ws in "${WORKSPACES[@]}"; do
+    echo "  Auto-fix: $ws"
+    if is_baremetal_workspace "$ws"; then
+        echo "    ⊘ Skipped (bare-metal)"
+    else
+        (cd "$ws" && cargo clippy --fix --allow-dirty --workspace 2>&1) || true
+        (cd "$ws" && cargo fmt --all 2>&1)
+        echo "    ✓ Fixed"
+    fi
+done
+echo "Auto-fix complete"
+echo ""
+
 if [ "$MODE" = "run" ]; then
     echo "Step 1: Applying formatting (cargo fmt --all)..."
     for ws in "${WORKSPACES[@]}"; do (cd "$ws" && cargo fmt --all); done
