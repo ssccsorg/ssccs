@@ -9,8 +9,6 @@
 // Synthesis: 2 constraint modules in parallel + AND gate
 
 module compose_product_2d (
-    input  logic [63:0] coord_left,
-    input  logic [63:0] coord_right,
     input  logic        c1_result,
     input  logic        c2_result,
     output logic        result

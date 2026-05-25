@@ -74,7 +74,6 @@ module scenario_narrow_broad_tb;
 
             // Observation pipeline
             observe observe_narrow (
-                .coord(coords[i]),
                 .constraint_result(narrow_constraint[i]),
                 .projection(projection[i]),
                 .result(result_narrow[i]),
@@ -82,7 +81,6 @@ module scenario_narrow_broad_tb;
             );
 
             observe observe_broad (
-                .coord(coords[i]),
                 .constraint_result(broad_constraint[i]),
                 .projection(projection[i]),
                 .result(result_broad[i]),

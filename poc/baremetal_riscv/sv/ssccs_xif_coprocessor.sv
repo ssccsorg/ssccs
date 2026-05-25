@@ -88,8 +88,6 @@ module ssccs_xif_coprocessor (
     logic compose_and_r, compose_or_r;
     logic [63:0] proj_id_r, proj_parity_r, proj_negate_r;
     logic [63:0] proj_sum2d_r, proj_sum3d_r;
-    logic [63:0] observe_result;
-    logic        observe_valid;
 
     // Instantiate all functional units (combinational)
 

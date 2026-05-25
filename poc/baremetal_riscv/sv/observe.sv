@@ -15,7 +15,6 @@
 `include "_golden_anchors.svh"
 
 module observe (
-    input  logic [63:0] coord,
     input  logic        constraint_result,
     input  logic [63:0] projection,
     output logic [63:0] result,

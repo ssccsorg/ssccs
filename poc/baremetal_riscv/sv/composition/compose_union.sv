@@ -12,7 +12,6 @@
 module compose_union #(
     parameter int NUM_CONSTRAINTS = 2
 ) (
-    input  logic [63:0]             coord,
     input  logic [NUM_CONSTRAINTS-1:0] constraint_results,
     output logic                    result
 );
