@@ -6,8 +6,8 @@
 //! compare it with traditional imperative programming.
 
 use ssccs_core::{Constraint, Coordinates, Field, Projector};
-use ssccs_primitive::observe_scheme;
 use ssccs_primitive::GridTopology;
+use ssccs_primitive::observe_scheme;
 use ssccs_schemes::Grid2DTemplate;
 
 /// A constraint that only allows coordinates within a matrix boundary
