@@ -1,0 +1,109 @@
+---
+title: "Ecosystem Skeleton"
+subtitle: "From The Verification To Economy"
+date: last-modified
+metadata-files:
+  - ../_include/author.yml
+abstract: |
+  Several axes form a single self-replicating structure. One defines computation as structural observation; one captures physical reality through synthesis; one converts verified results into economic assets; one orchestrates the cycle that closes the loop. This document describes their relationships and the data flows between them.
+---
+
+{{< include ../_include/_title_meta_items.qmd >}}
+
+```{python}
+#| include: false
+#| context: local
+%run ../_include/_graphviz.py
+```
+
+## The Axes
+
+```{python}
+#| label: fig-ecosystem
+#| fig-cap: "Ecosystem Architecture"
+
+dot("""
+digraph EcosystemArch {
+    rankdir=LR;
+    splines=ortho;
+    nodesep=0.25;
+    ranksep=0.3;
+    node [shape=box, style="rounded,filled", fontsize=8, width=1.5, height=0.45];
+    edge [fontsize=7, minlen=1];
+
+    subgraph cluster_truth {
+        label="Structural Source of Truth";
+        bgcolor="#e8f5e9";
+        style="rounded";
+        poc [label="Multi-Layer POC", fillcolor="#a5d6a7"];
+        format [label="Description Format", fillcolor="#a5d6a7"];
+        {rank=same; poc; format;}
+    }
+
+    subgraph cluster_verify {
+        label="Verification and Reverse Extraction";
+        bgcolor="#e3f2fd";
+        style="rounded";
+        syn [label="Synthesis Engine", fillcolor="#90caf9"];
+        extract [label="Rule Extraction", fillcolor="#90caf9"];
+        {rank=same; syn; extract;}
+    }
+
+    subgraph cluster_eco {
+        label="Economic Layer (+ more)";
+        bgcolor="#fce4ec";
+        style="rounded";
+        vip [label="Verified IP Registry", fillcolor="#f48fb1"];
+        stake [label="Staking Pool", fillcolor="#f48fb1"];
+        {rank=same; vip; stake;}
+    }
+
+    subgraph cluster_loop {
+        label="Orchestration Loop";
+        bgcolor="#fff3e0";
+        style="rounded";
+        board [label="Observation Board", fillcolor="#ffcc80"];
+        detect [label="Gap Detectors", fillcolor="#ffcc80"];
+        cycle [label="Strategy Cycle", fillcolor="#ffcc80"];
+        {rank=same; board; detect; cycle;}
+    }
+
+    poc -> syn [label="submit"];
+    syn -> extract [label="netlist"];
+    extract -> board [label="structural Facts"];
+    syn -> vip [label="verified"];
+    vip -> board [label="Fact"];
+    board -> detect;
+    detect -> cycle [label="gaps"];
+    cycle -> poc [label="new designs", style=dashed];
+    extract -> stake [label="proof"];
+    stake -> vip [label="funding"];
+}
+""")
+```
+
+A design described in a structural format targets multiple substrates. A synthesis engine verifies correctness and measures physical properties. Verified designs become registered assets in an economic layer where staked capital funds new work. An orchestration loop observes gaps and contradictions, proposes improvements, and feeds them back into the design cycle. Each iteration produces structural knowledge that accelerates the next.
+
+These axes are not separate projects. They are a single structure that observes itself, verifies itself, values itself, and improves itself.
+
+## The Verification Pipeline
+
+Several stages produce the structural Facts that drive the entire cycle: automated fixes, cross-substrate consistency verification, static analysis, build, test, runtime execution, and hardware-level simulation. All stages assert against the same set of anchors across independent computational substrates.
+
+## The Economic Primitive
+
+A verification result is a single bit. This simplicity is a feature. Every valid result produces a verifiable asset anchored to reproducible physical ground truth. Staking externalises funding — investors supply capital, researchers draw upon it for verified designs, downstream reuse creates royalties that feed back into the pool.
+
+For the full economic model — contribution types, validation thresholds, reward schedules, and the autonomous entity structure that routes value through contracts — see [Projects: Contract Governance and Economic Model](/projects/index.html#contract-governance-and-economic-model).
+
+## Comparison
+
+Existing approaches learn generation from input-output examples. The approach described here learns generation rules from synthesis results — a structural, interpretable map from composition patterns to physical outcomes. The former is a generator; the latter is an interpreter of generated meaning. Both are necessary. Neither replaces the other.
+
+## Conclusion
+
+For the constitutional principle governing independent protocol posture, see the Partnership Without Dependency section of the Direction.
+
+## References
+
+[Repository](https://github.com)

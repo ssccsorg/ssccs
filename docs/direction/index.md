@@ -59,9 +59,9 @@ In the current landscape – agentic AI, HPC, space computing – SSCCS offers:
 1. Deterministic latency for safety‑critical applications.
 2. Bypassing the von Neumann bottleneck via software‑driven structural mapping.
 
-### Validation on Open Hardware
+### Validation on Open Platforms
 
-To move from pure‑software simulation to tangible hardware validation, we will target representative open platforms – e.g., RISC‑V cores with safety features and vector extensions (including emerging platforms like HPSC in the space computing sector). The exact platform choices will be finalised in technical addenda, prioritising broad community adoption and alignment with our verifiability goals.
+To move from pure-software simulation to tangible hardware validation, we will target representative open platforms — for example, those with safety features and vector extensions (including emerging platforms in specialised computing sectors). The exact platform choices will be finalised in technical addenda, prioritising broad community adoption and alignment with our verifiability goals.
 
 ### Key Architectural Decision
 
@@ -71,15 +71,15 @@ Thus, the ontological core requires zero rewrites when porting to physical silic
 
 ### Open Format and Ecosystem Integration
 
-The rise of open instruction set architectures (ISAs) has fundamentally changed how new computing ideas can be realised. Open ISAs offer transparency, a growing ecosystem, and tangible, real‑world targets (FPGAs, silicon).
+The rise of open instruction set architectures has fundamentally changed how new computing ideas can be realised. Open ISAs offer transparency, a growing ecosystem, and tangible, real‑world targets.
 
-SSCCS contributes an open `.ss` format – a language layer through which logical design dictates physical implementation. Hardware provides the substrate; SSCCS provides the grammar. Our goal is to become a visible contributor to a living technological movement, through software that makes hardware easier to program.
+SSCCS contributes an open format — a language layer through which logical design dictates physical implementation. Hardware provides the substrate; SSCCS provides the grammar. Our goal is to become a visible contributor to a living technological movement, through software that makes hardware easier to program.
 
 ## Documentation‑First Infrastructure and Self‑Evolving Knowledge Base
 
-Our Documentation‑First philosophy treats accumulated knowledge not as a static archive, but as a living, cellular fabric that co‑evolves with the code, experiments, and research it describes. At the core of this fabric lies the Observable Knowledge Graph (OKG) —a structured, machine‑readable corpus of Segments, Schemes, Fields, and Observations that is explicitly designed for LLM/RAG integration and governed by a persistent Contract.
+Our Documentation‑First philosophy treats accumulated knowledge not as a static archive, but as a living, cellular fabric that co‑evolves with the code, experiments, and research it describes. At the core of this fabric lies a structured, machine‑readable corpus that is explicitly designed for LLM integration and governed by a persistent Contract.
 
-Every whitepaper, technical note, governance record, and code artifact is ingested through contract‑governed agents, extracted into the unified graph, and linked by deterministic edges (DEFINES, IMPLEMENTS, VALIDATES, DERIVES_FROM). This creates a closed‑loop ecosystem: hypotheses generated from gaps in the graph are validated against cryptographic provenance, and the resulting insights—along with new code and external references—are fed back into the ingestion pipeline. The graph expands with every commit and research note, enabling the entire knowledge base to grow organically.
+Every whitepaper, technical note, governance record, and code artifact is ingested through contract‑governed agents, extracted into the unified graph, and linked by deterministic edges. This creates a closed‑loop ecosystem: hypotheses generated from gaps in the graph are validated against cryptographic provenance, and the resulting insights are fed back into the ingestion pipeline. The graph expands with every commit and research note, enabling the entire knowledge base to grow organically.
 
 This transforms documentation from a passive endpoint into the primary interface between human intent and machine reasoning. AI agents explore the graph, surface emergent connections, and extend the SSCCS paradigm through a continuous generate‑evaluate‑adapt cycle. See [Documentation Home](/index.html) and [Project neXus](/projects/nexus) for details.
 
@@ -108,9 +108,11 @@ The foundation’s role is not to specialise in one domain, but to operate as a 
 Our near‑term focus is tangible, open‑source artifacts that the community can run and build upon. Detailed milestones, timelines, and resource allocations are maintained in separate technical roadmaps and proposal documents.
 
 - Software‑first development – Continue refining the compiler, runtime, and open format. Keep the codebase modular and clean.
-- Select open‑hardware targets – Choose one or more RISC‑V platforms (e.g., with safety and vector capabilities) for initial validation. The final selection will balance community adoption, verifiability, and resource constraints.
-- Iterative prototyping – Move from simulation to FPGA prototypes, demonstrating the model on real examples (e.g., vector addition, graph algorithms).
+- Select open platforms – Choose one or more representative targets for initial validation. The final selection will balance community adoption, verifiability, and resource constraints.
+- Iterative prototyping – Move from simulation to hardware prototypes, demonstrating the model on real examples.
 - Publish open‑source tools – Release the full stack with clear documentation. A working demonstration carries more weight than extensive whitepapers.
+
+For the complete architectural blueprint of the verification–economy–orchestration structure, see [Ecosystem Blueprint](/direction/ecosys.html).
 
 ### Community Engagement (Regional)
 
@@ -120,13 +122,21 @@ We will engage with open‑hardware ecosystems across regions – Asia‑Pacific
 
 We seek collaborators, not only patrons. We offer a novel way to program open hardware – a software stack already functional in simulation. We look for partners to help validate it on real silicon. Partnerships will grow organically from technical alignment, not application forms.
 
+Existing hardware standardisation bodies play an essential role in the open‑hardware ecosystem — establishing verification methodologies, interface protocols, and community governance. We respect and interoperate with these standards. But we do not subordinate our paradigm to them. Our format describes observable structure rather than circuit behaviour.
+
+Field Composition is not a testbench generator — it is an execution model that produces the entire admissible state space. They are a self‑contained protocol for verification and knowledge accumulation through the orchestration layer. These are not alternatives to existing standards. They are artifacts of a different category of thought — just as one programming paradigm was not an alternative to another, but a different way of expressing computation.
+
+The risk of protocol dilution is real. If our work positions itself inside an existing verification framework, its structural observation model is reduced to a verification aid for someone else's circuit description. The moment our format becomes a front-end to existing HDLs, its ontological independence is lost. Our posture is therefore: interoperate without subordination. Prove technical compatibility, but never weaken our own protocol to fit someone else's abstraction ceiling. The more our verification engine verifies external designs, the more our format and composition are validated as the superior description layer.
+
+We cooperate as equals and contribute to the open ecosystem. We accept no framework that would reduce our work to a peripheral tool.
+
 ### Licensing Compatibility
 
 Our code is licensed under Apache 2.0, aligning with open‑hardware norms (Solderpad/Apache). This removes legal friction, making integration easier. (For the whitepaper and certain content, a CC BY‑NC‑ND license is used – this will be reviewed for long‑term ecosystem compatibility as the project matures.)
 
 ### Resource Sustainability
 
-We will pursue micro‑grants and bounties for specific milestones, prioritise in‑kind support (FPGA cloud access, engineering time), and maintain a lean operational model to bridge initial prototyping independently.
+We will pursue grants and bounties for specific milestones, prioritise in‑kind support (FPGA cloud access, engineering time), and maintain a lean operational model to bridge initial prototyping independently.
 
 ## Long‑Term Vision and Success Metrics
 
