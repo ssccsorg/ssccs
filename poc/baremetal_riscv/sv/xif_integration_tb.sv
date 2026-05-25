@@ -20,6 +20,8 @@
 `define OP_COMPOSE_AND    3'd0
 `define OP_COMPOSE_OR     3'd1
 `define OP_PROJ_ID        3'd0
+`define OP_PROJ_SUM2D     3'd1
+`define OP_PROJ_PARITY    3'd3
 
 module xif_integration_tb;
 
@@ -60,7 +62,7 @@ module xif_integration_tb;
     // Clock generation
     always #5 clk = ~clk;  // 100 MHz
 
-    // Issue helper task
+    // Issue helper: custom1 (CONSTRAINT, COMPOSE)
     task automatic issue_custom1(
         input [2:0]  f3,
         input [4:0]  rd,
@@ -70,10 +72,34 @@ module xif_integration_tb;
     begin
         issue_valid  = 1'b1;
         issue_instr  = {5'd0, 5'd0, rs2_val[4:3], f3, rd, `OPCODE_CUSTOM1};
-        // Pass sub-op in rs2[2:0]
         issue_rs1    = rs1_val;
         issue_rs2    = rs2_val;
         issue_rs3    = 64'd0;
+        result_ready = 1'b1;
+
+        @(posedge clk);
+        while (!issue_ready) @(posedge clk);
+        issue_valid = 1'b0;
+        @(posedge clk);
+        while (!result_valid) @(posedge clk);
+        result_ready = 1'b0;
+    end
+    endtask
+
+    // Issue helper: custom2 (PROJECT, COLLAPSE)
+    task automatic issue_custom2(
+        input [2:0]  f3,
+        input [4:0]  rd,
+        input [63:0] rs1_val,
+        input [63:0] rs2_val,
+        input [63:0] rs3_val
+    );
+    begin
+        issue_valid  = 1'b1;
+        issue_instr  = {5'd0, 5'd0, rs2_val[4:3], f3, rd, `OPCODE_CUSTOM2};
+        issue_rs1    = rs1_val;
+        issue_rs2    = rs2_val;
+        issue_rs3    = rs3_val;
         result_ready = 1'b1;
 
         @(posedge clk);
@@ -164,13 +190,19 @@ module xif_integration_tb;
         assert(result_data[0] == 1'b1) else $error("compose_or(0,1): expected 1");
         $display("  compose_or(0,1)  = %0d", result_data[0]);
 
-        // Test 5: Projectors
+        // Test 5: Projectors (custom2 opcode)
         $display("");
         $display("-- Projector: Identity --");
-        issue_custom1(`FUNCT3_PROJECT, 5'd20, `GOLDEN_SEG_0, {61'd0, `OP_PROJ_ID});
-        issue_instr = {5'd0, 5'd0, `OP_PROJ_ID[1:0], `FUNCT3_PROJECT, 5'd20, `OPCODE_CUSTOM2};
-        // Use custom2 for project
-        $display("  proj_id(2) = %0d", result_data);
+        issue_custom2(`FUNCT3_PROJECT, 5'd20, `GOLDEN_SEG_0, {61'd0, `OP_PROJ_ID}, 64'd0);
+        assert(result_data == 64'd2) else $error("proj_id(2): expected 2, got %0d", result_data);
+        $display("  proj_id(2) = %0d  <- GOLDEN", result_data);
+
+        // Test 6: Projector parity
+        $display("");
+        $display("-- Projector: Parity --");
+        issue_custom2(`FUNCT3_PROJECT, 5'd21, `GOLDEN_SEG_1, {61'd0, `OP_PROJ_PARITY}, 64'd0);
+        assert(result_data == 64'd1) else $error("proj_parity(3): expected 1, got %0d", result_data);
+        $display("  proj_parity(3) = %0d  <- GOLDEN (odd)", result_data);
 
         $display("");
         $display("=== RISC-V XIF Integration: All Golden Anchors Verified ===");
