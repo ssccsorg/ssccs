@@ -1,22 +1,18 @@
-# ╔══════════════════════════════════════════════════════════════════════╗
-# ║  SSCCS FIELD UPDATE ENGINE — Constraint & Transition Mutation      ║
-# ║                                                                    ║
-# ║  Field is the mutable substrate: constraints and transition rules.  ║
-# ║  These primitives allow runtime modification of field state.        ║
-# ║  Implements custom1/2 opcode (funct3=010).                         ║
-# ║                                                                    ║
-# ║  Whitepaper §2.2:                                                  ║
-# ║    Field is mutable, Segment is immutable.                         ║
-# ║    Constraints filter observations; transitions define topology.    ║
-# ╚══════════════════════════════════════════════════════════════════════╝
+# SSCCS Field Update Engine — Constraint & Transition Mutation
+#
+# Field is the mutable substrate: constraints and transition rules.
+# These primitives allow runtime modification of field state.
+# Implements custom1/2 opcode (funct3=010).
+#
+# Whitepaper §2.2:
+#   Field is mutable, Segment is immutable.
+#   Constraints filter observations; transitions define topology.
 
 .section .text
 
-# ═══════════════════════════════════════════════════════════════════════
-# 1. CONSTRAINT PRIMITIVES (Field mutation)
-# ═══════════════════════════════════════════════════════════════════════
+# Section 1: Constraint Primitives (Field mutation)
 
-# ── 1.1 field_add_constraint: add a constraint to a field ──
+# 1.1 field_add_constraint: add a constraint to a field
 # Input:  a0 = *field_state (Field descriptor pointer)
 #         a1 = *constraint_fn (function pointer)
 #         a2 = constraint_id (u32 identifier)
@@ -50,7 +46,7 @@ field_add_constraint:
     li      a0, -1
     ret
 
-# ── 1.2 field_remove_constraint: remove by constraint_id ──
+# 1.2 field_remove_constraint: remove by constraint_id
 # Input:  a0 = *field_state, a1 = constraint_id
 # Output: a0 = 0 on success (or already absent)
 .globl field_remove_constraint
@@ -100,7 +96,7 @@ field_remove_constraint:
     li      a0, 0               # already absent
     ret
 
-# ── 1.3 field_clear: reset field to empty ──
+# 1.3 field_clear: reset field to empty
 # Input: a0 = *field_state
 .globl field_clear
 field_clear:
@@ -108,11 +104,9 @@ field_clear:
     sw      zero, 484(a0)
     ret
 
-# ═══════════════════════════════════════════════════════════════════════
-# 2. TRANSITION PRIMITIVES
-# ═══════════════════════════════════════════════════════════════════════
+# Section 2: Transition Primitives
 
-# ── 2.1 field_add_transition: add {from, to, weight} ──
+# 2.1 field_add_transition: add {from, to, weight}
 # Input:  a0 = *field_state, a1 = from_id, a2 = to_id,
 #         a3 = weight_as_i64 (fixed-point)
 # Output: a0 = 0 on success, -1 on failure
@@ -138,7 +132,7 @@ field_add_transition:
     li      a0, -1
     ret
 
-# ── 2.2 field_update_weight: update weight for transition ──
+# 2.2 field_update_weight: update weight for transition
 # Input:  a0 = *field_state, a1 = from_id, a2 = to_id,
 #         a3 = new_weight
 # Output: a0 = 0 on success, -1 if not found
@@ -167,11 +161,9 @@ field_update_weight:
     li      a0, -1
     ret
 
-# ═══════════════════════════════════════════════════════════════════════
-# 3. FIELD QUERY
-# ═══════════════════════════════════════════════════════════════════════
+# Section 3: Field Query
 
-# ── 3.1 field_get_transitions: get transitions from a segment ──
+# 3.1 field_get_transitions: get transitions from a segment
 # Input:  a0 = *field_state, a1 = from_id,
 #         a2 = *out_buffer (at least 16 × 16 = 256 bytes)
 # Output: a0 = number of transitions found
@@ -204,9 +196,7 @@ field_get_transitions:
     mv      a0, t4
     ret
 
-# ═══════════════════════════════════════════════════════════════════════
 # GOLDEN TEST ANCHORS
-# ═══════════════════════════════════════════════════════════════════════
 #
 # GOLDEN_FIELD_ADD_CONSTRAINT: 0
 # GOLDEN_FIELD_REMOVE_CONSTRAINT: 0

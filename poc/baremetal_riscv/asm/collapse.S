@@ -1,22 +1,18 @@
-# ╔══════════════════════════════════════════════════════════════════════╗
-# ║  SSCCS COLLAPSE ENGINE — Multi-Segment Reduction in Silicon        ║
-# ║                                                                    ║
-# ║  Collapse = merge N segments into projection per Scheme rules.     ║
-# ║  Implements custom2 opcode (funct3=001) reduction primitives.      ║
-# ║                                                                    ║
-# ║  Whitepaper §3.1:                                                  ║
-# ║    Sum:      C(∪) = Σ w_i · C_i                                   ║
-# ║    Product:  C(∩) = Π C_i                                         ║
-# ║    Min/Max:  T(∪) = max(T_i),  T(∩) = min(T_i)                   ║
-# ╚══════════════════════════════════════════════════════════════════════╝
+# SSCCS Collapse Engine — Multi-Segment Reduction in Silicon
+#
+# Collapse = merge N segments into projection per Scheme rules.
+# Implements custom2 opcode (funct3=001) reduction primitives.
+#
+# Whitepaper §3.1:
+#   Sum:      C(∪) = Σ w_i · C_i
+#   Product:  C(∩) = Π C_i
+#   Min/Max:  T(∪) = max(T_i),  T(∩) = min(T_i)
 
 .section .text
 
-# ═══════════════════════════════════════════════════════════════════════
-# 1. COLLAPSE REDUCTION PRIMITIVES
-# ═══════════════════════════════════════════════════════════════════════
+# Section 1: Collapse Reduction Primitives
 
-# ── 1.1 collapse_sum: Σ coords[0..n) ──
+# 1.1 collapse_sum: Σ coords[0..n)
 # Input:  a0 = *coords (i64 array), a1 = count
 # Output: a0 = sum
 .globl collapse_sum
@@ -40,7 +36,7 @@ collapse_sum:
     li      a0, 0
     ret
 
-# ── 1.2 collapse_min: min(coords[0..n)) ──
+# 1.2 collapse_min: min(coords[0..n))
 # Input:  a0 = *coords (i64 array), a1 = count
 # Output: a0 = minimum value
 .globl collapse_min
@@ -65,7 +61,7 @@ collapse_min:
     li      a0, 0x7FFFFFFFFFFFFFFF   # i64::MAX sentinel
     ret
 
-# ── 1.3 collapse_max: max(coords[0..n)) ──
+# 1.3 collapse_max: max(coords[0..n))
 # Input:  a0 = *coords (i64 array), a1 = count
 # Output: a0 = maximum value
 .globl collapse_max
@@ -90,7 +86,7 @@ collapse_max:
     li      a0, 0x8000000000000000   # i64::MIN sentinel
     ret
 
-# ── 1.4 collapse_product: Π coords[0..n) ──
+# 1.4 collapse_product: Π coords[0..n)
 # Input:  a0 = *coords (i64 array), a1 = count
 # Output: a0 = product
 .globl collapse_product
@@ -114,7 +110,7 @@ collapse_product:
     li      a0, 1
     ret
 
-# ── 1.5 collapse_count: count of non-reject entries ──
+# 1.5 collapse_count: count of non-reject entries
 # Input:  a0 = *results array, a1 = count, a2 = REJECT_SENTINEL
 # Output: a0 = number of valid entries
 .globl collapse_count
@@ -140,11 +136,9 @@ collapse_count:
     li      a0, 0
     ret
 
-# ═══════════════════════════════════════════════════════════════════════
-# 2. WEIGHTED COLLAPSE
-# ═══════════════════════════════════════════════════════════════════════
+# Section 2: Weighted Collapse
 
-# ── 2.1 collapse_weighted_sum: Σ w_i × coord_i ──
+# 2.1 collapse_weighted_sum: Σ w_i × coord_i
 # Input:  a0 = *coords, a1 = *weights, a2 = count
 # Output: a0 = Σ (coord_i × weight_i)
 .globl collapse_weighted_sum
@@ -170,7 +164,7 @@ collapse_weighted_sum:
     li      a0, 0
     ret
 
-# ── 2.2 collapse_weighted_avg: Σ (w_i × coord_i) / Σ w_i ──
+# 2.2 collapse_weighted_avg: Σ (w_i × coord_i) / Σ w_i
 .globl collapse_weighted_avg
 collapse_weighted_avg:
     beqz    a2, .Lwa_zero
@@ -197,11 +191,9 @@ collapse_weighted_avg:
     li      a0, 0
     ret
 
-# ═══════════════════════════════════════════════════════════════════════
-# 3. COLLAPSE PIPELINE
-# ═══════════════════════════════════════════════════════════════════════
+# Section 3: Collapse Pipeline
 
-# ── 3.1 collapse: single group via reducer_fn ──
+# 3.1 collapse: single group via reducer_fn
 # Input:  a0 = *coords, a1 = count, a2 = reducer_fn
 # Output: a0 = reducer(coords, count)
 .globl collapse
@@ -213,7 +205,7 @@ collapse:
     addi    sp, sp, 16
     ret
 
-# ── 3.2 collapse_batch: multiple groups ──
+# 3.2 collapse_batch: multiple groups
 # Input:  a0 = *groups[], a1 = *counts[], a2 = num_groups,
 #         a3 = reducer_fn, a4 = *out
 .globl collapse_batch
@@ -257,9 +249,7 @@ collapse_batch:
 .Lcb_done:
     ret
 
-# ═══════════════════════════════════════════════════════════════════════
-# 4. STATIC DATA
-# ═══════════════════════════════════════════════════════════════════════
+# Section 4: Static Data
 
 .section .rodata
 .align 4
@@ -275,9 +265,7 @@ COLLAPSE_WEIGHTS_A: .8byte 1, 2, 1, 2
 .globl COLLAPSE_WEIGHTS_B
 COLLAPSE_WEIGHTS_B: .8byte 2, 1, 2, 1
 
-# ═══════════════════════════════════════════════════════════════════════
 # GOLDEN TEST ANCHORS
-# ═══════════════════════════════════════════════════════════════════════
 #
 # GOLDEN_COLLAPSE_SUM_A: 20
 # GOLDEN_COLLAPSE_SUM_B: 16

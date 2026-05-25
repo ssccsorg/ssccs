@@ -116,6 +116,34 @@ get_baremetal_target() {
     grep -oP 'target\s*=\s*"\K[^"]+' "$ws/Cargo.toml" 2>/dev/null | head -1
 }
 
+# ── Step 0: Auto-fix before validation ──
+# Runs compiler fixes, clippy lint fixes, then format — 
+# catching unused imports, collapsible ifs, and style issues proactively.
+
+echo "Step 0: Auto-fixing (cargo fix → clippy --fix → fmt)..."
+for ws in "${WORKSPACES[@]}"; do
+    echo "  Auto-fix: $ws"
+    if is_baremetal_workspace "$ws"; then
+        echo "    ⊘ Skipped (bare-metal)"
+    else
+        (cd "$ws" && cargo fix --allow-dirty --workspace 2>&1) || true
+        (cd "$ws" && cargo clippy --fix --allow-dirty --workspace 2>&1) || true
+        (cd "$ws" && cargo fmt --all 2>&1)
+        echo "    ✓ Fixed"
+    fi
+done
+echo "Auto-fix complete"
+echo ""
+
+# ── Golden anchor consistency ──
+
+ANCHOR_CHECK="$(dirname "${BASH_SOURCE[0]}")/baremetal_riscv/sv/check_golden_anchors.py"
+if [ -f "$ANCHOR_CHECK" ]; then
+    echo "Step 0b: Checking golden anchor consistency (asm ↔ svh)..."
+    python3 "$ANCHOR_CHECK" || exit 1
+    echo ""
+fi
+
 if [ "$MODE" = "run" ]; then
     echo "Step 1: Applying formatting (cargo fmt --all)..."
     for ws in "${WORKSPACES[@]}"; do (cd "$ws" && cargo fmt --all); done
@@ -244,6 +272,35 @@ done < <(find "$SCRIPT_DIR" -name "run.sh" -not -path "*/baremetal_riscv/run.sh"
 
 [ $LOCAL_FAILED -eq 1 ] && ALL_FAILED+=("local run.sh scripts")
 
+# ── SystemVerilog verification (Verilator) ──
+
+echo ""
+echo "─────────────────────────────────────────────────────────────"
+echo "Step 7: Running SystemVerilog verification (Verilator)..."
+SV_DIR="$SCRIPT_DIR/baremetal_riscv/sv"
+SV_FAILED=1
+if [ -f "$SV_DIR/Makefile" ] && command -v verilator &>/dev/null; then
+    set +e
+    SV_LOG=$(mktemp)
+    make -C "$SV_DIR" check >"$SV_LOG" 2>&1
+    SV_STATUS=$?
+    if [ $SV_STATUS -eq 0 ]; then
+        grep -E "(PASSED|FAILED|RESULT:|composition:)" "$SV_LOG" || true
+        echo "  SystemVerilog: PASSED"
+        SV_FAILED=0
+    else
+        cat "$SV_LOG"
+        echo "  SystemVerilog: FAILED (exit $SV_STATUS)"
+        ALL_FAILED+=("SystemVerilog")
+    fi
+    rm -f "$SV_LOG"
+    set -e
+elif [ ! -f "$SV_DIR/Makefile" ]; then
+    echo "  ⊘ Skipped (no SV Makefile)"
+else
+    echo "  ⊘ Skipped (Verilator not installed)"
+fi
+
 echo "═════════════════════════════════════════════════════════════"
 echo "  Validation Summary"
 echo "═════════════════════════════════════════════════════════════"
@@ -254,6 +311,7 @@ echo "Build:         PASSED (bare-metal skipped)"
 echo "Tests:         PASSED"
 echo "Binary crates: $ALL_PASSED/$ALL_TOTAL passed"
 echo "Local scripts: $([ $LOCAL_FAILED -eq 0 ] && echo 'PASSED' || echo 'FAILED')"
+echo "SystemVerilog: $([ $SV_FAILED -eq 0 ] && echo 'PASSED' || echo 'SKIPPED')"
 echo ""
 
 if [ ${#ALL_FAILED[@]} -eq 0 ] && [ $LOCAL_FAILED -eq 0 ]; then
