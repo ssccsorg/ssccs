@@ -77,7 +77,7 @@ if [ -z "$SKIP_SV" ] && [ -f "$SV_DIR/Makefile" ]; then
         make -C "$SV_DIR" check >"$SV_LOG" 2>&1
         STATUS_SV=$?
         if [ $STATUS_SV -eq 0 ]; then
-            tail -5 "$SV_LOG"
+            tail -20 "$SV_LOG"
             echo "  SystemVerilog: PASSED"
             PASSED=$((PASSED + 1))
         else

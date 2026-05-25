@@ -272,6 +272,33 @@ done < <(find "$SCRIPT_DIR" -name "run.sh" -not -path "*/baremetal_riscv/run.sh"
 
 [ $LOCAL_FAILED -eq 1 ] && ALL_FAILED+=("local run.sh scripts")
 
+# ── SystemVerilog verification (Verilator) ──
+
+echo ""
+echo "─────────────────────────────────────────────────────────────"
+echo "Step 7: Running SystemVerilog verification (Verilator)..."
+SV_DIR="$SCRIPT_DIR/baremetal_riscv/sv"
+if [ -f "$SV_DIR/Makefile" ] && command -v verilator &>/dev/null; then
+    set +e
+    SV_LOG=$(mktemp)
+    make -C "$SV_DIR" check >"$SV_LOG" 2>&1
+    SV_STATUS=$?
+    if [ $SV_STATUS -eq 0 ]; then
+        grep -E "(PASSED|FAILED|RESULT:|composition:)" "$SV_LOG" || true
+        echo "  SystemVerilog: PASSED"
+    else
+        cat "$SV_LOG"
+        echo "  SystemVerilog: FAILED (exit $SV_STATUS)"
+        ALL_FAILED+=("SystemVerilog")
+    fi
+    rm -f "$SV_LOG"
+    set -e
+elif [ ! -f "$SV_DIR/Makefile" ]; then
+    echo "  ⊘ Skipped (no SV Makefile)"
+else
+    echo "  ⊘ Skipped (Verilator not installed)"
+fi
+
 echo "═════════════════════════════════════════════════════════════"
 echo "  Validation Summary"
 echo "═════════════════════════════════════════════════════════════"
