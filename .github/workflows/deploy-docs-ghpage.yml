@@ -13,6 +13,8 @@ on:
       - "docs/**/*.bib"
       - "docs/**/*.csl"
       - "docs/**/*.c2pa_manifest.json"
+      - "docs/poc/**"
+      - "poc/**"
       - ".github/workflows/deploy-docs-ghpage.yml"
       - "!docs/**/README.md"
   workflow_dispatch:
@@ -30,6 +32,8 @@ on:
       - "docs/**/*.bib"
       - "docs/**/*.csl"
       - "docs/**/*.c2pa_manifest.json"
+      - "docs/poc/**"
+      - "poc/**"
       - ".github/workflows/deploy-docs-ghpage.yml"
       - "!docs/**/README.md"
 
@@ -90,17 +94,25 @@ jobs:
       - name: Pull Docker images
         run: |
           docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            # Manual or external trigger: always attempt POC image pull
+            changed="__triggered__"
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
             # PR: check if any POC files changed in this PR
-            changed=$(git diff --name-only origin/${{ github.base_ref }}...HEAD -- poc/ docs/poc/ 2>/dev/null)
+            changed=$(git diff --name-only origin/${{ github.base_ref }}...HEAD -- poc/ docs/poc/ 2>/dev/null || true)
           else
-            # push: check last commit
-            changed=$(git diff --name-only HEAD~1 -- poc/ docs/poc/ 2>/dev/null)
+            # push: use before SHA for multi-commit safety
+            before="${{ github.event.before }}"
+            if [ "$before" = "0000000000000000000000000000000000000000" ] || [ -z "$before" ]; then
+              changed=$(git diff --name-only HEAD~1 -- poc/ docs/poc/ 2>/dev/null || true)
+            else
+              changed=$(git diff --name-only "$before"..HEAD -- poc/ docs/poc/ 2>/dev/null || true)
+            fi
           fi
-          if [ -n "$changed" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            docker pull ${{ env.POC_IMAGE }}:latest || echo "ssccs-poc not available"
+          if [ -n "$changed" ]; then
+            docker pull ${{ env.POC_IMAGE }}:latest || echo "ssccs-poc not available — will skip SV diagram generation"
           else
-            echo "No POC changes — using cached DOTs"
+            echo "No POC file changes detected — skipping POC image pull"
           fi
         shell: bash
 
