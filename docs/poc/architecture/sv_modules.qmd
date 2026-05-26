@@ -1,0 +1,34 @@
+---
+title: "SV Module Architecture"
+subtitle: "Auto-generated from POC RTL modules"
+date: last-modified
+metadata-files:
+  - ../../_include/author.yml
+abstract: |
+  Module hierarchy and port connectivity extracted from
+  poc/baremetal_riscv/sv/ via sv2dot.py.
+---
+
+{{< include ../../_include/_title_meta_items.qmd >}}
+
+```{python}
+#| include: false
+#| context: local
+import sys
+from pathlib import Path
+_include = Path("../../_include").resolve()
+if str(_include) not in sys.path:
+    sys.path.insert(0, str(_include))
+%run ../../_include/_sv_diagram.py
+```
+
+```{python}
+#| label: fig-sv-modules
+#| fig-cap: "SV module hierarchy"
+from _graphviz import dot
+d = load_sv_dot()
+if d:
+    dot(d, h="500px")
+else:
+    print("*Diagram not available. Run build pipeline to generate _include/sv_architecture.dot*")
+```
