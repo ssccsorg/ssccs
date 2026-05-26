@@ -13,6 +13,8 @@ on:
       - "docs/**/*.bib"
       - "docs/**/*.csl"
       - "docs/**/*.c2pa_manifest.json"
+      - "poc/**"
+      - "docs/poc/**"
       - ".github/workflows/deploy-docs-ghpage.yml"
       - "!docs/**/README.md"
   workflow_dispatch:
@@ -30,6 +32,8 @@ on:
       - "docs/**/*.bib"
       - "docs/**/*.csl"
       - "docs/**/*.c2pa_manifest.json"
+      - "poc/**"
+      - "docs/poc/**"
       - ".github/workflows/deploy-docs-ghpage.yml"
       - "!docs/**/README.md"
 
@@ -37,6 +41,7 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   REGISTRY: ghcr.io
   IMAGE_NAME: ssccsorg/sdbs
+  POC_IMAGE: ghcr.io/ssccsorg/ssccs-poc
 
 permissions:
   contents: read
@@ -86,9 +91,42 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Pull Docker image
-        run: docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+      - name: Pull Docker images
+        run: |
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            # Manual or external trigger: always attempt POC image pull
+            changed="__triggered__"
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
+            # PR: check if any POC files changed in this PR
+            changed=$(git diff --name-only origin/${{ github.base_ref }}...HEAD -- poc/ docs/poc/ 2>/dev/null || true)
+          else
+            # push: use before SHA for multi-commit safety
+            before="${{ github.event.before }}"
+            if [ "$before" = "0000000000000000000000000000000000000000" ] || [ -z "$before" ]; then
+              changed=$(git diff --name-only HEAD~1 -- poc/ docs/poc/ 2>/dev/null || true)
+            else
+              changed=$(git diff --name-only "$before"..HEAD -- poc/ docs/poc/ 2>/dev/null || true)
+            fi
+          fi
+          if [ -n "$changed" ]; then
+            docker pull ${{ env.POC_IMAGE }}:latest || echo "ssccs-poc not available — will skip SV diagram generation"
+          else
+            echo "No POC file changes detected — skipping POC image pull"
+          fi
         shell: bash
+
+      - name: Generate SV gate-level diagrams
+        run: |
+          if docker image inspect ${{ env.POC_IMAGE }}:latest &>/dev/null; then
+            docker run --rm \
+              -v ${{ github.workspace }}:/work \
+              -w /work/docs \
+              ${{ env.POC_IMAGE }}:latest \
+              python3 poc/sv2dot.py ../poc/baremetal_riscv/sv
+          else
+            cd docs && python3 poc/sv2dot.py ../poc/baremetal_riscv/sv || true
+          fi
 
       - name: Run documentation build
         run: |

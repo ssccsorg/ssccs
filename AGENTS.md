@@ -65,7 +65,7 @@ digraph DOTGraph {
 
 ## Git
 
-- Do commit only: do not push to remote.
+- Do not push.
 - Do not merge a pull request or any branch.
 - When starting a new task subject:
     1. Create a GitHub Issue, add relevant labels, then link the branch that will contain the work.
