@@ -86,9 +86,19 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Pull Docker image
-        run: docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+      - name: Pull Docker images
+        run: |
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          docker pull ghcr.io/ssccsorg/ssccs-poc:latest
         shell: bash
+
+      - name: Generate SV gate-level diagrams
+        run: |
+          docker run --rm \
+            -v ${{ github.workspace }}:/work \
+            -w /work \
+            ghcr.io/ssccsorg/ssccs-poc:latest \
+            bash docs/_include/sv2dot.sh poc/baremetal_riscv/sv/ docs/_include/sv_dots
 
       - name: Run documentation build
         run: |
