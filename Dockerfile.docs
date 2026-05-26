@@ -1,65 +1,13 @@
 # ssccs-docs — Unified documentation build image
 #
-# Combines the POC RTL environment (Yosys, Verilator, Spike, RISC-V tools)
-# with the SDBS documentation build system into a single deployable image.
+# Combines ssccs-poc (Yosys, RISC-V tools) with SDBS docs build system.
 #
 # Usage:
 #   docker build -f Dockerfile.docs -t ghcr.io/ssccsorg/ssccs-docs:latest .
 #   docker run --rm -v $(pwd):/work -w /work ssccs-docs sdb build docs --website
 
-# ── Stage 1: POC base (RTL synthesis tools) ────────────────────────────
-FROM ubuntu:24.04 AS poc
-
-ENV DEBIAN_FRONTEND=noninteractive
-
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    curl \
-    git \
-    python3 \
-    device-tree-compiler \
-    wget \
-    xz-utils \
-    ca-certificates \
-    jq \
-    gcc-riscv64-linux-gnu \
-    binutils-riscv64-linux-gnu \
-    yosys \
-    verilator \
-    && rm -rf /var/lib/apt/lists/*
-
-# Rust installation
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-ENV PATH="/root/.cargo/bin:${PATH}"
-RUN rustup target add riscv64imac-unknown-none-elf
-
-# RISC-V cross-compiler aliases
-RUN ln -sf /usr/bin/riscv64-linux-gnu-gcc /usr/local/bin/riscv64-unknown-elf-gcc \
-    && ln -sf /usr/bin/riscv64-linux-gnu-g++ /usr/local/bin/riscv64-unknown-elf-g++ \
-    && ln -sf /usr/bin/riscv64-linux-gnu-ar /usr/local/bin/riscv64-unknown-elf-ar \
-    && ln -sf /usr/bin/riscv64-linux-gnu-as /usr/local/bin/riscv64-unknown-elf-as \
-    && ln -sf /usr/bin/riscv64-linux-gnu-ld /usr/local/bin/riscv64-unknown-elf-ld \
-    && ln -sf /usr/bin/riscv64-linux-gnu-objdump /usr/local/bin/riscv64-unknown-elf-objdump \
-    && ln -sf /usr/bin/riscv64-linux-gnu-objcopy /usr/local/bin/riscv64-unknown-elf-objcopy
-
-RUN echo 'int main(){}' | riscv64-unknown-elf-gcc -x c - -o /tmp/test && rm /tmp/test
-
-# Spike from source
-RUN git clone https://github.com/riscv-software-src/riscv-isa-sim.git /tmp/spike \
-    && cd /tmp/spike && mkdir build && cd build \
-    && ../configure --prefix=/usr/local && make -j$(nproc) && make install \
-    && rm -rf /tmp/spike
-
-# riscv-pk from source
-RUN git clone https://github.com/riscv-software-src/riscv-pk.git /tmp/pk \
-    && cd /tmp/pk && mkdir build && cd build \
-    && CC=riscv64-unknown-elf-gcc ../configure --prefix=/usr/local --host=riscv64-unknown-elf \
-    && make -j$(nproc) && make install \
-    && rm -rf /tmp/pk
-
-RUN test -f /usr/local/riscv64-unknown-elf/bin/pk
-RUN yosys --version
-RUN verilator --version
+# ── Stage 1: POC image (Yosys + RISC-V toolchain) ─────────────────────
+FROM ghcr.io/ssccsorg/ssccs-poc:latest AS poc
 
 # ── Stage 2: SDBS (docs build system) ──────────────────────────────────
 FROM ghcr.io/ssccsorg/sdbs:latest AS sdbs
@@ -67,18 +15,17 @@ FROM ghcr.io/ssccsorg/sdbs:latest AS sdbs
 # ── Stage 3: Combine ───────────────────────────────────────────────────
 FROM ubuntu:24.04
 
-# Copy SDBS (Python + dependencies + entrypoint)
+# SDBS tools
 COPY --from=sdbs /usr/local /usr/local
 COPY --from=sdbs /opt /opt
 
-# Copy POC tools (Yosys, Verilator, Spike, RISC-V toolchain)
+# POC tools (Yosys, Verilator, RISC-V toolchain, Spike)
 COPY --from=poc /usr/local /usr/local
 COPY --from=poc /root/.cargo /root/.cargo
 COPY --from=poc /usr/bin/riscv64-linux-gnu-* /usr/bin/
 COPY --from=poc /usr/bin/yosys* /usr/bin/
-COPY --from=poc /usr/bin/verilator* /usr/bin/
 
-# System runtime dependencies
+# Runtime dependencies
 RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
@@ -88,7 +35,6 @@ RUN apt-get update && apt-get install -y \
 ENV PATH="/root/.cargo/bin:${PATH}"
 ENV QUARTO_PYTHON=python3
 
-# Default entry: SDBS build
 WORKDIR /work
 ENTRYPOINT ["sdb"]
 CMD ["--help"]

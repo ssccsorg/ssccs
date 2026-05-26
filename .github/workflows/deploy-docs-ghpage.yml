@@ -12,7 +12,6 @@ on:
       - "docs/**/*.svg"
       - "docs/**/*.bib"
       - "docs/**/*.csl"
-      - "docs/**/*.dot"
       - "docs/**/*.c2pa_manifest.json"
       - ".github/workflows/deploy-docs-ghpage.yml"
       - "!docs/**/README.md"
@@ -30,7 +29,6 @@ on:
       - "docs/**/*.svg"
       - "docs/**/*.bib"
       - "docs/**/*.csl"
-      - "docs/**/*.dot"
       - "docs/**/*.c2pa_manifest.json"
       - ".github/workflows/deploy-docs-ghpage.yml"
       - "!docs/**/README.md"
@@ -92,14 +90,14 @@ jobs:
         run: docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
         shell: bash
 
-      - name: Generate SV diagrams and build docs
+      - name: Run documentation build
         run: |
           docker run --rm \
             -v ${{ github.workspace }}:/work \
             -w /work \
             -e QUARTO_PYTHON=python3 \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
-            bash -c "python3 docs/poc/sv2dot.py poc/baremetal_riscv/sv && sdb build docs --website"
+            sdb build docs --website
 
       - name: Prepare Pages artifact
         run: |
