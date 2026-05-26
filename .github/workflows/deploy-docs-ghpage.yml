@@ -86,8 +86,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Pull Docker image
-        run: docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+      - name: Build or pull Docker image
+        run: |
+          if docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest 2>/dev/null; then
+            echo "Using published image"
+          else
+            echo "Image not found — building locally"
+            docker pull ghcr.io/ssccsorg/ssccs-poc:latest
+            docker pull ghcr.io/ssccsorg/sdbs:latest
+            docker build -f Dockerfile.docs -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest .
+          fi
         shell: bash
 
       - name: Run documentation build
