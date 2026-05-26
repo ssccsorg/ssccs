@@ -18,6 +18,25 @@ abstract: |
 %run ../_include/_graphviz.py
 ```
 
+## Module Overview
+
+| Group | Module | Lines | Description |
+|---|---|---|---|
+| Constraints | ck_even | 12 | 1-LUT even parity check |
+| Constraints | ck_range_010 | 485 | Hard-coded [0,10] range check |
+| Constraints | ck_range | 365 | Parameterized [min, max] range check |
+| Constraints | ck_eq | 325 | 64-bit equality check |
+| Constraints | ck_gt | 325 | 64-bit greater-than comparator |
+| Composition | compose_union | 15 | OR reduction |
+| Composition | compose_intersect | 15 | AND reduction |
+| Composition | compose_product_2d | 12 | Axis partition (AND of two constraints) |
+| Projectors | proj_identity | 10 | 64-bit passthrough |
+| Projectors | proj_sum2d | 2498 | 64-bit adder |
+| Projectors | proj_sum3d | 4077 | 128-bit adder chain |
+| Projectors | proj_parity | 10 | LSB extract |
+| Projectors | proj_negate | 1156 | 64-bit negation |
+| Pipeline | observe | 524 | Gated projection pipeline |
+
 ## Constraints
 
 ### ck_even
@@ -9446,11 +9465,13 @@ n99:e -> c267:p119:w [color="black", fontcolor="black", label=""];
 """, h="300px")
 ```
 
+## Pipeline
+
 ### observe
 
 ```{python}
 #| label: fig-observe
-#| fig-cap: "observe: gated projection pipeline"
+#| fig-cap: "observe"
 dot("""
 digraph "observe" {
 label="observe";
@@ -9978,3 +9999,4 @@ x128:e -> n4:w [color="black", fontcolor="black", label=""];
 }
 """, h="400px")
 ```
+
