@@ -1,24 +1,24 @@
 ---
-title: "SV Module Architecture"
+title: "PoC SystemVerilog Diagram"
 subtitle: "Synthesized from POC RTL modules"
 date: last-modified
 metadata-files:
-  - ../../_include/author.yml
+  - ../_include/author.yml
 abstract: |
   Circuit diagrams for every SSCCS verification module.
   Each module is synthesized independently and rendered
   as a directed graph of its logic structure.
 ---
 
-{{< include ../../_include/_title_meta_items.qmd >}}
+{{< include ../_include/_title_meta_items.qmd >}}
 
 ```{python}
 #| include: false
 #| context: local
 import os, glob
 from pathlib import Path
-_dots_dir = Path("../../_include/sv_dots").resolve()
-%run ../../_include/_graphviz.py
+_dots_dir = Path("../_include/sv_dots").resolve()
+%run ../_include/_graphviz.py
 
 def _load_dot(stem: str) -> str:
     dot_path = _dots_dir / f"{stem}.dot"
