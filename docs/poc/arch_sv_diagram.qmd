@@ -15,16 +15,8 @@ abstract: |
 ```{python}
 #| include: false
 #| context: local
-import os, glob
-from pathlib import Path
-_dots_dir = Path("../_include/sv_dots").resolve()
 %run ../_include/_graphviz.py
-
-def _load_dot(stem: str) -> str:
-    dot_path = _dots_dir / f"{stem}.dot"
-    if dot_path.exists():
-        return dot_path.read_text()
-    return ""
+from pathlib import Path
 ```
 
 ## Constraints
@@ -34,8 +26,19 @@ def _load_dot(stem: str) -> str:
 ```{python}
 #| label: fig-ck-even
 #| fig-cap: "ck_even: 1-LUT even parity check"
-d = _load_dot("ck_even")
-dot(d, h="200px") if d else None
+dot("""digraph "ck_even" {
+label="ck_even";
+rankdir="LR";
+remincross=true;
+n1 [ shape=octagon, label="coord", color="black", fontcolor="black" ];
+n2 [ shape=octagon, label="result", color="black", fontcolor="black" ];
+c5 [ shape=record, label="{{<p3> A}|$81\n$_NOT_|{<p4> Y}}",  ];
+x0 [ shape=record, style=rounded, label="<s0> 0:0 - 0:0 ", color="black", fontcolor="black" ];
+x0:e -> c5:p3:w [arrowhead=odiamond, arrowtail=odiamond, dir=both, color="black", fontcolor="black", label=""];
+n1:e -> x0:s0:w [color="black", fontcolor="black", label=""];
+c5:p4:e -> n2:w [color="black", fontcolor="black", label=""];
+}
+""", h="200px")
 ```
 
 ### ck_range_010
@@ -43,8 +46,8 @@ dot(d, h="200px") if d else None
 ```{python}
 #| label: fig-ck-range-010
 #| fig-cap: "ck_range_010: hard-coded [0,10] range check"
-d = _load_dot("ck_range_010")
-dot(d, h="300px") if d else None
+d = (Path("_include/sv_dots").resolve() / "ck_range_010.dot").read_text()
+dot(d, h="300px")
 ```
 
 ### ck_range
@@ -52,8 +55,8 @@ dot(d, h="300px") if d else None
 ```{python}
 #| label: fig-ck-range
 #| fig-cap: "ck_range: parameterized [min, max] range check"
-d = _load_dot("ck_range")
-dot(d, h="300px") if d else None
+d = (Path("_include/sv_dots").resolve() / "ck_range.dot").read_text()
+dot(d, h="300px")
 ```
 
 ### ck_eq
@@ -61,8 +64,8 @@ dot(d, h="300px") if d else None
 ```{python}
 #| label: fig-ck-eq
 #| fig-cap: "ck_eq: 64-bit equality check (XOR + NOR tree)"
-d = _load_dot("ck_eq")
-dot(d, h="300px") if d else None
+d = (Path("_include/sv_dots").resolve() / "ck_eq.dot").read_text()
+dot(d, h="300px")
 ```
 
 ### ck_gt
@@ -70,8 +73,8 @@ dot(d, h="300px") if d else None
 ```{python}
 #| label: fig-ck-gt
 #| fig-cap: "ck_gt: 64-bit greater-than comparator"
-d = _load_dot("ck_gt")
-dot(d, h="300px") if d else None
+d = (Path("_include/sv_dots").resolve() / "ck_gt.dot").read_text()
+dot(d, h="300px")
 ```
 
 | Module | Description | Logic |
@@ -89,8 +92,8 @@ dot(d, h="300px") if d else None
 ```{python}
 #| label: fig-compose-union
 #| fig-cap: "compose_union: OR reduction"
-d = _load_dot("compose_union")
-dot(d, h="150px") if d else None
+d = (Path("_include/sv_dots").resolve() / "compose_union.dot").read_text()
+dot(d, h="150px")
 ```
 
 ### compose_intersect
@@ -98,8 +101,8 @@ dot(d, h="150px") if d else None
 ```{python}
 #| label: fig-compose-intersect
 #| fig-cap: "compose_intersect: AND reduction"
-d = _load_dot("compose_intersect")
-dot(d, h="150px") if d else None
+d = (Path("_include/sv_dots").resolve() / "compose_intersect.dot").read_text()
+dot(d, h="150px")
 ```
 
 ### compose_product_2d
@@ -107,8 +110,8 @@ dot(d, h="150px") if d else None
 ```{python}
 #| label: fig-compose-product-2d
 #| fig-cap: "compose_product_2d: axis partition (AND of two constraints)"
-d = _load_dot("compose_product_2d")
-dot(d, h="150px") if d else None
+d = (Path("_include/sv_dots").resolve() / "compose_product_2d.dot").read_text()
+dot(d, h="150px")
 ```
 
 | Module | Operation | Implementation |
@@ -124,8 +127,8 @@ dot(d, h="150px") if d else None
 ```{python}
 #| label: fig-proj-identity
 #| fig-cap: "proj_identity: 64-bit passthrough"
-d = _load_dot("proj_identity")
-dot(d, h="150px") if d else None
+d = (Path("_include/sv_dots").resolve() / "proj_identity.dot").read_text()
+dot(d, h="150px")
 ```
 
 ### proj_sum2d
@@ -133,8 +136,8 @@ dot(d, h="150px") if d else None
 ```{python}
 #| label: fig-proj-sum2d
 #| fig-cap: "proj_sum2d: 64-bit adder"
-d = _load_dot("proj_sum2d")
-dot(d, h="400px") if d else None
+d = (Path("_include/sv_dots").resolve() / "proj_sum2d.dot").read_text()
+dot(d, h="400px")
 ```
 
 ### proj_sum3d
@@ -142,8 +145,8 @@ dot(d, h="400px") if d else None
 ```{python}
 #| label: fig-proj-sum3d
 #| fig-cap: "proj_sum3d: 128-bit adder chain"
-d = _load_dot("proj_sum3d")
-dot(d, h="400px") if d else None
+d = (Path("_include/sv_dots").resolve() / "proj_sum3d.dot").read_text()
+dot(d, h="400px")
 ```
 
 ### proj_parity
@@ -151,8 +154,8 @@ dot(d, h="400px") if d else None
 ```{python}
 #| label: fig-proj-parity
 #| fig-cap: "proj_parity: LSB extract"
-d = _load_dot("proj_parity")
-dot(d, h="150px") if d else None
+d = (Path("_include/sv_dots").resolve() / "proj_parity.dot").read_text()
+dot(d, h="150px")
 ```
 
 ### proj_negate
@@ -160,8 +163,8 @@ dot(d, h="150px") if d else None
 ```{python}
 #| label: fig-proj-negate
 #| fig-cap: "proj_negate: 64-bit negation"
-d = _load_dot("proj_negate")
-dot(d, h="300px") if d else None
+d = (Path("_include/sv_dots").resolve() / "proj_negate.dot").read_text()
+dot(d, h="300px")
 ```
 
 | Module | Function | Width |
@@ -179,8 +182,8 @@ dot(d, h="300px") if d else None
 ```{python}
 #| label: fig-observe
 #| fig-cap: "observe: gated projection pipeline"
-d = _load_dot("observe")
-dot(d, h="400px") if d else None
+d = (Path("_include/sv_dots").resolve() / "observe.dot").read_text()
+dot(d, h="400px")
 ```
 
 ## Statistics
