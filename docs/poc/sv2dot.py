@@ -4,7 +4,7 @@
 Usage:
   python3 poc/sv2dot.py ../poc/baremetal_riscv/sv
 
-Synthesizes each SV module with Yosys, writes DOT files to _sv_dots/,
+Synthesizes each SV module with Yosys, writes DOT files to _files/,
 and regenerates poc/arch_sv_diagram.qmd with inline DOT code blocks.
 All metadata (group, description) is extracted from SV file structure
 and header comments. No hardcoded module data.
@@ -15,12 +15,12 @@ from pathlib import Path
 from collections import OrderedDict
 
 POC_DIR = Path(__file__).resolve().parent
-DOTS_DIR = POC_DIR / "_sv_dots"
+DOTS_DIR = POC_DIR / "_files"
 QMD_FILE = POC_DIR / "arch_sv_diagram.qmd"
 
 
 def synthesize(sv_dir: Path) -> list[tuple[str, str, str, str]]:
-    """Run Yosys on each .sv file, produce DOT in _sv_dots/.
+    """Run Yosys on each .sv file, produce DOT in _files/.
 
     Returns [(module_name, group, description, dot_path), ...] for
     successfully synthesized modules.  Group is derived from the SV
