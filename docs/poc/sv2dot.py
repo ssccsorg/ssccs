@@ -129,8 +129,8 @@ def generate_qmd(modules: list[tuple[str, str, str, str]]) -> None:
     print(f"Regenerated: {QMD_FILE}")
 
 
-def generate_placeholder() -> None:
-    """Create minimal QMD when yosys + DOTs are absent."""
+def generate_placeholder(reason: str = "Yosys synthesis engine is not installed.") -> None:
+    """Create minimal QMD when yosys or DOTs are absent."""
     QMD_FILE.write_text("\n".join([
         "---",
         'title: "PoC SystemVerilog Diagram"',
@@ -144,7 +144,7 @@ def generate_placeholder() -> None:
         "",
         "{{< include ../_include/_title_meta_items.qmd >}}",
         "",
-        "*SV diagrams are not available — Yosys synthesis engine is not installed.*",
+        f"*SV diagrams are not available — {reason}*",
         "",
     ]) + "\n")
 
@@ -161,7 +161,7 @@ def main():
         if modules:
             generate_qmd(modules)
         else:
-            generate_placeholder()
+            generate_placeholder("All Yosys synthesis attempts failed.")
     elif any(DOTS_DIR.glob("*.dot")):
         mods_from_dots = [
             (p.stem, "Module", "", str(p))
