@@ -60,7 +60,8 @@ def synthesize(sv_dir: Path) -> list[tuple[str, str, str, str]]:
             print(f"  {mod} ← {sv_file.name} ({lines} lines)")
             results.append((mod, group, desc, str(dot_file)))
         else:
-            print(f"  FAIL {mod} ← {sv_file.name}")
+            err = result.stderr.strip()[:200] if result.stderr else "unknown error"
+            print(f"  FAIL {mod} ← {sv_file.name}: {err}")
 
     return results
 
