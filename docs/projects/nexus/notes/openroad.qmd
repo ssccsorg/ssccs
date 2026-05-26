@@ -1,0 +1,196 @@
+---
+title: "OpenROAD as a Recursive Colony Agent"
+subtitle: "Physical design infrastructure that mirrors nexus within its own domain"
+date: last-modified
+metadata-files:
+  - ../../../_include/author.yml
+abstract: |
+  OpenROAD is the leading open-source physical design platform, providing a
+  complete RTL-to-GDSII flow with a No-Human-In-Loop (NHIL) philosophy. Its
+  architecture—a central orchestrator, shared knowledge store (OpenDB), and
+  autonomous tool agents—is not merely similar to nexus. It is a recursive
+  instance of the same pattern: OpenROAD is an agent within nexus while
+  simultaneously acting as nexus within its own physical design colony. This
+  document describes the recursive agent structure and the integration pathway
+  through the Cypher-SQL translation layer.
+---
+
+{{< include ../../../_include/_title_meta_items.qmd >}}
+
+```{python}
+#| include: false
+#| context: local
+%run ../../../_include/_graphviz.py
+```
+
+## The Recursive Agent Pattern
+
+The same architectural pattern repeats at every scale. From the outside, every
+agent is a simple consumer of nexus Intent and producer of nexus Fact. From
+the inside, every agent is itself a nexus with its own blackboard, detectors,
+and scheduler.
+
+nexus sends Intent: "synthesize this RTL." OpenROAD receives the Intent, runs
+its internal OODA (synthesis → floorplanning → placement → CTS → routing →
+timing/DRC), and returns Fact: "layout complete, 3 timing violations."
+
+Internally, OpenROAD has its own blackboard (OpenDB), its own detectors
+(timing analyser, DRC checker, congestion estimator), and its own scheduler
+(the `OpenRoad` singleton orchestrating Yosys, TritonCTS, TritonRoute). It
+produces its own Facts (timing slack, cell density, wire-length distribution)
+that are consumed by its own internal agents.
+
+This is not abstraction leakage. It is the structural observation principle
+applied recursively. Every domain that can be described as a state space with
+constraints and observations is amenable to the same pattern.
+
+```{python}
+#| label: fig-recursive-absorption
+#| fig-cap: "Recursive absorption: neXus treats OpenROAD as an agent. OpenROAD, internally, operates as a self‑contained colony with its own blackboard (OpenDB) and its own OODA loop. The relationship is fractal—every agent mirrors the structure of the parent."
+dot("""
+digraph RecursiveAbsorption {
+    rankdir=TB
+    node [shape=box, style=filled, fontname="Arial", fontsize=10]
+
+    subgraph cluster_nexus {
+        label="neXus (Parent Colony)"
+        color="#2C3E50"
+        style=dashed
+        NexusBB [label="neXus Blackboard\n(FIH)", fillcolor="#FADBD8"]
+        NexusLoop [label="Agentic Research Loop\n(OODA)", fillcolor="#D5F5E3"]
+        NexusBB -> NexusLoop [dir=both, style=dashed]
+    }
+
+    subgraph cluster_openroad {
+        label="OpenROAD (Sub‑Colony / Agent)"
+        color="#E67E22"
+        style=dashed
+        OpenDB [label="OpenDB\n(local blackboard)", fillcolor="#FADBD8"]
+        OpenROADLoop [label="PnR OODA\nsynthesis→place→route→timing", fillcolor="#D5F5E3"]
+        YosysAgent [label="Yosys\n(synthesis agent)", fillcolor="#E8F8E8"]
+        OpenDB -> OpenROADLoop [dir=both, style=dashed]
+        OpenROADLoop -> YosysAgent [style=solid]
+        YosysAgent -> OpenDB [style=solid]
+    }
+
+    subgraph cluster_ev {
+        label="ev (Sub‑Colony / Agent)"
+        color="#2980B9"
+        style=dashed
+        EvBB [label="internal state\n(combinations, results)", fillcolor="#FADBD8"]
+        EvLoop [label="Verification OODA\nexpand→observe→report", fillcolor="#D5F5E3"]
+        EvBB -> EvLoop [dir=both, style=dashed]
+    }
+
+    NexusLoop -> OpenROADLoop [label="Intent\n(PnR this RTL)", style=solid]
+    OpenROADLoop -> NexusLoop [label="Fact\n(timing violations)", style=solid]
+
+    NexusLoop -> EvLoop [label="Intent\n(verify this XIF)", style=solid]
+    EvLoop -> NexusLoop [label="Fact\n(failure patterns)", style=solid]
+}
+""")
+```
+
+## Integration Through the Storage Trait
+
+The existing storage architecture provides the integration point without any
+core changes. A new `storage/opendb/` crate implements `ColdStorage` via:
+
+- `StorageRead` — read design state (cell count, timing, routing)
+- `FactCapable` — write timing violations as Facts
+- `FilterCapable` — filtered reads (e.g., "cells with slack < 0")
+- `CypherCapable` — Cypher translated to OpenDB's SQL dialect
+
+The Cypher-SQL translator already handles the dialect switching. The only
+work is a thin adapter that maps OpenDB's schema to the existing interface.
+
+```text
+nexus Cypher query
+  ↓ (translate.rs → SQL dialect)
+OpenDB SQL ─── SQLite SQL ─── DuckDB SQL
+  ↓             ↓               ↓
+OpenROAD PnR   FIH storage    Parquet export
+```
+
+### Storage Trait to OpenDB Schema Mapping
+
+The adapter maps nexus storage traits to OpenDB's database schema as follows:
+
+| Storage Trait | OpenDB Table | Mapping |
+|:---|---|:---|
+| `StorageRead::read_state` | `CELL`, `PIN`, `NET` | Aggregate cell count, net count, instance count into `BoardState` |
+| `FactCapable::submit_fact` | `TIMING_VIOLATION`, `DRC_VIOLATION` | Each timing or DRC violation becomes a Fact with origin = "openroad" |
+| `FilterCapable::read_state_filtered` | `CELL WHERE slack < threshold` | SQL WHERE clause generated by `translate.rs` |
+| `CypherCapable::query_plan` | All tables | Cypher `MATCH (c:CELL) WHERE c.slack < 0 RETURN c` → SQL |
+
+OpenDB's schema is relational and SQL-queryable. The Cypher-SQL translator
+already has a dialect dispatch that selects SQL dialect based on backend type.
+Adding an `OpenDB` dialect variant requires:
+
+1. A new `SqlDialect::OpenDB` enum variant in `translate.rs`
+2. Mapping Cypher node labels (CELL, PIN, NET, TIMING_VIOLATION) to OpenDB table names
+3. Mapping Cypher property paths to OpenDB column references
+
+The translator's existing `cypher_sql` module already handles all three
+concerns for DuckDB and SQLite. OpenDB adds a fourth dialect target without
+changing the translation logic.
+
+### Data Flow: Intent to Fact
+
+```text
+Intent (nexus → OpenROAD):
+  { "action": "place_and_route",
+    "input": "path/to/synthesized.v",
+    "constraints": { "target_freq_mhz": 100 } }
+
+OpenROAD internal OODA:
+  1. Read synthesized netlist
+  2. Floorplanning → Placement → CTS → Routing → Timing
+  3. Write GDSII + timing report
+
+Fact (OpenROAD → nexus):
+  { "status": "complete",
+    "gds_path": "output/layout.gds",
+    "timing_violations": [
+      { "path": "...", "slack_ps": -50, "severity": "setup" },
+      { "path": "...", "slack_ps": -12, "severity": "hold" }
+    ],
+    "cell_count": 12450,
+    "area_um2": 0.045 }
+```
+
+Every Fact produced by OpenROAD is consumed by nexus `GapDetector` and
+`ContradictionDetector`. Timing violations become gaps. Area constraints
+that exceed budget become contradictions. The detection layer triggers
+new Intent generation without human intervention.
+
+## Position in the Open-Source EDA Landscape
+
+OpenROAD is the undisputed leader in open-source physical design. It is the
+only open-source tool delivering a complete RTL-to-GDSII automated flow with
+24-hour turnaround. Its track record exceeds 600 tapeouts on SkyWater 130nm
+and GlobalFoundries 180nm. It forms the physical design core of OpenLane and
+LibreLane.
+
+| Tool | Role | Relationship to nexus |
+|------|------|----------------------|
+| OpenROAD | RTL-to-GDSII physical design | Agent + internal nexus |
+| Yosys | RTL synthesis | Source consumed by OpenROAD agent |
+| OpenLane | Integrated ASIC flow | Consumes OpenROAD |
+| Coriolis | Independent P&R | Alternative agent candidate |
+
+No other open-source tool matches OpenROAD's combination of breadth (full
+flow), autonomy (NHIL), and production track record.
+
+## The Recursive Principle
+
+nexus does not need to understand OpenROAD's internal complexity. It only
+needs the capability trait interface that every agent exposes. OpenROAD's
+OpenDB becomes one implementation of `ColdStorage`. The Cypher-SQL
+translator was designed for this.
+
+The same pattern applies to all agents. ev is a nexus inside its own
+verification domain. OpenROAD is a nexus inside its own physical design
+domain. Each colony operates autonomously and communicates through the
+shared FIH Blackboard. It is the
+structural observation principle scaling across domains.
