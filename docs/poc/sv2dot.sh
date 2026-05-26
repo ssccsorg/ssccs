@@ -1,62 +1,138 @@
 #!/usr/bin/env bash
 # sv2dot.sh — Synthesize SV modules with Yosys and produce gate-level DOT diagrams.
 #
-# Usage:
-#   ./scripts/sv2dot.sh <sv_dir> <out_dir>
-#
-# Reads all .sv files in <sv_dir> (recursive), synthesizes each module
-# with Yosys, and writes a .dot file to <out_dir>.
-#
-# Requires: yosys
-#
-# Output: <out_dir>/<module_name>.dot for each synthesizable module.
+# Usage:   ./sv2dot.sh <sv_dir>
+# Output:  _sv_dots/*.dot  (per-module DOT files)
+#          arch_sv_diagram.qmd  (regenerated with inline DOT blocks)
 
 set -euo pipefail
 
-if [ $# -lt 2 ]; then
-    echo "Usage: $0 <sv_dir> <out_dir>" >&2
-    exit 1
-fi
+[ $# -ge 1 ] || { echo "Usage: $0 <sv_dir>" >&2; exit 1; }
 
 SV_DIR="$1"
-OUT_DIR="$2"
+POC_DIR="$(cd "$(dirname "$0")" && pwd)"
+DOTS_DIR="$POC_DIR/_sv_dots"
+QMD_FILE="$POC_DIR/arch_sv_diagram.qmd"
 
-if ! command -v yosys &>/dev/null; then
-    mkdir -p "$OUT_DIR"
-    exit 0
+# ── Prerequisite: DOT files must exist (from Yosys or pre-generated) ──
+if ! ls "$DOTS_DIR"/*.dot &>/dev/null; then
+    if command -v yosys &>/dev/null; then
+        mkdir -p "$DOTS_DIR"
+    else
+        # No Yosys, no DOTs — create placeholder QMD and exit
+        mkdir -p "$POC_DIR"
+        cat > "$QMD_FILE" << 'EOF'
+---
+title: "PoC SystemVerilog Diagram"
+subtitle: "Synthesized from POC RTL modules"
+date: last-modified
+metadata-files:
+  - ../_include/author.yml
+abstract: |
+  Circuit diagrams for every SSCCS verification module.
+---
+
+{{< include ../_include/_title_meta_items.qmd >}}
+
+*SV diagrams are not available — Yosys synthesis engine is not installed.*
+EOF
+        exit 0
+    fi
 fi
 
-mkdir -p "$OUT_DIR"
-WORK_DIR="$(mktemp -d 2>/dev/null || mktemp -d -t 'sv2dot')"
-trap 'rm -rf "$WORK_DIR"' EXIT
+# ── Step 1: Synthesize (if yosys present) ─────────────────────────────
+if command -v yosys &>/dev/null; then
+    mkdir -p "$DOTS_DIR"
+    while IFS= read -r -d '' sv_file; do
+        mod=$(grep -m1 -oP '^\s*module\s+\K\w+' "$sv_file" || true)
+        [ -z "$mod" ] && continue
+        dot_file="$DOTS_DIR/${mod}.dot"
+        if yosys -q -p "
+            read_verilog -sv \"$sv_file\";
+            synth -top $mod;
+            show -format dot -prefix \"$DOTS_DIR/${mod}\" $mod;
+        " 2>/dev/null; then
+            echo "  $mod ← $(basename "$sv_file") ($(wc -l < "$dot_file") lines)"
+        else
+            echo "  FAIL $mod ← $(basename "$sv_file")"
+        fi
+    done < <(find "$SV_DIR" -name '*.sv' -print0)
+fi
 
-count=0
-skip=0
+# ── Step 2: Generate QMD ──────────────────────────────────────────────
 
-while IFS= read -r -d '' sv_file; do
-    # Extract module name from file (first module declaration)
-    mod=$(grep -m1 -oP '^\s*module\s+\K\w+' "$sv_file" || true)
-    if [ -z "$mod" ]; then
-        echo "  SKIP $(basename "$sv_file"): no module declaration found"
-        skip=$((skip + 1))
-        continue
-    fi
+write_dot_cell() {
+    local mod="$1" dotf="$2" h="${3:-300px}" cap="${4:-$mod}"
+    echo "" >> "$QMD_FILE"
+    echo "### $mod" >> "$QMD_FILE"
+    echo "" >> "$QMD_FILE"
+    echo '```{python}' >> "$QMD_FILE"
+    echo "#| label: fig-$mod" >> "$QMD_FILE"
+    echo "#| fig-cap: \"$cap\"" >> "$QMD_FILE"
+    echo 'dot("""' >> "$QMD_FILE"
+    cat "$dotf" >> "$QMD_FILE"
+    echo '""", h="'"$h"'")' >> "$QMD_FILE"
+    echo '```' >> "$QMD_FILE"
+}
 
-    dot_out="$OUT_DIR/${mod}.dot"
-    echo "  $mod ← $(basename "$sv_file")"
+write_group() {
+    local title="$1"; shift
+    echo "" >> "$QMD_FILE"
+    echo "## $title" >> "$QMD_FILE"
+    while [ $# -ge 2 ]; do
+        local mod="$1" h="$2"; shift 2
+        local dotf="$DOTS_DIR/$mod.dot"
+        [ -f "$dotf" ] && write_dot_cell "$mod" "$dotf" "$h"
+    done
+}
 
-    # Run Yosys: read SV file, synthesize, export DOT
-    # Suppress stderr noise, capture only errors
-    if yosys -q -p "
-        read_verilog -sv \"$sv_file\";
-        synth -top $mod;
-        show -format dot -prefix \"$OUT_DIR/${mod}\" $mod;
-    " 2>/dev/null; then
-        count=$((count + 1))
-    else
-        echo "  FAIL $mod: Yosys synthesis error"
-        skip=$((skip + 1))
-    fi
-done < <(find "$SV_DIR" -name '*.sv' -print0)
+cat > "$QMD_FILE" << QMDHEAD
+---
+title: "PoC SystemVerilog Diagram"
+subtitle: "Synthesized from POC RTL modules"
+date: last-modified
+metadata-files:
+  - ../_include/author.yml
+abstract: |
+  Circuit diagrams for every SSCCS verification module.
+  Each module is synthesized independently and rendered
+  as a directed graph of its logic structure.
+---
 
-echo "Done: $count modules synthesized, $skip skipped"
+{{< include ../_include/_title_meta_items.qmd >}}
+
+QMDHEAD
+
+cat >> "$QMD_FILE" << 'QMDIMPORT'
+```{python}
+#| include: false
+#| context: local
+%run ../_include/_graphviz.py
+```
+
+QMDIMPORT
+
+write_group "Constraints" \
+    ck_even      200px \
+    ck_range_010 300px \
+    ck_range     300px \
+    ck_eq        300px \
+    ck_gt        300px
+
+write_group "Composition" \
+    compose_union         150px \
+    compose_intersect     150px \
+    compose_product_2d    150px
+
+write_group "Projectors" \
+    proj_identity   150px \
+    proj_sum2d      400px \
+    proj_sum3d      400px \
+    proj_parity     150px \
+    proj_negate     300px
+
+if [ -f "$DOTS_DIR/observe.dot" ]; then
+    write_dot_cell "observe" "$DOTS_DIR/observe.dot" "400px" "observe: gated projection pipeline"
+fi
+
+echo "Regenerated: $QMD_FILE"
