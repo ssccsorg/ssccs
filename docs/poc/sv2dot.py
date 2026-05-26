@@ -77,7 +77,7 @@ def generate_qmd(modules: list[tuple[str, str, str, str]]) -> None:
         lines.append(s)
 
     w("---")
-    w('title: "PoC SystemVerilog Diagram"')
+    w('title: "SystemVerilog Diagram"')
     w('subtitle: "Synthesized from POC RTL modules"')
     w("date: last-modified")
     w("metadata-files:")
@@ -133,7 +133,7 @@ def generate_placeholder(reason: str = "Yosys synthesis engine is not installed.
     """Create minimal QMD when yosys or DOTs are absent."""
     QMD_FILE.write_text("\n".join([
         "---",
-        'title: "PoC SystemVerilog Diagram"',
+        'title: "SystemVerilog Diagram"',
         'subtitle: "Synthesized from POC RTL modules"',
         "date: last-modified",
         "metadata-files:",
