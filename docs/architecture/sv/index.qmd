@@ -1,13 +1,13 @@
 ---
 title: "SV Module Architecture"
-subtitle: "Auto-generated from POC RTL modules"
+subtitle: "Synthesized from POC RTL modules"
 date: last-modified
 metadata-files:
   - ../../_include/author.yml
 abstract: |
-  Complete module hierarchy extracted from poc/baremetal_riscv/sv/.
-  Each category (constraints, composition, projectors, pipeline, XIF)
-  is rendered as a separate diagram, followed by the full hierarchy.
+  Circuit diagrams for every SSCCS verification module.
+  Each module is synthesized independently and rendered
+  as a directed graph of its logic structure.
 ---
 
 {{< include ../../_include/_title_meta_items.qmd >}}
@@ -15,45 +15,100 @@ abstract: |
 ```{python}
 #| include: false
 #| context: local
-import sys, os, graphviz
+import os, glob
 from pathlib import Path
-from IPython.display import SVG
-_include = Path("../../_include").resolve()
-if str(_include) not in sys.path:
-    sys.path.insert(0, str(_include))
-%run ../../_include/_sv2dot.py
+_dots_dir = Path("../../_include/sv_dots").resolve()
+%run ../../_include/_graphviz.py
+
+def _load_dot(stem: str) -> str:
+    dot_path = _dots_dir / f"{stem}.dot"
+    if dot_path.exists():
+        return dot_path.read_text()
+    return ""
 ```
 
 ## Constraints
 
+### ck_even
+
 ```{python}
-#| label: fig-sv-constraints
-#| fig-cap: "Constraint modules: even, range, equality, greater-than"
-d = load_sv_dot("constraints")
-if d:
-    display(SVG(graphviz.Source(d).pipe(format="svg").decode("utf-8")))
-else:
-    print("*not available*")
+#| label: fig-ck-even
+#| fig-cap: "ck_even: 1-LUT even parity check"
+d = _load_dot("ck_even")
+dot(d, h="200px") if d else None
 ```
 
-| Module | Description | LUTs |
+### ck_range_010
+
+```{python}
+#| label: fig-ck-range-010
+#| fig-cap: "ck_range_010: hard-coded [0,10] range check"
+d = _load_dot("ck_range_010")
+dot(d, h="300px") if d else None
+```
+
+### ck_range
+
+```{python}
+#| label: fig-ck-range
+#| fig-cap: "ck_range: parameterized [min, max] range check"
+d = _load_dot("ck_range")
+dot(d, h="300px") if d else None
+```
+
+### ck_eq
+
+```{python}
+#| label: fig-ck-eq
+#| fig-cap: "ck_eq: 64-bit equality check (XOR + NOR tree)"
+d = _load_dot("ck_eq")
+dot(d, h="300px") if d else None
+```
+
+### ck_gt
+
+```{python}
+#| label: fig-ck-gt
+#| fig-cap: "ck_gt: 64-bit greater-than comparator"
+d = _load_dot("ck_gt")
+dot(d, h="300px") if d else None
+```
+
+| Module | Description | Logic |
 |---|---|---|
-| `ck_even` | 1 LUT parity check | 1 |
-| `ck_range_010` | Hard-coded [0,10] comparator | comparator |
-| `ck_range` | Parameterized [min, max] | 2 comparators |
-| `ck_eq` | Equality check | 64-bit XOR + NOR |
-| `ck_gt` | Greater-than check | 1 comparator |
+| `ck_even` | 1 LUT parity check | XOR reduction |
+| `ck_range_010` | Hard-coded [0,10] comparator | 2 comparators + AND |
+| `ck_range` | Parameterized [min, max] | 2 comparators + AND |
+| `ck_eq` | Equality check | 64-bit XOR + NOR tree |
+| `ck_gt` | Greater-than check | 64-bit comparator |
 
 ## Composition
 
+### compose_union
+
 ```{python}
-#| label: fig-sv-composition
-#| fig-cap: "Composition modules: union, intersection, product"
-d = load_sv_dot("composition")
-if d:
-    display(SVG(graphviz.Source(d).pipe(format="svg").decode("utf-8")))
-else:
-    print("*not available*")
+#| label: fig-compose-union
+#| fig-cap: "compose_union: OR reduction"
+d = _load_dot("compose_union")
+dot(d, h="150px") if d else None
+```
+
+### compose_intersect
+
+```{python}
+#| label: fig-compose-intersect
+#| fig-cap: "compose_intersect: AND reduction"
+d = _load_dot("compose_intersect")
+dot(d, h="150px") if d else None
+```
+
+### compose_product_2d
+
+```{python}
+#| label: fig-compose-product-2d
+#| fig-cap: "compose_product_2d: axis partition (AND of two constraints)"
+d = _load_dot("compose_product_2d")
+dot(d, h="150px") if d else None
 ```
 
 | Module | Operation | Implementation |
@@ -64,14 +119,49 @@ else:
 
 ## Projectors
 
+### proj_identity
+
 ```{python}
-#| label: fig-sv-projectors
-#| fig-cap: "Projector modules: identity, sum, parity, negate"
-d = load_sv_dot("projectors")
-if d:
-    display(SVG(graphviz.Source(d).pipe(format="svg").decode("utf-8")))
-else:
-    print("*not available*")
+#| label: fig-proj-identity
+#| fig-cap: "proj_identity: 64-bit passthrough"
+d = _load_dot("proj_identity")
+dot(d, h="150px") if d else None
+```
+
+### proj_sum2d
+
+```{python}
+#| label: fig-proj-sum2d
+#| fig-cap: "proj_sum2d: 64-bit adder"
+d = _load_dot("proj_sum2d")
+dot(d, h="400px") if d else None
+```
+
+### proj_sum3d
+
+```{python}
+#| label: fig-proj-sum3d
+#| fig-cap: "proj_sum3d: 128-bit adder chain"
+d = _load_dot("proj_sum3d")
+dot(d, h="400px") if d else None
+```
+
+### proj_parity
+
+```{python}
+#| label: fig-proj-parity
+#| fig-cap: "proj_parity: LSB extract"
+d = _load_dot("proj_parity")
+dot(d, h="150px") if d else None
+```
+
+### proj_negate
+
+```{python}
+#| label: fig-proj-negate
+#| fig-cap: "proj_negate: 64-bit negation"
+d = _load_dot("proj_negate")
+dot(d, h="300px") if d else None
 ```
 
 | Module | Function | Width |
@@ -84,36 +174,30 @@ else:
 
 ## Observation Pipeline
 
-```{python}
-#| label: fig-sv-pipeline
-#| fig-cap: "Observation pipeline: gated projection"
-d = load_sv_dot("pipeline")
-if d:
-    display(SVG(graphviz.Source(d).pipe(format="svg").decode("utf-8")))
-else:
-    print("*not available*")
-```
-
-## XIF Coprocessor
+### observe
 
 ```{python}
-#| label: fig-sv-xif
-#| fig-cap: "XIF coprocessor top-level and testbench"
-d = load_sv_dot("xif")
-if d:
-    display(SVG(graphviz.Source(d).pipe(format="svg").decode("utf-8")))
-else:
-    print("*not available*")
+#| label: fig-observe
+#| fig-cap: "observe: gated projection pipeline"
+d = _load_dot("observe")
+dot(d, h="400px") if d else None
 ```
 
-## Full Hierarchy
+## Statistics
 
-```{python}
-#| label: fig-sv-all
-#| fig-cap: "Complete SV module hierarchy"
-d = load_sv_dot("all")
-if d:
-    display(SVG(graphviz.Source(d).pipe(format="svg").decode("utf-8")))
-else:
-    print("*not available*")
-```
+| Module | Lines | Gates (approx) |
+|---|---|---|
+| `ck_even` | 12 | 1 LUT |
+| `ck_range_010` | 485 | ~130 gates |
+| `ck_range` | 365 | ~130 gates |
+| `ck_eq` | 325 | ~130 gates |
+| `ck_gt` | 325 | ~130 gates |
+| `proj_identity` | 10 | 64 buffers |
+| `proj_sum2d` | 2,498 | 64-bit adder |
+| `proj_sum3d` | 4,077 | 128-bit adder chain |
+| `proj_parity` | 10 | 1 buffer |
+| `proj_negate` | 1,156 | 64-bit negation |
+| `compose_union` | 15 | 1 OR |
+| `compose_intersect` | 15 | 1 AND |
+| `compose_product_2d` | 12 | 1 AND |
+| `observe` | 524 | pipeline control |
