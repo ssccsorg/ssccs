@@ -9,7 +9,7 @@ and regenerates poc/arch_sv_diagram.qmd with inline DOT code blocks.
 Silent skip when yosys is unavailable (placeholder QMD generated).
 """
 
-import subprocess, shutil, sys, os, re
+import subprocess, shutil, sys, re # noqa: E401
 from pathlib import Path
 
 POC_DIR = Path(__file__).resolve().parent
