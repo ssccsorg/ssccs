@@ -18,7 +18,7 @@ on:
       - "!docs/**/README.md"
   workflow_dispatch:
   repository_dispatch:
-    types: [publish-sdb-image-complete]
+    types: [publish-docs-image-complete]
   pull_request:
     branches: ["main"]
     paths:
@@ -38,7 +38,7 @@ on:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   REGISTRY: ghcr.io
-  IMAGE_NAME: ssccsorg/sdbs
+  IMAGE_NAME: ssccsorg/ssccs-docs
 
 permissions:
   contents: read
@@ -88,29 +88,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Pull Docker images
-        run: |
-          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          docker pull ghcr.io/ssccsorg/ssccs-poc:latest || echo "SV diagram generation skipped — ssccs-poc image not available"
+      - name: Pull Docker image
+        run: docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
         shell: bash
 
-      - name: Generate SV gate-level diagrams
-        if: always()
-        run: |
-          docker run --rm \
-            -v ${{ github.workspace }}:/work \
-            -w /work \
-            ghcr.io/ssccsorg/ssccs-poc:latest \
-            python3 docs/poc/sv2dot.py poc/baremetal_riscv/sv || echo "SV diagrams not generated"
-
-      - name: Run documentation build
+      - name: Generate SV diagrams and build docs
         run: |
           docker run --rm \
             -v ${{ github.workspace }}:/work \
             -w /work \
             -e QUARTO_PYTHON=python3 \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
-            sdb build docs --website
+            bash -c "python3 docs/poc/sv2dot.py poc/baremetal_riscv/sv && sdb build docs --website"
 
       - name: Prepare Pages artifact
         run: |
