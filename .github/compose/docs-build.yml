@@ -1,0 +1,19 @@
+services:
+  docs-build:
+    image: ghcr.io/ssccsorg/sdbs:latest
+    platform: linux/amd64
+    working_dir: /work
+    volumes:
+      - .:/work
+    environment:
+      - QUARTO_PYTHON=python3
+
+  sv2dot:
+    image: ghcr.io/ssccsorg/ssccs-poc:latest
+    platform: linux/amd64
+    working_dir: /work
+    volumes:
+      - .:/work
+    entrypoint: ["bash", "docs/_include/sv2dot.sh", "poc/baremetal_riscv/sv/", "docs/_include/sv_dots"]
+    profiles:
+      - full
