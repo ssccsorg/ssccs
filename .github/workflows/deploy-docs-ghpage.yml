@@ -90,7 +90,14 @@ jobs:
       - name: Pull Docker images
         run: |
           docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          if [ -n "$(git diff --name-only HEAD~1 -- poc/ docs/poc/ 2>/dev/null)" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            # PR: check if any POC files changed in this PR
+            changed=$(git diff --name-only origin/${{ github.base_ref }}...HEAD -- poc/ docs/poc/ 2>/dev/null)
+          else
+            # push: check last commit
+            changed=$(git diff --name-only HEAD~1 -- poc/ docs/poc/ 2>/dev/null)
+          fi
+          if [ -n "$changed" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             docker pull ${{ env.POC_IMAGE }}:latest || echo "ssccs-poc not available"
           else
             echo "No POC changes — using cached DOTs"
