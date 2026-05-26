@@ -17,7 +17,7 @@ on:
       - "!docs/**/README.md"
   workflow_dispatch:
   repository_dispatch:
-    types: [publish-docs-image-complete]
+    types: [publish-sdb-image-complete]
   pull_request:
     branches: ["main"]
     paths:
@@ -36,7 +36,8 @@ on:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   REGISTRY: ghcr.io
-  IMAGE_NAME: ssccsorg/ssccs-docs
+  IMAGE_NAME: ssccsorg/sdbs
+  POC_IMAGE: ghcr.io/ssccsorg/ssccs-poc
 
 permissions:
   contents: read
@@ -86,17 +87,19 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build or pull Docker image
+      - name: Pull Docker images
         run: |
-          if docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest 2>/dev/null; then
-            echo "Using published image"
-          else
-            echo "Image not found — building locally"
-            docker pull ghcr.io/ssccsorg/ssccs-poc:latest
-            docker pull ghcr.io/ssccsorg/sdbs:latest
-            docker build -f Dockerfile.docs -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest .
-          fi
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          docker pull ${{ env.POC_IMAGE }}:latest || echo "SV diagram generation skipped — ssccs-poc image not available"
         shell: bash
+
+      - name: Generate SV gate-level diagrams
+        run: |
+          docker run --rm \
+            -v ${{ github.workspace }}:/work \
+            -w /work/docs \
+            ${{ env.POC_IMAGE }}:latest \
+            python3 poc/sv2dot.py ../poc/baremetal_riscv/sv || echo "SV diagrams not generated"
 
       - name: Run documentation build
         run: |
