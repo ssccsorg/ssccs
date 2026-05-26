@@ -16,6 +16,7 @@ RUN apt-get update && apt-get install -y \
     jq \
     gcc-riscv64-linux-gnu \
     binutils-riscv64-linux-gnu \
+    yosys \
     verilator \
     && rm -rf /var/lib/apt/lists/*
 
@@ -53,6 +54,9 @@ RUN git clone https://github.com/riscv-software-src/riscv-pk.git /tmp/pk \
 
 # Verify pk binary
 RUN test -f /usr/local/riscv64-unknown-elf/bin/pk
+
+# Verify Yosys
+RUN yosys --version
 
 # Verify Verilator
 RUN verilator --version

@@ -15,8 +15,9 @@ abstract: |
 ```{python}
 #| include: false
 #| context: local
-import sys
+import sys, os, graphviz
 from pathlib import Path
+from IPython.display import SVG
 _include = Path("../../_include").resolve()
 if str(_include) not in sys.path:
     sys.path.insert(0, str(_include))
@@ -28,10 +29,9 @@ if str(_include) not in sys.path:
 ```{python}
 #| label: fig-sv-constraints
 #| fig-cap: "Constraint modules: even, range, equality, greater-than"
-from _graphviz import dot
 d = load_sv_dot("constraints")
 if d:
-    dot(d, h="300px")
+    display(SVG(graphviz.Source(d).pipe(format="svg").decode("utf-8")))
 else:
     print("*not available*")
 ```
@@ -51,7 +51,7 @@ else:
 #| fig-cap: "Composition modules: union, intersection, product"
 d = load_sv_dot("composition")
 if d:
-    dot(d, h="250px")
+    display(SVG(graphviz.Source(d).pipe(format="svg").decode("utf-8")))
 else:
     print("*not available*")
 ```
@@ -69,7 +69,7 @@ else:
 #| fig-cap: "Projector modules: identity, sum, parity, negate"
 d = load_sv_dot("projectors")
 if d:
-    dot(d, h="300px")
+    display(SVG(graphviz.Source(d).pipe(format="svg").decode("utf-8")))
 else:
     print("*not available*")
 ```
@@ -89,7 +89,7 @@ else:
 #| fig-cap: "Observation pipeline: gated projection"
 d = load_sv_dot("pipeline")
 if d:
-    dot(d, h="200px")
+    display(SVG(graphviz.Source(d).pipe(format="svg").decode("utf-8")))
 else:
     print("*not available*")
 ```
@@ -101,7 +101,7 @@ else:
 #| fig-cap: "XIF coprocessor top-level and testbench"
 d = load_sv_dot("xif")
 if d:
-    dot(d, h="400px")
+    display(SVG(graphviz.Source(d).pipe(format="svg").decode("utf-8")))
 else:
     print("*not available*")
 ```
@@ -113,7 +113,7 @@ else:
 #| fig-cap: "Complete SV module hierarchy"
 d = load_sv_dot("all")
 if d:
-    dot(d, h="600px")
+    display(SVG(graphviz.Source(d).pipe(format="svg").decode("utf-8")))
 else:
     print("*not available*")
 ```

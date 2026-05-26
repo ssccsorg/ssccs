@@ -44,9 +44,11 @@ def parse_sv_file(path: Path) -> dict:
             width = w if w > 1 else None
         result["ports"].append((port.group(1), port.group(5), width))
 
-    for inst in re.finditer(r'(\w+)\s+(\w+)\s*\(', text):
+    for inst in re.finditer(r'^\s*(\w+)\s+(\w+)\s*\(', text, re.MULTILINE):
         name = inst.group(1)
         if name in SKIP_INST:
+            continue
+        if re.match(r'(wire|reg|logic|assign|always|initial|typedef|enum|struct)', name):
             continue
         rest = text[inst.end():inst.end()+80]
         if re.search(r'\.\w+\s*\(', rest):
@@ -70,6 +72,17 @@ def generate_dot(modules: list) -> str:
     lines.append('    edge [fontsize=7];')
     lines.append("")
     module_names = {m["module"] for m in modules if m["module"]}
+    # Collect all referenced instantiation targets (cross-category)
+    all_targets = set()
+    for mod in modules:
+        if not mod["module"]:
+            continue
+        for inst_module, _ in mod["instantiations"]:
+            all_targets.add(inst_module)
+    # Create stub nodes for targets not in this set
+    for t in all_targets:
+        if t not in module_names:
+            lines.append(f'    {t} [label="{t}", fillcolor="#f9f9d4", style="rounded,filled,dashed"];')
     for mod in modules:
         if not mod["module"]:
             continue
@@ -84,7 +97,7 @@ def generate_dot(modules: list) -> str:
             continue
         for inst_module, inst_name in mod["instantiations"]:
             inst_name_clean = re.sub(r'\[\d+\]', '', inst_name)
-            if inst_module in module_names:
+            if inst_module in module_names or inst_module in all_targets:
                 lines.append(f'    {mod["module"]} -> {inst_module} [label="{inst_name_clean}"];')
     lines.append("}")
     return "\n".join(lines)
