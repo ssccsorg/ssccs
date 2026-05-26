@@ -18,7 +18,7 @@ on:
       - "!docs/**/README.md"
   workflow_dispatch:
   repository_dispatch:
-    types: [publish-sdb-image-complete, publish-poc-image-complete]
+    types: [publish-sdb-image-complete]
   pull_request:
     branches: ["main"]
     paths:
@@ -91,25 +91,17 @@ jobs:
       - name: Pull Docker images
         run: |
           docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          docker pull ghcr.io/ssccsorg/ssccs-poc:latest || \
-            (echo "ssccs-poc image not found, triggering build..." && \
-             curl -X POST \
-               -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-               -H "Accept: application/vnd.github+json" \
-               https://api.github.com/repos/${{ github.repository }}/dispatches \
-               -d '{"event_type":"publish-poc-image-complete"}' && \
-             echo "Waiting for publish-poc-image workflow to complete..." && \
-             sleep 10 && \
-             docker pull ghcr.io/ssccsorg/ssccs-poc:latest)
+          docker pull ghcr.io/ssccsorg/ssccs-poc:latest || echo "SV diagram generation skipped — ssccs-poc image not available"
         shell: bash
 
       - name: Generate SV gate-level diagrams
+        if: always()
         run: |
           docker run --rm \
             -v ${{ github.workspace }}:/work \
             -w /work \
             ghcr.io/ssccsorg/ssccs-poc:latest \
-            python3 docs/poc/sv2dot.py poc/baremetal_riscv/sv
+            python3 docs/poc/sv2dot.py poc/baremetal_riscv/sv || echo "SV diagrams not generated"
 
       - name: Run documentation build
         run: |
