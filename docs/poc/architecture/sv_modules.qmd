@@ -5,8 +5,9 @@ date: last-modified
 metadata-files:
   - ../../_include/author.yml
 abstract: |
-  Module hierarchy and port connectivity extracted from
-  poc/baremetal_riscv/sv/ via sv2dot.py.
+  Complete module hierarchy extracted from poc/baremetal_riscv/sv/.
+  Each category (constraints, composition, projectors, pipeline, XIF)
+  is rendered as a separate diagram, followed by the full hierarchy.
 ---
 
 {{< include ../../_include/_title_meta_items.qmd >}}
@@ -22,13 +23,97 @@ if str(_include) not in sys.path:
 %run ../../_include/_sv_diagram.py
 ```
 
+## Constraints
+
 ```{python}
-#| label: fig-sv-modules
-#| fig-cap: "SV module hierarchy"
+#| label: fig-sv-constraints
+#| fig-cap: "Constraint modules: even, range, equality, greater-than"
 from _graphviz import dot
-d = load_sv_dot()
+d = load_sv_dot("constraints")
 if d:
-    dot(d, h="500px")
+    dot(d, h="300px")
 else:
-    print("*Diagram not available. Run build pipeline to generate _include/sv_architecture.dot*")
+    print("*not available*")
+```
+
+| Module | Description | LUTs |
+|---|---|---|
+| `ck_even` | 1 LUT parity check | 1 |
+| `ck_range_010` | Hard-coded [0,10] comparator | comparator |
+| `ck_range` | Parameterized [min, max] | 2 comparators |
+| `ck_eq` | Equality check | 64-bit XOR + NOR |
+| `ck_gt` | Greater-than check | 1 comparator |
+
+## Composition
+
+```{python}
+#| label: fig-sv-composition
+#| fig-cap: "Composition modules: union, intersection, product"
+d = load_sv_dot("composition")
+if d:
+    dot(d, h="250px")
+else:
+    print("*not available*")
+```
+
+| Module | Operation | Implementation |
+|---|---|---|
+| `compose_union` | OR reduction | Single OR gate |
+| `compose_intersect` | AND reduction | Single AND gate |
+| `compose_product_2d` | axis partition | AND of two constraints |
+
+## Projectors
+
+```{python}
+#| label: fig-sv-projectors
+#| fig-cap: "Projector modules: identity, sum, parity, negate"
+d = load_sv_dot("projectors")
+if d:
+    dot(d, h="300px")
+else:
+    print("*not available*")
+```
+
+| Module | Function | Width |
+|---|---|---|
+| `proj_identity` | passthrough | 64-bit |
+| `proj_sum2d` | coord_a + coord_b | 64-bit adder |
+| `proj_sum3d` | coord_a + coord_b + coord_c | 64-bit adder chain |
+| `proj_parity` | LSB extract | 1-bit |
+| `proj_negate` | negation | 64-bit |
+
+## Observation Pipeline
+
+```{python}
+#| label: fig-sv-pipeline
+#| fig-cap: "Observation pipeline: gated projection"
+d = load_sv_dot("pipeline")
+if d:
+    dot(d, h="200px")
+else:
+    print("*not available*")
+```
+
+## XIF Coprocessor
+
+```{python}
+#| label: fig-sv-xif
+#| fig-cap: "XIF coprocessor top-level and testbench"
+d = load_sv_dot("xif")
+if d:
+    dot(d, h="400px")
+else:
+    print("*not available*")
+```
+
+## Full Hierarchy
+
+```{python}
+#| label: fig-sv-all
+#| fig-cap: "Complete SV module hierarchy"
+d = load_sv_dot("all")
+if d:
+    dot(d, h="600px")
+else:
+    print("*not available*")
 ```

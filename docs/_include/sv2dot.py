@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """SV to DOT — lightweight SystemVerilog module diagram generator.
 Usage:
-  python3 sv2dot.py path/to/sv/dir/    # all modules, hierarchical
-  python3 sv2dot.py path/to/module.sv  # single module
-  python3 sv2dot.py path/ --flat       # flat (no subgraph)
+  python3 sv2dot.py path/to/sv/dir/          # all modules → stdout
+  python3 sv2dot.py path/to/sv/dir/ --all    # per-category + all to _include/sv_dots/
+  python3 sv2dot.py path/to/module.sv        # single module → stdout
 """
 
-import sys, re
+import sys, re, os
 from pathlib import Path
 
 SKIP_INST = {
@@ -17,6 +17,14 @@ SKIP_INST = {
     "begin","end","if","else","for","while","repeat","forever",
     "property","endproperty","assert","assume","cover","expect",
     "disable","iff","edge","posedge","negedge","or",",","//","/*",
+}
+
+CATEGORY_DIRS = {
+    "constraints": ["ck_"],
+    "composition": ["compose_"],
+    "projectors":  ["proj_"],
+    "pipeline":    ["observe"],
+    "xif":         ["ssccs_xif", "xif_", "scenario_"],
 }
 
 def parse_sv_file(path: Path) -> dict:
@@ -36,18 +44,22 @@ def parse_sv_file(path: Path) -> dict:
             width = w if w > 1 else None
         result["ports"].append((port.group(1), port.group(5), width))
 
-    # Match: word word (   — only if word is not a keyword and followed by (
     for inst in re.finditer(r'(\w+)\s+(\w+)\s*\(', text):
         name = inst.group(1)
         if name in SKIP_INST:
             continue
-        if name[0].isupper() or name[0].islower():
-            # Check that this looks like an instantiation (has port connections)
-            # by peeking ahead for .identifier( pattern
-            rest = text[inst.end():inst.end()+80]
-            if re.search(r'\.\w+\s*\(', rest):
-                result["instantiations"].append((name, inst.group(2)))
+        rest = text[inst.end():inst.end()+80]
+        if re.search(r'\.\w+\s*\(', rest):
+            result["instantiations"].append((name, inst.group(2)))
     return result
+
+
+def categorize(mod_name: str) -> str:
+    for cat, prefixes in CATEGORY_DIRS.items():
+        for p in prefixes:
+            if mod_name.startswith(p):
+                return cat
+    return "other"
 
 
 def generate_dot(modules: list) -> str:
@@ -57,9 +69,7 @@ def generate_dot(modules: list) -> str:
     lines.append('    node [shape=box, style="rounded,filled", fontsize=8, width=1.3];')
     lines.append('    edge [fontsize=7];')
     lines.append("")
-
     module_names = {m["module"] for m in modules if m["module"]}
-
     for mod in modules:
         if not mod["module"]:
             continue
@@ -68,41 +78,53 @@ def generate_dot(modules: list) -> str:
             for d,n,w in mod["ports"]
         )
         label = f"{mod['module']}\\n{ports_str}" if ports_str else mod["module"]
-        color = "#d4f1f9"
-        lines.append(f'    {mod["module"]} [label="{label}", fillcolor="{color}"];')
-
+        lines.append(f'    {mod["module"]} [label="{label}", fillcolor="#d4f1f9"];')
     for mod in modules:
         if not mod["module"]:
             continue
         for inst_module, inst_name in mod["instantiations"]:
-            # Clean instance name (remove array indices like [0])
             inst_name_clean = re.sub(r'\[\d+\]', '', inst_name)
             if inst_module in module_names:
                 lines.append(f'    {mod["module"]} -> {inst_module} [label="{inst_name_clean}"];')
-            else:
-                e = f'ext_{inst_module.lower()}'
-                if e not in module_names:
-                    module_names.add(e)
-
     lines.append("}")
     return "\n".join(lines)
 
 
 def main():
     path = Path(sys.argv[1])
-    if path.is_dir():
-        modules = []
+    do_all = "--all" in sys.argv
+
+    if do_all:
+        out_dir = Path(__file__).resolve().parent / "sv_dots"
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        # Per-category
+        by_cat: dict[str, list] = {c: [] for c in CATEGORY_DIRS}
+        by_cat["all"] = []
+
         for f in sorted(path.rglob("*.sv")):
             p = parse_sv_file(f)
-            if p["module"]:
-                modules.append(p)
+            if not p["module"]:
+                continue
+            cat = categorize(p["module"])
+            if cat in by_cat:
+                by_cat[cat].append(p)
+            by_cat["all"].append(p)
+
+        for cat, mods in by_cat.items():
+            if not mods:
+                continue
+            dot_file = out_dir / f"{cat}.dot"
+            dot_file.write_text(generate_dot(mods))
+            print(f"  → {dot_file}")
+
+    elif path.is_dir():
+        modules = [parse_sv_file(f) for f in sorted(path.rglob("*.sv")) if parse_sv_file(f)["module"]]
         print(generate_dot(modules))
     elif path.is_file():
         p = parse_sv_file(path)
         if p["module"]:
             print(generate_dot([p]))
-        else:
-            print(f"No module found", file=sys.stderr)
 
 if __name__ == "__main__":
     main()
