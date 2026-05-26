@@ -86,15 +86,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Pull Docker images
-        run: |
-          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          docker pull ${{ env.REGISTRY }}/ssccsorg/ssccs-poc:latest
+      - name: Pull Docker image
+        run: docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
         shell: bash
-
-      - name: Generate SV diagrams (Yosys)
-        run: |
-          docker compose -f .github/compose/docs-build.yml run --rm sv2dot || echo "SV diagrams skipped"
 
       - name: Run documentation build
         run: |
