@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """SV to DOT — lightweight SystemVerilog module diagram generator.
 Usage:
-  python3 sv2dot.py path/to/sv/dir/          # all modules → stdout
-  python3 sv2dot.py path/to/sv/dir/ --all    # per-category + all to _include/sv_dots/
-  python3 sv2dot.py path/to/module.sv        # single module → stdout
+  python3 _sv2dot.py path/to/sv/dir/          # all modules → stdout
+  python3 _sv2dot.py path/to/sv/dir/ --all    # per-category + all to _include/sv_dots/
+  python3 _sv2dot.py path/to/module.sv        # single module → stdout
 """
 
 import sys, re, os
@@ -90,6 +90,29 @@ def generate_dot(modules: list) -> str:
     return "\n".join(lines)
 
 
+def _dots_dir() -> str:
+    """Return path to sv_dots directory (creates if missing)."""
+    d = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sv_dots")
+    os.makedirs(d, exist_ok=True)
+    return d
+
+
+def list_sv_categories() -> list[str]:
+    """Return available DOT category names (for QMD use)."""
+    import glob
+    d = _dots_dir()
+    return sorted(os.path.splitext(os.path.basename(f))[0] for f in glob.glob(os.path.join(d, "*.dot")))
+
+
+def load_sv_dot(category: str = "all") -> str:
+    """Load DOT source by category (for QMD use via %run)."""
+    dot_path = os.path.join(_dots_dir(), f"{category}.dot")
+    if os.path.exists(dot_path):
+        with open(dot_path) as f:
+            return f.read()
+    return ""
+
+
 def main():
     path = Path(sys.argv[1])
     do_all = "--all" in sys.argv
@@ -127,4 +150,10 @@ def main():
             print(generate_dot([p]))
 
 if __name__ == "__main__":
-    main()
+    # When run via `python3 _sv2dot.py ...`, execute CLI.
+    # When %run from QMD, main() is guarded — load_sv_dot is the entry point.
+    if len(sys.argv) > 1:
+        main()
+    else:
+        # Called via `%run _sv2dot.py` from QMD — no-op, just import functions.
+        pass
