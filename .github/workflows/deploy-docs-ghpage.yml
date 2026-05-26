@@ -90,16 +90,24 @@ jobs:
       - name: Pull Docker images
         run: |
           docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          docker pull ${{ env.POC_IMAGE }}:latest || echo "SV diagram generation skipped — ssccs-poc image not available"
+          if [ -n "$(git diff --name-only HEAD~1 -- poc/ docs/poc/ 2>/dev/null)" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            docker pull ${{ env.POC_IMAGE }}:latest || echo "ssccs-poc not available"
+          else
+            echo "No POC changes — using cached DOTs"
+          fi
         shell: bash
 
       - name: Generate SV gate-level diagrams
         run: |
-          docker run --rm \
-            -v ${{ github.workspace }}:/work \
-            -w /work/docs \
-            ${{ env.POC_IMAGE }}:latest \
-            python3 poc/sv2dot.py ../poc/baremetal_riscv/sv || echo "SV diagrams not generated"
+          if docker image inspect ${{ env.POC_IMAGE }}:latest &>/dev/null; then
+            docker run --rm \
+              -v ${{ github.workspace }}:/work \
+              -w /work/docs \
+              ${{ env.POC_IMAGE }}:latest \
+              python3 poc/sv2dot.py ../poc/baremetal_riscv/sv
+          else
+            cd docs && python3 poc/sv2dot.py ../poc/baremetal_riscv/sv || true
+          fi
 
       - name: Run documentation build
         run: |
