@@ -22,8 +22,10 @@ SV_DIR="$1"
 OUT_DIR="$2"
 
 if ! command -v yosys &>/dev/null; then
-    echo "Error: yosys not found. Install with: brew install yosys" >&2
-    exit 1
+    echo "WARN: yosys not found — SV diagrams will be unavailable" >&2
+    echo "Install: brew install yosys (macOS) or apt install yosys (Linux)" >&2
+    mkdir -p "$OUT_DIR"
+    exit 0
 fi
 
 mkdir -p "$OUT_DIR"
