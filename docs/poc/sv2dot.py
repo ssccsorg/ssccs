@@ -15,48 +15,33 @@ from pathlib import Path
 POC_DIR = Path(__file__).resolve().parent
 DOTS_DIR = POC_DIR / "_sv_dots"
 QMD_FILE = POC_DIR / "arch_sv_diagram.qmd"
-INCLUDE_DIR = POC_DIR.parent / "_include"
 
-MODULES = [
-    ("Constraints", [
-        ("ck_even",         "200px"),
-        ("ck_range_010",    "300px"),
-        ("ck_range",        "300px"),
-        ("ck_eq",           "300px"),
-        ("ck_gt",           "300px"),
-    ]),
-    ("Composition", [
-        ("compose_union",         "150px"),
-        ("compose_intersect",     "150px"),
-        ("compose_product_2d",    "150px"),
-    ]),
-    ("Projectors", [
-        ("proj_identity",   "150px"),
-        ("proj_sum2d",      "400px"),
-        ("proj_sum3d",      "400px"),
-        ("proj_parity",     "150px"),
-        ("proj_negate",     "300px"),
-    ]),
-    ("Pipeline", [
-        ("observe",         "400px"),
-    ]),
-]
+# ── Module metadata (description + diagram height) ──────────────────────
+# Modules are discovered automatically from _sv_dots/*.dot.
+# These dicts supply descriptions and rendering preferences.
+META = {
+    "ck_even":         ("1-LUT even parity check",           "200px"),
+    "ck_range_010":    ("Hard-coded [0,10] range check",     "300px"),
+    "ck_range":        ("Parameterized [min, max] range check", "300px"),
+    "ck_eq":           ("64-bit equality check",             "300px"),
+    "ck_gt":           ("64-bit greater-than comparator",    "300px"),
+    "compose_union":       ("OR reduction",                      "150px"),
+    "compose_intersect":   ("AND reduction",                     "150px"),
+    "compose_product_2d":  ("Axis partition (AND of two constraints)", "150px"),
+    "proj_identity":   ("64-bit passthrough",                "150px"),
+    "proj_sum2d":      ("64-bit adder",                      "400px"),
+    "proj_sum3d":      ("128-bit adder chain",               "400px"),
+    "proj_parity":     ("LSB extract",                       "150px"),
+    "proj_negate":     ("64-bit negation",                   "300px"),
+    "observe":         ("Gated projection pipeline",         "400px"),
+}
 
-TABLE_ROWS = [
-    ("Constraints", "ck_even",          12,   "1-LUT even parity check"),
-    ("Constraints", "ck_range_010",    485,   "Hard-coded [0,10] range check"),
-    ("Constraints", "ck_range",        365,   "Parameterized [min, max] range check"),
-    ("Constraints", "ck_eq",           325,   "64-bit equality check"),
-    ("Constraints", "ck_gt",           325,   "64-bit greater-than comparator"),
-    ("Composition", "compose_union",           15,    "OR reduction"),
-    ("Composition", "compose_intersect",       15,    "AND reduction"),
-    ("Composition", "compose_product_2d",      12,    "Axis partition (AND of two constraints)"),
-    ("Projectors",  "proj_identity",   10,    "64-bit passthrough"),
-    ("Projectors",  "proj_sum2d",    2498,   "64-bit adder"),
-    ("Projectors",  "proj_sum3d",    4077,   "128-bit adder chain"),
-    ("Projectors",  "proj_parity",     10,    "LSB extract"),
-    ("Projectors",  "proj_negate",   1156,   "64-bit negation"),
-    ("Pipeline",    "observe",        524,   "Gated projection pipeline"),
+# ── Grouping: prefix → display name ─────────────────────────────────────
+GROUPS = [
+    ("Constraints", ["ck_"]),
+    ("Composition", ["compose_"]),
+    ("Projectors",  ["proj_"]),
+    ("Pipeline",    ["observe"]),
 ]
 
 
@@ -83,13 +68,27 @@ def synthesize(sv_dir: Path) -> None:
             print(f"  FAIL {mod} ← {sv_file.name}")
 
 
+def _discover_modules() -> dict[str, list[str]]:
+    """Return {group_name: [mod_name, ...]} from available DOT files."""
+    available = {p.stem for p in DOTS_DIR.glob("*.dot")}
+    grouped: dict[str, list[str]] = {}
+    for group_name, prefixes in GROUPS:
+        mods = []
+        for mod in sorted(available):
+            if any(mod.startswith(p) or mod == p.rstrip("_") for p in prefixes):
+                mods.append(mod)
+        if mods:
+            grouped[group_name] = mods
+    return grouped
+
+
 def generate_qmd() -> None:
     """Regenerate arch_sv_diagram.qmd with inline DOT blocks."""
+    grouped = _discover_modules()
     lines = []
     def w(s=""):
         lines.append(s)
 
-    # YAML front matter
     w("---")
     w('title: "PoC SystemVerilog Diagram"')
     w('subtitle: "Synthesized from POC RTL modules"')
@@ -104,8 +103,6 @@ def generate_qmd() -> None:
     w("")
     w("{{< include ../_include/_title_meta_items.qmd >}}")
     w("")
-
-    # Graphviz import
     w('```{python}')
     w("#| include: false")
     w("#| context: local")
@@ -118,20 +115,28 @@ def generate_qmd() -> None:
     w("")
     w("| Group | Module | Lines | Description |")
     w("|---|---|---|---|")
-    for grp, mod, lc, desc in TABLE_ROWS:
-        w(f"| {grp} | {mod} | {lc} | {desc} |")
+    for group_name, _prefixes in GROUPS:
+        for mod in grouped.get(group_name, []):
+            dot_file = DOTS_DIR / f"{mod}.dot"
+            lc = dot_file.read_text().count("\n") if dot_file.exists() else 0
+            desc = META.get(mod, ("", ""))[0]
+            w(f"| {group_name} | {mod} | {lc} | {desc} |")
     w("")
 
     # Per-group diagrams
-    for group, mods in MODULES:
-        w(f"## {group}")
+    for group_name, _prefixes in GROUPS:
+        mods = grouped.get(group_name, [])
+        if not mods:
+            continue
+        w(f"## {group_name}")
         w("")
-        for mod, height in mods:
+        for mod in mods:
             dot_file = DOTS_DIR / f"{mod}.dot"
             if not dot_file.exists():
                 w(f"*{mod} not available*")
                 w("")
                 continue
+            height = META.get(mod, ("", "300px"))[1]
             w(f"### {mod}")
             w("")
             w('```{python}')
@@ -149,7 +154,7 @@ def generate_qmd() -> None:
 
 def generate_placeholder() -> None:
     """Create minimal QMD when yosys + DOTs are absent."""
-    lines = [
+    QMD_FILE.write_text("\n".join([
         "---",
         'title: "PoC SystemVerilog Diagram"',
         'subtitle: "Synthesized from POC RTL modules"',
@@ -164,8 +169,7 @@ def generate_placeholder() -> None:
         "",
         "*SV diagrams are not available — Yosys synthesis engine is not installed.*",
         "",
-    ]
-    QMD_FILE.write_text("\n".join(lines) + "\n")
+    ]) + "\n")
 
 
 def main():
@@ -174,7 +178,6 @@ def main():
         sys.exit(1)
 
     sv_dir = Path(sys.argv[1]).resolve()
-
     has_yosys = shutil.which("yosys") is not None
     has_dots = any(DOTS_DIR.glob("*.dot"))
 
