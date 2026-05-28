@@ -39,6 +39,8 @@ neXus is a self‑evolving, modular and contract‑governed agentic research inf
 
 The design rests on a single observation: large language models are context‑conditioned Fact generators — non‑deterministic engines that produce tokens without inherent direction, consistency, or auditability. neXus does not attempt to make the model deterministic. It provides the deterministic skeleton within which model outputs acquire structure, traceability, and permanence. Where the model is analogous to a CPU — powerful but unsteered — neXus is the operating system: it defines where outputs reside, how they connect across processes, and under what constraints they execute.
 
+LLMs are the most expensive component in any agentic system. neXus minimises their use to the precise moments when a new knowledge branch must be opened. The remaining research cycle — querying existing Facts, traversing the knowledge graph, detecting gaps, generating routine reports — runs entirely on accumulated knowledge without any LLM call. Over time, as the Fact graph deepens, the LLM fraction approaches zero: the system compounds its own understanding without recurring inference cost.
+
 The primary document source that feeds this infrastructure is the [SDBS (SSCCS Document Build System)](/projects/sdbs/index.html). SDBS is a parallel build pipeline that validates, renders, and publishes all technical documentation. neXus reads from the resulting structured corpus, using the document graph as a partial knowledge base from which hypotheses, constraints, and provenance traces are derived.
 
 neXus began as a platform to research the SSCCS computational model but it's being as SSCCS's proof of concept. The platform and the theory describe each other by design.
@@ -78,6 +80,8 @@ digraph FIH_Primitives {
 - **Hint** — an injected constraint. Governance rules (`contract.nex`), human feedback, compiler warnings, and safety limits all take the form of Hints. Agents read Hints from the Blackboard to determine which Intents are admissible and which Facts satisfy stated constraints. The Blackboard itself does not enforce Hint semantics.
 
 Because every Fact is immutable once committed and every Intent carries a provenance hash linking it to its originating Fact, the chain F₁ → I₁ → F₂ → I₂ → F₃ forms a deterministic, fully auditable path across the Blackboard. This path is the computational trace: it records what was known, what was explored, and what was concluded, in a sequence that can be replayed and verified indefinitely. In pipeline‑based orchestration each execution may produce different intermediate states; on the Blackboard, the path is fixed the moment each Fact is committed. The computation is the graph, and the graph is the audit trail.
+
+This immutability has structural consequences. A Fact that sits at the root of ten thousand subsequent Facts cannot be altered without rebuilding the entire dependent subgraph. As the graph grows, the cost of forgery becomes prohibitive — a dynamic analogous to blockchain difficulty, but driven by knowledge depth rather than hash power. The verified knowledge graph itself constitutes an economic substrate: every contribution is provable, attributable, and permanently embedded in a chain of validation.
 
 Reading the Blackboard state — the accumulated set of committed Facts, pending Intents, and active Hints at any moment — is the computational equivalent of observation. The read captures a cross-section of everything the system knows, intends, and is constrained by at that instant. Subsequent operations derive from this observed cross-section, not from any hidden internal state, ensuring that all decisions are grounded in the shared Blackboard content.
 
@@ -258,6 +262,13 @@ research economy. Contributions are accepted from any human or AI agent,
 anywhere. Rigour is rewarded; sloppiness is penalised. The constitution of
 this economy is the contract itself — its memory the graph, its auditor the
 chain, its citizens the participants.
+
+The storage layer beneath this economy is deliberately heterogeneous. The
+same Fact graph, the same cursor, and the same FIH primitives operate
+identically across local files, object storage, and blockchain backends.
+Storage is a pluggable trait; the core never changes. A researcher on a
+laptop, a server in a data centre, and an on-chain contract all read from
+and write to the same verified knowledge graph through the same interfaces.
 
 ## Extension: Boundaryless Research Infrastructure
 
