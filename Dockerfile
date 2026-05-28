@@ -1,26 +1,18 @@
-FROM ubuntu:24.04
+FROM ghcr.io/ssccsorg/sdbs:latest
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# System packages including native RISC-V cross-compiler (aarch64 compatible)
-# + Verilator for SystemVerilog hardware verification
+# System packages for RISC-V cross-compilation and hardware verification
+# SDBS base image already provides Python and common build tools
 RUN apt-get update && apt-get install -y \
-    build-essential \
-    curl \
-    git \
-    python3 \
     device-tree-compiler \
-    wget \
-    xz-utils \
-    ca-certificates \
-    jq \
     gcc-riscv64-linux-gnu \
     binutils-riscv64-linux-gnu \
     yosys \
     verilator \
     && rm -rf /var/lib/apt/lists/*
 
-# Rust installation
+# Rust installation (SDBS image does not include Rust)
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
 
