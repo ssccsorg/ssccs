@@ -1,0 +1,449 @@
+---
+title: "Agentic neXus: nexus-zed"
+subtitle: "A neXus instance embedding ACP as one of its communication surfaces"
+date: last-modified
+date-format: "MMMM, YYYY"
+metadata-files:
+  - ../../../_include/author.yml
+abstract: |
+  This note documents nexus-zed, an agentic neXus instance that embeds ACP as
+  one of its communication surfaces, enabling direct interaction with the Zed editor.
+  It is a neXus instance — it holds no orchestration logic,
+  routes no messages between agents, and maintains no workflow state.
+---
+
+```{python}
+#| include: false
+#| context: local
+%run ../../../_include/_graphviz.py
+```
+
+```{python}
+title_meta_items = {
+    "html": [
+        {"title": "Reference", "link": "./acp_nexus.html", "content": "ACP Protocol Analysis", "icon": "bi bi-link"},
+        {"title": "Issue", "link": "https://github.com/ssccsorg/nexus/issues/72", "content": "#72", "icon": "bi bi-link"},
+        {"title": "Repository", "link": "https://github.com/ssccsorg/nexus", "content": "Github", "icon": "bi bi-link"},
+    ]
+}
+```
+
+{{< include ../../../_include/_title_meta_items.qmd >}}
+
+## Context
+
+Zed communicates with external agents through the Agent Client Protocol (ACP), a
+JSON-RPC 2.0 protocol implemented by the `agent-client-protocol` crate (v0.12.1).
+nexus-zed is an agentic neXus instance — a neXus that embeds ACP as one of its
+communication surfaces. To Zed, it appears as a custom agent server: a native binary
+spawned as a child process with piped stdin/stdout/stderr. This is the standard ACP
+deployment model, not a Wasm extension.
+
+A detailed analysis of ACP for the research-verification loop context is in
+[acp_nexus.qmd](acp_nexus.html). This document covers the nexus-zed implementation.
+
+### neXus Principle: Peer, Not Orchestrator
+
+nexus-zed is a neXus instance, not an orchestrator. It translates between two surfaces:
+its ACP surface (talking to Zed) and its F-I-H surface (talking to the neXus blackboard):
+
+```text
+ACP (JSON-RPC over stdio)  ←→  F-I-H blocks (neXus blackboard)
+       ↑                                    ↑
+    Zed editor                      neXus real-time daemon
+```
+
+It does not know about other instances by name, route messages between them, or maintain
+workflow state — it is simply an agentic neXus whose ACP surface happens to face Zed.
+
+### Two Registration Paths
+
+Zed provides two paths for agent registration:
+
+- **NativeAgentServer**: Zed's built-in agent using `LanguageModelRegistry`.
+  Not used by nexus-zed.
+- **CustomAgentServer**: For external binaries registered in Zed settings. nexus-zed
+  uses this path. Zed's `AgentServerStore` spawns the binary and manages its lifecycle.
+  The `get_external_agent()` method in `crates/project/src/agent_server_store.rs`
+  resolves the command from settings and returns an `AgentServerCommand`.
+
+## Transport Layer
+
+### Wire Format
+
+ACP uses `Content-Length`-delimited JSON-RPC 2.0, identical to MCP:
+
+```text
+Content-Length: 123\r\n
+\r\n
+{"jsonrpc":"2.0","id":1,"method":"session/initialize","params":{...}}
+```
+
+nexus-zed reads from stdin and writes to stdout using this framing. Stderr is
+reserved for diagnostics — Zed captures and logs it but does not interpret it
+as protocol messages.
+
+In Zed's implementation, the transport is constructed in `AcpConnection::stdio()`
+(`crates/agent_servers/src/acp.rs:797`):
+
+```rust
+// After spawning the child process:
+let stdout = child.stdout.take().unwrap();
+let stdin = child.stdin.take().unwrap();
+let stderr = child.stderr.take().unwrap();
+
+// Wrapped as Lines transport (newline-delimited, each line is one JSON-RPC message):
+let incoming_lines = futures::io::BufReader::new(stdout).lines();
+let transport = Lines::new(tapped_outgoing, tapped_incoming);
+```
+
+### ACP SDK Client Builder Pattern
+
+nexus-zed uses the `agent-client-protocol` SDK's `Client` builder to implement its ACP surface. This is the
+central pattern from Zed's `connect_client_future()` (acp.rs:706):
+
+```rust
+use agent_client_protocol::schema as acp;
+
+Client
+    .builder()
+    .name("nexus-zed")
+    // ACP surface: register handlers for requests FROM Zed:
+    .on_receive_request(
+        handle_initialize_request,
+        agent_client_protocol::on_receive_request!(),
+    )
+    .on_receive_request(
+        handle_new_session_request,
+        agent_client_protocol::on_receive_request!(),
+    )
+    // ... more request handlers
+    // Register handlers for notifications FROM Zed:
+    .on_receive_notification(
+        handle_cancel_notification,
+        agent_client_protocol::on_receive_notification!(),
+    )
+    // Connect using the Lines transport over stdin/stdout:
+    .connect_with(transport, |connection: ConnectionTo<Agent>| async move {
+        // Connection established; keep alive until transport closes
+        futures::future::pending::<Result<(), acp::Error>>().await
+    })
+```
+
+The builder pattern uses the `on_receive_request!()` and `on_receive_notification!()`
+macros from the SDK for type-safe handler registration. Each handler receives the
+decoded request, a responder channel, and the connection handle.
+
+## Protocol Translation
+
+### ACP to neXus
+
+| ACP Message | neXus Block | Notes |
+|---|---|---|
+| `InitializeRequest` | (handshake only) | Respond with agent metadata and capabilities |
+| `NewSessionRequest` | (scope creation) | Create session scope on neXus |
+| `PromptRequest` (user message) | `Intent` | User's message as exploration direction |
+| `PromptRequest` (tool result) | `Fact` | Tool output as validated result |
+| Streaming text update | `Intent` progress | Ephemeral status update |
+| `CancelNotification` | `Intent` status = cancelled | Mark intent as terminated |
+| `SetSessionModeRequest` | `Hint` | Session configuration hint; published on neXus for all peers |
+| `CloseSessionRequest` | (scope release) | Clean up resources |
+
+### neXus to ACP
+
+| neXus Block | ACP Message | Notes |
+|---|---|---|
+| `Fact` (new result) | `PromptResponse` (text or tool blocks) | Streaming or final response |
+| `Intent` (requesting file read) | `ReadTextFileRequest` | Forwarded to Zed via ACP client request |
+| `Intent` (requesting file edit) | `WriteTextFileRequest` | Forwarded to Zed via ACP client request |
+| `Intent` (requesting command) | `CreateTerminalRequest` | Forwarded to Zed via ACP client request |
+| `Intent` (requesting user approval) | `PermissionRequest` | Forwarded to Zed; user decision returned as Fact |
+
+### Tool Call Lifecycle
+
+ACP tool calls have a lifecycle that nexus-zed maps to F-I-H Intent states:
+
+| ACP Tool Call Status | neXus Intent Status | Description |
+|---|---|---|
+| `pending` | `Intent::Hypothesis` (submitted) | Proposed but not yet claimed |
+| `running` | `Intent::Hypothesis` (claimed, heartbeat active) | Being executed by a peer or forwarded to Zed |
+| `completed` | `Fact` (concluded successfully) | Tool produced a valid result |
+| `failed` | `Intent` (concluded with error) | Tool execution failed |
+
+nexus-zed streams status updates to Zed via ACP's partial response mechanism:
+when an Intent transitions from Hypothesis to Fact, nexus-zed sends a streaming
+`PromptResponse` content block update before the final response.
+
+### Permission Handling Flow
+
+When any neXus instance (including nexus-zed itself) needs user approval:
+
+```text
+neXus instance writes Intent(kind: "permission", action: "run_command")
+    → nexus-zed detects Intent
+    → sends acp::PermissionRequest to Zed via its ACP surface
+    → Zed shows permission dialog
+    → User approves/denies
+    → Zed sends PermissionResponse
+    → nexus-zed writes Fact(permission_result) to neXus
+    → peer reads Fact and proceeds or aborts
+```
+
+### Initialize Response Fields
+
+nexus-zed must respond to Zed's `InitializeRequest` with the correct capabilities:
+
+| Field | Value | Notes |
+|---|---|---|
+| `protocol_version` | `ProtocolVersion::V1` | Must match Zed's minimum |
+| `agent_info.name` | `"nexus-zed"` | Display name in Zed's agent panel |
+| `agent_info.version` | `"0.1.0"` | neXus peer version |
+| `agent_capabilities.load_session` | `false` | neXus sessions are ephemeral |
+| `agent_capabilities.session_capabilities.list` | `None` | No session listing |
+| `agent_capabilities.session_capabilities.delete` | `None` | No session deletion |
+| `agent_capabilities.session_capabilities.resume` | `None` | No session resume |
+| `agent_capabilities.session_capabilities.additional_directories` | `None` | Not supported |
+| `agent_capabilities.prompt_capabilities` | `PromptCapabilities { ... }` | See below |
+| `auth_methods` | `vec![]` | neXus handles auth internally |
+
+PromptCapabilities should advertise the tools nexus-zed can forward to Zed:
+
+```rust
+PromptCapabilities {
+    tools: Some(vec![
+        ToolDefinition::new("read_text_file", "Read file content from the project"),
+        ToolDefinition::new("write_text_file", "Write content to a file in the project"),
+        ToolDefinition::new("create_terminal", "Run a command in a new terminal"),
+        ToolDefinition::new("kill_terminal", "Stop a running terminal"),
+        ToolDefinition::new("wait_for_terminal_exit", "Wait for terminal to finish"),
+        ToolDefinition::new("terminal_output", "Read terminal output"),
+    ]),
+    // No streaming tools — neXus provides its own streaming via Fact updates
+    stream: false,
+    // Chat-style prompting
+    chat: Some(ChatCapabilities {
+        max_message_count: 100,
+        max_message_size: 64000,
+    }),
+}
+```
+
+### Complete Request Handler Set
+
+nexus-zed must register handlers for all ACP requests Zed may send. These correspond
+to the handlers wired in Zed's `connect_client_future()`:
+
+| Handler Function | ACP Request | nexus-zed Action |
+|---|---|---|
+| `handle_initialize_request` | `InitializeRequest` | Respond with capabilities (see above) |
+| `handle_new_session_request` | `NewSessionRequest` | Create session scope, respond with session ID, modes, models, config options |
+| `handle_load_session_request` | `LoadSessionRequest` | Return error (not supported) |
+| `handle_resume_session_request` | `ResumeSessionRequest` | Return error (not supported) |
+| `handle_set_session_mode_request` | `SetSessionModeRequest` | Write `Hint` to neXus; update local state |
+| `handle_set_session_model_request` | `SetSessionModelRequest` | Write `Hint` to neXus (model preference) |
+| `handle_set_session_config_option` | `SetSessionConfigOptionRequest` | Write `Hint` to neXus |
+| `handle_prompt_request` | `PromptRequest` | Core: write `Intent` to neXus, poll/subscribe for `Fact`, stream back |
+| `handle_delete_session` | `DeleteSessionRequest` | Release session resources |
+| `handle_logout_request` | `LogoutRequest` | Return error (not supported) |
+
+And notifications:
+
+| Handler Function | ACP Notification | nexus-zed Action |
+|---|---|---|
+| `handle_cancel_notification` | `CancelNotification` | Update Intent status to cancelled on neXus |
+| `handle_delete_session_notification` | `DeleteSessionNotification` | Release session resources |
+
+## Session Lifecycle
+
+```text
+Zed                          nexus-zed (agentic neXus)         neXus blackboard
+ │                                      │                              │
+ │── InitializeRequest ──────────────►  │                              │
+ │◄── InitializeResponse ─────────────  │                              │
+ │   (capabilities negotiated)          │                              │
+ │                                      │                              │
+ │── NewSessionRequest ──────────────►  │── write Hint(session) ────► │
+ │◄── NewSessionResponse ─────────────  │                              │
+ │   (session_id, modes, models)       │                              │
+ │                                      │                              │
+ │── PromptRequest ─────────────────►  │── write Intent(prompt) ───► │
+ │                                      │                              │
+ │   (streaming loop)                   │◄── subscribe Fact ──────────│
+ │◄── PromptResponse(content_block) ──  │                              │
+ │   (partial: text chunk)             │                              │
+ │                                      │                              │
+ │   (if tool call from neXus peer)     │                              │
+ │◄── ReadTextFileRequest ────────────  │◄── Intent(file_read) ───────│
+ │── ReadTextFileResponse ──────────►  │── write Fact(content) ─────► │
+ │                                      │                              │
+ │   (if user approval needed)          │                              │
+ │◄── PermissionRequest ──────────────  │◄── Intent(permission) ──────│
+ │── PermissionResponse ────────────►  │── write Fact(result) ──────► │
+ │                                      │                              │
+ │◄── PromptResponse(stop_reason) ────  │◄── Fact(concluded) ─────────│
+ │                                      │                              │
+ │── CancelNotification ────────────►  │── update Intent(cancelled) ► │
+ │                                      │                              │
+ │── CloseSessionRequest ───────────►  │── (release session)          │
+ │                                      │                              │
+```
+
+## Configuration
+
+nexus-zed registers in Zed's settings:
+
+```json
+{
+  "agent_servers": {
+    "nexus-zed": {
+      "command": {
+        "command": "/usr/local/bin/nexus-zed",
+        "args": ["--nexus-socket", "/var/run/nexus.sock"]
+      }
+    }
+  }
+}
+```
+
+For development:
+
+```json
+{
+  "agent_servers": {
+    "nexus-zed-dev": {
+      "command": {
+        "command": "/path/to/nexus-zed/target/debug/nexus-zed",
+        "args": ["--nexus-socket", "/tmp/nexus-dev.sock"]
+      }
+    }
+  }
+}
+```
+
+## Instance Lifecycle
+
+### Startup Sequence
+
+1. Zed spawns nexus-zed as child process with piped stdio
+2. nexus-zed parses CLI args
+3. Connects to neXus daemon via Unix socket
+4. Initializes ACP transport: reads JSON-RPC from stdin, writes to stdout
+5. Enters handshake loop: waits for ACP InitializeRequest from Zed
+6. On `InitializeRequest`: responds with capabilities, enters main loop
+7. On any subsequent `NewSessionRequest`: creates session scope on neXus
+
+### Connection Failure Handling
+
+| Failure Mode | nexus-zed Behavior |
+|---|---|
+| neXus daemon socket not found at startup | Log error to stderr, retry with backoff (3 attempts, 1s / 2s / 4s), then exit with code 1 |
+| neXus daemon disconnects mid-session | Log error, attempt reconnect with backoff (3 attempts). If all fail, send error via ACP to Zed |
+| Zed disconnects (stdin EOF) | Flush pending Facts to neXus, close neXus connection, exit cleanly |
+| ACP protocol error | Log error to stderr, send ACP error response to Zed, continue |
+| Heartbeat timeout (neXus) | Mark session as stale, release resources, notify Zed |
+
+### Shutdown Sequence
+
+1. Binary receives SIGTERM or stdin EOF
+2. Stop accepting new requests
+3. Flush pending Facts to neXus daemon
+4. Release all session scopes on neXus
+5. Close neXus socket connection
+6. Exit with code 0
+
+## Implementation Plan
+
+Tracked in neXus issue [#72](https://github.com/ssccsorg/nexus/issues/72).
+
+### Phase 1: ACP stdio server
+
+- Create `Cargo.toml` with dependencies:
+  - `agent-client-protocol = "=0.12.1"` (protocol SDK)
+  - `agent-client-protocol-schema = "=0.13.2"` (schema types; auto-dep of the above)
+  - `tokio` (async runtime)
+  - `serde` / `serde_json` (JSON-RPC)
+  - `clap` (CLI args: `--nexus-socket`)
+- Implement the `Client::builder()` pattern with:
+  - `on_receive_request` for `InitializeRequest`, `NewSessionRequest`, `PromptRequest`
+  - `on_receive_notification` for `CancelNotification`
+- `InitializeResponse` returns minimal capabilities (no tools, no auth)
+- `PromptRequest` echoes user text back as streaming response (echo mode)
+- Validate with Zed as custom agent server:
+
+  ```bash
+  cargo build
+  # Add to Zed settings, select "nexus-zed-dev" in agent panel
+  ```
+
+### Phase 2: F-I-H blackboard connection
+
+- Implement `NexusTransport` trait with Unix socket:
+
+  ```rust
+  #[async_trait]
+  trait NexusTransport: Send + Sync {
+      async fn write_intent(&self, intent: Intent) -> Result<BlockId>;
+      async fn write_fact(&self, fact: Fact) -> Result<BlockId>;
+      async fn write_hint(&self, hint: Hint) -> Result<BlockId>;
+      async fn read_facts(&self, scope: &ScopeId) -> Result<Vec<Fact>>;
+      async fn subscribe_facts(&self, scope: &ScopeId) -> Result<WatchStream<Fact>>;
+  }
+  ```
+
+- On `NewSessionRequest`: create scope on neXus, return session metadata
+- On `PromptRequest`: write user message as `Intent` block, subscribe for `Fact` blocks
+- On `Fact` arrival: convert to streaming `PromptResponse` content blocks
+- `CancelNotification`: update Intent status on neXus
+- `SetSessionModeRequest` / `SetSessionModelRequest`: write as `Hint` blocks
+
+### Phase 3: Bidirectional tool forwarding
+
+- Monitor neXus for `Intent` blocks from other peers requesting:
+  - File read access (`kind: "read_file"`)
+  - File write access (`kind: "write_file"`)
+  - Terminal execution (`kind: "execute"`)
+  - User permission (`kind: "permission"`)
+- Forward matching Intents to Zed via ACP request handlers:
+  - `ReadTextFileRequest` → wait for response → write `Fact` to neXus
+  - `WriteTextFileRequest` → wait for response → write `Fact` to neXus
+  - `CreateTerminalRequest` → create terminal → stream output as Facts
+  - `PermissionRequest` → show dialog → result as Fact
+- Stream tool call status updates (pending → running → completed/failed) back to Zed
+
+### Phase 4: Deployment packaging
+
+- Zed extension manifest (`extension.toml`) for auto-installation via Zed's extension registry
+- Native binary targets:
+  - `aarch64-apple-darwin` (macOS ARM)
+  - `x86_64-apple-darwin` (macOS Intel)
+  - `x86_64-unknown-linux-gnu` (Linux)
+- `cargo build --release` for each target
+- Optional: CI workflow for automated builds
+
+### Dependencies
+
+```toml
+[dependencies]
+agent-client-protocol = "=0.12.1"
+agent-client-protocol-schema = "=0.13.2"  # schema types
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+clap = { version = "4", features = ["derive"] }
+anyhow = "1"
+async-trait = "0.1"
+futures = "0.3"
+```
+
+---
+
+### References
+
+- neXus issue [#72](https://github.com/ssccsorg/nexus/issues/72)
+- [acp_nexus.html](acp_nexus.html) — ACP protocol analysis for the research-verification loop
+- Zed Agent Server protocol: <https://zed.dev/docs/extensions/agent-servers>
+- Zed source: `crates/agent_servers/src/acp.rs` (transport layer, `connect_client_future`, `AcpConnection::stdio`)
+- Zed source: `crates/agent_servers/src/custom.rs` (agent registration via `CustomAgentServer`)
+- Zed source: `crates/acp_thread/src/connection.rs` (`AgentConnection` trait)
+- Zed source: `crates/project/src/agent_server_store.rs` (`AgentServerCommand`, `ExternalAgentServer`)
+- `agent-client-protocol` crate: <https://crates.io/crates/agent-client-protocol>
