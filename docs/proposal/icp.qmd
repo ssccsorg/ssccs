@@ -5,7 +5,7 @@ date: last-modified
 metadata-files:
   - ../_include/author.yml
 abstract: |
-  neXus is a Wasm-native, decentralized agent computing system built on FIH (Fact / Intent / Hint) primitives that enable lock-free, serverless, verifiable research at scale. The Internet Computer Protocol (ICP) provides a globally distributed Wasm execution environment with orthogonal persistence, subnet-based horizontal scaling, and Byzantine fault-tolerant consensus. This proposal outlines how deploying neXus as an ICP canister creates a symbiotic architecture: ICP supplies the distributed infrastructure layer, while neXus contributes a verifiable truth engine — the deterministic knowledge graph that ICP's general-purpose canisters cannot natively provide. The result is an on-chain, globally replicated, cryptographically auditable research machine that scales from a single laptop to a planetary compute fabric without architectural redesign.
+  neXus is building a Wasm-native, decentralized agent computing system on FIH (Fact / Intent / Hint) primitives that enable lock-free, serverless, verifiable research at scale. The Internet Computer Protocol (ICP) provides a globally distributed Wasm execution environment with orthogonal persistence, subnet-based horizontal scaling, and Byzantine fault-tolerant consensus. This proposal explores the hypothesis that deploying neXus as an ICP canister could create a symbiotic architecture: ICP would supply the distributed infrastructure layer, while neXus would contribute a verifiable truth engine — the deterministic knowledge graph that ICP's general-purpose canisters cannot natively provide. The hypothesis targets an on-chain, globally replicated, cryptographically auditable research machine that scales from a single laptop to a planetary compute fabric without architectural redesign.
 ---
 
 ```{python}
@@ -30,9 +30,9 @@ title_meta_items = {
 
 ## Architectural Convergence
 
-ICP and neXus independently arrived at the same architectural conclusion: the future of decentralized computing runs on Wasm. This is not coincidental. Docker containers and x86 VMs represent the past — multi-gigabyte runtimes that cannot be efficiently distributed, verified, or composed. Wasm bytecode, typically under a few megabytes, is the only runtime that satisfies the simultaneous demands of portability, sandboxing, and deterministic execution that decentralized agent systems require.
+ICP and neXus independently arrived at the same architectural conclusion: the future of decentralized computing runs on Wasm. Docker containers and x86 VMs represent the past — multi-gigabyte runtimes that cannot be efficiently distributed, verified, or composed. Wasm bytecode, typically under a few megabytes, is the only runtime that satisfies the simultaneous demands of portability, sandboxing, and deterministic execution that decentralized agent systems require.
 
-ICP's innovation was building a decentralized cloud on Wasm: canisters executed across globally distributed subnets with automatic state persistence and BFT consensus. neXus's innovation was building a verifiable agent computing model on the same substrate: FIH primitives that decompose all computation into auditable, content-addressed, append-only records. The two systems are architectural complements.
+ICP built a decentralized cloud on Wasm: canisters executed across globally distributed subnets with automatic state persistence and BFT consensus. neXus is building a verifiable agent computing model on the same substrate: FIH primitives that decompose all computation into auditable, content-addressed, append-only records. The two systems, as they converge, are architectural complements.
 
 | Dimension | ICP (Internet Computer) | neXus |
 |-----------|------------------------|-------|
@@ -45,13 +45,13 @@ ICP's innovation was building a decentralized cloud on Wasm: canisters executed 
 
 Both systems converge on the same pattern: a lightweight Wasm runtime hosting autonomous agents that coordinate through a shared state space. ICP provides the substrate for that shared state; neXus provides the semantic structure that makes the state verifiable.
 
-## The Integration: neXus as an ICP Canister
+## The Integration Hypothesis
 
-The integration is architecturally natural because neXus was designed from the start for exactly this deployment model. The core crate compiles to `wasm32-unknown-unknown` with zero platform-specific code in its core logic. Every platform dependency (storage, clock, networking) is abstracted behind Rust traits (`KeyValueStore`, `BlobStore`, `ObjectStore`, `Now`). ICP bindings require implementing these same traits against ICP's system API, with no modifications to the core.
+Heterogeneous porting of neXus will expand gradually. Starting from a basic Wasm target, the compiler orchestrator will incrementally optimize and extend native compilation — ICP canisters being a primary target among edge nodes, portable devices, blockchain runtimes, and bare-metal system containers. The core crate already compiles to `wasm32-unknown-unknown` with zero platform-specific code in its core logic. Every platform dependency (storage, clock, networking) is abstracted behind Rust traits (`KeyValueStore`, `BlobStore`, `ObjectStore`, `Now`). ICP bindings would require implementing these same traits against ICP's system API, with no modifications to the core.
 
 ```{python}
 #| label: fig-icp-integration
-#| fig-cap: "neXus deployed as an ICP canister: the FIH Blackboard becomes an on-chain knowledge graph, while agents execute as independent canisters communicating exclusively through FIH primitives."
+#| fig-cap: "Hypothesized deployment of neXus as an ICP canister: the FIH Blackboard would become an on-chain knowledge graph, while agents execute as independent canisters communicating exclusively through FIH primitives."
 dot("""
 digraph ICPIntegration {
     rankdir=TB;
@@ -96,7 +96,7 @@ digraph ICPIntegration {
 
 ### Storage Mapping: FIH Traits to ICP Primitives
 
-neXus's `CompositeColdStorage` orchestrates three abstract storage tiers. Each maps cleanly to ICP's system API:
+neXus's `CompositeColdStorage` orchestrates three abstract storage tiers. Each would map to ICP's system API:
 
 | neXus Storage Trait | ICP Primitive | Role |
 |---------------------|---------------|------|
@@ -105,39 +105,39 @@ neXus's `CompositeColdStorage` orchestrates three abstract storage tiers. Each m
 | `ObjectStore` (CAS) | `ic_cdk::api::stable::stable64_write` with CAS semantics | Atomic claim gating, ownership transfer, state coordination |
 | `Now` | `ic_cdk::api::time()` | Monotonic timestamps for cursor advancement |
 
-The `put_state(key, expected, new)` CAS primitive — the single coordination mechanism that gates all Intent claims in neXus — maps directly to ICP's stable memory with no additional consensus overhead. ICP's BFT layer already guarantees that only one canister's write to a given memory location succeeds; neXus's CAS semantics are a natural fit.
+The `put_state(key, expected, new)` CAS primitive — the single coordination mechanism that gates all Intent claims in neXus — would map directly to ICP's stable memory with no additional consensus overhead. ICP's BFT layer already guarantees that only one canister's write to a given memory location succeeds; neXus's CAS semantics are a natural fit.
 
 ### Why Orthogonal Persistence Matters
 
-ICP's Orthogonal Persistence automatically persists canister memory to stable storage without explicit serialization. This is precisely what neXus's FIH Blackboard requires: Facts are immutable once committed, Intents carry a provenance hash, and the entire state is a monotonic append-only log. There is no need for explicit checkpoint management or snapshot serialization — ICP handles it transparently.
+ICP's Orthogonal Persistence automatically persists canister memory to stable storage without explicit serialization. This aligns with the FIH Blackboard model: Facts are immutable once committed, Intents carry a provenance hash, and the entire state is a monotonic append-only log. No explicit checkpoint management or snapshot serialization would be needed — ICP would handle it transparently.
 
-When a neXus canister is upgraded, ICP restores its stable memory before invoking the new Wasm module. neXus's `from_snapshot_with_cold` factory function is designed for exactly this pattern: the hot graph (petgraph in-memory) is restored from the snapshot, and the cold storage backend is provided fresh with current ICP bindings. The canister upgrade cycle becomes a seamless snapshot roundtrip.
+When a neXus canister is upgraded, ICP restores its stable memory before invoking the new Wasm module. neXus's `from_snapshot_with_cold` factory function is designed for exactly this pattern: the hot graph (petgraph in-memory) would be restored from the snapshot, and the cold storage backend would be provided fresh with current ICP bindings. The canister upgrade cycle would become a seamless snapshot roundtrip.
 
-## Differentiated Value: What neXus Adds to ICP
+## Differentiated Value: What neXus Would Add to ICP
 
-ICP provides a general-purpose decentralized compute platform. neXus provides a special-purpose verifiable computing engine. The value neXus adds to the ICP ecosystem falls into three categories:
+ICP provides a general-purpose decentralized compute platform. neXus would provide a special-purpose verifiable computing engine. The hypothesized value neXus could add to the ICP ecosystem falls into three categories:
 
 ### Deterministic Verification Beyond Consensus
 
-ICP's canisters execute arbitrary code. Two canisters can compute different results from the same inputs, and ICP's consensus will faithfully record both. neXus adds a layer above consensus: the Verifier exhaustively checks whether a claimed Fact is consistent with the accumulated knowledge graph, contract rules, and physical constraints. This is not a consensus problem — it is a verification problem, and it requires the FIH graph structure and the homeomorphic verification layer that neXus provides.
+ICP's canisters execute arbitrary code. Two canisters can compute different results from the same inputs, and ICP's consensus will faithfully record both. neXus would add a layer above consensus: the Verifier exhaustively checks whether a claimed Fact is consistent with the accumulated knowledge graph, contract rules, and physical constraints. This is not a consensus problem — it is a verification problem, requiring the FIH graph structure and the homeomorphic verification layer that neXus provides.
 
-A concrete example: the `ev` agent verifies silicon chip designs by checking all possible input combinations against the SSCCS Field Composition model. ICP's consensus can confirm that `ev` ran and produced output X; neXus's Verifier can confirm that output X is the only logically consistent output given the accumulated knowledge graph. The first is procedural trust; the second is semantic trust.
+A concrete example: the `ev` agent verifies silicon chip designs by checking all possible input combinations against the SSCCS Field Composition model. ICP's consensus could confirm that `ev` ran and produced output X; neXus's Verifier would confirm that output X is the only logically consistent output given the accumulated knowledge graph. The first is procedural trust; the second is semantic trust.
 
 ### C2PA-Anchored Provenance
 
-Every neXus Fact carries a content-addressed hash (`FihHash`) computed from its fields and type tag. The chain F₁ → I₁ → F₂ → I₂ → F₃ forms a Merkle-like provenance tree that extends from the original document (SDBS source) through every hypothesis, simulation, and physical validation. ICP's consensus timestamps this chain, creating an on-chain, globally verifiable record of research provenance that any smart contract can reference.
+Every neXus Fact carries a content-addressed hash (`FihHash`) computed from its fields and type tag. The chain F₁ → I₁ → F₂ → I₂ → F₃ forms a Merkle-like provenance tree that extends from the original document (SDBS source) through every hypothesis, simulation, and physical validation. ICP's consensus would timestamp this chain, creating an on-chain, globally verifiable record of research provenance that any smart contract could reference.
 
-This is distinct from what ICP natively offers. ICP provides execution provenance: "canister A called canister B at time T." neXus provides knowledge provenance: "Fact F₃ was derived from Facts F₁ and F₂ through Intent I₁, which was constrained by Hint H₁, and all three were validated against contract rules at revision R." The former is an execution trace; the latter is a scientific audit trail.
+This is distinct from what ICP natively offers. ICP provides execution provenance: "canister A called canister B at time T." neXus would provide knowledge provenance: "Fact F₃ was derived from Facts F₁ and F₂ through Intent I₁, which was constrained by Hint H₁, and all three were validated against contract rules at revision R." The former is an execution trace; the latter is a scientific audit trail.
 
 ### Lock-Free Agent Coordination via FIH Primitives
 
 ICP's actor model requires explicit message-passing between canisters. neXus replaces message-passing with stigmergy: agents read from and write to the shared FIH Blackboard, never addressing each other directly. Because Facts are immutable and Intents are claimed atomically via CAS, there are no locks, no deadlocks, and no coordination protocols between agents. The Blackboard is the sole coordination mechanism.
 
-This has a profound implication for ICP deployment: agent canisters can be upgraded, replaced, or scaled independently without affecting any other agent. A new version of the `ev` agent can begin claiming Intents alongside the old version; the CAS gate ensures only one succeeds per Intent. The system degrades gracefully under partial failure and recovers without manual intervention.
+A consequence for ICP deployment: agent canisters could be upgraded, replaced, or scaled independently without affecting any other agent. A new version of the `ev` agent could begin claiming Intents alongside the old version; the CAS gate would ensure only one succeeds per Intent. The system would degrade gracefully under partial failure and recover without manual intervention.
 
 ## Implementation Roadmap
 
-The implementation decomposes into four phases, each producing a deployable artifact:
+Heterogeneous porting begins from a basic Wasm compilation target and expands incrementally. The compiler orchestrator drives this expansion, optimizing each target in sequence. Within this framework, ICP integration decomposes into four phases, each producing a deployable artifact:
 
 ### Phase 1: Core Canister (ICP Trait Bindings)
 
@@ -148,11 +148,11 @@ Implement `KeyValueStore`, `BlobStore`, `ObjectStore`, and `Now` traits against 
 - `ObjectStore`: implement CAS via `ic_cdk::api::stable::stable64_read/write` with versioned keys
 - `Now`: delegate to `ic_cdk::api::time()`
 
-No core logic changes. The existing 30 composite unit tests and 9 integration tests serve as the acceptance criteria: when they pass against ICP bindings, the canister is functionally complete.
+No core logic changes. The existing composite unit tests and integration tests serve as the acceptance criteria: when they pass against ICP bindings, the canister is functionally complete.
 
 ### Phase 2: Agent Canister Template
 
-Package the agent lifecycle (submit Fact, claim Intent, heartbeat, conclude) into a reusable canister template. This template compiles any domain agent (ev, OpenROAD, robot controller) into a standalone ICP canister that communicates exclusively through the neXus Blackboard canister via FIH primitives.
+Package the agent lifecycle (submit Fact, claim Intent, heartbeat, conclude) into a reusable canister template. This template would compile any domain agent (ev, OpenROAD, robot controller) into a standalone ICP canister that communicates exclusively through the neXus Blackboard canister via FIH primitives.
 
 ### Phase 3: Cross-Canister FIH Protocol
 
@@ -179,7 +179,7 @@ This interface is a direct projection of the existing Rust `Blackboard` trait. E
 
 ### Phase 4: On-Chain Governance
 
-Deploy the `contract.nex` governance rules as an ICP canister that issues Hints to the neXus Blackboard. The governance canister reads accumulated Facts, evaluates them against contract rules, and emits Hints that constrain which Intents are admissible. This closes the loop: the protocol that governs research is itself on-chain, auditable, and governed by token-weighted community voting.
+Deploy the `contract.nex` governance rules as an ICP canister that issues Hints to the neXus Blackboard. The governance canister would read accumulated Facts, evaluate them against contract rules, and emit Hints that constrain which Intents are admissible. This would close the loop: the protocol that governs research would itself be on-chain, auditable, and governed by token-weighted community voting.
 
 ## Risk Assessment and Mitigation
 
@@ -193,11 +193,11 @@ Deploy the `contract.nex` governance rules as an ICP canister that issues Hints 
 
 ## Strategic Alignment
 
-This collaboration is not a migration. neXus remains what it is: a self-evolving, contract-governed agentic research infrastructure. ICP remains what it is: a decentralized World Computer. The integration makes both systems more valuable:
+This collaboration hypothesis is not a migration. neXus remains what it is becoming: a self-evolving, contract-governed agentic research infrastructure. ICP remains what it is: a decentralized World Computer. If realized, the integration would make both systems more valuable:
 
-- For ICP: neXus provides a verifiable truth layer that general-purpose canisters cannot natively offer. C2PA-signed Facts, exhaustive verification proofs, and the FIH provenance chain are new primitive capabilities in the ICP ecosystem.
-- For neXus: ICP eliminates the last infrastructure dependency. No servers to provision, no databases to replicate, no consensus protocol to implement. A single `dfx deploy` command distributes the FIH Blackboard across ICP's global subnet.
-- For both: The Wasm runtime is the common denominator. neXus's `cargo build --target wasm32-unknown-unknown` produces a binary that ICP executes natively. The architectural fit is a direct consequence of both projects independently converging on the same correct substrate for decentralized agent computing.
+- For ICP: neXus could provide a verifiable truth layer that general-purpose canisters cannot natively offer. C2PA-signed Facts, exhaustive verification proofs, and the FIH provenance chain would be new primitive capabilities in the ICP ecosystem.
+- For neXus: ICP could eliminate the last infrastructure dependency. No servers to provision, no databases to replicate, no consensus protocol to implement. A single `dfx deploy` command would distribute the FIH Blackboard across ICP's global subnet.
+- For both: The Wasm runtime is the common denominator. neXus targets `wasm32-unknown-unknown` as its primary compilation target — the same binary format ICP executes natively. The architectural fit is a direct consequence of both projects independently converging on the same substrate for decentralized agent computing.
 
 ## Next Steps
 
