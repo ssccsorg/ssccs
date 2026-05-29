@@ -1,0 +1,179 @@
+---
+title: "Zed ACP Bridge: nex-zed-agent"
+subtitle: "Standalone binary translating between ACP and the neXus F-I-H Blackboard"
+date: last-modified
+date-format: "MMMM, YYYY"
+metadata-files:
+  - ../../../_include/author.yml
+abstract: |
+  This note documents nex-zed-agent, a standalone Rust binary that implements the
+  Agent Client Protocol (ACP) over stdio and bridges the Zed editor to the neXus
+  F-I-H blackboard. The binary is a neXus peer — it holds no orchestration logic,
+  routes no messages between agents, and maintains no workflow state.
+---
+
+```{python}
+#| include: false
+#| context: local
+%run ../../../_include/_graphviz.py
+```
+
+```{python}
+title_meta_items = {
+    "html": [
+        {"title": "Reference", "link": "./acp_nexus.html", "content": "ACP Protocol Analysis", "icon": "bi bi-link"},
+        {"title": "Issue", "link": "https://github.com/ssccsorg/nexus/issues/72", "content": "#72", "icon": "bi bi-link"},
+        {"title": "Repository", "link": "https://github.com/ssccsorg/nexus", "content": "Github", "icon": "bi bi-link"},
+    ]
+}
+```
+
+{{< include ../../../_include/_title_meta_items.qmd >}}
+
+## Context
+
+Zed communicates with external agents through the Agent Client Protocol (ACP), a
+JSON-RPC 2.0 protocol implemented by the `agent-client-protocol` crate (v0.12.1).
+The bridge is a custom agent server: a native binary spawned by Zed as a child
+process with piped stdin/stdout/stderr. This is the standard ACP deployment model,
+not a Wasm extension.
+
+A detailed analysis of ACP for the research-verification loop context is in
+[acp_nexus.qmd](acp_nexus.html). This document covers only the bridge implementation.
+
+### neXus Principle: Peer, Not Orchestrator
+
+The bridge is a neXus peer, not an orchestrator. It translates between two surface
+protocols:
+
+```text
+ACP (JSON-RPC over stdio)  ←→  F-I-H blocks (neXus blackboard)
+       ↑                                    ↑
+    Zed editor                      neXus real-time daemon
+```
+
+It does not know about other peers by name, route messages between agents, maintain
+workflow state, or decide which peer handles a request.
+
+## Protocol Translation
+
+### ACP to neXus
+
+| ACP Message | neXus Block | Notes |
+|---|---|---|
+| `InitializeRequest` | (handshake only) | Respond with agent metadata |
+| `NewSessionRequest` | (scope creation) | Create session scope on neXus |
+| `PromptRequest` (user message) | `Intent` | User's message as exploration direction |
+| `PromptRequest` (tool result) | `Fact` | Tool output as validated result |
+| Streaming text update | `Intent` progress | Ephemeral status update |
+| `CancelNotification` | `Intent` status = cancelled | Mark intent as terminated |
+| `SetSessionModeRequest` | `Hint` | Session configuration |
+| `CloseSessionRequest` | (scope release) | Clean up resources |
+
+### neXus to ACP
+
+| neXus Block | ACP Message | Notes |
+|---|---|---|
+| `Fact` (new result) | `PromptResponse` (text) | Streaming or final response |
+| `Intent` (requesting file read) | `ReadTextFileRequest` | Forwarded to Zed |
+| `Intent` (requesting file edit) | `WriteTextFileRequest` | Forwarded to Zed |
+| `Intent` (requesting command) | `CreateTerminalRequest` | Forwarded to Zed |
+
+## Session Lifecycle
+
+```text
+Zed                                nex-zed-agent                   neXus daemon
+ │                                      │                              │
+ │── InitializeRequest ──────────────►  │                              │
+ │◄── InitializeResponse ─────────────  │                              │
+ │                                      │                              │
+ │── NewSessionRequest ──────────────►  │── write Hint(session) ────► │
+ │◄── NewSessionResponse ─────────────  │                              │
+ │                                      │                              │
+ │── PromptRequest ─────────────────►  │── write Intent ───────────► │
+ │                                      │                              │
+ │                                      │◄── subscribe Fact ──────────│
+ │                                      │                              │
+ │   (if tool call needed)              │                              │
+ │◄── ReadTextFileRequest ────────────  │                              │
+ │── ReadTextFileResponse ──────────►  │── write Fact ──────────────► │
+ │                                      │                              │
+ │◄── PromptResponse(stream) ─────────  │◄── Fact(result) ────────────│
+ │                                      │                              │
+ │── CancelNotification ────────────►  │── update Intent(cancelled) ► │
+ │                                      │                              │
+ │── CloseSessionRequest ───────────►  │── (release session)          │
+ │                                      │                              │
+```
+
+## Configuration
+
+The bridge registers in Zed's settings:
+
+```json
+{
+  "agent_servers": {
+    "nexus-zed": {
+      "command": {
+        "command": "/usr/local/bin/nex-zed-agent",
+        "args": ["--nexus-socket", "/var/run/nexus.sock"]
+      }
+    }
+  }
+}
+```
+
+For development:
+
+```json
+{
+  "agent_servers": {
+    "nexus-zed-dev": {
+      "command": {
+        "command": "/path/to/nex-zed-agent/target/debug/nex-zed-agent",
+        "args": ["--nexus-socket", "/tmp/nexus-dev.sock"]
+      }
+    }
+  }
+}
+```
+
+## Implementation Plan
+
+Tracked in neXus issue #72.
+
+### Phase 1: Minimal ACP stdio server
+
+- Create Cargo.toml with `agent-client-protocol = "=0.12.1"`
+- Implement stdin/stdout JSON-RPC reader/writer
+- Handle `InitializeRequest`, `NewSessionRequest`, `PromptRequest` (echo mode)
+- Validate with Zed as custom agent server
+
+### Phase 2: F-I-H bridge
+
+- Implement `NexusTransport` trait with Unix socket
+- Translate `PromptRequest` to `Intent` blocks on neXus
+- Poll/subscribe for `Fact` blocks, return as `PromptResponse`
+- Handle `CancelNotification`
+
+### Phase 3: Bidirectional tool forwarding
+
+- Monitor neXus for `Intent` blocks requesting file/terminal access
+- Forward to Zed via ACP `ReadTextFileRequest` etc.
+- Write results back as `Fact` blocks
+
+### Phase 4: Deployment packaging
+
+- Zed extension manifest for auto-installation
+- Native binary targets (darwin-aarch64, linux-x86_64)
+
+---
+
+### References
+
+- neXus issue [#72](https://github.com/ssccsorg/nexus/issues/72)
+- [acp_nexus.html](acp_nexus.html) — ACP protocol analysis for the research-verification loop
+- Zed Agent Server protocol: <https://zed.dev/docs/extensions/agent-servers>
+- Zed source: `crates/agent_servers/src/acp.rs` (transport layer)
+- Zed source: `crates/agent_servers/src/custom.rs` (agent registration)
+- Zed source: `crates/acp_thread/src/connection.rs` (AgentConnection trait)
