@@ -282,18 +282,25 @@ Capability traits (all `Send + Sync`):
 - `EvictCapable` — approximate size + eviction for memory management
 - `FlushCapable` — incremental export since a timestamp
 - `TimeRangeCapable` — time-range queries for hot/cold routing
+- `SessionExecute` — access to a `ColdStorage` implementation for sync operations
+- `SessionDrainKv` — drain dirty KV puts and deletes
+- `SessionDrainBlob` — drain dirty blob puts and deletes
+- `SessionDrainObject` — drain dirty object (CAS) puts and deletes
 
 Aggregate trait aliases:
 
 - `FihPersistence = FactCapable + IntentCapable + HintCapable`
 - `HotStorage = FihPersistence + EvictCapable`
-- `ColdStorage = FihPersistence + FilterCapable`
+- `ColdStorage = FihPersistence + FilterCapable + ScanCapable + TimeRangeCapable + FlushCapable + EvictCapable + CypherCapable`
+- `StoreSession = SessionExecute + SessionDrainKv + SessionDrainBlob + SessionDrainObject` where `SessionDrain` is the aggregate of the three drain traits.
 
 `DualStorage` composes a hot and cold backend:
 
 - **Writes** delegate to both hot and cold (dual-write)
 - **Reads** go to hot (sub-ms latency for edge computing)
 - **Filtered reads** delegate to cold (hot has no SQL/filter capability)
+
+`DualStorage` is generic over `<H: HotStorage, C: ColdStorage>` rather than `Box<dyn HotStorage>` / `Box<dyn ColdStorage>`. This preserves AFIT (async fn in trait) compatibility for future async trait migration without boxing overhead at the call site.
 
 Crate structure:
 
@@ -302,7 +309,8 @@ Crate structure:
 - `core/process/` — OODA loop runtime: `Scheduler`, `Eviction`, and stigmergy task handlers (`GapDetector`, `ContradictionDetector`, `StateChangeDetector`, `NewDocumentAnalyzer`).
 - `core/storage/sqlite/` — `SqlNormalizedStorage` and `SqliteStorage` (legacy).
 - `core/storage/petgraph/` — `PetgraphStorage`: in-memory hot storage with snapshot support.
-- `core/storage/duckdb/` — `DuckDbStorage`: cold Parquet read-only storage.
+- `core/storage/duckdb/` — `DuckDbStorage`: cold Parquet read-only storage (in `ext/` workspace for separate build configuration).
+- `core/storage/composite/` — `CompositeColdStorage`, `IoBufferKv`, `IoBufferBlob`, `IoBufferObject`, `IoBufferSession`, `SessionServer`, `KeyValueStore`/`BlobStore`/`ObjectStore` traits, `Now` trait and `SystemClock` implementation.
 
 ### Cypher Translation
 
@@ -352,11 +360,11 @@ R2 (bucket: ssccs-nexus-af) is the single source of truth. The af-sync worker pe
 
 ### Platform Bindings
 
-| Binding | Crate | Compilation Target |
-|---|---|---|
-| Cloudflare Worker | bindings/cf/ | wasm32-unknown-unknown |
-| Native Server | bindings/server/ | host |
-| On-chain (blockchain) | bindings/onchain/ | wasm32-wasi (placeholder) |
+| Binding | Crate | Compilation Target | Status |
+|---|---|---|---|
+| Cloudflare Worker | `gateway/` (planned: `rs-worker`) | wasm32-unknown-unknown | Future (StoreSession ready) |
+| Native Server | `gateway/api/` | host | Active (axum server) |
+| On-chain (blockchain) | Future | wasm32-wasi | Placeholder |
 
 ### TypeScript Orchestration
 
@@ -542,6 +550,10 @@ This applies to any domain. Business simulation: Fact = market data, Intent = st
 | Agentic loop | FIH lifecycle complete (detector→Fact→agent→Intent→conclude), OODA scheduler operational |
 | Detector state persistence | task_states in StorageSnapshot, cross-worker checkpoint continuity |
 | On-chain DeSci | Placeholder |
+| IoBufferKv / IoBufferBlob / IoBufferObject (dirty-tracking I/O proxies) | Implemented: 50 tests, 0 failures |
+| IoBufferSession (concrete StoreSession) | Implemented |
+| SessionServer / SessionHandle (generic serialized queue) | Implemented |
+| StoreSession / SessionExecute / SessionDrain* capability traits | Implemented |
 
 ## Edge-to-Cloud Portability & AWS Integration
 
