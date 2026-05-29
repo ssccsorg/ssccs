@@ -52,20 +52,44 @@ The current verification tooling faces two persistent obstacles:
 
 ## What ExaVerif Does
 
-ExaVerif integrates three stages into a single pipeline.
-
-1. **Scenario generation.** A developer describes the module's constraints in a YAML file. ExaVerif generates every valid constraint combination automatically.
-2. **Verification execution.** Each combination is evaluated deterministically against pluggable backends (Spike, QEMU, Verilator). Results are collected as structured pass/fail records.
-3. **Knowledge base feedback.** All results are committed to a shared knowledge store consumed by [Nexus](https://docs.ssccs.org/projects/nexus), the autonomous research infrastructure. Failure patterns become training material; coverage gaps become research targets; verified modules become reusable reference points for the entire RISC-V ecosystem.
+ExaVerif treats a YAML description as a **Spec Space**: field domains define its axes, constraints carve admissible subspaces, and each combination is a point within this space. A single command enumerates and evaluates every point exhaustively.
 
 ```bash
-ev check --target my_xif.yaml
-ev check --target my_xif.yaml --interpret
+ev verify --target cva6_xif_ref.xif.yaml
 ```
 
-Internally, ExaVerif treats the YAML description as a **Spec Space**: field domains define its axes, constraints carve admissible subspaces, and each combination is a point within this space. The Field Composition engine — a branchless, constant‑time verification kernel validated via x86‑64 CI — guarantees that every evaluation is deterministic. The same input always produces the same result, independent of random seeds or simulator state.
+Internally, ExaVerif expands the full cartesian product of all field domains, then evaluates each combination against every declared constraint. The result is exact: every passing combination is a valid instruction encoding; every failing combination has a specific, recorded reason.
 
-The optional `--interpret` flag runs a lightweight LLM pass over failures and explains why each one occurred. All results are committed as permanent, queryable records in a shared knowledge store — a verifiable, append‑only surface accessible across the RISC‑V verification ecosystem. Once committed, these records become reusable verification knowledge for any project.
+```text
+target: cva6_xif_ref
+total:  262144
+passed: 3072
+failed: 259072
+
+Failures:
+  [FAIL] [0, 1, 0, 0, 0] — funct3 → funct7: {funct3=0 → [0]; funct3=1 → [0, 1, 2, 3, 32]}  
+  [FAIL] [2, 0, 0, 0, 0] — funct3 ∈ {0, 1}                                           
+```
+
+The example above shows ev verifying the CVA6 CV-X-IF reference coprocessor against its actual encoding specification. The coprocessor accepts only two funct3 values with specific funct7 subfields, resulting in 3,072 valid encodings out of 262,144 possible. The remaining 259,072 are correctly identified as illegal — not by random sampling, but by exhaustive enumeration.
+
+```bash
+ev verify --target cva6_xif_ref.xif.yaml --json
+```
+
+Every result is also available as structured JSON for downstream consumption by [Nexus](https://docs.ssccs.org/projects/nexus) — each combination becomes a Fact, each constraint a Hint, and the verification run itself an Intent.
+
+```json
+{
+  "target": "cva6_xif_ref",
+  "total": 262144,
+  "passed": 3072,
+  "failed": 259072,
+  "results": [...]
+}
+```
+
+The Field Composition engine — a branchless, constant‑time verification kernel validated via x86‑64 CI — guarantees deterministic results. The same input always produces the same output, independent of random seeds or simulator state.
 
 ```{python}
 #| label: fig-nexus-loop

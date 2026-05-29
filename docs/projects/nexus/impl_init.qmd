@@ -283,23 +283,56 @@ Capability traits (all `Send + Sync`):
 - `FlushCapable` — incremental export since a timestamp
 - `TimeRangeCapable` — time-range queries for hot/cold routing
 - `SessionExecute` — access to a `ColdStorage` implementation for sync operations
-- `SessionDrainKv` — drain dirty KV puts and deletes
-- `SessionDrainBlob` — drain dirty blob puts and deletes
-- `SessionDrainObject` — drain dirty object (CAS) puts and deletes
 
 Aggregate trait aliases:
 
 - `FihPersistence = FactCapable + IntentCapable + HintCapable`
 - `HotStorage = FihPersistence + EvictCapable`
 - `ColdStorage = FihPersistence + FilterCapable + ScanCapable + TimeRangeCapable + FlushCapable + EvictCapable + CypherCapable`
-- `SessionDrain = SessionDrainKv + SessionDrainBlob + SessionDrainObject`
-- `StoreSession = SessionExecute + SessionDrain`
 
 `DualStorage` composes a hot and cold backend:
 
 - **Writes** delegate to both hot and cold (dual-write)
 - **Reads** go to hot (sub-ms latency for edge computing)
 - **Filtered reads** delegate to cold (hot has no SQL/filter capability)
+- **Commit channel**: `CompositeColdStorage` holds a separate `commit_kv`/`commit_blob` pair used exclusively by `flush_since()`. The commit channel replaces dirty tracking — `flush_since` writes its output (blob archives, cursor state) through the commit channel, never polluting the general read/write path. The flush cursor stored in `commit_kv` serves as the deterministic flush boundary, making `dirty` tracking unnecessary. Consumer reads the cursor via `read_cursor()` to know which data has been flushed.
+
+```{python}
+#| label: fig-commit-channel
+#| fig-cap: "CQRS commit channel: cursor replaces dirty for flush boundary detection"
+dot("""
+digraph CommitChannel {
+    rankdir=LR;
+    node [shape=box, style=filled, fontsize=9];
+    edge [fontsize=8];
+
+    subgraph cluster_write {
+        label="Write (IoBuffer*)";
+        style=filled; fillcolor="#f5f5f5";
+        kv [label="kv", fillcolor="#e8f5e9"];
+        blob [label="blob", fillcolor="#e8f5e9"];
+        obj [label="object", fillcolor="#e8f5e9"];
+    }
+    subgraph cluster_commit {
+        label="Commit (flush output)";
+        style=filled; fillcolor="#f5f5f5";
+        ckv [label="commit_kv\n(cursor state)", fillcolor="#fff3e0"];
+        cblob [label="commit_blob\n(flush archives)", fillcolor="#fff3e0"];
+    }
+    subgraph cluster_read {
+        label="Read";
+        style=filled; fillcolor="#f5f5f5";
+        ccs [label="CompositeColdStorage", fillcolor="#e3f2fd"];
+        cursor [label="read_cursor()", fillcolor="#e3f2fd"];
+    }
+
+    kv -> ccs [style=dashed, label="get/list"];
+    ccs -> ckv [label="flush_since writes cursor"];
+    ccs -> cblob [label="flush_since writes archives"];
+    cursor -> ckv [style=dashed, label="read"];
+}
+""")
+```
 
 `DualStorage` is generic over `<H: HotStorage, C: ColdStorage>` rather than `Box<dyn HotStorage>` / `Box<dyn ColdStorage>`. This preserves AFIT (async fn in trait) compatibility for future async trait migration without boxing overhead at the call site.
 
@@ -363,7 +396,7 @@ R2 (bucket: ssccs-nexus-af) is the single source of truth. The af-sync worker pe
 
 | Binding | Crate | Compilation Target | Status |
 |---|---|---|---|
-| Cloudflare Worker | `gateway/` (planned: `rs-worker`) | wasm32-unknown-unknown | Future (StoreSession ready) |
+| Cloudflare Worker | `gateway/` (planned: `rs-worker`) | wasm32-unknown-unknown | Future (SessionExecute ready) |
 | Native Server | `gateway/api/` | host | Active (axum server) |
 | On-chain (blockchain) | Future | wasm32-wasi | Placeholder |
 
@@ -492,6 +525,44 @@ Every (origin, intent, result) tuple on the Blackboard has a content-addressable
 | petgraph ecosystem | StableGraph, NodeIndex, built-in PageRank/Dijkstra | Core graph library |
 | Capability-based traits | Fine-grained Rust traits replacing monolithic interfaces | StorageRead, FactCapable, FilterCapable, EvictCapable, etc. — also DetectionCapable, GapDetection, ContradictionDetection, StateChangeDetection for the detection layer |
 | DualStorage pattern | Hot + cold composition for edge-cloud routing | DualStorage { hot: HotStorage, cold: ColdStorage } |
+| CQRS-inspired commit channel | Command/query separation for flush output | `CompositeColdStorage` with `commit_kv`/`commit_blob` (dirty tracking OFF), breaking self-referential dirty in `flush_since()` |
+
+```{python}
+#| label: fig-cqrs-git-fih-mapping
+#| fig-cap: Mapping the commit channel pattern across Git, CQRS, and FIH
+dot("""
+digraph CqrsGitFihMapping {
+    rankdir=TB;
+    node [shape=box, style=filled, fontsize=9];
+    edge [fontsize=8];
+
+    subgraph cluster_git {
+        label="Git";
+        style=filled; fillcolor="#f5f5f5";
+        add [label="git add → staging area", fillcolor="#e8f5e9"];
+        commit [label="git commit → repository", fillcolor="#fff3e0"];
+        checkout [label="git checkout (read)", fillcolor="#e3f2fd"];
+        add -> commit;
+    }
+    subgraph cluster_cqrs {
+        label="CQRS";
+        style=filled; fillcolor="#f5f5f5";
+        cmd [label="Command (write model)", fillcolor="#e8f5e9"];
+        exec [label="Command execution", fillcolor="#fff3e0"];
+        qry [label="Query (read model)", fillcolor="#e3f2fd"];
+        cmd -> exec;
+    }
+    subgraph cluster_fih {
+        label="FIH Storage";
+        style=filled; fillcolor="#f5f5f5";
+        write [label="IoBuffer::set() → in-memory", fillcolor="#e8f5e9"];
+        flush [label="flush_since → CommitStore", fillcolor="#fff3e0"];
+        read [label="StorageRead::get()", fillcolor="#e3f2fd"];
+        write -> flush [label="cursor boundary"];
+    }
+}
+""")
+```
 
 A key architectural insight is that a unified query IR decouples input languages from execution. Future agent modules (Planner, Verifier, Hypothesis Generator) will query the graph through this same IR. They do not need to know whether the backend is petgraph in memory, SQLite on disk, or a remote CF Worker. The query interface is the plug, the core is the socket. Adding a new query language (GQL, SPARQL, or a future agent DSL) requires only a new parser adapter, not a core change.
 
@@ -551,10 +622,11 @@ This applies to any domain. Business simulation: Fact = market data, Intent = st
 | Agentic loop | FIH lifecycle complete (detector→Fact→agent→Intent→conclude), OODA scheduler operational |
 | Detector state persistence | task_states in StorageSnapshot, cross-worker checkpoint continuity |
 | On-chain DeSci | Placeholder |
-| IoBufferKv / IoBufferBlob / IoBufferObject (dirty-tracking I/O proxies) | Implemented: 50 tests, 0 failures |
-| IoBufferSession (concrete StoreSession) | Implemented |
+| IoBufferKv / IoBufferBlob / IoBufferObject (pure in-memory HashMap stores) | Implemented: 50 tests, 0 failures |
+| IoBufferSession (concrete SessionExecute) | Implemented |
 | SessionServer / SessionHandle (generic serialized queue) | Implemented |
-| StoreSession / SessionExecute / SessionDrain* capability traits | Implemented |
+| SessionExecute capability trait | Implemented |
+| CQRS commit channel (flush_since output isolation) | In Progress (PR #66) |
 
 ## Edge-to-Cloud Portability & AWS Integration
 
@@ -679,7 +751,7 @@ For example, this is not "CF or AWS." It is "CF for what CF does best, AWS for w
 
 ## Nexus-SIM: Virtual Emulation Test Suite
 
-Every async I/O boundary (CF Workers KV, R2, Durable Object; ROS2 topic pub/sub; blockchain validators; distributed transaction coordinators; edge AI inference) can be emulated through the same `StoreSession` trait. The virtual emulation test suite is not a convenience. It is the primary development surface. A backend that passes the nexus-sim test suite will work with any real binding that implements the same trait.
+Every async I/O boundary (CF Workers KV, R2, Durable Object; ROS2 topic pub/sub; blockchain validators; distributed transaction coordinators; edge AI inference) can be emulated through the same `SessionExecute` trait. The virtual emulation test suite is not a convenience. It is the primary development surface. A backend that passes the nexus-sim test suite will work with any real binding that implements the same trait.
 
 ### Architecture
 
@@ -694,7 +766,7 @@ VECompositeStorage HTTP Server
 IoBufferSession + CompositeColdStorage
 ```
 
-Every request goes through `IoBufferSession` internally, so dirty tracking is verified at the HTTP boundary, not at the Rust function call level. The server can inject delays, errors, and conflicts to simulate real conditions.
+Every request goes through `IoBufferSession` internally, so session execution is verified at the HTTP boundary, not at the Rust function call level. The server can inject delays, errors, and conflicts to simulate real conditions.
 
 ### Cross-Domain Emulation
 
@@ -702,11 +774,11 @@ Every request goes through `IoBufferSession` internally, so dirty tracking is ve
 |---|---|---|
 | Edge compute | VECompositeStorage HTTP | CF Workers KV / R2 / DO |
 | Robotics | ROS2 topic pub/sub over simulated nodes | Real ROS2 Humble |
-| Blockchain | Simulated validator with StoreSession | On-chain WASM runtime |
+| Blockchain | Simulated validator with SessionExecute | On-chain WASM runtime |
 | Edge AI | Fake ONNX runtime returning canned results | Real NPU / GPU inference |
 | Distributed tx | Local 2PC coordinator with injected failures | Global consensus |
 
-Each emulated backend implements the same `StoreSession` trait from nexus-model. Switching from emulation to production requires only swapping the binding crate. The core never changes.
+Each emulated backend implements the same `SessionExecute` trait from nexus-model. Switching from emulation to production requires only swapping the binding crate. The core never changes.
 
 ### Status
 
