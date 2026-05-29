@@ -63,34 +63,29 @@ ev check --target my_xif.yaml
 ev check --target my_xif.yaml --interpret
 ```
 
-Internally, ExaVerif uses the Field Composition engine — a branchless, constant‑time verification kernel that has been internally validated via x86‑64 CI — to guarantee that every evaluation is deterministic. The same input always produces the same result, independent of random seeds or simulator state.
+Internally, ExaVerif treats the YAML description as a **Spec Space**: field domains define its axes, constraints carve admissible subspaces, and each combination is a point within this space. The Field Composition engine — a branchless, constant‑time verification kernel validated via x86‑64 CI — guarantees that every evaluation is deterministic. The same input always produces the same result, independent of random seeds or simulator state.
 
 The optional `--interpret` flag runs a lightweight LLM pass over failures and explains why each one occurred. All results are committed as permanent, queryable records in a shared knowledge store — a verifiable, append‑only surface accessible across the RISC‑V verification ecosystem. Once committed, these records become reusable verification knowledge for any project.
 
 ```{python}
 #| label: fig-nexus-loop
-#| fig-cap: "ExaVerif verification results flow into Nexus's knowledge base, where the agentic research loop extracts patterns and feeds refined strategies back into the verification engine."
+#| fig-cap: "ExaVerif verification results flow into Nexus's knowledge base; the same FIH cycle operates inside ExaVerif itself."
 dot("""
 digraph VerificationLearningLoop {
     rankdir=LR
     node [shape=box, style=filled, fontname="Arial", fontsize=10, margin=0.35]
 
-    Ev [label="ExaVerif\n• Constraint evaluation\n• Failure pattern detection\n• Coverage gap identification", fillcolor="#D4E6F1"]
+    Ev [label="ExaVerif\nSpec Space exploration\n• Domain expansion (Intent)\n• Constraint evaluation (Fact)\n• Projection (Observation)", fillcolor="#D4E6F1"]
 
-    Nexus [label="Knowledge Base\n• Fact accumulation\n• Pattern extraction\n• Hint generation", fillcolor="#FADBD8"]
-
-    Agent [label="SSCCS Research-PoC Loop\n• Hypothesis generation\n• Constraint refinement\n• Strategy optimization", fillcolor="#D5F5E3"]
+    Nexus [label="Nexus Blackboard\n• Fact accumulation\n• Pattern extraction\n• Hint generation", fillcolor="#FADBD8"]
 
     Ev -> Nexus [label="verification results\nfailure traces\ncoverage data", style=solid]
-    Nexus -> Agent [label="training material\naccumulated facts", style=solid]
-    Agent -> Ev [label="refined constraints\nimproved templates\nsmarter strategies", style=dashed, dir=back]
-
-    { rank=same; Ev; Agent }
+    Nexus -> Ev [label="refined constraints\nimproved templates\nsmarter strategies", style=dashed, dir=back]
 }
 """)
 ```
 
-ExaVerif's verification results are consumed by [Nexus](https://docs.ssccs.org/projects/nexus), the autonomous research infrastructure that validates the same structural observation model ExaVerif is built on. Every constraint combination evaluated, every failure pattern discovered, and every coverage gap identified flows into Nexus's knowledge base, where it becomes training material for the agentic research loop and reusable knowledge for the entire RISC‑V ecosystem. This connection closes the loop between verification tooling and research infrastructure: the tool produces the data that the infrastructure learns from, and the infrastructure produces the insights that make the tool smarter.
+ExaVerif's verification results are consumed by [Nexus](https://docs.ssccs.org/projects/nexus), the autonomous research infrastructure. The same FIH cycle operates inside ExaVerif itself at a different scale — domain expansion as Intent, each evaluated combination as a Fact, each constraint as a Hint — making ExaVerif a Nexus instance in its own right. Every constraint combination evaluated, every failure pattern discovered, and every coverage gap identified flows into Nexus's knowledge base, where it becomes training material for the agentic research loop and reusable knowledge for the entire RISC‑V ecosystem.
 
 ## How the Industry Verifies Custom Instructions
 
@@ -396,7 +391,7 @@ These services are contingent on ecosystem validation. They are not part of the 
 
 ## Connection to the Substrate
 
-ExaVerif is an independent domain entity built on the shared substrate — a working demonstration of the model described in the [SSCCS Project Model](https://docs.ssccs.org/projects). Every verification run feeds the shared knowledge store. A failure pattern discovered in one module becomes reusable knowledge for every other RISC‑V project.
+ExaVerif is an independent domain entity built on the shared substrate — a working demonstration of the model described in the [SSCCS Project Model](https://docs.ssccs.org/projects). Its Spec Space exploration follows the same Fact / Intent / Hint cycle that governs every Nexus entity internally: domain expansion is an Intent, each evaluated combination a Fact, each constraint a Hint. ExaVerif is a Nexus instance itself, self-similar across scales. Every verification run feeds the shared knowledge store.
 
 ```{python}
 #| label: fig-architecture
