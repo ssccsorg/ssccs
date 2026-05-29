@@ -1,19 +1,17 @@
 ---
-title: "ACP Ecosystem: Technical Review for Autonomous Research"
-subtitle: "Assessing the Agent Client Protocol as a Universal Substrate for the neXus Agentic Research Loop"
+title: "ACP in the Research-Verification Loop"
+subtitle: "Agent Client Protocol as a Universal Substrate for neXus Layer 3"
 date: last-modified
 date-format: "MMMM, YYYY"
 metadata-files:
   - ../../../_include/author.yml
 abstract: |
-  This report reviews the Agent Client Protocol (ACP) — an open, provider-agnostic
+  This report analyses the Agent Client Protocol (ACP) — an open, provider-agnostic
   protocol for structured LLM interaction — as a universal communication substrate for
-  the SSCCS neXus Agentic Research Loop (Layer 3). We evaluate ACP's role in decoupling
-  agent logic from LLM backend choice, enabling multi-model concurrent hypothesis
-  validation, and standardising tool execution across heterogeneous execution contexts.
-  Unlike proprietary or framework-specific alternatives, ACP operates at the protocol
-  level, making it compatible with any LLM provider (OpenAI, Anthropic, local via
-  Ollama/LM Studio) and any runtime environment (container, serverless, bare-metal).
+  the neXus Agentic Research Loop (Layer 3). ACP decouples agent logic from LLM backend
+  choice, enables multi-model concurrent hypothesis validation, and standardises tool
+  execution across heterogeneous execution contexts. Zed's agent implementation serves
+  as the representative reference for ACP integration.
 ---
 
 {{< include ../../../_include/_title_meta_items.qmd >}}
@@ -26,7 +24,7 @@ abstract: |
 
 ## Introduction
 
-The neXus Agentic Research Loop (Layer 3) as specified in the [Development Roadmap](/projects/nexus/impl_init.html) currently defines a sequential Planner-Executor-Verifier-Generator pipeline. While this design is well-suited for single-threaded research questions, the roadmap's expansion toward multi-backend GraphRAG benchmarking, concurrent hypothesis validation, and cross-reality experiment orchestration creates requirements that a single-pipeline architecture cannot easily satisfy:
+The neXus Agentic Research Loop (Layer 3) decomposes research questions, invokes tools, grounds hypotheses in evidence, and produces contract-compliant reports. The loop currently defines a Planner-Executor-Verifier-Generator pipeline. Expansion toward multi-backend GraphRAG benchmarking, concurrent hypothesis validation, and cross-reality experiment orchestration creates requirements that a single-pipeline architecture cannot easily satisfy:
 
 - **Concurrent exploration.** Multiple hypotheses should be investigated in parallel rather than sequentially.
 - **Specialised execution contexts.** Compiler analysis, physics simulation, and hardware-in-the-loop experiments each require different toolchains, environment variables, and network policies.
@@ -34,7 +32,7 @@ The neXus Agentic Research Loop (Layer 3) as specified in the [Development Roadm
 
 The Agent Client Protocol (ACP) is an open, provider-agnostic protocol designed to address these requirements at the communication layer. Unlike agent frameworks that assume a single orchestrator managing all tool calls, ACP defines a standardised interface between any LLM backend and any agent runtime. Any tool registered via ACP can be called by any LLM through any ACP-compliant client, and any agent can be backed by any LLM without custom adapters.
 
-This report reviews ACP's architecture against neXus's Layer 3 requirements, assesses its role in enabling multi-model concurrent validation, and proposes a four-week experimental campaign to validate integration feasibility.
+This report reviews ACP's architecture against neXus's Layer 3 requirements, assesses its role in enabling multi-model concurrent validation, and proposes an integration strategy.
 
 ## ACP Protocol Architecture
 
@@ -44,14 +42,14 @@ ACP consists of two primary layers:
 
 | Layer | Responsibility |
 |-------|---------------|
-| **Transport** | JSON-RPC over WebSocket/HTTP, streaming response support, structured error reporting |
+| **Transport** | JSON-RPC over WebSocket/HTTP/stdio, streaming response support, structured error reporting |
 | **Schema** | Standardised tool definitions (input/output schemas), provider capability negotiation, context window management |
 
 ACP does not prescribe a runtime topology. A single process may host both the ACP client and the LLM provider; or the client may connect to a remote provider. This flexibility allows neXus to deploy agents in whatever execution environment suits each task — container, serverless function, or direct process — while maintaining a uniform communication interface.
 
 ### Key Protocol Features
 
-**Provider-agnostic tool definitions.** Tools are defined in JSON Schema and registered with the ACP-compliant LLM. Tool calls, responses, and errors follow a standardised format regardless of which LLM backend is in use. For neXus, this means a `search_kg` tool registered once works with any ACP-compliant provider — local Ollama, cloud OpenAI, or an Anthropic Claude endpoint — without per-provider adapter code.
+**Provider-agnostic tool definitions.** Tools are defined in JSON Schema and registered with the ACP-compliant LLM. Tool calls, responses, and errors follow a standardised format regardless of which LLM backend is in use. For neXus, a `search_kg` tool registered once works with any ACP-compliant provider — local quantised, cloud API, or code-specialised model — without per-provider adapter code.
 
 **Streaming and partial responses.** ACP supports incremental response delivery, allowing agents to begin processing intermediate results before the full response arrives. This is critical for long-running research tasks where waiting for a complete LLM response would add unnecessary latency.
 
@@ -59,13 +57,13 @@ ACP does not prescribe a runtime topology. A single process may host both the AC
 
 ### Protocol Design: The Subprocess Model
 
-ACP's stdio transport — spawning an agent server as a subprocess and communicating via piped stdin/stdout with `Content-Length`-framed JSON-RPC 2.0 — is the protocol's most consequential design decision. It yields three properties directly relevant to neXus:
+ACP's stdio transport — spawning an agent server as a subprocess and communicating via piped stdin/stdout with JSON-RPC 2.0 — is the protocol's most consequential design decision. It yields three properties directly relevant to neXus:
 
-**Containerisability without container coupling.** An ACP agent server is any executable that reads JSON-RPC on stdin and writes JSON-RPC to stdout. This is the simplest possible process contract. The agent can run as a bare process, inside a Docker container, or as a `systemd` service — the host makes no distinction. For neXus, this means agent isolation can start simple (subprocess per agent) and scale to container-level isolation when needed, with no change to the ACP communication layer.
+**Containerisability without container coupling.** An ACP agent server is any executable that reads JSON-RPC on stdin and writes JSON-RPC to stdout. This is the simplest possible process contract. The agent can run as a bare process, inside a Docker container, or as a systemd service — the host makes no distinction. For neXus, agent isolation can start simple (subprocess per agent) and scale to container-level isolation when needed, with no change to the ACP communication layer.
 
-**Persistence via process supervision.** Because the host spawns the agent, the host owns the lifecycle. If an agent process exits, the host detects it via `SIGCHLD` or exit code and can restart, fall back to another backend, or report partial failure. This inverts the reliability model of API-based agents: instead of trusting a remote service to stay up, the orchestrator treats agent processes as managed children with explicit failure semantics.
+**Persistence via process supervision.** Because the host spawns the agent, the host owns the lifecycle. If an agent process exits, the host detects the exit and can restart, fall back to another backend, or report partial failure. This inverts the reliability model of API-based agents: instead of trusting a remote service to stay up, the runtime treats agent processes as managed children with explicit failure semantics.
 
-**Identical framing to MCP.** ACP uses the same `Content-Length` header framing as MCP. A neXus agent process can run both an MCP client (to access LightRAG/Graphiti, execute Python, manage files) and an ACP client (to communicate with its LLM backend) over the same JSON-RPC transport, sharing framing logic. The protocol separation — MCP for tool ↔ agent, ACP for agent ↔ LLM — is a clean architectural boundary with zero additional wire-format complexity.
+**Identical framing to MCP.** ACP uses the same JSON-RPC 2.0 framing as the Model Context Protocol (MCP). A neXus agent process can run both an MCP client (for tool access) and an ACP client (for LLM communication) over the same transport layer, sharing framing logic. The protocol separation — MCP for tool to agent, ACP for agent to LLM — is a clean architectural boundary.
 
 ### Relationship to Existing neXus Components
 
@@ -73,47 +71,35 @@ ACP does not replace any existing neXus component. It sits as a thin communicati
 
 | Component | Role | ACP Relation |
 |-----------|------|-------------|
-| **LM Studio / Ollama** | Local LLM backend | ACP-compatible via adapter or native support; same JSON-RPC transport |
+| **Local LLM backend** | On-device inference | ACP-compatible via adapter or native support |
 | **Agent runtime** | Tool execution, context management | Uses ACP to communicate with LLM; uses MCP for tool-to-agent communication |
-| **Orchestrator** | Lifecycle management | Spawns and supervises agent subprocesses; ACP is invisible to orchestration logic |
 | **R2 / KV mapping** | Persistence | Unchanged; agents write results regardless of which LLM backend served them |
-| **LightRAG / Graphiti** | KG backends (MCP-native) | MCP handles tool ↔ agent; ACP handles agent ↔ LLM; protocol separation is cost-free |
+| **Knowledge graph backends** | Tool-accessible via MCP | MCP handles tool to agent; ACP handles agent to LLM; protocol separation is cost-free |
 
-## Production Readiness Assessment
+### Reference Implementation: Zed
 
-### Strengths
+Zed's agent panel serves as the primary reference implementation for ACP in a practical editing environment. Key architectural facts from the Zed codebase:
 
-**Protocol-level abstraction is proven at scale.** ACP follows the same architectural pattern as the Model Context Protocol (MCP) but focuses on the agent-to-LLM interface rather than the tool-to-agent interface. This separation of concerns — a tool registry protocol (MCP) and an LLM communication protocol (ACP) — mirrors best practices in layered protocol design and is independently implementable.
+- Agent servers are native binaries spawned as child processes via `std::process::Command` with piped stdin/stdout/stderr. They are NOT Wasm extensions.
+- ACP transport is line-delimited JSON-RPC over stdio. The `AcpConnection::stdio()` method in `crates/agent_servers/src/acp.rs` spawns the binary, wraps stdout and stdin in bidirectional JSON-RPC streams.
+- The `AgentServer` trait (`crates/agent_servers/src/agent_servers.rs`) is the interface between Zed's UI and any agent. `CustomAgentServer` handles external binaries registered in settings.
+- The `AgentConnection` trait (`crates/acp_thread/src/connection.rs`) defines the session lifecycle: `new_session` to `prompt` to `cancel` to `close_session`.
+- Zed already handles streaming text, tool calls, file edits, terminal execution, git checkpoints, and sub-agent spawning. The bridge only translates between ACP and F-I-H; all complex flow control stays in Zed.
 
-**Provider diversity without code changes.** Because ACP is provider-agnostic, neXus can mix LLM backends within a single research session: a local quantised model for quick KG retrievals, a cloud model for complex synthesis, and a specialised code model for compiler analysis — all through the same ACP interface.
-
-**Tool schema standardisation.** JSON Schema-based tool definitions mean that any development environment with JSON Schema tooling can author and validate tool definitions before deployment. This accelerates the tool registration cycle for new neXus experiments.
-
-### Risks and Mitigations
-
-| Risk | Observed Evidence | Impact on neXus | Mitigation |
-|------|-------------------|-----------------|------------|
-| **Protocol version drift** | ACP specification still evolving; provider implementations may lag | Agent-LLM communication may break if client and provider support different ACP versions | Pin ACP version in agent container image; implement capability negotiation at startup |
-| **Streaming reliability under load** | Streaming WebSocket connections are sensitive to network interruptions | Long-running synthesis tasks may lose partial responses | Implement local buffering with retry; evidence packets can include `status: partial` if streaming was interrupted |
-| **Provider-specific error semantics** | Different providers interpret non-standard error cases differently | Inconsistent agent behaviour when switching providers | Define neXus-specific error classification layer that maps provider errors to standardised agent actions (retry, fallback, report) |
-| **No SLA guarantees** | ACP is a protocol specification, not a service | No inherent reliability guarantee for the communication channel | Deploy local ACP-compatible backends (Ollama, LM Studio) for baseline reliability; cloud providers used for burst capacity |
-
-### Assessment for neXus Context
-
-The key architectural insight is that ACP's protocol-level abstraction decouples agent behaviour from LLM backend selection. A research question answered by a local quantised model and the same question answered by a frontier cloud model produce structurally identical evidence packets. The difference is in latency, cost, and answer quality — all of which are captured as metadata in the evidence packet schema.
-
-This decoupling is critical for neXus's multi-backend GraphRAG benchmarking initiative. The ability to route the same query to different LLM backends through a uniform protocol and compare results at the evidence packet level is a direct enabler of the comparative analysis that the roadmap calls for.
-
-ACP does not solve every infrastructure problem. It does not manage container lifecycle, handle storage, or orchestrate multi-agent workflows. But as a communication layer, it provides the standardised interface that makes the rest of the architecture provider-independent.
+This confirms that ACP is a genuine process-level protocol, not an in-process API. Any ACP-compliant binary can serve as a neXus agent runtime.
 
 ## Integrated Architecture
 
 ### ACP as neXus Agent Communication Backbone
 
-Rather than replacing the entire neXus Layer 3, ACP serves as the **communication backbone** for all agent-LLM interactions. Each agent — whether implemented as a container, a serverless function, or a direct process — communicates with its assigned LLM backend through ACP:
+Rather than replacing neXus Layer 3, ACP serves as the communication layer for
+all agent-LLM interactions. Each agent — whether a knowledge-base scout, a document
+synthesis researcher, or a simulation runner — communicates with its assigned LLM
+backend through ACP. This is not a Zed-specific design; any neXus peer uses ACP
+to connect to its LLM backend.
 
 ```{python}
-dot('''
+dot("""
 digraph {
   node [shape=box style=filled];
 
@@ -127,7 +113,7 @@ digraph {
     node [fillcolor=lightcyan];
     scout [label="Scout Agent\nsearch_kg + crawl\nvia ACP"];
     research [label="Research Agent\nrun_python + analyze\nvia ACP"];
-    sim [label="Simulation Agent\nRISC-V emulation\nvia ACP"];
+    sim [label="Simulation Agent\nemulation\nvia ACP"];
   }
 
   subgraph cluster_backends {
@@ -135,8 +121,8 @@ digraph {
     style=filled;
     fillcolor=lightyellow;
     node [fillcolor=lightsalmon];
-    local [label="LM Studio\n(local quantised)"];
-    cloud [label="Cloud API\n(OpenAI/Anthropic)"];
+    local [label="Local\n(quantised model)"];
+    cloud [label="Cloud API\n(frontier model)"];
     code [label="Code-specialised\n(model)"];
   }
 
@@ -165,52 +151,27 @@ digraph {
   verifier -> generator;
   generator -> memory;
 }
-''', h="450px")
+""")
 ```
 
-### Agent Roles Mapped to neXus Tools
+### Agent Roles
 
 | neXus Tool | Agent Role | ACP Communication Pattern |
 |-----------|-----------|--------------------------|
 | `search_kg` | Scout Agent | ACP tool call to LLM; LLM returns structured KG query result |
 | `crawl_external` | Scout Agent | ACP streaming response for progressive URL fetch updates |
 | `run_python` | Research Agent | ACP tool call; tool output returned as structured evidence |
-| `generate_hypothesis_step` | Research Agent+Planner | ACP tool call proposing hypothesis links; Planner selects via contract |
+| `generate_hypothesis_step` | Research Agent + Planner | ACP tool call proposing hypothesis links; Planner selects via contract |
 | `feedback` | Synthesis Agent | ACP tool call for cross-validation; multiple evidence packets aggregated |
 
-### Evidence Packet Protocol
+### Dispatch Model
 
-Agents write results to R2 using a structured key scheme, leveraging the existing neXus sync infrastructure:
-
-```text
-R2 key: experiments/{session_id}/{agent_id}/{step_id}.json
-```
-
-Content:
-
-```json
-{
-  "agent_id": "scout-a-01",
-  "step_id": "hyp-003-evidence",
-  "llm_backend": "lm_studio_local_q4",
-  "acp_version": "0.2.0",
-  "type": "kg_search_result",
-  "payload": { ... },
-  "kg_support_score": 0.87,
-  "latency_ms": 3400,
-  "token_cost": 1520,
-  "status": "success" | "partial" | "failed"
-}
-```
-
-The KV mapping is updated after each successful write. The Synthesis Agent polls for expected evidence packets by session ID. If a packet does not arrive within the expected window, the Synthesis Agent records a missing-evidence gap and proceeds with available data. The `llm_backend` field enables per-backend performance analysis across experiments.
-
-### Orchestrator Integration Point
-
-The neXus Planner currently produces a linear sequence of tool calls. With ACP as the communication backbone, the Planner instead produces a **dispatch plan** — a directed graph of agent assignments with dependency edges and LLM backend selection:
+The Planner produces a dispatch graph — a directed graph of agent assignments with
+dependency edges and LLM backend selection. The Planner is trained via Flow-GRPO,
+with an action space that includes backend assignment.
 
 ```{python}
-dot('''
+dot("""
 digraph {
   subgraph cluster_linear {
     label="Current: linear sequence";
@@ -236,190 +197,185 @@ digraph {
     p2 -> p3;
   }
 }
-''', h="350px")
+""")
 ```
 
-The Planner is still trained via Flow-GRPO, but its action space expands from selecting individual tools to constructing dispatch graphs with backend assignment. This is a richer action space that the RL policy can learn to optimise over time — routing computationally cheap tasks to local models and complex synthesis to cloud backends.
+The Planner's action space expands from selecting individual tools to constructing
+dispatch graphs with backend assignment. This is a richer action space that the
+RL policy can learn to optimise over time — routing computationally cheap tasks
+to local models and complex synthesis to cloud backends.
 
-## Experimental Validation Plan
+## Validation Strategy
 
-A four-experiment campaign to validate ACP-based neXus integration, each experiment building on the previous.
+A multi-experiment campaign to validate ACP-based integration, each building on
+the previous.
 
 ### Experiment 1: Baseline Integration
 
-**Objective:** Verify that an ACP-compatible agent (Claude Code or equivalent) can execute a neXus tool chain via `stdio`-based ACP and produce a contract-compliant evidence packet.
+**Objective:** Verify that an ACP-compatible agent can execute a neXus tool chain
+via stdio-based ACP and produce a valid evidence packet.
 
 **Procedure:**
 
-1. Launch Claude Code in ACP server mode: `npx @anthropic-ai/claude-code --acp`
-2. Implement a minimal ACP host (Python, ~200 lines) that connects via `subprocess.Popen` with piped stdin/stdout
-3. Host sends `session/initialize` → `session/configure` (with `search_kg` tool definition in JSON Schema)
-4. Host dispatches task: `search_kg("Observation primitive + RISC-V XIF")`
-5. Agent writes result to R2 as evidence packet
-6. neXus Verifier reads packet, computes support score
+1. Implement a minimal ACP host that connects via subprocess with piped stdin/stdout
+2. Host sends session/initialize to session/configure with a search_kg tool definition
+3. Host dispatches a knowledge-graph query task
+4. Agent writes result to the F-I-H blackboard as a Fact with provenance metadata
+5. neXus Verifier reads the Fact, computes support score
 
 **Success criteria:**
 
-- ACP `session/initialize` handshake completes (capability negotiation verified)
-- Agent executes tool call and writes valid evidence packet to R2
-- Evidence packet schema matches Verifier's expected format
-- Round-trip time (question → evidence) under 5 minutes
-
-**Acceptable failure modes:**
-
-- ACP `session/configure` rejects unknown tool schemas (recorded as schema compatibility gap)
-- JSON-RPC transport errors retry with `Content-Length` re-framing
-- Evidence packet with `status: partial` if LLM response is truncated or stream interrupted
+- ACP handshake completes (capability negotiation verified)
+- Agent executes tool call and writes valid Fact to the blackboard
+- Fact schema matches Verifier's expected format
+- Round-trip time under 5 minutes
 
 ### Experiment 2: Multi-Backend Routing
 
-**Objective:** Validate backend-agnostic routing: the same ACP host dispatches tasks to different agent servers (Claude Code via cloud API vs. a local quantised model) based on task type, without host-side code changes.
+**Objective:** Validate backend-agnostic routing: the same ACP host dispatches
+tasks to different LLM backends based on task type, without host-side code changes.
 
 **Procedure:**
 
-1. Configure two ACP agent servers (mirroring Zed's `agent_servers` pattern):
-   - Server A: `claude-code --acp` (Anthropic cloud API, quality-sensitive)
-   - Server B: `ollama-acp-server --model qwen2.5-coder:7b` (local, latency-sensitive)
-2. ACP host registers both servers in an `agent_server_store`-style registry
-3. Planner decomposes one research question into sub-tasks with backend hints
-4. Scout agent task (±KG query) dispatched to Server B (local, low latency)
-5. Research agent task (±document synthesis) dispatched to Server A (cloud, high quality)
-6. Compare evidence quality and latency between backends
+1. Configure two ACP-compatible LLM backends: one local quantised, one cloud frontier
+2. Planner decomposes a research question into sub-tasks with backend hints
+3. KG query dispatched to local backend (low latency)
+4. Document synthesis dispatched to cloud backend (high quality)
+5. Compare evidence quality and latency between backends
 
 **Metrics:**
 
 | Metric | Target |
 |--------|--------|
-| Backend switch overhead | < 500ms (ACP `session/initialize` + capability negotiation) |
-| Evidence quality parity | Human rater agreement >= 80% between local and cloud for KG queries |
-| Latency reduction | Local backend serves KG queries >= 2x faster than cloud (no network round-trip) |
+| Backend switch overhead | < 500ms (capability negotiation) |
+| Evidence quality parity | 80% agreement between local and cloud for KG queries |
+| Latency reduction | Local backend serves KG queries 2x faster than cloud |
 | ACP host code delta | Zero host-side changes when switching backend assignment |
 
-### Experiment 3: Concurrent Multi-Agent via ACP
+### Experiment 3: Concurrent Multi-Agent
 
-**Objective:** Validate that multiple ACP agent subprocesses communicate with different LLM backends concurrently, each via independent `stdio` pipes, without cross-talk or resource contention.
+**Objective:** Validate that multiple ACP agent subprocesses communicate with
+different LLM backends concurrently, each via independent stdio pipes.
 
 **Procedure:**
 
-1. Spawn 3 ACP agent subprocesses simultaneously (each via `subprocess.Popen` with independent stdin/stdout pipes):
-   - Agent A: `claude-code --acp` → KG queries (cloud Anthropic backend)
-   - Agent B: `ollama-acp-server --model qwen2.5-coder:7b` → document synthesis (local GPU)
-   - Agent C: `python nexus-agent.py --acp` → Python analysis (custom agent, compute-bound)
-2. The ACP host (a Python asyncio process) manages 3 concurrent JSON-RPC sessions via `Content-Length` framing on each pipe
-3. Planner dispatches sub-tasks to each agent concurrently
-4. All agents write evidence packets to R2
-5. Measure ACP session stability under concurrent load
+1. Spawn 3 ACP agent subprocesses simultaneously with independent stdin/stdout pipes:
+   - Agent A: KG queries (local backend)
+   - Agent B: document synthesis (cloud backend)
+   - Agent C: analysis (custom agent, compute-bound)
+2. The ACP host manages 3 concurrent JSON-RPC sessions
+3. Planner dispatches sub-tasks concurrently
+4. All agents write results to the F-I-H blackboard
 
 **Success criteria:**
 
-- All three agents produce valid evidence packets within expected time windows
-- No JSON-RPC message cross-talk (each agent's stdio pipe is independently framed)
+- All three agents produce valid Facts within expected time windows
+- No JSON-RPC message cross-talk
 - Total wall-clock time less than sum of sequential execution times
-- Memory overhead of 3 concurrent `stdio` sessions < 150MB per agent
 
-### Experiment 4: Failure Resilience and Provider Fallback
+### Experiment 4: Failure Resilience
 
-**Objective:** Demonstrate that ACP's provider-agnostic design enables graceful fallback when one LLM backend fails.
+**Objective:** Demonstrate that ACP's provider-agnostic design enables graceful
+fallback when one LLM backend fails.
 
 **Procedure:**
 
-1. Configure agent with two ACP-compatible backends: primary (cloud) and fallback (local)
+1. Configure agent with primary (cloud) and fallback (local) backends
 2. Inject simulated cloud API failure mid-request
 3. Agent detects failure via ACP error envelope, retries on fallback backend
 4. Record fallback latency overhead
-5. Measure impact on evidence packet completeness
 
 **Metrics:**
 
 | Metric | Target |
 |--------|--------|
 | Failure detection time | < 2 seconds (ACP structured error propagation) |
-| Fallback success rate | >= 90% of requests that fail on primary succeed on fallback |
-| Evidence packet degradation | >= 90% of fallback-served packets contain complete results (vs. primary) |
+| Fallback success rate | 90% of failed requests succeed on fallback |
+| Evidence packet degradation | 90% of fallback-served packets contain complete results |
+
+The evidence packet fields defined in the Agent Roles section (agent_id, llm_backend, latency_ms, token_cost, status) allow the Verifier to compare results across backends and proceed with partial data when a single backend fails.
+
+## Production Readiness Assessment
+
+### Strengths
+
+**Protocol-level abstraction is proven at scale.** ACP follows the same architectural pattern as MCP but focuses on the agent-to-LLM interface rather than the tool-to-agent interface. This separation of concerns is independently implementable.
+
+**Provider diversity without code changes.** Because ACP is provider-agnostic, neXus can mix LLM backends within a single research session: a local quantised model for quick KG retrievals, a cloud model for complex synthesis, and a specialised code model for compiler analysis — all through the same ACP interface.
+
+**Tool schema standardisation.** JSON Schema-based tool definitions mean that any environment with JSON Schema tooling can author and validate tool definitions before deployment.
+
+### Risks and Mitigations
+
+| Risk | Impact on neXus | Mitigation |
+|------|-----------------|------------|
+| **Protocol version drift** | Agent-LLM communication may break if client and provider support different ACP versions | Pin ACP version in agent container image; negotiate capabilities at startup |
+| **Streaming reliability under load** | Long-running synthesis tasks may lose partial responses | Local buffering with retry; evidence packets include `status: partial` if streaming was interrupted |
+| **Provider-specific error semantics** | Inconsistent agent behaviour when switching providers | Define neXus-specific error classification layer mapping provider errors to standardised agent actions (retry, fallback, report) |
+| **No SLA guarantees** | No inherent reliability guarantee for the communication channel | Deploy local backends for baseline reliability; cloud providers used for burst capacity |
+
+### Assessment for neXus Context
+
+ACP does not solve every infrastructure problem. It does not manage container lifecycle, handle storage, or orchestrate multi-agent workflows. But as a communication layer, it provides the standardised interface that makes the rest of the architecture provider-independent. The ability to route the same query to different LLM backends through a uniform protocol and compare results at the evidence packet level is a direct enabler of comparative analysis.
 
 ## Discussion
 
 ### Protocol Over Provider Lock-In
 
-The central design choice behind ACP-based integration is that neXus should never be dependent on a single LLM provider. A research infrastructure that can only validate hypotheses through one model family — whether OpenAI, Anthropic, or a local quantised model — inherits that provider's biases, failure modes, and cost structure. ACP breaks this dependency at the protocol level: any ACP-compatible backend can serve any agent at any time, and the evidence packet schema captures the backend identity so that downstream analysis can account for provider-specific effects.
+The central design choice behind ACP-based integration is that neXus should never be dependent on a single LLM provider. A research infrastructure that can only validate hypotheses through one model family inherits that provider's biases, failure modes, and cost structure. ACP breaks this dependency at the protocol level: any ACP-compatible backend can serve any agent at any time, and the evidence packet schema captures the backend identity so that downstream analysis can account for provider-specific effects.
 
 This is not merely a convenience feature. For neXus's stated goal of boundaryless research validation, provider independence is a correctness requirement. A hypothesis validated only through one LLM family has unknown generalisability to other models. Multi-backend validation through ACP ensures that evidence packets carry provenance metadata enabling cross-model comparison.
 
-### Why ACP Opens a Market MCP Could Not
+### ACP vs. MCP: Protocol Roles
 
-MCP standardised how agents access tools — a vertical, agent-to-tool interface. It succeeded at that: thousands of MCP servers exist, and the protocol is now under Linux Foundation stewardship. But MCP left several structural gaps that ACP was designed to fill:
+| Protocol | Direction | Role |
+|----------|-----------|------|
+| **MCP** (Model Context Protocol) | Tool to Agent | Agent queries knowledge bases, executes code, accesses file systems |
+| **ACP** (Agent Client Protocol) | Agent to LLM / Editor | Agent sends tool definitions to LLM, LLM returns tool calls, agent streams progress back |
 
-**Agent identity and lifecycle.** MCP defines how a client connects to a tool server, but leaves agent identity, session multiplexing, and lifecycle management unspecified. ACP makes these first-class: a single `session/initialize` handshake negotiates capabilities, and multiple task streams can run concurrently over one connection. The orchestrator knows which agent is doing what, when it started, and whether it is still alive — properties essential for the dispatch-graph model in Section 4.4.
+Both protocols share the same wire format (JSON-RPC 2.0), making the implementation surface minimal. A neXus agent process runs both an MCP client (to access tools) and an ACP client (to connect to its LLM or editor).
 
-**Bidirectional editor-grade UX.** MCP's communication model is call-and-response: agent requests tool, tool returns result. ACP adds progress streaming, permission requests, and partial result delivery — the interaction patterns needed when an agent is not just querying a database but actively modifying files, running long computations, or proposing hypothesis links that a human or Planner must approve.
-
-**Protocol layering, not competition.** ACP does not replace MCP — it occupies the adjacent layer that MCP never addressed. The result is a three-layer protocol stack emerging across the agent ecosystem:
-
-| Layer | Protocol | Direction |
-|-------|----------|----------|
-| Agent ↔ Tools | MCP | Vertical: agent calls tools, tools return results |
-| Agent ↔ LLM / Editor | ACP | Local loop: editor dispatches agent, agent streams progress back |
-| Agent ↔ Agent | A2A | Horizontal: agents delegate subtasks and aggregate results |
-
-For neXus, this layering is not theoretical. LightRAG and Graphiti already speak MCP. The Planner-Executor-Verifier-Generator loop already implies agent-to-agent delegation. ACP completes the stack: the orchestrator spawns agent subprocesses via ACP, each agent queries the KG via MCP, and agents coordinate via the dispatch graph.
-
-### ACP vs. MCP: Protocol Complementarity in neXus
-
-The coexistence of ACP and MCP in neXus is not redundancy — it is layered protocol design:
-
-| Protocol | Direction | neXus Usage |
-|----------|-----------|-------------|
-| **MCP** (Model Context Protocol) | Tool ↔ Agent | Agent queries LightRAG/Graphiti, executes Python, accesses file system |
-| **ACP** (Agent Client Protocol) | Agent ↔ LLM | Agent sends tool definitions to LLM, LLM returns tool calls, agent executes via MCP |
-
-Both protocols share the same wire format (JSON-RPC 2.0 with `Content-Length` framing), making the implementation surface minimal. A neXus agent process runs both an MCP client (to access KG/tools) and an ACP client (to connect to its LLM backend). The orchestrator manages agent lifecycle without awareness of either protocol.
-
-### When ACP Adds Value vs. When It Does Not
-
-**ACP integration is beneficial for:**
+### When ACP Adds Value
 
 - Environments where multiple LLM backends are used interchangeably
 - Agent implementations that need to be portable across runtime environments
 - Experiments comparing model families on identical tool chains
-- Deployments where agents run persistently on servers (via `systemd` + ACP `stdio`)
+- Deployments where agents run persistently on servers
 - Any scenario where provider-agnostic tool definitions reduce integration overhead
 
-**ACP integration is unnecessary for:**
+### When ACP Is Unnecessary
 
 - Tightly coupled single-backend prototypes (direct API calls suffice)
 - Static deployments where the LLM backend never changes
-- Initial development of the neXus Planner (which can be trained on simulated trajectories without real LLM interaction)
+- Initial development of the neXus Planner (can be trained on simulated trajectories without real LLM interaction)
 
 ### Relationship to Existing neXus Infrastructure
 
 The proposed integration does not require changes to existing neXus components:
 
-- **R2 bucket** remains the single source of truth; agents write evidence packets there
+- **R2 bucket** remains the single source of truth; agents write results there
 - **Sync worker** is unaffected; agent outputs are text artifacts like any other
-- **KV mapping** is extended to include `experiments/{session_id}` namespace
-- **LightRAG** continues as the primary GraphRAG backend; agents query it via MCP
+- **Knowledge graph backends** continue as the primary retrieval layer; agents query them via MCP
 - **Flow-GRPO** training pipeline ingests agent trajectories as additional training data; the `llm_backend` field enables per-backend reward analysis
 
 The only new component is the ACP client library integrated into each agent runtime. No new infrastructure services are required.
 
 ## Conclusion
 
-ACP offers a protocol-level abstraction for agent-LLM communication whose key property — provider independence — aligns directly with neXus's requirements for multi-backend concurrent hypothesis validation. The key findings of this review are:
+ACP offers a protocol-level abstraction for agent-LLM communication whose key property — provider independence — aligns directly with neXus's requirements for multi-backend concurrent hypothesis validation. The key findings are:
 
 1. **Protocol-level abstraction decouples agent logic from LLM backend.** Tools defined once in JSON Schema work with any ACP-compatible provider, enabling neXus to mix local and cloud backends within a single research session.
 2. **Provider independence is a correctness requirement, not a convenience feature.** Multi-backend validation through ACP ensures evidence packets carry provenance metadata, enabling cross-model comparison and reducing provider-specific bias in research outcomes.
-3. **The integration surface is minimal.** ACP client library integration is the only new component; all existing neXus infrastructure (R2, KV, LightRAG, MCP) remains unchanged.
-4. **An experimental campaign can validate** ACP integration feasibility and quantify the benefits of multi-backend routing for neXus's research throughput.
+3. **The integration surface is minimal.** ACP client library integration is the only new component; all existing neXus infrastructure remains unchanged.
+4. **Zed's agent implementation serves as the reference** for how ACP operates in practice — a process-level protocol over stdio JSON-RPC, with full session lifecycle and bidirectional streaming.
 
-The recommended next step is Experiment 1: implementing an ACP client in a single agent, connecting to the existing LM Studio endpoint, and measuring whether the evidence packet protocol produces valid Verifier input. If this succeeds, the remaining experiments can proceed incrementally.
+The recommended next step is implementing an ACP client in a single agent runtime, connecting to a local LLM backend, and measuring whether the evidence packet protocol produces valid Verifier input.
 
 ---
 
 ### References
 
-1. neXus Development Roadmap. [/projects/nexus/impl_init.html](/projects/nexus/impl_init.html)
-2. neXus Project Overview: Boundaryless Autonomous Research Infrastructure. [/projects/nexus/index.html](/projects/nexus/index.html)
-3. QiMeng Insight Analysis & Multi-Agent Autonomous Research Landscape. [notes/qimeng.qmd](/projects/nexus/notes/qimeng.html)
-4. TokenSpeed Architectural Insights for SSCCS Nexus. [notes/tokenspeed_insight.qmd](/projects/nexus/notes/tokenspeed_insight.html)
-5. AgentFlow: In-the-Flow Agentic System Optimization. arXiv:2510.05592
-6. HypoChainer: LLM + KG + Human Collaborative Hypothesis Generation. arXiv:2507.17209
+- `agent-client-protocol` crate: <https://crates.io/crates/agent-client-protocol>
+- Zed Agent Server extensions: <https://zed.dev/docs/extensions/agent-servers>
+- AgentFlow: In-the-Flow Agentic System Optimization. arXiv:2510.05592
+- HypoChainer: LLM + KG + Human Collaborative Hypothesis Generation. arXiv:2507.17209

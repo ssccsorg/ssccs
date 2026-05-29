@@ -27,9 +27,9 @@ title_meta_items = {
 
 ## Executive Summary
 
-neXus is a modular research infrastructure built on the FIH Blackboard paradigm. Every module reads from and writes to a shared graph through exactly three primitives: Fact (validated result), Intent (exploration direction), and Hint (governance rule). There is no fixed pipeline and no direct module-to-module communication. The Cairn-verified lifecycle — submit → claim → heartbeat → conclude — governs all interaction.
+neXus is a modular research infrastructure built on the FIH Blackboard paradigm. Every module reads from and writes to a shared graph through exactly three primitives: Fact (validated result), Intent (exploration direction), and Hint (governance rule). There is no fixed pipeline and no direct module-to-module communication. The proven lifecycle — submit → claim → heartbeat → conclude — governs all interaction.
 
-neXus is itself an instance of the SSCCS paradigm: the Blackboard is the Scheme, Intents and Hints are the Field, and the act of reading, computing, and writing back is the Observation. GraphBlackboard compiles to WASM (edge) and native (server) from a single codebase assembled from production-grade crates (petgraph, rusqlite, cyrs, ndarray). Contract.nex is the single governance surface.
+neXus models a self-describing paradigm: the Blackboard is the Scheme, Intents and Hints are the Field, and the act of reading, computing, and writing back is the Observation. GraphBlackboard compiles to WASM (edge) and native (server) from a single codebase assembled from production-grade crates (petgraph, rusqlite, cyrs, ndarray). Contract.nex is the single governance surface.
 
 ### Unified Architecture
 
@@ -93,8 +93,8 @@ digraph NexusArchitecture {
     // Bottom row: ingestion + ev + fx + WASM
     r2 [label="R2 / S3", shape=cylinder, style=filled, fillcolor="#ffebcd", fontsize=8, width=1.2];
     sync [label="Sync Worker", shape=box, style=filled, fillcolor="#d4f1f9", fontsize=8, width=1.2];
-    ev [label="ev (ExaVerif)", shape=box, style=filled, fillcolor="#d4f1f9", fontsize=8, width=1.2];
-    fx [label="fx (Economy)", shape=box, style=filled, fillcolor="#fce4ec", fontsize=8, width=1.2];
+    ev [label="Verification Engine", shape=box, style=filled, fillcolor="#d4f1f9", fontsize=8, width=1.2];
+    fx [label="Economy Engine", shape=box, style=filled, fillcolor="#fce4ec", fontsize=8, width=1.2];
     contract [label="contract.nex", shape=note, style=filled, fillcolor="#e6f2ff", fontsize=8, width=1.2];
 
     cf [label="CF Worker", shape=box, style=filled, fillcolor="#f4e8e8", fontsize=7, width=1.0];
@@ -138,7 +138,7 @@ Storage backends are swappable per dimension via capability traits. A dimension 
 
 ### Why WebAssembly
 
-The decision to compile the core to WASM is not about web browsers. It is about a set of constraints that WASM uniquely satisfies and that together form the non-negotiable foundation of the SSCCS ecosystem.
+The decision to compile the core to WASM is not about web browsers. It is about a set of constraints that WASM uniquely satisfies and that together form a non-negotiable foundation.
 
 ```{python}
 #| label: fig-wasm-rationale
@@ -187,7 +187,7 @@ digraph WasmRationale {
 
 **Portable binary.** The same compiled WASM module runs on Cloudflare Workers (edge), AWS Lambda (Graviton), a researcher's laptop (ARM), and a future on-chain contract environment (WASM blockchain host). The core never needs recompilation for a new deployment target. Platform bindings are thin adapters, not architectural commitments.
 
-**Double sandbox.** WASM isolates execution at the machine level. Field isolates operation at the SSCCS level. An agent that escapes its WASM sandbox still cannot execute a constraint combination that its Field does not permit. An agent whose Field permits a combination still cannot read host memory. The two sandboxes are orthogonal and cumulative. Forging a verification proof requires breaking both.
+**Double sandbox.** WASM isolates execution at the machine level. Field isolates operation at the paradigm level. An agent that escapes its WASM sandbox still cannot execute a constraint combination that its Field does not permit. An agent whose Field permits a combination still cannot read host memory. The two sandboxes are orthogonal and cumulative. Forging a verification proof requires breaking both.
 
 Together, these properties are not conveniences. They are the minimal set of constraints that make a cross-reality verification economy possible. No other runtime satisfies all of them.
 
@@ -264,6 +264,18 @@ Where possible, we depend on stable Rust crates rather than implementing from sc
 | AWS Lambda | lambda_runtime crate | cargo lambda deploy |
 | Native server | axum + clap | cargo run |
 | On-chain (blockchain) | (placeholder) | Future decision |
+| Zed ACP bridge | `nex-zed-agent` (standalone binary) | cargo build; register in Zed settings |
+
+### Deployment Topology: Two Operational Modes
+
+neXus supports N deployment modes sharing the same F-I-H interface. Two representative cases:
+
+| Mode | Runtime | Storage | Subscribe | Use Case |
+|---|---|---|---|---|
+| **Real-time Blackboard** | Persistent daemon | In-memory (+ optional WAL) | Yes (live peer notification) | Agent coordination, interactive sessions (Zed, ev) |
+| **Storage / Fact Store** | Serverless worker | R2 / SQLite / object store | No (poll or query) | Batch ingestion, archival, cross-session retrieval |
+
+A real-time Blackboard can use a storage variant as its durable backend, flushing accumulated blocks to R2 on graceful shutdown. Both expose the same `BlockStore` trait — only delivery semantics differ.
 
 ### Design Principle: Implement Strategically, Depend Widely
 
@@ -378,9 +390,9 @@ Modules follow Blackboard semantics: read Facts and Hints, emit Facts (detectors
 |---|---|---|---|
 | Gap Detector | Fact graph | Fact (gap pattern) | Rust (origin + cross-origin topic levels) |
 | Contradiction Detector | Fact graph | Fact (contradiction) | Rust (same-topic/different-position) |
-| State Change Detector | Fact graph | Fact (state transition) | Rust (Cairn ReasonCheckpoint) |
+| State Change Detector | Fact graph | Fact (state transition) | Rust (State ReasonCheckpoint) |
 | New Document Analyzer | Fact graph | Fact (+factor/-factor/gap) | Rust (baseline-aware) |
-| OODA Loop (Cairn) | Fact + Intent + Hint | Scheduler tick | Rust (in-process, detection traits) |
+| OODA Loop (in-process) | Fact + Intent + Hint | Scheduler tick | Rust (in-process, detection traits) |
 | Hypothesis Generator | Gap Fact + Fact evidence | Intent (hypothesis) | Future |
 | Concept Validator | Hypothesis Intent + experiment | Fact (validated/rejected) | Future |
 | Entity extraction | Raw document | Fact (entity) | Future |
@@ -410,7 +422,7 @@ The gap-detector and other analysis modules have been migrated to Rust in the pr
 
 ### Module Communication: Stigmergy Through the Blackboard
 
-Modules do not call each other. Each module reads from the Core Blackboard and writes back to it. Coordination is indirect, inspired by Cairn's stigmergy pattern: agents leave traces in a shared environment, other agents perceive those traces and adapt their behavior.
+Modules do not call each other. Each module reads from the Core Blackboard and writes back to it. Coordination is indirect, inspired by stigmergy patterns: agents leave traces in a shared environment, other agents perceive those traces and adapt their behavior.
 
 The Blackboard stores three primitives. Facts are what the system has learned — including detector observations about the knowledge state. Intents are what agents want to explore. Hints are governance rules and human guidance. Detectors observe the Fact graph and record patterns as Facts; agents read detector Facts and decide which to act on by creating Intents. The Scheduler drives the OODA cycle, calling each detector every tick.
 
@@ -568,15 +580,15 @@ A key architectural insight is that a unified query IR decouples input languages
 
 ### Stigmergy Layer (Implemented)
 
-The Blackboard architecture is validated by Cairn, an AI search engine that solved 54 of 54 penetration testing challenges (610 teams, only team to achieve a full clear) with no LLMs, no training, and no prior knowledge. Cairn's core is a 250-line OODA loop that reads from and writes to a shared blackboard of Fact, Intent, and Hint primitives.
+The Blackboard architecture is validated by proven stigmergic search: a minimal OODA loop that reads from and writes to a shared blackboard of Fact, Intent, and Hint primitives.
 
-The stigmergy layer is now implemented in `core/process/`. The Scheduler drives the OODA loop, calling detectors every tick. Detectors (Gap, Contradiction, State Change, New Document) observe the Fact graph and record patterns as Facts. Agents read these detector Facts and create Intents. The Cairn ReasonCheckpoint pattern — simple count-based state change detection — is built into `StateChangeDetector`. All detectors implement the `DetectionCapable` trait hierarchy, which mirrors the storage capability trait architecture.
+The stigmergy layer is now implemented in `core/process/`. The Scheduler drives the OODA loop, calling detectors every tick. Detectors (Gap, Contradiction, State Change, New Document) observe the Fact graph and record patterns as Facts. Agents read these detector Facts and create Intents. The ReasonCheckpoint pattern — simple count-based state change detection — is built into `StateChangeDetector`. All detectors implement the `DetectionCapable` trait hierarchy, which mirrors the storage capability trait architecture.
 
 Beyond the current implementation, future research layers will attach to the same Blackboard through the same interface:
 
 | Paradigm | Source | Core Insight | Blackboard Role |
 |---|---|---|---|
-| Stigmergic Search | Cairn (validated, 54/54) | Indirect coordination through shared traces | Core coordination mechanism; Queue + Blackboard separation |
+| Stigmergic Search | Stigmergic Search (validated) | Indirect coordination through shared traces | Core coordination mechanism; Queue + Blackboard separation |
 | In-the-Flow Agentic Optimization | AgentFlow [arXiv:2510.05592](https://arxiv.org/pdf/2510.05592) | Trainable Planner, Flow-GRPO learning | Reads successful Intent histories, updates Planner weights |
 | Hypothesis-Driven Discovery | HypoChainer [arXiv:2507.17209](https://arxiv.org/pdf/2507.17209) | LLMs + KG + humans build hypothesis chains | Writes Hypothesis Intents, reads Fact graph for evidence |
 | Contract-Governed Generation | Story2Proposal [arXiv:2601.20833](https://arxiv.org/pdf/2601.20833) | Shared contract enforces structural obligations | contract.nex evaluated before every Blackboard write |
@@ -593,7 +605,7 @@ This applies to any domain. Business simulation: Fact = market data, Intent = st
 
 - Blackboard is the single interface. Every module reads and writes the same three types. Internal complexity is irrelevant.
 - Stigmergy over orchestration. Modules coordinate indirectly through the Blackboard. No module calls another module. No pipeline dependency chain.
-- LLM-optional. Cairn proved 54/54 problems without any LLM. LLMs are accelerators, not requirements.
+- LLM-optional. A stigmergic search system proved a full suite of problems without any LLM. LLMs are accelerators, not requirements.
 - Iteration over planning. Interface design improves through repeated use, not upfront specification. Virtual responses enable continuous iteration.
 - DeSci-ready. Contract.nex enables token-incentivized research. Content-addressable hashes provide verifiable proofs of contribution.
 - Portable core. Same codebase compiles for WASM (edge) and native (server). Zero platform lock-in.
@@ -614,7 +626,7 @@ This applies to any domain. Business simulation: Fact = market data, Intent = st
 | Scheduler (OODA loop) | Tick-based polling, heartbeat TTL, eviction trigger, stale intent cleanup |
 | Gap Detector | Rust: origin-based + cross-origin topic gap detection, emits Facts |
 | Contradiction Detector | Rust: same-topic/different-position contradiction detection, emits Facts |
-| State Change Detector | Rust: Cairn ReasonCheckpoint pattern, count-based, snapshot-safe |
+| State Change Detector | Rust: ReasonCheckpoint pattern, count-based, snapshot-safe |
 | New Document Analyzer | Rust: +factor/-factor/gap analysis with baseline pre-seeding |
 | Detection capability traits | DetectionCapable, GapDetection, ContradictionDetection, StateChangeDetection — mirrors storage trait architecture |
 | Cypher translator | cyrs pipeline integrated, dual-path executor |
