@@ -63,11 +63,11 @@ digraph NexusArchitecture {
         style=filled; fillcolor="#e8ffe8"; color="#4488cc"; fontsize=9;
 
         bb [label="GraphBlackboard", shape=box, style=filled, fillcolor="#d4e8d4", fontsize=8, width=1.5];
-        dual [label="DualStorage", shape=box, style=filled, fillcolor="#c8e8c8", fontsize=8, width=1.5];
-        hot [label="PetgraphStorage", shape=cylinder, style=filled, fillcolor="#b8e8b8", fontsize=8, width=1.5];
-        cold [label="SqlNormalizedStorage", shape=cylinder, style=filled, fillcolor="#e8d4b8", fontsize=8, width=1.5];
-        cypher [label="cypher (cyrs)", shape=box, style=filled, fillcolor="#d4e8f4", fontsize=8, width=1.5];
-        pgraph [label="petgraph", shape=cylinder, style=filled, fillcolor="#e8e8e8", fontsize=8, width=1.5];
+            dual [label="DualStorage", shape=box, style=filled, fillcolor="#c8e8c8", fontsize=8, width=1.5];
+            hot [label="PetgraphStorage", shape=cylinder, style=filled, fillcolor="#b8e8b8", fontsize=8, width=1.5];
+            cold [label="ColdStorage\n(Composite or\nSqlNormalized)", shape=cylinder, style=filled, fillcolor="#e8d4b8", fontsize=8, width=1.5];
+            cypher [label="cypher (cyrs)", shape=box, style=filled, fillcolor="#d4e8f4", fontsize=8, width=1.5];
+            pgraph [label="petgraph", shape=cylinder, style=filled, fillcolor="#e8e8e8", fontsize=8, width=1.5];
 
         bb -> dual;
         dual -> hot;
@@ -292,7 +292,8 @@ Aggregate trait aliases:
 - `FihPersistence = FactCapable + IntentCapable + HintCapable`
 - `HotStorage = FihPersistence + EvictCapable`
 - `ColdStorage = FihPersistence + FilterCapable + ScanCapable + TimeRangeCapable + FlushCapable + EvictCapable + CypherCapable`
-- `StoreSession = SessionExecute + SessionDrainKv + SessionDrainBlob + SessionDrainObject` where `SessionDrain` is the aggregate of the three drain traits.
+- `SessionDrain = SessionDrainKv + SessionDrainBlob + SessionDrainObject`
+- `StoreSession = SessionExecute + SessionDrain`
 
 `DualStorage` composes a hot and cold backend:
 
