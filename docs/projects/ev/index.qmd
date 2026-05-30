@@ -415,7 +415,26 @@ These services are contingent on ecosystem validation. They are not part of the 
 
 ## Connection to the Substrate
 
-ExaVerif is an independent domain entity built on the shared substrate — a working demonstration of the model described in the [SSCCS Project Model](https://docs.ssccs.org/projects). Its Spec Space exploration follows the same Fact / Intent / Hint cycle that governs every Nexus entity internally: domain expansion is an Intent, each evaluated combination a Fact, each constraint a Hint. ExaVerif is a Nexus instance itself, self-similar across scales. Every verification run feeds the shared knowledge store.
+ExaVerif is a neXus instance — a self-contained agentic neXus for the silicon verification
+domain. It does not merely "consume" neXus; it implements neXus internally. Its Spec Space
+exploration follows the same F-I-H cycle that governs every neXus entity: domain expansion is
+an Intent, each evaluated combination a Fact, each constraint a Hint. The Fact graph it builds
+over thousands of runs is its own independent, accumulated knowledge base — not a log, but a
+permanent, queryable, auditable body of verified knowledge.
+
+At the same time, ExaVerif's Facts are consumed by other neXus instances. A gap in coverage
+detected here becomes an Intent for OpenROAD or Yosys on the same blackboard. A verified
+constraint combination becomes a Hint that guides hardware synthesis elsewhere. This is not
+data exchange between tools; it is a single F-I-H graph to which every instance contributes
+and from which every instance reads.
+
+This dual nature — self-contained neXus internally, co-equal peer on a larger neXus externally
+— is the paradigm shift the industry has not yet recognized. Existing verification tools produce
+PASS/FAIL logs that are discarded at the end of a run. The result has no life beyond the
+terminal. ExaVerif, as a neXus instance, produces Facts that are immutable,
+content-addressed, and permanently embedded in a graph that spans every domain of the
+project. A verification result is not a log entry; it is a permanent contribution to a shared
+body of knowledge that compounds across runs, across tools, and across time.
 
 ```{python}
 #| label: fig-architecture
