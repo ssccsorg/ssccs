@@ -18,6 +18,7 @@ abstract: |
 title_meta_items = {
     "html": [
         {"title": "Reference", "link": "./", "content": "Project Overview", "icon": "bi bi-link"},
+        {"title": "Reference", "link": "./sim.html", "content": "Simulation", "icon": "bi bi-link"},
         {"title": "Repository", "link": "https://github.com/ssccsorg/nexus", "content": "Github", "icon": "bi bi-link"},
     ]
 }
@@ -823,71 +824,11 @@ nexus-sim sits between consumption scenarios and the foundation, proving that th
 
 ### Scenario-Driven Reverse Development
 
-nexus-sim inverts the conventional development flow. Instead of implementing a feature and then writing tests for it, the consumption scenario drives the entire stack:
+nexus-sim inverts the conventional development flow. Instead of implementing and then
+testing, the consumption scenario drives the entire stack: define the scenario, express as
+a test case, run against orchestration, update orchestration until pass, and commit the
+scenario as a permanent regression test. The full process with agent models, depths, CI
+integration, and implementation phases is in [Simulation](sim.html).
 
-```text
-1. Define the consumption scenario (immutable domain Fact)
-   e.g., "Exchange contract: Fact cannot be read without prior write"
-2. Express as a nexus-sim test case
-   e.g., "Call exchange_fact() with empty data → expect rejection"
-3. Run against current orchestration layer
-   → FAIL (orchestration does not yet implement the rule)
-4. Update orchestration layer until test passes
-   → Implement exchange_fact() overlay that enforces write-before-read
-5. If orchestration cannot satisfy the scenario without a foundation change:
-   → Modify foundation (add CAS, add atomicity, etc.)
-6. Run all existing scenarios to confirm no regression
-7. Commit. The consumption scenario is now a permanent test.
-```
-
-nexus-sim's test suite is always ahead of the implementation. Every scenario that exists is either passing (orchestration is correct) or failing (orchestration needs work). There is no gap between what the system should guarantee and what the system is tested for.
-
-### Architecture
-
-```text
-Test (async HTTP client)
-  ↓
-VECompositeStorage HTTP Server
-  ├── /kv/{project}/{key}   GET/PUT/DELETE  (simulates CF KV)
-  ├── /r2/{project}/{key}   PUT/GET/DELETE  (simulates R2)
-  └── /do/{project}/{key}/cas POST          (simulates DO CAS)
-      ↓ sync
-IoBufferSession + CompositeColdStorage
-```
-
-Every request goes through `IoBufferSession` internally, so session execution is verified at the HTTP boundary, not at the Rust function call level. The server can inject delays, errors, and conflicts to simulate real conditions.
-
-### Cross-Domain Emulation
-
-| Domain | Emulated Backend | Real Binding |
-|---|---|---|
-| Edge compute | VECompositeStorage HTTP | CF Workers KV / R2 / DO |
-| Robotics | ROS2 topic pub/sub over simulated nodes | Real ROS2 Humble |
-| Blockchain | Simulated validator with SessionExecute | On-chain WASM runtime |
-| Edge AI | Fake ONNX runtime returning canned results | Real NPU / GPU inference |
-| Distributed tx | Local 2PC coordinator with injected failures | Global consensus |
-
-Each emulated backend implements the same `SessionExecute` trait from nexus-model. Switching from emulation to production requires only swapping the binding crate. The core never changes.
-
-### Status
-
-Scaffolded as `ext/ve-composite/`. Separate CI pipeline (`nexus-sim` workspace) planned when the suite grows to cover multiple domains.
-
-| Component | Status |
-|---|---|
-| VECompositeStorage HTTP server | Scaffolded (ext/ve-composite/, needs completion) |
-| KV endpoint | Planned |
-| R2 (blob) endpoint | Planned |
-| DO (CAS) endpoint | Planned |
-| Failure injection (latency, timeout, conflict) | Future |
-| Multi-worker contention tests | Future |
-| ROS2 emulation | Future |
-| Blockchain validator emulation | Future |
-| Edge AI emulation | Future |
-| Dedicated nexus-sim workspace | Future |
-
-See issue #69 for current status and roadmap.
-
-{{< include ./_include/_nexus_ref.qmd >}}
-
-{{< include ../../_include/_license.md >}}
+nexus-sim's test suite is always ahead of the implementation. See issue #69 for current
+status and roadmap.

@@ -1,0 +1,416 @@
+---
+title: "neXus Simulation Suite"
+subtitle: "Scenario-driven exhaustive verification for the three-layer development model"
+date: last-modified
+metadata-files:
+  - ../../_include/author.yml
+abstract: |
+  nexus-sim implements the same core storage traits as production backends and wraps
+  them in edge-emulating async boundaries. It validates the three-layer development
+  model: consumption scenarios define what must hold true, nexus-sim proves whether
+  the orchestration layer enforces them, and capability gap reports tell the foundation
+  what to provide. Every run produces a cryptographically signed proof artifact.
+---
+
+```{python}
+#| include: false
+#| context: local
+%run ../../_include/_graphviz.py
+```
+
+```{python}
+title_meta_items = {
+    "html": [
+        {"title": "Reference", "link": "./proof.html", "content": "Proof by Structure", "icon": "bi bi-link"},
+        {"title": "Reference", "link": "./sim.html", "content": "Simulation", "icon": "bi bi-link"},
+        {"title": "Reference", "link": "./impl_init.html", "content": "Architecture", "icon": "bi bi-link"},
+        {"title": "Issue", "link": "https://github.com/ssccsorg/nexus/issues/69", "content": "#69", "icon": "bi bi-link"},
+        {"title": "Repository", "link": "https://github.com/ssccsorg/nexus", "content": "Github", "icon": "bi bi-link"},
+    ]
+}
+```
+
+{{< include ../../_include/_title_meta_items.qmd >}}
+
+## The Core Loop
+
+nexus-sim is the infrastructure that drives this loop:
+
+```text
+Consumption Scenario (immutable domain requirement)
+    ↓ expressed as
+nexus-sim Test Case
+    ↓ run against current stack
+PASS → scenario is a permanent regression test
+FAIL → gap found:
+    ├── Orchestration layer insufficient → update orchestration → re-run
+    └── Foundation capability missing → update foundation → re-run
+    ↓
+Re-run all prior scenarios → confirm no regression
+    ↓
+Commit. The loop tightens with every iteration.
+```
+
+nexus-sim's test suite is always ahead of the implementation. Every scenario is
+either passing (verified) or failing (gap identified). There is no gap between what
+the system should guarantee and what it is tested for. The loop compresses the
+feedback cycle from "weeks of manual validation" to "seconds of automated
+verification."
+
+## Architectural Role
+
+nexus-sim implements the three-layer development model defined in
+[Architecture](impl_init.html). It serves two functions that are the same mechanism
+at different depths in the stack:
+
+- **At the trait level**: nexus-sim is the in-memory implementation of `KeyValueStore`,
+  `BlobStore`, `ObjectStore`, and `SessionExecute` — the exact same trait interfaces
+  that `CompositeColdStorage` depends on. A test written against nexus-sim runs
+  unmodified against any real backend.
+- **At the async boundary**: Nexus-sim wraps its own trait implementations inside
+  `VECompositeStorage`, an HTTP server that reproduces the I/O patterns, latency
+  profiles, and failure modes of a specific deployment target (CF Workers, ROS2,
+  blockchain, etc.).
+
+The same trait, two depths. The inner depth tells you the logic is correct. The outer
+depth tells you the logic survives production conditions.
+
+```{python}
+#| label: fig-sim-role
+#| fig-cap: "nexus-sim validates the three layers: trait-level tests pass everywhere; emulator-level tests discover what the orchestration layer must handle."
+dot("""
+digraph SimRole {
+    rankdir=TB;
+    node [shape=box, style=filled, fontsize=9];
+    edge [style=bold];
+
+    scenarios [label="Consumption Scenarios (immutable)
+no read without write
+7 attack vectors
+exchange contract", fillcolor="#ffcc80"];
+    sim_trait [label="nexus-sim (trait level)
+in-memory KeyValueStore
+BlobStore / ObjectStore
+SessionExecute", fillcolor="#d4f1f9"];
+    sim_emu [label="nexus-sim (async boundary)
+VECompositeStorage HTTP
+latency / contention / failure
+per-deployment-target profiles", fillcolor="#d4f1f9"];
+    orc [label="Orchestration Layer (flexible)
+exchange_fact() overlay
+API gateway
+C2PA wrapper", fillcolor="#d4f1f9"];
+    foundation [label="Foundation (IO Layer, stable)
+StorageRead / FactCapable
+DualStorage / IoBuffer
+petgraph / SQLite / R2", fillcolor="#c8e6c9"];
+
+    scenarios -> sim_trait [label="defines", color="#ff6f00"];
+    scenarios -> sim_emu [label="defines", color="#ff6f00"];
+    sim_trait -> orc [label="validates logic", style=dashed, color="#888888"];
+    sim_emu -> orc [label="validates under production I/O", style=dashed, color="#888888"];
+    orc -> foundation [label="uses", color="#5588bb"];
+    foundation -> orc [label="pressures when capability missing", style=dashed, color="#5588bb"];
+    sim_trait -> foundation [label="reports capability gaps", style=dotted, color="#cc4444"];
+}
+""")
+```
+
+### Scenario-Driven Reverse Development
+
+Instead of implementing a feature and then writing tests, nexus-sim starts from
+the consumption scenario and works backward:
+
+1. Define the consumption scenario (immutable domain Fact)
+2. Express as a nexus-sim test case against the trait-level implementation
+3. Run — FAIL (orchestration does not yet implement the rule)
+4. Update orchestration until test passes at trait level
+5. Route same test through async-boundary emulator — may FAIL
+6. Update orchestration until it passes under production I/O conditions
+7. Commit. The scenario is now a permanent test at both depths.
+
+nexus-sim's test suite is always ahead of the implementation. Every scenario is
+either passing or failing. There is no gap between what the system should guarantee
+and what it is tested for.
+
+## Attack Scenarios
+
+The primary consumption scenarios nexus-sim validates are the 7 attack vectors against
+the exchange contract. These are defined in [Proof by Structure](proof.html): Direct
+Free-Riding, Evasive Free-Riding, Falsified Contribution, Poison Injection, Intent Spam,
+Replay Attack, and Sybil Attack. Each scenario has a parameterized agent model, expected
+outcome, and test at both trait and async-boundary depths. See the [Proof by Structure](proof.html)
+document for the full definition of each scenario.
+
+## Architecture
+
+nexus-sim is neither a helper layer nor a consumer abstraction. It implements the
+**exact same trait interfaces** as every production storage backend:
+
+- `KeyValueStore` — key-value read/write/delete
+- `BlobStore` — blob put/get/delete
+- `ObjectStore` — object put/get/list
+- `SessionExecute` — session lifecycle (hydration, execution, flush)
+
+The trait implementations are in-memory. A test that passes against them passes
+against any real backend without modification, because both speak the same trait
+contract. There is no adapter layer.
+
+On top of these trait implementations, `VECompositeStorage` wraps the same traits
+behind an async HTTP boundary. The HTTP layer faithfully reproduces the exact
+I/O patterns, latency distributions, failure modes, and concurrency semantics of
+the target deployment. The same trait, the same test, now exercised under
+production-like conditions.
+
+### Agent Model
+
+Each simulated agent is parameterized with:
+
+| Parameter | Values | Description |
+|-----------|--------|-------------|
+| Strategy | honest, free-rider, poisoner, spammer, Sybil | Behavioral profile |
+| API surface | trait-level (direct), overlay (`exchange_fact`), async-boundary (HTTP) | Which depth of the stack the agent targets |
+| Signature key | valid, forged, missing | Cryptographic identity |
+| Data payload | valid, empty, structurally invalid, replayed | What the agent commits |
+
+### Test Harness (Two Depths)
+
+```text
+Depth 1 — Trait level (sync, in-process, no I/O):
+  nexus-sim implements KeyValueStore / BlobStore / ObjectStore
+  → Consumer calls trait methods directly
+  → Deterministic, sub-millisecond
+
+Depth 2 — Async boundary (HTTP, with emulated production I/O):
+  nexus-sim trait impl → VECompositeStorage HTTP server
+  → Consumer sends HTTP request
+  → Server injects target-specific latency, contention, failure
+```
+
+The same test suite runs at both depths. Depth 1 proves logical correctness.
+Depth 2 proves the orchestration survives production I/O.
+
+### Scenario Runner
+
+```{python}
+#| label: fig-scenario-runner
+#| fig-cap: "Each scenario run at each depth produces a signed Fact; the aggregate forms a verifiable proof."
+dot("""
+digraph ScenarioRunner {
+    rankdir=LR;
+    node [shape=box, style=filled, fontsize=9];
+
+    agent [label="Agent\n(strategy, key, payload)", fillcolor="#d4f1f9"];
+    depth [label="Select depth\ntrait-level / async-boundary", fillcolor="#ffe0b2"];
+    run [label="Execute scenario", fillcolor="#c8e6c9"];
+    result [label="Outcome\n(PASS / FAIL / BLOCKED)", fillcolor="#e8eaf6"];
+    fact [label="Signed Fact\n(depth + scenario + result)", fillcolor="#fff9c4"];
+    aggregate [label="Proof Aggregate\n(all scenarios, both depths)", fillcolor="#e1bee7"];
+
+    agent -> depth;
+    depth -> run;
+    run -> result;
+    result -> fact;
+    fact -> aggregate [style=dashed, label="accumulate"];
+}
+""")
+```
+
+## Implementation
+
+### Repository Location
+
+`ext/ve-composite/` in the nexus monorepo. Planned to graduate to a dedicated
+`nexus-sim` workspace when the suite covers multiple domains.
+
+### Phase 0: Core Trait Implementation (In Progress)
+
+The in-memory implementations of `KeyValueStore`, `BlobStore`, `ObjectStore`, and
+`SessionExecute`. These are the foundation that every emulator wraps.
+
+| Component | Priority | Depends On |
+|---|---|---|
+| KeyValueStore (HashMap-backed) | Immediate | — |
+| BlobStore (HashMap-backed) | Immediate | — |
+| ObjectStore (HashMap-backed) | Immediate | — |
+| SessionExecute (hydration + flush) | Immediate | #66 (IoBufferSession) |
+| Existing 21+ foundation tests pass | Immediate | — |
+
+Deliverable: Trait-level implementations complete. All foundation tests pass
+against them.
+
+### Phase 0.5: VECompositeStorage HTTP Server
+
+The trait implementations wrapped behind an async HTTP boundary, with production
+I/O emulation for CF Workers.
+
+| Component | Priority | Depends On |
+|---|---|---|
+| KV endpoint (GET/PUT/DELETE) | Immediate | Phase 0 |
+| R2 blob endpoint (PUT/GET/DELETE) | Immediate | Phase 0 |
+| DO CAS endpoint (POST with compare-and-swap) | Immediate | Phase 0 |
+| Failure injection (latency, timeout, CAS conflict) | Phase 0.5 | Phase 0 |
+| Multi-worker contention (two clients, same CAS key) | Phase 0.5 | Phase 0 |
+
+Deliverable: HTTP server. Existing tests pass through it. Failure injection operational.
+
+### Phase 1: Exchange Contract Scenarios
+
+| Component | Priority | Depends On |
+|---|---|---|
+| Agent model with parameterized strategies | Phase 1 | Phase 0 |
+| 7 attack scenarios as automated tests | Phase 1 | Agent model |
+| `exchange_fact()` mock overlay | Phase 1 | — |
+| Violation matrix output | Phase 1 | 7 scenarios |
+| Both depths (trait-level + HTTP) for all scenarios | Phase 1 | Phase 0.5 |
+
+Deliverable: All 7 scenarios executable at both depths. Violation matrix generated
+per run.
+
+### Phase 2: Three-Layer Validation Loop
+
+| Component | Priority | Depends On |
+|---|---|---|
+| Orchestration layer introduced as single test target | Phase 2 | Phase 1 |
+| Scenario failure at trait depth → orchestration change → pass | Phase 2 | Phase 1 |
+| Scenario failure at HTTP depth → orchestration change → pass | Phase 2 | Phase 0.5 |
+| Foundation capability gap reporter | Phase 2 | — |
+| Full regression suite on every change (both depths) | Phase 2 | — |
+| CI integration: PR blocked if any scenario fails | Phase 2 | — |
+
+Deliverable: CI enforces three-layer model. No commit can break a consumption
+scenario without being caught.
+
+### Phase 3: Cryptographic Proof Aggregation
+
+| Component | Priority | Depends On |
+|---|---|---|
+| Each scenario run produces a C2PA-signed Fact | Phase 3 | #71 |
+| Aggregate proof artifact (all scenarios, both depths) | Phase 3 | Phase 2 |
+| Proof embedded in release artifact | Phase 3 | — |
+| External verifier confirms proof without re-running | Phase 3 | — |
+
+Deliverable: Release artifacts include signed proof of exhaustive scenario coverage
+at both depths.
+
+### Phase 4: Cross-Domain Expansion
+
+| Domain | Emulated Backend | Real Binding | Priority |
+|---|---|---|---|
+| Edge compute | VECompositeStorage HTTP | CF Workers KV / R2 / DO | Phase 0.5 |
+| Robotics | ROS2 topic pub/sub over simulated nodes | Real ROS2 Humble | Phase 4 |
+| Blockchain | Simulated validator with SessionExecute | On-chain WASM runtime | Phase 4 |
+| Edge AI | Fake ONNX runtime returning canned results | Real NPU / GPU inference | Phase 4 |
+| Distributed tx | Local 2PC coordinator with injected failures | Global consensus | Phase 4 |
+
+Each domain wraps the same trait implementations. The core never changes.
+
+Deliverable: Dedicated nexus-sim workspace with per-domain CI pipeline.
+
+## CI Integration
+
+```text
+Every PR:
+  └── Phase 0 tests (trait-level, both depths)
+  └── Phase 1 scenarios (all 7, both depths)
+  └── Phase 2 regression (all prior scenarios, both depths)
+  └── Failure if any scenario fails at trait depth
+  └── Warning if scenario fails at HTTP depth (orchestration gap)
+
+Every release:
+  └── Full suite at all depths
+  └── C2PA-signed proof artifact generated
+  └── Proof attached to release metadata
+```
+
+## Simulation Output
+
+After exhaustive simulation across all scenarios at both depths, nexus-sim produces:
+
+### Violation Matrix
+
+```text
+Depth: trait-level (in-memory, no I/O)
+Scenario                    | Strategy       | Result
+----------------------------|----------------|--------
+Direct Free-Riding          | read_fact()    | BLOCKED (no such API)
+Evasive Free-Riding         | empty data     | BLOCKED (commit rejected)
+...
+
+Depth: async-boundary (HTTP, CF Workers profile)
+Scenario                    | Strategy       | Result
+----------------------------|----------------|--------
+Direct Free-Riding          | read_fact()    | BLOCKED (no such API)
+Evasive Free-Riding         | empty data     | BLOCKED (commit rejected)
+...
+```
+
+### Proof Artifact
+
+A C2PA-signed manifest certifying that no scenario at either depth resulted in
+successful data extraction without valid contribution.
+
+### Hint Generation
+
+New governance rules (Hint) derived from simulation patterns, applied to the live
+Blackboard. If Intent Spam reveals a degradation threshold at the HTTP depth that
+does not appear at the trait depth, a Hint is generated to throttle at that
+threshold — the discovery of a production condition the trait test could not reveal.
+
+## Domain Recurrence
+
+The architecture nexus-sim defines — scenario-driven exhaustive verification with
+parameterized agent models, depth selection, violation matrices, and cryptographic
+proof aggregation — is domain-agnostic. It applies identically to any verification
+loop where a consumption scenario must be proven against an implementation.
+
+| Component | nexus-sim (infrastructure) | ev (silicon verification) |
+|:---|---:|---:|
+| Scenario | 7 exchange-contract attack vectors | XIF constraint specification |
+| Agent model | free-rider, poisoner, spammer, Sybil | ISA combinations, pipeline depths, cache configs |
+| Depth | trait-level / async-boundary HTTP | behavioral / RTL / gate-level |
+| Output | violation matrix | coverage matrix |
+| Proof | C2PA-signed scenario coverage | C2PA-signed verification proof |
+
+The scenario runner, violation matrix generator, depth selection mechanism, and
+C2PA proof aggregator are shared infrastructure. Only the agent model and the
+storage backends change per domain. This is F-I-H recursion applied to verification
+itself — the infrastructure that verifies the system uses the same pattern the
+system provides to domain verifiers.
+
+A future version of nexus-sim may directly host ev's scenario definitions, running
+silicon verification scenarios through the same harness that runs exchange-contract
+scenarios today. The core loop is identical.
+
+## Dependencies
+
+| Issue | Component | Needed By |
+|---|---|---|
+| [#66](https://github.com/ssccsorg/nexus/issues/66) | IoBufferSession | Phase 0 |
+| [#71](https://github.com/ssccsorg/nexus/issues/71) | Merkle chain + cryptographic signatures | Phase 3 |
+| [#7](https://github.com/ssccsorg/nexus/issues/7) | StorageRead, FactCapable, IntentCapable, HintCapable traits | All phases |
+
+## Related Documents
+
+- [Proof by Structure](proof.html) — Atomic exchange, oracle resolution
+- [Architecture](impl_init.html) — Three-layer development model
+- [ExaVerif](../ev/index.html) — Verification engine as neXus instance
+- `ext/ve-composite/` — Current implementation scaffold
+
+## Acceptance Criteria
+
+- [ ] Phase 0: Trait-level KeyValueStore, BlobStore, ObjectStore, SessionExecute complete
+- [ ] Phase 0: All 21+ foundation tests pass against trait-level implementations
+- [ ] Phase 0.5: VECompositeStorage HTTP server complete (KV, R2, DO)
+- [ ] Phase 0.5: All tests pass through HTTP boundary
+- [ ] Phase 0.5: Failure injection (latency, timeout, CAS conflict) operational
+- [ ] Phase 0.5: Multi-worker contention tests operational
+- [ ] Phase 1: Agent model with parameterized strategies
+- [ ] Phase 1: All 7 attack scenarios executable at both depths
+- [ ] Phase 2: CI blocks PR if any scenario fails at trait depth
+- [ ] Phase 2: CI warns if scenario fails at HTTP depth (orchestration gap)
+- [ ] Phase 2: Foundation capability gap reporter operational
+- [ ] Phase 3: C2PA-signed proof artifact in each release
+- [ ] Phase 3: External verifier can confirm proof without re-running
+- [ ] Phase 4: Dedicated nexus-sim workspace with per-domain CI
+- [ ] Phase 4: At least one non-CF domain emulated
