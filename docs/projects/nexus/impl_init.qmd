@@ -281,6 +281,60 @@ A real-time Blackboard can use a storage variant as its durable backend, flushin
 
 Where differentiation matters (Cypher-to-petgraph translation, gap detection heuristics, platform bindings), we write code. Where stability matters (graph algorithms, persistence, parsing), we depend on verified Rust crates. The GraphBlackboard is the thinnest possible layer that turns a collection of independent crates into a coherent graph analysis platform.
 
+### Development Model: Three Hard Layers
+
+The codebase stratifies into three layers with different change tolerances. This is not an architectural abstraction but a development workflow enforced by how each layer is validated.
+
+| Layer | Change Tolerance | Validation | Examples |
+|---|---|---|---|
+| **Consumption Scenarios** | Immutable | nexus-sim scenario definitions capture the domain invariants; cannot be compromised without invalidating the ecosystem's purpose | Proof by Structure 7 attack scenarios (see [proof.qmd](proof.html)); exchange contract requirements; ev verification flows |
+| **Orchestration Layer** | Flexible | nexus-sim runs scenario definitions against the foundation; failures force orchestration changes | `exchange_fact()` overlay (defined in [proof.qmd](proof.html)); API gateway handlers; C2PA verification wrapper; session lifecycle |
+| **Foundation (IO Layer)** | Stable | Existing test suite (21+ scenario tests); petgraph/SQLite contract; never modified without a nexus-sim scenario proving the capability gap | StorageRead, FactCapable, IntentCapable, HintCapable; DualStorage; petgraph/R2 bindings |
+
+Consumption scenarios are the hardest layer. They express what the system must guarantee — "no entity can read a Fact without contributing one" is not negotiable because it derives from the ecosystem's game-theoretic requirements. The foundation is also hard: petgraph's StableGraph interface, SQLite's ACID guarantees, and the FIH capability trait contracts are fixed by their respective libraries.
+
+The orchestration layer between them is the only soft layer. It evolves continuously as nexus-sim validates scenarios against the foundation. When a scenario fails, the orchestration layer is updated first; only when a scenario demands a capability the foundation cannot provide (e.g., atomic compare-and-swap that the storage backend lacks) is the foundation modified. This is the scenario-driven reverse development pattern: the consumption scenario drives the orchestration, which in turn pressures the foundation only when necessary.
+
+```{python}
+#| label: fig-three-hard-layers
+#| fig-cap: "Three hard layers: scenarios are immutable, foundation is stable, orchestration between them is flexible and scenario-driven."
+dot("""
+digraph ThreeHardLayers {
+    rankdir=LR;
+    node [shape=box, style=filled, fontsize=10];
+    edge [style=bold];
+
+    scenarios [label="Consumption Scenarios
+(immutable)
+no read without write
+7 attack vectors
+exchange contract", fillcolor="#ffcc80", fontname="Arial"];
+    orc [label="Orchestration Layer
+(flexible, evolves)
+exchange_fact() overlay
+API gateway
+C2PA wrapper
+SessionExecute impls", fillcolor="#d4f1f9", fontname="Arial"];
+    foundation [label="Foundation (IO Layer)
+(stable)
+StorageRead / FactCapable
+DualStorage / IoBuffer
+petgraph / SQLite / R2", fillcolor="#c8e6c9", fontname="Arial"];
+
+    scenarios -> orc [label="drives", color="#ff6f00", fontsize=9];
+    orc -> foundation [label="uses", color="#5588bb", fontsize=9];
+    foundation -> orc [label="pressures when
+capability missing", style=dashed, color="#5588bb", fontsize=8];
+    orc -> scenarios [label="validates via
+nexus-sim", style=dashed, color="#888888", fontsize=8];
+}
+""")
+```
+
+A concrete example: `exchange_fact()` (defined in [proof.qmd](proof.html)) is an orchestration-layer function. It uses `StorageRead` and `FactCapable` from the foundation. If nexus-sim proves that a caller can bypass `exchange_fact()` by calling `StorageRead::get()` directly through a public API, the fix is in the orchestration layer — the public API endpoint must only expose `exchange_fact()`, not the raw storage trait. The foundation remains untouched. Only if nexus-sim proves that `StorageRead` itself cannot enforce the required ordering (e.g., because it lacks CAS semantics that the exchange contract needs) would the foundation be modified.
+
+This three-layer validation pattern mirrors the `IoBuffer+StoreSession` architecture at a different scale: there, the foundation provides sync storage traits, the `IoBufferSession` overlay orchestrates hydration and flush, and the Worker request lifecycle (the consumption scenario) drives the entire cycle.
+
 ### nexus-core (graph-based FIH)
 
 The core is a Cargo workspace with a clean separation of interfaces and implementations. The monolithic `Storage` trait has been replaced by fine-grained capability traits. Each backend implements only the capabilities it provides.
@@ -764,6 +818,29 @@ For example, this is not "CF or AWS." It is "CF for what CF does best, AWS for w
 ## Nexus-SIM: Virtual Emulation Test Suite
 
 Every async I/O boundary (CF Workers KV, R2, Durable Object; ROS2 topic pub/sub; blockchain validators; distributed transaction coordinators; edge AI inference) can be emulated through the same `SessionExecute` trait. The virtual emulation test suite is not a convenience. It is the primary development surface. A backend that passes the nexus-sim test suite will work with any real binding that implements the same trait.
+
+nexus-sim sits between consumption scenarios and the foundation, proving that the orchestration layer enforces scenario requirements and that the foundation provides the capabilities the orchestration layer needs. This is the three-layer development model ([Development Model](#development-model-three-hard-layers)) in action: nexus-sim is the validation engine that closes the loop from scenario to orchestration to foundation.
+
+### Scenario-Driven Reverse Development
+
+nexus-sim inverts the conventional development flow. Instead of implementing a feature and then writing tests for it, the consumption scenario drives the entire stack:
+
+```text
+1. Define the consumption scenario (immutable domain Fact)
+   e.g., "Exchange contract: Fact cannot be read without prior write"
+2. Express as a nexus-sim test case
+   e.g., "Call exchange_fact() with empty data → expect rejection"
+3. Run against current orchestration layer
+   → FAIL (orchestration does not yet implement the rule)
+4. Update orchestration layer until test passes
+   → Implement exchange_fact() overlay that enforces write-before-read
+5. If orchestration cannot satisfy the scenario without a foundation change:
+   → Modify foundation (add CAS, add atomicity, etc.)
+6. Run all existing scenarios to confirm no regression
+7. Commit. The consumption scenario is now a permanent test.
+```
+
+nexus-sim's test suite is always ahead of the implementation. Every scenario that exists is either passing (orchestration is correct) or failing (orchestration needs work). There is no gap between what the system should guarantee and what the system is tested for.
 
 ### Architecture
 

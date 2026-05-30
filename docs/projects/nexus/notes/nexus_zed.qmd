@@ -45,10 +45,10 @@ A detailed analysis of ACP for the research-verification loop context is in
 ### neXus Principle: Peer, Not Orchestrator
 
 nexus-zed is a neXus instance, not an orchestrator. It translates between two surfaces:
-its ACP surface (talking to Zed) and its F-I-H surface (talking to the neXus blackboard):
+its ACP surface (talking to Zed) and its FIH surface (talking to the neXus blackboard):
 
 ```text
-ACP (JSON-RPC over stdio)  ←→  F-I-H blocks (neXus blackboard)
+ACP (JSON-RPC over stdio)  ←→  FIH blocks (neXus blackboard)
        ↑                                    ↑
     Zed editor                      neXus real-time daemon
 ```
@@ -161,7 +161,7 @@ decoded request, a responder channel, and the connection handle.
 
 ### Tool Call Lifecycle
 
-ACP tool calls have a lifecycle that nexus-zed maps to F-I-H Intent states:
+ACP tool calls have a lifecycle that nexus-zed maps to FIH Intent states:
 
 | ACP Tool Call Status | neXus Intent Status | Description |
 |---|---|---|
@@ -375,7 +375,7 @@ Tracked in neXus issue [#72](https://github.com/ssccsorg/nexus/issues/72).
   # Add to Zed settings, select "nexus-zed-dev" in agent panel
   ```
 
-### Phase 2: F-I-H blackboard connection
+### Phase 2: FIH blackboard connection
 
 - Implement `NexusTransport` trait with Unix socket:
 

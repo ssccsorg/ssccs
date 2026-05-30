@@ -1,0 +1,391 @@
+---
+title: "Proof by Structure"
+subtitle: "Atomic exchange, oracle resolution, and the self-verifying simulation loop"
+date: last-modified
+metadata-files:
+  - ../../_include/author.yml
+abstract: |
+  neXus is a permission-less ecosystem: anyone may fork the code, build a tool, and
+  participate. This openness creates a structural risk — participants who consume the
+  shared knowledge graph without contributing degrade the commons. This document
+  defines the exchange contract that makes freeloading physically impossible: accessing
+  a Fact on the Blackboard requires providing a Fact in return, enforced at the
+  function-call level. It also addresses the oracle problem — linking digital Facts to
+  physical reality — through execution-as-proof rather than social consensus, and
+  positions nexus-sim as the self-verifying loop that validates the entire system.
+---
+
+```{python}
+#| include: false
+#| context: local
+%run ../../_include/_graphviz.py
+```
+
+```{python}
+title_meta_items = {
+    "html": [
+        {"title": "Reference", "link": "./impl_init.html", "content": "Architecture", "icon": "bi bi-link"},
+        {"title": "Repository", "link": "https://github.com/ssccsorg/nexus", "content": "Github", "icon": "bi bi-link"},
+    ]
+}
+```
+
+{{< include ../../_include/_title_meta_items.qmd >}}
+
+## The Structural Risk
+
+neXus is a permission-less ecosystem. Anyone may fork the source, build a tool, register
+as a peer on the Blackboard, and participate. This openness is by design — the SSCCS
+model explicitly enables external parties to build commercial projects on its concepts and
+open-source tools.
+
+But there is a structural asymmetry: the Blackboard's value grows with every contributed
+Fact. A participant who reads without writing consumes this value without replenishing it.
+Over time, the commons degrades. In a permission-less system, there is no central authority
+to ban freeloaders.
+
+The conventional answer is reputation systems, access tokens, or governance voting. All
+depend on social consensus — a human judgment about who is "trustworthy." We require
+a structural answer: one where violation is impossible at the code level, before any
+social process can be invoked.
+
+### The Open Ecosystem Threat Model
+
+This openness creates three distinct threat vectors, each mapping to a FIH primitive
+that can be abused:
+
+| Threat | Description | FIH Exploit |
+|:---|:---|:---|
+| **Free-Riding** | Entity A queries the Blackboard for Entity B's verification results without contributing its own | Reading `Fact` without writing `Fact` |
+| **Data Poisoning** | Entity A injects deliberately falsified observations to degrade the knowledge graph | Writing invalid `Fact` |
+| **Governance Collapse** | Entity A exploits open `Intent` / `Hint` posting to overwhelm or misdirect the system | Spamming `Intent` / `Hint` |
+
+## The Exchange Contract
+
+### Principle: Read Requires Write
+
+The Blackboard exposes a single function for Fact access. It is not a query. It is an
+exchange.
+
+```text
+Exchange(session_token, query_spec) → Result<Vec<Fact>>
+│
+├── 1. query_spec.provided_data is committed as Fact(s) to the Blackboard
+├── 2. The write is confirmed (Fact ID returned)
+└── 3. Only then: search results are returned
+```
+
+The ordering is enforced by the function body. There is no branch, no fallback, no
+optional parameter that skips the write. A caller who provides empty data produces
+an empty Fact — valid, but valueless to them, and still costly (signing, storage,
+Merkle chain extension).
+
+```rust
+fn exchange_fact(query: &QueryIntent) -> Result<Vec<Fact>, Error> {
+    // Step 1: commit the requester's data — always first
+    self.commit(query.provided_data())?;
+    // Step 2: return search results — only after commit succeeds
+    self.search(query.search_terms())
+}
+```
+
+The order is non-negotiable. There is no separate read path. There is no way to
+query without first committing data. The function is the only entry point to the
+Blackboard's Fact store.
+
+### Why the Contract Targets Facts Only
+
+- **Fact**: Exchange contract applies. Facts are the Blackboard's only durable assets. Access requires contribution.
+- **Intent**: Exchange contract does not apply. Intents are exploration proposals. Permitting unrestricted Intent submission keeps the system active. An Intent with no value is simply unclaimed.
+- **Hint**: Exchange contract does not apply. Hints are derived patterns — products of previously exchanged Facts. Access is gated at the source, not at the derivative.
+
+This minimal scope — only Facts — keeps the system simple. Intents and Hints flow freely.
+Only the permanent record is gated.
+
+### Violation Is Structurally Impossible
+
+```{python}
+#| label: fig-exchange-flow
+#| fig-cap: "The exchange function: write must complete before read returns."
+dot("""
+digraph ExchangeFlow {
+    node [shape=box, style=filled, fontsize=9];
+
+    call [label="Caller invokes Exchange(query, provided_data)", fillcolor="#d4f1f9"];
+    write [label="Step 1: Commit provided_data as Fact\n(write to Blackboard, get Fact ID)", fillcolor="#ffe0b2"];
+    confirm [label="Step 2: Write confirmed\n(Fact ID returned, Merkle chain extended)", fillcolor="#c8e6c9"];
+    read [label="Step 3: Execute search over Blackboard\n→ return matching Facts", fillcolor="#d4f1f9"];
+    result [label="Result returned to Caller", fillcolor="#e8eaf6"];
+
+    call -> write [label="mandatory", color="#ff6f00"];
+    write -> confirm [label="mandatory", color="#ff6f00"];
+    confirm -> read [label="mandatory", color="#ff6f00"];
+    read -> result;
+}
+""")
+```
+
+Compare the two designs:
+
+| Design | Violation Possible? | Why |
+|--------|:---:|---|
+| Separate `read_fact(id)` and `write_fact(fact)` | Yes | Caller can call `read_fact` without ever calling `write_fact`. The compiler allows it. |
+| Single `exchange(query)` where write is first | No | There is no `read_fact`. Access is only through `exchange`. Write executes first, always. |
+
+### Game-Theoretic Effect
+
+The exchange contract restructures the commons. A participant who wants to read N Facts
+must contribute at least one Fact. The quality and relevance of that Fact determines
+the value of their contribution — low-value Facts are valid, but provide no competitive
+advantage over peers who contribute high-value Facts.
+
+This is not a social norm enforced by community pressure. It is a structural property
+enforced by the code. A peer that attempts to avoid contribution has no path to the
+Blackboard. There is no account to ban, no token to revoke, no vote to lose — there
+is simply no function they can call.
+
+## The Oracle Problem
+
+### The Industry's Unsolved Challenge
+
+Every blockchain project confronts the same fundamental problem: how to trust that
+off-chain data fed into an on-chain system is accurate. Whether the data represents
+a stock price, a sensor reading, or a property title, the entity that bridges the
+physical world and the digital record is a trust bottleneck.
+
+| Approach | Mechanism | Weakness |
+|----------|-----------|----------|
+| Chainlink (majority oracle) | Multiple nodes report; median is trusted | Assumes most nodes are honest — a social, not structural, guarantee |
+| TEE / enclave-based (Secret, Phala) | Hardware attests that computation was faithful | Trusts the hardware manufacturer; the sensor feeding TEE remains unverified |
+| ZK-based (RISC Zero, Succinct) | Cryptographic proof of computation correctness | Proves the *computation* but not the *input*; the data source is still trusted |
+
+Every approach ultimately relies on a trusted party at the boundary where physical
+reality meets digital record. The oracle problem is the unverified seam.
+
+### SSCCS Resolution: Execution as Proof
+
+neXus does not solve the oracle problem by finding a better oracle. It dissolves the
+problem by making the seam itself the proof.
+
+A Fact produced in neXus is not a statement about reality that requires verification.
+It is the cryptographic trace of an execution that has already occurred. The observer
+who performed the scan, the simulation, or the measurement signs the Fact with their
+key. This signature is not a claim of accuracy — it is an irreversible record of the
+act itself.
+
+```text
+Traditional oracle:  Trusted Source → Data → Smart Contract
+                                 ↑
+                          The seam: did the source lie?
+
+neXus oracle:         Observer executes → Signs Fact → Blackboard
+                            ↑
+                     The seam is the signature.
+                     No trust needed: the act is the record.
+```
+
+### Three Axes Linking Fact to Reality
+
+A single Fact embeds three orthogonal axes, removing the need for any external
+verification at the boundary:
+
+| Axis | Question | Fact Field | Proof |
+|------|----------|------------|-------|
+| **Space** | Where and when did this occur? | `content.geo`, `content.timestamp` | Physical impossibility: an observer cannot be in two places at once; the signature timestamps the observation |
+| **Ownership** | Whose asset does this concern? | `origin.asset_id` (on-chain ownership token) | Cryptographic: the asset token is a verifiable digital title; the Fact references it, linking observation to legal ownership |
+| **Execution** | Who produced this record? | `creator`, `pubkey`, `signature` | Cryptographic: the observer's private key produced the signature; non-repudiation is mathematically guaranteed |
+
+These axes are not external proofs attached to the Fact. They are embedded in the Fact
+structure itself. A Fact without a valid asset reference, without spatial coordinates,
+or without a verifiable signature cannot be committed — the `exchange` function rejects
+it before completion.
+
+### What This Does Not Require
+
+- No trusted oracle node
+- No majority consensus
+- No hardware enclave
+- No social reputation system
+
+The only requirement is that the observer signs their work. The signature creates a
+liability trace. An observer who signs false data has produced a permanent,
+cryptographically attributable record of their falsehood. This is not a trust
+guarantee — it is a deterrence guarantee.
+
+## nexus-sim: The Self-Verifying Loop
+
+### Why Simulation Matters
+
+The exchange contract and the oracle resolution are, at this stage, architectural
+claims. They are specified in code interfaces, not validated against adversarial
+scenarios. A participant determined to exploit the system will not respect
+architectural claims — they will test every boundary.
+
+nexus-sim exists to test every boundary before any adversary does.
+
+### Simulation Architecture
+
+| Component | Role |
+|:---|:---|
+| **Agent Model** | Each agent is parameterized with strategies: honest, free-rider, poisoner, spammer, Sybil |
+| **Exchange Function** | The `exchange_fact` implementation under test |
+| **Blackboard State** | Full FIH state machine tracked across all simulation steps |
+| **Scenario Generator** | Exhaustively enumerates all agent strategy combinations and interaction orders |
+
+### Exhaustive Scenario Generation
+
+nexus-sim takes the FIH specification — the contract, the exchange function, the
+Fact schema — and generates every structurally valid scenario:
+
+```{python}
+#| label: fig-nexus-sim
+#| fig-cap: "nexus-sim: test scenarios → deterministic execution → verified Facts"
+dot("""
+digraph NexusSim {
+    rankdir=TB;
+    node [shape=box, style=filled, fontsize=9];
+
+    spec [label="FIH Contract Specification\n(exchange function, Fact schema,\nIntent lifecycle, Hint constraints)", fillcolor="#fff9c4"];
+    gen [label="Scenario Generator\n(all valid + all borderline\n+ all violation attempts)", fillcolor="#d4f1f9"];
+    sim [label="Deterministic Simulation\n(each scenario executed\non Blackboard)", fillcolor="#ffe0b2"];
+    facts [label="Fact Graph\n(PASS/FAIL results as\nimmutable Facts)", fillcolor="#c8e6c9"];
+    proof [label="Verification Proof\n(all scenarios passed →\nimplementation verified)", fillcolor="#e8eaf6"];
+
+    spec -> gen;
+    gen -> sim [label="N scenarios"];
+    sim -> facts;
+    sim -> gen [label="new edge cases\ndiscovered", style=dashed, color="#888888"];
+    facts -> proof [label="aggregate"];
+    proof -> spec [label="contract validated", style=dotted, color="#558822"];
+}
+""")
+```
+
+| Scenario Class | Count | Purpose |
+|---|---|---|
+| Valid normal operation | Many | Confirms the exchange contract functions correctly |
+| Valid edge cases (empty data, large data, duplicate hashes) | Many | Confirms boundary handling |
+| Violation attempts (read without write, forged asset IDs, missing signatures) | All structurally possible | Confirms violation is impossible |
+
+### Attack Scenarios Under Test
+
+| Scenario | Strategy | Expected Outcome (Violation-Proof) |
+|:---|:---|:---|
+| **Direct Free-Riding** | Agent calls `read_fact()` — if such function existed | **Blocked**: No `read_fact` function exists in the API |
+| **Evasive Free-Riding** | Agent calls `exchange_fact()` with empty or null data | **Blocked**: Commit fails validation; no results returned |
+| **Falsified Contribution** | Agent provides synthetically invalid data to satisfy exchange | **Blocked**: Data fails structural validation (schema, signature) |
+| **Poison Injection** | Agent attempts to inject deliberately corrupted observation | **Blocked**: C2PA signature verification fails; `Fact` rejected |
+| **Intent Spam** | Agent floods the Blackboard with fake `Intent` blocks | **Tolerated**: `Intent` posting is open; `Hint` governance throttles spam |
+| **Replay Attack** | Agent replays a valid signed `Fact` from another entity | **Blocked**: `Fact` ID already committed; duplicate rejected by Merkle chain |
+| **Sybil Attack** | Agent creates multiple identities to circumvent contribution limits | **Rate-Limited**: `Exchange` requires computation (signing, Merkle extension), making mass Sybil economically infeasible |
+
+The output of each simulation run is a Fact. The collection of all simulation Facts
+forms a cryptographic proof: the implementation, executed across the entire scenario
+space, produced no violations.
+
+### Simulation Output
+
+After exhaustive simulation across all scenarios, nexus-sim produces:
+
+1. **Violation Matrix**: A complete enumeration of all attempted exploits and their outcomes
+2. **Proof Artifact**: A cryptographically signed C2PA manifest certifying that no scenario resulted in successful data extraction without valid contribution
+3. **Hint Generation**: New governance rules (`Hint`) derived from simulation patterns, applied to the live Blackboard
+
+### The Proof Is the Loop
+
+```text
+Specification → nexus-sim → Exhaustive Facts → Verification → Specification
+      ↑                                                          │
+      └────────────────── validated ─────────────────────────────┘
+```
+
+This is not a test suite that checks for regressions. It is a self-verifying loop
+where the test execution itself generates the proof. Every scenario that passes
+is a Fact attesting to a property of the implementation. The aggregate of all
+scenario Facts is a proof that the implementation satisfies the contract.
+
+When the specification changes, nexus-sim regenerates the scenario space and
+re-executes. The new Facts either confirm the changes or reveal violations.
+There is no separate verification phase — implementation and verification
+are the same loop.
+
+## Ecosystem Implications
+
+### Game-Theoretic Equilibrium
+
+nexus-sim proves that the atomic exchange mechanism converges to a cooperative
+equilibrium:
+
+- **Honest entities** gain access to the collective knowledge graph proportional to
+their contribution — the more verified observations deposited, the richer the queries
+- **Free-riding entities** achieve zero knowledge extraction — the mechanism structurally
+prevents reading without writing
+- **Malicious entities** are cryptographically excluded — C2PA signature verification
+ensures every committed `Fact` is traceable to an accountable creator
+- **The optimal strategy is cooperation** — the only path to accessing the Blackboard's
+knowledge is to contribute verified data
+
+This equilibrium holds not because entities are trustworthy, but because the
+mechanism makes trust unnecessary.
+
+### The Nautilus Principle
+
+The atomic exchange principle extends beyond the Blackboard. Every agent in the
+SSCCS ecosystem — verification engines, synthesis tools, editor interfaces, and
+future domain-specific tools — operates under the same structural constraint:
+**to receive knowledge, you must deposit knowledge.**
+
+The ecosystem does not negotiate with free-riders. It does not punish them. It
+makes their existence structurally impossible. The defense is not a barrier to
+be breached; it is a physical law to be obeyed.
+
+### Permission-less Entry, Contribution-Mandatory Access
+
+The SSCCS ecosystem is designed to be forkable. Anyone may:
+
+- Clone the neXus source
+- Build a commercial tool
+- Run their own Blackboard instance
+- Register as a peer
+
+But access to *this* Blackboard — the shared knowledge graph that compounds across
+all participants — requires contribution. The exchange contract enforces this at
+the structural level, not through a policy layer.
+
+### Why This Matters for Open Source
+
+Open-source projects traditionally face two existential risks:
+
+| Risk | Conventional Defense | neXus Defense |
+|------|---------------------|---------------|
+| **Freeloading** | License restrictions (AGPL, BSL), contributor agreements | Exchange contract: access requires contribution; no legal enforcement needed |
+| **Fragmentation** | Strong governance, BDFL model, foundation control | FIH graph is the integration surface; every instance contributes to and reads from the same graph |
+| **Quality degradation** | Code review, CI, maintainer burnout | nexus-sim: exhaustive scenario testing generates its own proof of correctness |
+
+The exchange contract converts the open-source risk of freeloading into a
+game-theoretic equilibrium. Contributing is not charitable — it is the only
+way to participate.
+
+### Status
+
+| Component | Status |
+|---|---|
+| Exchange contract specification | Draft (this document) |
+| `exchange()` function implementation | Future (requires `nexus-core` Phase 2) |
+| Fact schema with geo/asset/signature axes | Draft |
+| nexus-sim scenario generation | Future (issue #69) |
+| nexus-sim deterministic execution | Future |
+| nexus-sim proof aggregation | Future |
+
+The exchange contract and oracle resolution are architectural specifications.
+nexus-sim (#69) provides the implementation-verification loop that validates them.
+
+---
+
+### References
+
+- neXus issue [#69](https://github.com/ssccsorg/nexus/issues/69) — Nexus-SIM: virtual emulation test suite
+- neXus issue [#7](https://github.com/ssccsorg/nexus/issues/7) — FIH Blackboard core
+- neXus issue [#3](https://github.com/ssccsorg/nexus/issues/3) — Blackboard infrastructure
+- [neXus architecture and implementation roadmap](impl_init.html)
+- [ExaVerif project (verification engine as neXus instance)](../ev/index.html)

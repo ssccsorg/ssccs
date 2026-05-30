@@ -84,7 +84,7 @@ Zed's agent panel serves as the primary reference implementation for ACP in a pr
 - ACP transport is line-delimited JSON-RPC over stdio. The `AcpConnection::stdio()` method in `crates/agent_servers/src/acp.rs` spawns the binary, wraps stdout and stdin in bidirectional JSON-RPC streams.
 - The `AgentServer` trait (`crates/agent_servers/src/agent_servers.rs`) is the interface between Zed's UI and any agent. `CustomAgentServer` handles external binaries registered in settings.
 - The `AgentConnection` trait (`crates/acp_thread/src/connection.rs`) defines the session lifecycle: `new_session` to `prompt` to `cancel` to `close_session`.
-- Zed already handles streaming text, tool calls, file edits, terminal execution, git checkpoints, and sub-agent spawning. The bridge only translates between ACP and F-I-H; all complex flow control stays in Zed.
+- Zed already handles streaming text, tool calls, file edits, terminal execution, git checkpoints, and sub-agent spawning. The bridge only translates between ACP and FIH; all complex flow control stays in Zed.
 
 This confirms that ACP is a genuine process-level protocol, not an in-process API. Any ACP-compliant binary can serve as a neXus agent runtime.
 
@@ -220,7 +220,7 @@ via stdio-based ACP and produce a valid evidence packet.
 1. Implement a minimal ACP host that connects via subprocess with piped stdin/stdout
 2. Host sends session/initialize to session/configure with a search_kg tool definition
 3. Host dispatches a knowledge-graph query task
-4. Agent writes result to the F-I-H blackboard as a Fact with provenance metadata
+4. Agent writes result to the FIH blackboard as a Fact with provenance metadata
 5. neXus Verifier reads the Fact, computes support score
 
 **Success criteria:**
@@ -265,7 +265,7 @@ different LLM backends concurrently, each via independent stdio pipes.
    - Agent C: analysis (custom agent, compute-bound)
 2. The ACP host manages 3 concurrent JSON-RPC sessions
 3. Planner dispatches sub-tasks concurrently
-4. All agents write results to the F-I-H blackboard
+4. All agents write results to the FIH blackboard
 
 **Success criteria:**
 
