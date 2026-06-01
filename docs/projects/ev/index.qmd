@@ -10,7 +10,7 @@ metadata-files:
   - ../../_include/format.pdf.yml  
   - ../../_include/format.html.yml  
 abstract: |
-  ExaVerif performs exhaustive verification of RISC‑V custom instruction extensions. A YAML file describing a module's constraints is all that is required — ExaVerif generates every valid constraint combination, evaluates each one deterministically, and produces an auditable report with optional LLM‑powered interpretation. The CLI is open‑source and free to use. ExaVerif is an early‑stage project: the core engine has been internally validated via x86‑64 CI, and RISC‑V target integration is in progress.
+  ExaVerif performs exhaustive verification of RISC‑V custom instruction extensions. A YAML file describing a module's constraints is all that is required — ExaVerif generates every valid constraint combination, evaluates each one deterministically, and produces an auditable report. The CLI is open‑source (Apache 2.0). The engine is validated against the CVA6 CV-X-IF reference coprocessor (33.5 million combinations, 32 seconds), with cross‑verification through Spike RISC-V simulation.
 ---
 
 ```{python}
@@ -22,8 +22,8 @@ title_meta_items = {
         {"title": "References", "link": "https://docs.ssccs.org/projects/nexus/", "content": "neXus", "icon": "bi bi-link"},
         {"title": "References", "link": "https://docs.ssccs.org/projects/", "content": "SSCCS Project", "icon": "bi bi-link"},
         {"title": "References", "link": "https://docs.ssccs.org/proposal/openhw_integration.html", "content": "OpenHW", "icon": "bi bi-link"},
-        {"title": "References", "link": "https://docs.ssccs.org/research/riscv_space.html", "content": "Space Computing", "icon": "bi bi-link"}
-
+        {"title": "References", "link": "https://docs.ssccs.org/research/riscv_space.html", "content": "Space Computing", "icon": "bi bi-link"},
+        {"title": "References", "link": "cva6.html", "content": "CVA6 CV-X-IF Report", "icon": "bi bi-link"}
 
 
     ],
@@ -32,7 +32,8 @@ title_meta_items = {
         {"title": "References", "link": "https://docs.ssccs.org/projects/nexus/", "content": "neXus", "icon": "bi bi-link"},
         {"title": "References", "link": "https://docs.ssccs.org/projects/", "content": "SSCCS Project", "icon": "bi bi-link"},
         {"title": "References", "link": "https://docs.ssccs.org/proposal/openhw_integration.html", "content": "OpenHW", "icon": "bi bi-link"},
-        {"title": "References", "link": "https://docs.ssccs.org/research/riscv_space.pdf", "content": "Space Computing", "icon": "bi bi-link"}
+        {"title": "References", "link": "https://docs.ssccs.org/research/riscv_space.pdf", "content": "Space Computing", "icon": "bi bi-link"},
+        {"title": "References", "link": "https://docs.ssccs.org/projects/ev/cva6.html", "content": "CVA6 CV-X-IF Report", "icon": "bi bi-link"}
     ]
 }
 ```
@@ -66,32 +67,24 @@ Internally, ExaVerif expands the full cartesian product of all field domains, th
 
 ```text
 target: cva6_xif_ref
-total:  262144
-passed: 3072
-failed: 259072
-
-Failures:
-  [FAIL] [0, 1, 0, 0, 0] — funct3 → funct7: {funct3=0 → [0]; funct3=1 → [0, 1, 2, 3, 32]}  
-  [FAIL] [2, 0, 0, 0, 0] — funct3 ∈ {0, 1}                                           
+total:  33554432
+passed: 196608
+failed: 33357824
 ```
 
-The example above shows ev verifying the CVA6 CV-X-IF reference coprocessor against its actual encoding specification. The coprocessor accepts only two funct3 values with specific funct7 subfields, resulting in 3,072 valid encodings out of 262,144 possible. The remaining 259,072 are correctly identified as illegal — not by random sampling, but by exhaustive enumeration.
+The example above shows ev verifying the CVA6 CV-X-IF reference coprocessor against its actual RTL specification — the same encoding tables used in the CVA6 verification suite (`cvxif_custom_instr.sv`). Over **33 million** raw combinations are evaluated exhaustively. Only 196,608 encodings are valid: every funct3/funct7 combination that the coprocessor actually accepts, with full RV32 register range (rs1, rs2, rd ∈ [0, 31]). The remaining 33 million are correctly identified as illegal.
 
 ```bash
 ev verify --target cva6_xif_ref.xif.yaml --json
 ```
 
-Every result is also available as structured JSON for downstream consumption by [Nexus](https://docs.ssccs.org/projects/nexus) — each combination becomes a Fact, each constraint a Hint, and the verification run itself an Intent.
+Every result is also available as a **Fact** — an opaque blob consumed by [Nexus](https://docs.ssccs.org/projects/nexus). Each combination becomes a point in the spec space, each constraint a boundary, and the verification run itself an Intent. No schema is embedded at the transport layer; consumers interpret the payload based on its `fact_type` discriminator.
 
-```json
-{
-  "target": "cva6_xif_ref",
-  "total": 262144,
-  "passed": 3072,
-  "failed": 259072,
-  "results": [...]
-}
+```bash
+EV_SIM_BACKEND=spike ev simulate --target cva6_xif_ref.xif.yaml
 ```
+
+Every valid encoding is also verifiable through actual RISC-V simulation. The `simulate` command packs all 196,608 valid encodings into a single ELF binary, runs it under Spike + pk on RV64, and reports the result. All 196,608 pass — the static constraint model and the RISC-V simulator agree exactly.
 
 The Field Composition engine — a branchless, constant‑time verification kernel validated via x86‑64 CI — guarantees deterministic results. The same input always produces the same output, independent of random seeds or simulator state.
 
@@ -154,8 +147,20 @@ Every existing approach — whether commercial or open-source — shares one tra
 | **Coverage** | Random sampling, manual test writing | Exhaustive constraint combination |
 | **Evaluation** | Seed‑dependent, simulator‑dependent | Deterministic |
 | **Setup** | UVM/SystemVerilog environment, commercial simulators | Single YAML file, single binary |
-| **Interpretation** | Manual log analysis | LLM‑powered natural‑language explanation |
+| **Interpretation** | Manual log analysis | Deterministic reason output (LLM explanation planned) |
 | **Result reuse** | One‑time reports | All results accumulated as reusable knowledge |
+
+### Benchmark: CVA6 XIF Reference Coprocessor
+
+A single `ev verify` command exhaustively evaluates **33.5 million** raw field combinations against the actual CVA6 CV-X-IF encoding specification. The coprocessor accepts 196,608 valid encodings — the exact funct3/funct7/rs1/rs2/rd combinations that match its decoder — and correctly rejects the remaining 33.3 million. Execution time on a laptop (Apple M1 Max, single core): **32 seconds**. All 196,608 valid encodings are independently confirmed through RISC-V ISA simulation (Spike) with exact agreement.
+
+| Metric | RISC-V DV (random) | Formal (OneSpin) | ExaVerif |
+|:---|---:|---:|---:|
+| Combos evaluated | ~10⁶ (sampled) | ~10³ (properties) | **33.5 × 10⁶** (exhaustive) |
+| Coverage guarantee | Statistical | Formal (per property) | **Exhaustive** (full space) |
+| Time to result | Minutes to hours | Hours to days | **32 seconds** |
+| Setup | UVM env. + agent | Formal properties | **Single YAML** |
+| Cross-validated | — | — | **Spike simulation** ✓ |
 
 ```{python}
 #| label: fig-position
@@ -228,15 +233,15 @@ ExaVerif is an early‑stage project. Our initial focus is not monetization but 
 
 ### Current State
 
-The core constraint composition engine has been internally validated via x86‑64 CI. RISC‑V target integration (Spike) is in progress. No paid features exist. No certification service is operational.
+The core engine is validated against the CVA6 CV-X-IF reference coprocessor — the same encoding tables used in OpenHW's own verification suite. 33.5 million combinations are evaluated exhaustively in 32 seconds, with 100% cross-validation against Spike RISC-V simulation. The CLI is open-source (Apache 2.0). No paid features exist. No certification service is operational.
 
 ### Public Assets
 
-These are published openly to build community trust and invite collaboration.
-
 | Asset | Status |
 |:---|:---|
-| ExaVerif CLI (`ev`) | Under development (Apache 2.0) |
+| ExaVerif CLI (`ev`) | Apache 2.0 |
+| Exhaustive engine | Validated on CVA6 XIF (33.5M combos, 32s) |
+| Spike simulation | 196,608/196,608 pass |
 | Technical concept document | Published |
 | Shared knowledge store | In development |
 

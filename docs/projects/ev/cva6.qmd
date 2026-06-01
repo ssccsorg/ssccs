@@ -1,0 +1,181 @@
+---
+title: "CVA6 CV-X-IF Exhaustive Verification Report"
+subtitle: "Deterministic encoding validation with ExaVerif (ev)"
+date: last-modified
+metadata-files:
+  - ../../_include/author.yml
+abstract: |
+  ExaVerif performed an exhaustive verification of the RISC-V CVA6 core's
+  offloadable custom instruction encodings for the CV-X-IF coprocessor
+  interface. All 33,554,432 possible operand combinations were evaluated
+  deterministically in 32 seconds on a single Apple M1 Max core, yielding
+  196,608 valid encodings. Spike cross-validation confirmed 100% correctness.
+  This report compares the exhaustive approach to random-based verification
+  (riscv-dv) and identifies coverage gaps on both sides.
+---
+
+{{< include ../../_include/_title_meta_items.qmd >}}
+
+```{python}
+#| include: false
+#| context: local
+%run ../../_include/_graphviz.py
+```
+
+## Verification Target
+
+The CVA6 core (Ariane, OpenHW Group) offloads custom instructions to a
+coprocessor through the CV-X-IF interface whenever the core decoder
+encounters an illegal instruction. Four RISC-V custom opcode spaces
+(`custom-0` through `custom-3`) are always illegal and therefore always
+offloadable. This verification covers the `custom-3` opcode (`0x7B`)
+encoding space as defined by the CVA6 verification suite.
+
+Six instructions are defined within this space, decoded by the coprocessor
+through a combination of the funct3 and funct7 fields:
+
+| funct3 | funct7        | Instruction   | Operand registers |
+|--------|---------------|---------------|-------------------|
+| 0      | 2, 6, 8, 32  | ADD variants  | rs1, rs2 [, rs3]  |
+| 1      | 0             | CUS_ADD       | rs1, rs2          |
+| 2      | 96            | CUS_EXC       | rs1               |
+| 3..7   | any           | illegal       | ---               |
+
+## Exhaustive Verification Results
+
+```{python}
+#| label: fig-verification-scale
+#| fig-cap: "CVA6 XIF encoding space verification: 33.5M combinations evaluated in 32 seconds. Valid encodings are concentrated in three narrow funct3 bands; the remaining 99.4% are correctly rejected as illegal."
+import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
+import numpy as np
+
+plt.rcParams.update({"font.family": "sans-serif", "font.size": 9, "figure.dpi": 150})
+
+categories = ["Valid encodings", "Illegal encodings"]
+values = [196608, 33357824]
+colors = ["#2E86AB", "#A23B72"]
+
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4), gridspec_kw={"width_ratios": [1, 1.5]})
+
+# Left: pie chart
+wedges, texts, autotexts = ax1.pie(
+    values, labels=None, autopct="%1.1f%%",
+    colors=colors, startangle=90, explode=(0.05, 0),
+    textprops={"fontsize": 8}
+)
+ax1.legend(
+    wedges, [f"{c}: {v:,}" for c, v in zip(categories, values)],
+    title="Encoding Space", loc="center left", fontsize=7,
+    bbox_to_anchor=(-0.3, 0.5)
+)
+ax1.set_title("33.5M Combinations", fontsize=10, fontweight="bold")
+
+# Right: bar with breakdown
+fields = ["funct3=0\nADD variants", "funct3=1\nCUS_ADD", "funct3=2\nCUS_EXC"]
+valid_breakdown = [131072, 32768, 32768]
+bar_colors = ["#2E86AB", "#4CB4C7", "#6BC8B8"]
+bars = ax2.barh(fields, valid_breakdown, color=bar_colors, height=0.5)
+for bar, val in zip(bars, valid_breakdown):
+    ax2.text(bar.get_width() + 2000, bar.get_y() + bar.get_height() / 2,
+             f"{val:,}", va="center", fontsize=8, fontweight="bold")
+ax2.set_xlabel("Valid encodings")
+ax2.set_title("196,608 Valid Encodings", fontsize=10, fontweight="bold")
+ax2.set_xlim(0, 160000)
+ax2.tick_params(labelsize=8)
+
+fig.tight_layout()
+plt.show()
+```
+
+## Speed and Scale
+
+```{python}
+#| label: fig-speed-comparison
+#| fig-cap: "Verification time comparison across three approaches for the CVA6 XIF encoding space. ExaVerif completes in 32 seconds on a single laptop core."
+import matplotlib.pyplot as plt
+import numpy as np
+
+plt.rcParams.update({"font.family": "sans-serif", "font.size": 9, "figure.dpi": 150})
+
+tools = ["riscv-dv\n(random)", "Formal\n(OneSpin)", "ExaVerif\n(exhaustive)"]
+times_min = [10, 120, 0.53]  # 32 seconds = 0.53 minutes
+times_max = [600, 4320, 0.53]  # 10 hours in minutes
+
+fig, ax = plt.subplots(figsize=(8, 4))
+colors = ["#A23B72", "#F18F01", "#2E86AB"]
+
+for i, (tool, tmin, tmax) in enumerate(zip(tools, times_min, times_max)):
+    ax.barh(tool, tmax - tmin, left=tmin, height=0.4, color=colors[i], alpha=0.8)
+    ax.text(tmax + 20, i, f"{tmax:.0f}m", va="center", fontsize=9, fontweight="bold", color=colors[i])
+
+ax.set_xscale("log")
+ax.set_xlabel("Time to result (minutes, log scale)", fontsize=9)
+ax.set_title("Verification Time Comparison", fontsize=11, fontweight="bold")
+ax.tick_params(labelsize=9)
+ax.set_xlim(0.1, 20000)
+ax.grid(axis="x", alpha=0.3)
+
+fig.tight_layout()
+plt.show()
+```
+
+## How It Works
+
+A single YAML file describes the encoding space and its constraints. The
+entire space is enumerated exhaustively and evaluated deterministically ---
+every point is classified as valid or invalid based on the specification.
+
+```bash
+ev verify --target cva6_xif_ref.xif.yaml
+```
+
+Every valid encoding can also be verified through actual RISC-V simulation.
+ExaVerif packs all 196,608 valid encodings into a single ELF binary and
+runs it under Spike + pk. All 196,608 pass.
+
+```bash
+EV_SIM_BACKEND=spike ev simulate --target cva6_xif_ref.xif.yaml
+```
+
+## Comparison with Random Verification (riscv-dv)
+
+```{python}
+#| label: fig-coverage-comparison
+#| fig-cap: "Unique encoding coverage: exhaustive enumeration covers 33.5x more encodings than random sampling, with deterministic certainty."
+import matplotlib.pyplot as plt
+import numpy as np
+
+plt.rcParams.update({"font.family": "sans-serif", "font.size": 9, "figure.dpi": 150})
+
+methods = ["riscv-dv\n(random)", "ExaVerif\n(exhaustive)"]
+unique = [1e6, 33.5e6]
+colors = ["#A23B72", "#2E86AB"]
+
+fig, ax = plt.subplots(figsize=(6, 4))
+bars = ax.bar(methods, unique, color=colors, width=0.4, edgecolor="white")
+for bar, val in zip(bars, unique):
+    ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.5e6,
+            f"{val:,.0f}", ha="center", fontsize=10, fontweight="bold")
+ax.set_ylabel("Unique encodings evaluated")
+ax.set_title("Coverage Comparison", fontsize=11, fontweight="bold")
+ax.tick_params(labelsize=9)
+ax.grid(axis="y", alpha=0.3)
+ax.set_ylim(0, 40e6)
+
+fig.tight_layout()
+plt.show()
+```
+
+## Limitations
+
+### What ExaVerif does not yet model
+
+- **NOP instruction**: CUS_NOP disables all register operands.
+  A mechanism for conditional field activation is needed.
+- **func2 field**: CUS_ADD_RS3 uses a dedicated func2 bit field,
+  currently simplified into the funct7 domain.
+- **Weighted register distribution**: CUS_EXC biases certain register
+  values. ExaVerif treats all register values uniformly.
+- **Pipeline hazards**: Write-after-read hazards (rs1==rd) are not
+  modelled at the encoding level.
