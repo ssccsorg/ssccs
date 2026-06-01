@@ -5,7 +5,7 @@ date: last-modified
 metadata-files:
   - ../../_include/author.yml
 abstract: |
-  neXus implements the FIH (Fact / Intent / Hint) Blackboard paradigm. GraphBlackboard (nexus-core) uses a DualStorage composition of hot (PetgraphStorage, in-memory graph) and cold (SqlNormalizedStorage, SQLite-backed capability) backends, with Cypher queries and platform bindings for Cloudflare Workers, native servers, and (as a placeholder) blockchain targets. The Blackboard is a shared graph that every module reads from and writes to through a single interface. The core is assembled from production-grade crates (petgraph, rusqlite, cyrs, ndarray) with minimal glue. Storage backends implement fine-grained capability traits instead of a monolithic Storage interface.
+  neXus implements the FIH (Fact / Intent / Hint) Blackboard paradigm. The core uses a DualStorage composition of hot (PetgraphStorage, in-memory graph) and cold (DuckDB or CompositeColdStorage, Parquet-backed) backends, with Cypher queries and platform bindings for Cloudflare Workers, native servers, and (as a placeholder) blockchain targets. The Blackboard is a shared graph that every module reads from and writes to through a single interface. The core is assembled from production-grade crates (petgraph, cyrs, duckdb, ndarray) with minimal glue. Storage backends implement fine-grained capability traits instead of a monolithic Storage interface.
 ---
 
 ```{python}
@@ -28,9 +28,9 @@ title_meta_items = {
 
 ## Executive Summary
 
-neXus is a modular research infrastructure built on the FIH Blackboard paradigm. Every module reads from and writes to a shared graph through exactly three primitives: Fact (validated result), Intent (exploration direction), and Hint (governance rule). There is no fixed pipeline and no direct module-to-module communication. The proven lifecycle — submit → claim → heartbeat → conclude — governs all interaction.
+neXus is a modular research infrastructure built on the FIH Blackboard paradigm. Every module reads from and writes to a shared graph through exactly three primitives: Fact (validated result), Intent (exploration direction), and Hint (governance rule). There is no fixed pipeline and no direct module-to-module communication. The proven lifecycle — submit, claim, heartbeat, conclude — governs all interaction.
 
-neXus models a self-describing paradigm: the Blackboard is the Scheme, Intents and Hints are the Field, and the act of reading, computing, and writing back is the Observation. GraphBlackboard compiles to WASM (edge) and native (server) from a single codebase assembled from production-grade crates (petgraph, rusqlite, cyrs, ndarray). Contract.nex is the single governance surface.
+neXus models a self-describing paradigm: the Blackboard is the Scheme, Intents and Hints are the Field, and the act of reading, computing, and writing back is the Observation. The core compiles to WASM (edge) and native (server) from a single codebase assembled from production-grade crates (petgraph, cyrs, duckdb, ndarray). Contract.nex is the single governance surface.
 
 ### Unified Architecture
 
@@ -355,7 +355,9 @@ Aggregate trait aliases:
 
 - `FihPersistence = FactCapable + IntentCapable + HintCapable`
 - `HotStorage = FihPersistence + EvictCapable`
-- `ColdStorage = FihPersistence + FilterCapable + ScanCapable + TimeRangeCapable + FlushCapable + EvictCapable + CypherCapable`
+- `ColdStorage = FihPersistence + FilterCapable + ScanCapable + TimeRangeCapable + FlushCapable + EvictCapable`
+
+`CypherCapable` (`QueryCapable`) is no longer part of `ColdStorage`, because the query interface is independent of storage. `DuckDbStorage` implements `QueryCapable` directly; `CompositeColdStorage` does not.
 
 `DualStorage` composes a hot and cold backend:
 
@@ -405,13 +407,12 @@ digraph CommitChannel {
 
 Crate structure:
 
-- `core/model/` — `Blackboard` trait (public, stable): the FIH lifecycle interface plus capability traits, `DualStorage`, and detection traits (`DetectionCapable`, `GapDetection`, `ContradictionDetection`, `StateChangeDetection`).
-- `core/graph/` — `GraphBlackboard`: the single `Blackboard` implementation backed by `DualStorage`, plus Cypher executor.
-- `core/process/` — OODA loop runtime: `Scheduler`, `Eviction`, and stigmergy task handlers (`GapDetector`, `ContradictionDetector`, `StateChangeDetector`, `NewDocumentAnalyzer`).
-- `core/storage/sqlite/` — `SqlNormalizedStorage` and `SqliteStorage` (legacy).
-- `core/storage/petgraph/` — `PetgraphStorage`: in-memory hot storage with snapshot support.
-- `core/storage/duckdb/` — `DuckDbStorage`: cold Parquet read-only storage (in `ext/` workspace for separate build configuration).
-- `core/storage/composite/` — `CompositeColdStorage`, `IoBufferKv`, `IoBufferBlob`, `IoBufferObject`, `IoBufferSession`, `SessionServer`, `KeyValueStore`/`BlobStore`/`ObjectStore` traits, `Now` trait and `SystemClock` implementation.
+- `model/` — `Blackboard` trait (public, stable): the FIH lifecycle interface plus capability traits, `DualStorage`, `GraphRead`/`GraphWrite`, `BlobStore`/`MetaStore`/`ObjectStore` traits, `Now`/`SystemClock`, and detection traits (`DetectionCapable`, `GapDetection`, `ContradictionDetection`, `StateChangeDetection`).
+- `interface/query/` — `ColdQuery`, `ColdFilter`, `ColdOrder`, `AggregateDef`, `QueryCapable` trait. Backend-agnostic tabular query specification.
+- `interface/cypher/` — Cypher parser, plan, and petgraph executor. Translates Cypher to `ColdQuery` for cold routing. Depends on `interface/query`.
+- `nexus/` — `DefaultBlackboard`: the single `Blackboard` implementation backed by `DualStorage`, plus `PetgraphStorage`, `CompositeColdStorage`, OODA scheduler, and all detectors. (Consolidated from former `core/graph/`, `core/process/`, `core/storage/petgraph/`, `core/storage/composite/`.)
+- `storage/duckdb/` — `DuckDbStorage`: cold Parquet storage with `DuckDbQueryExt` for DuckDB-specific features (CTE, window functions, JSON, vector search). Implements `QueryCapable`.
+- `storage/ve-composite/` — axum-based HTTP server exposing `BlobStore`/`MetaStore`/`ObjectStore` endpoints for session-backed composite storage.
 
 ### Cypher Translation
 
@@ -473,7 +474,7 @@ R2 (bucket: ssccs-nexus-af) is the single source of truth. The af-sync worker pe
 |---|---|---|
 | af-sync | R2 artifact sync → RAG engines | HTTP, writes Facts to RAG Blackboard |
 
-The gap-detector and other analysis modules have been migrated to Rust in the process layer (`core/process/`), where they run as in-process `DetectionCapable` implementations composed by the Scheduler. The TypeScript layer retains only the sync worker for R2 artifact ingestion.
+The gap-detector and other analysis modules have been migrated to Rust in the `nexus` crate, where they run as in-process `DetectionCapable` implementations composed by the Scheduler. The TypeScript layer retains only the sync worker for R2 artifact ingestion.
 
 ### Module Communication: Stigmergy Through the Blackboard
 
@@ -637,7 +638,7 @@ A key architectural insight is that a unified query IR decouples input languages
 
 The Blackboard architecture is validated by proven stigmergic search: a minimal OODA loop that reads from and writes to a shared blackboard of Fact, Intent, and Hint primitives.
 
-The stigmergy layer is now implemented in `core/process/`. The Scheduler drives the OODA loop, calling detectors every tick. Detectors (Gap, Contradiction, State Change, New Document) observe the Fact graph and record patterns as Facts. Agents read these detector Facts and create Intents. The ReasonCheckpoint pattern — simple count-based state change detection — is built into `StateChangeDetector`. All detectors implement the `DetectionCapable` trait hierarchy, which mirrors the storage capability trait architecture.
+The stigmergy layer is implemented in the `nexus` crate. The Scheduler drives the OODA loop, calling detectors every tick. Detectors (Gap, Contradiction, State Change, New Document) observe the Fact graph and record patterns as Facts. Agents read these detector Facts and create Intents. The ReasonCheckpoint pattern — simple count-based state change detection — is built into `StateChangeDetector`. All detectors implement the `DetectionCapable` trait hierarchy, which mirrors the storage capability trait architecture.
 
 Beyond the current implementation, future research layers will attach to the same Blackboard through the same interface:
 
@@ -669,31 +670,32 @@ This applies to any domain. Business simulation: Fact = market data, Intent = st
 
 | Component | Status |
 |---|---|
-| af-sync worker (R2 → engines) | Deployed |
+| af-sync worker (R2 to engines) | Deployed |
 | RAG engines (LightRAG) | Reference implementation; sync pipeline active |
 | CI/CD (deploy.yml, build.yml) | Deployed |
-| GraphBlackboard (DualStorage: hot + cold) | Phase 1 complete: Blackboard trait, FIH lifecycle, Cypher executor |
-| SqlNormalizedStorage (ColdStorage) | Capability-based persistence (FihPersistence + FilterCapable) |
-| PetgraphStorage (HotStorage) | In-memory graph backend (FihPersistence + EvictCapable) |
+| `model/` crate | `Blackboard` trait, FIH lifecycle, capability traits, `DualStorage`, `GraphRead`/`GraphWrite`, blob/meta/object store traits, `Now`/`SystemClock` |
+| `interface/query/` crate | `ColdQuery`, `QueryCapable` — backend-agnostic tabular query interface |
+| `interface/cypher/` crate | Cypher parser, plan, hot/cold executor |
+| `nexus/` crate | `DefaultBlackboard` (single crate: `PetgraphStorage` + `CompositeColdStorage` + OODA scheduler + all detectors) |
+| `storage/duckdb/` crate | `DuckDbStorage` with `DuckDbQueryExt` (CTE, window, JSON, vector search) |
+| PetgraphStorage (hot) | In-memory graph backend (`FactCapable` + `IntentCapable` + `HintCapable` + `EvictCapable`) |
+| CompositeColdStorage | Blob + Object + Meta store for durable persistence |
 | Blackboard trait | submit/claim/heartbeat/release/conclude lifecycle |
-| Storage capability traits | StorageRead, FactCapable, IntentCapable, HintCapable, FilterCapable, ScanCapable, EvictCapable, FlushCapable, TimeRangeCapable |
+| Storage capability traits | `StorageRead`, `FactCapable`, `IntentCapable`, `HintCapable`, `FilterCapable`, `ScanCapable`, `EvictCapable`, `FlushCapable`, `TimeRangeCapable` |
 | DualStorage | Dual-write hot + cold composition |
 | Scheduler (OODA loop) | Tick-based polling, heartbeat TTL, eviction trigger, stale intent cleanup |
-| Gap Detector | Rust: origin-based + cross-origin topic gap detection, emits Facts |
-| Contradiction Detector | Rust: same-topic/different-position contradiction detection, emits Facts |
-| State Change Detector | Rust: ReasonCheckpoint pattern, count-based, snapshot-safe |
-| New Document Analyzer | Rust: +factor/-factor/gap analysis with baseline pre-seeding |
-| Detection capability traits | DetectionCapable, GapDetection, ContradictionDetection, StateChangeDetection — mirrors storage trait architecture |
-| Cypher translator | cyrs pipeline integrated, dual-path executor |
-| Scenario tests | 21 tests across 5 test files: lifecycle, foundational consistency, real-world workflows, cross-worker persistence |
-| Agentic loop | FIH lifecycle complete (detector→Fact→agent→Intent→conclude), OODA scheduler operational |
-| Detector state persistence | task_states in StorageSnapshot, cross-worker checkpoint continuity |
+| Gap Detector | Rust: origin-based + cross-origin topic gap detection |
+| Contradiction Detector | Rust: same-topic/different-position contradiction detection |
+| State Change Detector | Rust: ReasonCheckpoint pattern, snapshot-safe |
+| New Document Analyzer | Rust: plus-factor/minus-factor/gap analysis |
+| Detection capability traits | `DetectionCapable`, `GapDetection`, `ContradictionDetection`, `StateChangeDetection` |
+| Cypher translator | cyrs pipeline integrated, dual-path executor, `Plan.to_cold_query()` routing |
+| Scenario tests | 260 tests across 17 test files |
+| Agentic loop | FIH lifecycle complete (detector to Fact to agent to Intent to conclude) |
+| CQRS commit channel | Implemented: cursor-based flush boundary, `read_cursor()` API |
+| IoBufferKv / IoBufferBlob / IoBufferObject | In-memory stores for `MetaStore`/`BlobStore`/`ObjectStore` |
+| SessionServer / SessionHandle | Generic serialized queue for async I/O emulation |
 | On-chain DeSci | Placeholder |
-| IoBufferKv / IoBufferBlob / IoBufferObject (pure in-memory HashMap stores) | Implemented: 50 tests, 0 failures |
-| IoBufferSession (concrete SessionExecute) | Implemented |
-| SessionServer / SessionHandle (generic serialized queue) | Implemented |
-| SessionExecute capability trait | Implemented |
-| CQRS commit channel (flush_since output isolation) | In Progress (PR #66) |
 
 ## Edge-to-Cloud Portability & AWS Integration
 
