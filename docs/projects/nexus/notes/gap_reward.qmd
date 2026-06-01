@@ -1,0 +1,199 @@
+---
+title: "Gap-Based Reward System"
+subtitle: "Incentive Design for Contract-Governed Knowledge Graphs"
+date: last-modified
+metadata-files:
+  - ../../../_include/author.yml
+abstract: |
+  The reward system evaluates contributions by the **potential** they unlock rather than the volume of Facts they produce. A gap is a topological absence in the FIH graph — a path between two Facts that lacks intermediate nodes. The deeper the gap, the more discovery potential it carries. Rewards are computed from pure graph distance metrics with no NLP or AI inference, making the system objectively verifiable and resistant to abuse.
+---
+
+{{< include ../../../_include/_title_meta_items.qmd >}}
+
+```{python}
+#| include: false
+#| context: local
+%run ../../../_include/_graphviz.py
+```
+
+## Principle
+
+The conventional approach rewards **quantity** — how many Facts (papers, claims, findings) an agent contributes. This creates an abuse surface: spam Facts, trivial repetitions, and surface-level contributions dominate the graph while deep structural gaps remain unexplored.
+
+The gap-based reward system inverts this. It rewards the **discovery of potential** — the identification of unexplored structural gaps between existing Facts. A gap is not a deficiency. It is a secured region of the future: a space where no one has yet placed a Fact, and therefore where discovery can happen.
+
+This is the economic encoding of "stay hungry, stay foolish." The reward flows to those who find where the hunger is, not to those who claim to have eaten.
+
+## Gap as a Topological Metric
+
+A gap in the FIH graph is **the absence of a path of length ≤ k** between two Facts. It is computed from pure graph topology.
+
+### Gap Depth
+
+The depth of a gap between Fact A and Fact B is the number of intermediate nodes required to connect them via the shortest undiscovered path.
+
+```text
+has_path(A, B) == false  →  gap exists
+shortest_path*(A, B) = k →  gap depth = k (intermediate nodes needed)
+```
+
+A gap of depth 1 means the two Facts are adjacent but unconnected — a direct link is missing. A gap of depth 4 means a chain of four intermediate discoveries is needed. Deeper gaps carry higher reward because they open larger exploration territories.
+
+### Gap Width
+
+The width of a gap is the number of additional Fact pairs that would become connected if this gap were filled.
+
+```text
+subgraph_reachable(gap_filled) - subgraph_reachable(gap_empty) = width
+```
+
+A gap that connects two previously isolated subgraphs has high width. A gap between already-dense clusters has low width.
+
+### Gap Abuse Detection
+
+The system automatically penalizes fraudulent submissions using graph invariants:
+
+| Abuse Type | Detection | Penalty |
+|---|---|---|
+| **\u2212gap** (claiming an existing path is a gap) | `has_path(A, B) == true` | Stake slash + reward reversal |
+| **0-gap** (claiming adjacent Facts are a gap) | `are_adjacent(A, B) == true` | Reward zeroed + partial stake slash |
+| **Shallow spam** (many low-depth gaps) | `depth < threshold` | Reward dilution, diminishing returns |
+
+All detection requires only standard graph algorithms: BFS, `shortest_path`, `has_path`, `neighbors`. No NLP, no AI inference, no human review.
+
+## Reward Function
+
+```text
+reward(gap) = w_depth × f(depth) + w_width × g(width) - penalty
+```
+
+Where:
+
+- `f(depth)` is concave (logarithmic): deep gaps get more reward, but with diminishing returns to prevent infinite-depth gaming
+- `g(width)` is linear: wider gaps get proportionally more reward
+- `w_depth` \u226b `w_width`: depth dominates width (a single deep gap is worth more than many wide but shallow gaps)
+- `penalty` includes stake slashing for -gap and 0-gap submissions
+
+### Example Weights
+
+| Depth | Width | Reward |
+|---|---|---|
+| 1 | 3 | Low — shallow, limited impact |
+| 4 | 7 | High — deep structural gap opening many connections |
+| 10 | 2 | Very high — exceptionally deep (rare), even with low width |
+| 1 | 100 | Moderate — shallow but extremely wide |
+
+## Contract Integration
+
+The reward function is defined in `contract.nex` as a declarative specification:
+
+```text
+reward {
+    gap_depth {
+        weight: 0.7
+        decay: "logarithmic"
+        min_threshold: 1
+    }
+    gap_width {
+        weight: 0.3
+        decay: "linear"
+    }
+    penalty {
+        minus_gap: "stake_slash_50_percent"
+        zero_gap: "stake_slash_25_percent"
+        spam_decay: "diminishing_returns"
+    }
+}
+```
+
+The contract is machine-readable, independently verifiable, and evolvable without code changes to `nex`.
+
+## Organic Difficulty Adjustment
+
+The reward system has no preset halving schedule, no central bank, and no inflation target. Its monetary policy is **purely topological**: as the graph densifies, gaps become structurally harder to find, and rewards naturally decline.
+
+| Phase | Graph State | Gap Characteristics | Reward Level |
+|---|---|---|---|
+| **Early** | Sparse, many isolated Facts | Abundant shallow gaps, easy to discover | High. Incentivizes early participation |
+| **Growth** | Subgraphs connect, density increases | Shallow gaps mined out. Only deep structural gaps remain | Moderate. Depth weight dominates |
+| **Mature** | Large connected graph | Gaps extremely rare, exceptionally deep | Low. A single deep gap is a major event |
+| **Late** | Near-complete graph | Genuine discovery rare. Most submissions are fraudulent | Near-zero. Abuse detection triggers penalties |
+
+This is **organic deflation** — not enforced by a monetary committee, but emergent from the graph's own density. Unlike Bitcoin's artificial halving (which preserves mining difficulty while cutting rewards), `nex` allows both difficulty and reward to track each other. As the graph saturates, there is simply nothing left to mine. The system wastes no energy on a solved problem.
+
+### Token Efficiency
+
+Because gap evaluation operates on content-addressed hashes rather than full text, every input is evaluated at constant cost:
+
+| Metric | Text-Based Evaluation | Graph-Based Evaluation |
+|---|---|---|
+| Input size | Full document (500–5000 tokens) | CID (64 bytes) |
+| Verification cost | LLM inference (500–2000 output tokens) | BFS / `shortest_path` (O(V+E), zero tokens) |
+| Re-evaluation | Text changes require re-inference | Same CID always produces same result |
+| Provability | Subjective, model-dependent | Objective, graph invariant |
+
+No LLM tokens are consumed during reward verification. The system never reads the content of Facts — it only reads their positions in the graph. This is the practical meaning of "structure replaces text": the evaluation cost drops from O(tokens) to O(1) per Fact.
+
+### LLM Cost Bypass
+
+Since gap verification is pure graph computation, it requires **zero LLM inference**. The LLM is only needed to **generate** a new contribution (writing a paper, proposing a hypothesis). Once that contribution becomes a Fact, all subsequent verification — gap detection, reward computation, fraud detection — is performed by `nex` with petgraph, at native CPU speed, indefinitely. The LLM cost is a one-time entry fee; the verification cost is zero forever.
+
+## Why This Works
+
+### Technically Simple
+
+All metrics reduce to `shortest_path`, `has_path`, `are_adjacent`, and `reachable_nodes` on petgraph. No external oracles. No ML models. The gas cost of verification is `O(V+E)` — linear in graph size.
+
+### Economically Sound
+
+\begin{itemize}[nosep]
+  \item Shallow contributions are cheap to generate but yield diminishing returns
+  \item Deep contributions are expensive to find but yield outsized rewards
+  \item Fraud is provably detectable (graph invariants cannot be forged)
+  \item Stake slashing makes fraud economically irrational
+\end{itemize}
+
+### Anti-Abuse by Design
+
+The only way to earn significant rewards is to find genuine deep gaps. Attempting to fabricate deep gaps requires constructing plausible multi-hop paths between non-existent connections — a problem that is computationally harder than genuine discovery. The system's verification cost is always lower than its forgery cost.
+
+## Connection to Scheme-Segment
+
+In the Scheme-Segment paradigm:
+
+- A **Fact** is a Scheme (fixed structure, content-addressed)
+- An **Intent** is a Field (dynamic, unbounded exploration space)
+- A **gap** is a point where Field has not yet been projected onto Scheme
+- **Reward** is allocated to the discovery of unprojected Field regions
+
+The reward system does not measure how many Schemes exist. It measures how much Field remains to be projected — and rewards those who find the deepest, widest Field regions. This is the economic instantiation of the observation that *potential is more valuable than accumulation*.
+
+```{python}
+#| label: fig-gap-reward
+#| fig-cap: "Gap reward: depth (d) measures exploration potential, width (w) measures connective impact."
+dot("""
+digraph GapReward {
+    rankdir=LR;
+    node [shape=circle, style=filled, fontsize=10];
+    edge [fontsize=9];
+
+    F1 [label="Fact A", fillcolor="#a8e6cf"];
+    F2 [label="Fact B", fillcolor="#a8e6cf"];
+    F3 [label="Fact C", fillcolor="#a8e6cf"];
+
+    gap [label="gap\nd=2\nw=4", shape=diamond, fillcolor="#ffd3b6", fontsize=9, width=0.8];
+
+    F1 -> gap [style=dashed, label="?"];
+    gap -> F2 [style=dashed, label="?"];
+    gap -> F3 [style=dashed, label="?"];
+    F1 -> F3 [style=dashed, label="?"];
+
+    subgraph cluster_legend {
+        label="Legend";
+        style=filled; fillcolor="#f5f5f5";
+        d [label="d: depth = min path", shape=plaintext, fontsize=8];
+        w [label="w: width = new connections", shape=plaintext, fontsize=8];
+    }
+}
+""")
+```
