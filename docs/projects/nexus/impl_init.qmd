@@ -34,7 +34,7 @@ neXus models a self-describing paradigm: the Blackboard is the Scheme, Intents a
 
 ### Unified Architecture
 
-The architecture has two layers. The Core Blackboard is the logical layer: a shared graph of Fact, Intent, and Hint primitives that every module reads from and writes to through a single interface. The graph-based core implements FIH: GraphBlackboard holds a DualStorage composition of hot (PetgraphStorage, in-memory graph) and cold (SqlNormalizedStorage, SQLite-backed) backends. cyrs translates Cypher queries. Capability traits replace the monolithic Storage trait, letting each backend implement only the interfaces it provides. Platform bindings expose the core to different deployment targets.
+The architecture has two layers. The Core Blackboard is the logical layer: a shared graph of Fact, Intent, and Hint primitives that every module reads from and writes to through a single interface. The graph-based core implements FIH: GraphBlackboard holds a DualStorage composition of hot (PetgraphStorage, in-memory graph) and cold (DuckDB or CompositeColdStorage, Parquet-backed) backends. cyrs translates Cypher queries. Capability traits replace the monolithic Storage trait, letting each backend implement only the interfaces it provides. Platform bindings expose the core to different deployment targets.
 
 ```{python}
 #| label: fig-nexus-architecture
@@ -66,7 +66,7 @@ digraph NexusArchitecture {
         bb [label="GraphBlackboard", shape=box, style=filled, fillcolor="#d4e8d4", fontsize=8, width=1.5];
             dual [label="DualStorage", shape=box, style=filled, fillcolor="#c8e8c8", fontsize=8, width=1.5];
             hot [label="PetgraphStorage", shape=cylinder, style=filled, fillcolor="#b8e8b8", fontsize=8, width=1.5];
-            cold [label="ColdStorage\n(Composite or\nSqlNormalized)", shape=cylinder, style=filled, fillcolor="#e8d4b8", fontsize=8, width=1.5];
+            cold [label="ColdStorage\n(Composite or\nDuckDB)", shape=cylinder, style=filled, fillcolor="#e8d4b8", fontsize=8, width=1.5];
             cypher [label="cypher (cyrs)", shape=box, style=filled, fillcolor="#d4e8f4", fontsize=8, width=1.5];
             pgraph [label="petgraph", shape=cylinder, style=filled, fillcolor="#e8e8e8", fontsize=8, width=1.5];
 
@@ -213,7 +213,7 @@ The FIH Blackboard can be backed by multiple graph storage approaches. Below are
 
 | Approach | Storage | Adoption |
 |---|---|---|
-| petgraph + storage/sqlite/ | In-memory graph + SQLite WAL | Adopted (core) |
+| petgraph + storage/duckdb/ | In-memory graph + DuckDB/Parquet | Adopted (core) |
 | Memgraph | In-memory LPG + RocksDB WAL | Patterns extracted (supplementary) |
 
 The supplementary analysis provided insights into specific capabilities. The table below documents the mapping between Memgraph and our adopted approach for granular traceability.
@@ -222,7 +222,7 @@ The supplementary analysis provided insights into specific capabilities. The tab
 
 | Capability | Memgraph Approach | Our Adaptation |
 |---|---|---|
-| Graph storage | In-memory LPG + RocksDB WAL | petgraph (in-memory) + rusqlite WAL |
+| Graph storage | In-memory LPG + RocksDB WAL | petgraph (in-memory) + duckdb/Parquet |
 | Vector search | USearch (C++), Single Store Vector Index | ndarray cosine, embedding as node property |
 | Community detection | Louvain + Leiden (C++ MAGE) | community-detection crate |
 | PageRank | Custom C++ | petgraph built-in |
@@ -242,7 +242,7 @@ Where possible, we depend on stable Rust crates rather than implementing from sc
 | Concern | Candidate | Justification | Status |
 |---|---|---|---|
 | Graph structure | **petgraph** (0.6) | Standard Rust graph lib, StableGraph, NodeIndex, built-in PageRank and Dijkstra. No reason to reimplement. | Adopted |
-| Persistence / WAL | **rusqlite** (0.31) | SQLite bundled mode works on WASM. 40 years of ACID verification. Memgraph uses RocksDB for the same purpose. | Adopted |
+| Cold storage / analytical | **duckdb** (1.105) | Parquet-backed, bundled, vector/JSON/CTE/window. Native only. | Adopted |
 | Cypher parsing | **cyrs** | Parses Cypher to typed Plan IR in one step. A unified query IR decouples input languages from execution. | Adopted |
 | Vector similarity | **ndarray** (0.15) + cosine | Our data volumes do not require HNSW. When they do, USearch has Rust bindings. Memgraph uses USearch internally. | Adopted |
 
@@ -274,7 +274,7 @@ neXus supports N deployment modes sharing the same F-I-H interface. Two represen
 | Mode | Runtime | Storage | Subscribe | Use Case |
 |---|---|---|---|---|
 | **Real-time Blackboard** | Persistent daemon | In-memory (+ optional WAL) | Yes (live peer notification) | Agent coordination, interactive sessions (Zed, ev) |
-| **Storage / Fact Store** | Serverless worker | R2 / SQLite / object store | No (poll or query) | Batch ingestion, archival, cross-session retrieval |
+| **Storage / Fact Store** | Serverless worker | R2 / DuckDB / object store | No (poll or query) | Batch ingestion, archival, cross-session retrieval |
 
 A real-time Blackboard can use a storage variant as its durable backend, flushing accumulated blocks to R2 on graceful shutdown. Both expose the same `BlockStore` trait — only delivery semantics differ.
 
@@ -290,9 +290,9 @@ The codebase stratifies into three layers with different change tolerances. This
 |---|---|---|---|
 | **Consumption Scenarios** | Immutable | nexus-sim scenario definitions capture the domain invariants; cannot be compromised without invalidating the ecosystem's purpose | Proof by Structure 7 attack scenarios (see [Proof by Structure](proof.html)); exchange contract requirements; ev verification flows |
 | **Orchestration Layer** | Flexible | nexus-sim runs scenario definitions against the foundation; failures force orchestration changes | `exchange_fact()` overlay (defined in [Proof by Structure](proof.html)); API gateway handlers; C2PA verification wrapper; session lifecycle |
-| **Foundation (IO Layer)** | Stable | Existing test suite (21+ scenario tests); petgraph/SQLite contract; never modified without a nexus-sim scenario proving the capability gap | StorageRead, FactCapable, IntentCapable, HintCapable; DualStorage; petgraph/R2 bindings |
+| **Foundation (IO Layer)** | Stable | Existing test suite (260 tests); petgraph/DuckDB contract; never modified without a nexus-sim scenario proving the capability gap | StorageRead, FactCapable, IntentCapable, HintCapable; DualStorage; petgraph/R2 bindings |
 
-Consumption scenarios are the hardest layer. They express what the system must guarantee — "no entity can read a Fact without contributing one" is not negotiable because it derives from the ecosystem's game-theoretic requirements. The foundation is also hard: petgraph's StableGraph interface, SQLite's ACID guarantees, and the FIH capability trait contracts are fixed by their respective libraries.
+Consumption scenarios are the hardest layer. They express what the system must guarantee — "no entity can read a Fact without contributing one" is not negotiable because it derives from the ecosystem's game-theoretic requirements. The foundation is also hard: petgraph's StableGraph interface, DuckDB's ACID guarantees, and the FIH capability trait contracts are fixed by their respective libraries.
 
 The orchestration layer between them is the only soft layer. It evolves continuously as nexus-sim validates scenarios against the foundation. When a scenario fails, the orchestration layer is updated first; only when a scenario demands a capability the foundation cannot provide (e.g., atomic compare-and-swap that the storage backend lacks) is the foundation modified. This is the scenario-driven reverse development pattern: the consumption scenario drives the orchestration, which in turn pressures the foundation only when necessary.
 
@@ -320,7 +320,7 @@ SessionExecute impls", fillcolor="#d4f1f9", fontname="Arial"];
 (stable)
 StorageRead / FactCapable
 DualStorage / IoBuffer
-petgraph / SQLite / R2", fillcolor="#c8e6c9", fontname="Arial"];
+petgraph / DuckDB / R2", fillcolor="#c8e6c9", fontname="Arial"];
 
     scenarios -> orc [label="drives", color="#ff6f00", fontsize=9];
     orc -> foundation [label="uses", color="#5588bb", fontsize=9];
@@ -588,7 +588,7 @@ Every (origin, intent, result) tuple on the Blackboard has a content-addressable
 | Memgraph (C++, production) | Atomic GraphRAG (single query = search + expand + rank + prompt) | Iterator chain translation in cypher/translate.rs |
 | Memgraph | MAGE module isolation (C API, standalone algorithms) | Rust trait isolation in modules/ crate |
 | Memgraph | Single Store Vector Index (embedding as node property) | ndarray cosine on petgraph node weights |
-| Memgraph | WAL + in-memory dual storage | rusqlite WAL + petgraph memory store |
+| Memgraph | WAL + in-memory dual storage | duckdb/Parquet + petgraph memory store |
 | cyrs / cypher-rs ecosystem | Cypher → typed Plan IR | cyrs as primary parser dependency |
 | petgraph ecosystem | StableGraph, NodeIndex, built-in PageRank/Dijkstra | Core graph library |
 | Capability-based traits | Fine-grained Rust traits replacing monolithic interfaces | StorageRead, FactCapable, FilterCapable, EvictCapable, etc. — also DetectionCapable, GapDetection, ContradictionDetection, StateChangeDetection for the detection layer |
@@ -632,7 +632,7 @@ digraph CqrsGitFihMapping {
 """)
 ```
 
-A key architectural insight is that a unified query IR decouples input languages from execution. Future agent modules (Planner, Verifier, Hypothesis Generator) will query the graph through this same IR. They do not need to know whether the backend is petgraph in memory, SQLite on disk, or a remote CF Worker. The query interface is the plug, the core is the socket. Adding a new query language (GQL, SPARQL, or a future agent DSL) requires only a new parser adapter, not a core change.
+A key architectural insight is that a unified query IR decouples input languages from execution. Future agent modules (Planner, Verifier, Hypothesis Generator) will query the graph through this same IR. They do not need to know whether the backend is petgraph in memory, DuckDB on disk, or a remote CF Worker. The query interface is the plug, the core is the socket. Adding a new query language (GQL, SPARQL, or a future agent DSL) requires only a new parser adapter, not a core change.
 
 ### Stigmergy Layer (Implemented)
 
