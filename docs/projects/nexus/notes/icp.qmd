@@ -1,0 +1,192 @@
+---
+title: "neXus on ICP: Verifiable Autonomous Computing Architecture"
+subtitle: "Platform Integration Guide and Ecosystem Deployment Strategy"
+date: last-modified
+metadata-files:
+  - ../../../_include/author.yml
+abstract: |
+  neXus delivers a Wasm-native, decentralized agent computing system built on FIH (Fact / Intent / Hint) primitives. By deploying neXus on the Internet Computer Protocol (ICP), the platform provides a globally distributed, cryptographically auditable execution fabric. This document defines the integration architecture, mapping neXus's verifiable truth engine to ICP's native Wasm execution and orthogonal persistence, enabling seamless scaling from edge devices to planetary compute without architectural redesign.
+---
+
+```{python}
+#| include: false
+#| context: local
+title_meta_items = {
+    "html": [
+        {"title": "Code", "link": "https://github.com/ssccsorg/nexus", "content": "Github", "icon": "bi bi-link"},
+        {"title": "References", "link": "https://internetcomputer.org", "content": "ICP", "icon": "bi bi-link"},
+        {"title": "References", "link": "https://docs.ssccs.org/projects/nexus", "content": "neXus Docs", "icon": "bi bi-link"}
+    ],
+}
+```
+
+{{< include ../../../_include/_title_meta_items.qmd >}}
+
+```{python}
+#| include: false
+#| context: local
+%run ../../../_include/_graphviz.py
+```
+
+## Architectural Alignment
+
+Both neXus and ICP are engineered around the Wasm substrate, rejecting legacy x86 VMs and multi-gigabyte container runtimes in favor of lightweight, portable, and deterministic execution. neXus provides the semantic structure (the FIH Blackboard) that makes ICP's general-purpose state verifiable, auditable, and purpose-built for autonomous agent coordination.
+
+| Dimension | ICP (Internet Computer) | neXus Platform |
+|-----------|------------------------|-------|
+| Runtime | Wasm (Canister) | Wasm (Agent) + bare-metal RISC-V |
+| Objective | Decentralized World Computer | Verifiable Autonomous Computing |
+| State Model | Orthogonal Persistence (Stable Memory) | FIH Blackboard (Fact / Intent / Hint) |
+| Scaling | Subnet-based horizontal scaling | Recursive agent structure + lock-free parallelism |
+| Agent Model | Canister (Actor model) | Domain Entity (OODA loop) |
+| Verifiability | BFT consensus-dependent | Deterministic engine + C2PA signatures + on-chain proof |
+
+The integration pattern is established: a lightweight Wasm runtime hosts autonomous agents that coordinate exclusively through a shared state space. ICP provides the distributed infrastructure layer; neXus provides the verifiable semantic layer.
+
+## Integration Architecture
+
+The neXus core is designed for heterogeneous compilation, targeting `wasm32-unknown-unknown` with zero platform-specific logic in its core engine. All platform dependencies (storage, time, networking) are abstracted behind Rust traits (`KeyValueStore`, `BlobStore`, `ObjectStore`, `Now`). Deploying on ICP requires implementing these traits against the `ic_cdk` API, leaving the core deterministic logic entirely unmodified.
+
+```{python}
+#| label: fig-icp-integration
+#| fig-cap: "neXus deployment on ICP: The FIH Blackboard operates as an on-chain knowledge graph, while domain agents execute as independent canisters communicating exclusively through FIH primitives."
+dot("""
+digraph ICPIntegration {
+    rankdir=TB;
+    node [shape=box, style=rounded];
+
+    subgraph cluster_icp {
+        label="Internet Computer Protocol";
+        style=dashed;
+
+        subgraph cluster_subnet {
+            label="Subnet (BFT Consensus)";
+            style=filled;
+            bgcolor="#f0f0f0";
+
+            NexusCanister [label="neXus Canister\\n(FIH Blackboard)", shape=component, style=filled, fillcolor="#e8f5e9"];
+            EvCanister [label="ev Agent Canister\\n(Silicon Verification)", shape=component, style=filled, fillcolor="#e3f2fd"];
+            OpenRoadCanister [label="OpenROAD Agent\\nCanister", shape=component, style=filled, fillcolor="#e3f2fd"];
+            RobotCanister [label="Robot Agent Canister\\n(Hardware Validation)", shape=component, style=filled, fillcolor="#e3f2fd"];
+
+            StableMemory [label="Stable Memory\\n(Orthogonal Persistence)", shape=cylinder, style=filled, fillcolor="#fff3e0"];
+        }
+    }
+
+    NexusCanister -> StableMemory [label="  Facts + Intents + Hints", style=solid];
+    EvCanister -> NexusCanister [label="  submit_fact / claim_intent", style=solid, color="#2e7d32"];
+    OpenRoadCanister -> NexusCanister [label="  submit_fact / claim_intent", style=solid, color="#2e7d32"];
+    RobotCanister -> NexusCanister [label="  submit_fact / claim_intent", style=solid, color="#2e7d32"];
+
+    subgraph cluster_external {
+        label="External Verifiers";
+        style=dashed;
+
+        Blockchain [label="Blockchain\\n(C2PA Provenance + VPT)", shape=folder, style=filled, fillcolor="#fce4ec"];
+        HumanReviewer [label="Human Reviewer\\n(Governance)", shape=plaintext];
+    }
+
+    NexusCanister -> Blockchain [label="  C2PA-signed Facts\\n  Verification Proofs", style=dashed, color="#c62828"];
+    HumanReviewer -> NexusCanister [label="  Hints (governance rules)", style=dotted];
+}
+""")
+```
+
+### Storage Mapping: FIH Traits to ICP Primitives
+
+neXus’s `CompositeColdStorage` orchestrates three abstract storage tiers, mapped directly to ICP system primitives for optimal performance and cost:
+
+| neXus Storage Trait | ICP Primitive | Operational Role |
+|---------------------|---------------|------|
+| `KeyValueStore` | Stable Memory (`ic_cdk::storage`) | Hot state: Recent Facts, Intents, Hints, and flush cursor. |
+| `BlobStore` | Canister Stable Memory (bulk pages) | Cold state: Flushed JSON-lines archives and snapshot blobs. |
+| `ObjectStore` (CAS) | `ic_cdk::api::stable::stable64_write` (CAS semantics) | Coordination: Atomic claim gating, ownership transfer, state locking. |
+| `Now` | `ic_cdk::api::time()` | Monotonic timestamps for cursor advancement and TTL. |
+
+The `put_state(key, expected, new)` Compare-And-Swap (CAS) primitive, which gates all Intent claims in neXus, maps natively to ICP's stable memory operations. ICP's BFT layer inherently guarantees that only one canister's write to a given memory location succeeds per cycle, making neXus's CAS semantics a direct, overhead-free fit.
+
+### Orthogonal Persistence Alignment
+
+ICP’s native orthogonal persistence automatically persists canister memory to stable storage without explicit serialization. This perfectly aligns with the FIH Blackboard’s append-only, immutable state model.
+
+During a canister upgrade, ICP restores stable memory before invoking the new Wasm module. neXus’s `from_snapshot_with_cold` factory function is explicitly designed for this pattern: the hot graph (in-memory `petgraph`) is restored from the snapshot, and the cold storage backend is re-initialized with current ICP bindings. The upgrade cycle functions as a seamless, zero-downtime snapshot roundtrip.
+
+## Platform Capabilities & Ecosystem Value
+
+Deploying neXus on ICP introduces specialized verifiable computing capabilities to the ecosystem, extending beyond general-purpose execution:
+
+### 1. Deterministic Verification Beyond Consensus
+
+ICP's consensus guarantees that a canister executed code and produced an output. neXus adds a semantic verification layer: the Verifier exhaustively checks whether a claimed Fact is logically consistent with the accumulated knowledge graph, contract rules, and physical constraints.
+*Example:* The `ev` agent verifies silicon chip designs. ICP consensus proves `ev` ran; neXus Verifier proves the output is the *only* logically consistent result given the SSCCS Field Composition model. This shifts trust from procedural execution to semantic correctness.
+
+### 2. C2PA-Anchored Knowledge Provenance
+
+Every neXus Fact carries a content-addressed hash (`FihHash`). The chain F₁ → I₁ → F₂ → I₃ forms a Merkle-like provenance tree extending from source documents through every simulation and physical validation. ICP timestamps this chain, creating a globally verifiable, on-chain scientific audit trail. While ICP natively provides *execution provenance* ("Canister A called B at time T"), neXus provides *knowledge provenance* ("Fact F₃ was derived from F₁ and F₂ under Hint H₁, validated at revision R").
+
+### 3. Lock-Free Agent Coordination via Stigmergy
+
+ICP's actor model relies on explicit message-passing between canisters. neXus replaces this with stigmergy: agents read from and write to the shared FIH Blackboard, never addressing each other directly. Because Facts are immutable and Intents are claimed atomically via CAS, the architecture eliminates locks, deadlocks, and complex coordination protocols. Agent canisters can be upgraded, replaced, or scaled independently; the CAS gate ensures graceful degradation and conflict resolution without manual intervention.
+
+## Deployment Roadmap
+
+The integration is executed in four sequential phases, each producing a deployable, testable artifact:
+
+### Phase 1: Core Canister Bindings
+
+Implement neXus storage and time traits against ICP's `ic_cdk` API:
+
+- Map `KeyValueStore` to `ic_cdk::storage::stable`.
+- Map `BlobStore` to stable memory pages for archive chunks.
+- Implement CAS via `ic_cdk::api::stable::stable64_read/write` with versioned keys.
+- Delegate `Now` to `ic_cdk::api::time()`.
+*Acceptance Criteria:* Existing composite unit and integration tests pass against ICP bindings with zero core logic modifications.
+
+### Phase 2: Agent Canister Templates
+
+Package the standard neXus agent lifecycle (`submit` → `claim` → `heartbeat` → `conclude`) into a reusable ICP canister template. This enables any domain agent (e.g., `ev`, OpenROAD, robot controllers) to compile into a standalone canister that communicates exclusively via the neXus Blackboard.
+
+### Phase 3: Cross-Canister FIH Protocol
+
+Define and publish the Candid interface for FIH operations, ensuring strict type safety across canister boundaries:
+
+```candid
+type FihHash = text;
+type Fact = record { id: FihHash; origin: text; content: text; creator: text };
+type Intent = record { id: FihHash; from_facts: vec text; description: text; creator: text };
+type Hint = record { id: FihHash; content: text; creator: text };
+
+service NexusBlackboard {
+    submit_fact: (Fact) -> (variant { Ok; Err: text });
+    submit_intent: (Intent) -> (variant { Ok; Err: text });
+    claim_intent: (intent_id: FihHash, worker: text) -> (variant { Ok; Conflict; NotFound });
+    heartbeat: (intent_id: FihHash) -> (variant { Ok; Err: text });
+    conclude_intent: (intent_id: FihHash, result_fact: Fact) -> (variant { Ok; Err: text });
+    read_state: () -> (BoardState) query;
+    submit_hint: (Hint) -> (variant { Ok; Err: text });
+}
+```
+
+### Phase 4: On-Chain Governance
+
+Deploy the `contract.nex` governance rules as a dedicated ICP canister. This canister evaluates accumulated Facts against contract rules and emits `Hint` records to constrain admissible Intents, closing the loop with a transparent, token-weighted, on-chain governance model.
+
+## Operational Considerations & Mitigation
+
+| Operational Consideration | Scope | Platform Design Resolution |
+|------|-----------|--------|
+| ICP stable memory size limits per canister | Medium | `CompositeColdStorage` inherently partitions data; the blob tier maps to stable memory pages with explicit, bounded size management. |
+| Canister upgrade cycle latency | Low | The append-only FIH model requires no data migration. `from_snapshot_with_cold` restores state in a single, deterministic pass. |
+| Cross-canister call cost for high-frequency FIH ops | Medium | Platform design mandates batched operations (e.g., submitting multiple Facts per call). `read_state` is implemented as a free query call. |
+| Subnet capacity for compute-intensive verification | Medium | Verification agents (e.g., `ev`) are deployed as separate canisters on dedicated subnets. The central Blackboard canister remains lightweight and I/O-bound. |
+| Governance canister upgrade complexity | Low | Contract rules are expressed as `Hint` data, not hardcoded logic. Governance evolves by emitting new Hints, bypassing the need for canister code upgrades. |
+
+## Strategic Execution & Next Steps
+
+This integration establishes neXus as the verifiable compute layer for the ICP ecosystem, eliminating external infrastructure dependencies (servers, replicated databases, custom consensus). A single `dfx deploy` distributes the FIH Blackboard across ICP's global subnet.
+
+Execution proceeds as follows:
+
+1. **Core Benchmarking:** Compile the `nexus-graph` crate against `wasm32-unknown-unknown` with `ic-cdk` bindings. Measure binary size, stable memory consumption per Fact, and cross-canister latency.
+2. **Reference Deployment:** Deploy a minimal neXus Blackboard canister on the ICP mainnet with the published Candid interface, serving as the canonical reference implementation.
+3. **Ecosystem Onboarding:** Migrate existing SSCCS agents (`ev`, OpenROAD) to operate as independent ICP canisters, demonstrating stigmergic, lock-free coordination at scale.

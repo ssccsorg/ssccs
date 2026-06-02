@@ -288,8 +288,8 @@ The codebase stratifies into three layers with different change tolerances. This
 
 | Layer | Change Tolerance | Validation | Examples |
 |---|---|---|---|
-| **Consumption Scenarios** | Immutable | nexus-sim scenario definitions capture the domain invariants; cannot be compromised without invalidating the ecosystem's purpose | Proof by Structure 7 attack scenarios (see [Proof by Structure](proof.html)); exchange contract requirements; ev verification flows |
-| **Orchestration Layer** | Flexible | nexus-sim runs scenario definitions against the foundation; failures force orchestration changes | `exchange_fact()` overlay (defined in [Proof by Structure](proof.html)); API gateway handlers; C2PA verification wrapper; session lifecycle |
+| **Consumption Scenarios** | Immutable | nexus-sim scenario definitions capture the domain invariants; cannot be compromised without invalidating the ecosystem's purpose | Proof by Structure 7 attack scenarios (see [Proof by Structure](/projects/nexus/proof.html)); exchange contract requirements; ev verification flows |
+| **Orchestration Layer** | Flexible | nexus-sim runs scenario definitions against the foundation; failures force orchestration changes | `exchange_fact()` overlay (defined in [Proof by Structure](/projects/nexus/proof.html)); API gateway handlers; C2PA verification wrapper; session lifecycle |
 | **Foundation (IO Layer)** | Stable | Existing test suite (260 tests); petgraph/DuckDB contract; never modified without a nexus-sim scenario proving the capability gap | StorageRead, FactCapable, IntentCapable, HintCapable; DualStorage; petgraph/R2 bindings |
 
 Consumption scenarios are the hardest layer. They express what the system must guarantee — "no entity can read a Fact without contributing one" is not negotiable because it derives from the ecosystem's game-theoretic requirements. The foundation is also hard: petgraph's StableGraph interface, DuckDB's ACID guarantees, and the FIH capability trait contracts are fixed by their respective libraries.
@@ -332,7 +332,7 @@ nexus-sim", style=dashed, color="#888888", fontsize=8];
 """)
 ```
 
-A concrete example: `exchange_fact()` (defined in [Proof by Structure](proof.html)) is an orchestration-layer function. It uses `StorageRead` and `FactCapable` from the foundation. If nexus-sim proves that a caller can bypass `exchange_fact()` by calling `StorageRead::get()` directly through a public API, the fix is in the orchestration layer — the public API endpoint must only expose `exchange_fact()`, not the raw storage trait. The foundation remains untouched. Only if nexus-sim proves that `StorageRead` itself cannot enforce the required ordering (e.g., because it lacks CAS semantics that the exchange contract needs) would the foundation be modified.
+A concrete example: `exchange_fact()` (defined in [Proof by Structure](/projects/nexus/proof.html)) is an orchestration-layer function. It uses `StorageRead` and `FactCapable` from the foundation. If nexus-sim proves that a caller can bypass `exchange_fact()` by calling `StorageRead::get()` directly through a public API, the fix is in the orchestration layer — the public API endpoint must only expose `exchange_fact()`, not the raw storage trait. The foundation remains untouched. Only if nexus-sim proves that `StorageRead` itself cannot enforce the required ordering (e.g., because it lacks CAS semantics that the exchange contract needs) would the foundation be modified.
 
 This three-layer validation pattern mirrors the `IoBuffer+StoreSession` architecture at a different scale: there, the foundation provides sync storage traits, the `IoBufferSession` overlay orchestrates hydration and flush, and the Worker request lifecycle (the consumption scenario) drives the entire cycle.
 
@@ -830,7 +830,7 @@ nexus-sim inverts the conventional development flow. Instead of implementing and
 testing, the consumption scenario drives the entire stack: define the scenario, express as
 a test case, run against orchestration, update orchestration until pass, and commit the
 scenario as a permanent regression test. The full process with agent models, depths, CI
-integration, and implementation phases is in [Simulation](sim.html).
+integration, and implementation phases is in [Simulation](/projects/nexus/sim.html).
 
 nexus-sim's test suite is always ahead of the implementation. See issue #69 for current
 status and roadmap.

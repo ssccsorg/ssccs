@@ -136,7 +136,7 @@ cargo test -- test_adjacency_golden_anchors
 
 - [ev (ExaVerif)](https://github.com/ssccsorg/ev) — open-source exhaustive verification CLI
 - [SSCCS RISC-V Integration Research](/docs/research/riscv.qmd)
-- [OpenHW Integration Proposal](/docs/proposal/openhw_integration.md)
+- [OpenHW Integration Proposal](/docs/partnerships/openhw_integration.md)
 - [OpenHW Group](https://www.openhwgroup.org/)
 - [CORE-V XIF Specification](https://github.com/openhwgroup/core-v-xif)
 - [Rust Embedded Book](https://docs.rust-embedded.org/book/)
