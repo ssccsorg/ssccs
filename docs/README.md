@@ -51,8 +51,6 @@ The SSCCS documentation suite consists of several formal documents:
 
 - **[Whitepaper](https://ssccs.org/wp)**: The core technical
   specification, available as PDF and HTML.
-- **[Proposal](https://ssccs.org/proposal)**: A companion document focusing on
-  practical implementation and sustainability.
 - **[Project Direction](/docs/direction/index.md)**: Strategic orientation and regional engagement for the SSCCS initiative.
 - **[Manifesto](/docs/manifesto.qmd)**: The high‑level philosophical and
   technical introduction.
