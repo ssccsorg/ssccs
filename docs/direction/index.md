@@ -32,6 +32,16 @@ We acknowledge that even our platforms operate within centralised constraints. W
 
 See [Code of Conduct](/code_of_conduct.html).
 
+## Long‑Term Vision and Success Metrics
+
+We establish a new computational foundation where structure is the primitive, expressed through open‑source software and eventually adopted by indivisual or group at every layer in the industry. Our foundation is an invisible infrastructure, not a product seeking visibility. Like HTTP, TCP, or the electrical grid, the most enduring foundations operate beneath the surface while enabling everything above them. Success is not the foundation's own adoption metrics but the success of every instance, tool, and protocol built upon it. So the success we will seek lies not in our excellence, but who are the giants we have looked up to.
+
+We acknowledge with gratitude the giants whose shoulders we stand upon countless other open-source projects form the bedrock beneath our work. We did not create this ground. We place only a small membrane upon it – a thin connective layer that, if useful, enables others to reach higher. The foundation carries no burden of fame, only the quiet weight of reliability and an honest awareness of how little we add to what already exists.
+
+- Short term – A working prototype on open hardware, with independent teams running our simulator and at least one joint technical publication.
+- Medium term – Demonstrate measurable efficiency gains on AI/graph workloads compared to traditional stacks on the same hardware.
+- Long term – Contribute to standardisation (e.g., RISC‑V extensions, open format specifications) with reference implementations for global adoption.
+
 ## Partnership, Collaboration, and Support
 
 SSCCS does not wait for institutional validation. We partner with academia, industry, open‑hardware communities, and independent researchers based on technical merit and reciprocal contribution. Conventional funding favors predictable, incremental advances. SSCCS reimagines computation itself – too early and too disruptive for most existing templates. We do not force our work into those molds.
@@ -137,16 +147,6 @@ Our code is licensed under Apache 2.0, aligning with open‑hardware norms (Sold
 ### Resource Sustainability
 
 We will pursue grants and bounties for specific milestones, prioritise in‑kind support (FPGA cloud access, engineering time), and maintain a lean operational model to bridge initial prototyping independently.
-
-## Long‑Term Vision and Success Metrics
-
-Goal: Establish a new computational foundation where *structure* is the primitive, expressed through open‑source software and eventually adopted by hardware designers.
-
-- Short term – A working prototype on open hardware, with independent teams running our simulator and at least one joint technical publication.
-- Medium term – Demonstrate measurable efficiency gains on AI/graph workloads compared to traditional stacks on the same hardware.
-- Long term – Contribute to standardisation (e.g., RISC‑V extensions, open format specifications) with reference implementations for global adoption.
-
-Success is measured by adoption, not grant size. If future core designers consider “structural observation” natural, and developers reach for the open format to describe computational structure – we succeed.
 
 ## Conclusion
 
