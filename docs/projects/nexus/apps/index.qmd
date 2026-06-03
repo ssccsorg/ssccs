@@ -1,0 +1,141 @@
+---
+title: "Apps"
+subtitle: "neX instance ecosystem: any type of independent extensions or apps as neXus entity"
+date: last-modified
+metadata-files:
+  - ../../../_include/author.yml
+---
+
+```{python}
+#| include: false
+#| context: local
+title_meta_items = {
+    "html": [
+        {"title": "Code", "link": "https://github.com/ssccsorg/nexus", "content": "Github", "icon": "bi bi-link"},
+        {"title": "References", "link": "https://docs.ssccs.org/projects/nexus", "content": "neXus", "icon": "bi bi-link"}
+    ],
+}
+```
+
+{{< include ../../../_include/_title_meta_items.qmd >}}
+
+```{python}
+#| include: false
+#| context: local
+%run ../../../_include/_graphviz.py
+```
+
+## Introduction
+
+nex is the autonomous agent runtime library and CLI for the neXus platform. Each `nex-{app}` instance is a self-contained binary that communicates through a shared blackboard (Fact/Intent/Hint) and performs domain-specific tasks without central coordination. The ecosystem is built on a composable model: any domain-specific core engine can be wrapped as a `nex-{app}` instance by implementing the nex runtime interface.
+
+## Core Principles
+
+- Infrastructure, not product – nex is invisible; success is measured by what others build on it.
+- Stigmergy – Agents leave traces on the blackboard; other agents react indirectly, without orchestration.
+- Recursive self-similarity – A single nex mirrors the whole neXus network (fractal architecture).
+- Immutable facts – All knowledge (verification results, design intents, hints) is content-addressed and tamper-proof (C2PA signatures).
+
+## Composition Model
+
+The fundamental composition pattern is:
+
+```text
+[ Domain Codebase] + [ nex Runtime (Rust) ] = nex-{app}
+```
+
+- The domain engine contains the core intelligence (e.g., a constraint solver, a physics simulator, an LLM inference loop).
+- The nex runtime provides blackboard communication, Fact/Intent/Hint handling, stigmergic coordination, and cryptographic signing.
+- The two are linked via FFI or WASM: the domain engine calls into the runtime to read/write Facts, and the runtime calls back into the engine to execute tasks.
+
+## Case Examples
+
+| Instance | Domain | Role |
+|----------|--------|------|
+| [`nex-ev`](../../ev) | Verification | Exhaustive RISC‑V XIF verification; produces C2PA‑signed certificates. |
+| `nex-zed` | Development | Agentic editor extension for Zed – browses blackboard, spawns verification branches. |
+| `nex-phys` | Robotics | Connects to physical simulation (Gazebo, MuJoCo) or real hardware; feeds sensor data as Facts. |
+| `nex-rtl` | Hardware Design | Generates synthesizable RTL (Verilog/SystemVerilog) from high‑level Intent and past Facts/Hints. |
+| `nex-lk` | Security | Monitors blackboard for malicious Facts/Intent, isolates compromised branches. |
+| `nex-veridb` | Knowledge | Aggregates public RISC‑V / RTL verification facts (GitHub, papers) into the blackboard. |
+| `nex-fpga` | Reconfigurable Computing | Deploys nex agents directly on FPGA fabric for near‑data observation. |
+| `nex-compile` | Compilers | Optimizes LLVM/MLIR passes by observing IR transformations and recording performance Facts. |
+| `nex-bio` | Computational Biology | Models protein folding, cell signalling, neural circuits as Fact graphs. |
+| `nex-cosmo` | Astrophysics | Distributed simulation of cosmological structures (galaxy formation, gravitational waves). |
+
+Every `nex-*` instance shares the same blackboard schema and communication protocol. They are designed to be launched and supervised by the neXus runtime.
+
+## Cross-Language Bindings
+
+The nex runtime is written in Rust and exports a stable C ABI. It also supports WebAssembly (WASM) as a universal compilation target. This enables any language that can call C functions or emit WASM to become a first-class nex agent.
+
+| Language | Binding Mechanism | Status |
+|----------|-------------------|--------|
+| Rust | Native – implement `neXAgent` trait directly | Core |
+| C / C++ | C ABI – expose `neX_agent_*` functions | Planned |
+| Python | PyO3 / ctypes – wrap Rust core | Prototype |
+| Node.js / JavaScript | napi-rs / node-bindgen | Planned |
+| Go, Zig, Nim | C ABI or WASM | Future |
+
+## How It Works
+
+1. Declare – A user (or AI) writes an `.nex` contract (YAML + cryptographic signature) describing an Intent.
+2. Execute – The neXus scheduler routes the Intent to an appropriate `nex-*` instance (or spawns a new one).
+3. Observe – The instance reads relevant Facts/Hints from the blackboard, performs its task, and writes new Facts.
+4. Verify – C2PA signatures guarantee that every Fact is auditable and non‑repudiable.
+5. Evolve – Successful patterns become Hints; failed attempts become counter‑examples, both reusable by future agents.
+
+## Relationship to SSCCS and ExaVerif
+
+| Component | Role |
+|-----------|------|
+| SSCCS | Foundational model (Segment / Scheme / Field / Observation) for structural computing. |
+| ExaVerif (`ev` CLI) | Reference implementation of exhaustive verification; backend for `nex-ev`. |
+| neXus | The platform (spec + runtime + blackboard + governance). |
+| nex | The actual autonomous agent binary that executes `.nex` contracts. |
+
+- `nex-ev` is the first production‑grade nex instance, proving the model.
+- All nex instances consume and produce Facts that feed back into the SSCCS‑inspired blackboard.
+
+## Ecosystem Implications
+
+- Language agnostic: developers write nex instances in their preferred language.
+- Reuse of existing code: a large Python simulation, a legacy C++ solver, or a Node.js API server can become a nex agent with minimal glue code.
+- No central control: agents run independently, communicate via the blackboard, and compose into larger workflows without modifying the core runtime.
+
+Example conceptual Python binding:
+
+```python
+import nex
+
+class MyAgent(nex.Agent):
+    def on_intent(self, intent):
+        result = self.run_simulation(intent.params)
+        self.post_fact("simulation_result", result)
+
+nex.run(MyAgent())
+```
+
+## Getting Started
+
+```bash
+# Install the neXus runtime (placeholder)
+cargo install nexus-runtime
+
+# Run a nex instance (example: nex-ev)
+nexe run --instance ev --contract verify_xif.nex
+
+# Query the blackboard
+nexe blackboard get --hash <fact-hash>
+```
+
+For development, use `nex-zed` inside the Zed editor to browse the blackboard and spawn verification branches interactively.
+
+## Future Directions
+
+- Cross‑domain merging – `nex-bio` Facts feeding into `nex-rtl` (e.g., neuro‑inspired hardware design).
+- Federated blackboards – Multiple neXus clusters exchanging Facts via secure, signed channels.
+
+## Conclusion
+
+The nex platform is a synthesis fabric. The core provides the immutable, verifiable substrate. Every other language and domain attaches to it like plugins. This makes the ecosystem infinitely extensible while keeping the critical trust layer (cryptographic signatures, blackboard integrity) unified and secure.
