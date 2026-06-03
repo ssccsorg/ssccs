@@ -27,20 +27,16 @@ title_meta_items = {
 
 ## Introduction
 
-nex is a thin autonomous runtime — a lightweight processing core with an embedded blackboard protocol that doubles as its memory, and a built-in specification for permanent storage backends. Each `nex-{app}` instance is a self-contained binary that reads and writes Facts, Intents, and Hints through this internal blackboard, performing domain-specific tasks without central coordination. The ecosystem is composable: any domain engine can be wrapped as a `nex-{app}` by implementing the runtime interface, gaining blackboard memory, stigmergic coordination, and cryptographic signing without external infrastructure.
+nex is a thin autonomous runtime — a lightweight processing core with an embedded blackboard protocol that doubles as its memory, and a built-in specification for permanent storage backends. Each `nex-{app}` instance is a self-contained binary that reads and writes Facts, Intents, and Hints through this internal blackboard, performing domain-specific tasks without central coordination. Any domain engine can be wrapped as a `nex-{app}` by implementing the runtime interface, gaining blackboard memory, stigmergic coordination, and cryptographic signing without external infrastructure.
 
 ## Core Principles
 
-- Infrastructure, not product – nex is invisible; success is measured by what others build on it.
+- Infrastructure, not product – nex is invisible as an internal neXus entity.
 - Built-in memory – the FIH blackboard protocol serves as the runtime's native memory; no external database required.
 - Embedded storage spec – a permanent storage backend (filesystem, SQLite, cloud, blockchain) plugs in via a defined specification, decoupled from processing.
 - Stigmergy – Agents leave traces on the blackboard; other agents react indirectly, without orchestration.
-- Recursive self-similarity – A single nex mirrors the whole neXus network (fractal architecture).
-- Immutable facts – All knowledge is content-addressed and tamper-proof (C2PA signatures).
-
-### Self-similarity, recursive
-
-The same thin kernel — processing, memory, and storage spec in one binary — composes fractally. An atomic nex instance embeds its own blackboard. Multiple nex instances form a cluster sharing a logical blackboard. Clusters federate into larger structures, each level presenting the same nex interface. The recursive self-similarity means a single nex mirrors the entire neXus network: what works at the agent scale works identically at the ecosystem scale.
+- Recursive self-similarity – A single nex mirrors the whole neXus network. The same thin kernel composes fractally: an atomic nex embeds its own blackboard; multiple nex instances form a cluster sharing a logical blackboard; clusters federate into larger structures.
+- Immutable facts – All knowledge is content-addressed and tamper-proof (e.g. C2PA signatures).
 
 ```{python}
 dot("""
@@ -141,19 +137,11 @@ digraph NexRecursiveEcosystem {
 
 ## Composition Model
 
-nex itself is a thin processing kernel — a minimal binary hub that carries its own memory (the FIH blackboard protocol) and embeds a permanent storage specification. The composition pattern extends this kernel with domain logic:
-
 ```text
-[ Domain Engine ] + [ nex Runtime (thin kernel + blackboard memory + storage spec) ] = nex-{app}
+Your Codebase + nex core library integration = nex-{app}
 ```
 
-For example, as [ExaVerif](../../ev) is independent project, but also can be a nex instance like:
-
-`nex-ev` a new project or a repository consists with two different subtrees: `nex + ev`
-
-- The domain engine contains the core intelligence (constraint solver, physics simulator, inference loop).
-- The nex kernel provides the blackboard as built-in memory, FIH protocol handling, stigmergic coordination, and cryptographic signing — all within the binary.
-- A permanent storage backend (embedded filesystem, SQLite, cloud object store, blockchain) plugs into the kernel via the storage spec, decoupling persistence from processing.
+The nex kernel provides the blackboard as built-in memory, FIH protocol handling, stigmergic coordination, and cryptographic signing — all within the binary. A permanent storage backend (filesystem, SQLite, cloud, blockchain) plugs into the kernel via the storage spec, decoupled from processing. For example, [ExaVerif](../../ev) is an independent project that also functions as a nex instance (`nex-ev`) by grafting the domain engine onto the runtime.
 
 ### Example Cases
 
@@ -195,13 +183,12 @@ The nex runtime is written in Rust and exports a stable C ABI. It also supports 
 
 | Component | Role |
 |-----------|------|
-| SSCCS | Foundational model (Segment / Scheme / Field / Observation) for structural computing. |
-| ExaVerif (`ev` CLI) | Reference implementation of exhaustive verification; backend for `nex-ev`. |
-| neXus | The platform (spec + runtime + blackboard + governance). |
-| nex | The actual autonomous agent binary that executes `.nex` contracts. |
+| SSCCS | Foundational model (Segment / Scheme / Field / Observation) |
+| ExaVerif (`ev` CLI) | Reference verification engine; backend for `nex-ev` |
+| neXus | Platform (spec + runtime + blackboard + governance) |
+| nex | Autonomous agent binary executing `.nex` contracts |
 
-- `nex-ev` is the first production‑grade nex instance, proving the model.
-- All nex instances consume and produce Facts that feed back into the SSCCS‑inspired blackboard.
+`nex-ev` is the first production-grade nex instance, proving the model.
 
 ## Ecosystem Implications
 
@@ -235,8 +222,6 @@ nexe run --instance ev --contract verify_xif.nex
 nexe blackboard get --hash <fact-hash>
 ```
 
-For development, use `nex-zed` inside the Zed editor to browse the blackboard and spawn verification branches interactively.
-
 ## Future Directions
 
 - Cross‑domain merging – `nex-bio` Facts feeding into `nex-rtl` (e.g., neuro‑inspired hardware design).
@@ -244,4 +229,4 @@ For development, use `nex-zed` inside the Zed editor to browse the blackboard an
 
 ## Conclusion
 
-The nex platform is a synthesis fabric. The core provides the immutable, verifiable substrate. Every other language and domain attaches to it like plugins. This makes the ecosystem infinitely extensible while keeping the critical trust layer (cryptographic signatures, blackboard integrity) unified and secure.
+The nex platform is a synthesis fabric. The core provides the immutable, verifiable substrate; every language and domain attaches to it like plugins.
