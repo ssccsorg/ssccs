@@ -110,35 +110,14 @@ ExaVerif's verification results are consumed by [Nexus](https://docs.ssccs.org/p
 
 ## How the Industry Verifies Custom Instructions
 
-Before examining why ExaVerif is different, it is worth understanding how verification teams approach custom instruction verification today. Each approach carries its own strengths, and each leaves specific gaps unfilled.
+| Approach | Representative Tools | Coverage | Limitation |
+|:---|:---|:---|:---|
+| Random simulation | RISCV‑DV, Breker | Statistical, seed‑based | Misses deterministic edge cases |
+| Formal verification | OneSpin, Axiomise | Per‑property proofs | Complex setup; capacity limits |
+| Reference model | ImperasDV | Simulation‑bound lockstep | Model may contain blind spots |
+| Compliance testing | RISC‑V ACT, RISCOF | Architectural conformance | No custom extension coverage |
 
-### Scenario-Based Integration Testing
-
-Tools like Breker generate test scenarios using SystemVerilog, UVM, and PSS. Their modular FASTApps framework can target custom extensions as reusable verification components. These tools excel at complex SoC-level integration testing where real-world system behavior must be simulated.
-
-The burden falls on setup. UVM environments are expensive to build and maintain. PSS requires specialized knowledge that many RISC‑V teams lack. The randomness at the core of scenario generation means that deterministic edge cases can slip through — a particular operand combination that triggers a pipeline hazard might never be generated, and no log will report its absence.
-
-### Reference Model Comparison
-
-ImperasDV takes a different approach: it runs the RTL design and a golden reference model in lockstep, comparing results cycle by cycle. Custom instruction support is a recognized strength — the reference model can be modified to match the extension being verified.
-
-The limitation lies in the reference model itself. Updating it to match a new custom instruction takes time, and the verification remains simulation-bound. No matter how many cycles are compared, exhaustive coverage of the constraint space is not the goal — correctness relative to the model is, and the model may contain blind spots of its own.
-
-### Formal Verification
-
-OneSpin (Siemens EDA) applies mathematical proof techniques to achieve zero bug escapes. SystemVerilog Assertions (SVA) define properties that the design must satisfy, and the tool proves or disproves them exhaustively.
-
-This approach catches bugs that simulation never would. The trade-off is complexity. Setup demands deep formal expertise. Large designs hit capacity limits where proofs become computationally infeasible. The scope is typically narrow — specific properties are verified, not the full constraint space of a custom instruction.
-
-### Random and Automated Test Generation
-
-RiescueC and RISCOF represent the open-source end of the spectrum. A JSON configuration describes the extension, and random assembly test sequences are generated automatically. RISCOF compares results across simulators to detect discrepancies.
-
-The barrier to entry is low, which makes these tools popular for ISA compliance testing. The shortcoming is the same randomness that makes them accessible: coverage is statistical, not deterministic. A test that passes today may fail tomorrow with a different seed. A corner case that matters may never be randomly selected.
-
-### The Pattern Across All Approaches
-
-Every existing approach — whether commercial or open-source — shares one trait: **coverage is either statistical or scoped to specific properties.** None generates every valid constraint combination and evaluates each deterministically. This is the gap ExaVerif exists to fill.
+Every approach shares one trait: **coverage is either statistical or scoped to specific properties.** None enumerates every valid constraint combination and evaluates each deterministically.
 
 ## Why ExaVerif Is Different
 
@@ -190,11 +169,7 @@ digraph Position {
 
 ## Automated Issue Management
 
-A verification result that is filed away after review becomes stale the moment the codebase changes. ExaVerif treats every result as a permanent, queryable record. When a constraint combination fails, the failure is not merely logged — it becomes part of a structured knowledge store that other projects can query without human intervention.
-
-Existing tools produce reports that must be manually compared, triaged, and tracked across projects. ExaVerif records every pass and every failure alongside the exact constraint combination that produced it. When a developer runs `ev check` against a module, ExaVerif consults what the collective has already discovered about similar constraint patterns. A failure that was analysed once never needs to be diagnosed from scratch again.
-
-This shifts verification from a series of disconnected runs to a compounding knowledge loop. A team validating a new custom instruction benefits from every failure pattern that every other team has already encountered, resolved, and deposited. The tool does not merely report issues — it remembers them, and that memory grows with every use.
+Verification results feed into the shared knowledge store (Nexus), where they become permanent, queryable records. A failure analyzed once never needs diagnosis from scratch again.
 
 ## Acknowledging the Limits of Exhaustive Verification
 
@@ -205,8 +180,6 @@ ExaVerif does not solve the combinatorial explosion problem. No tool can. What i
 For small to medium‑sized modules — single‑cycle integer XIFs, basic cryptographic accelerators, simple state machines — exhaustive coverage is achievable. For larger designs, ExaVerif serves as a complement to existing tools, systematically covering the constraint space that random approaches might miss. The scope is narrow, and that is by design.
 
 ## Competitive Landscape
-
-The RISC‑V verification market contains several established approaches, each with a distinct gap that ExaVerif fills.
 
 | Category | Tool / Vendor | Approach | Limitation |
 |:---|:---|:---|:---|
@@ -219,35 +192,20 @@ The RISC‑V verification market contains several established approaches, each w
 | **Cloud platform** | Vyoma UpTickPro | Cloud-based integrated verification | Verification still random/manual at core |
 | **AI debugging** | Vtool Cogita‑PRO | AI-assisted debug | Post-silicon debug; does not prevent verification gaps |
 
-**What no existing tool does:** exhaustive constraint composition. Every tool either samples statistically, verifies only specific properties, or requires manual test authoring. ExaVerif generates every valid constraint combination from a single YAML description and evaluates each one deterministically.
+**What no existing tool does:** exhaustive constraint composition from a single YAML description, evaluated deterministically.
 
-## Collaboration with the Ecosystem
+## Collaboration
 
-ExaVerif is being developed as an independent product within the RISC‑V ecosystem. It is not tied to any single organization, core, or workflow. The project welcomes collaboration with groups working on RISC‑V verification — including OpenHW, PULP, and individual core developers — to validate the approach against real‑world custom instruction extensions.
-
-Collaboration is structured as a mutual exchange: partners provide domain expertise and access to real‑world XIF designs for validation; the ExaVerif project provides the tool, methodology, and benchmarking infrastructure. All verification results generated through collaboration are deposited in the shared knowledge store, where they become reusable knowledge for the entire ecosystem.
-
-## Business Model
-
-ExaVerif is an early‑stage project. Our initial focus is not monetization but establishing the technical foundation that makes RISC‑V verification more accessible. The CLI is open‑source (Apache 2.0) and free to use. Paid tiers — if and when ecosystem validation confirms demand — will provide advanced interpretation and collaboration features. Certification services, if developed, would be offered as a separate layer built on top of the core engine.
-
-### Current State
-
-The core engine is validated against the CVA6 CV-X-IF reference coprocessor — the same encoding tables used in OpenHW's own verification suite. 33.5 million combinations are evaluated exhaustively in 32 seconds, with 100% cross-validation against Spike RISC-V simulation. The CLI is open-source (Apache 2.0). No paid features exist. No certification service is operational.
+ExaVerif welcomes collaboration with RISC‑V verification groups — including OpenHW, PULP, and individual core developers — to validate the approach against real‑world custom instruction extensions. All verification results are deposited in the shared knowledge store.
 
 ### Public Assets
 
 | Asset | Status |
 |:---|:---|
-| ExaVerif CLI (`ev`) | Apache 2.0 |
+| CLI (`ev`) | Open-source (Apache 2.0) |
 | Exhaustive engine | Validated on CVA6 XIF (33.5M combos, 32s) |
-| Spike simulation | 196,608/196,608 pass |
-| Technical concept document | Published |
+| Spike simulation | 196,608 / 196,608 pass |
 | Shared knowledge store | In development |
-
-### Future Monetization (Post-Validation)
-
-Paid tiers are designed but **activated only after ecosystem partners provide positive validation**. No pricing has been set. Any future paid services — advanced LLM interpretation, custom constraint templates, CI/CD integration, formal certification — would be built on top of the free core engine, not required for basic use.
 
 ## Market Context
 
@@ -364,28 +322,15 @@ plt.show()
 
 :::
 
-The RISC‑V technology market is projected to grow from **$1.35B in 2025** to **$10.7B by 2031** at a **41.2% CAGR**. Verification accounts for roughly 30% of the broader EDA market, which reached **$19.22B in 2025**.
+The RISC‑V technology market is projected to grow from $1.35B in 2025 to $10.7B by 2031 at a 41.2% CAGR. Verification accounts for roughly 30% of the broader EDA market. ExaVerif's opportunity lies in complementing existing tools for use cases where exhaustive coverage adds demonstrable value.
 
-These figures describe the total addressable market. The serviceable market for ExaVerif — teams actively designing custom RISC‑V extensions who would adopt a new verification methodology — is a narrow slice of this total. ExaVerif's near‑term opportunity lies not in displacing established tools but in complementing them for specific use cases where exhaustive coverage adds demonstrable value.
+## What Makes This Possible on RISC‑V
 
-## Related Research: Radiation-Tolerant Computing
-
-A parallel research track explores how the same XIF verification methodology extends to radiation-tolerant RISC‑V computing for space environments. Custom instructions verified by ExaVerif at design time can carry fault-tolerance policies into deployment. This work is documented separately in the [RISC‑V Space Computing report](https://docs.ssccs.org/research/riscv_space).
-
-### What Makes This Possible Only on RISC‑V
-
-| Dimension | Proprietary ISA (x86 / ARM) | Open ISA (RISC‑V) |
-|:---|:---|:---|
-| Simulators | Vendor-proprietary (Intel SDE, ARM Fast Models) | Fully open source (Spike, QEMU, Renode) |
-| Extensibility | Vendor-permitted instructions only | Anyone can design custom instructions via XIF |
-| Verification transparency | Black-box; internal tooling required | Anyone can inspect algorithms and results |
-| Certification | Vendor-issued proprietary certs only | Third-party independent certification possible |
-
-Only RISC‑V's open infrastructure enables a third-party certification authority to exist. ExaVerif is the engine that makes that certification meaningful.
+RISC‑V's open ISA and fully open-source simulator infrastructure (Spike, QEMU) enable independent third-party verification that proprietary ISAs cannot support. ExaVerif leverages this openness to provide certification-grade exhaustive verification without vendor lock-in.
 
 ## Roadmap
 
-### Phase 0: Foundation (Present)
+### Phase 0: Foundation
 
 **Goal:** Validate that the problem ExaVerif solves is real, and that the solution is technically credible.
 
@@ -394,7 +339,7 @@ Only RISC‑V's open infrastructure enables a third-party certification authorit
 - Submit a collaboration proposal to the OpenHW Verification Task Group
 - **Output:** Published benchmarks, a list of confirmed pain points, and at least one ecosystem partner engaged.
 
-### Phase 1: Working CLI + Reference Implementation (2026)
+### Phase 1: Working CLI + Reference Implementation
 
 **Goal:** Release a functional open-source CLI with a publicly verifiable reference implementation.
 
@@ -403,7 +348,7 @@ Only RISC‑V's open infrastructure enables a third-party certification authorit
 - Complete integration of the shared knowledge store for result persistence
 - **Output:** A single binary that performs exhaustive verification with published, reproducible benchmarks.
 
-### Phase 2: Ecosystem Validation (2027)
+### Phase 2: Ecosystem Validation
 
 **Goal:** Determine whether the tool solves a problem that teams will pay for.
 
@@ -411,16 +356,6 @@ Only RISC‑V's open infrastructure enables a third-party certification authorit
 - If validation is positive, develop paid tiers (advanced interpretation, custom templates, CI/CD integration)
 - Propose ExaVerif as a standard verification module within OpenHW's CORE‑V‑VERIF framework
 - **Output:** Confirmed product-market fit or a decision to pivot.
-
-### Future Direction: Certification Services
-
-If Phase 2 confirms demand, a formal certification layer may be developed as a separate service built on top of the core engine. This would involve:
-
-- C2PA‑compatible manifest generation and cryptographic signing
-- Regulation‑specific compliance templates (ISO 26262, DO‑178C, ESA ESCC)
-- On‑chain verification proofs for auditability
-
-These services are contingent on ecosystem validation. They are not part of the current roadmap. The analogy of "Let's Encrypt for RISC‑V" describes a long‑term vision, not a near‑term deliverable.
 
 ## Connection to the Substrate
 
