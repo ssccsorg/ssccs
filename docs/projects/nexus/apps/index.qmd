@@ -1,6 +1,6 @@
 ---
 title: "Apps"
-subtitle: "neX instance ecosystem: any type of independent extensions or apps as neXus entity"
+subtitle: "neX instance ecosystem: thin processing kernel with built-in blackboard memory and embedded storage specification"
 date: last-modified
 metadata-files:
   - ../../../_include/author.yml
@@ -27,32 +27,140 @@ title_meta_items = {
 
 ## Introduction
 
-nex is the autonomous agent runtime library and CLI for the neXus platform. Each `nex-{app}` instance is a self-contained binary that communicates through a shared blackboard (Fact/Intent/Hint) and performs domain-specific tasks without central coordination. The ecosystem is built on a composable model: any domain-specific core engine can be wrapped as a `nex-{app}` instance by implementing the nex runtime interface.
+nex is a thin autonomous runtime — a lightweight processing core with an embedded blackboard protocol that doubles as its memory, and a built-in specification for permanent storage backends. Each `nex-{app}` instance is a self-contained binary that reads and writes Facts, Intents, and Hints through this internal blackboard, performing domain-specific tasks without central coordination. The ecosystem is composable: any domain engine can be wrapped as a `nex-{app}` by implementing the runtime interface, gaining blackboard memory, stigmergic coordination, and cryptographic signing without external infrastructure.
 
 ## Core Principles
 
 - Infrastructure, not product – nex is invisible; success is measured by what others build on it.
+- Built-in memory – the FIH blackboard protocol serves as the runtime's native memory; no external database required.
+- Embedded storage spec – a permanent storage backend (filesystem, SQLite, cloud, blockchain) plugs in via a defined specification, decoupled from processing.
 - Stigmergy – Agents leave traces on the blackboard; other agents react indirectly, without orchestration.
 - Recursive self-similarity – A single nex mirrors the whole neXus network (fractal architecture).
-- Immutable facts – All knowledge (verification results, design intents, hints) is content-addressed and tamper-proof (C2PA signatures).
+- Immutable facts – All knowledge is content-addressed and tamper-proof (C2PA signatures).
+
+### Self-similarity, recursive
+
+The same thin kernel — processing, memory, and storage spec in one binary — composes fractally. An atomic nex instance embeds its own blackboard. Multiple nex instances form a cluster sharing a logical blackboard. Clusters federate into larger structures, each level presenting the same nex interface. The recursive self-similarity means a single nex mirrors the entire neXus network: what works at the agent scale works identically at the ecosystem scale.
+
+```{python}
+dot("""
+digraph NexRecursiveEcosystem {
+    rankdir=TB;
+    fontname="Arial";
+    compound=true;
+    splines=ortho;
+    nodesep=0.3;
+    ranksep=0.4;
+
+    // === Federation (outermost) ===
+    subgraph cluster_federation {
+        label = "federation — clusters as logical nex";
+        style = filled;
+        fillcolor = "#f0f0f0";
+        color = "#555555";
+        penwidth = 2;
+        fontsize = 11;
+
+        node[shape = box3d, style = filled, fillcolor = "#fef8d8", fontsize = 9];
+        bb_fed[label = "logical blackboard"];
+        bb_fed[width = 1.2];
+
+        // === Cluster A (nested inside federation) ===
+        subgraph cluster_cluster_a {
+            label = "cluster A (shared logical blackboard)";
+            style = filled;
+            fillcolor = "#e4f8e4";
+            color = "#339933";
+            penwidth = 2;
+            fontsize = 9;
+
+            node[shape = box3d, style = filled, fillcolor = "#fef8d8", fontsize = 8];
+            bb_a[label = "blackboard"];
+            bb_a[width = 0.8];
+
+            // === Atomic nex instances inside cluster A ===
+            subgraph cluster_atom_a1 {
+                label = "nex"; style = filled; fillcolor = "#fce4e4"; color = "#bb4444"; penwidth = 1.5; fontsize = 7;
+                node[shape = component, style = filled, fontsize = 6];
+                p1[fillcolor = "#d6eaf8", label = "proc"];
+                m1[fillcolor = "#fef8d8", label = "mem"];
+                s1[fillcolor = "#d5f5e3", label = "stor"];
+                edge[arrowhead = none, style = solid, color = "#888888", minlen = 0.5];
+                p1 -> m1 -> s1;
+            }
+
+            subgraph cluster_atom_a2 {
+                label = "nex"; style = filled; fillcolor = "#fce4e4"; color = "#bb4444"; penwidth = 1.5; fontsize = 7;
+                node[shape = component, style = filled, fontsize = 6];
+                p2[fillcolor = "#d6eaf8", label = "proc"];
+                m2[fillcolor = "#fef8d8", label = "mem"];
+                s2[fillcolor = "#d5f5e3", label = "stor"];
+                edge[arrowhead = none, style = solid, color = "#888888", minlen = 0.5];
+                p2 -> m2 -> s2;
+            }
+
+            edge[arrowhead = normal, style = solid, color = "#555555"];
+            p1 -> bb_a;
+            p2 -> bb_a;
+        }
+
+        // === Cluster B (nested inside federation) ===
+        subgraph cluster_cluster_b {
+            label = "cluster B (shared logical blackboard)";
+            style = filled;
+            fillcolor = "#e4f8e4";
+            color = "#339933";
+            penwidth = 2;
+            fontsize = 9;
+
+            node[shape = box3d, style = filled, fillcolor = "#fef8d8", fontsize = 8];
+            bb_b[label = "blackboard"];
+            bb_b[width = 0.8];
+
+            subgraph cluster_atom_b1 {
+                label = "nex"; style = filled; fillcolor = "#fce4e4"; color = "#bb4444"; penwidth = 1.5; fontsize = 7;
+                node[shape = component, style = filled, fontsize = 6];
+                p3[fillcolor = "#d6eaf8", label = "proc"];
+                m3[fillcolor = "#fef8d8", label = "mem"];
+                s3[fillcolor = "#d5f5e3", label = "stor"];
+                edge[arrowhead = none, style = solid, color = "#888888", minlen = 0.5];
+                p3 -> m3 -> s3;
+            }
+
+            edge[arrowhead = normal, style = solid, color = "#555555"];
+            p3 -> bb_b;
+        }
+
+        edge[arrowhead = normal, style = solid, color = "#555555"];
+        bb_a -> bb_fed;
+        bb_b -> bb_fed;
+    }
+}
+""")
+```
 
 ## Composition Model
 
-The fundamental composition pattern is:
+nex itself is a thin processing kernel — a minimal binary hub that carries its own memory (the FIH blackboard protocol) and embeds a permanent storage specification. The composition pattern extends this kernel with domain logic:
 
 ```text
-[ Domain Codebase] + [ nex Runtime (Rust) ] = nex-{app}
+[ Domain Engine ] + [ nex Runtime (thin kernel + blackboard memory + storage spec) ] = nex-{app}
 ```
 
-- The domain engine contains the core intelligence (e.g., a constraint solver, a physics simulator, an LLM inference loop).
-- The nex runtime provides blackboard communication, Fact/Intent/Hint handling, stigmergic coordination, and cryptographic signing.
-- The two are linked via FFI or WASM: the domain engine calls into the runtime to read/write Facts, and the runtime calls back into the engine to execute tasks.
+For example, as [ExaVerif](../../ev) is independent project, but also can be a nex instance like:
 
-## Case Examples
+`nex-ev` a new project or a repository consists with two different subtrees: `nex + ev`
+
+- The domain engine contains the core intelligence (constraint solver, physics simulator, inference loop).
+- The nex kernel provides the blackboard as built-in memory, FIH protocol handling, stigmergic coordination, and cryptographic signing — all within the binary.
+- A permanent storage backend (embedded filesystem, SQLite, cloud object store, blockchain) plugs into the kernel via the storage spec, decoupling persistence from processing.
+
+### Example Cases
+
+Every `nex-*` instance shares the same blackboard schema and communication protocol. They are designed to be launched and supervised by the neXus runtime.
 
 | Instance | Domain | Role |
 |----------|--------|------|
-| [`nex-ev`](../../ev) | Verification | Exhaustive RISC‑V XIF verification; produces C2PA‑signed certificates. |
 | `nex-zed` | Development | Agentic editor extension for Zed – browses blackboard, spawns verification branches. |
 | `nex-phys` | Robotics | Connects to physical simulation (Gazebo, MuJoCo) or real hardware; feeds sensor data as Facts. |
 | `nex-rtl` | Hardware Design | Generates synthesizable RTL (Verilog/SystemVerilog) from high‑level Intent and past Facts/Hints. |
@@ -62,8 +170,6 @@ The fundamental composition pattern is:
 | `nex-compile` | Compilers | Optimizes LLVM/MLIR passes by observing IR transformations and recording performance Facts. |
 | `nex-bio` | Computational Biology | Models protein folding, cell signalling, neural circuits as Fact graphs. |
 | `nex-cosmo` | Astrophysics | Distributed simulation of cosmological structures (galaxy formation, gravitational waves). |
-
-Every `nex-*` instance shares the same blackboard schema and communication protocol. They are designed to be launched and supervised by the neXus runtime.
 
 ## Cross-Language Bindings
 
