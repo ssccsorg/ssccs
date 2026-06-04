@@ -1,5 +1,5 @@
 ---
-title: "Apps"
+title: "Apps Ecosystem"
 subtitle: "neXus entity ecosystem driven by composite nex instances"
 date: last-modified
 metadata-files:
@@ -27,7 +27,7 @@ title_meta_items = {
 
 ## Introduction
 
-nex is a thin autonomous runtime — a lightweight processing core with an embedded blackboard protocol that doubles as its memory, and a built-in specification for permanent storage backends. Each `nex-{app}` instance is a self-contained binary that reads and writes Facts, Intents, and Hints through this internal blackboard, performing domain-specific tasks without central coordination. Any domain engine can be wrapped as a `nex-{app}` by implementing the runtime interface, gaining blackboard memory, stigmergic coordination, and cryptographic signing without external infrastructure.
+`nex` is a lightweight runtime binary or library processing core with an embedded blackboard protocol that doubles as its memory, and a built-in specification for permanent storage backends. Each `nex-{app}` instance is a self-contained binary that reads and writes Facts, Intents, and Hints through this internal blackboard, performing domain-specific tasks without central coordination. Any domain engine can be wrapped as a `nex-{app}` by implementing the runtime interface, gaining blackboard memory, stigmergic coordination, and cryptographic signing without external infrastructure.
 
 ## Core Principles
 
@@ -45,92 +45,113 @@ digraph NexRecursiveEcosystem {
     fontname="Arial";
     compound=true;
     splines=ortho;
-    nodesep=0.3;
-    ranksep=0.4;
 
-    // === Federation (outermost) ===
+    // === Federation nex (outermost) ===
     subgraph cluster_federation {
-        label = "federation — clusters as logical nex";
+        label = "federation nex";
         style = filled;
         fillcolor = "#f0f0f0";
         color = "#555555";
         penwidth = 2;
         fontsize = 11;
 
-        node[shape = box3d, style = filled, fillcolor = "#fef8d8", fontsize = 9];
-        bb_fed[label = "logical blackboard"];
-        bb_fed[width = 1.2];
+        node[shape = component, style = filled, fontsize = 6];
+        fed_p[fillcolor = "#d6eaf8", label = "proc"];
+        fed_m[fillcolor = "#fef8d8", label = "mem"];
+        fed_s[fillcolor = "#d5f5e3", label = "stor"];
+        edge[arrowhead = none, style = solid, color = "#888888", minlen = 0.5];
+        fed_p -> fed_m -> fed_s;
 
-        // === Cluster A (nested inside federation) ===
+        // === Cluster A nex ===
         subgraph cluster_cluster_a {
-            label = "cluster A (shared logical blackboard)";
+            label = "cluster nex A";
             style = filled;
             fillcolor = "#e4f8e4";
             color = "#339933";
             penwidth = 2;
             fontsize = 9;
 
-            node[shape = box3d, style = filled, fillcolor = "#fef8d8", fontsize = 8];
-            bb_a[label = "blackboard"];
-            bb_a[width = 0.8];
+            node[shape = component, style = filled, fontsize = 6];
+            ca_p[fillcolor = "#d6eaf8", label = "proc"];
+            ca_m[fillcolor = "#fef8d8", label = "mem"];
+            ca_s[fillcolor = "#d5f5e3", label = "stor"];
+            edge[arrowhead = none, style = solid, color = "#888888", minlen = 0.5];
+            ca_p -> ca_m -> ca_s;
 
-            // === Atomic nex instances inside cluster A ===
+            // === Atomic nex 1 ===
             subgraph cluster_atom_a1 {
                 label = "nex"; style = filled; fillcolor = "#fce4e4"; color = "#bb4444"; penwidth = 1.5; fontsize = 7;
                 node[shape = component, style = filled, fontsize = 6];
-                p1[fillcolor = "#d6eaf8", label = "proc"];
-                m1[fillcolor = "#fef8d8", label = "mem"];
-                s1[fillcolor = "#d5f5e3", label = "stor"];
+                a1p[fillcolor = "#d6eaf8", label = "proc"];
+                a1m[fillcolor = "#fef8d8", label = "mem"];
+                a1s[fillcolor = "#d5f5e3", label = "stor"];
                 edge[arrowhead = none, style = solid, color = "#888888", minlen = 0.5];
-                p1 -> m1 -> s1;
+                a1p -> a1m -> a1s;
             }
 
+            // === Atomic nex 2 ===
             subgraph cluster_atom_a2 {
                 label = "nex"; style = filled; fillcolor = "#fce4e4"; color = "#bb4444"; penwidth = 1.5; fontsize = 7;
                 node[shape = component, style = filled, fontsize = 6];
-                p2[fillcolor = "#d6eaf8", label = "proc"];
-                m2[fillcolor = "#fef8d8", label = "mem"];
-                s2[fillcolor = "#d5f5e3", label = "stor"];
+                a2p[fillcolor = "#d6eaf8", label = "proc"];
+                a2m[fillcolor = "#fef8d8", label = "mem"];
+                a2s[fillcolor = "#d5f5e3", label = "stor"];
                 edge[arrowhead = none, style = solid, color = "#888888", minlen = 0.5];
-                p2 -> m2 -> s2;
+                a2p -> a2m -> a2s;
             }
-
-            edge[arrowhead = normal, style = solid, color = "#555555"];
-            p1 -> bb_a;
-            p2 -> bb_a;
         }
 
-        // === Cluster B (nested inside federation) ===
+        // === Cluster B nex ===
         subgraph cluster_cluster_b {
-            label = "cluster B (shared logical blackboard)";
+            label = "cluster nex B";
             style = filled;
             fillcolor = "#e4f8e4";
             color = "#339933";
             penwidth = 2;
             fontsize = 9;
 
-            node[shape = box3d, style = filled, fillcolor = "#fef8d8", fontsize = 8];
-            bb_b[label = "blackboard"];
-            bb_b[width = 0.8];
+            node[shape = component, style = filled, fontsize = 6];
+            cb_p[fillcolor = "#d6eaf8", label = "proc"];
+            cb_m[fillcolor = "#fef8d8", label = "mem"];
+            cb_s[fillcolor = "#d5f5e3", label = "stor"];
+            edge[arrowhead = none, style = solid, color = "#888888", minlen = 0.5];
+            cb_p -> cb_m -> cb_s;
 
             subgraph cluster_atom_b1 {
                 label = "nex"; style = filled; fillcolor = "#fce4e4"; color = "#bb4444"; penwidth = 1.5; fontsize = 7;
                 node[shape = component, style = filled, fontsize = 6];
-                p3[fillcolor = "#d6eaf8", label = "proc"];
-                m3[fillcolor = "#fef8d8", label = "mem"];
-                s3[fillcolor = "#d5f5e3", label = "stor"];
+                b1p[fillcolor = "#d6eaf8", label = "proc"];
+                b1m[fillcolor = "#fef8d8", label = "mem"];
+                b1s[fillcolor = "#d5f5e3", label = "stor"];
                 edge[arrowhead = none, style = solid, color = "#888888", minlen = 0.5];
-                p3 -> m3 -> s3;
+                b1p -> b1m -> b1s;
             }
-
-            edge[arrowhead = normal, style = solid, color = "#555555"];
-            p3 -> bb_b;
         }
-
-        edge[arrowhead = normal, style = solid, color = "#555555"];
-        bb_a -> bb_fed;
-        bb_b -> bb_fed;
     }
+
+    // === nex-as-storage: lower stor IS the parent nex ===
+    edge[arrowhead = normal, style = bold, color = "#228B22", fontsize = 7];
+    a1s -> ca_p [label = "nex-as-storage"];
+    a2s -> ca_p [label = "nex-as-storage"];
+    b1s -> cb_p [label = "nex-as-storage"];
+    ca_s -> fed_p [label = "nex-as-storage"];
+    cb_s -> fed_p [label = "nex-as-storage"];
+
+    // === FIH: Fact upward (mem → mem) ===
+    edge[arrowhead = normal, style = dashed, fontsize = 7];
+
+    // Atomic → Cluster: blackboard content as Fact
+    a1m -> ca_m [label = "Fact", color = "#228B22"];
+    a2m -> ca_m [label = "Fact", color = "#228B22"];
+    b1m -> cb_m [label = "Fact", color = "#228B22"];
+
+    // Cluster → Federation: blackboard content as Fact
+    ca_m -> fed_m [label = "Fact", color = "#228B22"];
+    cb_m -> fed_m [label = "Fact", color = "#228B22"];
+
+    // === FIH: Hint downward (proc → proc) ===
+    ca_p -> a1p [label = "Hint", color = "#888888", style = "dotted"];
+    fed_p -> ca_p [label = "Hint", color = "#888888", style = "dotted"];
 }
 """)
 ```
@@ -152,12 +173,9 @@ Every `nex-*` instance shares the same blackboard schema and communication proto
 | `nex-zed` | Development | Agentic editor extension for Zed – browses blackboard, spawns verification branches. |
 | `nex-phys` | Robotics | Connects to physical simulation (Gazebo, MuJoCo) or real hardware; feeds sensor data as Facts. |
 | `nex-rtl` | Hardware Design | Generates synthesizable RTL (Verilog/SystemVerilog) from high‑level Intent and past Facts/Hints. |
-| `nex-lk` | Security | Monitors blackboard for malicious Facts/Intent, isolates compromised branches. |
+| `nex-lk` | Self-Security | Monitors blackboard for malicious Facts/Intent, isolates compromised branches. |
 | `nex-veridb` | Knowledge | Aggregates public RISC‑V / RTL verification facts (GitHub, papers) into the blackboard. |
-| `nex-fpga` | Reconfigurable Computing | Deploys nex agents directly on FPGA fabric for near‑data observation. |
-| `nex-compile` | Compilers | Optimizes LLVM/MLIR passes by observing IR transformations and recording performance Facts. |
 | `nex-bio` | Computational Biology | Models protein folding, cell signalling, neural circuits as Fact graphs. |
-| `nex-cosmo` | Astrophysics | Distributed simulation of cosmological structures (galaxy formation, gravitational waves). |
 
 ## Cross-Language Bindings
 
@@ -171,13 +189,108 @@ The nex runtime is written in Rust and exports a stable C ABI. It also supports 
 | Node.js / JavaScript | napi-rs / node-bindgen | Planned |
 | Go, Zig, Nim | C ABI or WASM | Future |
 
-## How It Works
+## Storage Architecture
 
-1. Declare – A user (or AI) writes an `.nex` contract (YAML + cryptographic signature) describing an Intent.
-2. Execute – The neXus scheduler routes the Intent to an appropriate `nex-*` instance (or spawns a new one).
-3. Observe – The instance reads relevant Facts/Hints from the blackboard, performs its task, and writes new Facts.
-4. Verify – C2PA signatures guarantee that every Fact is auditable and non‑repudiable.
-5. Evolve – Successful patterns become Hints; failed attempts become counter‑examples, both reusable by future agents.
+### Three Storage Primitives
+
+The nex runtime defines three storage primitives as pure-sync interfaces. Zero async dependency, zero platform-specific code. Any backend that satisfies the contract plugs in without changing core logic.
+
+| Primitive | Interface | Purpose |
+|-----------|-----------|---------|
+| KV Storage | read / write / delete / list | String-keyed storage for Facts and Hints |
+| Blob Storage | put / get / delete / list | Arbitrary byte storage for archived Fact streams, C2PA provenance bundles |
+| Object Storage | read-state / compare-and-swap | Strongly consistent CAS for Intent arbitration |
+
+A storage orchestration layer binds all three tiers, managing flush cursors, FIH persistence, and time-range queries. Every storage backend — filesystem, SQLite, cloud object storage, blockchain — conforms to the same three-primitive contract.
+
+### AsyncStorage Bridge
+
+When the storage backend lives across an async boundary (network, cloud API, WASM runtime), the nex core remains synchronous while an AsyncStorage bridge handles all async I/O. This pattern resolves the async-sync impedance mismatch without requiring async language features or a blocking runtime.
+
+1. Create — An AsyncStorage session initializes with in-memory buffers for KV, Blob, and Object primitives, each tracking which keys are dirtied.
+2. Hydrate — The bridge populates buffers from the real backend via async reads, confined entirely outside the sync core.
+3. Execute — The sync core runs against in-memory buffers. Every write dirties the key; every read hits the buffer. CAS compare-and-swap operates entirely in memory.
+4. Drain and flush — The bridge collects dirty mutations and flushes them to the real backend via async writes. Only mutated keys traverse the async boundary.
+
+Key properties:
+
+- 0 core changes — Storage interfaces remain pure-sync. AsyncStorage buffers implement the same interfaces without modification.
+- Dirty-tracking as bridge — The drain phase produces only the delta, minimizing bandwidth and write cost.
+- Atomic flush is caller-controlled — The session exposes the dirty delta; the bridge layer decides flush strategy: atomic within a single CAS namespace, or best-effort across independent stores.
+- Thread-safe by design — Buffers use shared ownership with interior mutability, safe for sequential job queues in native builds while remaining usable in WASM.
+
+```{python}
+#| label: fig-asyncstorage-bridge
+#| fig-cap: "AsyncStorage bridge: sync core operates on in-memory buffers; async I/O confined to hydrate and flush phases."
+dot("""
+digraph AsyncStorageBridge {
+    rankdir=LR
+    node [shape=box, style=filled, fontname="Arial"]
+
+    subgraph cluster_runtime {
+        label="Execution Lifecycle"
+        style=dashed
+        color="#888888"
+
+        Backend [label="Storage Backend\n(filesystem, SQLite, cloud, blockchain)", fillcolor="#F4E8F8"]
+
+        Bridge [label="AsyncStorage Bridge\n1. hydrate from backend\n2. run sync core\n3. drain dirty / flush to backend", fillcolor="#E8F4F8"]
+
+        subgraph cluster_sync {
+            label="Sync Core (no async dependency)"
+            style=filled
+            color="#ccc"
+            bgcolor="#FAFAFA"
+
+            Buffers [label="AsyncStorage Buffers\nKV / Blob / Object\nIn-memory + dirty tracking", fillcolor="#FFF4E6"]
+
+            Orchestrator [label="Storage Orchestration\nCAS coordination\nFIH Blackboard operations\nFlush cursor management", fillcolor="#E8F8E8"]
+        }
+    }
+
+    Backend -> Bridge [label="read"]
+    Bridge -> Buffers [label="hydrate"]
+    Buffers -> Orchestrator [label="storage interface"]
+    Orchestrator -> Buffers [label="dirty writes"]
+    Bridge -> Buffers [label="drain dirty"]
+    Bridge -> Backend [label="flush"]
+}
+""")
+```
+
+### CAS Coordination
+
+All cross-instance Intent claims flow through a single atomic gate: the Object Storage compare-and-swap.
+
+1. Read current state for an Intent key
+2. If the state permits the claim, issue an atomic compare-and-swap: "if still expected, replace with new"
+3. If the swap succeeds, the claim is won. If it fails, another instance claimed this Intent first.
+
+This is the only coordination primitive in nex. The CAS backend must provide:
+
+- Linearized execution — CAS contention serializes without additional locking.
+- Strong consistency — Every read sees the latest committed state. No eventual consistency window.
+- Atomic write gating — When an instance flushes its dirty Object delta, the backend applies all CAS operations atomically. If any CAS fails, the instance learns which keys failed and can roll back locally.
+
+Suitable backends include SQLite (WAL mode), etcd, and blockchain ledgers.
+
+### Tiered Storage Model
+
+The storage orchestration layer binds three temperature tiers into a unified persistence model. A flush cursor advances as Facts are committed.
+
+| Tier | Temperature | Backend Examples | Contents |
+|------|------------|-----------------|----------|
+| Hot | In-memory, strongly consistent | Object CAS namespace | Recent Facts, active Intents, coordination state |
+| Warm | Frequently read, eventually consistent | KV storage | Published Facts, configuration Hints |
+| Cold | Archived, content-addressed | Blob storage | Fact streams, C2PA provenance bundles, resolved Intent logs |
+
+Data graduates through tiers: hot mutations flush to warm storage; warm data ages into cold archival. Snapshots at each tier enable recovery and replay from any point in the flush history.
+
+### nex as Execution over Shared Memory
+
+Any storage backend that implements the three primitives turns an independent codebase into a nex instance. The AsyncStorage bridge is the universal pattern: an existing implementation conforms to the KV, Blob, and Object interfaces, the bridge wraps it with in-memory buffers and dirty tracking, and the sync core runs against the buffers without knowing which backend sits behind them.
+
+Storage does one thing: store. It persists the FIH graph and scales without bound. On top of this, the nex core reads the graph as memory and acts on it — interpreting behavior specifications, issuing new Facts and Intents, and contributing evolved patterns back. The agent concept dissolves into this simpler model: storage as shared memory, nex as the execution loop that reads from it and writes back to it. Every backend — filesystem, database, graph memory, another nex — is indistinguishable from the core's perspective; what a nex becomes depends on what the stored specifications describe, not on which backend sits behind them.
 
 ## Relationship to SSCCS and ExaVerif
 

@@ -4,7 +4,7 @@ date: last-modified
 metadata-files:
   - ../../../_include/author.yml
 abstract: |
-  neXus is a self‑evolving, contract‑governed agentic research infrastructure built on FIH (Fact/Intent/Hint) primitives, compiling to `wasm32-unknown-unknown` as its primary runtime target. Cloudflare Workers, Durable Objects, KV, and R2 provide the globally distributed, strongly consistent storage fabric that neXus requires for decentralized agent coordination. This document describes a completed architectural solution to the async‑sync boundary problem: the IoBuffer+StoreSession pattern, which keeps neXus's deterministic core synchronous while wrapping it in an async bridge that hydrates from Cloudflare bindings, runs the computation, and flushes back within a single Worker request lifecycle, no block_on required. neXus is designed to deploy on Cloudflare Workers as a reference architecture for running verifiable agentic computation at the edge, with zero external infrastructure dependencies.
+  neXus is a self‑evolving, contract‑governed agentic research infrastructure built on FIH (Fact/Intent/Hint) primitives, compiling to `wasm32-unknown-unknown` as its primary runtime target. Cloudflare Workers, Durable Objects, KV, and R2 provide the globally distributed, strongly consistent storage fabric that neXus requires for decentralized agent coordination. This document describes the Cloudflare‑specific deployment of the [AsyncStorage bridge pattern](../apps/), which keeps neXus's deterministic core synchronous while wrapping it in an async bridge that hydrates from Cloudflare bindings, runs the computation, and flushes back within a single Worker request lifecycle, no block_on required. neXus is designed to deploy on Cloudflare Workers as a reference architecture for running verifiable agentic computation at the edge, with zero external infrastructure dependencies.
 ---
 
 ```{python}
@@ -31,9 +31,9 @@ title_meta_items = {
 
 The SSCCS Foundation is building neXus, a self‑evolving, contract‑governed agentic research infrastructure. neXus decomposes all computation into three primitive types: Fact (validated observation), Intent (proposed exploration), and Hint (constraint), forming a deterministic, auditable provenance tree that scales from a single process to a globally distributed agent fabric.
 
-neXus compiles to `wasm32-unknown-unknown` as its primary compilation target. The storage layer is abstracted through pure‑sync Rust traits (`KeyValueStore`, `BlobStore`, `ObjectStore`). There is no async runtime dependency, no `tokio`, no `async-std`, no nightly Rust features. This creates a natural fit with Cloudflare Workers: Workers provide a Wasm execution environment with globally distributed KV, R2 object storage, and Durable Objects for strongly consistent coordination.
+neXus compiles to `wasm32-unknown-unknown` as its primary compilation target. The storage layer is abstracted through three pure‑sync primitives (KV, Blob, Object) as described in the [general storage architecture](../apps/). There is no async runtime dependency, no `tokio`, no `async-std`, no nightly Rust features. This creates a natural fit with Cloudflare Workers: Workers provide a Wasm execution environment with globally distributed KV, R2 object storage, and Durable Objects for strongly consistent coordination.
 
-The core challenge was the async‑sync boundary: Workers run on a single‑threaded event loop where `block_on` is impossible. neXus recently completed an architectural solution to this problem: the IoBuffer+StoreSession pattern. It keeps the deterministic core synchronous while wrapping it in an async bridge that hydrates from Cloudflare bindings, runs the computation, and flushes back within a single Worker request lifecycle. The work is already production‑ready: 0 core files changed, 4 new files (`iobuf.rs`, `store_session.rs`, `session_server.rs`, `session.rs` in model), 30/30 existing tests pass plus 8 new IoBuffer session tests, full workspace CI passing.
+The core challenge was the async‑sync boundary: Workers run on a single‑threaded event loop where `block_on` is impossible. neXus solved this with the AsyncStorage bridge pattern. It keeps the deterministic core synchronous while wrapping it in an async bridge that hydrates from Cloudflare bindings, runs the computation, and flushes back within a single Worker request lifecycle. The work is already production‑ready: 0 core files changed, 30/30 existing tests pass plus 8 new AsyncStorage session tests, full workspace CI passing.
 
 neXus is designed to deploy entirely on Cloudflare Workers + KV + R2 + Durable Objects, with no external infrastructure. The platform credits and resources needed to complete the Cloudflare‑specific binding layer and maintain the public deployment are modest, and we are open to discussing which partnership or support model best fits.
 
@@ -61,21 +61,21 @@ From Cloudflare's perspective, neXus represents a workload that is genuinely dif
 
 Cloudflare Workers run on a single-threaded event loop. When a Worker receives a request, it must complete synchronously within the event handler or use `await` for I/O. The critical constraint: there is no `block_on` in WASM. A sync Rust library that needs to call async functions cannot simply block the thread and wait; there is no thread to block.
 
-neXus's core is pure synchronous Rust. The storage abstraction layer (`CompositeColdStorage`) orchestrates CAS operations across three storage tiers synchronously. Before the IoBuffer architecture, this core could not run inside a Worker without either:
+neXus's core is pure synchronous Rust. The storage orchestration layer manages CAS operations across three storage tiers synchronously. Before the AsyncStorage bridge, this core could not run inside a Worker without either:
 
-- Rewriting all storage traits to `async fn in trait` (AFIT), requiring nightly Rust and destabilizing the core.
+- Rewriting all storage interfaces to async, requiring nightly Rust and destabilizing the core.
 - Embedding a blocking async runtime in WASM, which is impossible in the Workers sandbox.
 - Moving the core out of the Worker entirely, defeating the purpose of edge deployment.
 
-### The Solution: IoBuffer + StoreSession
+### The Solution: AsyncStorage Bridge on Cloudflare
 
-The solution introduces an in-production I/O buffer layer that proxies all storage operations as in-memory writes with dirty tracking, then flushes atomically to real storage after sync execution completes. The architecture requires 0 changes to the core storage traits. The foundation stays pure-sync Rust stable.
+The [AsyncStorage bridge pattern](../apps/#asyncstorage-bridge) resolves this for any backend. In the Cloudflare deployment, the in-memory buffers proxy KV, R2, and Durable Object operations, then flush atomically after sync execution completes.
 
 ```{python}
-#| label: fig-iobuffer-architecture
-#| fig-cap: "IoBuffer bridge architecture: the sync core (CompositeColdStorage) operates on in-memory IoBuffer proxies, which accumulate dirty entries. After sync execution, the async bridge drains dirty entries and flushes to Cloudflare bindings."
+#| label: fig-asyncstorage-cf
+#| fig-cap: "AsyncStorage bridge on Cloudflare: the sync core operates on in-memory buffers; async I/O confined to Cloudflare bindings during hydrate and flush phases."
 dot("""
-digraph IoBufferBridge {
+digraph AsyncStorageCF {
     rankdir=TB
     node [shape=box, style=filled, fontname="Arial"]
 
@@ -86,7 +86,7 @@ digraph IoBufferBridge {
 
         CFBindings [label="Cloudflare Bindings\nKV / R2 / DO", fillcolor="#F4E8F8"]
 
-        Bridge [label="Async Bridge\n1. hydrate_batch() from CF bindings\n2. run sync core\n3. drain_dirty() / flush() to CF bindings\n4. return response", fillcolor="#E8F4F8"]
+        Bridge [label="AsyncStorage Bridge\n1. hydrate from CF bindings\n2. run sync core\n3. drain dirty / flush to CF bindings", fillcolor="#E8F4F8"]
 
         subgraph cluster_sync {
             label="Sync Core (no async, no block_on)"
@@ -94,81 +94,77 @@ digraph IoBufferBridge {
             color="#ccc"
             bgcolor="#FAFAFA"
 
-            IoBuffer [label="IoBuffer Trio\nIoBufferKv / IoBufferBlob / IoBufferObject\nIn-memory HashMap + dirty tracking", fillcolor="#FFF4E6"]
+            Buffers [label="AsyncStorage Buffers\nKV / Blob / Object\nIn-memory + dirty tracking", fillcolor="#FFF4E6"]
 
-            CCS [label="CompositeColdStorage\nCAS orchestration\nFIH Blackboard operations\nFlush cursor management", fillcolor="#E8F8E8"]
+            Orchestrator [label="Storage Orchestration\nCAS coordination\nFIH Blackboard operations\nFlush cursor management", fillcolor="#E8F8E8"]
         }
     }
 
     CFBindings -> Bridge [label="async read"]
-    Bridge -> IoBuffer [label="hydrate_batch (sync)"]
-    IoBuffer -> CCS [label="KeyValueStore / BlobStore / ObjectStore (sync)"]
-    CCS -> IoBuffer [label="dirty writes"]
-    Bridge -> IoBuffer [label="drain_dirty (sync)"]
-    Bridge -> CFBindings [label="async write (KV.put, R2.put, DO.stub)"]
+    Bridge -> Buffers [label="hydrate"]
+    Buffers -> Orchestrator [label="storage interface"]
+    Orchestrator -> Buffers [label="dirty writes"]
+    Bridge -> Buffers [label="drain dirty"]
+    Bridge -> CFBindings [label="async write\n(KV.put, R2.put, DO.fetch)"]
 }
 """)
 ```
 
-The lifecycle inside a Worker request handler proceeds as follows:
+The Cloudflare-specific lifecycle:
 
-1. **Create IoBufferSession**: Instantiate an `IoBufferSession` backed by empty `IoBufferKv`, `IoBufferBlob`, and `IoBufferObject` instances. All three are in-memory `HashMap` with dirty-key tracking.
-
-2. **Hydrate from Cloudflare bindings**: Call `kv_buf().hydrate_batch(...)` to populate the KV buffer from the Worker's KV namespace (async `KVNamespace.list()` or `get()`), similarly for R2 blobs and Durable Object state. This is the only async step before execution.
-
-3. **Run sync core**: Execute `CompositeColdStorage` operations (claim Intent, submit Fact, flush cursor, etc.) through the `SessionExecute::storage()` trait method. Every `set()`, `put()`, `put_state()` call writes to the in-memory buffer and marks the key as dirty. Every `get()`, `get_state()`, `list()` reads from the buffer. The CAS `put_state(expected, new)` operates entirely in memory.
-
-4. **Drain and flush**: After sync execution completes, call `drain_kv_puts()`, `drain_kv_deletes()`, `drain_blob_puts()`, etc. to collect all dirty mutations. Flush these to Cloudflare bindings as async `KVNamespace.put()`, `R2Bucket.put()`, `DurableObjectStub.fetch()` calls. This is the final async step before returning the response.
+1. Create AsyncStorage session: In-memory buffers for KV, Blob, and Object primitives, each tracking dirty keys.
+2. Hydrate from Cloudflare bindings: Populate the KV buffer from `KVNamespace.get()` / `list()`, Blob buffer from `R2Bucket.get()`, Object buffer from `DurableObjectStub.fetch()`. This is the only async step before execution.
+3. Run sync core: Execute storage orchestration operations (claim Intent, submit Fact, flush cursor) against in-memory buffers. CAS compare-and-swap operates entirely in memory.
+4. Drain and flush: Collect dirty mutations and flush to Cloudflare bindings: `KVNamespace.put()`, `R2Bucket.put()`, `DurableObjectStub.fetch()`. The final async step before returning the response.
 
 ### Key Properties
 
-- **No block_on, no async runtime in WASM**: The sync core runs synchronously inside the Worker event handler. Async I/O is confined to hydrate and flush phases, both outside the sync core.
-- **0 core files changed**: The `KeyValueStore`, `BlobStore`, `ObjectStore`, and `ColdStorage` traits remain pure-sync. The IoBuffer trio implements these traits without modification.
-- **Dirty-tracking is the bridge**: Each IoBuffer tracks which keys were mutated. The drain phase produces only the delta, minimizing bandwidth and write cost to Cloudflare bindings.
-- **Atomic flush is the caller's responsibility**: The IoBufferSession exposes the dirty delta; the Worker bridge layer decides whether to flush atomically (within a single DO stub call) or best-effort (KV+R2).
-- **Thread-safe design**: The IoBuffer types use `Arc<RwLock<...>>`, making them safe for `SessionServer` (sequential job queue) in native builds while remaining usable in WASM via manual `process_one()` drive.
+- No block_on, no async runtime in WASM: The sync core runs synchronously inside the Worker event handler. Async I/O is confined to hydrate and flush phases.
+- 0 core files changed: The three storage primitives remain pure-sync. AsyncStorage buffers implement the same interfaces without modification.
+- Dirty-tracking minimizes I/O: Only mutated keys traverse the Cloudflare binding boundary.
+- Atomic flush via DO: The Object buffer's dirty delta flushes through a single Durable Object `fetch()` call, applying all CAS operations atomically.
 
 ## Storage Mapping
 
-neXus defines three core storage traits and one composite orchestrator. Each maps directly to a Cloudflare primitive.
+The [three storage primitives](../apps/#three-storage-primitives) map directly to Cloudflare products.
 
-### KeyValueStore to Workers KV
+### KV Storage to Workers KV
 
-`KeyValueStore` provides `get`, `set`, `delete`, and `list` operations on string-keyed string values. Workers KV provides exactly this API through `KVNamespace.get()`, `.put()`, `.delete()`, and `.list()`. KV's global replication is ideal for Facts (immutable, widely read) and Hints (configuration-wide constraints).
+KV Storage provides read, write, delete, and list operations on string-keyed values. Workers KV provides this through `KVNamespace.get()`, `.put()`, `.delete()`, and `.list()`. KV's global replication is ideal for Facts (immutable, widely read) and Hints (configuration-wide constraints).
 
-### BlobStore to R2
+### Blob Storage to R2
 
-`BlobStore` provides `put`, `get`, `delete`, and `list` for arbitrary byte data. R2 provides S3-compatible object storage with `put()`, `get()`, `delete()`, and `list()`. R2 is the natural tier for archived Fact streams (JSON-lines snapshots), C2PA-signed provenance bundles, and cold storage of resolved Intent logs.
+Blob Storage provides put, get, delete, and list for arbitrary byte data. R2 provides S3-compatible object storage with `put()`, `get()`, `delete()`, and `list()`. R2 is the natural tier for archived Fact streams, C2PA-signed provenance bundles, and cold storage of resolved Intent logs.
 
-### ObjectStore to Durable Object
+### Object Storage to Durable Object
 
-`ObjectStore` provides CAS semantics through `get_state(key)` and `put_state(key, expected, new)`. This is the only coordination primitive in neXus: all cross-worker Intent claims flow through this single atomic gate. Durable Objects provide the exact strongly consistent, single-threaded execution model needed: the DO stub is the final arbiter of each CAS operation.
+Object Storage provides CAS semantics through read-state and compare-and-swap. This is the only coordination primitive in neXus: all cross-worker Intent claims flow through this single atomic gate. Durable Objects provide the exact strongly consistent, single-threaded execution model needed: the DO is the final arbiter of each CAS operation.
 
-### CompositeColdStorage to DO + KV + R2 orchestration
+### Storage Orchestration to DO + KV + R2
 
-`CompositeColdStorage` binds the three tiers together with a flush cursor, FIH persistence logic, and time-range queries. It maps naturally to a DO that holds the hot state (recent Facts, active Intents) in memory, backed by KV for warm data and R2 for cold archival.
+The storage orchestration layer binds the three tiers with a flush cursor, FIH persistence, and time-range queries. It maps naturally to a DO that holds the hot state (recent Facts, active Intents) in memory, backed by KV for warm data and R2 for cold archival.
 
 ```{python}
 #| label: fig-storage-mapping
-#| fig-cap: "neXus storage traits mapped to Cloudflare primitives. The CAS two-step (get_state, put_state) is the single cross-worker coordination mechanism, handled by Durable Objects."
+#| fig-cap: "neXus storage primitives mapped to Cloudflare products. The CAS two-step is the single cross-worker coordination mechanism, handled by Durable Objects."
 dot("""
 digraph StorageMapping {
     rankdir=LR
     node [shape=box, style=filled, fontname="Arial"]
 
     subgraph cluster_nexus {
-        label="neXus Trait Layer"
+        label="neXus Storage Primitives"
         style=dashed
         color="#888888"
 
-        KV [label="KeyValueStore\nget / set / delete / list", fillcolor="#E8F4F8"]
-        Blob [label="BlobStore\nput / get / delete / list", fillcolor="#E8F4F8"]
-        Obj [label="ObjectStore\nget_state / put_state (CAS)", fillcolor="#E8F4F8"]
-        CCS [label="CompositeColdStorage\norchestrates all three tiers\nflush cursor, FIH persistence", fillcolor="#E8F8E8"]
+        KV [label="KV Storage\nread / write / delete / list", fillcolor="#E8F4F8"]
+        Blob [label="Blob Storage\nput / get / delete / list", fillcolor="#E8F4F8"]
+        Obj [label="Object Storage\nread-state / CAS", fillcolor="#E8F4F8"]
+        Orch [label="Storage Orchestration\nbinds all three tiers\nflush cursor, FIH persistence", fillcolor="#E8F8E8"]
     }
 
     subgraph cluster_cf {
-        label="Cloudflare Primitive"
+        label="Cloudflare Products"
         style=dashed
         color="#888888"
 
@@ -180,9 +176,9 @@ digraph StorageMapping {
     KV -> CFKV
     Blob -> R2
     Obj -> DO
-    CCS -> KV [style=dotted, label="  delegates to"]
-    CCS -> Blob [style=dotted]
-    CCS -> Obj [style=dotted]
+    Orch -> KV [style=dotted, label="  delegates to"]
+    Orch -> Blob [style=dotted]
+    Orch -> Obj [style=dotted]
 }
 """)
 ```
@@ -191,27 +187,27 @@ digraph StorageMapping {
 
 The CAS two-step is the only cross-worker coordination primitive in neXus. Every Intent claim follows this sequence:
 
-1. `get_state("intent:{id}")`: read current state from the ObjectStore
-2. If state is `"available"`, call `put_state("intent:{id}", "available", worker_id)`: CAS write
-3. If `put_state` returns `true`, the claim succeeded. If `false`, another worker claimed this Intent.
+1. Read current state for an Intent key from Object Storage
+2. If state is available, issue an atomic compare-and-swap: "if still available, replace with worker_id"
+3. If the swap succeeds, the claim is won. If it fails, another worker claimed this Intent.
 
 This maps naturally to Cloudflare Durable Objects. The DO provides:
 
 - **Single-threaded execution**: Only one request executes at a time within a DO. CAS contention serializes without additional locking.
 - **Strong consistency**: Every `get_state` reads the latest committed state. No eventual consistency window.
 - **Stored state**: The DO maintains the authoritative CAS namespace in memory. State persists across requests and survives DO migration.
-- **Atomic flush gateway**: When a Worker completes sync execution, it flushes the dirty ObjectStore delta to the DO via a single `fetch()` call. The DO applies all CAS operations atomically. If any CAS fails (race lost), the Worker learns which keys failed and can roll back locally.
+- Atomic flush gateway: When a Worker completes sync execution, it flushes the dirty ObjectStore delta to the DO via a single `fetch()` call. The DO applies all CAS operations atomically. If any CAS fails (race lost), the Worker learns which keys failed and can roll back locally.
 
-The DO is thus the final arbiter of all Intent claims. Multiple Workers may attempt the same CAS simultaneously; only the winner survives; losers roll back their local IoBuffer state and retry or yield.
+The DO is thus the final arbiter of all Intent claims. Multiple Workers may attempt the same CAS simultaneously; only the winner survives; losers roll back their local AsyncStorage buffer state and retry or yield.
 
 ## Technical Roadmap
 
-### Phase 1: Single-Worker IoBuffer Demonstration
+### Phase 1: Single-Worker AsyncStorage Demonstration
 
 Deploy a basic Worker that:
 
-- Hydrates an `IoBufferSession` from KV and R2 bindings.
-- Runs `CompositeColdStorage` operations (submit Fact, list Facts by prefix).
+- Hydrates an AsyncStorage session from KV and R2 bindings.
+- Runs storage orchestration operations (submit Fact, list Facts by prefix).
 - Drains dirty entries and flushes back to KV and R2.
 - Returns a JSON response with execution results.
 
@@ -221,23 +217,23 @@ Single-region, single-worker. Demonstrates the full hydrate-execute-flush lifecy
 
 ### Phase 2: DO-Based CAS Gating
 
-Extend the Phase 1 Worker with a Durable Object that hosts the `ObjectStore` namespace for Intent claims.
+Extend the Phase 1 Worker with a Durable Object that hosts the Object Storage namespace for Intent claims.
 
 - Deploy a DO class (`NexusCoordinatorDO`) that stores CAS key-value pairs in its in-memory state.
-- The Worker creates a DO stub in its async bridge layer. Hydration reads `get_state` from the DO. Drain writes `put_state` to the DO.
+- The Worker creates a DO stub in its async bridge layer. Hydration reads current state from the DO. Drain writes compare-and-swap to the DO.
 - Multiple Workers can connect through the same DO, demonstrating cross-Worker Intent claim arbitration.
 
-**Deliverable**: Two Workers (or two instances of the same Worker) competing for the same Intent claim. Only one wins. CI test validates CAS correctness.
+Deliverable: Two Workers (or two instances of the same Worker) competing for the same Intent claim. Only one wins. CI test validates CAS correctness.
 
 ### Phase 3: R2 Blob Archiving and Snapshot Persistence
 
 Add the cold storage tier:
 
-- `FlushCapable` cursor advancement: after a flush, the Worker writes a JSON-lines archive of flushed Facts to R2.
+- Flush cursor advancement: after a flush, the Worker writes a JSON-lines archive of flushed Facts to R2.
 - Snapshot persistence: the DO periodically writes its hot state as a R2 object, enabling recovery after DO eviction.
-- Content-addressed CAS: blobs are keyed by their FihHash, providing content-addressable storage for immutable Fact data.
+- Content-addressed blobs: blobs are keyed by their content hash, providing content-addressable storage for immutable Fact data.
 
-**Deliverable**: R2 archive of all Facts partitioned by flush window. `from_snapshot_with_cold` factory function that restores DO state from R2 snapshot.
+Deliverable: R2 archive of all Facts partitioned by flush window. Snapshot-based factory that restores DO state from R2 snapshot.
 
 ```{python}
 #| label: fig-phase-architecture
@@ -254,14 +250,14 @@ digraph Phase3Arch {
         style=dashed
         color="#888888"
 
-        Bridge [label="Async Bridge\nhydrate / drain / flush", fillcolor="#E8F4F8"]
+        Bridge [label="AsyncStorage Bridge\nhydrate / drain / flush", fillcolor="#E8F4F8"]
 
         subgraph cluster_sync {
-            label="Sync Core (IoBufferSession)"
+            label="Sync Core (AsyncStorage Session)"
             style=filled
             color="#ccc"
             bgcolor="#FAFAFA"
-            IoBuf [label="IoBufferKv + IoBufferBlob + IoBufferObject\n+ CompositeColdStorage", fillcolor="#FFF4E6"]
+            Buf [label="AsyncStorage Buffers\nKV + Blob + Object\n+ Storage Orchestration", fillcolor="#FFF4E6"]
         }
     }
 
@@ -270,11 +266,11 @@ digraph Phase3Arch {
     DO [label="Durable Object\nCAS Namespace\nIntent Arbitration", fillcolor="#F4E8F8"]
 
     Request -> Bridge
-    Bridge -> IoBuf
+    Bridge -> Buf
     Bridge -> CFKV [label="async read", style=dashed]
     Bridge -> R2 [label="async read", style=dashed]
     Bridge -> DO [label="async CAS", style=dashed]
-    IoBuf -> Bridge [label="dirty delta"]
+    Buf -> Bridge [label="dirty delta"]
     Bridge -> CFKV [label="async write", style=dashed]
     Bridge -> R2 [label="async archive", style=dashed]
     Bridge -> DO [label="async flush", style=dashed]
@@ -301,12 +297,12 @@ neXus demonstrates that Cloudflare Workers can run a complete agentic research i
 
 The FIH Blackboard model is a novel use case for Durable Objects: not just a coordination primitive for chat or multiplayer games, but a verifiable knowledge graph where every mutation is a CAS-gated, content-addressed, auditable fact. This pushes DO beyond its typical usage patterns and validates the platform for enterprise knowledge management, scientific research, and regulated data workflows.
 
-### The IoBuffer Pattern as General Technique
+### The AsyncStorage Bridge as General Technique
 
-The IoBuffer+StoreSession pattern is a general solution for running deterministic sync code inside async WASM Workers. Any Rust library that compiles to `wasm32-unknown-unknown` and assumes synchronous I/O can adopt this pattern:
+The AsyncStorage bridge pattern is a general solution for running deterministic sync code inside async WASM Workers. Any Rust library that compiles to `wasm32-unknown-unknown` and assumes synchronous I/O can adopt this pattern:
 
-1. Proxy all I/O behind a trait (like `KeyValueStore`).
-2. Implement an in-memory buffer that implements that trait with dirty tracking.
+1. Proxy all I/O behind a storage interface (KV, Blob, Object).
+2. Implement an in-memory buffer with dirty tracking that satisfies the same interface.
 3. Run the sync library against the buffer.
 4. Drain dirty entries and flush asynchronously.
 
@@ -318,7 +314,7 @@ neXus validates the combined product story: KV for hot reads, DO for strongly co
 
 ### WASM Ecosystem Investment
 
-neXus pushes `wasm32-unknown-unknown` to its limits. The core crate compiles with zero platform-specific code. The storage traits are pure-Rust traits with no FFI, no C dependencies, no platform intrinsics. Every new WASM capability Cloudflare adds (bulk memory, reference types, tail calls) directly benefits neXus's performance.
+neXus pushes `wasm32-unknown-unknown` to its limits. The core crate compiles with zero platform-specific code. The storage primitives are pure interfaces with no FFI, no C dependencies, no platform intrinsics. Every new WASM capability Cloudflare adds (bulk memory, reference types, tail calls) directly benefits neXus's performance.
 
 Supporting neXus through a startup or open-source program validates the Workers platform for heavy computation: not just request-response handlers but verifiable agent systems that process Facts, run constraint satisfaction, and maintain provenance graphs. We will attribute the support that makes this deployment possible in all public communications.
 
@@ -335,4 +331,4 @@ The SSCCS Foundation is a pre-incorporation, open-source research initiative ope
 
 neXus is compute-light by design. The core execution loop processes in-memory HashMap operations in microseconds; the dominant cost is KV/R2 I/O during hydrate and flush phases. A single Worker can handle the full agent lifecycle with sub-100 ms roundtrip latency.
 
-The project compiles and tests successfully against `wasm32-unknown-unknown` with simulated storage backends. The Cloudflare binding layer (wrapping `KVNamespace`, `R2Bucket`, and `DurableObjectStub` behind the existing storage traits) is the remaining implementation work. We will open-source all binding code, publish a technical blog post documenting the deployed architecture, and maintain the public deployment as a reference for the Workers platform.
+The project compiles and tests successfully against `wasm32-unknown-unknown` with simulated storage backends. The Cloudflare binding layer (wrapping `KVNamespace`, `R2Bucket`, and `DurableObjectStub` behind the existing storage primitives) is the remaining implementation work. We will open-source all binding code, publish a technical blog post documenting the deployed architecture, and maintain the public deployment as a reference for the Workers platform.
