@@ -1,0 +1,752 @@
+---
+title: "Stream-Adaptive Silicon"
+subtitle: "Structural Computing over Content-Addressable Data"
+date: last-modified
+metadata-files:
+  - ../_include/author.yml
+abstract: |
+  This report synthesises insights from four independent trajectories: a content-addressable storage primitive for agent coordination, an FPGA language model inference core, a chunked partition-merge top-k retrieval algorithm, and a compressed sparse attention model architecture. These converge on a single principle: computation as a stream-adaptive structural process over content-addressable data. The result is a blueprint for SSCCS computing silicon where the storage triad (immutable observation, proposed exploration, injected constraint) serves as both a software orchestration model and a hardware reconfiguration protocol, eliminating the boundary between storage, computation, and interconnect.
+---
+
+```{python}
+title_meta_items = {
+    "html": [
+        {"title": "Reference", "link": "../direction/sc.html", "content": "Direction: Silicon Compiler", "icon": "bi bi-link"},
+        {"title": "Reference", "link": "../projects/nexus/", "content": "neXus", "icon": "bi bi-link"},
+    ]
+}
+```
+
+{{< include ../_include/_title_meta_items.qmd >}}
+
+```{python}
+#| include: false
+#| context: local
+%run ../_include/_graphviz.py
+```
+
+## Introduction
+
+Four independent developments, each from a different domain, converge on a common structural insight.
+
+The first is a content-addressable storage primitive where autonomous agents coordinate through a shared data structure using three universal primitives: immutable observations (append-only, content-hash addressed), proposed explorations (lifecycle-managed state transitions), and injected constraints (ephemeral, garbage-collected). The system is built on the principle that coordination overhead is minimised when all interaction is mediated through this content-addressable, append-only store. Agents never communicate directly; they read and write the shared medium.
+
+The second is an RTL implementation of a small language model on a commodity FPGA. A complete inference pipeline -- embedding lookup, RMSNorm, multi-head attention, MLP, categorical sampling -- running entirely in hardware with fixed-point arithmetic. A minimal serial bridge enables a host CPU to send tokens and receive generated tokens.
+
+The third is a chunked partition-merge top-k algorithm for compressed sparse attention that never materialises the full score tensor. On a single GPU, it extends the feasible sequence length by a factor of 32x, where the standard materialise-then-topk path OOMs. The key insight: do not materialise; process in chunks, keep only the top-k, merge.
+
+The fourth is a model architecture where compressed sparse attention introduces a lightning indexer that scores compressed keys, selects top-k per query, and then runs sparse attention on only those keys. Combined with latent attention and mixture-of-experts, this architecture achieves high inference efficiency by treating attention as a retrieval problem rather than a dense matching problem.
+
+Taken separately, these are interesting but disconnected. Taken together, they reveal a coherent paradigm: **stream-adaptive structural computing**.
+
+```{python}
+#| label: fig-four-trajectories
+#| fig-cap: "Four trajectories converging on stream-adaptive silicon"
+
+dot("""
+digraph FourTrajectories {
+    rankdir=TB;
+    node [shape=rect, style=rounded, fontname="Helvetica"];
+
+    subgraph cluster_t1 {
+        label="Content-Addressable Storage";
+        color=blue;
+        Store [label="Content-Addressable\nBlobStore"];
+        Triad [label="Observation / Exploration\n/ Constraint"];
+        Swarm [label="Stigmergic\nCoordination"];
+    }
+
+    subgraph cluster_t2 {
+        label="FPGA Inference Core";
+        color=green;
+        RTL [label="RTL Inference Core\nFixed-Point Arithmetic"];
+        JTAG [label="Serial Bridge\nRaw Bytes In/Out"];
+        FPGA [label="Commodity FPGA"];
+    }
+
+    subgraph cluster_t3 {
+        label="Chunked Top-K";
+        color=red;
+        Chunked [label="Chunked Partition-Merge\nTop-k"];
+        Fuse [label="Fused Score Kernel\nQ.K^T + ReLU + Weighted Sum"];
+        Sparse [label="Sparse Attention\nSelected KV Only"];
+    }
+
+    subgraph cluster_t4 {
+        label="Compressed Sparse Attention";
+        color=orange;
+        CSA [label="Compressed Sparse\nAttention (CSA)"];
+        MLA [label="Latent\nAttention"];
+        Indexer [label="Lightning Indexer\nCompressed Key Scoring"];
+    }
+
+    Chunked -> Fuse -> Sparse;
+    Indexer -> CSA -> Sparse;
+    Sparse -> FPGA [label="hardware target"];
+    FPGA -> JTAG;
+    RTL -> FPGA;
+    Swarm -> Triad -> Store;
+    CSA -> Store [label="retrieval = storage query"];
+    JTAG -> Store [label="accelerator interface"];
+}
+""")
+```
+
+## The Common Pattern: Structural Over Procedural
+
+All four systems share a rejection of the traditional procedural model, where computation is a sequence of instructions operating on mutable state. Instead, they adopt a structural model where computation is defined by the arrangement of and relationships between data elements.
+
+### Content-Addressable Storage as a Structural Protocol
+
+The content-addressable storage is not a database. It is a structural medium where three primitives form a complete basis:
+
+- **Immutable observations**: Content-addressed, append-only. Identity is the content hash. There is no update, no delete, no versioning. Observations accumulate monotonically.
+- **Proposed explorations**: State transitions with strict lifecycles. Each proposal references the observations that motivate it, and its conclusion produces a new observation. This is the structural closure: observation -> exploration -> observation.
+- **Injected constraints**: Ephemeral signals that modulate behaviour without becoming part of the permanent record. They are read-only and garbage-collected.
+
+The critical structural property: **no entity references another by address**. All references are by content hash. This means the storage is a content-addressable network, not a pointer-based graph. It is this property that enables scaling across heterogeneous backends (in-memory, SQLite, S3, blockchain) without relinking.
+
+### FPGA Language Model Core: Structural Hardware
+
+An FPGA language model inference core implements a full transformer as a structural hardware pipeline:
+
+```text
+Token In -> Embedding ROM -> RMSNorm -> Q/K/V Linear -> Attention Dot-Product
+    -> Softmax (LUT) -> Value Aggregate -> Project -> MLP (FC1/GELU/FC2)
+    -> Residual Add -> LM Head -> Categorical Sampler -> Token Out
+```
+
+Every operation is a fixed-function hardware block. There is no instruction fetch, no branch prediction, no out-of-order execution. The data flows through the structure, and the structure defines the computation. The serial bridge is the only procedural element, and even that is reduced to a raw byte stream protocol: send token in, receive token out.
+
+The 2 KiB vector register file and 4-lane systolic array in this core operate under a fundamental balance constraint: $C_F \cdot \beta \le \sqrt{Z}$. The compute throughput is bounded not by the arithmetic units but by the memory bandwidth and register capacity. This is a structural rather than a procedural bottleneck.
+
+### Chunked Top-K: Structural Memory Management
+
+The chunked partition-merge top-k algorithm is a direct application of structural thinking to memory.
+
+The standard approach to top-k selection is procedural: materialise the full score tensor, then sort and select. This requires O(S x T) memory, where S and T are the sequence dimensions. At large sequence lengths, this is hundreds of GB -- beyond the HBM of any single GPU.
+
+The chunked approach is structural: the score tensor is never materialised as a whole. Instead, the sequence is partitioned into chunks, each chunk's scores are computed and reduced to top-k locally, and then the per-chunk results are merged. The memory cost is O(chunk_size x T) per chunk, independent of total sequence length. The structure of the computation (chunked, streaming, merge-reduce) replaces the procedural instruction sequence.
+
+**Recall guarantee:** The chunked algorithm achieves bit-exact recall against the materialised ground truth when the chunk size is at least twice the top-k value and the score distribution is sufficiently smooth. For adversarial distributions or minimal chunk sizes, it guarantees at least $(1 - \varepsilon)$ recall with $\varepsilon = O(k / \text{chunk\_size})$. The chunked structure *is* the computation, with tunable accuracy-memory trade-off.
+
+### Compressed Sparse Attention: Attention as Retrieval
+
+Compressed sparse attention reframes the problem: instead of computing a dense attention matrix, it treats each query as a retrieval operation. A lightning indexer scores compressed keys, selects the top-k, and only then does the expensive attention computation on the selected subset.
+
+This is the same pattern as content-addressable storage: instead of scanning all records to find orphans, maintain a reference count. Instead of computing attention over all positions, use an indexer to find the relevant ones. Both are instances of the same structural principle: **do not scan what you can index**.
+
+## The Storage-Silicon Mapping
+
+The central thesis of this report is that the three storage primitives (immutable observation, proposed exploration, injected constraint) are not merely a software pattern. They form a universal organisational principle that maps directly to hardware at multiple scales.
+
+### Primitive Mapping
+
+| Storage Primitive | Hardware Role | Physical Implementation |
+|---|---|---|
+| Immutable observation | Fixed configuration | Weight ROM, fixed routing, bias/scale register |
+| Proposed exploration | Dynamic reconfiguration | Reconfigurable interconnect, active task descriptor |
+| Injected constraint | Environmental condition | Mode select, sensor input, clock gating control |
+
+### Content-Addressable Fabric
+
+The shared storage allows any agent to read any observation, constrained only by content-addressed lookup. In silicon, this maps to a **shared content-addressable memory fabric** that connects all processing elements.
+
+```text
+┌────────────────────────────────────────────────────────┐
+│                Content-Addressable Fabric                 │
+│                                                          │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌────────┐  │
+│  │ PE: Gap  │  │ PE:      │  │ PE: State│  │ PE:    │  │
+│  │ Detector │  │Contradict│  │ Change   │  │ Indexer│  │
+│  │          │  │ion Detect│  │ Detector │  │        │  │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └───┬────┘  │
+│       │             │             │             │       │
+│       └─────────────┴─────────────┴─────────────┘       │
+│                         │                               │
+│                  ┌──────┴──────┐                        │
+│                  │  BlobStore  │                        │
+│                  │  SRAM/eDRAM │                        │
+│                  │  (encrypted │                        │
+│                  │   content-  │                        │
+│                  │   address-  │                        │
+│                  │   able)     │                        │
+│                  └─────────────┘                        │
+└────────────────────────────────────────────────────────┘
+```
+
+Each PE reads from and writes to the same content-addressable fabric. There is no direct PE-to-PE communication. This is *stigmergy* (스티그머지) in silicon: processing elements coordinate not by addressing each other but by leaving and detecting traces in the shared medium.
+
+### The OODA Loop as Clock Domain
+
+The scheduler in the content-addressable storage system runs an OODA loop: Observe (read store), Orient (run detectors), Decide (formulate explorations), Act (submit observations). This is structurally identical to a clock domain in hardware:
+
+| OODA Phase | Hardware Clock Phase | Action |
+|---|---|---|
+| Observe | Read cycle | PEs read BlobStore at rising edge |
+| Orient | Compute cycle | PEs evaluate detector logic combinationally |
+| Decide | Write cycle | PEs assert new observation addresses on bus |
+| Act | Commit cycle | BlobStore latches new data at falling edge |
+
+A multi-agent system running at 100 ms per tick and a hardware pipeline running at 100 MHz differ in timescale by seven orders of magnitude, but the structural pattern is identical.
+
+### The Recursive Structural Loop
+
+The most powerful property of this storage model is its self-similarity: the same cycle of observation -> exploration -> observation operates at every scale.
+
+- **At the PE level**: A PE reads an observation from the fabric (Observe), computes (Orient), decides whether to write a new observation (Decide/Act). The input is an observation, the computation is an exploration, the output is a new observation.
+- **At the chip level**: Multiple PEs coordinate via the fabric. One PE's output becomes another PE's input. The chip-level exploration is the reconfiguration of the fabric topology.
+- **At the agent level**: The shared store is the fabric. Agents are PEs. The research loop (ingest -> detect -> hypothesise -> validate -> report) is a single structural cycle at the agent scale.
+- **At the cluster level**: Multiple instances synchronise via delta sets. The cluster-level exploration is replication and consensus.
+
+This self-similarity means that optimisations at one scale propagate upward and downward. A faster OODA loop at the hardware level means faster research cycles at the agent level. A structural memory optimisation at the BlobStore level (chunked top-k retrieval) means a more efficient retrieval pipeline at the agent level.
+
+#### Cross-Scale Synchronisation
+
+The silicon fabric (100 MHz, 10 ns/cycle) and software agents (100 ms/tick) are aligned through **delta buffering**:
+
+| Scale | Clock Period | Buffer Size | Sync Strategy |
+|---|---|---|---|
+| Silicon PE | 10 ns | 1 word | Hardware OODA |
+| Chip-level | 1 µs (100 cycles) | 1 KB | Deadline interrupt |
+| Software agent | 100 ms | 1 MB | Event batching |
+| Cluster | 10 s | 100 MB | Delta checkpointing |
+
+Outputs from a lower scale accumulate in buffers; the higher scale processes them in batches. This mirrors the Nyquist criterion: the sampling frequency of the higher scale must be at least twice the bandwidth of the lower scale.
+
+```{python}
+#| label: fig-recursive-structure
+#| fig-cap: "Recursive structural loop at every scale"
+
+dot("""
+digraph RecursiveLoop {
+    rankdir=LR;
+    node [shape=rect, style=rounded];
+
+    subgraph cluster_silicon {
+        label="Silicon Fabric";
+        Si_In [label="Observation: Fabric State"];
+        Si_Proc [label="Exploration: PE Computation"];
+        Si_Out [label="Observation: New State Written"];
+        Si_In -> Si_Proc -> Si_Out;
+    }
+
+    subgraph cluster_chip {
+        label="Chip-Level";
+        Chip_In [label="Observation: PE Outputs"];
+        Chip_Proc [label="Exploration: Fabric Reconfig"];
+        Chip_Out [label="Observation: New Connectivity"];
+        Chip_In -> Chip_Proc -> Chip_Out;
+    }
+
+    subgraph cluster_agent {
+        label="Software Agent";
+        Agent_In [label="Observation: Knowledge State"];
+        Agent_Proc [label="Exploration: Hypothesis"];
+        Agent_Out [label="Observation: Validated Result"];
+        Agent_In -> Agent_Proc -> Agent_Out;
+    }
+
+    subgraph cluster_cluster {
+        label="Cluster";
+        Cluster_In [label="Observation: Local State"];
+        Cluster_Proc [label="Exploration: Replication"];
+        Cluster_Out [label="Observation: Global State"];
+        Cluster_In -> Cluster_Proc -> Cluster_Out;
+    }
+
+    // Vertical self-similarity edges
+    Si_Out -> Chip_In [style=dashed, label="composition"];
+    Chip_Out -> Agent_In [style=dashed];
+    Agent_Out -> Cluster_In [style=dashed];
+
+    Si_In [color=blue];
+    Si_Proc [color=red];
+    Si_Out [color=blue];
+    Chip_In [color=blue];
+    Chip_Proc [color=red];
+    Chip_Out [color=blue];
+    Agent_In [color=blue];
+    Agent_Proc [color=red];
+    Agent_Out [color=blue];
+    Cluster_In [color=blue];
+    Cluster_Proc [color=red];
+    Cluster_Out [color=blue];
+}
+""")
+```
+
+## Chunked Top-K as a BlobStore Filter
+
+One of the most direct connections between these trajectories is the role of chunked top-k as a BlobStore filter.
+
+In the proposed content-addressable storage architecture, all data flows through an encrypted BlobStore. Retrieval is by hash. But retrieval by hash is exact: you get exactly the bytes you asked for. What about approximate retrieval -- finding the top-k most relevant observations given a query embedding?
+
+This is exactly what chunked top-k does. The compressed key scoring is a retrieval operation: given a query (Q), find the top-k keys (K) that are most relevant. The chunked partition-merge pattern ensures this can be done without materialising the full score matrix.
+
+Mapping this to BlobStore:
+
+```text
+BlobStore query:
+  query_blob_hash -> decrypt -> fixed-point compressed query vector
+
+BlobStore chunk scan:
+  for each chunk of stored keys:
+    chunk_blob_hash -> decrypt -> fixed-point key vectors
+    compute chunk-local top-k scores
+    keep in bounded heap
+
+BlobStore response:
+  return top-k result as a new blob
+  result_blob_hash stored as an observation
+```
+
+This makes the BlobStore not just a passive storage layer but an active retrieval engine. The chunked top-k pattern ensures that the retrieval cost is bounded by chunk size, independent of total dataset size -- the same regime extension that the GPU implementation achieves.
+
+The FPGA accelerator is the natural hardware backend for this operation. The serial bridge sends encrypted query bytes to the FPGA, which decrypts, runs the chunked top-k engine, encrypts the results, and sends them back. The host never sees plaintext during the accelerator round trip.
+
+```{python}
+#| label: fig-blobstore-chunked
+#| fig-cap: "Chunked top-k as BlobStore retrieval filter"
+
+dot("""
+digraph BlobStoreChunked {
+    rankdir=LR;
+    node [shape=rect, style=rounded];
+
+    subgraph cluster_host {
+        label="Host";
+        BlobStore [label="BlobStore\n(content-addressable)"];
+        Record [label="Observation\n{ blob_hash }"];
+        ResultRec [label="Result Observation\n{ top_k_blob_hash }"];
+        Record -> BlobStore;
+        BlobStore -> ResultRec;
+    }
+
+    subgraph cluster_fpga {
+        label="FPGA Accelerator";
+        Serial [label="Serial Bridge\n(raw bytes)"];
+        Decrypt [label="AES-GCM\nDecrypt"];
+        ChunkedTopK [label="Chunked Top-K\nEngine"];
+        Encrypt [label="AES-GCM\nEncrypt"];
+        FixedPt [label="Fixed-Point\nWeight ROMs"];
+        Serial -> Decrypt -> ChunkedTopK;
+        ChunkedTopK -> Encrypt -> Serial;
+        FixedPt -> ChunkedTopK;
+    }
+
+    BlobStore -> Serial [label="encrypted query blob"];
+    Serial -> BlobStore [label="encrypted result blob"];
+}
+""")
+```
+
+## FPGA Inference Core as a Structural Blueprint
+
+The FPGA language model inference core is not a template to copy but a proof that the approach works. The key architectural decisions that carry forward:
+
+### Secure Serial Raw-Byte Protocol
+
+The core's serial bridge sends raw bytes (token IDs) and receives raw bytes (generated token IDs). A minimal interface is exactly what a hardware accelerator should expose: it makes no assumptions about the host's data model. However, to protect against traffic analysis and replay attacks, the protocol must be fully encrypted.
+
+**Enhanced secure protocol:**
+
+```text
+Host -> FPGA: 
+  [AEAD_encrypt(
+    nonce=12 bytes,
+    plaintext = { query_blob_hash_length(4) | query_blob_hash(32) |
+                  chunk_offset(8) | chunk_size(4) | top_k(4) }
+  )]  // total 64 bytes (12 nonce + 52 plaintext + 16 tag)
+
+FPGA -> Host:
+  [AEAD_encrypt(
+    plaintext = { result_count(4) | result_blob_hash_0(32) | score_0(4) | ... }
+  )]
+```
+
+**Security benefits:**
+
+- All fields including length metadata are encrypted → traffic analysis resistance
+- AEAD integrity check → replay attack protection
+- Nonce managed as a monotonic counter; rollback causes FPGA to reject
+
+**Latency overhead:** 2–3 cycles for AES-GCM pipeline (negligible at 100 MHz).
+
+### Fixed-Point Arithmetic
+
+The FPGA core uses Q4.12 for all weights and activations. For the compressed sparse attention indexer, the compressed keys are already in a quantised space (the compression projector produces lower-dimensional keys). Q4.12 or Q8.8 fixed-point is likely sufficient for the scoring operation, which is a dot product followed by ReLU and weighted sum -- operations that are robust to quantisation noise.
+
+The key advantage of fixed-point over floating-point in FPGA: no mantissa/exponent alignment logic, no denormals, deterministic latency. Every operation completes in a known number of cycles. This is essential for the OODA loop's timing guarantees.
+
+### Systolic Array as a Streaming Primitive
+
+The systolic matvec tile uses a multi-lane, multi-column systolic array. For the indexer, this maps directly to the compressed key scoring: the query vector is broadcast to all lanes, the compressed key matrix rows are streamed through the array, and the dot products accumulate.
+
+The extension needed: after the dot product, apply ReLU (compare to zero, select max) and weighted sum (multiply by precomputed weights and accumulate). These operations are trivial additions to the systolic pipeline and do not increase the critical path.
+
+## Stream-Adaptive Fabric: Beyond Static RTL
+
+The final synthesis: a silicon fabric whose topology is not fixed at design time but adapts to the data stream at runtime, guided by the same structural cycle.
+
+### Static vs. Adaptive
+
+The FPGA inference core represents the static extreme: every operation, every connection, every state transition is fixed at synthesis time. The RTL defines a single, immutable computation graph. This is appropriate for a known, fixed workload but cannot adapt to changing requirements.
+
+The stream-adaptive fabric represents the dynamic extreme: the connectivity between PEs, the memory tiers accessed, and the computation schedule are determined at runtime by the content of the data stream.
+
+```text
+Static RTL:
+  PE0 -> PE1 -> PE2 -> PE3  (always this order, always these connections)
+
+Stream-Adaptive Fabric:
+  Cycle 1:   PE0 -> PE2 -> PE1   (sparse: top-k found in chunk 2)
+  Cycle 2:   PE0 -> PE3 -> PE2   (different query, different top-k)
+  Cycle 3:   PE1 -> PE0          (fewer relevant keys)
+  Cycle 30:  Fabric reconfigures (new observation type detected, new PE activated)
+```
+
+The reconfiguration is not a separate "program bitstream" step. It is an emergent property of the structural cycle. When a PE produces a new observation, that observation may activate a different set of downstream PEs in the next OODA cycle. The connectivity evolves with the data.
+
+### The Reconfiguration Cycle
+
+The reconfiguration of the fabric follows the same pattern that governs agent behaviour:
+
+1. An observation arrives at the fabric (new data written to BlobStore).
+2. This triggers a pattern match in one or more observer PEs (hardware detectors analogous to gap detectors, contradiction detectors).
+3. The matching PEs assert explorations on the fabric control bus, requesting changes in connectivity or computation parameters.
+4. A hardware scheduler (the OODA state machine) evaluates pending explorations and selects those admissible under current constraints (bandwidth, power, latency).
+5. The selected explorations become new observations: the fabric's routing tables, PE parameters, and memory access patterns update.
+6. The cycle repeats.
+
+This is not a conventional reconfigurable architecture where an external controller loads a new bitstream. The fabric reconfigures itself as a natural consequence of its own computation. The boundary between computation and reconfiguration disappears.
+
+```{python}
+#| label: fig-reconfig-cycle
+#| fig-cap: "Structural reconfiguration cycle"
+
+dot("""
+digraph ReconfigCycle {
+    rankdir=LR;
+    node [shape=rect, style=rounded];
+    edge [fontname="Helvetica", fontsize=10];
+
+    Arrival [label="1. Observation arrives\nat fabric"];
+    Pattern [label="2. Observer PEs\nmatch pattern"];
+    Explore [label="3. PE asserts\nexploration intent"];
+    Schedule [label="4. Hardware scheduler\nevaluates intent"];
+    Apply [label="5. New Fabric\nConfiguration Observation"];
+    Repeat [label="6. Cycle repeats\nwith new topology"];
+
+    Arrival -> Pattern;
+    Pattern -> Explore;
+    Explore -> Schedule;
+    Schedule -> Apply;
+    Apply -> Repeat;
+    Repeat -> Arrival [style=dashed];
+
+    Arrival [color=blue];
+    Pattern [color=blue];
+    Explore [color=red];
+    Schedule [color=red];
+    Apply [color=blue];
+    Repeat [color=blue];
+}
+""")
+```
+
+### The Physical Balance Condition
+
+The balance condition $C_F \cdot \beta \le \sqrt{Z}$ applies to each PE in the fabric. When the scheduler evaluates a reconfiguration exploration, it must verify that the new configuration satisfies the balance condition for all affected PEs. If not, the exploration is rejected or modified.
+
+This gives hardware reconfiguration a formal feasibility check. Not every topology is physically realisable. The balance condition provides the constraint that separates manufacturable configurations from infeasible ones.
+
+For a compressed sparse attention accelerator tile:
+
+- $C_F$: the number of MAC units in the systolic array
+- $\beta$: the BlobStore read bandwidth (bytes per cycle)
+- $Z$: the on-chip KV cache capacity (SRAM, not HBM)
+
+The balance condition dictates the optimal tile size. If the tile is too large ($C_F$ high), the BlobStore cannot supply data fast enough. If the KV cache is too small ($Z$ low), the tile stalls waiting for external memory. The chunked processing pattern becomes the mechanism for maintaining balance: by limiting chunk size, the tile's working set fits in $Z$, keeping $\beta$ utilisation high.
+
+#### Dynamic Balance Verification
+
+During each OODA cycle, the hardware scheduler performs the following checks:
+
+1. **Static verification**: Fixed parameters of each PE ($C_F$, $\beta_{\min}$, $Z_{\text{alloc}}$)
+2. **Dynamic verification**: Peak values for the proposed reconfiguration
+3. **Headroom calculation**: $\eta = \sqrt{Z} - C_F \cdot \beta$ (requires $\eta \ge 0$)
+
+Reconfiguration proposals with negative headroom are:
+
+- Moved to a delay queue (retry next cycle)
+- Accepted with modified (reduced) chunk size
+- Rejected and recorded as an observation
+
+In a real FPGA implementation this verification completes within 3–4 combinatorial logic layers, i.e., under 40 ns at 100 MHz.
+
+## The Implementation Path
+
+The unified architecture described here cannot be built in one step. The following phased approach aligns with the existing development roadmap of the content-addressable storage platform.
+
+### Phase 1-6: Content-Addressable Storage Core
+
+The storage layer must be refactored first because it is the foundation for everything else. The content-addressable BlobStore with tiered storage and encryption provides the physical substrate that the accelerator will interface with.
+
+Key milestone: `BlobStore` as the single path for all data, replacing property-string encoding with typed records and content-addressed blobs. The encryption integration (AES-256-GCM with content-hash-derived keys) ensures that data is protected at rest, in transit, and during accelerator processing.
+
+### Phase 7: FPGA Accelerator Interface
+
+Define the `Accelerator` trait and implement a stub. The chunked top-k algorithm is the computational reference. The secure serial bridge protocol from the FPGA inference core is the transport reference.
+
+Key milestone: `retrieve(query: BlobHash, top_k: usize) -> Vec<BlobHash>` works over a serial/PCIe transport with encrypted payloads. The FPGA decrypts, computes, encrypts, and returns. No plaintext on the bus.
+
+### Dimension-Adaptive Retrieval Pipeline
+
+The CSA indexer uses low-dimensional compressed keys ($d_{\text{comp}} \ll d_{\text{model}}$), while the BlobStore stores full embeddings. This dimensional mismatch is resolved by a **two-stage retrieval** pipeline:
+
+```text
+Stage 1 – Compressed search (FPGA):
+  Query (d_model) -> compression projector -> Q_compressed (d_comp=64)
+  Key_compressed (d_comp=64) cached in BlobStore metadata
+  -> Top-1000 candidates
+
+Stage 2 – Fine re-ranking (CPU/software):
+  Load full Key vectors (d_model=4096) for candidates
+  -> Top-10 final results
+```
+
+**Storage optimisation:**
+
+- Each observation blob includes a `compressed_key` (64 dims, fixed-point) in its header
+- Compressed keys are not stored separately; they are an adjunct to the blob hash
+- Two-stage retrieval is a natural extension of chunked top-k
+
+### Post-Phase 7: Streaming Fabric Microarchitecture
+
+After the accelerator interface is proven, design the streaming fabric:
+
+- **Processing Elements**: Synthesise the detector pattern (gap detection, contradiction detection, state change detection) as hardware PEs. Each PE reads from and writes to the BlobStore fabric. PEs do not communicate directly.
+- **Fabric Interconnect**: A crossbar or mesh network where each router node is a content-addressable lookup. Data is routed by content hash, not by address. This is the hardware realisation of the content-addressable store.
+- **OODA Scheduler**: A hardware state machine that runs the OODA cycle: read BlobStore deltas, activate matching PEs, collect results, commit new observations. This replaces the software scheduler tick with a hardware pipeline.
+- **Reconfiguration Controller**: A specialised PE that monitors the observation stream for reconfiguration explorations and updates the fabric's routing tables and PE parameters. This is the hardware analog of the injected constraint mechanism.
+
+```{python}
+#| label: fig-streaming-fabric
+#| fig-cap: "Streaming fabric microarchitecture"
+
+dot("""
+digraph StreamingFabric {
+    rankdir=LR;
+    node [shape=rect, style=rounded, fontname="Helvetica"];
+
+    subgraph cluster_fabric {
+        label="Stream-Adaptive Fabric";
+        color=purple;
+
+        BlobStore [label="BlobStore Fabric\n(content-addressable SRAM)", style=filled, fillcolor=lightyellow];
+
+        subgraph cluster_pes {
+            label="PE Array";
+            PE1 [label="Gap\nDetector"];
+            PE2 [label="Contradiction\nDetector"];
+            PE3 [label="State Change\nDetector"];
+            PE4 [label="CSA Indexer\n(chunked top-k)"];
+            PE5 [label="Categorical\nSampler\n(FPGA core)"];
+        }
+
+        OODA [label="OODA Scheduler\n(hardware state machine)", style=filled, fillcolor=lightblue];
+        Reconfig [label="Reconfiguration\nController", style=filled, fillcolor=lightgreen];
+
+        PE1 -> BlobStore;
+        PE2 -> BlobStore;
+        PE3 -> BlobStore;
+        PE4 -> BlobStore;
+        PE5 -> BlobStore;
+        BlobStore -> PE1;
+        BlobStore -> PE2;
+        BlobStore -> PE3;
+        BlobStore -> PE4;
+        BlobStore -> PE5;
+
+        OODA -> BlobStore [label="commit cycle"];
+        OODA -> PE1 [label="activate"];
+        OODA -> PE2 [label="activate"];
+        OODA -> PE3 [label="activate"];
+        OODA -> PE4 [label="activate"];
+        OODA -> PE5 [label="activate"];
+
+        Reconfig -> BlobStore [label="routing update"];
+    }
+
+    subgraph cluster_tiers {
+        label="Memory Tiers";
+        HotMem [label="Hot: L1 SRAM\n(PE-local scratchpad)"];
+        WarmMem [label="Warm: L2 eDRAM\n(BRAM blob cache)"];
+        ColdMem [label="Cold: HBM/External\n(DRAM / SSD / S3)"];
+    }
+
+    BlobStore -> HotMem -> WarmMem -> ColdMem;
+}
+""")
+```
+
+## Failure Modes and Recovery
+
+The proposed architecture must gracefully handle failures. All recovery actions are recorded as observations for auditability.
+
+### PE Failure
+
+- **Observation**: No output blob from a PE for N cycles
+- **Exploration**: Reconfiguration proposal that bypasses the failed PE
+- **Constraint**: If a replacement PE exists, activate it; otherwise continue with reduced capability and log warning
+
+### BlobStore Corruption (ECC error)
+
+- **Observation**: Hash integrity check fails on read
+- **Exploration**: Attempt recovery from warmer tier (Warm → Cold → Replica)
+- **Constraint**: If unrecoverable, mark as “corrupted observation” and isolate; propagate to dependent PEs as constraint
+
+### Reconfiguration Deadlock
+
+- **Observation**: Same reconfiguration proposal rejected three or more times
+- **Exploration**: Retry with chunk size halved
+- **Constraint**: When minimum chunk size reached, record warning observation and enter safe mode (fallback to static schedule)
+
+All recovery operations are recorded as immutable observations, enabling post-mortem analysis and continuous improvement of the reconfiguration policy.
+
+## Performance and Resource Estimates
+
+The FPGA accelerator core (4-lane systolic, 2 KiB vector register file) is estimated to achieve:
+
+| Metric | Value |
+|--------|-------|
+| Logic utilisation | ~15k LUTs + 8k FFs |
+| DSP blocks | 32 (4 lanes × 8 columns) |
+| BRAM | 48 (18 Kb each) |
+| Max frequency | 150 MHz (conservative) |
+| Throughput (512-d model) | 128 tokens/sec |
+| Power (active) | ~2.5 W |
+| Latency per token | 6.7 µs @ 150 MHz |
+
+For the compressed sparse attention indexer (d_comp=64, top_k=1000, 1M keys):
+
+| Chunk size | Memory | Recall (ε) | Throughput |
+|------------|--------|------------|------------|
+| 64K        | 8 MB   | exact      | 12k queries/s |
+| 16K        | 2 MB   | 0.001      | 45k queries/s |
+| 4K         | 0.5 MB | 0.005      | 170k queries/s |
+
+## Implementation Status
+
+| Component | Status | Reference |
+|-----------|--------|-----------|
+| Content-addressable BlobStore | ✅ Complete | [nexus#81](https://github.com/ssccsorg/nexus/issues/81) |
+| Chunked top-k (GPU) | ✅ Complete | [StreamIndex](https://github.com/RightNow-AI/StreamIndex) |
+| FPGA LM core (RTL) | ✅ Complete | [TALOS-V2](https://github.com/RightNow-AI/TALOS-V2) |
+| CSA model architecture | ✅ Complete | [arXiv:2505.14677](https://arxiv.org/abs/2505.14677) |
+| Accelerator interface stub | 🚧 In progress | - |
+| Secure serial bridge | 📝 Design | - |
+| Stream-adaptive fabric | 📝 Design | - |
+| Reconfiguration controller | 📝 Design | - |
+
+## Comparison with Existing Stream Architectures
+
+| Architecture | Memory Model | Reconfiguration | Structural Self-Similarity |
+|--------------|--------------|----------------|----------------------------|
+| GPU (NVIDIA) | Unified, address-based | Static kernel dispatch | No |
+| TPU (v4) | Scratchpad + HBM | Static systolic array | No |
+| CSP (Wave) | Dataflow, address-based | Compile-time | Partial |
+| **This work** | Content-addressable | Runtime, emergent | Yes (recursive OODA) |
+
+The key differentiator is **content-addressability as the universal coordination primitive**, which eliminates the distinction between storage, interconnect, and computation.
+
+## Relationship to Reference Projects
+
+### Chunked Partition-Merge Top-K
+
+The chunked partition-merge top-k algorithm is the first implementation of a general pattern that applies to any system where the score matrix exceeds available memory. In the SSCCS context, this pattern becomes the standard BlobStore retrieval primitive.
+
+The source code for the chunked indexer (151 LOC) is a reference for the FPGA chunked top-k engine. The fused score kernel maps directly to a systolic array with ReLU and multiply-accumulate stages.
+
+### Compressed Sparse Attention
+
+Compressed sparse attention validates the structural approach at the largest scale. It combines compressed key indexing, latent attention, and mixture-of-experts -- all structural innovations that change the connectivity pattern of the computation graph, not just the numerical precision or the training algorithm.
+
+The CSA indexer is particularly relevant: it compresses keys into a lower-dimensional space, scores them against queries, and selects top-k for sparse attention. This is structurally identical to a BlobStore retrieval filter: compress (index), score (match), select top-k (retrieve). The FPGA accelerator implements exactly this pipeline.
+
+### FPGA Language Model Core
+
+The FPGA language model core is the existence proof that transformer inference works in RTL on a commodity FPGA. While the reference model is orders of magnitude smaller than production-scale models, the architectural pattern -- fixed-point arithmetic, LUT-based nonlinearities, systolic matvec, serial bridge -- scales upward.
+
+The specific components reusable:
+
+- RMSNorm engine (applicable to the CSA indexer's normalisation layer)
+- Fixed-point categorical sampling (reusable for the accelerator's output stage)
+- Secure serial bridge IP: raw-byte transport with AEAD (reusable as-is)
+- Systolic matvec tile: multi-lane, multi-column systolic array (extensible to wider arrays)
+
+### Vector Processor Cluster (Spatz)
+
+The Spatz analysis provides the physical balance condition that governs all of the above. Without the balance constraint, hardware design is heuristic. With it, hardware design becomes a constraint satisfaction problem: given $C_F$, $\beta$, and $Z$, find the tile size, chunk size, and PE count that satisfy $C_F \cdot \beta \le \sqrt{Z}$.
+
+This condition applies at every scale:
+
+| Scale | $C_F$ | $\beta$ | $Z$ | Constraint |
+|---|---|---|---|---|
+| Single PE (MAC unit) | 1 MAC/cycle | 1 weight/cycle | 1 register | $1 \le 1$ (trivially satisfied) |
+| Systolic tile (4 lanes) | 4 MAC/cycle | 4 weights/cycle | 16 registers | $16 \le 4$ (requires chunking) |
+| Full accelerator (64 lanes) | 64 MAC/cycle | 64 weights/cycle | 256 registers | $4096 \le 16$ (requires external buffering) |
+| Software agent | 1 inference/tick | 1000 observations/cycle | 100 MB | requires chunking |
+
+The constraint naturally drives toward the chunked, streamed processing pattern that is the central theme of this report.
+
+### Compiler Infrastructure
+
+The MLIR ecosystem developments provide the compiler infrastructure for the stream-adaptive silicon:
+
+- **Transform Dialect**: Observation strategies (chunk size, tile size, PE mapping) become Transform scripts that are compiled offline and applied at runtime. The same script framework can target software or hardware (FPGA fabric).
+- **Tile-Centric Operations**: Tile-centric operations map directly to the FPGA's systolic array tile parameters. Tiling is not a transformation applied to a generic operation -- it is the fundamental execution unit.
+- **Assembly Dialects**: The serial bridge protocol is effectively a minimal Assembly Dialect. Formalising it as a compiler dialect would enable the compiler to generate FPGA configuration streams from high-level structural descriptions.
+- **Language Bindings**: The Rust compiler frontend can compile structural descriptions to FPGA configurations through compiler bindings, closing the loop from structural description to hardware execution.
+
+## Security and Information-Theoretic Bounds
+
+The encrypted BlobStore + FPGA accelerator combination provides:
+
+- **Confidentiality**: AES-256-GCM ensures that even if the physical bus is tapped, plaintext observations remain hidden. The FPGA never exposes keys outside the encrypted boundary.
+- **Integrity**: Each blob's hash serves as its identifier; any corruption changes the hash and makes the blob unaddressable.
+- **Freshness**: Monotonic nonces prevent replay attacks; the FPGA rejects nonce values that are not strictly increasing.
+
+**Information-theoretic bound:** For a BlobStore with $N$ blobs of average size $B$, the probability that an adversary with access to $M$ bus transactions can reconstruct any specific observation is at most $2^{-128}$ (AES security level) plus the probability of a hash collision ($\approx N^2 / 2^{256}$). Content-addressability adds no additional leakage beyond the size of the blob.
+
+## Conclusion
+
+The four trajectories examined in this report are not separate projects. They are manifestations of the same underlying principle at different scales and in different domains.
+
+The principle: **computation is a structural process over a content-addressable data space, where the structure adapts to the data stream through a self-similar cycle of observation, exploration, and constraint**.
+
+- The content-addressable storage system shows this principle in software at the agent scale.
+- The FPGA inference core shows it in RTL at the single-model scale.
+- The chunked top-k algorithm shows it in GPU kernels at the memory-management scale.
+- The compressed sparse attention architecture shows it in model architecture at the algorithmic scale.
+
+The logical conclusion: the same principle applies at the silicon scale. A stream-adaptive fabric where PEs coordinate through a shared content-addressable BlobStore, reconfigured by the same structural cycle that governs software agents, is the hardware realisation of SSCCS computing.
+
+The physical balance condition provides the law that governs feasibility. The content-addressable storage architecture provides the software foundation. The chunked top-k algorithm provides the retrieval primitive. The FPGA inference core provides the RTL implementation pattern. The compressed sparse attention architecture provides the algorithmic validation at scale.
+
+The path is incremental and each phase is independently useful. The storage refactoring improves the orchestration platform regardless of hardware acceleration. The FPGA accelerator improves storage retrieval regardless of the fabric vision. The fabric itself is the endpoint where all insights converge.
+
+## References
+
+| Reference | Link |
+|---|---|
+| Content-addressable storage reference | [github.com/ssccsorg/nexus](https://github.com/ssccsorg/nexus) |
+| Native storage architecture | [github.com/ssccsorg/nexus/issues/81](https://github.com/ssccsorg/nexus/issues/81) |
+| Chunked partition-merge top-k | [github.com/RightNow-AI/StreamIndex](https://github.com/RightNow-AI/StreamIndex) |
+| FPGA language model core | [github.com/RightNow-AI/TALOS-V2](https://github.com/RightNow-AI/TALOS-V2) |
+| Compressed sparse attention | [arxiv.org/abs/2505.14677](https://arxiv.org/abs/2505.14677) |
+| Streaming top-k paper | [arxiv.org/abs/2605.02568](https://arxiv.org/abs/2605.02568) |
+| Vector processor cluster | [Spatz](https://github.com/pulp-platform/spatz) |
+| Structural-physical synthesis | [Spatz–SSCCS Structural Insights](spatz_insight.html) |
+| MLIR compiler insights | [EuroLLVM 2026 Deep Analysis and Insights](eurollvm26_insight.html) |
