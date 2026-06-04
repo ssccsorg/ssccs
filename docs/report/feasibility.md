@@ -213,7 +213,7 @@ Poor structural locality undermines the data movement reduction hypothesis. Cust
 **Runtime Structural Dispatch**  
 Incomplete static compilation leaves residual dynamic dispatch overhead. Aggressive monomorphization and trait-based generics mitigate this.
 
-Each of these bottlenecks corresponds to metrics tracked in the [PoC Diagnosis Report](/report/poc_diagnosis.html).
+Each of these bottlenecks corresponds to metrics tracked in the [PoC Diagnosis and Roadmap](/report/poc_diagnosis.html).
 
 ## Two Scenarios
 
@@ -351,7 +351,7 @@ Metrics to be collected:
 - Energy per operation (where measurable)
 - Throughput scaling with core count
 
-The [PoC Diagnosis Report](/report/poc_diagnosis.html) contains current measurements and will be updated as the implementation matures.
+The [PoC Diagnosis and Roadmap](/report/poc_diagnosis.html) contains current measurements and will be updated as the implementation matures.
 
 ## Conclusion
 

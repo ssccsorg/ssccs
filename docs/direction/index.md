@@ -6,7 +6,7 @@ For decades, computation has followed the von Neumann model: data and instructio
 
 We reimagine computation not as a sequence of steps, but as the geometry of stationary structure. In current computing, a fixed runtime logic or algorithm operates on fluid data, producing changing state. In SSCCS, the fixed geometric structure of pre-compiled data itself is projected through observation, and the result is a deterministic state where the boundary between data and program disappears. Computation becomes structural observation, not procedural execution.
 
-For foundational details, see [Guide](/guide.html), [Whitepaper](/whitepaper/whitepaper.html), [Public Proposal](/partnerships/proposal.html), and [Philosophical Foundation](/philosophy).
+For foundational details, see [Core Concepts Guide](/guide.html), [Schema–Segment Composition Computing System](/docs/whitepaper/whitepaper.html), [A Foundation for Energy-Efficient and Trustworthy Computing](/docs/partnerships/proposal.html), and [Philosophy](/philosophy).
 
 This document outlines the highest‑level direction – our cultural bedrock, strategic posture, and long‑horizon vision. Detailed technical roadmaps, platform‑specific plans, and measurable milestones belong to separate reports and proposals.
 
@@ -91,7 +91,7 @@ Our Documentation‑First philosophy treats accumulated knowledge not as a stati
 
 Every whitepaper, technical note, governance record, and code artifact is ingested through contract‑governed agents, extracted into the unified graph, and linked by deterministic edges. This creates a closed‑loop ecosystem: hypotheses generated from gaps in the graph are validated against cryptographic provenance, and the resulting insights are fed back into the ingestion pipeline. The graph expands with every commit and research note, enabling the entire knowledge base to grow organically.
 
-This transforms documentation from a passive endpoint into the primary interface between human intent and machine reasoning. AI agents explore the graph, surface emergent connections, and extend the SSCCS paradigm through a continuous generate‑evaluate‑adapt cycle. See [Documentation Home](/index.html) and [Project neXus](/projects/nexus) for details.
+This transforms documentation from a passive endpoint into the primary interface between human intent and machine reasoning. AI agents explore the graph, surface emergent connections, and extend the SSCCS paradigm through a continuous generate‑evaluate‑adapt cycle. See [SSCCS Documentation](/index.html) and [Project neXus](/projects/nexus) for details.
 
 ## Strategic Posture
 
@@ -122,7 +122,7 @@ Our near‑term focus is tangible, open‑source artifacts that the community ca
 - Iterative prototyping – Move from simulation to hardware prototypes, demonstrating the model on real examples.
 - Publish open‑source tools – Release the full stack with clear documentation. A working demonstration carries more weight than extensive whitepapers.
 
-For the complete architectural blueprint of the verification–economy–orchestration structure, see [Ecosystem Blueprint](/direction/ecosys.html).
+For the complete architectural blueprint of the verification–economy–orchestration structure, see [Ecosystem Skeleton](/direction/ecosys.html).
 
 ### Community Engagement (Regional)
 
