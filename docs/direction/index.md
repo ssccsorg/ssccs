@@ -6,7 +6,7 @@ For decades, computation has followed the von Neumann model: data and instructio
 
 We reimagine computation not as a sequence of steps, but as the geometry of stationary structure. In current computing, a fixed runtime logic or algorithm operates on fluid data, producing changing state. In SSCCS, the fixed geometric structure of pre-compiled data itself is projected through observation, and the result is a deterministic state where the boundary between data and program disappears. Computation becomes structural observation, not procedural execution.
 
-For foundational details, see [Core Concepts Guide](/guide.html), [Schema–Segment Composition Computing System](/docs/whitepaper/whitepaper.html), [A Foundation for Energy-Efficient and Trustworthy Computing](/docs/partnerships/proposal.html), and [Philosophy](/philosophy).
+For foundational details, see [Core Concepts Guide](/guide.html), [Schema–Segment Composition Computing System](../whitepaper/whitepaper.html), [A Foundation for Energy-Efficient and Trustworthy Computing](../partnerships/proposal.html), and [Philosophy](/philosophy).
 
 This document outlines the highest‑level direction – our cultural bedrock, strategic posture, and long‑horizon vision. Detailed technical roadmaps, platform‑specific plans, and measurable milestones belong to separate reports and proposals.
 
