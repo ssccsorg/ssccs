@@ -10,7 +10,9 @@ metadata-files:
   - ../../_include/format.pdf.yml  
   - ../../_include/format.html.yml  
 abstract: |
-  ExaVerif performs exhaustive verification of RISC‑V custom instruction extensions. A YAML file describing a module's constraints is all that is required — ExaVerif generates every valid constraint combination, evaluates each one deterministically, and produces an auditable report. The CLI is open‑source (Apache 2.0). The engine is validated against the CVA6 CV-X-IF reference coprocessor (33.5 million combinations, 32 seconds), with cross‑verification through Spike RISC-V simulation.
+  ExaVerif is a verification engine built for the paradigm where verification results are not discarded logs but permanent contributions to a shared knowledge base. It performs exhaustive verification of RISC‑V custom instruction extensions — every valid constraint combination is generated, evaluated deterministically, and recorded as an immutable Fact for neXus consumption. The CLI is open‑source (Apache 2.0). The engine is validated against the CVA6 CV-X-IF reference coprocessor (33.5 million combinations, 32 seconds), with cross‑verification through Spike RISC-V simulation.
+  
+  ExaVerif treats verification as knowledge accumulation: each run expands the spec space, evaluates every point, and applies constraints. The result is not a pass/fail log — it is a permanent, queryable, auditable body of verified knowledge that compounds across runs, across tools, and across time. This is the foundation for a new approach to silicon design where verification is not a gate at the end of the flow but a continuously growing evidentiary basis for correctness.
 ---
 
 ```{python}
@@ -48,6 +50,8 @@ title_meta_items = {
 
 ## The Problem
 
+Silicon verification today produces PASS/FAIL logs that are discarded at the end of each run. A verification result has no life beyond the terminal. Coverage is statistical or scoped to specific properties — no approach enumerates every valid constraint combination, evaluates each deterministically, and accumulates the result as reusable knowledge.
+
 RISC‑V's defining advantage is its extensibility. Custom instruction extensions (XIF) enable domain‑specific acceleration for AI inference, signal processing, cryptography, and embedded control. Every custom instruction must be verified across its full operational envelope — operand ranges, pipeline states, data alignment, hazard conditions, and physical constraints.
 
 The current verification tooling faces two persistent obstacles:
@@ -55,9 +59,13 @@ The current verification tooling faces two persistent obstacles:
 1. **No automated constraint composition.** Random instruction generators produce statistical coverage but cannot enumerate the complete space of interacting constraints. When operand ranges, pipeline depth, and alignment rules combine, the number of valid configurations reaches into the thousands. Manual test writing cannot scale to cover this space exhaustively.
 2. **Non‑deterministic coverage.** Random‑seed‑based simulation cannot determinically prove that a specific edge case was tested. Reproducing a failure requires preserving the exact seed, environment state, and tool versions — a fragile chain that breaks across teams and over time.
 
+But the deeper problem is structural: verification results are treated as ephemeral artifacts. They are not designed to be accumulated, queried, or audited across time. A coverage report from one tapeout is inaccessible to the next. A failure trace from one team is invisible to another. The industry has built sophisticated tools that generate vast quantities of data, but has not built the infrastructure to turn that data into knowledge.
+
 ## What ExaVerif Does
 
-ExaVerif treats a YAML description as a **Spec Space**: field domains define its axes, constraints carve admissible subspaces, and each combination is a point within this space. A single command enumerates and evaluates every point exhaustively.
+ExaVerif treats verification as **knowledge accumulation**, not log generation. A YAML description becomes a **Spec Space**: field domains define its axes, constraints carve admissible subspaces, and each combination is a point within this space. A single command enumerates and evaluates every point exhaustively. Every result is an immutable Fact — a permanent contribution to a shared body of verified knowledge that compounds across runs, across tools, and across time.
+
+This is the paradigm that existing tools do not recognize. Their results expire at the end of the run. ExaVerif's results are embedded in a graph that spans every domain of the project, queryable by any neXus instance, auditable at any point in the future. A verification result is not a log entry — it is a permanent contribution to a growing evidentiary basis for correctness.
 
 ```bash
 ev verify --target cva6_xif_ref.xif.yaml
