@@ -5,7 +5,7 @@ date: last-modified
 metadata-files:
   - ../../_include/author.yml
 abstract: |
-  neXus implements the FIH (Fact / Intent / Hint) Blackboard paradigm. The core uses a DualStorage composition of hot (PetgraphStorage, in-memory graph) and cold (DuckDB or CompositeColdStorage, Parquet-backed) backends, with Cypher queries and platform bindings for Cloudflare Workers, native servers, and (as a placeholder) blockchain targets. The Blackboard is a shared graph that every module reads from and writes to through a single interface. The core is assembled from production-grade crates (petgraph, cyrs, duckdb, ndarray) with minimal glue. Storage backends implement fine-grained capability traits instead of a monolithic Storage interface.
+  neXus implements the FIH (Fact / Intent / Hint) Blackboard paradigm. The core uses a DualStorage composition of hot (core storage engine, layered coordinate model) and cold (DuckDB or CompositeColdStorage, Parquet-backed) backends, with optional Cypher queries and platform bindings for Cloudflare Workers, native servers, and (as a placeholder) blockchain targets. The Blackboard is a shared multi-modal storage space (three-tier record types across a temporal dimension) that every module reads from and writes to through a single interface. The hot storage is a native Rust coordinate-based index with a temporal ordering layer; PetgraphStorage is an optional 2D projection for legacy graph queries. Storage backends implement fine-grained capability traits instead of a monolithic Storage interface.
 ---
 
 ```{python}
@@ -28,13 +28,13 @@ title_meta_items = {
 
 ## Executive Summary
 
-neXus is a modular research infrastructure built on the FIH Blackboard paradigm. Every module reads from and writes to a shared graph through exactly three primitives: Fact (validated result), Intent (exploration direction), and Hint (governance rule). There is no fixed pipeline and no direct module-to-module communication. The proven lifecycle — submit, claim, heartbeat, conclude — governs all interaction.
+neXus is a modular research infrastructure built on the FIH Blackboard paradigm. Every module reads from and writes to a shared layered coordinate model through exactly three primitives: Fact (validated result), Intent (exploration direction), and Hint (governance rule). There is no fixed pipeline and no direct module-to-module communication. The proven lifecycle — submit, claim, heartbeat, conclude — governs all interaction.
 
-neXus models a self-describing paradigm: the Blackboard is the Scheme, Intents and Hints are the Field, and the act of reading, computing, and writing back is the Observation. The core compiles to WASM (edge) and native (server) from a single codebase assembled from production-grade crates (petgraph, cyrs, duckdb, ndarray). Contract.nex is the single governance surface.
+neXus models a self-describing paradigm: the Blackboard is the Scheme, Intents and Hints are the Field, and the act of reading, computing, and writing back is the Observation. The core compiles to WASM (edge) and native (server) from a single codebase. Contract.nex is the single governance surface.
 
 ### Unified Architecture
 
-The architecture has two layers. The Core Blackboard is the logical layer: a shared graph of Fact, Intent, and Hint primitives that every module reads from and writes to through a single interface. The graph-based core implements FIH: GraphBlackboard holds a DualStorage composition of hot (PetgraphStorage, in-memory graph) and cold (DuckDB or CompositeColdStorage, Parquet-backed) backends. cyrs translates Cypher queries. Capability traits replace the monolithic Storage trait, letting each backend implement only the interfaces it provides. Platform bindings expose the core to different deployment targets.
+The architecture has two layers. The Core Blackboard is the logical layer: a shared multi-modal storage space of Fact, Intent, and Hint primitives that every module reads from and writes to through a single interface. The storage architecture follows the FIH paradigm: the Blackboard holds a DualStorage composition of hot (core storage runtime with coordinate-based indexing and temporal ordering) and cold (DuckDB or CompositeColdStorage, Parquet-backed) backends. PetgraphStorage is an optional 2D projection for legacy graph queries. cyrs translates Cypher queries against the 2D projection. Capability traits replace the monolithic Storage trait, letting each backend implement only the interfaces it provides. Platform bindings expose the core to different deployment targets.
 
 ```{python}
 #| label: fig-nexus-architecture
@@ -124,6 +124,8 @@ digraph NexusArchitecture {
 
 ### Multi-Dimensional Blackboard Composition
 
+The Blackboard is a layered coordinate model where the three primary storage domains and a temporal dimension together form a multi-dimensional record space. Relations between primitives are not edges but coordinate differences (distances between points in the coordinate space).
+
 A Blackboard can contain other Blackboards. A Fact at Dimension N becomes a Scheme at Dimension N+1. An Observation at Dimension N+1 becomes a Hint at Dimension N. This mirrors the bootstrap recursion.
 
 | Dimension | Role | Content |
@@ -192,29 +194,38 @@ digraph WasmRationale {
 
 Together, these properties are not conveniences. They are the minimal set of constraints that make a cross-reality verification economy possible. No other runtime satisfies all of them.
 
-### Why graph-based FIH, Not Docker Containers
+### Why Layered Coordinate Model, Not Docker Containers
 
-The initial neXus architecture used Docker containers (Memgraph + proxy + LightRAG) orchestrated by shell scripts. The transition to a native codebase eliminated runtime dependencies:
+The initial neXus architecture used Docker containers (Memgraph + proxy + LightRAG) orchestrated by shell scripts. The transition to a native codebase eliminated runtime dependencies and revealed that the underlying model is not a 2D graph but a multi-dimensional coordinate model:
 
 | Reason | Impact |
 |---|---|
 | Single codebase | cargo build produces WASM (CF Worker) or native binary (server) from same source |
 | Zero runtime deps | No Docker, no Python, no bolt proxy, wrangler deploy only |
-| Cypher for LLMs | Cypher is the graph language with the richest LLM training data |
-| Portable by construction | Core knows nothing about Cloudflare, bindings/ isolates platform code |
+| Multi-dimensional model | FIH is not a 2D edge graph. It operates along multiple independent record domains where facts, intents, and hints each occupy their own coordinate set, with temporal ordering as an additional axis |
+| Relations as coordinate differences | Relations between primitives are not graph edges but distances between points in the coordinate space |
+| 2D projection optional | Traditional knowledge graphs are 2D node-edge models. FIH can project into 2D for interop, but the native representation is multi-dimensional |
+
+This is why the WASM build of petgraph failed: a 2D graph library was being forced to model a multi-dimensional structure. The core storage runtime operates natively in the correct coordinate model directly.
 
 ### Why Cypher
 
 Cypher is the only graph query language with sufficient LLM training data for reliable code generation. Multiple languages supported. Our cypher/ crate translates Cypher to petgraph traversals using [cyrs](https://github.com/phall1/cyrs) for parsing → Plan IR.
 
+Cypher is optional syntactic sugar over the native coordinate API (FilterCapable + temporal ordering layer + from_facts). The layered coordinate model query interface is the primary access method; Cypher translation is a secondary concern. Consumers that only need native FIH queries do not depend on the cypher crate.
+
 ### Graph Storage Approaches (Reference Implementations)
 
-The FIH Blackboard can be backed by multiple graph storage approaches. Below are the primary adoptions alongside supplementary analyses of production systems that informed specific design decisions.
+The FIH Blackboard can be backed by multiple storage approaches. The primary implementation is the native layered coordinate model; other approaches exist for legacy compatibility.
 
 | Approach | Storage | Adoption |
 |---|---|---|
-| petgraph + storage/duckdb/ | In-memory graph + DuckDB/Parquet | Adopted (core) |
+| Core storage runtime | Coordinate-based index with temporal ordering (layered coordinate model, native) | Primary (Phase 3, #86) |
+| PetgraphStorage | Petgraph (2D graph projection, optional) | Legacy compatibility, optional |
+| DuckDB / Parquet | Cold storage for analytical queries | Adopted (cold backend) |
 | Memgraph | In-memory LPG + RocksDB WAL | Patterns extracted (supplementary) |
+
+The core storage runtime implements the layered coordinate model directly with coordinate-based indexing for O(1) lookups and a temporal ordering layer for time-range queries. It replaces PetgraphStorage as the default hot storage. PetgraphStorage remains as an optional 2D projection for legacy graph queries (community detection, PageRank, shortest path) that operate on a 2D slice of the coordinate space. DualStorage composes the core storage runtime (hot) with DuckDB (cold) as the default configuration; PetgraphStorage can be composed as an additional 2D view.
 
 The supplementary analysis provided insights into specific capabilities. The table below documents the mapping between Memgraph and our adopted approach for granular traceability.
 
@@ -222,16 +233,16 @@ The supplementary analysis provided insights into specific capabilities. The tab
 
 | Capability | Memgraph Approach | Our Adaptation |
 |---|---|---|
-| Graph storage | In-memory LPG + RocksDB WAL | petgraph (in-memory) + duckdb/Parquet |
-| Vector search | USearch (C++), Single Store Vector Index | ndarray cosine, embedding as node property |
-| Community detection | Louvain + Leiden (C++ MAGE) | community-detection crate |
-| PageRank | Custom C++ | petgraph built-in |
+| Graph storage | In-memory LPG + RocksDB WAL | Core storage runtime (layered coordinate model) + duckdb/Parquet |
+| Vector search | USearch (C++), Single Store Vector Index | ndarray cosine (optional, on 2D projection) |
+| Community detection | Louvain + Leiden (C++ MAGE) | community-detection crate (on 2D projection) |
+| PageRank | Custom C++ | petgraph built-in (optional, on 2D projection) |
 | Module isolation | C API (mg\_procedure.h) | Rust trait in modules/ crate |
-| Atomic GraphRAG | Single query = search + expand + rank + prompt | cypher/translate.rs iterator chain |
+| Atomic GraphRAG | Single query = search + expand + rank + prompt | FilterCapable + temporal ordering layer native query |
 
 ## Architecture Stack
 
-The GraphBlackboard is assembled from existing crates, not built from scratch. Each crate provides a specific capability. The value is in the assembly, not the components.
+The Blackboard is assembled from native Rust modules and optional third-party crates. The core storage runtime implements the layered coordinate model using only standard collection types and a custom temporal ordering layer. PetgraphStorage is an optional 2D projection for legacy graph queries.
 
 ### External Dependencies: Candidates
 
@@ -241,9 +252,10 @@ Where possible, we depend on stable Rust crates rather than implementing from sc
 
 | Concern | Candidate | Justification | Status |
 |---|---|---|---|
-| Graph structure | **petgraph** (0.6) | Standard Rust graph lib, StableGraph, NodeIndex, built-in PageRank and Dijkstra. No reason to reimplement. | Adopted |
+| Native layered coordinate model | Core storage runtime (coordinate-based index + temporal ordering layer) | Primary hot storage. No external crate needed for the core data model. | Adopted (primary) |
+| 2D graph projection | **petgraph** (0.6) | Optional. Standard Rust graph lib, StableGraph, NodeIndex, built-in PageRank and Dijkstra. For legacy graph queries on a 2D slice of the coordinate space. | Optional dependency |
 | Cold storage / analytical | **duckdb** (1.105) | Parquet-backed, bundled, vector/JSON/CTE/window. Native only. | Adopted |
-| Cypher parsing | **cyrs** | Parses Cypher to typed Plan IR in one step. A unified query IR decouples input languages from execution. | Adopted |
+| Cypher parsing | **cyrs** | Parses Cypher to typed Plan IR in one step. A unified query IR decouples input languages from execution. | Optional (for Cypher path) |
 | Vector similarity | **ndarray** (0.15) + cosine | Our data volumes do not require HNSW. When they do, USearch has Rust bindings. Memgraph uses USearch internally. | Adopted |
 
 #### Graph Algorithms
@@ -280,7 +292,7 @@ A real-time Blackboard can use a storage variant as its durable backend, flushin
 
 ### Design Principle: Implement Strategically, Depend Widely
 
-Where differentiation matters (Cypher-to-petgraph translation, gap detection heuristics, platform bindings), we write code. Where stability matters (graph algorithms, persistence, parsing), we depend on verified Rust crates. The GraphBlackboard is the thinnest possible layer that turns a collection of independent crates into a coherent graph analysis platform.
+Where differentiation matters (Cypher-to-petgraph translation, gap detection heuristics, platform bindings), we write code. Where stability matters (graph algorithms, persistence, parsing), we depend on verified Rust crates. The Blackboard is the thinnest possible layer that turns a collection of independent modules into a coherent multi-dimensional analysis platform.
 
 ### Development Model: Three Hard Layers
 
@@ -290,9 +302,9 @@ The codebase stratifies into three layers with different change tolerances. This
 |---|---|---|---|
 | **Consumption Scenarios** | Immutable | nexus-sim scenario definitions capture the domain invariants; cannot be compromised without invalidating the ecosystem's purpose | Proof by Structure 7 attack scenarios (see [Proof by Structure](/projects/nexus/proof.html)); exchange contract requirements; ev verification flows |
 | **Orchestration Layer** | Flexible | nexus-sim runs scenario definitions against the foundation; failures force orchestration changes | `exchange_fact()` overlay (defined in [Proof by Structure](/projects/nexus/proof.html)); API gateway handlers; C2PA verification wrapper; session lifecycle |
-| **Foundation (IO Layer)** | Stable | Existing test suite (260 tests); petgraph/DuckDB contract; never modified without a nexus-sim scenario proving the capability gap | StorageRead, FactCapable, IntentCapable, HintCapable; DualStorage; petgraph/R2 bindings |
+| **Foundation (IO Layer)** | Stable | Existing comprehensive test suite; core storage runtime/DuckDB contract; never modified without a nexus-sim scenario proving the capability gap | StorageRead, FactCapable, IntentCapable, HintCapable; DualStorage; core storage runtime/R2 bindings |
 
-Consumption scenarios are the hardest layer. They express what the system must guarantee — "no entity can read a Fact without contributing one" is not negotiable because it derives from the ecosystem's game-theoretic requirements. The foundation is also hard: petgraph's StableGraph interface, DuckDB's ACID guarantees, and the FIH capability trait contracts are fixed by their respective libraries.
+Consumption scenarios are the hardest layer. They express what the system must guarantee — "no entity can read a Fact without contributing one" is not negotiable because it derives from the ecosystem's game-theoretic requirements. The foundation is also hard: the core storage runtime's indexing and ordering contracts, DuckDB's ACID guarantees, and the FIH capability trait contracts are fixed by their respective libraries.
 
 The orchestration layer between them is the only soft layer. It evolves continuously as nexus-sim validates scenarios against the foundation. When a scenario fails, the orchestration layer is updated first; only when a scenario demands a capability the foundation cannot provide (e.g., atomic compare-and-swap that the storage backend lacks) is the foundation modified. This is the scenario-driven reverse development pattern: the consumption scenario drives the orchestration, which in turn pressures the foundation only when necessary.
 
@@ -320,7 +332,7 @@ SessionExecute impls", fillcolor="#d4f1f9", fontname="Arial"];
 (stable)
 StorageRead / FactCapable
 DualStorage / IoBuffer
-petgraph / DuckDB / R2", fillcolor="#c8e6c9", fontname="Arial"];
+Core storage runtime / DuckDB / R2", fillcolor="#c8e6c9", fontname="Arial"];
 
     scenarios -> orc [label="drives", color="#ff6f00", fontsize=9];
     orc -> foundation [label="uses", color="#5588bb", fontsize=9];
@@ -336,9 +348,9 @@ A concrete example: `exchange_fact()` (defined in [Proof by Structure](/projects
 
 This three-layer validation pattern mirrors the `IoBuffer+StoreSession` architecture at a different scale: there, the foundation provides sync storage traits, the `IoBufferSession` overlay orchestrates hydration and flush, and the Worker request lifecycle (the consumption scenario) drives the entire cycle.
 
-### nexus-core (graph-based FIH)
+### nexus-core (Layered Coordinate Model)
 
-The core is a Cargo workspace with a clean separation of interfaces and implementations. The monolithic `Storage` trait has been replaced by fine-grained capability traits. Each backend implements only the capabilities it provides.
+The core is a Cargo workspace with a clean separation of interfaces and implementations. The data model follows a layered coordinate model (three-tier record types across a temporal dimension), not a 2D edge graph. The monolithic `Storage` trait has been replaced by fine-grained capability traits. Each backend implements only the capabilities it provides. The core storage runtime (coordinate-based index with temporal ordering) is the primary hot storage; PetgraphStorage is an optional 2D projection.
 
 Capability traits (all `Send + Sync`):
 
@@ -410,13 +422,13 @@ Crate structure:
 - `model/` — `Blackboard` trait (public, stable): the FIH lifecycle interface plus capability traits, `DualStorage`, `GraphRead`/`GraphWrite`, `BlobStore`/`MetaStore`/`ObjectStore` traits, `Now`/`SystemClock`, and detection traits (`DetectionCapable`, `GapDetection`, `ContradictionDetection`, `StateChangeDetection`).
 - `interface/query/` — `ColdQuery`, `ColdFilter`, `ColdOrder`, `AggregateDef`, `QueryCapable` trait. Backend-agnostic tabular query specification.
 - `interface/cypher/` — Cypher parser, plan, and petgraph executor. Translates Cypher to `ColdQuery` for cold routing. Depends on `interface/query`.
-- `nexus/` — `DefaultBlackboard`: the single `Blackboard` implementation backed by `DualStorage`, plus `PetgraphStorage`, `CompositeColdStorage`, OODA scheduler, and all detectors. (Consolidated from former `core/graph/`, `core/process/`, `core/storage/petgraph/`, `core/storage/composite/`.)
+- `nexus/` — `DefaultBlackboard`: the single `Blackboard` implementation backed by `DualStorage`, plus the core storage runtime, `PetgraphStorage`, `CompositeColdStorage`, OODA scheduler, and all detectors. (Consolidated from former `core/graph/`, `core/process/`, `core/storage/petgraph/`, `core/storage/composite/`.)
 - `storage/duckdb/` — `DuckDbStorage`: cold Parquet storage with `DuckDbQueryExt` for DuckDB-specific features (CTE, window functions, JSON, vector search). Implements `QueryCapable`.
 - `storage/ve-composite/` — axum-based HTTP server exposing `BlobStore`/`MetaStore`/`ObjectStore` endpoints for session-backed composite storage.
 
 ### Cypher Translation
 
-The cypher/ crate translates Cypher to petgraph operations using cyrs. Our gap-detector needs only three patterns:
+The cypher/ crate translates Cypher to petgraph operations on the optional 2D projection. Our gap-detector needs only three patterns on the 2D view:
 
 | Cypher Pattern | petgraph Translation |
 |---|---|
@@ -424,15 +436,15 @@ The cypher/ crate translates Cypher to petgraph operations using cyrs. Our gap-d
 | `OPTIONAL MATCH (c)-[r]-() WITH c, count(r) WHERE rc = 0` | neighbors() + count + filter |
 | `MATCH (a)-[r1]->(b) MATCH (a)-[r2]->(b) WHERE type != type` | edges() cartesian product + filter |
 
-We do not implement full Cypher. We implement the subset our modules actually need.
+We do not implement full Cypher. We implement the subset our modules actually need. The primary query interface is the native layered coordinate model API (FilterCapable + temporal ordering layer + from_facts).
 
-### Graph Algorithms
+### Graph Algorithms (Optional 2D Projection)
 
-Graph algorithms follow the MAGE module pattern: each algorithm is a standalone function that takes a graph reference and returns results.
+Graph algorithms operate on the optional 2D projection (PetgraphStorage). They follow the MAGE module pattern: each algorithm is a standalone function that takes a graph reference and returns results. The primary layered coordinate model does not require these algorithms.
 
 | Algorithm | Implementation | Notes |
 |---|---|---|
-| Louvain | community-detection crate | |
+| Louvain | community-detection crate | On 2D projection only |
 | Leiden | community-detection crate | Same crate, variant feature flag |
 | PageRank | petgraph::algo::page_rank | Built into petgraph |
 | Dijkstra | petgraph::algo::dijkstra | Built into petgraph |
@@ -440,7 +452,7 @@ Graph algorithms follow the MAGE module pattern: each algorithm is a standalone 
 
 ### Analysis Modules
 
-Modules follow Blackboard semantics: read Facts and Hints, emit Facts (detectors) or Intents (agents). Every module shares the same graph interface. Internal implementation (native, LLM-driven, heuristic) is invisible to other modules. Detectors observe patterns and record them as immutable Facts; agents read detector Facts and decide which to act on by creating Intents. This separation — observe as Fact, act as Intent — is enforced architecturally through the `DetectionCapable` trait hierarchy.
+Modules follow Blackboard semantics: read Facts and Hints, emit Facts (detectors) or Intents (agents). Every module shares the same layered coordinate model interface. Internal implementation (native, LLM-driven, heuristic) is invisible to other modules. Detectors observe patterns and record them as immutable Facts; agents read detector Facts and decide which to act on by creating Intents. This separation — observe as Fact, act as Intent — is enforced architecturally through the `DetectionCapable` trait hierarchy.
 
 | Module | Input | Output | Status |
 |---|---|---|---|
@@ -480,7 +492,7 @@ The gap-detector and other analysis modules have been migrated to Rust in the `n
 
 Modules do not call each other. Each module reads from the Core Blackboard and writes back to it. Coordination is indirect, inspired by stigmergy patterns: agents leave traces in a shared environment, other agents perceive those traces and adapt their behavior.
 
-The Blackboard stores three primitives. Facts are what the system has learned — including detector observations about the knowledge state. Intents are what agents want to explore. Hints are governance rules and human guidance. Detectors observe the Fact graph and record patterns as Facts; agents read detector Facts and decide which to act on by creating Intents. The Scheduler drives the OODA cycle, calling each detector every tick.
+The Blackboard stores three primitives. Facts are what the system has learned — including detector observations about the knowledge state. Intents are what agents want to explore. Hints are governance rules and human guidance. Detectors observe the layered coordinate model and record patterns as Facts; agents read detector Facts and decide which to act on by creating Intents. The Scheduler drives the OODA cycle, calling each detector every tick.
 
 ```{python}
 #| label: fig-stigmergy-communication
@@ -581,16 +593,19 @@ Every (origin, intent, result) tuple on the Blackboard has a content-addressable
 
 ## Architecture Inspirations
 
-### Current Layer (Graph Core)
+### Current Layer (Multi-Dimensional Storage Core)
+
+The storage layer is now a multi-dimensional coordinate model, not a graph core. The core storage runtime (coordinate-based index with temporal ordering) is the primary hot storage. PetgraphStorage is an optional 2D projection for legacy graph queries.
 
 | Source | Pattern | What We Adopted |
 |---|---|---|
 | Memgraph (C++, production) | Atomic GraphRAG (single query = search + expand + rank + prompt) | Iterator chain translation in cypher/translate.rs |
 | Memgraph | MAGE module isolation (C API, standalone algorithms) | Rust trait isolation in modules/ crate |
-| Memgraph | Single Store Vector Index (embedding as node property) | ndarray cosine on petgraph node weights |
-| Memgraph | WAL + in-memory dual storage | duckdb/Parquet + petgraph memory store |
-| cyrs / cypher-rs ecosystem | Cypher → typed Plan IR | cyrs as primary parser dependency |
-| petgraph ecosystem | StableGraph, NodeIndex, built-in PageRank/Dijkstra | Core graph library |
+| Memgraph | Single Store Vector Index (embedding as node property) | ndarray cosine (optional, on 2D projection) |
+| Memgraph | WAL + in-memory dual storage | duckdb/Parquet + core storage runtime memory store |
+| cyrs / cypher-rs ecosystem | Cypher → typed Plan IR | cyrs as parser dependency (optional, Cypher path) |
+| Core storage runtime | Coordinate-based index + temporal ordering | Primary hot storage for the layered coordinate model |
+| PetgraphStorage (optional) | StableGraph, NodeIndex, built-in PageRank/Dijkstra | Optional 2D projection for legacy graph algorithms |
 | Capability-based traits | Fine-grained Rust traits replacing monolithic interfaces | StorageRead, FactCapable, FilterCapable, EvictCapable, etc. — also DetectionCapable, GapDetection, ContradictionDetection, StateChangeDetection for the detection layer |
 | DualStorage pattern | Hot + cold composition for edge-cloud routing | DualStorage { hot: HotStorage, cold: ColdStorage } |
 | CQRS-inspired commit channel | Command/query separation for flush output | `CompositeColdStorage` with `commit_kv`/`commit_blob` (dirty tracking OFF), breaking self-referential dirty in `flush_since()` |
@@ -632,13 +647,13 @@ digraph CqrsGitFihMapping {
 """)
 ```
 
-A key architectural insight is that a unified query IR decouples input languages from execution. Future agent modules (Planner, Verifier, Hypothesis Generator) will query the graph through this same IR. They do not need to know whether the backend is petgraph in memory, DuckDB on disk, or a remote CF Worker. The query interface is the plug, the core is the socket. Adding a new query language (GQL, SPARQL, or a future agent DSL) requires only a new parser adapter, not a core change.
+A key architectural insight is that a unified query IR decouples input languages from execution. Future agent modules (Planner, Verifier, Hypothesis Generator) will query the layered coordinate model through this same IR. They do not need to know whether the backend is the core storage runtime in memory, DuckDB on disk, or a remote CF Worker. The query interface is the plug, the core is the socket. Adding a new query language (GQL, SPARQL, or a future agent DSL) requires only a new parser adapter, not a core change.
 
 ### Stigmergy Layer (Implemented)
 
 The Blackboard architecture is validated by proven stigmergic search: a minimal OODA loop that reads from and writes to a shared blackboard of Fact, Intent, and Hint primitives.
 
-The stigmergy layer is implemented in the `nexus` crate. The Scheduler drives the OODA loop, calling detectors every tick. Detectors (Gap, Contradiction, State Change, New Document) observe the Fact graph and record patterns as Facts. Agents read these detector Facts and create Intents. The ReasonCheckpoint pattern — simple count-based state change detection — is built into `StateChangeDetector`. All detectors implement the `DetectionCapable` trait hierarchy, which mirrors the storage capability trait architecture.
+The stigmergy layer is implemented in the `nexus` crate. The Scheduler drives the OODA loop, calling detectors every tick. Detectors (Gap, Contradiction, State Change, New Document) observe the layered coordinate model and record patterns as Facts. Agents read these detector Facts and create Intents. The ReasonCheckpoint pattern — simple count-based state change detection — is built into `StateChangeDetector`. All detectors implement the `DetectionCapable` trait hierarchy, which mirrors the storage capability trait architecture.
 
 Beyond the current implementation, future research layers will attach to the same Blackboard through the same interface:
 
@@ -646,7 +661,7 @@ Beyond the current implementation, future research layers will attach to the sam
 |---|---|---|---|
 | Stigmergic Search | Stigmergic Search (validated) | Indirect coordination through shared traces | Core coordination mechanism; Queue + Blackboard separation |
 | In-the-Flow Agentic Optimization | AgentFlow [arXiv:2510.05592](https://arxiv.org/pdf/2510.05592) | Trainable Planner, Flow-GRPO learning | Reads successful Intent histories, updates Planner weights |
-| Hypothesis-Driven Discovery | HypoChainer [arXiv:2507.17209](https://arxiv.org/pdf/2507.17209) | LLMs + KG + humans build hypothesis chains | Writes Hypothesis Intents, reads Fact graph for evidence |
+| Hypothesis-Driven Discovery | HypoChainer [arXiv:2507.17209](https://arxiv.org/pdf/2507.17209) | LLMs + KG + humans build hypothesis chains | Writes Hypothesis Intents, reads the layered coordinate model for evidence |
 | Contract-Governed Generation | Story2Proposal [arXiv:2601.20833](https://arxiv.org/pdf/2601.20833) | Shared contract enforces structural obligations | contract.nex evaluated before every Blackboard write |
 
 ### Agent Oracle: The Purest Observer
@@ -659,7 +674,7 @@ This applies to any domain. Business simulation: Fact = market data, Intent = st
 
 ## Strategic Value
 
-- Blackboard is the single interface. Every module reads and writes the same three types. Internal complexity is irrelevant.
+- Blackboard is the single interface. Every module reads and writes the same three types in a layered coordinate model. Internal complexity is irrelevant.
 - Stigmergy over orchestration. Modules coordinate indirectly through the Blackboard. No module calls another module. No pipeline dependency chain.
 - LLM-optional. A stigmergic search system proved a full suite of problems without any LLM. LLMs are accelerators, not requirements.
 - Iteration over planning. Interface design improves through repeated use, not upfront specification. Virtual responses enable continuous iteration.
@@ -667,6 +682,8 @@ This applies to any domain. Business simulation: Fact = market data, Intent = st
 - Portable core. Same codebase compiles for WASM (edge) and native (server). Zero platform lock-in.
 
 ## Current Status (2026-05)
+
+Phase 3 (native layered coordinate model storage) is complete: a comprehensive test suite across the core storage runtime, incremental persistence, ColdStorage trait, and temporal query validation. The core storage runtime (coordinate-based index with temporal ordering) replaces PetgraphStorage as the primary hot storage.
 
 | Component | Status |
 |---|---|
@@ -676,9 +693,10 @@ This applies to any domain. Business simulation: Fact = market data, Intent = st
 | `model/` crate | `Blackboard` trait, FIH lifecycle, capability traits, `DualStorage`, `GraphRead`/`GraphWrite`, blob/meta/object store traits, `Now`/`SystemClock` |
 | `interface/query/` crate | `ColdQuery`, `QueryCapable` — backend-agnostic tabular query interface |
 | `interface/cypher/` crate | Cypher parser, plan, hot/cold executor |
-| `nexus/` crate | `DefaultBlackboard` (single crate: `PetgraphStorage` + `CompositeColdStorage` + OODA scheduler + all detectors) |
+| `nexus/` crate | `DefaultBlackboard` (single crate: core storage runtime + `PetgraphStorage` + `CompositeColdStorage` + OODA scheduler + all detectors) |
 | `storage/duckdb/` crate | `DuckDbStorage` with `DuckDbQueryExt` (CTE, window, JSON, vector search) |
-| PetgraphStorage (hot) | In-memory graph backend (`FactCapable` + `IntentCapable` + `HintCapable` + `EvictCapable`) |
+| Core storage runtime (hot, primary) | Coordinate-based index with temporal ordering, native layered coordinate model (`FactCapable` + `IntentCapable` + `HintCapable` + `EvictCapable` + `TimeRangeCapable`) |
+| PetgraphStorage (hot, optional) | In-memory 2D graph projection (`FactCapable` + `IntentCapable` + `HintCapable` + `EvictCapable`) |
 | CompositeColdStorage | Blob + Object + Meta store for durable persistence |
 | Blackboard trait | submit/claim/heartbeat/release/conclude lifecycle |
 | Storage capability traits | `StorageRead`, `FactCapable`, `IntentCapable`, `HintCapable`, `FilterCapable`, `ScanCapable`, `EvictCapable`, `FlushCapable`, `TimeRangeCapable` |
@@ -690,7 +708,11 @@ This applies to any domain. Business simulation: Fact = market data, Intent = st
 | New Document Analyzer | Rust: plus-factor/minus-factor/gap analysis |
 | Detection capability traits | `DetectionCapable`, `GapDetection`, `ContradictionDetection`, `StateChangeDetection` |
 | Cypher translator | cyrs pipeline integrated, dual-path executor, `Plan.to_cold_query()` routing |
-| Scenario tests | 260 tests across 17 test files |
+| Scenario tests | Extensive test suite across numerous test files |
+| Core storage runtime tests | Comprehensive suite (Phase 3 complete, #86) |
+| Incremental persistence | Implemented: incremental delta aggregation with cursor tracking |
+| ColdStorage trait | Implemented: unified interface for cold backends |
+| Temporal query validation | Implemented: temporal query replay and consistency checks |
 | Agentic loop | FIH lifecycle complete (detector to Fact to agent to Intent to conclude) |
 | CQRS commit channel | Implemented: cursor-based flush boundary, `read_cursor()` API |
 | IoBufferKv / IoBufferBlob / IoBufferObject | In-memory stores for `MetaStore`/`BlobStore`/`ObjectStore` |
@@ -766,7 +788,7 @@ R2 (RTL designs, benchmark configs)
 EC2 HPC (Graviton4, 64 vCPU, 256GB RAM)
     ↓
 nexus-core compiled as native binary
-    ├── graph module ingests simulation traces as temporal graphs
+    ├── layered coordinate model ingests simulation traces as temporal coordinates
     ├── gap detector finds inefficiencies in pipeline utilization
     ├── community detection groups related hardware modules
     └── contract governs which optimizations are valid
@@ -776,15 +798,14 @@ Findings → R2 → LLM analysis → Compiler patch proposals → llvm-project P
 
 #### Why Same Core for Hardware Analysis
 
-The gap-detector that today finds orphaned concepts in documentation will tomorrow find underutilized functional units in RTL simulations. Same graph structure, different data:
+The gap-detector that today finds orphaned concepts in documentation will tomorrow find underutilized functional units in RTL simulations. Same layered coordinate model structure, different data:
 
 | Today (Documents) | Tomorrow (Hardware) |
 |---|---|
-| Node = Concept / Document | Node = Functional Unit / Pipeline Stage |
-| Edge = RELATES_TO / APPEARS_IN | Edge = DATA_FLOW / CONTROL_DEPENDENCY |
+| Fact = validated research result | Fact = RTL simulation trace |
+| Intent = exploration hypothesis | Intent = optimization candidate |
+| Coordinate = (three-tier record types, temporal) | Coordinate = (three-tier record types, temporal) |
 | Gap = orphaned concept | Gap = idle functional unit |
-| Community = topic cluster | Community = co-optimized module group |
-| Embedding = text embedding | Embedding = utilization time-series vector |
 
 ### Strategic Position (Example Narrative)
 
@@ -816,7 +837,7 @@ digraph StrategicPosition {
 """)
 ```
 
-For example, this is not "CF or AWS." It is "CF for what CF does best, AWS for what AWS does best, core is the same either way." The meeting-ready narrative is: SSCCS is building a portable graph analysis platform whose deployment surface spans edge-to-cloud, with zero architectural commitment to any single vendor.
+For example, this is not "CF or AWS." It is "CF for what CF does best, AWS for what AWS does best, core is the same either way." The meeting-ready narrative is: SSCCS is building a portable multi-dimensional analysis platform whose deployment surface spans edge-to-cloud, with zero architectural commitment to any single vendor.
 
 ## Nexus-SIM: Virtual Emulation Test Suite
 
