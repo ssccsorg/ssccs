@@ -194,6 +194,16 @@ digraph WasmRationale {
 
 Together, these properties are not conveniences. They are the minimal set of constraints that make a cross-reality verification economy possible. No other runtime satisfies all of them.
 
+### Storage IO Design
+
+Storage is inherently asynchronous. At the hardware level, every I/O operation involves pipelining, interrupts, or completion queues — whether it is a DRAM read, a DMA transfer, an NVMe submission queue entry, or a network packet. Synchronous I/O is a programmer convenience abstraction layered on top of fundamentally async hardware.
+
+Because of this, nexus makes async the design center rather than an adapter bolted on afterward. The IO layer is async at the trait level, and sync callers use a blocking wrapper that calls `futures_executor::block_on` internally. This is not an adapter layer — async is primitive, sync is extension.
+
+This design aligns naturally with every target platform. R2 and R3-like storages support `await` directly with no `block_on` needed. On tokio, the pattern is `spawn` plus `await` on async filesystem and network operations. On wasm32, single-threaded cooperative multitasking works through `await` alone. Each platform uses the same async trait; only the executor changes.
+
+The blocking wrapper overhead is negligible because the core storage runtime buffers all writes into pending operations and only flushes in batch. Rather than each `set()` call traversing the I/O boundary independently, individual calls are amortized across the flush cycle.
+
 ### Why Layered Coordinate Model, Not Docker Containers
 
 The initial neXus architecture used Docker containers (Memgraph + proxy + LightRAG) orchestrated by shell scripts. The transition to a native codebase eliminated runtime dependencies and revealed that the underlying model is not a 2D graph but a multi-dimensional coordinate model:
