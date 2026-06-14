@@ -89,6 +89,7 @@ digraph SimRole {
     scenarios [label="Consumption Scenarios (immutable)
     no read without write
     7 attack vectors
+    4 game-theoretic scenarios
     exchange contract", fillcolor="#ffcc80"];
         sim_trait [label="nexus-sim (trait level)
     reference storage runtime
@@ -144,6 +145,31 @@ Replay Attack, and Sybil Attack. Each scenario has a parameterized agent model, 
 outcome, and test at both trait and async-boundary depths. See the [Proof by Structure](/projects/nexus/proof.html)
 document for the full definition of each scenario.
 
+#### Game-Theoretic Scenarios
+
+Alongside the structural violation scenarios, nexus-sim runs a second class of scenarios
+that test whether the exchange contract produces the intended cooperative equilibrium
+when agents are free to choose their behavior. These scenarios do not attempt to breach
+the contract. They test its game-theoretic stability through iterated interactions over
+multiple turns and generations.
+
+Each scenario executes in an isolated environment — a fresh reference storage runtime
+instance with a deterministic clock — so that no state leaks between scenarios. This
+isolation is structurally identical to a virtual machine: the scenario cannot observe
+outcomes of other scenarios, cannot persist state across runs, and is reset before the
+next scenario executes.
+
+| Scenario | Agent Strategies | What It Tests | CI Gate |
+|:---|:---|:---|:---|
+| **Basic Cooperation** | Tit-for-Tat vs Always Defect vs Always Cooperate vs Grudger | Whether cooperative strategies (TFT, Grudger) outscore defectors in a round-robin tournament over 200 turns | `score(TFT) > score(AlwaysDefect)` |
+| **Evolutionary Stability** | Tit-for-Tat vs Always Defect vs Random (500 generations, population-proportional selection) | Whether cooperation survives evolutionary pressure without external enforcement | `extant_strategies contains TFT` |
+| **Generous Forgiveness** | Generous TFT vs Always Defect vs Grudger | Whether a forgiving strategy can recover from occasional defection while avoiding exploitation | `cooperation_rate > 0.6` |
+| **FIH Intent Lifecycle** | Honest agents vs defectors, each submitting and resolving FIH Intents | Whether honest agents (who faithfully claim, heartbeat, and conclude) outperform defectors (who drop Intents or falsify results) in a storage game | `honest_completion_rate > 0.7` and `false_conclusion_rate < 0.1` |
+
+Each scenario checks a quantitative bound (cooperation rate, score ratio, completion
+rate). If the bound is violated, the scenario produces a failing Fact and the CI gate
+rejects the build.
+
 ## Architecture
 
 nexus-sim is neither a helper layer nor a consumer abstraction. It implements the
@@ -176,11 +202,15 @@ mimicking the write path of cold storage rollups.
 
 ### Agent Model
 
-Each simulated agent is parameterized with:
+Each simulated agent is parameterized with two axes: an outer role and an inner
+game-theoretic strategy. The role defines what FIH operations the agent is permitted
+to perform. The strategy defines how the agent decides, on each turn, whether to
+cooperate or defect.
 
 | Parameter | Values | Description |
 |-----------|--------|-------------|
-| Strategy | honest, free-rider, poisoner, spammer, Sybil | Behavioral profile |
+| Role | honest, free-rider, poisoner, spammer, Sybil | Behavioral profile defining permitted FIH operations |
+| Game strategy | Tit-for-Tat, Always Defect, Always Cooperate, Grudger, Pavlov, Random | Moment-to-moment decision function: `(history, context) -> Action` mapped to Cooperate / Defect |
 | API surface | trait-level (direct), overlay (`exchange_fact`), async-boundary (HTTP) | Which depth of the stack the agent targets |
 | Signature key | valid, forged, missing | Cryptographic identity |
 | Data payload | valid, empty, structurally invalid, replayed | What the agent commits |
@@ -269,14 +299,15 @@ Deliverable: HTTP server. Existing tests pass through it. Failure injection oper
 
 | Component | Priority | Depends On |
 |---|---|---|
-| Agent model with parameterized strategies | Phase 1 | Phase 0 |
+| Agent model with parameterized roles and game strategies | Phase 1 | Phase 0 |
 | 7 attack scenarios as automated tests | Phase 1 | Agent model |
+| 4 game-theoretic scenarios as automated tests | Phase 1 | Agent model |
 | `exchange_fact()` mock overlay | Phase 1 | — |
-| Violation matrix output | Phase 1 | 7 scenarios |
+| Violation matrix output | Phase 1 | All scenarios |
 | Both depths (trait-level + HTTP) for all scenarios | Phase 1 | Phase 0.5 |
 
-Deliverable: All 7 scenarios executable at both depths. Violation matrix generated
-per run.
+Deliverable: All 7 structural + 4 game-theoretic scenarios executable at both depths.
+Violation matrix and cooperation statistics generated per run.
 
 ### Phase 2: Three-Layer Validation Loop
 
@@ -325,7 +356,7 @@ Deliverable: Dedicated nexus-sim workspace with per-domain CI pipeline.
 ```text
 Every PR:
   └── Phase 0 tests (trait-level, both depths)
-  └── Phase 1 scenarios (all 7, both depths)
+  └── Phase 1 scenarios (all 7 structural + 4 game-theoretic, both depths)
   └── Phase 2 regression (all prior scenarios, both depths)
   └── Failure if any scenario fails at trait depth
   └── Warning if scenario fails at HTTP depth (orchestration gap)
@@ -379,8 +410,8 @@ loop where a consumption scenario must be proven against an implementation.
 
 | Component | nexus-sim (infrastructure) | ev (silicon verification) |
 |:---|---:|---:|
-| Scenario | 7 exchange-contract attack vectors | XIF constraint specification |
-| Agent model | free-rider, poisoner, spammer, Sybil | ISA combinations, pipeline depths, cache configs |
+| Scenario | 7 exchange-contract attack vectors + 4 game-theoretic scenarios | XIF constraint specification |
+| Agent model | roles (honest, free-rider, poisoner, spammer, Sybil) + game strategies (TFT, AlwaysDefect, Grudger, Pavlov, Random) | ISA combinations, pipeline depths, cache configs |
 | Depth | trait-level / async-boundary HTTP | behavioral / RTL / gate-level |
 | Output | violation matrix | coverage matrix |
 | Proof | C2PA-signed scenario coverage | C2PA-signed verification proof |
@@ -414,7 +445,8 @@ scenarios today. The core loop is identical.
 
 - [X] Phase 0: Core traits (Blackboard, FactCapable, IntentCapable, HintCapable) implemented
 - [X] Phase 0.5: VECompositeStorage HTTP server — superseded by the reference storage runtime
-- [X] Phase 1: Exchange contract scenarios — reference test scenarios validated
+- [X] Phase 1: Exchange contract scenarios — 7 structural + 4 game-theoretic scenarios validated
+- [X] Phase 1: CI gate enforces quantitative bounds (cooperation rate, score ratio, completion rate)
 - [X] Phase 2: Three-layer validation loop — comprehensive validation suite, automated verification passes
 - [X] Phase 3: Persistence contracts + Time Machine tests
 - [X] Phase 3: All verification checks pass

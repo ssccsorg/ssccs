@@ -226,12 +226,16 @@ nexus-sim exists to test every boundary before any adversary does.
 
 ### Simulation Architecture
 
+nexus-sim operates on two levels. The outer level defines agent roles (honest, free-rider, poisoner, spammer, Sybil) and their permitted FIH operations. The inner level models each agent's moment-to-moment decisions using a game-theoretic strategy layer, where every FIH action (submit Fact, claim Intent, heartbeat, conclude) corresponds to a `Cooperate` or `Defect` choice in an iterated game.
+
 | Component | Role |
 |:---|:---|
-| **Agent Model** | Each agent is parameterized with strategies: honest, free-rider, poisoner, spammer, Sybil |
+| **Agent Model** | Each agent is parameterized with two axes: a role (honest, free-rider, poisoner, spammer, Sybil) and a game-theoretic strategy (Tit-for-Tat, Always Defect, Grudger, Pavlov, Random) |
+| **Strategy Layer** | Maps FIH actions to `Cooperate` / `Defect` choices. A strategy is a function `(history, context) -> Action` evaluated each turn |
 | **Exchange Function** | The `exchange_fact` implementation under test |
 | **Blackboard State** | Full FIH state machine tracked across all simulation steps |
-| **Scenario Generator** | Exhaustively enumerates all agent strategy combinations and interaction orders |
+| **Scenario Generator** | Enumerates agent role combinations, strategy mixes, and interaction orders. Each scenario is executed in an isolated environment — a fresh reference storage runtime instance with a deterministic clock — so that one scenario cannot contaminate another |
+| **CI Gate** | Aggregates all scenario results into a pass/fail decision. A scenario fails when the observed cooperation rate or violation resistance falls below the threshold defined in the specification |
 
 ### Exhaustive Scenario Generation
 
@@ -280,6 +284,21 @@ digraph NexusSim {
 | **Replay Attack** | Agent replays a valid signed `Fact` from another entity | **Blocked**: `Fact` ID already committed; duplicate rejected by Merkle chain |
 | **Sybil Attack** | Agent creates multiple identities to circumvent contribution limits | **Rate-Limited**: `Exchange` requires computation (signing, Merkle extension), making mass Sybil economically infeasible |
 
+#### Game-Theoretic Scenarios
+
+Alongside the structural violation scenarios above, nexus-sim runs a second class of scenarios that test the system's game-theoretic stability. These scenarios do not attempt to breach the exchange contract. They test whether the contract produces the intended cooperative equilibrium when agents are free to choose their behavior.
+
+Each scenario executes in an isolated environment — a fresh reference storage runtime instance with a deterministic clock — so that no state leaks between scenarios. This isolation is structurally identical to a virtual machine: the scenario cannot observe outcomes of other scenarios, cannot persist state across runs, and is reset before the next scenario executes.
+
+| Scenario | Agent Strategies | What It Tests | CI Gate |
+|:---|:---|:---|:---|
+| **Basic Cooperation** | Tit-for-Tat vs Always Defect vs Always Cooperate vs Grudger | Whether cooperative strategies (TFT, Grudger) outscore defectors in a round-robin tournament over 200 turns | `score(TFT) > score(AlwaysDefect)` |
+| **Evolutionary Stability** | Tit-for-Tat vs Always Defect vs Random (500 generations, population-proportional selection) | Whether cooperation survives evolutionary pressure without external enforcement | `extant_strategies contains TFT` |
+| **Generous Forgiveness** | Generous TFT vs Always Defect vs Grudger | Whether a forgiving strategy can recover from occasional defection while avoiding exploitation | `cooperation_rate > 0.6` |
+| **FIH Intent Lifecycle** | Honest agents vs defectors, each submitting and resolving FIH Intents | Whether honest agents (who faithfully claim, heartbeat, and conclude) outperform defectors (who drop Intents or falsify results) in a storage game | `honest_completion_rate > 0.7` and `false_conclusion_rate < 0.1` |
+
+Each scenario checks a quantitative bound (cooperation rate, score ratio, completion rate). If the bound is violated, the scenario produces a failing Fact and the CI gate rejects the build.
+
 The output of each simulation run is a Fact. The collection of all simulation Facts
 forms a cryptographic proof: the implementation, executed across the entire scenario
 space, produced no violations.
@@ -312,8 +331,25 @@ are the same loop.
 
 ### Game-Theoretic Equilibrium
 
-nexus-sim proves that the atomic exchange mechanism converges to a cooperative
-equilibrium:
+The exchange contract asserts a cooperative equilibrium by construction: a participant
+who wants to read must write first, so freeloading is structurally impossible. But
+the contract alone does not guarantee that the system remains stable under adversarial
+pressure. A defector could attempt to write minimum-value Facts while extracting
+maximum knowledge, or a colluding group could attempt to poison the graph without
+being detected.
+
+nexus-sim validates the equilibrium dynamically. The game-theoretic scenarios
+(Game-Theoretic Scenarios) execute the exchange contract against every strategy
+combination and verify that the quantitative bounds hold. The CI gate enforces
+this at every build:
+
+```text
+Scenario execution → cooperation_rate > threshold → PASS → Fact recorded
+                                              ↘ FAIL → build rejected
+```
+
+The equilibrium is not asserted architecturally. It is continuously verified
+by simulation:
 
 - **Honest entities** gain access to the collective knowledge graph proportional to
 their contribution — the more verified observations deposited, the richer the queries
@@ -324,8 +360,10 @@ ensures every committed `Fact` is traceable to an accountable creator
 - **The optimal strategy is cooperation** — the only path to accessing the Blackboard's
 knowledge is to contribute verified data
 
-This equilibrium holds not because entities are trustworthy, but because the
-mechanism makes trust unnecessary.
+Each of these claims is a CI assertion. If a future code change causes the
+Evolutionary Stability scenario to report that TFT went extinct, the build fails.
+The equilibrium holds not because entities are trustworthy, but because the
+mechanism makes trust unnecessary, and the simulation proves it at every commit.
 
 ### The Nautilus Principle
 
@@ -374,6 +412,8 @@ way to participate.
 | Fact schema with geo/asset/signature axes | Draft |
 | nexus-sim scenario generation | Future (issue #69) |
 | nexus-sim deterministic execution | Future |
+| nexus-sim game-theoretic scenarios | Future |
+| nexus-sim CI gate | Future |
 | nexus-sim proof aggregation | Future |
 
 The exchange contract and oracle resolution are architectural specifications.
