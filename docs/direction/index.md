@@ -79,6 +79,16 @@ We are developing a target‑agnostic execution interface (HAL) within the codeb
 
 Thus, the ontological core requires zero rewrites when porting to physical silicon – keeping the project fundamentally a software initiative.
 
+### Composition over Monolith
+
+Every capability is expressed as a minimal, self‑contained contract (trait, interface, or protocol). Systems are assembled by composing these contracts — never by inheriting from a monolithic base. This principle governs every layer of the stack:
+
+- **Storage**: read, fact submission, intent lifecycle, eviction, filtering, scanning, flush, time-range — each is its own contract. A backend implements only what it needs; a consumer depends only on what it uses.
+- **Execution**: the same approach will be applied to the HAL, backend drivers, and scheduler.
+- **Cross‑layer**: contracts are platform‑agnostic. A single implementation can serve multiple runtimes (native, WASM, embedded) without modification — new runtimes only need new adapter layers, not rewrites.
+
+This decomposition keeps change local, makes systems testable in isolation, and ensures that adding a new capability never requires revisiting unrelated code.
+
 ### Open Format and Ecosystem Integration
 
 The rise of open instruction set architectures has fundamentally changed how new computing ideas can be realised. Open ISAs offer transparency, a growing ecosystem, and tangible, real‑world targets.
