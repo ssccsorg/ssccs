@@ -312,8 +312,6 @@ pub fn possible_next_coordinates<P: Projector>(
     candidates
 }
 
-// ==================== EXHAUSTIVE OBSERVATION ====================
-
 // ==================== TESTS ====================
 
 #[cfg(test)]
