@@ -90,10 +90,12 @@ where
 mod tests {
     use super::*;
     use ssccs_core::{
-        Coordinates, EvenConstraint, Field, LtConstraint, RangeConstraint, Segment,
-        segment_id_from_coords, Projector,
+        Coordinates, CrossConstraint, EvenConstraint, Field, GeConstraint, GtConstraint,
+        LeConstraint, LtConstraint, OneOfConstraint, Projector, RangeConstraint, Segment,
+        segment_id_from_coords,
     };
     use ssccs_examples::{IntegerProjector, ParityProjector};
+    use std::collections::HashMap;
 
     /// Minimal scheme stub for testing observe_all without ssccs-schemes dependency.
     #[derive(Debug)]
@@ -104,7 +106,11 @@ mod tests {
 
     impl TestScheme {
         fn new(segments: Vec<Segment>) -> Self {
-            let id = crate::SchemeId(segment_id_from_coords(&Coordinates::new(vec![0])).as_bytes().clone());
+            let id = crate::SchemeId(
+                segment_id_from_coords(&Coordinates::new(vec![0]))
+                    .as_bytes()
+                    .clone(),
+            );
             Self { id, segments }
         }
     }
@@ -267,5 +273,143 @@ mod tests {
         for (_, obs) in &result.results {
             assert_eq!(obs.unwrap(), 42);
         }
+    }
+
+    // ── observe_all() edge cases ──
+
+    #[test]
+    fn observe_all_rejects_all_with_contradictory_constraints() {
+        // coord must be both < 0 and > 10 — impossible
+        let segments = vec![
+            Segment::from_value(-5),
+            Segment::from_value(0),
+            Segment::from_value(5),
+            Segment::from_value(10),
+            Segment::from_value(15),
+        ];
+        let scheme = TestScheme::new(segments);
+        let mut field = Field::new();
+        field.add_constraint(LtConstraint::new(0, 0));
+        field.add_constraint(GtConstraint::new(0, 10));
+        let projector = IntegerProjector::new(0);
+        let result = observe_all(&scheme, &field, &projector);
+        assert_eq!(result.total, 5);
+        assert_eq!(result.admitted, 0);
+        assert_eq!(result.rejected, 5);
+    }
+
+    #[test]
+    fn observe_all_cross_constraint_filters_combinations() {
+        // 5 segments with (axis_a, axis_b) pairs
+        use ssccs_core::CrossConstraint;
+        let segments = vec![
+            Segment::from_values(vec![0, 10]), // opcode 0, funct3=10 → reject (10 not in {0,1})
+            Segment::from_values(vec![0, 0]),  // opcode 0, funct3=0  → accept
+            Segment::from_values(vec![1, 1]),  // opcode 1, funct3=1  → accept
+            Segment::from_values(vec![1, 5]),  // opcode 1, funct3=5  → reject (5 not in {1,2})
+            Segment::from_values(vec![2, 99]), // opcode 2 not in mapping → accept (no restriction)
+        ];
+        let scheme = TestScheme::new(segments);
+        let mut mapping = HashMap::new();
+        mapping.insert(0, vec![0, 1]);
+        mapping.insert(1, vec![1, 2]);
+        let mut field = Field::new();
+        field.add_constraint(CrossConstraint::new(0, 1, mapping));
+        let projector = IntegerProjector::new(1);
+        let result = observe_all(&scheme, &field, &projector);
+        assert_eq!(result.total, 5);
+        assert_eq!(result.admitted, 3);
+        assert_eq!(result.rejected, 2);
+    }
+
+    #[test]
+    fn observe_all_neq_constraint_on_large_scheme() {
+        // Grid-like: all pairs (a,b) where a,b in 0..4, a != b
+        use ssccs_core::NeqConstraint;
+        let mut segments = Vec::new();
+        for a in 0..4 {
+            for b in 0..4 {
+                segments.push(Segment::from_values(vec![a, b]));
+            }
+        }
+        let scheme = TestScheme::new(segments);
+        let mut field = Field::new();
+        field.add_constraint(NeqConstraint::new(0, 1));
+        let projector = IntegerProjector::new(0);
+        let result = observe_all(&scheme, &field, &projector);
+        assert_eq!(result.total, 16);
+        assert_eq!(result.admitted, 12); // 4×4 grid - 4 diagonal = 12
+        assert_eq!(result.rejected, 4);
+    }
+
+    #[test]
+    fn observe_all_rejects_all_single_element_ule_constraint() {
+        // Single segment fails ge + le (contradiction)
+        let segment = Segment::from_value(5);
+        let scheme = TestScheme::new(vec![segment]);
+        let mut field = Field::new();
+        field.add_constraint(GeConstraint::new(0, 10));
+        field.add_constraint(LeConstraint::new(0, 0));
+        let projector = IntegerProjector::new(0);
+        let result = observe_all(&scheme, &field, &projector);
+        assert_eq!(result.total, 1);
+        assert_eq!(result.admitted, 0);
+        assert_eq!(result.rejected, 1);
+    }
+
+    #[test]
+    fn observe_all_field_desc_accurate() {
+        let segment = Segment::from_value(0);
+        let scheme = TestScheme::new(vec![segment]);
+        let mut field = Field::new();
+        field.add_constraint(OneOfConstraint::new(0, vec![1, 2, 3]));
+        let projector = IntegerProjector::new(0);
+        let result = observe_all(&scheme, &field, &projector);
+        assert!(
+            result.field_desc.contains("axis[0]"),
+            "field_desc should mention axis: {}",
+            result.field_desc
+        );
+        assert!(
+            result.field_desc.contains("1")
+                || result.field_desc.contains("oneof")
+                || result.field_desc.contains("∈"),
+            "field_desc should mention values: {}",
+            result.field_desc
+        );
+    }
+
+    #[test]
+    fn observe_all_scheme_desc_preserved() {
+        let segments = vec![Segment::from_value(1), Segment::from_value(2)];
+        let scheme = TestScheme::new(segments);
+        let field = Field::new();
+        let projector = IntegerProjector::new(0);
+        let result = observe_all(&scheme, &field, &projector);
+        assert_eq!(result.scheme_desc, "TestScheme(2 segments)");
+    }
+
+    #[test]
+    fn observe_all_target_field_stored() {
+        let scheme = TestScheme::new(vec![Segment::from_value(0)]);
+        let field = Field::new();
+        let projector = IntegerProjector::new(0);
+        let mut result = observe_all(&scheme, &field, &projector);
+        result.target = "my_experiment".to_string();
+        assert_eq!(result.target, "my_experiment");
+    }
+
+    #[test]
+    fn observe_all_cumulative_result_length() {
+        let segments: Vec<Segment> = (0..50).map(Segment::from_value).collect();
+        let scheme = TestScheme::new(segments);
+        let mut field = Field::new();
+        field.add_constraint(RangeConstraint::new(0, 10, 39));
+        let projector = IntegerProjector::new(0);
+        let result = observe_all(&scheme, &field, &projector);
+        assert_eq!(result.total, 50);
+        assert_eq!(result.admitted, 30); // 10..=39 inclusive
+        assert_eq!(result.rejected, 20);
+        assert_eq!(result.results.len(), 50);
     }
 }
