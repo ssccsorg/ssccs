@@ -90,7 +90,7 @@ where
 mod tests {
     use super::*;
     use ssccs_core::{
-        Coordinates, CrossConstraint, EvenConstraint, Field, GeConstraint, GtConstraint,
+        Coordinates, EvenConstraint, Field, GeConstraint, GtConstraint,
         LeConstraint, LtConstraint, OneOfConstraint, Projector, RangeConstraint, Segment,
         segment_id_from_coords,
     };
