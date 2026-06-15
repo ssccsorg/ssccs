@@ -284,11 +284,17 @@ pub fn possible_next_coordinates<P: Projector>(
     candidates
 }
 
+// ==================== EXHAUSTIVE OBSERVATION ====================
+
 // ==================== TESTS ====================
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // These tests cover constraint types defined in this crate.
+    // observe_all() tests live in ssccs-primitive (which has SchemeTrait).
+
 
     // ── NeqConstraint ──
 
