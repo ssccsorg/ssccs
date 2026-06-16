@@ -1,4 +1,4 @@
-# Core Concepts Guide
+# Core Concept
 
 SSCCS Foundation
 
@@ -9,6 +9,8 @@ thinking about computation. Instead of moving data around and executing
 instructions step by step (the von Neumann model), SSCCS treats
 computation as **the observation of fixed structure under changing
 conditions**.
+
+SSCCS is one of the largest conceptual frameworks that can be expressed through mechanical computation. It goes beyond “what is computing?” to ask “how does structured existence get observed and projected?” This is not a single technology, but the coordinate system in which all technologies can be located. Traditional von Neumann computing is one point in that coordinate system.
 
 Think of it like a sculpture that never moves. You can shine light on it
 from different angles, and each time you get a different shadow. The
