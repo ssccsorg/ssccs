@@ -34,7 +34,9 @@ neXus models a self-describing paradigm: the Blackboard is the Scheme, Intents a
 
 ### Unified Architecture
 
-The architecture has two layers. The Core Blackboard is the logical layer: a shared multi-modal storage space of Fact, Intent, and Hint primitives that every module reads from and writes to through a single interface. The storage architecture follows the FIH paradigm: the Blackboard holds a DualStorage composition of hot (core storage runtime with coordinate-based indexing and temporal ordering) and cold (DuckDB or CompositeColdStorage, Parquet-backed) backends. PetgraphStorage is an optional 2D projection for legacy graph queries. cyrs translates Cypher queries against the 2D projection. Capability traits replace the monolithic Storage trait, letting each backend implement only the interfaces it provides. Platform bindings expose the core to different deployment targets.
+The architecture has three layers. The Core Blackboard is the logical layer: a shared multi-modal storage space of Fact, Intent, and Hint primitives that every module reads from and writes to through a single interface. The storage architecture follows the FIH paradigm: the Blackboard holds a DualStorage composition of hot (core storage runtime with coordinate-based indexing and temporal ordering) and cold (DuckDB or CompositeColdStorage, Parquet-backed) backends. PetgraphStorage is an optional 2D projection for legacy graph queries. cyrs translates Cypher queries against the 2D projection. Capability traits replace the monolithic Storage trait, letting each backend implement only the interfaces it provides. Platform bindings expose the core to different deployment targets.
+
+A third storage layer sits alongside the identity-based stores: a plug-in semantic similarity index. Where an identity store provides key-value access by record identifier, a semantic store provides retrieval by meaning. It follows the exact same USB-hub pattern as every other storage backend: the core defines only a thin trait, and external crates provide implementations. The core itself never references any specific methodology such as "vector"; it provides only a lookup handle that each external implementation uses to retrieve exactly the data it needs (feature vectors, raw text, origin strings, etc.). This lets radically different retrieval strategies — HNSW vector search, BM25 string matching, ngram fuzzy search, LLM reranking — all plug into the same index slot without any core changes.
 
 ```{python}
 #| label: fig-nexus-architecture
@@ -130,7 +132,7 @@ A Blackboard can contain other Blackboards. A Fact at Dimension N becomes a Sche
 
 | Dimension | Role | Content |
 |---|---|---|
-| Infrastructure | DualStorage (HotStorage + ColdStorage), capability traits | Pluggable storage backends; each dimension can select its own backend composition |
+| Infrastructure | DualStorage (HotStorage + ColdStorage) + SemanticStore, capability traits | Pluggable storage backends; each dimension can select its own backend composition, plus a semantic similarity index |
 | Domain | Fact / Intent / Hint nodes | Research documents, experiment results, governance rules |
 | Meta | Blackboard composition rules | Rules for how Facts at Domain become Schemes at Meta |
 | Research | Gaps, hypotheses, validations | Domain-specific knowledge exploration |
@@ -194,6 +196,16 @@ digraph WasmRationale {
 
 Together, these properties are not conveniences. They are the minimal set of constraints that make a cross-reality verification economy possible. No other runtime satisfies all of them.
 
+### SemanticStore: The Flashlight Pattern
+
+Alongside identity-based stores (record identifiers to values, temporal ordering), a third storage pattern exists: a plug-in semantic similarity index. Where an identity store maps record identifiers to values, a semantic store maps semantic features to record identifiers for similarity retrieval.
+
+The core design follows the same USB-hub pattern as every other storage backend. The core defines only a thin trait; external crates provide implementations. The trait itself uses a **flashlight pattern**: instead of receiving fixed-format data (such as numeric vectors), each method receives a lookup handle. The implementation uses this handle to request exactly the data it needs.
+
+The lookup handle exposes accessors for content bytes, decoded text, numeric feature vectors, origin strings, and creator strings. Each implementation calls only the accessors it actually requires. A vector-based store requests feature vectors; a text-similarity store requests raw text; an ngram store requests origin strings. The core never determines which methodology is in use.
+
+The coordinate index exposes a semantic slot alongside its existing indexes (origin, time, status). Each semantic backend plugs into this slot without any changes to the core index logic.
+
 ### Storage IO Design
 
 Storage is inherently asynchronous. At the hardware level, every I/O operation involves pipelining, interrupts, or completion queues — whether it is a DRAM read, a DMA transfer, an NVMe submission queue entry, or a network packet. Synchronous I/O is a programmer convenience abstraction layered on top of fundamentally async hardware.
@@ -231,6 +243,7 @@ The FIH Blackboard can be backed by multiple storage approaches. The primary imp
 | Approach | Storage | Adoption |
 |---|---|---|
 | Core storage runtime | Coordinate-based index with temporal ordering (layered coordinate model, native) | Primary (Phase 3, #86) |
+| SemanticStore | Plug-in semantic similarity index via `FihLoad` flashlight pattern | Adopted (trait in core, implementations external) |
 | PetgraphStorage | Petgraph (2D graph projection, optional) | Legacy compatibility, optional |
 | DuckDB / Parquet | Cold storage for analytical queries | Adopted (cold backend) |
 | Memgraph | In-memory LPG + RocksDB WAL | Patterns extracted (supplementary) |
@@ -611,10 +624,11 @@ The storage layer is now a multi-dimensional coordinate model, not a graph core.
 |---|---|---|
 | Memgraph (C++, production) | Atomic GraphRAG (single query = search + expand + rank + prompt) | Iterator chain translation in cypher/translate.rs |
 | Memgraph | MAGE module isolation (C API, standalone algorithms) | Rust trait isolation in modules/ crate |
-| Memgraph | Single Store Vector Index (embedding as node property) | ndarray cosine (optional, on 2D projection) |
+| Memgraph | Single Store Vector Index (embedding as node property) | SemanticStore + FihLoad (methodology-agnostic; vector is one implementation) |
 | Memgraph | WAL + in-memory dual storage | duckdb/Parquet + core storage runtime memory store |
 | cyrs / cypher-rs ecosystem | Cypher → typed Plan IR | cyrs as parser dependency (optional, Cypher path) |
 | Core storage runtime | Coordinate-based index + temporal ordering | Primary hot storage for the layered coordinate model |
+| SemanticStore (nex core) | Flashlight pattern (FihLoad) for methodology-agnostic semantic search | Plug-in semantic similarity index alongside EntityStore and OrderedIndex |
 | PetgraphStorage (optional) | StableGraph, NodeIndex, built-in PageRank/Dijkstra | Optional 2D projection for legacy graph algorithms |
 | Capability-based traits | Fine-grained Rust traits replacing monolithic interfaces | StorageRead, FactCapable, FilterCapable, EvictCapable, etc. — also DetectionCapable, GapDetection, ContradictionDetection, StateChangeDetection for the detection layer |
 | DualStorage pattern | Hot + cold composition for edge-cloud routing | DualStorage { hot: HotStorage, cold: ColdStorage } |
@@ -653,6 +667,60 @@ digraph CqrsGitFihMapping {
         read [label="StorageRead::get()", fillcolor="#e3f2fd"];
         write -> flush [label="cursor boundary"];
     }
+}
+""")
+```
+
+```{python}
+#| label: fig-usb-hub-semantic
+#| fig-cap: "USB hub pattern: the core is a thin hub, unlimited semantic backends plug in through the same SemanticStore trait"
+dot("""
+digraph UsbHubSemantic {
+    rankdir=LR;
+    splines=ortho;
+    nodesep=0.3;
+    ranksep=0.4;
+    node [fontsize=9, width=1.6, height=0.4];
+    edge [fontsize=8];
+
+    subgraph cluster_core {
+        label="nex core (thin hub)";
+        style=filled; fillcolor="#d4f1f9"; color="#4488cc";
+
+        coord [label="FihCoord
+by_semantic slot", shape=box, style=filled, fillcolor="#a8d8ea", fontsize=9];
+        trait [label="SemanticStore trait
+fn insert(id, load)
+fn search(query, top_k)", shape=box, style=filled, fillcolor="#b8e8d8", fontsize=8];
+        mock [label="MockSemanticStore
+(in-core, testing)", shape=box, style=filled, fillcolor="#e8e8e8", fontsize=8];
+
+        coord -> trait [style=bold];
+        trait -> mock [style=dashed];
+    }
+
+    subgraph cluster_implementations {
+        label="External crates (unlimited plug-in)";
+        style=filled; fillcolor="#f5f5f5"; color="#888888";
+
+        vector [label="storage/semantic/vector/
+HNSW ANN search", shape=cylinder, style=filled, fillcolor="#e8d4b8", fontsize=8];
+        bm25 [label="storage/semantic/bm25/
+BM25 string similarity", shape=cylinder, style=filled, fillcolor="#e8d4b8", fontsize=8];
+        ngram [label="storage/semantic/ngram/
+ngram fuzzy matching", shape=cylinder, style=filled, fillcolor="#e8d4b8", fontsize=8];
+        llm [label="storage/semantic/llm-reranker/
+LLM reranking", shape=cylinder, style=filled, fillcolor="#e8d4b8", fontsize=8, style="dashed"];
+        future [label="... future methodology", shape=cylinder, style=filled, fillcolor="#e8e8e8", fontsize=8, style="dashed"];
+    }
+
+    trait -> vector [label="impl SemanticStore", style=bold, color="#4488cc"];
+    trait -> bm25 [label="impl SemanticStore", style=bold, color="#4488cc"];
+    trait -> ngram [label="impl SemanticStore", style=bold, color="#4488cc"];
+    trait -> llm [label="impl SemanticStore (future)", style=dashed, color="#888888"];
+    trait -> future [label="impl SemanticStore (future)", style=dashed, color="#888888"];
+
+    { rank=same; coord; trait; mock; }
 }
 """)
 ```
@@ -697,6 +765,10 @@ Phase 3 (native layered coordinate model storage) is complete: a comprehensive t
 
 | Component | Status |
 |---|---|
+| Semantic store trait + lookup handle | Implemented (core storage module) |
+| Semantic index slot in coordinate index | Implemented (coordinate index) |
+| In-memory mock semantic store (brute-force cosine) | Implemented with unit tests |
+| External semantic backends (vector, bm25, ngram) | Future (external crates) |
 | af-sync worker (R2 to engines) | Deployed |
 | RAG engines (LightRAG) | Reference implementation; sync pipeline active |
 | CI/CD (deploy.yml, build.yml) | Deployed |
