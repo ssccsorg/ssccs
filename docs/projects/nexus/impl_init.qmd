@@ -206,15 +206,63 @@ The lookup handle exposes accessors for content bytes, decoded text, numeric fea
 
 The coordinate index exposes a semantic slot alongside its existing indexes (origin, time, status). Each semantic backend plugs into this slot without any changes to the core index logic.
 
+### Execution Unit Model: nex Is Not a Library
+
+nex is not a general-purpose library. Each storage instance is an **execution unit**: a single-threaded, self-contained runtime that owns its memory state and I/O channel exclusively. There is no shared mutable state between instances. No internal thread pool. No locking primitives in the hot path.
+
+This design arises not from any specific platform constraint but from the nature of distributed blackboard coordination. Instances communicate exclusively through the FIH protocol — writing facts, intents, and hints to a shared external storage layer (object store, filesystem, network). They never share internal indices or entity stores with another instance. Coordination is stigmergic, not direct.
+
+Scaling happens through **physical instance replication**, not internal sharding:
+
+```
+coordinator (process manager)
+  ├── storage instance A (single thread, independent I/O channel)
+  ├── storage instance B (single thread, independent I/O channel)
+  ├── storage instance C (single thread, independent I/O channel)
+  └── ...
+       │
+       └── Shared blackboard (external storage / FIH protocol)
+```
+
+Each instance is an atomic unit. Adding an instance adds capacity linearly. Failure of one instance does not affect others. Every instance can run in a sandboxed environment, a native process, or a lightweight VM — the binary and the execution contract are identical.
+
+#### Interior Mutability Without Locking
+
+Internal mutability uses runtime borrow-checked cells, not OS locking primitives. This is not a platform concession. It is the simplest correct implementation for a single-owner execution unit. These cells are zero-cost at runtime (no atomic operations, no OS futex). If an external caller needs thread-safe access, it wraps the instance in a standard synchronization primitive externally — that is an external composition, not an internal requirement.
+
+Internal locking would be a design error. It would introduce contention, deadlock risk, and complexity — all for the false promise of internal parallelism. These instances do not parallelize internally; they replicate externally.
+
+#### Async-Only Storage Interface
+
+Storage instances do not expose synchronous blocking interfaces. All public storage methods are asynchronous. This is not negotiable:
+
+- Storage is inherently I/O-bound. Blocking on I/O in a single-threaded execution unit stalls all pending operations.
+- A synchronous interface on a single-threaded storage engine would be a lie: the implementation uses runtime borrow-checked cells (not thread-safe) and relies on cooperative multitasking (not preemptive scheduling).
+- Sync callers use an async runner (`block_on`) externally. They do not require sync trait implementations on the storage engine itself.
+
+No specific runtime is the reason for async-first. Every edge deployment where async-first happens to be essential is coincidental. The reason is that storage is asynchronous, and this is a single-threaded storage execution unit.
+
+#### No Global Mutable State
+
+A storage instance carries no global mutable state except fixed constants. Every resource (I/O handle, index, buffer) is owned by the instance. This guarantees that:
+
+- Two instances never accidentally share state.
+- Spawning a new instance is purely a construction operation with no global side effects.
+- Each instance can be sandboxed independently (linear memory, container, process).
+
 ### Storage IO Design
 
 Storage is inherently asynchronous. At the hardware level, every I/O operation involves pipelining, interrupts, or completion queues — whether it is a DRAM read, a DMA transfer, an NVMe submission queue entry, or a network packet. Synchronous I/O is a programmer convenience abstraction layered on top of fundamentally async hardware.
 
-Because of this, nexus makes async the design center rather than an adapter bolted on afterward. The IO layer is async at the trait level, and sync callers use a blocking wrapper that calls `futures_executor::block_on` internally. This is not an adapter layer — async is primitive, sync is extension.
+Because of this, nex makes async the design center rather than an adapter bolted on afterward. The IO trait is async at the trait level. This is not an adapter layer — async is primitive, sync is extension.
 
-This design aligns naturally with every target platform. R2 and R3-like storages support `await` directly with no `block_on` needed. On tokio, the pattern is `spawn` plus `await` on async filesystem and network operations. On wasm32, single-threaded cooperative multitasking works through `await` alone. Each platform uses the same async trait; only the executor changes.
+This design aligns naturally with every target platform. Object stores support `await` directly with no blocking needed. On native runtimes, the pattern is `spawn` plus `await` on async filesystem and network operations. Each platform uses the same async trait; only the executor changes.
 
-The blocking wrapper overhead is negligible because the core storage runtime buffers all writes into pending operations and only flushes in batch. Rather than each `set()` call traversing the I/O boundary independently, individual calls are amortized across the flush cycle.
+All writes go through a pending buffer and are committed in a single batch call. Rather than each operation traversing the I/O boundary independently, individual calls are amortized across the flush cycle. The caller controls durability by choosing when to flush.
+
+#### Optional Sync Wrapper (Native Only)
+
+For consumers that require a synchronous interface on native platforms, a blocking wrapper exists that uses an async runner internally. It is not the recommended interface for new code.
 
 ### Why Layered Coordinate Model, Not Docker Containers
 
@@ -325,7 +373,7 @@ The codebase stratifies into three layers with different change tolerances. This
 |---|---|---|---|
 | **Consumption Scenarios** | Immutable | nexus-sim scenario definitions capture the domain invariants; cannot be compromised without invalidating the ecosystem's purpose | Proof by Structure 7 attack scenarios (see [Proof by Structure](/projects/nexus/proof.html)); exchange contract requirements; ev verification flows |
 | **Orchestration Layer** | Flexible | nexus-sim runs scenario definitions against the foundation; failures force orchestration changes | `exchange_fact()` overlay (defined in [Proof by Structure](/projects/nexus/proof.html)); API gateway handlers; C2PA verification wrapper; session lifecycle |
-| **Foundation (IO Layer)** | Stable | Existing comprehensive test suite; core storage runtime/DuckDB contract; never modified without a nexus-sim scenario proving the capability gap | StorageRead, FactCapable, IntentCapable, HintCapable; DualStorage; core storage runtime/R2 bindings |
+| **Foundation (IO Layer)** | Stable | Existing comprehensive test suite; core storage runtime/DuckDB contract; never modified without a nexus-sim scenario proving the capability gap | AsyncStorageRead, AsyncFactCapable, DualStorage; `nex` core storage runtime / R2 bindings |
 
 Consumption scenarios are the hardest layer. They express what the system must guarantee — "no entity can read a Fact without contributing one" is not negotiable because it derives from the ecosystem's game-theoretic requirements. The foundation is also hard: the core storage runtime's indexing and ordering contracts, DuckDB's ACID guarantees, and the FIH capability trait contracts are fixed by their respective libraries.
 
@@ -371,26 +419,11 @@ A concrete example: `exchange_fact()` (defined in [Proof by Structure](/projects
 
 This three-layer validation pattern mirrors the `IoBuffer+StoreSession` architecture at a different scale: there, the foundation provides sync storage traits, the `IoBufferSession` overlay orchestrates hydration and flush, and the Worker request lifecycle (the consumption scenario) drives the entire cycle.
 
-### nexus-core (Layered Coordinate Model)
+### Core Storage Engine
 
-The core is a Cargo workspace with a clean separation of interfaces and implementations. The data model follows a layered coordinate model (three-tier record types across a temporal dimension), not a 2D edge graph. The monolithic `Storage` trait has been replaced by fine-grained capability traits. Each backend implements only the capabilities it provides. The core storage runtime (coordinate-based index with temporal ordering) is the primary hot storage; PetgraphStorage is an optional 2D projection.
+The core is a Cargo workspace with clean separation of interfaces and implementations. The data model follows a layered coordinate model (three-tier record types across a temporal dimension), not a 2D edge graph. The monolithic Storage trait has been replaced by fine-grained capability traits. Each backend implements only the capabilities it provides. The core storage runtime (coordinate-based index with temporal ordering) is the primary hot storage; the 2D graph projection is optional.
 
-Capability traits (all `Send + Sync`):
-
-- `StorageRead` — base read interface (all backends)
-- `FactCapable`, `IntentCapable`, `HintCapable` — FIH write operations
-- `FilterCapable` — filtered/partial reads (cold storage)
-- `ScanCapable` — large batch partition scans
-- `EvictCapable` — approximate size + eviction for memory management
-- `FlushCapable` — incremental export since a timestamp
-- `TimeRangeCapable` — time-range queries for hot/cold routing
-- `SessionExecute` — access to a `ColdStorage` implementation for sync operations
-
-Aggregate trait aliases:
-
-- `FihPersistence = FactCapable + IntentCapable + HintCapable`
-- `HotStorage = FihPersistence + EvictCapable`
-- `ColdStorage = FihPersistence + FilterCapable + ScanCapable + TimeRangeCapable + FlushCapable + EvictCapable`
+Capability traits come in pairs: sync variants for multi-thread-safe backends (in-memory graph projection, composite), and async variants for the execution-unit storage engine. Each backend implements only the variant that matches its execution model. Aggregate aliases compose the traits needed for common backend roles.
 
 `CypherCapable` (`QueryCapable`) is no longer part of `ColdStorage`, because the query interface is independent of storage. `DuckDbStorage` implements `QueryCapable` directly; `CompositeColdStorage` does not.
 
@@ -438,16 +471,20 @@ digraph CommitChannel {
 """)
 ```
 
-`DualStorage` is generic over `<H: HotStorage, C: ColdStorage>` rather than `Box<dyn HotStorage>` / `Box<dyn ColdStorage>`. This preserves AFIT (async fn in trait) compatibility for future async trait migration without boxing overhead at the call site.
+`DualStorage` is generic over `<H: HotStorage, C: ColdStorage>` rather than `Box<dyn HotStorage>` / `Box<dyn ColdStorage>`. This preserves AFIT (async fn in trait) compatibility for async trait migration without boxing overhead at the call site.
 
 Crate structure:
 
-- `model/` — `Blackboard` trait (public, stable): the FIH lifecycle interface plus capability traits, `DualStorage`, `GraphRead`/`GraphWrite`, `BlobStore`/`MetaStore`/`ObjectStore` traits, `Now`/`SystemClock`, and detection traits (`DetectionCapable`, `GapDetection`, `ContradictionDetection`, `StateChangeDetection`).
-- `interface/query/` — `ColdQuery`, `ColdFilter`, `ColdOrder`, `AggregateDef`, `QueryCapable` trait. Backend-agnostic tabular query specification.
-- `interface/cypher/` — Cypher parser, plan, and petgraph executor. Translates Cypher to `ColdQuery` for cold routing. Depends on `interface/query`.
-- `nexus/` — `DefaultBlackboard`: the single `Blackboard` implementation backed by `DualStorage`, plus the core storage runtime, `PetgraphStorage`, `CompositeColdStorage`, OODA scheduler, and all detectors. (Consolidated from former `core/graph/`, `core/process/`, `core/storage/petgraph/`, `core/storage/composite/`.)
-- `storage/duckdb/` — `DuckDbStorage`: cold Parquet storage with `DuckDbQueryExt` for DuckDB-specific features (CTE, window functions, JSON, vector search). Implements `QueryCapable`.
-- `storage/ve-composite/` — axum-based HTTP server exposing `BlobStore`/`MetaStore`/`ObjectStore` endpoints for session-backed composite storage.
+- `model/` — Data model crate: FIH lifecycle interface, capability traits (sync and async variants), DualStorage composition, blob/meta/object store traits, clock abstraction, detection trait hierarchy.
+- `interface/query/` — Backend-agnostic tabular query specification (filter, ordering, aggregation).
+- `interface/cypher/` — Optional Cypher parser and executor. Translates Cypher to native queries for the 2D graph projection.
+- `nex/` — Core storage engine: async-only execution unit, coordinate-based index with temporal ordering, optional sync wrapper for native platforms, optional 2D graph projection, durable cold storage, OODA scheduler, all detectors.
+- `storage/duckdb/` — Parquet-backed analytical cold storage.
+- `storage/sim/` — In-memory I/O backends (test doubles + filesystem) and scenario-driven verification runner.
+- `storage/ve-composite/` — HTTP server exposing blob/meta/object store endpoints for session-backed composite storage.
+- `gateway/api/` — HTTP REST server exposing the FIH lifecycle.
+- `gateway/nex-cf/` — Edge-deployed gateway with object-store-backed storage and semantic search.
+- `gateway/nex-cf/mock/` — Local simulation of the edge gateway for offline development.
 
 ### Cypher Translation
 
@@ -759,46 +796,55 @@ This applies to any domain. Business simulation: Fact = market data, Intent = st
 - DeSci-ready. Contract.nex enables token-incentivized research. Content-addressable hashes provide verifiable proofs of contribution.
 - Portable core. Same codebase compiles for WASM (edge) and native (server). Zero platform lock-in.
 
-## Current Status (2026-05)
+## Current Status (2026-06)
 
-Phase 3 (native layered coordinate model storage) is complete: a comprehensive test suite across the core storage runtime, incremental persistence, ColdStorage trait, and temporal query validation. The core storage runtime (coordinate-based index with temporal ordering) replaces PetgraphStorage as the primary hot storage.
+Phase 3 (native layered coordinate model storage) is complete: a comprehensive test suite across the core storage runtime, incremental persistence, ColdStorage trait, and temporal query validation. The core storage runtime (`nex` crate, coordinate-based index with temporal ordering) replaces PetgraphStorage as the primary hot storage.
 
 | Component | Status |
 |---|---|
-| Semantic store trait + lookup handle | Implemented (core storage module) |
-| Semantic index slot in coordinate index | Implemented (coordinate index) |
-| In-memory mock semantic store (brute-force cosine) | Implemented with unit tests |
-| External semantic backends (vector, bm25, ngram) | Future (external crates) |
+| Semantic search trait (flashlight pattern) | Implemented (core storage module) |
+| Semantic index slot in coordinate index | Implemented (plug-in slot alongside origin, time, status indexes) |
+| In-memory BM25 search | Implemented with tests |
+| Vectorize cloud backend | Implemented: pluggable embedder trait, offline local embedder for development |
+| External semantic backends (HNSW, ngram, LLM reranker) | Future (external crates) |
 | af-sync worker (R2 to engines) | Deployed |
 | RAG engines (LightRAG) | Reference implementation; sync pipeline active |
-| CI/CD (deploy.yml, build.yml) | Deployed |
-| `model/` crate | `Blackboard` trait, FIH lifecycle, capability traits, `DualStorage`, `GraphRead`/`GraphWrite`, blob/meta/object store traits, `Now`/`SystemClock` |
-| `interface/query/` crate | `ColdQuery`, `QueryCapable` — backend-agnostic tabular query interface |
-| `interface/cypher/` crate | Cypher parser, plan, hot/cold executor |
-| `nexus/` crate | `DefaultBlackboard` (single crate: core storage runtime + `PetgraphStorage` + `CompositeColdStorage` + OODA scheduler + all detectors) |
-| `storage/duckdb/` crate | `DuckDbStorage` with `DuckDbQueryExt` (CTE, window, JSON, vector search) |
-| Core storage runtime (hot, primary) | Coordinate-based index with temporal ordering, native layered coordinate model (`FactCapable` + `IntentCapable` + `HintCapable` + `EvictCapable` + `TimeRangeCapable`) |
-| PetgraphStorage (hot, optional) | In-memory 2D graph projection (`FactCapable` + `IntentCapable` + `HintCapable` + `EvictCapable`) |
-| CompositeColdStorage | Blob + Object + Meta store for durable persistence |
-| Blackboard trait | submit/claim/heartbeat/release/conclude lifecycle |
-| Storage capability traits | `StorageRead`, `FactCapable`, `IntentCapable`, `HintCapable`, `FilterCapable`, `ScanCapable`, `EvictCapable`, `FlushCapable`, `TimeRangeCapable` |
-| DualStorage | Dual-write hot + cold composition |
-| Scheduler (OODA loop) | Tick-based polling, heartbeat TTL, eviction trigger, stale intent cleanup |
-| Gap Detector | Rust: origin-based + cross-origin topic gap detection |
-| Contradiction Detector | Rust: same-topic/different-position contradiction detection |
-| State Change Detector | Rust: ReasonCheckpoint pattern, snapshot-safe |
-| New Document Analyzer | Rust: plus-factor/minus-factor/gap analysis |
-| Detection capability traits | `DetectionCapable`, `GapDetection`, `ContradictionDetection`, `StateChangeDetection` |
-| Cypher translator | cyrs pipeline integrated, dual-path executor, `Plan.to_cold_query()` routing |
-| Scenario tests | Extensive test suite across numerous test files |
-| Core storage runtime tests | Comprehensive suite (Phase 3 complete, #86) |
-| Incremental persistence | Implemented: incremental delta aggregation with cursor tracking |
-| ColdStorage trait | Implemented: unified interface for cold backends |
-| Temporal query validation | Implemented: temporal query replay and consistency checks |
-| Agentic loop | FIH lifecycle complete (detector to Fact to agent to Intent to conclude) |
-| CQRS commit channel | Implemented: cursor-based flush boundary, `read_cursor()` API |
-| IoBufferKv / IoBufferBlob / IoBufferObject | In-memory stores for `MetaStore`/`BlobStore`/`ObjectStore` |
-| SessionServer / SessionHandle | Generic serialized queue for async I/O emulation |
+| CI/CD | Deployed; WASM + native dual-path workflows |
+| Core data model crate | Blackboard trait, FIH lifecycle, capability traits (sync + async variants), DualStorage, blob/meta/object store traits |
+| Backend-agnostic query interface | Tabular query specification, filter, ordering, aggregation |
+| Cypher parser and executor | Optional: translates Cypher to native queries for the 2D graph projection |
+| Core storage engine | Async-only execution unit; coordinate-based index with temporal ordering; no sync blocking interfaces |
+| DuckDB cold storage | Parquet-backed analytical backend with CTE, window functions, JSON, vector search |
+| In-memory IO backends | Test doubles and filesystem IO for development and verification |
+| Cloudflare Worker gateway | R2-backed storage with Durable Object, BM25 + Vectorize semantic search |
+| HTTP API gateway | Axum REST server exposing the FIH lifecycle |
+| Serialization proxy | Serde validation layer over storage traits |
+| Local simulation server | In-memory mock of the full Cloudflare pipeline for offline development |
+| Async-only storage execution unit | All public methods async; no synchronous trait implementations; runtime borrow-checked cells; single-thread; no global mutable state |
+| In-memory 2D graph projection (optional) | Legacy graph queries (community detection, PageRank, shortest path) |
+| Durable cold storage | Blob + metadata + object store for long-term persistence |
+| FIH lifecycle | submit, claim, heartbeat, release, conclude |
+| Sync storage capability traits | Implemented by multi-thread-safe backends (PetgraphStorage, HybridBlackboard); NOT implemented by the async-only storage engine |
+| Async storage capability traits | Implemented by the async-only storage engine |
+| Hot + cold composition | Dual-write to hot and cold backends; reads from hot; filtered reads delegate to cold |
+| OODA scheduler | Tick-based polling, heartbeat TTL, eviction trigger, stale intent cleanup |
+| Gap detection | Origin-based + cross-origin topic gap analysis |
+| Contradiction detection | Same-topic/different-position analysis |
+| State change detection | Pattern-based checkpoint detection, snapshot-safe |
+| New document analysis | Plus-factor/minus-factor/gap analysis |
+| Detection capability traits | Unified trait hierarchy for all detectors |
+| Cypher translation | cyrs pipeline, dual-path executor, cold query routing |
+| Document ingestion pipeline | Read markdown files from object store, chunk, submit as facts, auto-index semantically |
+| Deferred-write IO | Batch multiple writes into a single storage call |
+| Scenario tests | 60+ tests across storage engine, IO backends, and gateway |
+| Core storage tests | Comprehensive suite (Phase 3 complete) |
+| Incremental persistence | Delta aggregation with cursor tracking |
+| Cold storage interface | Unified trait for cold backends |
+| Temporal query validation | Replay and consistency checks across time |
+| Agentic loop | Full FIH lifecycle (detector to fact to intent to conclusion) |
+| CQRS commit channel | Cursor-based flush boundary, separate commit path |
+| Session-backed IO | Generic serialized queue for async I/O emulation |
+| Process coordinator | Planned: physical instance replication, sandboxed lifecycle |
 | On-chain DeSci | Placeholder |
 
 ## Edge-to-Cloud Portability & AWS Integration
