@@ -7,8 +7,10 @@
 //!
 //! Note: Concrete Scheme implementations (Grid2D, IntegerLine, etc.) are in ssccs-schemes.
 
+pub mod reporter;
 pub mod scheme;
 pub use scheme::*;
+pub use reporter::{SsccsReporter, TextReport, JsonReport, CsvReport};
 
 use ssccs_core::{Field, Projector, SegmentId};
 
