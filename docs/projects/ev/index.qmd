@@ -1,6 +1,6 @@
 ---
 title: "ExaVerif"
-subtitle: "Exhaustive Verification for RISC‑V Custom Instructions"
+subtitle: "Exhaustive Verification for RISC-V Custom Instructions"
 date: last-modified
 format:
     html: {}
@@ -22,8 +22,6 @@ title_meta_items = {
         {"title": "References", "link": "https://docs.ssccs.org/partnerships/openhw_integration.html", "content": "OpenHW", "icon": "bi bi-link"},
         {"title": "References", "link": "https://docs.ssccs.org/research/riscv_space.html", "content": "Space Computing", "icon": "bi bi-link"},
         {"title": "References", "link": "cva6.html", "content": "CVA6 CV-X-IF Report", "icon": "bi bi-link"}
-
-
     ],
      "pdf": [
         {"title": "Code", "link": "https://github.com/ssccsorg", "content": "Github (Invite-Only)", "icon": "bi bi-link"},
@@ -44,48 +42,48 @@ title_meta_items = {
 %run ../../_include/_graphviz.py
 ```
 
-## Overview
+ExaVerif exhaustively enumerates and evaluates every valid combination of
+RISC-V custom instruction fields. Each result is a deterministic pass/fail
+recorded as a Fact consumable by neXus.
 
-RISC-V custom instruction extensions are typically verified with constrained-random
-tools (riscv-dv) or formal property checkers (OneSpin). Both approaches leave
-coverage gaps: random simulation cannot prove absence of invalid encodings, and
-formal tools require significant expertise to set up and maintain.
+RISC-V custom instruction extensions are verified with constrained-random
+tools (riscv-dv) or formal property checkers (OneSpin). Both approaches
+leave coverage gaps: random simulation cannot prove absence of invalid
+encodings, and formal tools require significant expertise to set up.
 
-ev takes a different approach. Rather than sampling the encoding space or proving
-properties about it, ev exhaustively enumerates every valid combination of
-instruction fields, evaluates all constraints, and reports the result for every
-single encoding. The answer is complete, deterministic, and reproducible.
+A verification team adding a custom instruction extension must ensure that
+every operand combination, every funct3/funct7 variant, and every cross-field
+constraint produces a valid encoding. With random simulation, they run
+millions of seeds. With formal tools, they write properties for each
+behavior. Neither approach enumerates the complete space.
 
-## Approach
+A coverage report from one tapeout is inaccessible to the next. A failure
+trace from one team is invisible to another. Verification results are
+ephemeral logs, not accumulated knowledge. Ev enumerates the full Cartesian product of field domains, evaluates every
+point against the constraint set, and reports pass/fail for every encoding.
 
-A declarative specification describes the instruction encoding space including
-field ranges and cross-field constraints. The tool computes the Cartesian
-product of all field domains, evaluates every point against the constraint set,
-and projects each result through configurable projector functions. It is
-architecture-agnostic and format-agnostic.
+## Comparison
 
-The extension model is trait-based, supporting new constraint types, projector
-functions, input formats, and output formats without modifying the core
-pipeline.
+| Metric | Random Simulation | Formal Verification | Ev |
+|:---|---:|---:|---:|
+| Combinations evaluated | ~10⁶ (sampled) | ~10³ (properties) | 33.5 × 10⁶ (exhaustive) |
+| Coverage guarantee | Statistical | Formal (per property) | Exhaustive |
+| Setup | UVM + agent | Formal properties | Single spec file |
+| Cross-validated | — | — | Spike simulation |
 
-## Status
+## Status and Limits
 
-ev has been validated against real production RISC-V core interfaces and
-demonstrates sub-minute exhaustive verification on industry-standard hardware
-for specification spaces exceeding 33 million combinations. Independent
-cross-verification against hand-written RISC-V assembly confirms deterministic
-consistency across implementation substrates.
+Validated against a production RISC-V core interface (CVA6 CV-X-IF,
+33.5 million combinations, 32 seconds), cross-verified through Spike
+simulation.
 
-Current development focuses on expanding the constraint and projector library,
-additional simulation backends, and integration with broader hardware
-verification workflows.
+Exhaustive verification has a constraint: combinations grow exponentially
+with parameters. For small to medium-sized modules, exhaustive coverage is
+achievable. For larger designs, Ev shows which combinations were evaluated
+and which were deferred.
 
-## Contact
-
-For access inquiries and collaboration:
-
-[ev@ssccs.org](mailto:ev@ssccs.org)
+Until the offical release (Apache 2.0), the code base in develoment is invite-only. Inquiries: [ev@ssccs.org](mailto:ev@ssccs.org).
 
 ---
 
-*ev is a project of the SSCCS Foundation.*
+*Ev is a project of the SSCCS Foundation.*
