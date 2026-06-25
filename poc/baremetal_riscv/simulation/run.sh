@@ -98,47 +98,61 @@ echo "  PK: $PK"
 echo "============================================"
 echo ""
 
-# ── Build (statically linked for pk compatibility) ────────────────
-echo "Building..."
+# ── SSCCS experiment C harnesses ─────────────────────────────
+EXP_DIR="$SCRIPT_DIR"
+EXP_TARGETS=""
+for exp_c in "$EXP_DIR"/exp*.c; do
+    [ -f "$exp_c" ] || continue
+    exp_name=$(basename "$exp_c" .c)
+    exp_bin="$EXP_DIR/$exp_name"
+    echo "Building experiment: $exp_name"
+    $CC -static -Wall -Wextra -O0 -g -o "$exp_bin" "$exp_c"
+    EXP_TARGETS="$EXP_TARGETS $exp_bin"
+done
+
+# ── Build legacy spike_test (static link for pk compatibility) ──
+echo "Building legacy test..."
 $CC -static -Wall -Wextra -O0 -g -o "$TARGET" "$TEST_C" "$STUBS_C" "$ASM_S"
 echo "  -> $TARGET"
 echo ""
 
-# ── Run ──────────────────────────────────────────────────────────
+# ── Run all binaries under Spike ─────────────────────────────
+run_all() {
+    local mode_label="$1"
+    shift
+    local all_status=0
+    for bin in "$@"; do
+        [ ! -f "$bin" ] && continue
+        local bin_name=$(basename "$bin")
+        echo "[$mode_label] Running: $bin_name"
+        set +e
+        spike "$PK" "$bin"
+        local ec=$?
+        set -e
+        echo "[$mode_label] $bin_name exit code: $ec"
+        echo ""
+        [ $ec -ne 0 ] && all_status=$ec
+    done
+    return $all_status
+}
+
+TARGETS="$EXP_TARGETS $TARGET"
 case "$MODE" in
     run)
         echo "Running under Spike..."
-        echo ""
-        set +e
-        spike "$PK" "$TARGET"
+        run_all "run" $TARGETS
         STATUS=$?
-        set -e
-        echo ""
-        [ $STATUS -eq 0 ] && echo "Done." || echo "Done (exit code: $STATUS)."
+        [ $STATUS -eq 0 ] && echo "All done." || echo "Done (exit code: $STATUS)."
         ;;
     check)
         echo "Running under Spike (check mode)..."
-        echo ""
-        set +e
-        spike "$PK" "$TARGET"
+        run_all "check" $TARGETS
         STATUS=$?
-        set -e
-        echo ""
-        if [ $STATUS -eq 0 ]; then
-            echo "All tests passed."
-        else
-            echo "Some tests failed (exit code: $STATUS)."
-        fi
+        [ $STATUS -eq 0 ] && echo "All tests passed." || echo "Some tests failed (exit code: $STATUS)."
         exit $STATUS
         ;;
     verbose)
         echo "Running under Spike (verbose)..."
-        echo ""
-        set +e
         spike -l "$PK" "$TARGET"
-        STATUS=$?
-        set -e
-        echo ""
-        [ $STATUS -eq 0 ] && echo "Done." || echo "Done (exit code: $STATUS)."
         ;;
 esac
