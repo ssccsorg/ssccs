@@ -123,7 +123,8 @@ run_all() {
     local all_status=0
     for bin in "$@"; do
         [ ! -f "$bin" ] && continue
-        local bin_name=$(basename "$bin")
+        local bin_name
+        bin_name=$(basename "$bin")
         echo "[$mode_label] Running: $bin_name"
         set +e
         spike "$PK" "$bin"
