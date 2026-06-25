@@ -90,9 +90,8 @@ where
 mod tests {
     use super::*;
     use ssccs_core::{
-        Coordinates, EvenConstraint, Field, GeConstraint, GtConstraint,
-        LeConstraint, LtConstraint, OneOfConstraint, Projector, RangeConstraint, Segment,
-        segment_id_from_coords,
+        Coordinates, EvenConstraint, Field, GeConstraint, GtConstraint, LeConstraint, LtConstraint,
+        OneOfConstraint, Projector, RangeConstraint, Segment, segment_id_from_coords,
     };
     use ssccs_examples::{IntegerProjector, ParityProjector};
     use std::collections::HashMap;
