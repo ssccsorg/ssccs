@@ -18,7 +18,7 @@ fn main() {
     let projector = IdentityProjector;
     let test_coords = vec![0i64, 2, 4, 6, 8, 10];
 
-    println!("=== SSCCS Rust: experiment-01-segment ===");
+    println!("=== SSCCS Rust: concept-segment ===");
     println!("Field: no constraints");
     println!("Projector: identity\n");
 
