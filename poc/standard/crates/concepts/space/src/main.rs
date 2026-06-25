@@ -1,4 +1,4 @@
-//! Experiment: Space Concept
+//! Concept: Space Concept
 //!
 //! Tests the Space concept - structured coordinate spaces (BooleanSpace, IntegerSpace).
 
@@ -6,7 +6,7 @@ use ssccs_core::{Coordinates, Segment};
 use ssccs_schemes::{BooleanSpace, IntegerSpace};
 
 fn main() {
-    println!("Experiment: Space Concept                        ");
+    println!("Concept: Space Concept                        ");
 
     match test_space_concept() {
         Ok(_) => println!("\nSpace Concept PASSED"),

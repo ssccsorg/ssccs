@@ -1,4 +1,4 @@
-//! Experiment: Composite & Transformed Schemes
+//! Concept: Composite & Transformed Schemes
 //!
 //! Tests scheme composition and geometric transformation.
 
@@ -11,7 +11,7 @@ use ssccs_schemes::{
 use std::collections::HashMap;
 
 fn main() {
-    println!("Experiment: Composite & Transformed Schemes      ");
+    println!("Concept: Composite & Transformed Schemes      ");
 
     match test_composite_and_transformed_schemes() {
         Ok(_) => println!("\nComposite & Transformed Schemes PASSED"),

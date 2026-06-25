@@ -1,4 +1,4 @@
-# Experiment: Observation-Centric Data Processing with Rust
+# Concept: Observation-Centric Data Processing with Rust
 
 ## Objective
 
@@ -29,7 +29,7 @@ Simple nested loops summing (i+j) for all matrix positions.
 
 ```text
 ╔════════════════════════════════════════════════════════════╗
-║  Experiment: Observation-Centric Data Processing with Rust ║
+║  Concept: Observation-Centric Data Processing with Rust ║
 ╚════════════════════════════════════════════════════════════╝
 
 Testing with a 3x4 matrix

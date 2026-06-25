@@ -1,4 +1,4 @@
-//! Experiment: Adjacency & Memory Layout
+//! Concept: Adjacency & Memory Layout
 //!
 //! Tests structural relations and memory layout semantics.
 
@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 fn main() {
-    println!("Experiment: Adjacency & Memory Layout            ");
+    println!("Concept: Adjacency & Memory Layout            ");
 
     match test_adjacency_memory() {
         Ok(_) => println!("\nAdjacency & Memory Layout PASSED"),
