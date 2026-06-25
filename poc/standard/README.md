@@ -31,16 +31,16 @@ Each experiment crate contains an independent constitutional concept test that c
 
 | Crate | Test |
 |-------|------|
-| **`experiment-01-segment`** | Segment concept - immutable coordinate points with cryptographic identity |
-| **`experiment-02-field`** | Field concept - mutable constraint container with transitions |
-| **`experiment-03-projector`** | Projector concept - semantic interpretation of Segment-Field pairs |
-| **`experiment-04-observation`** | Observation concept - active event collapsing potential to projection |
-| **`experiment-05-space`** | Space concept - developer input types (Boolean, Integer) |
-| **`experiment-06-scheme`** | Scheme concept - structural blueprint with axes and relations |
-| **`experiment-07-adjacency`** | Adjacency memory - structural neighbor relationships |
-| **`experiment-08-composite`** | Composite & Transformed Schemes - scheme composition and geometric transformation |
-| **`experiment-09-transition`** | Transition Matrix - weighted directed graph for relational topology |
-| **`experiment-10-integrated`** | Integrated Workflow - complete SSCCS pipeline demonstration |
+| **`concept-segment`** | Segment concept - immutable coordinate points with cryptographic identity |
+| **`concept-field`** | Field concept - mutable constraint container with transitions |
+| **`concept-projector`** | Projector concept - semantic interpretation of Segment-Field pairs |
+| **`concept-observation`** | Observation concept - active event collapsing potential to projection |
+| **`concept-space`** | Space concept - developer input types (Boolean, Integer) |
+| **`concept-scheme`** | Scheme concept - structural blueprint with axes and relations |
+| **`concept-adjacency`** | Adjacency memory - structural neighbor relationships |
+| **`concept-composite`** | Composite & Transformed Schemes - scheme composition and geometric transformation |
+| **`concept-transition`** | Transition Matrix - weighted directed graph for relational topology |
+| **`concept-integrated`** | Integrated Workflow - complete SSCCS pipeline demonstration |
 
 ### Research Placeholder Crates
 
@@ -51,7 +51,7 @@ Each experiment crate contains an independent constitutional concept test that c
 | **`ssccs-hardware-integration`** | **Standard (std)** hardware abstraction layer for SSCCS observation. |
 | **`ssccs-compiler-opt`** | Placeholder for research on compiler optimisations and open-format-to-machine-code compilation. |
 
-All crates reside under `poc/crates/`. The experiment crates are organized under `poc/crates/experiments/`. The workspace configuration is defined in `poc/Cargo.toml`.
+All crates reside under `poc/crates/`. The experiment crates are organized under `poc/crates/concepts/`. The workspace configuration is defined in `poc/Cargo.toml`.
 
 ### Related Research (Separate Workspaces)
 
@@ -75,7 +75,7 @@ ssccs-schemes   ssccs-examples (both depend on ssccs-primitive + ssccs-core)
     └──────┬───────┘
            │
            ▼
-    experiment-* crates (under crates/experiments/, depend on ssccs-schemes, ssccs-examples, ssccs-primitive, ssccs-core)
+    experiment-* crates (under crates/concepts/, depend on ssccs-schemes, ssccs-examples, ssccs-primitive, ssccs-core)
 ```
 
 ## Rust Environment Setup
@@ -124,19 +124,19 @@ Each constitutional concept test is a separate binary:
 
 ```bash
 # Run all experiments
-cargo run --bin experiment-01-segment
-cargo run --bin experiment-02-field
-cargo run --bin experiment-03-projector
-cargo run --bin experiment-04-observation
-cargo run --bin experiment-05-space
-cargo run --bin experiment-06-scheme
-cargo run --bin experiment-07-adjacency
-cargo run --bin experiment-08-composite
-cargo run --bin experiment-09-transition
-cargo run --bin experiment-10-integrated
+cargo run --bin concept-segment
+cargo run --bin concept-field
+cargo run --bin concept-projector
+cargo run --bin concept-observation
+cargo run --bin concept-space
+cargo run --bin concept-scheme
+cargo run --bin concept-adjacency
+cargo run --bin concept-composite
+cargo run --bin concept-transition
+cargo run --bin concept-integrated
 
 # Or run the integrated workflow (demonstrates complete pipeline)
-cargo run --bin experiment-10-integrated
+cargo run --bin concept-integrated
 ```
 
 ### Run Unittests

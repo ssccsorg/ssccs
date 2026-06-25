@@ -13,7 +13,7 @@ poc/
 │   │   ├── primitive/      Scheme abstraction layer
 │   │   ├── schemes/        Concrete Scheme implementations
 │   │   ├── examples/       Shared utilities (projectors, parser, compiler pipeline)
-│   │   ├── experiments/    11 independent constitutional concept test crates
+│   │   ├── concepts/    11 independent constitutional concept test crates
 │   │   ├── field-synthesis/   Research placeholder
 │   │   ├── hardware-mapping/  Research placeholder
 │   │   └── compiler-opt/      Research placeholder
@@ -46,7 +46,7 @@ Rust workspace targeting x86_64 / aarch64. Implements the complete SSCCS ontolog
 | Scheme | `ssccs-primitive` | Scheme, SchemeBuilder, SchemeTrait, Axis, StructuralRelation, MemoryLayout, ObservationRules |
 | Scheme | `ssccs-schemes` | Grid2DTemplate, IntegerLineTemplate, GraphTemplate, Tensor3DTemplate, CompositeScheme, TransformedScheme, BooleanSpace, IntegerSpace |
 | Utilities | `ssccs-examples` | IntegerProjector, ArithmeticProjector, ParityProjector, CoordinateSumProjector, CompilerPipeline, .ss parser |
-| Experiments | `experiment-01-segment` through `experiment-10-integrated` plus `experiment-data-processing` | Each crate tests one constitutional concept independently |
+| Experiments | `concept-segment` through `concept-integrated` plus `experiment-data-processing` | Each crate tests one constitutional concept independently |
 | Research | `ssccs-field-synthesis` | Field composition algebra (placeholder) |
 | Research | `ssccs-hardware-mapping` | Scheme-to-hardware mapping (placeholder) |
 | Research | `ssccs-compiler-opt` | Compiler optimizations (placeholder) |

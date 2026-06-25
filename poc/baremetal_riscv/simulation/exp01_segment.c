@@ -1,4 +1,4 @@
-//! SSCCS on RISC-V: experiment-01-segment
+//! SSCCS on RISC-V: concept-segment
 //!
 //! Cross-validates the Segment concept:
 //! - Rust observe_all(): Field(no constraints) + Segment(coords) → identity projection
@@ -50,7 +50,7 @@ static int64_t observe(int64_t coord) {
 }
 
 int main(void) {
-    printf("=== SSCCS on RISC-V: experiment-01-segment ===\n");
+    printf("=== SSCCS on RISC-V: concept-segment ===\n");
     printf("Concept: Segment (immutable coordinate + identity projection)\n");
     printf("Field: no constraints\n");
     printf("Projector: identity\n\n");
