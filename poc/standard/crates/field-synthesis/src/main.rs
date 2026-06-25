@@ -1,4 +1,4 @@
-//! Field Synthesis Experiment: Field Composition Algebra
+//! Field Synthesis Concept: Field Composition Algebra
 //!
 //! Validates that Fields can be composed through union, intersection, and product
 //! operations, and that these compositions satisfy expected algebraic properties.

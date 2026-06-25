@@ -1,4 +1,4 @@
-//! Experiment: Projector Concept
+//! Concept: Projector Concept
 //!
 //! Tests the Projector concept - semantic interpretation of Segment-Field pairs.
 
@@ -6,7 +6,7 @@ use ssccs_core::{Field, Projector, Segment};
 use ssccs_examples::{ArithmeticProjector, IntegerProjector, ParityProjector};
 
 fn main() {
-    println!("Experiment: Projector Concept                    ");
+    println!("Concept: Projector Concept                    ");
 
     match test_projector_concept() {
         Ok(_) => println!("\nProjector Concept PASSED"),

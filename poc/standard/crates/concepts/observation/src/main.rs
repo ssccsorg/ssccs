@@ -1,4 +1,4 @@
-//! Experiment: Observation Concept
+//! Concept: Observation Concept
 //!
 //! Tests the Observation concept - the sole active event that produces actuality.
 
@@ -6,7 +6,7 @@ use ssccs_core::{Field, Segment, observe, possible_next_coordinates};
 use ssccs_examples::{ArithmeticProjector, IntegerProjector, RangeConstraint};
 
 fn main() {
-    println!("Experiment: Observation Concept                  ");
+    println!("Concept: Observation Concept                  ");
 
     match test_observation_concept() {
         Ok(_) => println!("\nObservation Concept PASSED"),

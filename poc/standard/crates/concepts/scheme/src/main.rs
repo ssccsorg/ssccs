@@ -1,4 +1,4 @@
-//! Experiment: Scheme Concept
+//! Concept: Scheme Concept
 //!
 //! Tests the Scheme concept - structural blueprint with Grid2D and IntegerLine templates.
 
@@ -7,7 +7,7 @@ use ssccs_primitive::scheme::GridTopology;
 use ssccs_schemes::{Grid2DTemplate, IntegerLineTemplate};
 
 fn main() {
-    println!("Experiment: Scheme Concept                       ");
+    println!("Concept: Scheme Concept                       ");
 
     match test_scheme_concept() {
         Ok(_) => println!("\nScheme Concept PASSED"),

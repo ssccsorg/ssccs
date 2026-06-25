@@ -1,10 +1,10 @@
-//! Experiment: Transition Matrix
+//! Concept: Transition Matrix
 //!
 //! Tests the Transition Matrix - relational topology as weighted directed graph.
 
 use ssccs_core::{Coordinates, Field, segment_id_from_coords};
 fn main() {
-    println!("Experiment: Transition Matrix                    ");
+    println!("Concept: Transition Matrix                    ");
 
     match test_transition_matrix() {
         Ok(_) => println!("\nTransition Matrix PASSED"),

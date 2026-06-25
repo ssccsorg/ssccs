@@ -1,4 +1,4 @@
-//! Experiment: Observation-Centric Data Processing with Rust
+//! Concept: Observation-Centric Data Processing with Rust
 //!
 //! This experiment demonstrates how SSCCS can be used for data processing tasks
 //! by treating computation as the observation of fixed structure under changing conditions.
@@ -130,7 +130,7 @@ fn traditional_matrix_sum(rows: i64, cols: i64) -> i64 {
 }
 
 fn main() {
-    println!("Experiment: Observation-Centric Data Processing with Rust ");
+    println!("Concept: Observation-Centric Data Processing with Rust ");
 
     // Parameters for our matrix
     let rows = 3;
