@@ -124,7 +124,7 @@ run_all() {
     for bin in "$@"; do
         [ ! -f "$bin" ] && continue
         local bin_name
-        bin_name=$(basename "$bin")
+        bin_name=$(basename "$bin") || true
         echo "[$mode_label] Running: $bin_name"
         set +e
         spike "$PK" "$bin"
