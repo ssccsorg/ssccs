@@ -62,7 +62,7 @@ int main(void) {
     // ── 1. Scheme properties ──
     printf("1. Tensor3D (2x2x2) scheme:\n");
     TEST("  Total segments == 8", total_segments == 8);
-    TEST("  Dimensionality == 3", (w > 0 && h > 0 && d > 0) ? 3 : 0);
+    TEST("  Dimensionality == 3", w > 0 && h > 0 && d > 0);
 
     // Memory layout: row-major 3D
     TEST("  (0,0,0) addr == 0", tensor_addr_3d(0, 0, 0, w, h) == 0);

@@ -41,17 +41,6 @@ static int64_t matrix_value_project(int64_t row, int64_t col, int64_t cols,
     return values[row * cols + col];
 }
 
-// Traditional imperative matrix summation
-static int64_t traditional_matrix_sum(int64_t rows, int64_t cols, const int64_t *values) {
-    int64_t sum = 0;
-    for (int64_t i = 0; i < rows; i++) {
-        for (int64_t j = 0; j < cols; j++) {
-            sum += values[i * cols + j];
-        }
-    }
-    return sum;
-}
-
 // SSCCS-style observation-based matrix summation
 // 1. Scheme: Grid2D(rows, cols)
 // 2. Field: MatrixBoundary(rows, cols)
