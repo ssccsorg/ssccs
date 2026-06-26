@@ -98,14 +98,14 @@ echo "  PK: $PK"
 echo "============================================"
 echo ""
 
-# ── SSCCS experiment C harnesses ─────────────────────────────
+# ── SSCCS concept C harnesses ────────────────────────────────
 EXP_DIR="$SCRIPT_DIR"
 EXP_TARGETS=""
-for exp_c in "$EXP_DIR"/exp*.c; do
+for exp_c in "$EXP_DIR"/concept*.c; do
     [ -f "$exp_c" ] || continue
     exp_name=$(basename "$exp_c" .c)
     exp_bin="$EXP_DIR/$exp_name"
-    echo "Building experiment: $exp_name"
+    echo "Building concept: $exp_name"
     $CC -static -Wall -Wextra -O0 -g -o "$exp_bin" "$exp_c" "$ASM_S" "$STUBS_C"
     EXP_TARGETS="$EXP_TARGETS $exp_bin"
 done
