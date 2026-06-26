@@ -77,7 +77,7 @@ SSCCS (Schema—Segment Composition Computing System) defines computation as the
 
 This model differs from the von Neumann approach in three ways. First, time is a coordinate axis within a scheme rather than an implicit sequence: a scheme may declare a temporal dimension, and observations are parameterized by a time bound. Second, data movement is a compile-time property rather than a runtime cost: coordinates are not relocated between observations, and the compiler maps structural adjacency to physical adjacency in the target memory hierarchy. Third, determinism follows from the observation operator being a function of its inputs: for a fixed scheme, field, and time bound, the same projection is always produced. Non-determinism must be introduced explicitly through the resolution strategy.
 
-The model is architecture-agnostic: the same scheme can be compiled to conventional processors (via software emulation), FPGA fabrics, or specialized hardware. A Rust-based proof of concept validates all core concepts against RISC-V simulation, confirming that the abstract primitives produce deterministic results on existing silicon. An open format specification is under development [*-@sec-appendix-openformat*] and is updated as the specification evolves through implementations across projects.
+The model is architecture-agnostic: the same scheme can be compiled to conventional processors (via software emulation), FPGA fabrics, or specialized hardware. A Rust-based proof of concept validates all core concepts, confirming that the abstract primitives produce deterministic results on existing silicon. An open format specification is under development [*-@sec-appendix-openformat*] and is updated as the specification evolves through implementations across projects.
 
 {{< pagebreak >}}
 
@@ -118,58 +118,74 @@ A System where Structured Deployment is the Path, and Observed Synthesis is the 
 
 ## Introduction
 
-SSCCS defines computation through four primitives: Segments (immutable points), Schemes (immutable blueprints), Fields (mutable constraints), and Observation (the active event). Each primitive has been implemented as executable code and cross-validated against RISC-V simulation, confirming that the model produces deterministic results across independent implementation substrates.
+SSCCS begins as a definition of what computation is, not as a prescription for how to build it. Its primitives—Segments, Schemes, Fields, Observation—form a framework for describing structure and change, independent of any particular substrate, technology, or performance envelope.
+
+Concrete implementations, whether on conventional silicon or on future hardware, are derivative: each is an approximate realisation that the model then corrects through Observation, the active act of revealing structure. Because Observation bridges the ideal and the instantiated, the framework remains stable across implementation generations while the realisations themselves evolve.
+
+The primitives have been implemented as executable code—a cross-validated RISC-V simulation confirms deterministic results across independent substrates—and the same structural principle has been applied experimentally to existing open-spec silicon through ustom instruction verification via ExaVerif[@ev2026exaverif].
+
+This reverse-validation on commercial silicon is not a target—it is a calibration. It demonstrates that the SSCCS model can be artificially instantiated within the constraints of existing architectures, serving as a proof of concept while the long-term trajectory remains native hardware where Schemes are instantiated directly rather than emulated. These empirical results ground the model in today's silicon, but they are not projections of SSCCS-native compute.
+
+neXus[@nexus2026fih], the state-space engine developed alongside the reference implementation, archives every Observation as an immutable Fact—making the calibration process auditable, replayable, and composable across experiments. neXus is not part of the computational model; it is the archival implementation that preserves the model's empirical footprint.
 
 ```{python}
 #| label: fig-ontology
 #| fig-cap: "SSCCS concept of primitives"
-#| out-width: "3in"
+#| fig-alt: "Three-layer diagram showing static infrastructure (Segments + Scheme), dynamic substrate (Field), and the active event (Observation) producing a Projection"
 dot("""
 digraph SSCCS_Ontology {
-    rankdir=LR;
-    nodesep=0.5;
+    rankdir=TB;
+    splines=ortho;
 
-    node [style=invis, label=""];
-    spacer_l; spacer_r;
+    subgraph cluster_static {
+        label="Static Infrastructure";
 
-    node [shape=rect, style=filled, fillcolor=white, color=black];
+        node [shape=point, width=0.15, height=0.15];
+        s2 [xlabel="Segment (S₂)"];
+        s3 [xlabel="Segment (S₃)"];
+        s1 [xlabel="Segment (S₁)\n(unbound)", fontcolor="#AAAAAA"];
 
-    // Static Infrastructure
-    node [shape=point, width=0.2, height=0.2, fillcolor=black, color=black, style=solid];
-    s1 [xlabel="Segment 1(S₁)\\nNOT USED"];
-    s2 [xlabel="Segment 2(S₂)"];
-    s3 [xlabel="Segment 3(S₃)"];
-
-    // Structural Blueprint & Others
-    node [shape=rect];
-    Scheme [label="Scheme (Σ₁)"];
-    Field [label="Field (F₁)\\nwith constraints, ..."];
-    Observation [label="Observation (Ω₁)", shape=ellipse];
-    Projection [label="Projection\\nP₁ = Ω₁(F(Σ(S₂,S₃)))", shape=box];
-    Data [label="Actualized Possibility:\\n(State, or Data)\\nD₁ = I₁(P₁)", shape=box, style=rounded];
-
-    { rank=same; spacer_l; Field; spacer_r; }
-
-    {rank=source;
-        edge [arrowhead=none, style=solid];
-        Scheme -> s2;
-        Scheme -> s3;
+        node [shape=cds];
+        Scheme [label="Scheme (Σ₁)"];
     }
 
+    subgraph cluster_dynamic {
+        label="Dynamic Substrate";
+
+        node [shape=note];
+        Field [label="Field (F₁)\nconstraints + triggers"];
+    }
+
+    subgraph cluster_active {
+        label="Active Event";
+
+        node [shape=ellipse];
+        Observation [label="Observation (Ω₁)"];
+
+        node [shape=box];
+        Projection [label="Projection\nP₁ = Ω₁(F(Σ, S₂, S₃))"];
+
+        node [shape=box, style=rounded];
+        Data [label="State\nD₁ = I(P₁)"];
+    }
+
+    edge [arrowhead=none];
+    Scheme -> s2;
+    Scheme -> s3;
+
     edge [arrowhead=normal];
-    Scheme -> Field;
-    s2 -> Field;
+    Scheme -> Field [label="binds"];
+    s2 -> Field [label="anchors"];
     s3 -> Field;
 
-    edge [arrowhead=normal, style=solid];
-    Observation -> Field [label="(Computation Event)"];
+    edge [arrowhead=normal, style=dashed];
+    Observation -> Field [label="triggers"];
 
-    Field -> Projection;
-    Projection -> Data [label="Interpretion\\n(I₁)"];
+    edge [arrowhead=normal];
+    Field -> Projection [label="collapses"];
 
-    edge [style=invis];
-    spacer_l -> Field;
-    Field -> spacer_r;
+    edge [arrowhead=normal, style=dotted];
+    Projection -> Data [label="interpret"];
 }
 """)
 ```
@@ -239,7 +255,7 @@ SSCCS replaces procedural execution with structural observation.
 
 SSCCS claims that data remains stationary during observation. This claim holds at two distinct levels. At the logical level, segment coordinates are not relocated between observations; a coordinate identifies a fixed point in the possibility space regardless of how many times it is observed. At the physical level, stationary data is a property of the target substrate: in software emulation, segments are encoded as memory-resident data structures and the absence of data movement is a compile-time constraint, whereas native hardware (Phase 3) eliminates physical data movement entirely by instantiating segments as stationary circuit nodes. The transition from logical to physical stationarity is the central objective of the hardware roadmap.
 
-The model is motivated by three observations about the current hardware landscape. First, the end of Dennard scaling means that energy cost in processors is now dominated by data movement rather than arithmetic, making stationary-data models economically relevant. Second, open-source hardware ecosystems (RISC-V, OpenHW CORE-V) permit new computational abstractions to be prototyped on commodity FPGA boards without the capital requirements that historically restricted architectural innovation. Third, formal verification tools have advanced to the point where determinism and race-freedom claims can be mechanically verified.
+The model is motivated by three observations about the current hardware landscape. First, the end of Dennard scaling means that energy cost in processors is now dominated by data movement rather than arithmetic, making stationary-data models economically relevant. Second, open-source hardware ecosystems permit new computational abstractions to be prototyped on commodity FPGA boards without the capital requirements that historically restricted architectural innovation. Third, formal verification tools have advanced to the point where determinism and race-freedom claims can be mechanically verified.
 
 ```{python}
 #| label: fig-ssccs-hardware-mapping
@@ -1279,7 +1295,7 @@ digraph Implementation_Roadmap {
 #### Phase 1: Software Emulation (Proof of Concept)
 
 - Rust reference implementation reading the SS format specifications.
-- Core concepts validated on RISC-V simulation (Spike) with 271 test cases passing across all concept types. Deterministic reproducibility confirmed across independent implementations (Rust and C).
+- Core concepts validated on RISC-V simulation (Spike) with 271 test cases passing across all concept types. Deterministic reproducibility confirmed across independent implementations (Rust and C). The inverse-validation exercise described in the Introduction further demonstrates the model's applicability to conventional RISC-V silicon [@ev2026exaverif].
 - SystemVerilog composition model provides additional cross-validation at the HDL level.
 - Ongoing: measure determinism, implicit parallelism, data movement reduction on larger benchmarks.
 
@@ -2409,6 +2425,7 @@ The following table situates SSCCS among existing computational paradigms. The c
 | Dataflow / Systolic | Tokens move through static graph | Explicit graph | Medium (static graph analysable) |
 | Processing-in-Memory | Compute moves near memory; data still moves between banks | Near-memory, bank-local | Low |
 | FPGA Overlays | Configuration bitstream loaded; data flows through fabric | Spatial, reconfigurable | Medium (netlist analysable) |
+| ExaVerif [@ev2026exaverif] | Fields remain stationary; only constraint evaluation crosses the verification boundary | Implicit (Cartesian enumeration across field domains) | High (exhaustive: 33.5M/33.5M evaluated) |
 | SSCCS (Structural) | Segments stationary; only Projection transmitted | Implicit (structural independence) | High (deterministic by definition) |
 
 This table does not assert that SSCCS outperforms existing paradigms. It identifies the architectural dimension along which the model differs: the elimination of operand movement as a category, and the elevation of verifiability from an added feature to a structural consequence.
