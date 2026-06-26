@@ -77,7 +77,7 @@ SSCCS (Schema—Segment Composition Computing System) defines computation as the
 
 This model differs from the von Neumann approach in three ways. First, time is a coordinate axis within a scheme rather than an implicit sequence: a scheme may declare a temporal dimension, and observations are parameterized by a time bound. Second, data movement is a compile-time property rather than a runtime cost: coordinates are not relocated between observations, and the compiler maps structural adjacency to physical adjacency in the target memory hierarchy. Third, determinism follows from the observation operator being a function of its inputs: for a fixed scheme, field, and time bound, the same projection is always produced. Non-determinism must be introduced explicitly through the resolution strategy.
 
-The model is architecture-agnostic: the same scheme can be compiled to conventional processors (via software emulation), FPGA fabrics, or specialized hardware. A Rust-based proof of concept validates all core concepts against RISC-V simulation, confirming that the abstract primitives produce deterministic results on existing silicon. An open format specification is under development [*-@sec-appendix-openformat*].
+The model is architecture-agnostic: the same scheme can be compiled to conventional processors (via software emulation), FPGA fabrics, or specialized hardware. A Rust-based proof of concept validates all core concepts against RISC-V simulation, confirming that the abstract primitives produce deterministic results on existing silicon. An open format specification is under development [*-@sec-appendix-openformat*] and is updated as the specification evolves through implementations across projects.
 
 {{< pagebreak >}}
 
@@ -1225,7 +1225,7 @@ SSCCS establishes five foundational principles:
 
 The most significant departure is the treatment of time as one coordinate among many, which eliminates global sequentiality and enables lock-free concurrency. The compiler's role correspondingly shifts from instruction scheduling to topological optimization: mapping logical adjacency directly onto physical locality.
 
-Open questions remain: formal treatment of nested Field dynamics, compiler infrastructure for geometric constraints at scale, and empirical validation of energy efficiency gains across target domains. The open .ss format [*-@sec-appendix-openformat*] is a first step toward making these ideas concrete and composable.
+Open questions remain: formal treatment of nested Field dynamics, compiler infrastructure for geometric constraints at scale, and empirical validation of energy efficiency gains across target domains. The open .ss format [*-@sec-appendix-openformat*] is a first step toward making these ideas concrete and composable, and will be updated as the specification evolves through implementations across projects.
 
 SSCCS is not proposed as a universal replacement. For problems that are inherently sequential or interaction-dominant, traditional models may remain appropriate. But for data-intensive, parallel workloads where the von Neumann bottleneck dominates, this model offers a different trade-off.
 
