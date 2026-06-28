@@ -158,11 +158,13 @@ digraph NexRecursiveEcosystem {
 
 ## Composition Model
 
+### Composition & Naming
+
 ```text
-Your Codebase + nex core library integration = nex-{app}
+Your Codebase + nex core library integration = nex-{implementation}
 ```
 
-The nex kernel provides the blackboard as built-in memory, FIH protocol handling, stigmergic coordination, and cryptographic signing — all within the binary. A permanent storage backend (filesystem, SQLite, cloud, blockchain) plugs into the kernel via the storage spec, decoupled from processing. For example, [ExaVerif](../../ev) is an independent project that also functions as a nex instance (`nex-ev`) by grafting the domain engine onto the runtime.
+The nex kernel provides blackboard memory, FIH protocol, stigmergic coordination, and cryptographic signing — all within the binary, decoupled from storage. Any domain engine can become a `nex-{implementation}` by grafting onto this runtime: `{implementation}` is the name with `nex-` prefixed, either a single word (`ev`, `zed`) or compound where the first segment identifies the platform and the rest the domain function (`spinwasi-ssccsdocs`, `cf-mock`). For example, [ExaVerif](../../ev) is an independent project that also functions as `nex-ev`.
 
 ### Example Cases
 
@@ -171,6 +173,7 @@ Every `nex-*` instance shares the same blackboard schema and communication proto
 | Instance | Domain | Role |
 |----------|--------|------|
 | `nex-zed` | Development | Agentic editor extension for Zed – browses blackboard, spawns verification branches. |
+| `nex-spinwasi-ssccsdocs` | Knowledge | Spin WASI HTTP component; fetches SSCCS docs from docs.ssccs.org, ingests into FIH Facts, serves BM25 search via Fermyon Cloud. |
 | `nex-phys` | Robotics | Connects to physical simulation (Gazebo, MuJoCo) or real hardware; feeds sensor data as Facts. |
 | `nex-rtl` | Hardware Design | Generates synthesizable RTL (Verilog/SystemVerilog) from high‑level Intent and past Facts/Hints. |
 | `nex-lk` | Self-Security | Monitors blackboard for malicious Facts/Intent, isolates compromised branches. |

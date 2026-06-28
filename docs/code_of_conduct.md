@@ -36,6 +36,7 @@ Using AI for engineering is as standard as using a compiler or an IDE. Insisting
 - **Human Accountability:** Regardless of the tools used, the human engineer who submits the code bears 100% responsibility for its consequences.
 - **Evaluation Criteria:** Reviewers evaluate only architectural consistency, logical correctness, security, and test compliance. Low-quality code that lacks proper human direction and validation will be rejected regardless of its origin.
 - **Extended Use:** AI can be actively utilized in areas difficult to codify, such as cultural synthesis or streamlining communication. We encourage using AI as an aid to improve decision-making and efficiency.
+- **Result Over Process:** Whether the output was written by AI, typed by hand, transcribed from a whiteboard session, or drafted by a non-native speaker with machine assistance — we focus only the final result and the essence it conveys. Critiques such as "this looks like AI slop" or "this reads like AI wrote it" carry no weight. **If the code looks AI slop, the AI commander(human) is slop.**
 - **No Vendor‑Lock via Unratified Standards:** All interfaces, including agent command patterns, prioritize compliance with recognized international standards. Specific service providers (OpenAI, Claude, etc.) or development environments (VS Code, GitHub, etc.) may be supported for convenience where needed, but we do not rely on their proprietary schemas. This ensures our infrastructure remains open and portable, independent of changes in any commercial ecosystem.
 
 ## Communication Guidelines
