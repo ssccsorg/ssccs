@@ -1,0 +1,66 @@
+```{python}
+#| label: fig-constraint-domain
+#| fig-cap: "Constraint application over a 2-field domain space. Each step applies a constraint, removing invalid combinations. The remaining space shrinks until only valid encodings survive."
+#| fig-alt: "Six-panel animation showing constraint application as valid regions (green) shrinking from the full domain to the final valid set."
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
+from matplotlib.animation import FuncAnimation
+from IPython.display import HTML
+
+np.random.seed(42)
+
+# Domain: field_a [0,15], field_b [0,15]
+N = 16
+domain = np.ones((N, N), dtype=bool)
+
+# Constraints:
+# 1. field_a even
+c1 = np.zeros((N, N), dtype=bool)
+c1[0::2, :] = True
+# 2. field_b range [3, 12]
+c2 = np.zeros((N, N), dtype=bool)
+c2[:, 3:13] = True
+# 3. field_a != field_b (neq)
+c3 = np.eye(N, dtype=bool) == False  # all True except diagonal
+
+constraints = [c1, c2, c3]
+labels = [
+    "Constraint 1: field_a ∈ even",
+    "Constraint 2: field_b ∈ [3, 12]",
+    "Constraint 3: field_a ≠ field_b",
+]
+
+fig, axes = plt.subplots(2, 3, figsize=(12, 8))
+axes = axes.flatten()
+
+current = np.ones((N, N), dtype=bool)
+
+for i, (ax, constraint, label) in enumerate(zip(axes, constraints, labels)):
+    current = current & constraint
+
+    ax.imshow(current, cmap='RdYlGn', vmin=0, vmax=1, aspect='equal',
+              interpolation='nearest', extent=[-0.5, N-0.5, N-0.5, -0.5])
+
+    for (r, c) in zip(*np.where(current)):
+        ax.add_patch(Rectangle((c-0.5, r-0.5), 1, 1, fill=False,
+                                edgecolor='white', linewidth=0.3, alpha=0.3))
+
+    ax.set_xticks(range(N))
+    ax.set_yticks(range(N))
+    ax.set_xlabel("field_a")
+    ax.set_ylabel("field_b")
+    ax.set_title(label, fontsize=9)
+    ax.tick_params(labelsize=6)
+
+title_prefix = "Step 1: Full domain"
+ax = axes[0]
+ax.set_title("Step 0: Full domain\n(all 256 combinations)", fontsize=9)
+
+valid_count = np.sum(current)
+ax = axes[-1]
+ax.set_title(f"Final: {valid_count} valid\n(out of 256)", fontsize=9, color='green' if valid_count > 0 else 'red')
+
+plt.tight_layout()
+plt.show()
+```
