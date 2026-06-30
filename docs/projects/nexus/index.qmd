@@ -148,6 +148,44 @@ digraph RecursiveBlackboard {
 """)
 ```
 
+### nexd: Persistent Runtime Layer
+
+Bridging the architecture layers to actual execution, `nexd` is the native daemon that maintains the FIH blackboard as a persistent process and orchestrates agent application lifecycles. It provides Unix socket IPC for local clients, process spawn/monitor/kill for child agents, and an OODA scheduler for heartbeat monitoring and stale intent eviction.
+
+```{python}
+#| label: fig-nexd-architecture
+#| fig-cap: "nexd: three concurrent subsystems above a shared blackboard"
+dot("""
+digraph NexdArch {
+    rankdir=TB;
+    splines=ortho;
+    nodesep=0.3;
+    ranksep=0.35;
+    node [fontsize=9, width=1.6, height=0.35];
+
+    subgraph cluster_nexd {
+        label="nexd (daemon)";
+        style=filled; fillcolor="#f0f4f0"; color="#4488cc";
+
+        ipc [label="IPC Server
+(Unix socket)", shape=box, style=filled, fillcolor="#d4f1f9"];
+        sched [label="Scheduler
+(OODA tick)", shape=box, style=filled, fillcolor="#fff9c4"];
+        pm [label="Process Manager
+(spawn / monitor)", shape=box, style=filled, fillcolor="#ffe0b2"];
+        bb [label="FIH Blackboard
+(shared state space)", shape=box, style=filled, fillcolor="#a8e6cf"];
+
+        ipc -> bb;
+        sched -> bb;
+    }
+
+    external [label="External Agents\n(nex-* applications)", shape=box, style=filled, fillcolor="#e1bee7"];
+    external -> ipc [label="JSON-RPC over Unix socket", fontsize=8];
+}
+""")
+```
+
 ### The 5-Layer Architecture
 
 | Layer | Logical Component | Core Responsibility |

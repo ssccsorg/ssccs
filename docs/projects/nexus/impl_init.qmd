@@ -361,6 +361,127 @@ neXus supports N deployment modes sharing the same F-I-H interface. Two represen
 
 A real-time Blackboard can use a storage variant as its durable backend, flushing accumulated blocks to R2 on graceful shutdown. Both expose the same `BlockStore` trait — only delivery semantics differ.
 
+### nexd: Native Daemon Layer
+
+`nexd` is the unified native daemon for the nex ecosystem. It acts as the persistent runtime that maintains the FIH blackboard and orchestrates the execution of all `nex-*` applications (`nex-zed`, `nex-ev`, `nex-rem`, `actus`, etc.). Conceptual reference: nexd is to nex-* as iOS is to apps.
+
+```{python}
+#| label: fig-nexd-architecture
+#| fig-cap: "nexd architecture: three concurrent subsystems above the proc-daemon framework"
+dot("""
+digraph NexdArchitecture {
+    rankdir=TB;
+    splines=ortho;
+    nodesep=0.3;
+    ranksep=0.4;
+    node [fontsize=9, width=1.6, height=0.4];
+
+    subgraph cluster_nexd {
+        label="nexd (daemon)";
+        style=filled; fillcolor="#f0f4f0"; color="#4488cc";
+
+        ipc [label="IPC Server
+(Unix socket)
+JSON-RPC dispatcher", shape=box, style=filled, fillcolor="#d4f1f9", fontsize=8];
+        sched [label="Scheduler
+(OODA tick)
+heartbeat + eviction", shape=box, style=filled, fillcolor="#fff9c4", fontsize=8];
+        pm [label="Process Manager
+spawn / reap / kill
+shutdown_sync", shape=box, style=filled, fillcolor="#ffe0b2", fontsize=8];
+        bb [label="HybridBlackboard
+(nex::create_blackboard)
+hot + cold storage", shape=box, style=filled, fillcolor="#a8e6cf", fontsize=8];
+
+        ipc -> bb [label="read/write FIH", style=bold, color="#5577bb", fontsize=7];
+        sched -> bb [label="tick", style=dashed, color="#888", fontsize=7];
+    }
+
+    subgraph cluster_proc_daemon {
+        label="proc-daemon framework";
+        style=filled; fillcolor="#f5f5f5"; color="#888888";
+
+        signal [label="Signal Handler
+SIGTERM/SIGINT/SIGQUIT", shape=box, style=filled, fillcolor="#e8e8e8", fontsize=8];
+        shutdown [label="ShutdownCoordinator
+graceful + force + kill", shape=box, style=filled, fillcolor="#e8e8e8", fontsize=8];
+        subsys [label="SubsystemManager
+concurrent lifecycle", shape=box, style=filled, fillcolor="#e8e8e8", fontsize=8];
+
+        signal -> shutdown;
+        shutdown -> subsys;
+    }
+
+    subsys -> ipc [style=dotted];
+    subsys -> sched [style=dotted];
+    subsys -> pm [style=dotted];
+
+    client [label="External Clients
+socat / Python / actus\nnex-zed / nex-ev", shape=box, style=filled, fillcolor="#e1bee7", fontsize=8];
+    client -> ipc [label="line-delimited JSON", fontsize=7];
+}
+""")
+```
+
+#### IPC Protocol
+
+Line-delimited JSON-RPC over Unix domain socket (`/tmp/nexd.sock` by default).
+
+| Method | Description |
+|--------|-------------|
+| `write_fact` | Submit a Fact |
+| `read_fact` | Read a single Fact by ID |
+| `read_state` | Read full board state |
+| `write_intent` | Submit an Intent |
+| `claim_intent` | Claim an Intent for processing |
+| `heartbeat_intent` | Heartbeat for a claimed Intent |
+| `release_intent` | Release a claimed Intent |
+| `conclude_intent` | Conclude an Intent with a result |
+| `write_hint` | Submit a Hint |
+| `spawn_agent` | Spawn a child process |
+| `list_agents` | List managed child processes |
+| `kill_agent` | Kill a child process |
+
+#### Key Design Decisions
+
+| Decision | Rationale |
+|----------|-----------|
+| **proc-daemon as foundation** | Production-grade graceful shutdown, signal handling, subsystem lifecycle management |
+| **`nex::create_blackboard()` reuse** | Avoids duplicate implementation; same `HybridBlackboard` pattern as `apps/nex-api` |
+| **Unix socket IPC** | Lower latency, more secure, simpler than HTTP for local IPC |
+| **Process Manager in Phase 1** | Core responsibility — spawn, monitor, kill child `nex-*` processes |
+| **Connection Semaphore** | Max 128 concurrent connections to prevent resource exhaustion |
+| **Scheduler uses try_lock** | Non-blocking OODA tick — skips if blackboard is contended |
+
+#### IPC Error Codes
+
+| Code | Meaning |
+|------|---------|
+| `-32600` | Invalid Request |
+| `-32601` | Method not found |
+| `-32602` | Invalid params |
+| `-32000` | Internal error |
+| `-32001` | Not found |
+| `-32002` | Conflict |
+| `-32003` | Forbidden |
+
+#### Deployment
+
+```bash
+# Build and run
+cargo build --release -p nexd
+./target/release/nexd
+
+# With a startup agent
+./target/release/nexd actus
+
+# Test with socat
+echo '{"id":1,"method":"write_fact","params":{"origin":"test","content":"hello","creator":"alice"}}' | \
+  socat - UNIX-CONNECT:/tmp/nexd.sock
+```
+
+Environment variables: `NEXD_SOCKET_PATH`, `NEXD_TICK_INTERVAL_MS`, `NEXD_HEARTBEAT_TTL_SECS`, `NEXD_UNCLAIMED_INTENT_TTL_SECS`, `RUST_LOG`.
+
 ### Design Principle: Implement Strategically, Depend Widely
 
 Where differentiation matters (Cypher-to-petgraph translation, gap detection heuristics, platform bindings), we write code. Where stability matters (graph algorithms, persistence, parsing), we depend on verified Rust crates. The Blackboard is the thinnest possible layer that turns a collection of independent modules into a coherent multi-dimensional analysis platform.
