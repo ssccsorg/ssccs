@@ -1,0 +1,266 @@
+---
+title: "nex-calc"
+subtitle: "Number calculator as state space traversal"
+date: last-modified
+metadata-files:
+  - ../../../_include/author.yml
+abstract: |
+  nex-calc is a reference implementation of the FIH (Fact-Intent-Hint)
+  computation model. It demonstrates that any computation, from simple
+  arithmetic to vector transforms, can be expressed as a traversal of
+  the FIH coordinate space. The implementation is intentionally
+  inefficient: every number is an immutable Fact, every operator is an
+  Intent with direction, and every constraint is a dynamic Hint. This
+  redundancy is the philosophy. It reveals the algebraic structure
+  F x I x H -> F' that underlies SSCCS, proving that the model is not
+  merely an abstraction but a concrete intermediate representation for
+  hardware synthesis.
+---
+
+```{python}
+#| include: false
+#| context: local
+%run ../../../_include/_graphviz.py
+```
+
+```{python}
+title_meta_items = {
+    "html": [
+        {"title": "Source", "link": "https://github.com/ssccsorg/nexus/tree/main/apps/nex-calc", "content": "Github", "icon": "bi bi-link"},
+        {"title": "Reference", "link": "./index.html", "content": "Nexus Apps", "icon": "bi bi-link"},
+    ]
+}
+```
+
+{{< include ../../../_include/_title_meta_items.qmd >}}
+
+## Specification
+
+nex-calc is a command-line calculator. It accepts numbers and operators
+through an interactive prompt and returns results. Unlike any
+conventional calculator, every intermediate state is stored as an
+immutable Fact in the FIH (Fact-Intent-Hint) space, and every operation
+is a traversal through that space.
+
+### Interface
+
+The user stores a number, creates an operator Intent referencing that
+number, and resolves the Intent to produce a new Fact.
+
+```text
+> put 3
+Fact 2f1c..766b = 3
+> put 5
+Fact 024a..7141 = 5
+> add 2f1c 024a
+Intent e058..3250 (+ 2f1c..766b 024a..7141)
+> resolve e058
+3 + 5 = 8  -> Fact bfbf..e201 = 8
+```
+
+Constraints gate computation dynamically:
+
+```text
+> constrain gt 10
+Hint d5e6.. (result > 10)
+> add 2f1c 024a
+> resolve ...
+error: constraint violated: result > 10 (got 8)
+```
+
+### Operators
+
+| Category | Operators | Arity |
+|----------|-----------|-------|
+| Arithmetic | add, sub, mul, div, rem, pow, min, max | binary |
+| Unary | neg, abs, sqrt, fac | unary |
+| Bitwise | and, or, xor, shl, shr, bnot | binary or unary |
+| Vector (placeholder) | matmul, fft, conv | binary |
+
+The vector operators exist as placeholders. They return a "requires
+vector operand" error in scalar mode, demonstrating that the FIH model
+can accommodate any operator without structural change.
+
+### Storage
+
+All state lives in a single FihStorage instance with an in-memory IO
+backend (SimIo). The storage engine is the same one used throughout the
+neXus ecosystem. Swapping the IO backend changes the persistence layer
+without touching calculator logic:
+
+- SimIo: in-memory (development, testing)
+- FsIo: filesystem-backed
+- CfFihIo: Cloudflare R2-backed
+
+Number Facts store their value as a content-addressed blob:
+
+```text
+blob/{sha256_hash}.bin          -- i64 little-endian bytes
+blob/{sha256_hash}.bin.meta     -- ContentMeta (mime_type, size)
+```
+
+Fact identifiers are deterministic SHA256 hashes of the value, making
+identical values produce identical Facts (content-addressed dedup).
+
+## Design
+
+### Mapping
+
+Every concept in nex-calc maps directly to a FIH primitive:
+
+| FIH Primitive | nex-calc Role | Property |
+|---------------|---------------|----------|
+| Fact | A number at a coordinate | Immutable, content-addressed, append-only |
+| Intent | An operator with direction | Traverses from operand Facts to result Fact |
+| Hint | A constraint or transform | Dynamic boundary on traversal |
+
+Traversal of the FIH space IS the computation. The Intent does not
+compute the result; it declares the direction. Resolution follows that
+direction, reading Facts, applying the operator, checking constraints,
+and writing the result Fact at a new coordinate.
+
+### Traversal Flow
+
+```{python}
+#| label: fig-traversal
+#| fig-cap: "FIH traversal: Intent resolution as state space movement"
+dot("""
+digraph FihTraversal {
+    rankdir=LR;
+    node [shape=box, style=rounded];
+    Fact [label="Fact(lhs)\\n(immutable number)"];
+    Fact2 [label="Fact(rhs)\\n(immutable number)"];
+    Intent [label="Intent(op)\\n(directional vector)", shape=diamond];
+    Hint [label="Hint(constraint)\\n(dynamic boundary)", shape=parallelogram];
+    Result [label="Fact(result)\\n(new coordinate)"];
+    Fact -> Intent [label="from"];
+    Fact2 -> Intent [label="from"];
+    Intent -> Result [label="resolve"];
+    Hint -> Intent [label="gates"];
+}
+""")
+```
+
+### Algebraic Structure
+
+The traversal is governed by the algebra:
+
+```text
+F x I x H -> F'
+```
+
+Given a set of operand Facts F and a set of active Hints H, an Intent I
+maps to a result Fact F'. This is a pure function: the same Facts,
+Intent, and Hints always produce the same result Fact. The algebra is
+associative (multiple Intents can chain) and commutative (independent
+Intents can resolve in any order).
+
+## Meaning
+
+### Why Inefficiency
+
+nex-calc is intentionally redundant. A conventional calculator computes
+3 + 5 as a single CPU instruction. nex-calc requires:
+
+1. Two put operations (Fact creation)
+2. One add operation (Intent creation)
+3. One resolve operation (state space traversal)
+
+Each step leaves a permanent trace in the FIH space. No data is
+overwritten. No state is lost.
+
+This redundancy is the philosophy. It proves that computation can be
+modeled as state space traversal, not as instruction execution. The
+result is not the point; the traversal is.
+
+### What It Proves
+
+nex-calc demonstrates that the FIH model is not merely a knowledge
+management framework (as used in neXus blackboards) but a general
+computation model. Any computation expressible as a function from
+inputs to outputs can be mapped to a FIH traversal:
+
+- Arithmetic: Fact(a) x Intent(Add) x Fact(b) -> Fact(a+b)
+- Functions: Fact(lambda) x Intent(App) x Fact(arg) -> Fact(result)
+- Control flow: Fact(pred) x Intent(Cond) x Hints -> Fact(consequent) | Fact(alternative)
+- Iteration: Fact(0) x Intent(Loop) x Hints -> Fact(n)
+
+The distinguishing property is that every step is recorded. There is no
+hidden state, no mutable memory, no implicit control flow. The FIH
+space is the complete history of computation.
+
+## Connection to SSCCS
+
+### Field Composition as Hardware Synthesis
+
+The SSCCS concept of Field composition maps directly to operations on
+the FIH space:
+
+| SSCCS | nex-calc | Hardware Mapping |
+|-------|----------|------------------|
+| Compose (f then g) | Sequential Intent resolution | Pipeline: wire output to input |
+| Product (f parallel g) | Independent Intents | Spatial partitioning (separate LUT/DSP) |
+| Intersection (if cond then f else g) | Hint-gated resolution | Comparator + MUX |
+
+nex-calc does not implement these compositions explicitly (it resolves
+one Intent at a time), but the pattern is emergent: multiple Intents
+can be chained (Compose), resolved independently (Product), or gated by
+Hints (Intersection). The SSCCS Field algebra is the formalization of
+what nex-calc does ad-hoc.
+
+### The Bridge
+
+nex-calc is a bridge between two systems:
+
+- **neXus** provides the FIH storage infrastructure (FihStorage,
+  Blackboard traits, IO abstraction). nex-calc uses it without
+  modification, proving that FIH is a general computation substrate,
+  not just a knowledge management tool.
+- **SSCCS** provides the Field composition algebra that formalizes
+  computation as observation. nex-calc embodies this algebra in a
+  concrete implementation, proving that SSCCS is not just an
+  abstraction but a compilable intermediate representation.
+
+### Intellectual Debt
+
+nex-calc reveals what both systems still lack:
+
+For **neXus**: the Intent lifecycle currently requires claim/release/
+heartbeat for multi-agent coordination. nex-calc's single-user
+resolution bypasses this, suggesting a simpler "evaluate" path for
+deterministic computation.
+
+For **SSCCS**: the Field composition operators (Compose, Product,
+Intersection) are implicit in nex-calc but not formalized as a trait.
+The algebra exists in the traversal pattern but not in the type system.
+
+## Future Directions
+
+### Field Composition
+
+Implement ComposeField, ProductField, and IntersectionField as
+first-class operators. ComposeField chains two Intents: the result
+Fact of the first becomes the operand of the second (pipeline).
+ProductField resolves two Intents independently and returns a tuple
+(parallel dispatch). IntersectionField gates resolution on a
+predicate (conditional branch).
+
+These are the primitive Field composition operators of SSCCS.
+Implementing them in nex-calc would make the SSCCS algebra explicit
+at the Intent level.
+
+### Vector and Float Support
+
+The current implementation is limited to i64 scalars. Extending
+Content to support Vec<f64> or complex numbers would enable MatMul,
+FFT, and Conv with real implementations, not placeholders. The
+FIH structure does not change; only the interpretation of Content
+changes.
+
+### Hardware Mapping
+
+The Field -> hardware mapping (Compose -> wire, Product -> LUT,
+Intersection -> MUX) can be demonstrated concretely by generating
+a netlist from a sequence of Intent resolutions. This would prove
+that SSCCS Field composition is a viable intermediate representation
+for hardware synthesis.
