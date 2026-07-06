@@ -141,6 +141,26 @@ impl ConstraintSet {
                 .join(", ")
         }
     }
+
+    /// Remove the constraint at the given index. Returns true if removed.
+    pub fn remove(&mut self, index: usize) -> bool {
+        if index < self.constraints.len() {
+            self.constraints.remove(index);
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Remove all constraints.
+    pub fn clear(&mut self) {
+        self.constraints.clear();
+    }
+
+    /// Number of constraints currently set.
+    pub fn len(&self) -> usize {
+        self.constraints.len()
+    }
 }
 
 /// Relational topology of the Field – currently a weighted directed graph.
@@ -218,6 +238,21 @@ impl Field {
     /// Describe the current constraints (for debugging).
     pub fn describe_constraints(&self) -> String {
         self.constraints.describe()
+    }
+
+    /// Remove a constraint by index. Returns true if removed.
+    pub fn remove_constraint(&mut self, index: usize) -> bool {
+        self.constraints.remove(index)
+    }
+
+    /// Remove all constraints from this Field.
+    pub fn clear_constraints(&mut self) {
+        self.constraints.clear();
+    }
+
+    /// Number of constraints currently applied to this Field.
+    pub fn num_constraints(&self) -> usize {
+        self.constraints.len()
     }
 }
 

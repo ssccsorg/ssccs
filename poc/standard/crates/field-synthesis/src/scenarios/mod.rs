@@ -20,6 +20,7 @@ pub fn registry() -> Vec<Box<dyn Scenario>> {
         Box::new(IntersectMux {}),
         Box::new(ComposeVsUnion {}),
         Box::new(HardwareMappingFromSynthesis {}),
+        Box::new(DynamicConstraints {}),
     ]
 }
 
@@ -375,3 +376,62 @@ impl Scenario for HardwareMappingFromSynthesis {
 // ── Register new scenarios in registry() ──
 // This is appended to the existing registry() above.
 // In practice, the registry function would be expanded to include these.
+
+// ==================== DYNAMIC CONSTRAINT SCENARIO ====================
+//
+// Demonstrates nex-calc's Hint pattern: constraints can be added,
+// removed, and cleared dynamically — changing the Field's admissibility
+// without changing the Segments.
+
+struct DynamicConstraints;
+
+impl Scenario for DynamicConstraints {
+    fn name(&self) -> &'static str {
+        "Dynamic Constraints: add / remove / clear"
+    }
+
+    fn run(&self) {
+        use ssccs_examples::{EvenConstraint, RangeConstraint};
+
+        let mut field = Field::new();
+        let seg = Segment::new(Coordinates::new(vec![5, 0]));
+
+        // Initially no constraints — everything admissible
+        assert!(field.allows(seg.coordinates()));
+        assert_eq!(field.num_constraints(), 0);
+        println!("    Field with no constraints: admissible");
+
+        // Add constraint: axis 0 must be even
+        field.add_constraint(EvenConstraint::new(0));
+        assert!(!field.allows(seg.coordinates())); // 5 is odd
+        assert_eq!(field.num_constraints(), 1);
+        println!("    Added EvenConstraint([0]): admissible={}", field.allows(seg.coordinates()));
+
+        // Add another constraint: axis 0 in [0, 10]
+        field.add_constraint(RangeConstraint::new(0, 0, 10));
+        assert!(!field.allows(seg.coordinates())); // still odd
+        assert_eq!(field.num_constraints(), 2);
+        println!("    Added RangeConstraint(0, 0, 10): constraints={}", field.num_constraints());
+
+        // Remove the even constraint at index 0
+        assert!(field.remove_constraint(0));
+        assert!(field.allows(seg.coordinates())); // now only range, 5 in [0,10]
+        assert_eq!(field.num_constraints(), 1);
+        println!("    Removed EvenConstraint: admissible={}", field.allows(seg.coordinates()));
+
+        // Clear all constraints
+        field.clear_constraints();
+        assert!(field.allows(seg.coordinates())); // back to fully admissible
+        assert_eq!(field.num_constraints(), 0);
+        println!("    Cleared all constraints: admissible={}", field.allows(seg.coordinates()));
+
+        // Dynamic constraint equivalent to nex-calc's `constrain` / `clear` commands
+        println!("    → Dynamic constraints mirror nex-calc's Hint lifecycle");
+        println!("    → constrain gt 10 → add_constraint(GreaterThan(10))");
+        println!("    → constrain clear  → clear_constraints()");
+    }
+}
+
+// ── Update registry() — already appended to in the previous block.
+// The registry() function now includes all operator + dynamic scenarios.
+// Please also add "DynamicConstraints" to the vec in registry() above.
