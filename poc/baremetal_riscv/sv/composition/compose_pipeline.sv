@@ -1,52 +1,39 @@
 // SSCCS Composition: Pipeline (Compose)
-// P(x,y) = B(A(x, y_a), y_b)
+// P(x, y, z) = B(A(x, y), z)
 //
 // Operator-level sequential composition: the output of Projector A
 // becomes the input to Projector B. This is NOT constraint-level
 // filtering (Union/Intersection/Product), but operator chaining.
 //
 // Concept proven by nex-calc (nexus PR #143):
-//   resolve(A) → intermediate Fact → resolve(B) → result Fact
+//   calc.op(OpType::Add, &a, &b) → resolve → intermediate Fact → calc.op(OpType::Mul, ...) → resolve → result
 //
-// Hardware mapping: Pipeline register
-//   [coord] → [Projector A] → [reg] → [Projector B] → [result]
+// Hardware: pipeline register between two projector stages
+//   [Projector A] → [intermediate_in] → [pipeline reg] → [piped_out] → [Projector B] → result
 //
-// This is distinct from compose_union (C₁ ∨ C₂) and compose_intersect
-// (C₁ ∧ C₂), which check constraint admissibility in parallel.
-// compose_pipeline chains projectors sequentially.
+// Usage:
+//   compose_pipeline u_pipe (.clk, .rst_n, .intermediate_in(sum_result), .piped_out(piped), .result());
+//   proj_sum2d  u_a (.coord_a(x), .coord_b(y), .result(sum_result));
+//   proj_mul    u_b (.coord_a(piped), .coord_b(z), .result(final_result));
 
 module compose_pipeline (
-    input  logic clk,
-    input  logic rst_n,
-    input  logic [63:0] coord_a,
-    input  logic [63:0] coord_b,
-    output logic [63:0] result
+    input  logic        clk,
+    input  logic        rst_n,
+    input  logic [63:0] intermediate_in,  // Projector A's output (driven externally)
+    output logic [63:0] piped_out,        // Pipeline register output (to Projector B)
+    output logic [63:0] result            // Same as piped_out (convenience alias)
 );
 
-    // Stage 1: Projector A
-    logic [63:0] intermediate;
-
-    // Stage 2: Projector B uses intermediate as one operand
-    // The caller wires the appropriate projector modules externally
-    // and connects their inputs/outputs through the pipeline stage registers.
-
-    // Pipeline register
     logic [63:0] stage_reg;
+
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n)
             stage_reg <= 64'd0;
         else
-            stage_reg <= intermediate;
+            stage_reg <= intermediate_in;
     end
 
-    // The actual projector wiring is done by the instantiating module.
-    // This module provides the pipeline stage structure; the caller
-    // instantiates proj_x and proj_y modules and connects them through
-    // this pipeline's ports.
-    //
-    // Example instantiation:
-    //   compose_pipeline u_pipe (.clk, .rst_n, .coord_a, .coord_b, .result);
-    //   proj_sum2d u_a (.coord_a(data_x), .coord_b(data_y), .result(u_pipe.intermediate));
-    //   proj_mul  u_b (.coord_a(u_pipe.stage_reg), .coord_b(data_z), .result(u_pipe.result));
+    assign piped_out = stage_reg;
+    assign result    = stage_reg;
 
 endmodule

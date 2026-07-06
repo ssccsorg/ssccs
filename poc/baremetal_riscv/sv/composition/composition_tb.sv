@@ -61,12 +61,20 @@ module composition_tb;
         .result(intersect_5_result)
     );
 
+    wire [63:0] sum_result;
+
+    proj_sum2d u_pipe_source (
+        .coord_a(64'd7),
+        .coord_b(64'd6),
+        .result(sum_result)
+    );
+
     compose_pipeline u_pipe (
         .clk(clk),
         .rst_n(rst_n),
-        .coord_a(64'd7),
-        .coord_b(64'd6),
-        .result(pipe_result)
+        .intermediate_in(sum_result),
+        .piped_out(pipe_result),
+        .result()
     );
 
     proj_mul u_mul (
@@ -208,7 +216,15 @@ module composition_tb;
         assert(div_result == 64'd7) else $error("proj_div(42,6): expected 7");
         $display("  proj_div(42,6) = %0d  PASS", div_result);
 
-        $display("  compose_pipeline structural: PASS");
+        // proj_sum2d(7,6) = 13 (combinational, feeds compose_pipeline.intermediate_in)
+        #1;
+        assert(sum_result == 64'd13) else $error("proj_sum2d(7,6): expected 13");
+        $display("  proj_sum2d(7,6) = %0d  PASS", sum_result);
+
+        // After clock edge, pipeline register latches sum_result
+        @(posedge clk); #1;
+        assert(pipe_result == 64'd13) else $error("pipeline reg: expected 13");
+        $display("  compose_pipeline(13) = %0d  PASS", pipe_result);
 
         $display("");
         $display("=== Composition Verification: ALL PASSED ===");
