@@ -414,6 +414,13 @@ BATCH_COORDS: .8byte SEG_0, SEG_1, SEG_2, SEG_3, SEG_4
 
 # ═══════════════════════════════════════════════════════════════════
 # Operator-Level Composition: Pipeline (Compose)
+#
+# Note: These functions are NOT part of the golden anchor system.
+# They are verified through the SystemVerilog testbench
+# (sv/composition/composition_tb.sv) via Verilator.
+# SV modules compose_pipeline.sv, proj_mul.sv, proj_div.sv
+# provide the formal verification path.
+# The ASM implementations mirror the SV logic for RISC-V targets.
 # P(x, y, z) = proj_b(proj_a(x, y), z)
 #
 # Projector A computes on (x, y) → intermediate
