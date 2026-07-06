@@ -32,6 +32,9 @@ COMPOSE_BIN     := $(COMPOSE_OBJDIR)/V$(COMPOSE_TOP)
 COMPOSE_SRCS := $(SVDIR)/composition/compose_union.sv \
                $(SVDIR)/composition/compose_intersect.sv \
                $(SVDIR)/composition/compose_product_2d.sv \
+               $(SVDIR)/composition/compose_pipeline.sv \
+               $(SVDIR)/projectors/proj_mul.sv \
+               $(SVDIR)/projectors/proj_div.sv \
                $(SVDIR)/composition/composition_tb.sv
 
 .PHONY: all clean run check compose-check
@@ -73,7 +76,7 @@ golden-anchor-check:
 $(COMPOSE_BIN): $(COMPOSE_SRCS) $(SVDIR)/_golden_anchors.svh
 	verilator --binary --timing --top-module $(COMPOSE_TOP) \
 		-Wno-fatal -Wno-WIDTH -Wno-UNUSED \
-		-I$(SVDIR) \
+		-I$(SVDIR) -I$(SVDIR)/constraints -I$(SVDIR)/projectors -I$(SVDIR)/composition \
 		$(COMPOSE_SRCS) \
 		-CFLAGS "-O0" \
 		--Mdir $(COMPOSE_OBJDIR)
