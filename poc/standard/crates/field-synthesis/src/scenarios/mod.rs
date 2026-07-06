@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use ssccs_core::{Coordinates, Field, Segment};
+use ssccs_core::{Coordinates, Field, Projector, Segment};
 use ssccs_examples::{CoordinateSumProjector, EvenConstraint, RangeConstraint};
 use ssccs_field_synthesis::{compose_observe, intersection, union};
 
@@ -12,7 +12,15 @@ pub trait Scenario {
 
 /// All registered scenarios.
 pub fn registry() -> Vec<Box<dyn Scenario>> {
-    vec![Box::new(Grid2D {}), Box::new(SensorTimeTemp {})]
+    vec![
+        Box::new(Grid2D {}),
+        Box::new(SensorTimeTemp {}),
+        Box::new(ComposePipeline {}),
+        Box::new(ProductParallel {}),
+        Box::new(IntersectMux {}),
+        Box::new(ComposeVsUnion {}),
+        Box::new(HardwareMappingFromSynthesis {}),
+    ]
 }
 
 // ==================== GRID 2D ====================
@@ -188,3 +196,169 @@ impl Scenario for SensorTimeTemp {
         println!("    → Field composition changes inquiry without changing the space.");
     }
 }
+
+// ==================== OPERATOR-LEVEL COMPOSITION SCENARIOS ====================
+//
+// These scenarios demonstrate operator-level Field composition:
+//   Compose (pipeline)  = projector A output → projector B input
+//   Product (parallel)  = two projectors evaluate independently
+//   Intersect (MUX)     = condition selects which projector to apply
+//
+// This is distinct from constraint-level composition (Union/Intersection/Product)
+// above. Constraint composition asks "does this coordinate satisfy constraints?"
+// Operator composition asks "what does this projector output feed into another?"
+//
+// Proven by nex-calc (F x I x H -> F') and backported into SSCCS core.
+
+struct ComposePipeline;
+
+impl Scenario for ComposePipeline {
+    fn name(&self) -> &'static str {
+        "Operator Pipeline: seq(proj_a, proj_b)"
+    }
+
+    fn run(&self) {
+        use ssccs_examples::IntegerProjector;
+
+        let seg = Segment::new(Coordinates::new(vec![5, 3]));
+        let proj_a = IntegerProjector::new(0); // extracts axis 0 → 5
+        let proj_b = IntegerProjector::new(0); // extracts axis 0 from new seg
+
+        let intermediate = proj_a.project(&Field::new(), &seg).unwrap();
+        let pipe_seg = Segment::new(Coordinates::new(vec![intermediate, 7]));
+        let result = proj_b.project(&Field::new(), &pipe_seg).unwrap();
+
+        assert_eq!(intermediate, 5, "pipeline step 1: extract axis0 → 5");
+        assert_eq!(result, 5, "pipeline step 2: pipe 5 into new segment, extract → 5");
+        println!("    seq(extract0, extract0) on [5,3] → pipe → {}", result);
+        println!("    → Compose = pipeline: Projector A output wired to Projector B input");
+    }
+}
+
+struct ProductParallel;
+
+impl Scenario for ProductParallel {
+    fn name(&self) -> &'static str {
+        "Operator Product: par(proj_a, proj_b)"
+    }
+
+    fn run(&self) {
+        use ssccs_examples::IntegerProjector;
+
+        let seg = Segment::new(Coordinates::new(vec![10, 42]));
+        let pa = IntegerProjector::new(0);
+        let pb = IntegerProjector::new(1);
+
+        let r1 = pa.project(&Field::new(), &seg).unwrap();
+        let r2 = pb.project(&Field::new(), &seg).unwrap();
+
+        assert_eq!(r1, 10, "product A: extract axis 0 from [10,42]");
+        assert_eq!(r2, 42, "product B: extract axis 1 from [10,42]");
+        println!("    par(extract0, extract1) on [10,42] → ({}, {})", r1, r2);
+        println!("    → Product = parallel: independent projectors, no data flow");
+    }
+}
+
+struct IntersectMux;
+
+impl Scenario for IntersectMux {
+    fn name(&self) -> &'static str {
+        "Operator Intersect: mux(cond, proj_then, proj_else)"
+    }
+
+    fn run(&self) {
+        use ssccs_examples::IntegerProjector;
+
+        let then_proj = IntegerProjector::new(0);
+        let else_proj = IntegerProjector::new(1);
+
+        // cond: axis0 > 5
+        let seg = Segment::new(Coordinates::new(vec![8, 3]));
+        let result = match seg.coordinates().get_axis(0).unwrap() > 5 {
+            true => then_proj.project(&Field::new(), &seg).unwrap(),
+            false => else_proj.project(&Field::new(), &seg).unwrap(),
+        };
+        assert_eq!(result, 8, "axis0=8 > 5 → then → extract0 = 8");
+
+        let seg2 = Segment::new(Coordinates::new(vec![2, 99]));
+        let result2 = match seg2.coordinates().get_axis(0).unwrap() > 5 {
+            true => then_proj.project(&Field::new(), &seg2).unwrap(),
+            false => else_proj.project(&Field::new(), &seg2).unwrap(),
+        };
+        assert_eq!(result2, 99, "axis0=2 ≤ 5 → else → extract1 = 99");
+
+        println!("    mux(axis0>5, extract0, extract1) on [8,3] → {}", result);
+        println!("    mux(axis0>5, extract0, extract1) on [2,99] → {}", result2);
+        println!("    → Intersect = MUX: comparator selects active projector path");
+    }
+}
+
+struct ComposeVsUnion;
+
+impl Scenario for ComposeVsUnion {
+    fn name(&self) -> &'static str {
+        "Compose ≠ Constraint Union"
+    }
+
+    fn run(&self) {
+        use ssccs_examples::{EvenConstraint, RangeConstraint};
+
+        // Constraint Union: admissible if A OR B allows
+        let mut fa = Field::new();
+        fa.add_constraint(EvenConstraint::new(0));
+        fa.add_constraint(RangeConstraint::new(0, 0, 10));
+        let mut fb = Field::new();
+        fb.add_constraint(RangeConstraint::new(1, 0, 5));
+
+        let coord = Coordinates::new(vec![3, 3]); // axis0=3 (odd → A rejects), axis1=3 (B accepts)
+        assert!(!fa.allows(&coord), "A rejects odd axis0");
+        assert!(fb.allows(&coord), "B accepts axis1=3");
+        assert!(fa.allows(&coord) || fb.allows(&coord), "Union accepts");
+
+        // Operator Compose: A must produce output BEFORE B can consume it
+        use ssccs_examples::IntegerProjector;
+        let step1 = IntegerProjector::new(0).project(&fa, &Segment::new(coord));
+        // IntegerProjector ignores constraints — it always extracts
+        assert_eq!(step1, Some(3), "Projector extracts regardless of constraint");
+        println!("    Constraint Union: A ∨ B at [3,3] → admissible (B accepts)");
+        println!("    Operator Compose: extract0 → [3] → needs only Projector, not constraint");
+        println!("    → Compose chains Projectors; Union filters by Field constraints");
+        println!("    → Two distinct dimensions of Field composition");
+    }
+}
+
+struct HardwareMappingFromSynthesis;
+
+impl Scenario for HardwareMappingFromSynthesis {
+    fn name(&self) -> &'static str {
+        "Hardware Mapping: field-synthesis → hardware-mapping"
+    }
+
+    fn run(&self) {
+        use ssccs_hardware_mapping::*;
+
+        let pipe = compose_to_pipeline(2);
+        assert!(matches!(pipe, HardwarePrimitive::Pipeline { stages: 2, .. }));
+
+        let par = product_to_parallel(2);
+        assert!(matches!(par, HardwarePrimitive::Parallel { units: 2, .. }));
+
+        let mux = intersect_to_mux("axis0>5", compose_to_pipeline(1), compose_to_pipeline(1));
+        assert!(matches!(mux, HardwarePrimitive::Mux { .. }));
+
+        let sv = generate_pipeline_sv(2, "proj_sum2d", "proj_mul");
+        assert!(sv.contains("proj_sum2d"));
+        assert!(sv.contains("proj_mul"));
+
+        println!("    Compose (pipeline) → 2-stage pipeline: verified");
+        println!("    Product (parallel) → dual DSP: verified");
+        println!("    Intersect (MUX) → comparator + MUX: verified");
+        println!("    SV generation for compose pipeline: verified");
+        println!("    → field-synthesis drives hardware-mapping crate");
+        println!("    → This closes the gap: constraint algebra → hardware primitives");
+    }
+}
+
+// ── Register new scenarios in registry() ──
+// This is appended to the existing registry() above.
+// In practice, the registry function would be expanded to include these.
