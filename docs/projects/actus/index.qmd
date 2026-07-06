@@ -1,0 +1,106 @@
+---
+title: "Actus"
+subtitle: "Headless AI Agent Server for Development Workflows"
+date: last-modified
+format:
+    html: {}
+metadata-files:
+  - ../../_include/author.yml
+  - ../../_include/format.html.yml
+---
+
+```{python}
+#| include: false
+#| context: local
+title_meta_items = {
+    "html": [
+        {"title": "Code", "link": "https://github.com/ssccsorg/actus", "content": "GitHub (Pre-release)", "icon": "bi bi-link"},
+        {"title": "References", "link": "https://docs.ssccs.org/projects/nexus/", "content": "neXus", "icon": "bi bi-link"},
+        {"title": "References", "link": "https://docs.ssccs.org/projects/", "content": "SSCCS Projects", "icon": "bi bi-link"},
+        {"title": "License", "link": "https://github.com/ssccsorg/actus", "content": "BUSL-1.1", "icon": "bi bi-link"},
+    ],
+    "pdf": [
+        {"title": "Code", "link": "https://github.com/ssccsorg/actus", "content": "GitHub", "icon": "bi bi-link"},
+        {"title": "References", "link": "https://docs.ssccs.org/projects/nexus/", "content": "neXus", "icon": "bi bi-link"},
+        {"title": "References", "link": "https://docs.ssccs.org/projects/", "content": "SSCCS Projects", "icon": "bi bi-link"},
+        {"title": "License", "link": "https://github.com/ssccsorg/actus", "content": "BUSL-1.1", "icon": "bi bi-link"},
+    ]
+}
+```
+
+{{< include ../../_include/_title_meta_items.qmd >}}
+
+```{python}
+#| include: false
+#| context: local
+%run ../../_include/_graphviz.py
+```
+
+Actus is a headless AI agent server that pairs a stateless language model with persistent conversation state, filesystem awareness, and tool execution capabilities through a lightweight HTTP interface.
+
+A large language model by itself is stateless. Every interaction starts from zero. To make an AI assistant useful across sessions, the infrastructure around it must manage conversation history, provide context about the workspace, and handle tool invocations. Actus solves this by running a headless, GUI-less development agent alongside a minimal server that external clients can call directly. The result is a drop-in AI coding agent that runs on any machine without a desktop environment, display server, or browser.
+
+Where full IDE remote-server setups require a desktop environment and a heavyweight API surface, Actus runs headless: no GUI, no X server, no browser. A single command is all you need to chat with an agent that has full filesystem and git awareness.
+
+## Architecture
+
+```{python}
+#| label: fig-actus-architecture
+#| fig-cap: "Actus: a server layer bridges external clients to a headless agent process."
+dot("""
+digraph ActusArchitecture {
+    rankdir=LR;
+    splines=ortho;
+    nodesep=0.6;
+    ranksep=0.8;
+    fontname="Arial";
+
+    client [label="External Client\n(CLI / HTTP)", shape=box, style=filled, fillcolor="#d4f1f9", fontsize=12, width=1.8];
+
+    subgraph cluster_actus {
+        label="Actus Server"; fontsize=14; style=filled; fillcolor="#f0f4f0";
+        color="#4488cc"; penwidth=2;
+
+        api [label="HTTP API Layer", shape=box, style=filled, fillcolor="#a8e6cf", fontsize=11, width=1.6];
+        state [label="Session State\n+ Persistence", shape=box, style=filled, fillcolor="#fff9c4", fontsize=11, width=1.6];
+        bridge [label="Agent Bridge", shape=box, style=filled, fillcolor="#ffd3b6", fontsize=11, width=1.6];
+        ctx [label="Workspace Context\n(Files / Git)", shape=box, style=filled, fillcolor="#e1bee7", fontsize=11, width=1.6];
+
+        api -> state [style=bold, color="#5577bb"];
+        state -> bridge [style=bold, color="#5577bb"];
+        state -> ctx [style=dashed, color="#667766"];
+    }
+
+    agent [label="Headless Agent\n(AI coding agent)", shape=box, style=filled, fillcolor="#c8e6c9", fontsize=12, width=1.8];
+
+    client -> api [label="REST / Streaming", style=bold, color="#5577bb"];
+    bridge -> agent [label="Protocol Bridge", style=bold, color="#5577bb"];
+}
+""")
+```
+
+The architecture follows a layered separation of concerns:
+
+- **HTTP API Layer**: Exposes the agent's capabilities over REST with streaming support for real-time response delivery. Clients interact through a uniform interface without needing to manage the agent process directly.
+
+- **Session State and Persistence**: Manages conversation threads across reconnections. Each thread maintains its full message history, so the agent resumes from where it left off even after connection drops or server restarts.
+
+- **Agent Bridge**: The communication channel between the server and the headless agent process. Handles automatic reconnection, message delivery guarantees, and the lifecycle of the agent process.
+
+- **Workspace Context**: Provides filesystem-level and git-aware context to the agent. Enables file search, repository structure awareness, and workspace navigation without manual path specification.
+
+## Design Principles
+
+**Stateless client, stateful server.** Clients send individual messages without managing conversation history. The server tracks thread state, injects prior context, and presents a coherent narrative to the agent on each turn.
+
+**Headless by default.** The agent runs without any graphical interface. This eliminates the dependency on desktop environments, display servers, and browser runtimes, making the system deployable on servers, containers, edge nodes, and embedded devices.
+
+**Protocol isolation.** The server owns the agent lifecycle and communication protocol. Clients interact only through HTTP, insulating them from changes in the underlying agent protocol or implementation.
+
+## Status and Direction
+
+Actus is in active development. The core chat loop, thread management, and workspace awareness are operational. Current work focuses on agent configuration profiles, multi-model routing, and integration with the neXus blackboard for long-term conversation archival and cross-session knowledge accumulation.
+
+---
+
+*Actus is a project of the SSCCS Foundation.* Inquiries: [actus@ssccs.org](mailto:actus@ssccs.org).
