@@ -160,7 +160,10 @@ impl Projector for NegProjector {
     type Output = i64;
 
     fn project(&self, _field: &Field, segment: &Segment) -> Option<Self::Output> {
-        segment.coordinates().get_axis(0).and_then(|a| a.checked_neg())
+        segment
+            .coordinates()
+            .get_axis(0)
+            .and_then(|a| a.checked_neg())
     }
 }
 
@@ -248,7 +251,7 @@ mod tests {
     fn test_bitwise() {
         let seg = Segment::new(Coordinates::new(vec![6, 3]));
         assert_eq!(BitAndProjector.project(&Field::new(), &seg), Some(2)); // 110 & 011 = 010
-        assert_eq!(BitOrProjector.project(&Field::new(), &seg), Some(7));  // 110 | 011 = 111
+        assert_eq!(BitOrProjector.project(&Field::new(), &seg), Some(7)); // 110 | 011 = 111
         assert_eq!(BitXorProjector.project(&Field::new(), &seg), Some(5)); // 110 ^ 011 = 101
     }
 }
