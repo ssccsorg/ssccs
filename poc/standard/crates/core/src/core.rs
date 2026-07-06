@@ -161,6 +161,11 @@ impl ConstraintSet {
     pub fn len(&self) -> usize {
         self.constraints.len()
     }
+
+    /// Returns true if no constraints are set.
+    pub fn is_empty(&self) -> bool {
+        self.constraints.is_empty()
+    }
 }
 
 /// Relational topology of the Field – currently a weighted directed graph.

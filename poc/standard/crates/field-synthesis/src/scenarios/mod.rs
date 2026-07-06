@@ -405,25 +405,37 @@ impl Scenario for DynamicConstraints {
         field.add_constraint(EvenConstraint::new(0));
         assert!(!field.allows(seg.coordinates())); // 5 is odd
         assert_eq!(field.num_constraints(), 1);
-        println!("    Added EvenConstraint([0]): admissible={}", field.allows(seg.coordinates()));
+        println!(
+            "    Added EvenConstraint([0]): admissible={}",
+            field.allows(seg.coordinates())
+        );
 
         // Add another constraint: axis 0 in [0, 10]
         field.add_constraint(RangeConstraint::new(0, 0, 10));
         assert!(!field.allows(seg.coordinates())); // still odd
         assert_eq!(field.num_constraints(), 2);
-        println!("    Added RangeConstraint(0, 0, 10): constraints={}", field.num_constraints());
+        println!(
+            "    Added RangeConstraint(0, 0, 10): constraints={}",
+            field.num_constraints()
+        );
 
         // Remove the even constraint at index 0
         assert!(field.remove_constraint(0));
         assert!(field.allows(seg.coordinates())); // now only range, 5 in [0,10]
         assert_eq!(field.num_constraints(), 1);
-        println!("    Removed EvenConstraint: admissible={}", field.allows(seg.coordinates()));
+        println!(
+            "    Removed EvenConstraint: admissible={}",
+            field.allows(seg.coordinates())
+        );
 
         // Clear all constraints
         field.clear_constraints();
         assert!(field.allows(seg.coordinates())); // back to fully admissible
         assert_eq!(field.num_constraints(), 0);
-        println!("    Cleared all constraints: admissible={}", field.allows(seg.coordinates()));
+        println!(
+            "    Cleared all constraints: admissible={}",
+            field.allows(seg.coordinates())
+        );
 
         // Dynamic constraint equivalent to nex-calc's `constrain` / `clear` commands
         println!("    → Dynamic constraints mirror nex-calc's Hint lifecycle");
