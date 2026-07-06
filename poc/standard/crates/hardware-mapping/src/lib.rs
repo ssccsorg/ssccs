@@ -108,9 +108,9 @@ pub fn generate_pipeline_sv(stages: usize, op_a: &str, op_b: &str) -> String {
     sv.push_str("module compose_pipeline (\n");
     sv.push_str("    input  wire clk,\n");
     sv.push_str("    input  wire rst_n,\n");
-    sv.push_str("    input  wire [63:0] operand_a,\n");
-    sv.push_str("    input  wire [63:0] operand_b,\n");
-    sv.push_str("    output wire [63:0] result\n");
+    sv.push_str("    input  wire [63:0] intermediate_in,  // Projector A output\n");
+    sv.push_str("    output wire [63:0] piped_out,        // Registered pipeline stage\n");
+    sv.push_str("    output wire [63:0] result            // Same as piped_out\n");
     sv.push_str(");\n\n");
     for i in 1..=stages {
         sv.push_str(&format!("    reg [63:0] stage_{i}_reg;\n"));
@@ -169,5 +169,8 @@ mod tests {
         assert!(sv.contains("compose_pipeline"));
         assert!(sv.contains("stage_1_reg"));
         assert!(sv.contains("stage_2_reg"));
+        // Port names must match baremetal_riscv/sv/composition/compose_pipeline.sv
+        assert!(sv.contains("intermediate_in"), "SV port: intermediate_in");
+        assert!(sv.contains("piped_out"), "SV port: piped_out");
     }
 }
