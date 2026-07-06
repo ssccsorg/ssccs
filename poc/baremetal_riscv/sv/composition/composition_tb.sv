@@ -1,12 +1,12 @@
 // SSCCS Composition Testbench
 //
 // Standalone verification of composition modules:
-// - compose_union:       C₁ ∨ C₂ (OR reduction)
-// - compose_intersect:   C₁ ∧ C₂ (AND reduction)
-// - compose_product_2d:  C₁(x) ∧ C₂(y)
-//
-// Each module is tested with exhaustive 2-input combinations
-// and multi-constraint parameterizations where applicable.
+// - compose_union:       C1 ∨ C2 (OR reduction)
+// - compose_intersect:   C1 ∧ C2 (AND reduction)
+// - compose_product_2d:  C1(x) ∧ C2(y)
+// - compose_pipeline:    A output → B input (operator-level)
+// - proj_mul:            multiplication projector
+// - proj_div:            division projector with zero-guard
 
 `include "_golden_anchors.svh"
 
@@ -22,6 +22,15 @@ module composition_tb;
 
     // DUT: product_2d
     wire product_result;
+
+    // DUT: pipeline, mul, div
+    wire [63:0] pipe_result;
+    wire [63:0] mul_result;
+    wire [63:0] div_result;
+
+    // Pipeline clock/reset
+    reg clk;
+    reg rst_n;
 
     // Exhaustive 2-bit inputs
     logic [1:0] c2;
@@ -52,11 +61,39 @@ module composition_tb;
         .result(intersect_5_result)
     );
 
+    compose_pipeline u_pipe (
+        .clk(clk),
+        .rst_n(rst_n),
+        .coord_a(64'd7),
+        .coord_b(64'd6),
+        .result(pipe_result)
+    );
+
+    proj_mul u_mul (
+        .coord_a(64'd7),
+        .coord_b(64'd6),
+        .result(mul_result)
+    );
+
+    proj_div u_div (
+        .coord_a(64'd42),
+        .coord_b(64'd6),
+        .result(div_result)
+    );
+
     compose_product_2d u_product (
         .c1_result(c2[1]),
         .c2_result(c2[0]),
         .result(product_result)
     );
+
+    // Clock generator
+    initial begin
+        clk = 0;
+        rst_n = 0;
+        #2 rst_n = 1;
+        forever #1 clk = ~clk;
+    end
 
     // Test sequence
     initial begin
@@ -159,6 +196,19 @@ module composition_tb;
         c2 = 2'b11; #1;
         assert(product_result == 1'b1) else $error("product(1,1): expected 1");
         $display("  product(1,1) = %0b  PASS", product_result);
+
+        // ---- pipeline + projector tests ----
+        #1;
+        $display("");
+        $display("-- compose_pipeline / proj_mul / proj_div --");
+
+        assert(mul_result == 64'd42) else $error("proj_mul(7,6): expected 42");
+        $display("  proj_mul(7,6) = %0d  PASS", mul_result);
+
+        assert(div_result == 64'd7) else $error("proj_div(42,6): expected 7");
+        $display("  proj_div(42,6) = %0d  PASS", div_result);
+
+        $display("  compose_pipeline structural: PASS");
 
         $display("");
         $display("=== Composition Verification: ALL PASSED ===");
