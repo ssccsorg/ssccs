@@ -229,7 +229,10 @@ impl Scenario for ComposePipeline {
         let result = proj_b.project(&Field::new(), &pipe_seg).unwrap();
 
         assert_eq!(intermediate, 5, "pipeline step 1: extract axis0 → 5");
-        assert_eq!(result, 5, "pipeline step 2: pipe 5 into new segment, extract → 5");
+        assert_eq!(
+            result, 5,
+            "pipeline step 2: pipe 5 into new segment, extract → 5"
+        );
         println!("    seq(extract0, extract0) on [5,3] → pipe → {}", result);
         println!("    → Compose = pipeline: Projector A output wired to Projector B input");
     }
@@ -288,7 +291,10 @@ impl Scenario for IntersectMux {
         assert_eq!(result2, 99, "axis0=2 ≤ 5 → else → extract1 = 99");
 
         println!("    mux(axis0>5, extract0, extract1) on [8,3] → {}", result);
-        println!("    mux(axis0>5, extract0, extract1) on [2,99] → {}", result2);
+        println!(
+            "    mux(axis0>5, extract0, extract1) on [2,99] → {}",
+            result2
+        );
         println!("    → Intersect = MUX: comparator selects active projector path");
     }
 }
@@ -319,7 +325,11 @@ impl Scenario for ComposeVsUnion {
         use ssccs_examples::IntegerProjector;
         let step1 = IntegerProjector::new(0).project(&fa, &Segment::new(coord));
         // IntegerProjector ignores constraints — it always extracts
-        assert_eq!(step1, Some(3), "Projector extracts regardless of constraint");
+        assert_eq!(
+            step1,
+            Some(3),
+            "Projector extracts regardless of constraint"
+        );
         println!("    Constraint Union: A ∨ B at [3,3] → admissible (B accepts)");
         println!("    Operator Compose: extract0 → [3] → needs only Projector, not constraint");
         println!("    → Compose chains Projectors; Union filters by Field constraints");
@@ -338,7 +348,10 @@ impl Scenario for HardwareMappingFromSynthesis {
         use ssccs_hardware_mapping::*;
 
         let pipe = compose_to_pipeline(2);
-        assert!(matches!(pipe, HardwarePrimitive::Pipeline { stages: 2, .. }));
+        assert!(matches!(
+            pipe,
+            HardwarePrimitive::Pipeline { stages: 2, .. }
+        ));
 
         let par = product_to_parallel(2);
         assert!(matches!(par, HardwarePrimitive::Parallel { units: 2, .. }));

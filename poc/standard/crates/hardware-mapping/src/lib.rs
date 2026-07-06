@@ -39,10 +39,7 @@ pub enum HardwarePrimitive {
         latency_cycles: usize,
     },
     /// Parallel execution: independent hardware blocks.
-    Parallel {
-        units: usize,
-        independent: bool,
-    },
+    Parallel { units: usize, independent: bool },
     /// Multiplexer: condition selects between two paths.
     Mux {
         comparison: String,
@@ -50,15 +47,9 @@ pub enum HardwarePrimitive {
         false_path: Box<HardwarePrimitive>,
     },
     /// Combinational gate: AND, OR, XOR applied to admissibility signals.
-    Gate {
-        gate_type: String,
-        inputs: usize,
-    },
+    Gate { gate_type: String, inputs: usize },
     /// Direct wire connection between hardware primitives.
-    Wire {
-        from: String,
-        to: String,
-    },
+    Wire { from: String, to: String },
 }
 
 /// Map a compose pattern to a pipeline primitive.
@@ -78,7 +69,11 @@ pub fn product_to_parallel(units: usize) -> HardwarePrimitive {
 }
 
 /// Map an intersect pattern to a MUX.
-pub fn intersect_to_mux(condition: &str, true_path: HardwarePrimitive, false_path: HardwarePrimitive) -> HardwarePrimitive {
+pub fn intersect_to_mux(
+    condition: &str,
+    true_path: HardwarePrimitive,
+    false_path: HardwarePrimitive,
+) -> HardwarePrimitive {
     HardwarePrimitive::Mux {
         comparison: condition.to_string(),
         true_path: Box::new(true_path),
@@ -88,12 +83,18 @@ pub fn intersect_to_mux(condition: &str, true_path: HardwarePrimitive, false_pat
 
 /// Map constraint union to an OR gate.
 pub fn union_to_or(inputs: usize) -> HardwarePrimitive {
-    HardwarePrimitive::Gate { gate_type: "OR".into(), inputs }
+    HardwarePrimitive::Gate {
+        gate_type: "OR".into(),
+        inputs,
+    }
 }
 
 /// Map constraint intersection to an AND gate.
 pub fn intersection_to_and(inputs: usize) -> HardwarePrimitive {
-    HardwarePrimitive::Gate { gate_type: "AND".into(), inputs }
+    HardwarePrimitive::Gate {
+        gate_type: "AND".into(),
+        inputs,
+    }
 }
 
 /// Generate SystemVerilog for a compose pipeline.
@@ -101,7 +102,9 @@ pub fn generate_pipeline_sv(stages: usize, op_a: &str, op_b: &str) -> String {
     let mut sv = String::new();
     sv.push_str("// Auto-generated pipeline: ComposeField\n");
     sv.push_str("// Maps: compose(A, B) → pipeline(op_a → op_b)\n");
-    sv.push_str(&format!("// Stages: {stages}, Operations: {op_a} → {op_b}\n\n"));
+    sv.push_str(&format!(
+        "// Stages: {stages}, Operations: {op_a} → {op_b}\n\n"
+    ));
     sv.push_str("module compose_pipeline (\n");
     sv.push_str("    input  wire clk,\n");
     sv.push_str("    input  wire rst_n,\n");
@@ -135,14 +138,27 @@ mod tests {
     #[test]
     fn test_product_generates_parallel() {
         let p = product_to_parallel(2);
-        assert!(matches!(p, HardwarePrimitive::Parallel { units: 2, independent: true }));
+        assert!(matches!(
+            p,
+            HardwarePrimitive::Parallel {
+                units: 2,
+                independent: true
+            }
+        ));
     }
 
     #[test]
     fn test_intersect_generates_mux() {
-        let p = intersect_to_mux("x > 10",
-            HardwarePrimitive::Pipeline { stages: 1, latency_cycles: 1 },
-            HardwarePrimitive::Pipeline { stages: 1, latency_cycles: 1 },
+        let p = intersect_to_mux(
+            "x > 10",
+            HardwarePrimitive::Pipeline {
+                stages: 1,
+                latency_cycles: 1,
+            },
+            HardwarePrimitive::Pipeline {
+                stages: 1,
+                latency_cycles: 1,
+            },
         );
         assert!(matches!(p, HardwarePrimitive::Mux { .. }));
     }
