@@ -23,6 +23,10 @@ extern int ck_range(long long *coord, long long min, long long max);
 extern int ck_eq_val(long long *val, long long target);
 extern int ck_gt(long long *coord, long long target);
 
+/* Operator-level projectors (new in compose-field) */
+extern long long proj_mul(long long a, long long b);
+extern long long proj_div(long long a, long long b);
+
 /* Test harness helpers */
 static int total_passed = 0;
 static int total_failed = 0;
@@ -182,6 +186,33 @@ int main(void)
     TEST("ck_gt(-10, -5)", result == 0, 0, result);
 
     /* Summary */
+
+    /*
+     * proj_mul(a, b): returns a * b.
+     */
+    printf("\n-- proj_mul / proj_div --\n");
+
+    result = proj_mul(7, 6);
+    TEST("proj_mul(7,6)", result == 42, 42, result);
+
+    result = proj_mul(-3, 4);
+    TEST("proj_mul(-3,4)", result == -12, -12, result);
+
+    result = proj_mul(0, 999);
+    TEST("proj_mul(0,999)", result == 0, 0, result);
+
+    /*
+     * proj_div(a, b): returns a / b (0 if b == 0).
+     */
+    result = proj_div(42, 6);
+    TEST("proj_div(42,6)", result == 7, 7, result);
+
+    result = proj_div(100, 3);
+    TEST("proj_div(100,3)", result == 33, 33, result);
+
+    result = proj_div(42, 0);
+    TEST("proj_div(42,0)", result == 0, 0, result);
+
     printf("\n=== SUMMARY ===\n");
     printf("Passed: %d\n", total_passed);
     printf("Failed: %d\n", total_failed);
