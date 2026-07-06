@@ -411,3 +411,77 @@ BATCH_COORDS: .8byte SEG_0, SEG_1, SEG_2, SEG_3, SEG_4
 # GOLDEN_SUM3D_B: 6
 # GOLDEN_PARITY_2: 0
 # GOLDEN_PARITY_3: 1
+
+# ═══════════════════════════════════════════════════════════════════
+# Operator-Level Composition: Pipeline (Compose)
+# P(x, y, z) = proj_b(proj_a(x, y), z)
+#
+# Projector A computes on (x, y) → intermediate
+# Projector B computes on (intermediate, z) → result
+#
+# This is operator chaining, distinct from constraint-level
+# Union/Intersection/Product. Proven by nex-calc.
+#
+# a0: projector_a function pointer (takes 2 coords, returns result)
+# a1: projector_b function pointer
+# a2: coord_x
+# a3: coord_y
+# a4: coord_z
+# Returns: result in a0
+# ═══════════════════════════════════════════════════════════════════
+
+.globl compose_pipeline
+compose_pipeline:
+    addi    sp, sp, -48
+    sd      ra, 40(sp)
+    sd      s0, 32(sp)
+    sd      s1, 24(sp)
+    sd      s2, 16(sp)
+    sd      s3, 8(sp)
+    sd      s4, 0(sp)
+
+    mv      s0, a0          # projector_a fn ptr
+    mv      s1, a1          # projector_b fn ptr
+    mv      s2, a2          # coord_x
+    mv      s3, a3          # coord_y
+    mv      s4, a4          # coord_z
+
+    # Stage 1: call projector_a(x, y) → intermediate
+    mv      a0, s2
+    mv      a1, s3
+    jalr    ra, s0, 0
+    mv      t0, a0          # intermediate result
+
+    # Stage 2: call projector_b(intermediate, z) → final result
+    mv      a0, t0
+    mv      a1, s4
+    jalr    ra, s1, 0       # result now in a0
+
+    ld      s4, 0(sp)
+    ld      s3, 8(sp)
+    ld      s2, 16(sp)
+    ld      s1, 24(sp)
+    ld      s0, 32(sp)
+    ld      ra, 40(sp)
+    addi    sp, sp, 48
+    ret
+
+# ═══════════════════════════════════════════════════════════════════
+# Projectors: Multiplication and Division
+# ═══════════════════════════════════════════════════════════════════
+
+# proj_mul(a, b) → a * b
+.globl proj_mul
+proj_mul:
+    mul     a0, a0, a1
+    ret
+
+# proj_div(a, b) → a / b  (returns 0 if b == 0)
+.globl proj_div
+proj_div:
+    beqz    a1, proj_div_zero
+    div     a0, a0, a1
+    ret
+proj_div_zero:
+    li      a0, 0
+    ret
