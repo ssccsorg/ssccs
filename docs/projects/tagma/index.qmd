@@ -1,0 +1,36 @@
+---
+title: Tagma
+subtitle: Structural identity primitive with closed-form 16-bit coordinate space
+date: last-modified
+metadata-files:
+  - ../../_include/author.yml
+  - ../../_include/format.html.yml
+---
+
+```{python}
+#| include: false
+#| context: local
+title_meta_items = {
+    "html": [
+        {"title": "Code", "link": "https://github.com/ssccsorg/tagma", "content": "Github (Pre-release)", "icon": "bi bi-link"},
+        # {"title": "References", "link": "https://docs.ssccs.org/whitepaper/whitepaper.html#sec-appendix-openformat", "content": "Open Format Specification", "icon": "bi bi-link"},
+        {"title": "References", "link": "https://www.iso.org/standard/76835.html", "content": "ISO/IEC 10646:2020", "icon": "bi bi-link"}
+    ],
+}
+```
+
+{{< include ../../_include/_title_meta_items.qmd >}}
+
+Project Tagma explores a simple question: what if the structure of data could be its own address.
+
+Current computing identifies data by where it sits in memory or by a hash of its content. Both approaches insert a layer of indirection between what something is and where it is found. Tagma examines an alternative: a native 16‑bit coordinate space built upon the Korean [Hangul](https://en.wikipedia.org/wiki/Hangul) syllabary, not as a human viewing/writing system, but as a low‑level encoding layer whose fixed‑length, three‑axis mathematical structure is uniquely suited for hardware.
+
+Hangul is the only major writing system designed from first principles, the most modern, and its 11,172 valid syllable blocks form a perfect 16‑bit coordinate grid of onset‑nucleus‑coda axes. While ASCII was a historical accident constrained by teleprinters, Hangul’s featural design delivers what no other script can: every data atom is a self‑validating geometric coordinate. Invalid codes fall outside the grid and become hardware‑detectable structural faults with zero extra bits. The script’s fixed 2‑byte width eliminates the variable‑length decoding penalties that have burdened processors since the era of the teletype.
+
+In Tagma, the coordinate axes themselves function as hardwired field decoders, collapsing the traditional split between memory and compute at the architectural level. The approach is being developed as a silicon primitive — a custom pipeline stage that integrates with standard processor architectures — with a longer‑term path that extends the same coordinate addressing into the memory subsystem itself.
+
+## Contact
+
+For any inquiries, research collaboration, contact [tagma@ssccs.org](mailto:tagma@ssccs.org).
+
+{{< include ../../_include/_license.md >}}
