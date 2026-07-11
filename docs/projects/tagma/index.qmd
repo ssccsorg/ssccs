@@ -1,6 +1,6 @@
 ---
 title: Tagma
-subtitle: Structural identity primitive with closed-form 16-bit coordinate space
+subtitle: "Content‑Addressable Structural Primitive Defined by the Hangul Syllabic Space"
 date: last-modified
 metadata-files:
   - ../../_include/author.yml
@@ -13,7 +13,7 @@ metadata-files:
 title_meta_items = {
     "html": [
         {"title": "White paper", "link": "https://doi.org/10.5281/zenodo.21302508", "content": "DOI: 10.5281/zenodo.21302508", "icon": "bi bi-file-text"},
-        {"title": "Code", "link": "https://github.com/ssccsorg/tagma", "content": "GitHub Repository", "icon": "bi bi-link"},
+        {"title": "Code", "link": "https://github.com/ssccsorg/tagma", "content": "GitHub (Pre-release)", "icon": "bi bi-link"},
         {"title": "References", "link": "https://www.unicode.org/charts/PDF/UAC00.pdf", "content": "Unicode Standard (UAC00)", "icon": "bi bi-link"},
         {"title": "References", "link": "https://www.iso.org/standard/76835.html", "content": "ISO/IEC 10646:2020", "icon": "bi bi-link"},
     ],
@@ -30,25 +30,15 @@ title_meta_items = {
 
 Tagma is a structural identity primitive: a 16-bit coordinate space in the Unicode Hangul syllable block that replaces hash-based addressing with a combinational decoder --- collision-free, zero hash, single-cycle decode.
 
-Project Tagma explores a simple question: what if the structure of data could be its own address. Current computing identifies data by where it sits in memory or by a hash of its content --- both insert indirection between what data is and where it is found. Tagma examines an alternative: a native 16-bit coordinate space built upon the Korean Hangul syllabary, whose closed-form composition formula embeds three independent structural axes into every code point.
-
-Computing standards are language-neutral and culture-neutral universal assets. Hangul is the only writing system designed from first principles, and its 11,172 valid syllable blocks form a complete 16-bit coordinate grid of onset-nucleus-coda axes. Any 16-bit value in this space is simultaneously a Unicode address and a 3-axis coordinate (initial, medial, final). Invalid codes fall outside this grid and become hardware-detectable with zero extra bits. A combinational decoder (~300 gates, 1 cycle) extracts the axes at the gate level. Tagma replaces hash-based identity generation where cryptographic integrity is not required.
-
-| Script | Contiguous Address | Closed-Form Formula | Three-Axis Decomposition | Tagma-compatible? |
-|--------|-------------------|---------------------|--------------------------|-------------------|
-| **Hangul** | Y U+AC00-U+D7AF | Y 19x21x28 | Y Onset-Nucleus-Coda | **Yes** |
-| ASCII / Latin | Y U+0000-U+007F | N | N | No |
-| Hiragana / Katakana | Y U+3040-U+30FF | N | N | No |
-| CJK Unified Ideographs | Y U+4E00-U+9FFF | N | N | No |
-| Arabic | Y U+0600-U+06FF | N | N | No |
+Computing standards are language-neutral and culture-neutral universal assets. Every content-addressable system today generates identifiers through a hash function --- a layer of indirection with measurable cost in gates, cycles, and collisions. Tagma shows that a fixed 16-bit Unicode block can replace the hash function entirely where cryptographic integrity is not required.
 
 ## The Hangul Coordinate Space
 
-The composition formula:
+The Unicode Hangul syllable block is the only script whose encoding follows a closed-form composition formula with three independent axes:
 
 $$C(i,m,f) = \text{U+AC00} + 588i + 28m + f, \quad 0 \leq i < 19,\; 0 \leq m < 21,\; 0 \leq f < 28$$
 
-Only 11,172 of 65,536 representable 16-bit states satisfy this formula; the remaining 54,364 are structurally invalid and detectable by the decoder.
+Only 11,172 of 65,536 representable 16-bit states satisfy this formula. Every valid value is simultaneously a Unicode address and a 3-axis coordinate (initial, medial, final). The remaining 54,364 are structurally invalid --- detectable by the decoder with zero extra bits.
 
 ```{python}
 #| include: false
@@ -136,24 +126,81 @@ ax.legend(loc='upper left', fontsize='small', facecolor='white', edgecolor='#ccc
 plt.tight_layout(); plt.show()
 ```
 
-## The Encoding Problem
+## No Other Script Provides This
 
-Variable-length encoding has architectural consequences that are independent of any particular implementation. Memory alignment is not guaranteed. Instruction decoding must detect boundary positions. Prefetch and pipeline efficiency are affected. These are structural properties of variable-length design, not engineering limitations.
+| Script | Contiguous Address | Closed-Form Formula | Three-Axis Decomposition | Tagma-compatible? |
+|--------|-------------------|---------------------|--------------------------|-------------------|
+| **Hangul** | Y U+AC00-U+D7AF | Y 19x21x28 | Y Onset-Nucleus-Coda | **Yes** |
+| ASCII / Latin | Y U+0000-U+007F | N | N | No |
+| Hiragana / Katakana | Y U+3040-U+30FF | N | N | No |
+| CJK Unified Ideographs | Y U+4E00-U+9FFF | N | N | No |
+| Arabic | Y U+0600-U+06FF | N | N | No |
 
-| Encoding | Storage unit | Addressable symbols | Wasted bits/unit | Fixed alignment | Structural HW check |
-|----------|-------------|-------------------|----------------|-----------------|---------------------|
-| ASCII | 1 byte (8 bits) | 128 of 256 | 1 bit (12.5%) | yes | no |
-| Latin-1 | 1 byte | 191 of 256 | variable | yes | no |
-| UTF-8 (English) | 1-4 bytes | unlimited | none for ASCII | no | no |
-| UTF-16 (BMP) | 2 bytes | 63,488 of 65,536 | 2,048 reserved | no | no |
-| UTF-32 | 4 bytes | unlimited | 75-88% for common use | yes | no |
-| **Tagma** | **2 bytes** | **11,172 of 65,536** | **none** | **yes** | **yes (54,364 invalid)** |
+## The Paradigm Shift
 
-The structural constraint in Tagma arises from the fixed formula by which Hangul syllables are composed. A hardware decoder can distinguish valid from invalid states using combinational logic derived from that formula.
+In conventional computing, identity is established through indirection:
 
-## Application examples at the infrastructure layer
+```{python}
+#| label: fig-trad-model
+#| fig-cap: "Traditional hash-based identity model."
+dot("""
+digraph TraditionalModel {
+    rankdir=LR;
+    node [shape=box];
+    data [label="Data"];
+    hash [label="Hash Function"];
+    hval [label="Hash Value\n256-bit opaque"];
+    idx [label="Index\nhash table"];
+    store [label="Storage\nLocation"];
+    data -> hash [label="  bit processing"];
+    hash -> hval [label="  64 rounds"];
+    hval -> idx [label="  collision?"];
+    idx -> store [label="  resolve"];
+}
+""")
+```
 
-Tagma operates at the encoding substrate. Its impact spans domains that currently rely on hash-based identity:
+Tagma replaces this with direct structural addressing:
+
+```{python}
+#| label: fig-tagma-model
+#| fig-cap: "Tagma direct structural addressing."
+dot("""
+digraph TagmaModel {
+    rankdir=LR;
+    node [shape=box];
+    data [label="Data"];
+    coord [label="Coordinate Assignment\nC(i,m,f) = 0xAC00 + 588i + 28m + f"];
+    store [label="Direct Storage\nmemory[coord]"];
+    data -> coord [label="  3-axis decomposition"];
+    coord -> store [label="  1 cycle, combinational"];
+}
+""")
+```
+
+## The Decoder
+
+A combinational circuit (~300 gates, 1 cycle) extracts three 5-bit fields from any 16-bit input:
+
+| Stage | Operation | Purpose |
+|-------|-----------|---------|
+| 1 | Range check (U+AC00..U+D7AF) | Out-of-range produces immediate invalid flag |
+| 2 | Field extraction | Divide by 588, modulo 28 |
+| 3 | Axis validation | initial<19, medial<21, final<28 |
+
+A RISC-V XIF coprocessor reference implementation is available with three custom instructions: `tagma_check`, `tagma_dist`, and `tagma_mux`.
+
+## Comparison with Existing Paradigms
+
+| Method | Identifier size | Generation cost | Collision | Lookup structure |
+|--------|----------------|-----------------|-----------|------------------|
+| Pointer | 32-64 bits | zero | none | direct (location-based) |
+| Hash (SHA-256) | 256 bits | ~10K gates, 64-75 cycles | probabilistic | hash table + resolution |
+| UUID | 128 bits | entropy-dependent | probabilistic | hash table |
+| CAM | per-bit comparison | 9-16 transistors/bit | none | associative |
+| **Tagma** | **16 bits** | **1 cycle (combinational)** | **none (formulaic)** | **direct (coordinate = address)** |
+
+## Application Examples
 
 | Domain | Current Approach | Tagma Alternative |
 |--------|-----------------|-------------------|
@@ -161,14 +208,13 @@ Tagma operates at the encoding substrate. Its impact spans domains that currentl
 | Hash map key | Hash of key to compute bucket index | Tagma coordinate as direct array index |
 | Associative lookup | CAM or hash table | Direct SRAM addressing (~300 gates, 1 cycle) |
 | Temporal indexing | Hash table per time bucket | Linearized coordinate `t * 11172 + coord` |
-| Cache addressing | Metadata hash for cache key | Composite coordinate from content attributes |
 | Sensor identification | UUID or random ID per object | Deterministic coordinate, 2 bytes, no entropy |
 | Proximity search | B-tree or k-d tree index | Field-wise Hamming distance (parallel XOR) |
-| Built-in validity | ECC or checksum | Structural fault detection (24.1% SEU) |
+| Built-in validity | ECC or checksum | Structural fault detection (24.1% average SEU) |
 
 Tagma does **not** replace cryptographic primitives --- SHA-256 remains for signatures, integrity verification, and key derivation.
 
-## UID generation: Tagma vs SHA-256
+## Benchmark: Tagma vs SHA-256
 
 Latency comparison for 100,000 identity generation operations on an Apple M1 (Firestorm, ~3.2 GHz), single-threaded, compiled with `rustc` 1.84.0 in release mode.
 
@@ -204,8 +250,6 @@ ax2.annotate('6x at 2^256', xy=(19, 35), xytext=(10, 60), arrowprops=dict(arrows
 plt.tight_layout(); plt.show()
 ```
 
-### Key Results
-
 | Metric | SHA-256 | Tagma (1-syll) | Tagma (6-syll) | Tagma (19-syll) |
 |--------|---------|----------------|----------------|-----------------|
 | Latency per op | 227 ns | 2 ns | 11 ns | 35 ns |
@@ -216,10 +260,11 @@ plt.tight_layout(); plt.show()
 
 ## Data Structures
 
-- Coord is a 16-bit value guaranteed valid --- no hashing needed.
-- Map is a fixed array of 11,172 slots indexed by coordinate. Insert, lookup, delete are O(1) guaranteed --- no collisions, no resizing, ~22 KB.
-- Set is a 1.4 KB bit array. Union, intersection, difference are bitwise ops on 175 u64 words.
-- Index maps timestamps to coordinates: `time * 11172 + coord`. One multiply-add replaces a full hash.
+TagmaCoord is a 16-bit value guaranteed valid. Map is a fixed array of 11,172 slots indexed by coordinate --- O(1) guaranteed, no collisions, ~22 KB. Set is a 1.4 KB bit array with bitwise union/intersection/difference. TimeIndex maps timestamps to coordinates via `time * 11172 + coord`.
+
+## Vision
+
+Tagma defines a new type of silicon primitive: a combinational decoder that derives identity from structure at approximately 300 gates and one cycle. At this gate cost, content-addressable operation becomes viable where hash-based approaches are too expensive in power, area, or latency.
 
 For the full analysis including decoder specification, XIF coprocessor implementation, and hardware design implications, see the [White Paper](https://doi.org/10.5281/zenodo.21302508).
 
