@@ -1,0 +1,156 @@
+---
+title: "nex-tagma"
+subtitle: "Standard reference implementation that consumes the Tagma coordinate space on top of neXus FIH storage"
+date: last-modified
+date-format: "MMMM, YYYY"
+metadata-files:
+  - ../../../_include/author.yml
+abstract: |
+  nex-tagma is the nexus-tagma hub, a standard reference implementation that
+  bridges the Tagma three-axis coordinate space and the neXus FIH
+  three-dimensional storage. It demonstrates that the O(1) direct
+  addressing, collision-free uniqueness, axis decomposition, and proximity
+  search properties of the Tagma syllabic coordinate system form an
+  isomorphic mapping with the Fact-Inference-Hint three-dimensional cube.
+  Every valid Hangul syllable becomes a first-class coordinate in FIH
+  storage.
+
+  nex-tagma serves as a bridge and an experimental ground for neXus core
+  refactoring. Design decisions and structural insights gained here flow
+  directly into formalize FIH coordinate system. The rationale
+  for refactoring the current hash-based multi-index storage model into a
+  native 3D cube addressing scheme is supplied by the empirical data—latency
+  benchmarks, collision properties, and axis slicing performance—generated at
+  each evolutionary stage of nex-tagma.
+---
+
+```{python}
+#| include: false
+#| context: local
+%run ../../../_include/_graphviz.py
+```
+
+```{python}
+title_meta_items = {
+    "html": [
+        {"title": "Source", "link": "https://github.com/ssccsorg/nexus/tree/main/apps/nex-tagma", "content": "Github", "icon": "bi bi-link"},
+        {"title": "Reference", "link": "./index.html", "content": "Nexus Apps", "icon": "bi bi-link"},
+        {"title": "Reference", "link": "/projects/tagma", "content": "Tagma Project", "icon": "bi bi-link"},
+    ]
+}
+```
+
+{{< include ../../../_include/_title_meta_items.qmd >}}
+
+## Identity
+
+nex-tagma is a bridge that applies the three-axis coordinate system of Tagma
+to the FIH (Fact-Inference-Hint) three-dimensional storage structure of neXus.
+Design decisions and insights obtained here grow directly into the rationale
+for refactoring the nex core (Issue #139 -- formalize FIH coordinate system).
+
+Identity flow across three layers:
+
+```{python}
+#| label: fig-identity
+#| fig-cap: "Identity flow: tagma-core provides the coordinate space, nex-tagma connects it to FIH storage, and insights feed back into nex refactoring"
+dot("""
+digraph IdentityFlow {
+    rankdir=TB;
+    node [shape=box, style=rounded];
+    TagmaCore [label="tagma-core\n(Coord type, 3-axis structure,\nO(1) adjacency/slicing)"];
+    NexTagma [label="nex-tagma\n(nexus-tagma hub)"];
+    NexFih [label="nex FIH storage\n(3D cube storage structure,\n#139 coordinate system formalization)"];
+    Insight [label="Design Insights &\nEmpirical Data", shape=oval, style=dashed];
+    TagmaCore -> NexTagma [label="provides coordinate space"];
+    NexTagma -> NexFih [label="experimentation + insight feedback"];
+    NexTagma -> Insight [label="latency/collision/slicing data"];
+    Insight -> NexFih [label="grounds refactoring decisions"];
+}
+""")
+```
+
+The linguistic equation is no coincidence: *co-ordinare* (to arrange together)
+= *syn-tagma* (that which is arranged together) declares that the Tagma
+project is the necessary realization of the Coord mechanism.
+
+## Three-Dimensional Structure Mapping
+
+The correspondence of the three Tagma axes to the three FIH dimensions is
+structural, not metaphorical:
+
+| Tagma Axis | FIH Dimension | Question |
+|----------|---------|------|
+| initial (choseong) | Fact | What fact is it? |
+| medial (jungseong) | Inference | What inference is it? |
+| final (jongseong) | Hint | What hint is it? |
+
+Every valid (F, I, H) combination is encoded as one Tagma coordinate,
+mapped directly into an O(1) slot of the three-dimensional cube. This is
+structurally superior to the existing hash-based multi-index approach
+(by_fact &cap; by_origin &cap; by_semantic &rarr; O(N)), because the
+coordinate space guarantees constant-time addressing without index
+maintenance.
+
+The mapping uses the entire Hangul syllabic space: 19 onsets &times;
+21 nuclei &times; 28 codas = 11,172 addressable coordinates. Each
+coordinate is a native Unicode scalar value, not an opaque hash, and
+the axis decomposition property is embedded in the encoding itself.
+
+## Property Transfer
+
+The structural properties of the Tagma coordinate space transfer
+directly to FIH storage:
+
+| Property | Tagma Coordinate | FIH Storage Application |
+|------|-----------|----------------|
+| O(1) direct addressing | `C(i,m,f) = BASE + 588i + 28m + f` | `storage[F][I][H]` |
+| Collision-free | coordinate = uniqueness guarantee | same (F,I,H) combination always the same slot |
+| Axis decomposition | `to_axes()` &rarr; individual fields | extract Fact only, extract Inference only, etc. |
+| Proximity search | `hamming_distance()` | similar fact/inference/hint O(1) exploration |
+| Built-in validation | valid coordinate range embedded in type system | invalid FIH combinations structurally impossible |
+
+All fact/inference/hint combinations map to a single three-dimensional cube,
+and the cube's O(1) access + axis decomposition + proximity search connect
+directly to the detection tasks of the OODA scheduler (gap identification,
+contradiction detection, state-change sensing).
+
+```{python}
+#| label: fig-property
+#| fig-cap: "Property transfer: each Tagma structural property maps isomorphically to an FIH storage operation"
+dot("""
+digraph PropertyPropagation {
+    node [shape=box, style=rounded];
+
+    Tagma [label="Tagma Coordinate Space\nDirect structural addressing\nGuaranteed uniqueness by construction\n3-axis field extraction\nHamming distance proximity\nBuilt-in structural validity"];
+
+    FIH [label="FIH 3D Cube Storage\nstorage[F][I][H], no index layer\nDeterministic slot per (F,I,H)\nAxis-slice extraction, O(1)\nO(1) neighbor cube exploration\nStructural type rejection"];
+
+    OODA [label="OODA Scheduler\ngap identification\ncontradiction detection\nstate-change sensing"];
+
+    Tagma -> FIH [label="isomorphic, identity = coordinate"];
+    FIH -> OODA [label="native O(1) cube operations"];
+}
+""")
+```
+
+## Evolution Stages
+
+nex-tagma evolves in stages, with each stage building on the previous
+and simultaneously feeding insights back to the nex core:
+
+| Stage | Content | Status |
+|------|------|------|
+| 1 | Independent PoC -- own `coord.rs`, SHA256 comparison benchmarks | Complete (#150) |
+| 2 | tagma-core dependency -- reuse Coord type, remove own coord.rs | Planned |
+| 3 | nex storage integration -- consume Tagma coordinates on FIH storage | Planned |
+| 4 | 3D cube storage structure experiments -- axis slicing, proximity search, OODA integration | Planned |
+| 5 | Insight feedback &rarr; nex refactoring (#139 FIH coordinate system formalization) | Planned |
+
+Stage 1 (complete) established the baseline: it proved that for a single
+syllable, a Tagma coordinate is 115× faster than SHA256 and provides native
+axis decomposition and collision-free properties. Stage 2 depends directly on
+`tagma-core`, eliminating code duplication. Stage 3 connects the coordinate
+model to actual FIH storage. Stage 4 experiments with cube-level operations.
+Stage 5 closes the loop: insights from all prior stages are formalized into
+the nex FIH coordinate system specification.
