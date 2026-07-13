@@ -38,7 +38,25 @@ The Unicode Hangul syllable block is the only script whose encoding follows a cl
 
 $$C(i,m,f) = \text{U+AC00} + 588i + 28m + f, \quad 0 \leq i < 19,\; 0 \leq m < 21,\; 0 \leq f < 28$$
 
-Only 11,172 of 65,536 representable 16-bit states satisfy this formula. Every valid value is simultaneously a Unicode address and a 3-axis coordinate (initial, medial, final). The remaining 54,364 are structurally invalid --- detectable by the decoder with zero extra bits.
+Every valid 16-bit value carries **three simultaneous interpretations**: a 1-D Unicode address, a 3-D coordinate, and a Hangul syllable. Internally, the 16 bits are organized as:
+
+::: {.cell layout="[[50,50]]"}
+
+| 15 | 14 | 13 | 12 | 11 | 10 | 9 | 8 | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
+| :---: | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: |
+| R | I | I | I | I | I | M | M | M | M | M | F | F | F | F | F |
+| 1 | 19 | 19 | 19 | 19 | 19 | 21 | 21 | 21 | 21 | 21 | 28 | 28 | 28 | 28 | 28 |
+
+| Field | Bits | Values | Range |
+|-------|------|--------|-------|
+| Initial (choseong 초성) | 5 | 19 | 0-18 |
+| Medial (jungseong 중성) | 5 | 21 | 0-20 |
+| Final (jongseong 종성) | 5 | 28 | 0-27 |
+| Reserved | 1 | -- | -- |
+
+:::
+
+One value, three uses. Only Hangul satisfies all four conditions required for the Tagma primitive: a fixed closed-form composition formula, complete fixed-width 16-bit representation, a structural invalidity margin, and an open international standard. The coordinate space extends to N syllables via the Cartesian product. Each syllable multiplies the addressable space by 11,172. A linear array over N syllables is indexed by flattening the N-dimensional coordinate using row-major order. Every N-syllable coordinate corresponds to a 3N-dimensional structural coordinate system.
 
 ```{python}
 #| include: false
@@ -126,17 +144,7 @@ ax.legend(loc='upper left', fontsize='small', facecolor='white', edgecolor='#ccc
 plt.tight_layout(); plt.show()
 ```
 
-## No Other Script Provides This
-
-| Script | Contiguous Address | Closed-Form Formula | Three-Axis Decomposition | Tagma-compatible? |
-|--------|-------------------|---------------------|--------------------------|-------------------|
-| **Hangul** | Y U+AC00-U+D7AF | Y 19x21x28 | Y Onset-Nucleus-Coda | **Yes** |
-| ASCII / Latin | Y U+0000-U+007F | N | N | No |
-| Hiragana / Katakana | Y U+3040-U+30FF | N | N | No |
-| CJK Unified Ideographs | Y U+4E00-U+9FFF | N | N | No |
-| Arabic | Y U+0600-U+06FF | N | N | No |
-
-## The Paradigm Shift
+## Hash-less computation: Direct structural addressing {#sec-paradigm-shift}
 
 In conventional computing, identity is established through indirection:
 
@@ -149,9 +157,12 @@ digraph TraditionalModel {
     node [shape=box];
     data [label="Data"];
     hash [label="Hash Function"];
-    hval [label="Hash Value\n256-bit opaque"];
-    idx [label="Index\nhash table"];
-    store [label="Storage\nLocation"];
+    hval [label="Hash Value
+256-bit opaque"];
+    idx [label="Index
+hash table"];
+    store [label="Storage
+Location"];
     data -> hash [label="  bit processing"];
     hash -> hval [label="  64 rounds"];
     hval -> idx [label="  collision?"];
@@ -160,7 +171,7 @@ digraph TraditionalModel {
 """)
 ```
 
-Tagma replaces this with direct structural addressing:
+Each step adds cost: hash computation, collision handling, dynamic resizing, cache-unfriendly access patterns. Tagma replaces this with direct structural addressing:
 
 ```{python}
 #| label: fig-tagma-model
@@ -170,25 +181,15 @@ digraph TagmaModel {
     rankdir=LR;
     node [shape=box];
     data [label="Data"];
-    coord [label="Coordinate Assignment\nC(i,m,f) = 0xAC00 + 588i + 28m + f"];
-    store [label="Direct Storage\nmemory[coord]"];
+    coord [label="Coordinate Assignment
+C(i,m,f) = 0xAC00 + 588i + 28m + f"];
+    store [label="Direct Storage
+memory[coord]"];
     data -> coord [label="  3-axis decomposition"];
     coord -> store [label="  1 cycle, combinational"];
 }
 """)
 ```
-
-## The Decoder
-
-A combinational circuit (~300 gates, 1 cycle) extracts three 5-bit fields from any 16-bit input:
-
-| Stage | Operation | Purpose |
-|-------|-----------|---------|
-| 1 | Range check (U+AC00..U+D7AF) | Out-of-range produces immediate invalid flag |
-| 2 | Field extraction | Divide by 588, modulo 28 |
-| 3 | Axis validation | initial<19, medial<21, final<28 |
-
-A RISC-V XIF coprocessor reference implementation is available with three custom instructions: `tagma_check`, `tagma_dist`, and `tagma_mux`.
 
 ## Comparison with Existing Paradigms
 
