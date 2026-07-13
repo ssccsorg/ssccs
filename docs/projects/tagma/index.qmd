@@ -1,6 +1,6 @@
 ---
 title: Tagma
-subtitle: "Content‑Addressable Structural Primitive Defined by the Hangul Syllabic Space"
+subtitle: "Hashless Direct Identification by Fixed 3‑Axis Coordinate Primitive"
 date: last-modified
 metadata-files:
   - ../../_include/author.yml
@@ -262,6 +262,22 @@ plt.tight_layout(); plt.show()
 ## Data Structures
 
 TagmaCoord is a 16-bit value guaranteed valid. Map is a fixed array of 11,172 slots indexed by coordinate --- O(1) guaranteed, no collisions, ~22 KB. Set is a 1.4 KB bit array with bitwise union/intersection/difference. TimeIndex maps timestamps to coordinates via `time * 11172 + coord`.
+
+## Application Domains
+
+The deterministic single-cycle decode makes Tagma suitable for real-time and safety-critical systems. The three-decoder topology of the future path reduces worst-case decode latency compared to a single linear decoder.
+
+**Radiation-tolerant computing.** The structural validity check embedded in every decode provides inherent error detection. A single-bit upset that maps a valid coordinate outside the U+AC00-U+D7AF range produces an immediate invalid flag. Errors that map one valid coordinate to another are not detected by the structural check alone and require ECC supplementation, as noted in Boundaries. The decoder's small gate count (approximately 300 gates) makes triplication feasible at lower cost than protecting a full hash unit.
+
+An exact enumeration of all 11,172 valid coordinates confirms the detection rate[^seu-enum]. Each valid coordinate has 16 possible single-bit-flip destinations. Averaged across all valid states, 12.14 of those 16 destinations remain within [U+AC00, U+D7AF] (standard deviation 0.61; range 10--13). The resulting average SEU detection rate is 24.1% from the structural check alone, before any ECC supplementation. This detection rate comes at zero additional hardware cost — it is a free byproduct of the structural encoding. When combined with ECC, the structural check handles the subset of errors that map valid coordinates outside the valid range, while ECC handles the remaining cases.
+
+**Real-time object identification.** In sensor fusion for autonomous systems, Tagma coordinates serve as deterministic object identifiers that do not require hash computation or lookup tables. Each new object is assigned a coordinate at encoding time; subsequent frames reference the same coordinate without recomputation.
+
+**Proximity search.** The three-axis structure enables field-wise Hamming distance computation through parallel XOR gates, supporting nearest-neighbor lookup without CAM cells or hash-based index intersection.
+
+**KV cache addressing.** LLM inference engines maintain key-value caches indexed by token sequence prefixes. Current implementations use hash tables or radix trees with $O(L \times H)$ cost per lookup (sequence length $L$, hash cost $H$). Tagma replaces this with CoordPath-based direct access: each prefix maps to a unique CoordPath of length $L$, and lookup cost is $O(L)$ array accesses with zero hash computation. Production KV cache sizes (typically $10^4$--$10^7$ entries) are covered by 2--4 syllables ($1.25 \times 10^8$ to $1.55 \times 10^{16}$ identifiers), with deterministic O(1) access and no collision resolution.
+
+**Graph adjacency and multi-dimensional query.** Graph engines check adjacency via hash lookups or index intersections ($O(\deg(v))$) and query multi-dimensional attributes via composite indexes or join operations. Tagma represents each node as a Coord and each edge type as a CoordSet; adjacency reduces to a single bitwise AND over 175 machine words. Multi-dimensional queries (e.g., "nodes with initial=a, medial=b") project directly to axis ranges without index intersection, with cost independent of graph size.
 
 ## Vision
 
