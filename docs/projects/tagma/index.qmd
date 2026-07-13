@@ -217,19 +217,19 @@ Tagma does **not** replace cryptographic primitives --- SHA-256 remains for sign
 
 ## Benchmark: Tagma vs SHA-256
 
-Latency comparison for 100,000 identity generation operations on an Apple M1 (Firestorm, ~3.2 GHz), single-threaded, compiled with `rustc` 1.84.0 in release mode.
+Latency comparison for 100,000 identity generation operations on an GitHub Actions CI runner (x86_64), single-threaded, compiled with `rustc` stable in release mode.
 
 ```{python}
 #| label: fig-bench-latency
-#| fig-cap: "Identity generation latency: Tagma vs SHA-256, 100k operations on Apple M1."
+#| fig-cap: "Identity generation latency: Tagma vs SHA-256, 100k operations on GitHub CI (x86_64)."
 import matplotlib.pyplot as plt
 import numpy as np
 
 categories = ['SHA-256', 'Tagma\n1-syll', 'Tagma\n6-syll', 'Tagma\n19-syll']
-latency_ns = [227, 2, 11, 35]
+latency_ns = [4437, 20, 153, 456]
 n_vals = [1, 2, 6, 19]
-tagma_ns = [2, 2, 11, 35]
-sha_line = [227, 227, 227, 227]
+tagma_ns = [20, 44, 153, 456]
+sha_line = [4437, 4437, 4437, 4437]
 
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
 
@@ -238,22 +238,22 @@ ax1.set_ylabel('Latency per operation (ns)')
 ax1.set_yscale('log')
 for bar, val in zip(bars, latency_ns):
     ax1.text(bar.get_x() + bar.get_width()/2, bar.get_height() * 1.1, f'{val} ns', ha='center', va='bottom', fontsize=8)
-ax1.annotate('115x', xy=(0.3, 4), fontsize=13, fontweight='bold', bbox=dict(boxstyle='round,pad=0.3', facecolor='yellow', alpha=0.7))
-ax1.annotate('6x', xy=(2.3, 25), fontsize=12, fontweight='bold', bbox=dict(boxstyle='round,pad=0.3', facecolor='yellow', alpha=0.7))
-ax1.plot([0, 0, 3, 3], [90, 115, 115, 90], color='gray', linewidth=0.8)
+ax1.annotate('227x', xy=(0.3, 40), fontsize=13, fontweight='bold', bbox=dict(boxstyle='round,pad=0.3', facecolor='yellow', alpha=0.7))
+ax1.annotate('10x', xy=(2.3, 300), fontsize=12, fontweight='bold', bbox=dict(boxstyle='round,pad=0.3', facecolor='yellow', alpha=0.7))
+ax1.plot([0, 0, 3, 3], [400, 2270, 2270, 400], color='gray', linewidth=0.8)
 
 ax2.plot(n_vals, sha_line, 'o-', color='#d95f02', label='SHA-256 (all spaces)')
 ax2.plot(n_vals, tagma_ns, 's-', color='#1b9e77', label='Tagma')
 ax2.set_xlabel('Syllables (N)'); ax2.set_ylabel('Latency (ns)')
 ax2.set_xticks(n_vals); ax2.legend(fontsize='small'); ax2.grid(axis='y', alpha=0.3)
-ax2.annotate('6x at 2^256', xy=(19, 35), xytext=(10, 60), arrowprops=dict(arrowstyle='->'), fontsize=9)
+ax2.annotate('10x at 2^256', xy=(19, 456), xytext=(10, 2000), arrowprops=dict(arrowstyle='->'), fontsize=9)
 
 plt.tight_layout(); plt.show()
 ```
 
 | Metric | SHA-256 | Tagma (1-syll) | Tagma (6-syll) | Tagma (19-syll) |
 |--------|---------|----------------|----------------|-----------------|
-| Latency per op | 227 ns | 2 ns | 11 ns | 35 ns |
+| Latency per op | 4437 ns | 20 ns | 153 ns | 456 ns |
 | Identity size | 32 bytes | 2 bytes | 12 bytes | 38 bytes |
 | Addressable space | $2^{256}$ | $1.12 \times 10^4$ | $1.94 \times 10^{24}$ | $2^{256}$ |
 | Collision | probabilistic | deterministic zero | deterministic zero | deterministic zero |
