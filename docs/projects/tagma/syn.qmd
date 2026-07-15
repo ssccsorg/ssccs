@@ -1,0 +1,211 @@
+---
+title: "SynTagma σύνταγμα"
+subtitle: "Recursive Coordinate Embedding: Surpassing the Observable Universe's Atoms"
+date: last-modified
+metadata-files:
+  - ../../_include/author.yml
+  - ../../_include/format.html.yml
+---
+
+{{< include ../../_include/_title_meta_items.qmd >}}
+
+```{python}
+#| include: false
+%run ../../_include/_graphviz.py
+```
+
+## A Single Formula
+
+The [Tagma](./paper/wp.html) coordinate system is defined by one closed-form composition formula:
+
+$$C(i,m,f) = \text{U+AC00} + 588i + 28m + f, \qquad 0 \le i < 19,\; 0 \le m < 21,\; 0 \le f < 28$$
+
+Every valid 16-bit value produced by this formula is simultaneously a Unicode code point, a 3-axis coordinate (initial, medial, final), and a displayable Hangul syllable. The mapping is bijective: $19 \times 21 \times 28 = 11,172$ distinct coordinates, each corresponding to exactly one slot in a flat array.
+
+A CoordPath concatenates $N$ such coordinates:
+
+$$|\text{CoordPath}_N| = 11,172^{\,N}$$
+
+| Syllables $N$ | Addressable space | Example equivalent |
+|---------------|-------------------|-------------------|
+| 1 | $1.12 \times 10^{4}$ | Sensor tag |
+| 6 | $1.94 \times 10^{24}$ | Global IoT |
+| 19 | $1.94 \times 10^{77}$ | SHA-256 (256-bit) |
+
+## Recursive Embedding
+
+The composition formula accepts three axes whose ranges are fixed: 19, 21, and 28. Nothing in the formula requires these ranges to be atomic. Coord(11,172) can occupy any axis position, replacing the original range with its own $11,172$ values.
+
+Let $\mathbb{T}_0$ be the set of all valid 19-syllable CoordPaths:
+
+$$S_0 = |\mathbb{T}_0| = 11,172^{19} \approx 1.94 \times 10^{77}$$
+
+Define $\mathbb{T}_1$ as the Cartesian product of three $\mathbb{T}_0$ coordinates:
+
+$$\mathbb{T}_1 = \mathbb{T}_0 \times \mathbb{T}_0 \times \mathbb{T}_0$$
+
+$$S_1 = |\mathbb{T}_1| = S_0^{\,3} = (11,172^{19})^3 = 11,172^{57}$$
+
+A CoordPath of length $3k \cdot N$ syllables can be interpreted as either a flat sequence of $3kN$ atomic coordinates or a $k$-deep nested structure of SynTagma triplets. Both interpretations produce the same linear index through the same arithmetic — they are different views of the same bit sequence.
+
+```{python}
+#| label: fig-syntagma-recursion
+#| fig-cap: "SynTagma contains three CoordPath triplets as its axes."
+dot("""
+digraph SynTagmaNest {
+    compound=true;
+    fontname="Arial";
+    node [shape=box, fontname="Arial", fontcolor=black, color=black];
+    graph [fontcolor=black, fontname="Arial", bgcolor=white, splines=ortho];
+    edge [color=black];
+    rankdir=TB;
+
+    // ── Outer: SynTagma containing everything ──
+    subgraph cluster_syn {
+        label="SynTagma (k=1)\nthree CoordPath triplets form a 3D coordinate space\nS₁ = S₀ × S₀ × S₀";
+        style=dashed; color=black; pencolor=black; fontcolor=black;
+        fontsize=11;
+
+        // Row a: first axis (three CoordPaths)
+        subgraph cluster_a {
+            label="initial axis";
+            style=dashed; color=black; pencolor=black; fontcolor=black;
+            fontsize=9;
+            a0 [label="CoordPath\nS₀ = 11,172¹⁹", fontsize=9, width=1.1, height=0.5];
+            a1 [label="CoordPath\nS₀", fontsize=9, width=1.1, height=0.5];
+            a2 [label="CoordPath\nS₀", fontsize=9, width=1.1, height=0.5];
+        }
+
+        // Row b: second axis
+        subgraph cluster_b {
+            label="medial axis";
+            style=dashed; color=black; pencolor=black; fontcolor=black;
+            fontsize=9;
+            b0 [label="CoordPath\nS₀", fontsize=9, width=1.1, height=0.5];
+            b1 [label="CoordPath\nS₀", fontsize=9, width=1.1, height=0.5];
+            b2 [label="CoordPath\nS₀", fontsize=9, width=1.1, height=0.5];
+        }
+
+        // Row c: third axis
+        subgraph cluster_c {
+            label="final axis";
+            style=dashed; color=black; pencolor=black; fontcolor=black;
+            fontsize=9;
+            c0 [label="CoordPath\nS₀", fontsize=9, width=1.1, height=0.5];
+            c1 [label="CoordPath\nS₀", fontsize=9, width=1.1, height=0.5];
+            c2 [label="CoordPath\nS₀", fontsize=9, width=1.1, height=0.5];
+        }
+    }
+}
+""")
+```
+
+## Magnitude
+
+For $k=1$ with a 19-syllable base:
+
+$$S_1 = (1.94 \times 10^{77})^3 \approx 7.30 \times 10^{231}$$
+
+The estimated number of atoms in the observable universe is approximately $10^{80}$. The ratio:
+
+$$\frac{S_1}{10^{80}} \approx 7.30 \times 10^{151}$$
+
+A single recursive step on a 19-syllable base exceeds the atomic count of the universe by 151 orders of magnitude. For $k=2$:
+
+$$S_2 = S_1^{\,3} \approx 3.89 \times 10^{695}$$
+
+No physically meaningful comparison remains.
+
+```{python}
+#| label: fig-scale-comparison
+#| fig-cap: "Identifier space of a 1-recursion SynTagma compared to physical reference points."
+import matplotlib.pyplot as plt
+import numpy as np
+
+entities = [
+    'Tagma\n1‑syll',
+    'Tagma\n6‑syll',
+    'Tagma\n19‑syll',
+    'SHA‑256\n(256‑bit)',
+    'Universe\natoms',
+    'Tagma\n20‑syll',
+    'SHA‑512\n(512‑bit)',
+    'SynTagma\n(k=1,19‑syll)'
+]
+sizes = [
+    1.12e4,      # 1.12 × 10⁴
+    1.94e24,     # 1.94 × 10²⁴
+    8.20e76,     # 8.20 × 10⁷⁶
+    1.16e77,     # 1.16 × 10⁷⁷
+    1e80,        # 1.00 × 10⁸⁰
+    9.16e80,     # 9.16 × 10⁸⁰
+    1.34e154,    # 1.34 × 10¹⁵⁴
+    5.51e230     # 5.51 × 10²³⁰
+]
+
+fig, ax = plt.subplots(figsize=(8,4))
+bars = ax.bar(entities, sizes, width=0.6)
+ax.set_yscale('log')
+ax.set_ylabel('Addressable space (log scale)')
+for bar, val in zip(bars, sizes):
+    ax.text(bar.get_x() + bar.get_width()/2, bar.get_height()*2,
+            f'$10^{{{int(np.log10(val))}}}$', ha='center', fontsize=9)
+plt.tight_layout()
+plt.show()
+```
+
+## Bounds of Theoretical Identifier Space
+
+$10^{231}$ is not a measure of storage. It is a measure of the identifier space — the number of distinct addresses the coordinate system can produce, not the number of values actually stored. A SynTagma with $S_1 = 7.30 \times 10^{231}$ does not allocate $10^{231}$ slots. It allocates a root array of 11,172 pointers (approximately 89 KB) and creates child nodes only along paths that are actually written to. The memory consumption is proportional to the number of stored entries, not the size of the address space.
+
+The identifier space size matters only for collision probability. In SynTagma, collision probability is exactly zero by construction. Every coordinate is the output of an injective arithmetic formula. No hash function, no random generation, no probabilistic uniqueness — and consequently no collision resolution logic, no rehashing, and no fallback paths.
+
+The theoretical limit of $S_k$ is not a practical target. No existing or foreseeable storage medium can hold $10^{231}$ entries. The limit describes only the coordinate system's capacity to assign unique addresses, which is effectively unbounded for any finite set of stored data.
+
+## Hardware Invariants
+
+The atomic Tagma decoder requires approximately 300 gates and one cycle. Recursion does not add decoders; each syllable is decoded independently by the same combinational logic. A CoordPath of length $3kN$ syllables requires $3kN$ decoder evaluations, but these are independent and can be parallelised at the gate level. The decoder footprint remains unchanged regardless of recursion depth.
+
+Structural validity (11,172 valid states out of 65,536) provides a built-in single-event upset detection rate of approximately 24% with no additional hardware. This property is preserved at every recursion level because each atomic syllable carries its own validity check.
+
+## Access Complexity
+
+Access follows from the linearisation formula:
+
+$$\text{index}(a,b,c) = a \cdot S_{k-1}^2 + b \cdot S_{k-1} + c$$
+
+Each of $a,b,c$ is itself linearised recursively until atomic Coords are reached. The number of integer operations is proportional to the total syllable count, independent of the number of stored entries. For $k=1$ with a 19-syllable base, the access path is $3 \times 19 = 57$ array index operations. For comparison, a single SHA-256 round requires 64 iterations of its compression function, each involving multiple bitwise operations and modular additions.
+
+## The Only Limit Is Not in the Formula
+
+The composition formula $C(i,m,f) = \text{U+AC00} + 588i + 28m + f$ places no upper bound on $k$. Each recursion multiplies the addressable space by $(11,172^{19})^2 \approx 10^{154}$. Three recursions produce $S_3 \approx 10^{2087}$, four produce $S_4 \approx 10^{6263}$, and so on. There is no mathematical terminal.
+
+The practical limit is in the silicon: transistor count, memory bandwidth, and the von Neumann bottleneck of sequential instruction execution. Hilbert's 1930 remark — *Wir mussen wissen, wir werden wissen* — applies here in a specific sense. The theoretical structure is fully known and bounded; the only unknown is how much of it any given physical implementation can realise within its engineering constraints. The formula itself imposes no such constraints. They come from outside: from the number of gates available, from the speed of light, from the fact that a Rust compiler targeting a Cortex-M0 cannot unroll a 57-syllable CoordPath into a single-cycle lookup when the target has no multiplier.
+
+The coordinate system described here is a mathematical object. Its properties — injectivity, closure under recursion, zero collision probability — follow from the composition formula alone and do not depend on any particular realisation. The engineering problem of mapping those properties to a specific hardware budget is separate, and is the subject of the reference implementation.
+
+## Collision
+
+Collision is impossible by construction. The composition formula is injective: each valid triple $(i,m,f)$ maps to a unique 16-bit value. Recursion preserves injectivity because it operates on the same formula with the same arithmetic. No hash function, no random component, no probabilistic step appears at any level of the system. Two distinct inputs cannot produce the same coordinate. This is not a probabilistic guarantee; it is a property of the arithmetic.
+
+## Entropy Preservation in Deterministic Coordinate Assignment
+
+Tagma assigns coordinates through a closed-form arithmetic formula. The assignment is deterministic: the same input always produces the same coordinate. This means the entropy content of the output cannot exceed the entropy content of the input. If the input to a coordinate composition is drawn from a uniform distribution over $n$ valid values, the output preserves $\log_2 n$ bits of entropy. If the input is deterministic (a fixed constant), the output carries zero entropy.
+
+This property matters in systems where identifiers must be both collision-free and unpredictable. A cryptographically secure pseudo-random number generator (CSPRNG) produces unpredictable output from a seed, but its security model assumes the underlying primitive (typically AES, ChaCha, or a hash function) resists cryptanalytic attacks. Shor's algorithm affects cryptographic primitives whose hardness depends on integer factorisation or discrete logarithms, but does not affect symmetric primitives such as AES or ChaCha which form the core of most practical CSPRNGs. The class of PRNGs vulnerable to quantum speedup is narrow and largely avoidable.
+
+True random number generators (TRNGs) derive entropy from physical noise sources. Their output is unpredictable regardless of future cryptanalytic advances, but practical TRNGs vary widely in cost: oscillator-jitter-based TRNGs are inexpensive and integrated into many microcontrollers, while quantum optical TRNGs achieve higher bitrates at greater hardware cost. Neither class is threatened by quantum computation, but both produce entropy at a finite rate that limits identifier generation throughput when each identifier must consume fresh entropy.
+
+Tagma addresses this throughput constraint by separating entropy provision from identifier uniqueness. A single true-random coord (one of 11,172 values, approximately $\log_2 11172 \approx 13.4$ bits of entropy) placed in one axis of a SynTagma is sufficient to make the full identifier unpredictable, while the remaining axes can be filled with deterministic values (device identifier, sequence number, timestamp). The resulting identifier inherits the unpredictability of the random axis, while its uniqueness follows from the arithmetic injectivity of the composition formula, not from the entropy of the input.
+
+The distinction from a PRNG is structural, not quantitative. A PRNG uses a deterministic algorithm to expand a fixed-size seed into a stream of arbitrary length, bounded by the generator's period. Two PRNG instances seeded identically produce identical streams, which is undesirable in distributed identifier generation. Tagma does not expand a seed; it maps each input to a unique coordinate. Two Tagma instances given different inputs always produce different coordinates, even if the inputs differ only in deterministic fields. Unpredictability requires entropy in at least one input field, but collision freedom holds for all inputs regardless of entropy content.
+
+This is not a cryptographic argument. Tagma does not replace CSPRNGs for key generation, does not strengthen signatures, does not protect against key recovery, and does not authenticate data. It addresses the narrower problem of producing collision-free identifiers whose unpredictability is bounded by the entropy of their inputs, at a computational cost independent of the number of identifiers produced. Whether this trade-off is useful depends on the engineering constraints: the cost of entropy per identifier, the scale at which identifiers must be collision-free, and the computational budget for identifier generation.
+
+## Conclusion
+
+SynTagma is a direct consequence of the Tagma composition formula. It adds no new primitives, no new hardware requirements, and no new failure modes. It is simply the observation that the same three-axis structure that defines a single syllable can be applied recursively to define arbitrarily large identifier spaces, with the same arithmetic, the same injectivity, and the same hardware invariants at every level.
+
+The identifier space at $k=1$ with a 19-syllable base exceeds physically meaningful quantities. The formula itself does not stop there. Whether any particular implementation reaches $k=2$, $k=3$, or further is a question of engineering budget, not theoretical possibility.
+
+{{< include ../../_include/_license.md >}}
