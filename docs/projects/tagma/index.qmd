@@ -1,6 +1,6 @@
 ---
 title: Tagma
-subtitle: "Hashless Direct Identification by Fixed 3‑Axis Coordinate Primitive"
+subtitle: "A 16‑Bit Structural Coordinate Primitive for Hash‑less Computing"
 date: last-modified
 metadata-files:
   - ../../_include/author.yml
@@ -28,23 +28,37 @@ title_meta_items = {
 %run ../../_include/_graphviz.py
 ```
 
-Tagma is a structural identity primitive: a 16-bit coordinate space in the Unicode Hangul syllable block that replaces hash-based addressing with a combinational decoder --- collision-free, zero hash, single-cycle decode.
+## What is Tagma
 
-Computing standards are language-neutral and culture-neutral universal assets. Every content-addressable system today generates identifiers through a hash function --- a layer of indirection with measurable cost in gates, cycles, and collisions. Tagma shows that a fixed 16-bit Unicode block can replace the hash function entirely where cryptographic integrity is not required.
+Tagma is a structural identity primitive — a 16-bit coordinate space embedded in the Unicode Hangul syllable block (U+AC00--U+D7AF) that replaces hash-based addressing with a combinational decoder of approximately 300 gates.
 
-## The Hangul Coordinate Space {#sec-hangul-space}
+Every content-addressable system today generates identifiers through a hash function. This indirection layer carries a universal cost: gate area, cycle latency, probabilistic collision resolution, and the overhead of maintaining separate index structures. Tagma replaces the hash function with a closed-form composition formula that maps three independent axes (initial, medial, final) to a unique 16-bit value in a single cycle. The result is collision-free by construction, hash-less by design, and decodable at the gate level.
 
-The composition formula is:
+The coordinate space that enables this is an open international standard (Unicode) and a public good. Tagma does not replace cryptographic primitives — SHA-256 remains for signatures, integrity verification, and key derivation.
+
+| Property | Value |
+|----------|-------|
+| Coordinate space | 19 initials x 21 medials x 28 finals = **11,172** valid 16-bit values |
+| Invalidity margin | 54,364 of 65,536 states are structurally invalid (hardware-detectable) |
+| 1-D interpretation | Unicode code point U+AC00--U+D7AF (character encoding) |
+| 3-D interpretation | (initial, medial, final) coordinate (structural positioning) |
+| Display interpretation | Hangul syllable (debugging aid, zero exposure in the process) |
+
+This combination of properties — a contiguous 16-bit block with a closed-form composition formula, complete three-axis decomposition, and a built-in invalidity margin — exists in no other Unicode character range. The Hangul syllable block is the only one that satisfies all conditions simultaneously.
+
+## The Core Idea
+
+A single Hangul syllable encodes 19 possible initials, 21 possible medials, and 28 possible finals. The composition formula produces a unique 16-bit value for each of the 19 x 21 x 28 = 11,172 valid combinations:
 
 $$C(i,m,f) = \text{U+AC00} + 588i + 28m + f, \quad 0 \leq i < 19,\; 0 \leq m < 21,\; 0 \leq f < 28$$
 
-Every valid 16-bit value carries **three simultaneous interpretations**: a 1-D Unicode address, a 3-D coordinate, and a Hangul syllable. Internally, the 16 bits are organized as a 3-axis coordinate packed into a 16-bit word:
+Every valid 16-bit value carries **three simultaneous interpretations**: a 1-D Unicode address, a 3-D coordinate (initial, medial, final), and a displayable Hangul syllable:
 
 ::: {.cell layout="[[50, 50]]"}
 
 ```{python}
 #| label: fig-man-frame
-#| fig-cap: '맨 (U+B9E8, \"man\"): three-axis syllable coordinate (6, 1, 4) packed into a 16-bit word.'
+#| fig-cap: '맨 (U+B9E8, "man"): three-axis syllable coordinate (6, 1, 4) packed into a 16-bit word.'
 #| fig-width: 10
 #| fig-height: 5
 
@@ -109,7 +123,7 @@ digraph ManFrame {
                 <td align="center" width="8.25%"><font point-size="11">0</font></td>
                 <td align="center" width="8.25%"><font point-size="11">0</font></td></tr>
             <tr><td colspan="16" align="center" height="18"><font point-size="12">00110 00001 00100 0</font></td></tr>
-            <tr><td colspan="16" align="center"><font point-size="9">U+B9E8 − U+AC00 = 3560<br/>3560 ÷ 588 = 6<br/>32 · 32 ÷ 28 = 1<br/>4<br/></font></td></tr>
+            <tr><td colspan="16" align="center"><font point-size="9">U+B9E8 &minus; U+AC00 = 3560<br/>3560 &divide; 588 = 6<br/>32 &middot; 32 &divide; 28 = 1<br/>4<br/></font></td></tr>
             <tr><td colspan="16" align="center" height="18"><font point-size="12">(x: 6, y: 1, z: 4)</font></td></tr>
         </table>
     >];
@@ -208,7 +222,7 @@ for coord in range(0, 33, 8):
     ax.plot([coord, coord], [0, 31], [0, 0], color='#dddddd', linewidth=0.3, zorder=-1)
     ax.plot([0, 31], [coord, coord], [0, 0], color='#dddddd', linewidth=0.3, zorder=-1)
 
-# Full axis lines from far end to origin (N → 0)
+# Full axis lines from far end to origin (N to 0)
 ax.plot([18, 0], [0, 0], [0, 0], color='black', linewidth=1.2, linestyle='-', alpha=0.35)
 ax.plot([0, 0], [20, 0], [0, 0], color='black', linewidth=1.2, linestyle='-', alpha=0.35)
 ax.plot([0, 0], [0, 0], [27, 0], color='black', linewidth=1.2, linestyle='-', alpha=0.35)
@@ -224,94 +238,36 @@ plt.show()
 
 :::
 
-One value, three uses. Only Hangul satisfies all four conditions required for the Tagma primitive: a fixed closed-form composition formula, complete fixed-width 16-bit representation, a structural invalidity margin, and an open international standard. The coordinate space extends via the Cartesian product: each syllable multiplies the addressable space by 11,172. A linear array is indexed by flattening the N-dimensional coordinate in row-major order, where every coordinate corresponds to a 3N-dimensional structural coordinate system.
+One value, three uses. Of the 65,536 possible 16-bit values, 11,172 are valid structural coordinates and the remaining 54,364 are structurally invalid — detectable by hardware without any separate checksum or ECC.
 
-## Hash-less computation: Direct structural addressing {#sec-paradigm-shift}
+## Why It Matters
 
-In conventional computing, identity is established through indirection:
+Hash-based identity generation costs approximately 10,000 gates and 64-75 cycles per operation. Tagma replaces this with a combinational decoder of approximately 300 gates and one cycle — a 30x reduction in hardware cost and a 64-75x reduction in latency.
 
-```{python}
-#| label: fig-trad-model
-#| fig-cap: "Traditional hash-based identity model."
-dot("""
-digraph TraditionalModel {
-    rankdir=LR;
-    node [shape=box];
-    data [label="Data"];
-    hash [label="Hash Function"];
-    hval [label="Hash Value
-256-bit opaque"];
-    idx [label="Index
-hash table"];
-    store [label="Storage
-Location"];
-    data -> hash [label="  bit processing"];
-    hash -> hval [label="  64 rounds"];
-    hval -> idx [label="  collision?"];
-    idx -> store [label="  resolve"];
-}
-""")
-```
+For larger identifier spaces, syllables compose linearly. Each syllable adds a factor of 11,172 to the addressable space:
 
-Each step adds cost: hash computation, collision handling, dynamic resizing, cache-unfriendly access patterns. Tagma replaces this with direct structural addressing:
-
-```{python}
-#| label: fig-tagma-model
-#| fig-cap: "Tagma direct structural addressing."
-dot("""
-digraph TagmaModel {
-    rankdir=LR;
-    node [shape=box];
-    data [label="Data"];
-    coord [label="Coordinate Assignment
-C(i,m,f) = 0xAC00 + 588i + 28m + f"];
-    store [label="Direct Storage
-memory[coord]"];
-    data -> coord [label="  3-axis decomposition"];
-    coord -> store [label="  1 cycle, combinational"];
-}
-""")
-```
-
-## Comparison with Existing Paradigms
-
-| Method | Identifier size | Generation cost | Collision | Lookup structure |
-|--------|----------------|-----------------|-----------|------------------|
-| Pointer | 32-64 bits | zero | none | direct (location-based) |
-| Hash (SHA-256) | 256 bits | ~10K gates, 64-75 cycles | probabilistic | hash table + resolution |
-| UUID | 128 bits | entropy-dependent | probabilistic | hash table |
-| CAM | per-bit comparison | 9-16 transistors/bit | none | associative |
-| **Tagma** | **16 bits** | **1 cycle (combinational)** | **none (formulaic)** | **direct (coordinate = address)** |
-
-## Application Examples
-
-| Domain | Current Approach | Tagma Alternative |
-|--------|-----------------|-------------------|
-| ID generation | Hash of content (SHA-256, BLAKE3) | Coordinate assignment (1--2 cycles, zero collision) |
-| Hash map key | Hash of key to compute bucket index | Tagma coordinate as direct array index |
-| Associative lookup | CAM or hash table | Direct SRAM addressing (~300 gates, 1 cycle) |
-| Temporal indexing | Hash table per time bucket | Linearized coordinate `t * 11172 + coord` |
-| Sensor identification | UUID or random ID per object | Deterministic coordinate, 2 bytes, no entropy |
-| Proximity search | B-tree or k-d tree index | Field-wise Hamming distance (parallel XOR) |
-| Built-in validity | ECC or checksum | Structural fault detection (24.1% average SEU) |
-
-Tagma does **not** replace cryptographic primitives --- SHA-256 remains for signatures, integrity verification, and key derivation.
+| Syllables | Addressable identifiers | Equivalent to |
+|-----------|------------------------|---------------|
+| 1 | 1.12 x 10^4 | Sensor tags |
+| 6 | 1.94 x 10^24 | Below UUID space |
+| 10 | 2.69 x 10^40 | Exceeds UUID (128-bit) |
+| 19 | 1.94 x 10^77 | SHA-256 (256-bit) equivalent |
 
 ## Benchmark: Tagma vs SHA-256
 
-Latency comparison for 100,000 identity generation operations on an GitHub Actions CI runner (x86_64), single-threaded, compiled with `rustc` stable in release mode.
+Latency measurement for 100,000 identity generation operations on Apple M1, single-threaded:
 
 ```{python}
 #| label: fig-bench-latency
-#| fig-cap: "Identity generation latency: Tagma vs SHA-256, 100k operations on GitHub CI (x86_64)."
+#| fig-cap: "Identity generation latency: Tagma vs SHA-256, 100k operations on Apple M1."
 import matplotlib.pyplot as plt
 import numpy as np
 
 categories = ['SHA-256', 'Tagma\n1-syll', 'Tagma\n6-syll', 'Tagma\n19-syll']
-latency_ns = [4437, 20, 153, 456]
+latency_ns = [227, 2, 11, 35]
 n_vals = [1, 2, 6, 19]
-tagma_ns = [20, 44, 153, 456]
-sha_line = [4437, 4437, 4437, 4437]
+tagma_ns = [2, 2, 11, 35]
+sha_line = [227, 227, 227, 227]
 
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
 
@@ -320,52 +276,71 @@ ax1.set_ylabel('Latency per operation (ns)')
 ax1.set_yscale('log')
 for bar, val in zip(bars, latency_ns):
     ax1.text(bar.get_x() + bar.get_width()/2, bar.get_height() * 1.1, f'{val} ns', ha='center', va='bottom', fontsize=8)
-ax1.annotate('227x', xy=(0.3, 40), fontsize=13, fontweight='bold', bbox=dict(boxstyle='round,pad=0.3', facecolor='yellow', alpha=0.7))
-ax1.annotate('10x', xy=(2.3, 300), fontsize=12, fontweight='bold', bbox=dict(boxstyle='round,pad=0.3', facecolor='yellow', alpha=0.7))
-ax1.plot([0, 0, 3, 3], [400, 2270, 2270, 400], color='gray', linewidth=0.8)
+ax1.annotate('115x', xy=(0.3, 6), fontsize=13, fontweight='bold', bbox=dict(boxstyle='round,pad=0.3', facecolor='yellow', alpha=0.7))
+ax1.annotate('6x', xy=(2.3, 30), fontsize=12, fontweight='bold', bbox=dict(boxstyle='round,pad=0.3', facecolor='yellow', alpha=0.7))
+ax1.plot([0, 0, 3, 3], [36, 100, 100, 36], color='gray', linewidth=0.8)
 
 ax2.plot(n_vals, sha_line, 'o-', color='#d95f02', label='SHA-256 (all spaces)')
 ax2.plot(n_vals, tagma_ns, 's-', color='#1b9e77', label='Tagma')
 ax2.set_xlabel('Syllables (N)'); ax2.set_ylabel('Latency (ns)')
 ax2.set_xticks(n_vals); ax2.legend(fontsize='small'); ax2.grid(axis='y', alpha=0.3)
-ax2.annotate('10x at 2^256', xy=(19, 456), xytext=(10, 2000), arrowprops=dict(arrowstyle='->'), fontsize=9)
+ax2.annotate('6x at 2^256', xy=(19, 35), xytext=(10, 120), arrowprops=dict(arrowstyle='->'), fontsize=9)
 
 plt.tight_layout(); plt.show()
 ```
 
 | Metric | SHA-256 | Tagma (1-syll) | Tagma (6-syll) | Tagma (19-syll) |
 |--------|---------|----------------|----------------|-----------------|
-| Latency per op | 4437 ns | 20 ns | 153 ns | 456 ns |
+| Latency per op | 227 ns | 2 ns | 11 ns | 35 ns |
 | Identity size | 32 bytes | 2 bytes | 12 bytes | 38 bytes |
-| Addressable space | $2^{256}$ | $1.12 \times 10^4$ | $1.94 \times 10^{24}$ | $2^{256}$ |
+| Addressable space | 2^256 | 1.12 x 10^4 | 1.94 x 10^24 | 2^256 |
 | Collision | probabilistic | deterministic zero | deterministic zero | deterministic zero |
-| Multi-axis query | $O(K \times N)$ | $O(1)$ direct | $O(1)$ direct | $O(1)$ direct |
+
+## Comparison
+
+| Method | Identifier size | Generation cost | Collision | Lookup |
+|--------|----------------|-----------------|-----------|--------|
+| Pointer | 32-64 bits | zero | none | direct |
+| Hash (SHA-256) | 256 bits | ~10K gates, 64-75 cycles | probabilistic | hash table + resolution |
+| UUID | 128 bits | entropy-dependent | probabilistic | hash table |
+| CAM | per-bit comparison | 9-16 transistors/bit | none | associative |
+| **Tagma** | **16 bits** | **1 cycle (combinational)** | **none (formulaic)** | **direct (coordinate = address)** |
+
+## What Tagma Replaces and What It Does Not
+
+| Domain | Hash Role | Tagma Replaces? |
+|--------|----------|-----------------|
+| ID generation | hash(data) for unique identifier | **Yes** |
+| Hash map key | hash(key) for bucket index | **Yes** |
+| Content addressing | data hash as storage address | **Partial** |
+| Integrity verification | data hash for tamper detection | **No** (retain SHA-256) |
+| Digital signatures | hash-then-sign for non-repudiation | **No** (retain Ed25519) |
+| Key derivation | HKDF for key expansion | **No** (retain HKDF) |
+
+The entries marked **No** are not limitations; they reflect a deliberate composition strategy. An identifier can be generated by SHA-256 and then encoded as Tagma coordinates at write time with near-zero overhead — a single modulo operation per hash block. From that point forward, every read operation uses Tagma's native O(1) direct access regardless of how the identifier was originally produced. The cryptographic cost is paid exactly once at write time; all subsequent accesses benefit from the structural address space.
+
+This composition pattern extends beyond cryptography to every domain in the table. Each domain can adopt Tagma at its own pace — replacing the hash step where possible, wrapping it where necessary — while always reading at Tagma speed. The result is a universal addressing layer that different applications (cryptographic content addressing, distributed node identification, sensor networks, real-time object tracking) share without compromising their domain-specific requirements.
 
 ## Data Structures
 
-TagmaCoord is a 16-bit value guaranteed valid. Map is a fixed array of 11,172 slots indexed by coordinate --- O(1) guaranteed, no collisions, ~22 KB. Set is a 1.4 KB bit array with bitwise union/intersection/difference. TimeIndex maps timestamps to coordinates via `time * 11172 + coord`.
+The Tagma coordinate space is implemented as a Rust library providing:
 
-## Application Domains
+- **Coord** — A 16-bit value guaranteed structurally valid. Constructable from raw index, Unicode code point, character, or the three axes.
+- **CoordMap** — A direct-address table indexed by coordinate. Fixed capacity of 11,172 entries. O(1) insert, lookup, delete with no collisions, no resizing, no hashing.
+- **CoordSet** — A 1.4 KB bit array over the coordinate space. Insert, remove, membership: single-bit operations. Union, intersection, difference: bitwise over 175 machine words.
+- **TimeIndex** — Temporal indexing: `time x 11172 + coord`. Single multiply-add replaces a full hash computation.
 
-The deterministic single-cycle decode makes Tagma suitable for real-time and safety-critical systems. The three-decoder topology of the future path reduces worst-case decode latency compared to a single linear decoder.
+## Papers
 
-**Radiation-tolerant computing.** The structural validity check embedded in every decode provides inherent error detection. A single-bit upset that maps a valid coordinate outside the U+AC00-U+D7AF range produces an immediate invalid flag. Errors that map one valid coordinate to another are not detected by the structural check alone and require ECC supplementation, as noted in Boundaries. The decoder's small gate count (approximately 300 gates) makes triplication feasible at lower cost than protecting a full hash unit.
+The full technical specification and domain-specific analyses are available as standalone papers:
 
-An exact enumeration of all 11,172 valid coordinates confirms the detection rate[^seu-enum]. Each valid coordinate has 16 possible single-bit-flip destinations. Averaged across all valid states, 12.14 of those 16 destinations remain within [U+AC00, U+D7AF] (standard deviation 0.61; range 10--13). The resulting average SEU detection rate is 24.1% from the structural check alone, before any ECC supplementation. This detection rate comes at zero additional hardware cost — it is a free byproduct of the structural encoding. When combined with ECC, the structural check handles the subset of errors that map valid coordinates outside the valid range, while ECC handles the remaining cases.
-
-**Real-time object identification.** In sensor fusion for autonomous systems, Tagma coordinates serve as deterministic object identifiers that do not require hash computation or lookup tables. Each new object is assigned a coordinate at encoding time; subsequent frames reference the same coordinate without recomputation.
-
-**Proximity search.** The three-axis structure enables field-wise Hamming distance computation through parallel XOR gates, supporting nearest-neighbor lookup without CAM cells or hash-based index intersection.
-
-**KV cache addressing.** LLM inference engines maintain key-value caches indexed by token sequence prefixes. Current implementations use hash tables or radix trees with $O(L \times H)$ cost per lookup (sequence length $L$, hash cost $H$). Tagma replaces this with CoordPath-based direct access: each prefix maps to a unique CoordPath of length $L$, and lookup cost is $O(L)$ array accesses with zero hash computation. Production KV cache sizes (typically $10^4$--$10^7$ entries) are covered by 2--4 syllables ($1.25 \times 10^8$ to $1.55 \times 10^{16}$ identifiers), with deterministic O(1) access and no collision resolution.
-
-**Graph adjacency and multi-dimensional query.** Graph engines check adjacency via hash lookups or index intersections ($O(\deg(v))$) and query multi-dimensional attributes via composite indexes or join operations. Tagma represents each node as a Coord and each edge type as a CoordSet; adjacency reduces to a single bitwise AND over 175 machine words. Multi-dimensional queries (e.g., "nodes with initial=a, medial=b") project directly to axis ranges without index intersection, with cost independent of graph size.
-
-## Vision
-
-Tagma defines a new type of silicon primitive: a combinational decoder that derives identity from structure at approximately 300 gates and one cycle. At this gate cost, content-addressable operation becomes viable where hash-based approaches are too expensive in power, area, or latency.
-
-For the full analysis including decoder specification, XIF coprocessor implementation, and hardware design implications, see the [White Paper](https://doi.org/10.5281/zenodo.21302508).
+| Paper | Description |
+|-------|-------------|
+| [Tagma Whitepaper](./paper/wp.html) | Complete specification: coordinate space, decoder, coprocessor, compliance, benchmarks, SEU analysis |
+| [Tagma-ID](./paper/id.html) | Content-addressable identity without hash functions |
+| Tagma-Memory *(forthcoming)* | Three-dimensional SRAM decode using structural coordinates |
+| Tagma-Hardware *(forthcoming)* | A 300-gate combinational decoder for processor pipeline attachment |
+| Tagma-Encoding *(forthcoming)* | Base11172: human-readable, self-validating serialization |
 
 ## Contact
 
