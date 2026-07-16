@@ -74,9 +74,7 @@ format:
 
 ## Abstract {.unnumbered .unlisted}
 
-Tagma[^tagma-etym] is a computing primitive: the discovery that a 16-bit Unicode block
-allocated to a 3-axis writing system provides a collision-free, hash-less, structurally
-addressable coordinate space for computing. Every valid 16-bit value in this space is simultaneously a 1-D address (Unicode code point), a 3-D coordinate (initial, medial, final), and a displayable Hangul syllable. This triple interpretation enables hash-less content addressing [*-@sec-paradigm-shift*] with zero collision probability and single-cycle combinational decoding (~300 gates). We present a gate-level decoder specification, a processor pipeline attachment reference (e.g., RISC-V XIF)[^tagma-repo], and a software reference implementation [*-@sec-appendix-rust*] demonstrating 115x latency reduction over SHA-256 [@fips180-4] (2 ns vs 227 ns per operation on Apple M1 for single-syllable identifiers) and 6x at equivalent 256-bit space (35 ns vs 227 ns for 19-syllable identifiers). Tagma replaces hash-based identity generation and addressing where cryptographic integrity is not required; SHA-256 and other cryptographic primitives remain for signatures and tamper detection. The coordinate space is an open international standard (Unicode) and a public good.
+Tagma[^tagma-etym] is a computing primitive where the address *is* the coordinate — not a flat pointer, but a point in an N-dimensional geometric space. This is made possible by a 16-bit Unicode block allocated to a 3-axis writing system, which provides a collision-free, hash-less, structurally addressable coordinate space. Every valid 16-bit value in this space is simultaneously a 1-D address (Unicode code point), a 3-D coordinate (initial, medial, final), and a displayable Hangul syllable. This triple interpretation enables hash-less content addressing [*-@sec-paradigm-shift*] with zero collision probability and single-cycle combinational decoding (~300 gates). We present a gate-level decoder specification, a processor pipeline attachment reference (e.g., RISC-V XIF)[^tagma-repo], and a software reference implementation [*-@sec-appendix-rust*] demonstrating 115x latency reduction over SHA-256 [@fips180-4] (2 ns vs 227 ns per operation on Apple M1 for single-syllable identifiers) and 6x at equivalent 256-bit space (35 ns vs 227 ns for 19-syllable identifiers). Tagma replaces hash-based identity generation and addressing where cryptographic integrity is not required; SHA-256 and other cryptographic primitives remain for signatures and tamper detection. The coordinate space is an open international standard (Unicode) and a public good.
 
 ## Introduction {#sec-introduction}
 
@@ -277,13 +275,11 @@ plt.show()
 
 :::
 
-Every Tagma coordinate carries one value with three simultaneous interpretations: a Unicode code point, a 3D coordinate on three structural axes, and a Hangul syllable. The Hangul block satisfies all four conditions required for the Tagma primitive: a fixed closed-form composition formula, complete fixed-width 16-bit representation, a structural invalidity margin, and an open international standard. The coordinate space extends via the Cartesian product: each syllable multiplies the addressable space by 11,172. A linear array is indexed by flattening the N-dimensional coordinate in row-major order, where every coordinate corresponds to a 3N-dimensional structural coordinate system.
-
 ## The Structural Conjunction
 
 Tagma requires the simultaneous satisfaction of four properties: **a contiguous fixed-width 16-bit address range, a closed-form composition formula, a complete three-axis decomposition, and an open international standard.** The absence of any single property makes a Tagma-compatible coordinate space impossible.
 
-The Hangul block satisfies all four. It resides on Unicode's Basic Multilingual Plane (Plane 0) --- the foundational layer that every implementation must support --- making Tagma universally compatible without requiring supplementary planes or special handling.
+The Hangul block satisfies all four. It resides on Unicode's Basic Multilingual Plane (Plane 0) --- the foundational layer that every implementation must support --- making Tagma universally compatible without requiring supplementary planes or special handling. Every other encoding on the BMP uses atomic assignments inherited from ASCII. None embeds three structural axes into each code point.
 
 | Script | Contiguous Address | Combinatorial Structure | Three-Axis Decomposition | Tagma-compatible? |
 |--------|-------------------|----------------------|--------------------------|-------------------|
@@ -293,37 +289,9 @@ The Hangul block satisfies all four. It resides on Unicode's Basic Multilingual 
 | CJK Unified Ideographs | Y U+4E00-U+9FFF | N (infinite, irregular) | N | No |
 | Arabic | Y U+0600-U+06FF | N | N | No |
 
-Every other encoding on the BMP uses atomic assignments inherited from ASCII. None embeds three structural axes into each code point.
-
 ## The Encoding Problem
 
-::: {.cell layout="[[50,50]]"}
-
-```{python}
-#| label: fig-encoding
-#| fig-cap: "Encoding hierarchy from variable-length to fixed-length structural encoding."
-dot("""
-digraph EncodingHierarchy {
-    rankdir=TB;
-    node [shape=box];
-    binary [label="Binary / Transistor"];
-    ascii [label="ASCII (1963)\n7-bit, variable"];
-    unicode [label="Unicode (ISO 10646)\nmultiple encoding forms"];
-    utf8 [label="UTF-8\n1-4 byte variable"];
-    utf16 [label="UTF-16\n2-byte + surrogate"];
-    tagma [label="Tagma\n16-bit fixed\nclosed-form formula\nstructural validity"];
-    binary -> ascii;
-    binary -> unicode;
-    unicode -> utf8;
-    unicode -> utf16;
-    unicode -> tagma [label="  Hangul block only"];
-}
-""")
-```
-
 Variable-length encoding has architectural consequences that are independent of any particular implementation. Memory alignment is not guaranteed. Instruction decoding must detect boundary positions. Prefetch and pipeline efficiency are affected. These are structural properties of variable-length design, not engineering limitations. The structural constraint in Tagma arises from the fixed formula by which Hangul syllables are composed. As established in the Hangul Coordinate Space section, only 11,172 of 65,536 states satisfy the composition formula. A hardware decoder can distinguish valid from invalid states using combinational logic derived from that formula.
-
-:::
 
 | Encoding | Storage unit | Addressable symbols | Wasted bits/unit | Fixed alignment | Structural HW check |
 |----------|-------------|-------------------|----------------|-----------------|---------------------|
@@ -338,26 +306,15 @@ Variable-length encoding has architectural consequences that are independent of 
 
 Every system that stores data by content rather than by location must generate identifiers. Current approaches and their hardware cost:
 
-| Method | Identifier size | Generation cost | Collision | Lookup structure |
-|--------|----------------|-----------------|-----------|------------------|
-| Pointer | 32-64 bits | zero | none | direct (location-based) |
-| Hash (SHA-256) | 256 bits | ~10K gates, 64-75 cycles | probabilistic | hash table + resolution |
-| UUID [@rfc4122] | 128 bits | entropy-dependent | probabilistic | hash table |
-| CAM | per-bit comparison | 9-16 transistors/bit | none | associative [@paget-cam-survey] |
-| **Tagma** | **16 bits** | **1 cycle (combinational)** | **none (formulaic)** | **direct (coordinate = address)** |
+| Method | Identifier size | Generation cost | Collision | Lookup structure | Tagma advantage |
+|--------|----------------|-----------------|-----------|------------------|-----------------|
+| Pointer | 32-64 bits | zero | none | direct (location-based) | --- |
+| Hash (SHA-256) | 256 bits | ~10K gates, 64-75 cycles | probabilistic | hash table + resolution | ~30x fewer gates, zero collisions |
+| UUID [@rfc4122] | 128 bits | entropy-dependent | probabilistic | hash table | deterministic, no entropy needed |
+| CAM | per-bit comparison | 9-16 transistors/bit | none | associative [@paget-cam-survey] | ~2.5x less area for sparse sets |
+| **Tagma** | **16 bits** | **1 cycle (combinational)** | **none (formulaic)** | **direct (coordinate = address)** | baseline |
 
-Hash-based identity requires a hardware SHA-256 engine, a hash table with collision resolution, and additional storage for 32-byte identifiers. Tagma replaces all of this with a combinational decoder and a 16-bit register. The trade-off is that Tagma identifiers are limited to 11,172 distinct values.
-
-| Property | SHA-256 based | Tagma | Factor |
-|----------|-------------|-------|--------|
-| Identifier size | 256 bits | 16 bits | 16x smaller |
-| Generation latency | 64-75 cycles | 1 cycle (combinational) | 64-75x lower |
-| Collision | probabilistic | deterministic, zero | logic eliminated |
-| Hardware for generation | ~10,000 gates | ~300 gates | ~30x fewer gates |
-| Lookup structure | hash table + collision list | direct address | structure eliminated |
-| Maximum identifiers | 11,172 (per syllable; N-syllable composition extends to $11,172^N$) |  |  |
-
-Tagma addresses the class of content-addressable storage with up to approximately 11,000 entries. Systems in this range gain the efficiency of direct-mapped content addressability without CAM cell overhead [@cam-cell-design] or hash logic.
+A single syllable covers 11,172 identifiers — sufficient for sensor arrays, embedded device registries, and moderate-scale lookups [@cam-cell-design]. N-syllable composition (below) extends this to UUID-scale and SHA-256-scale spaces without changing the decoder or the arithmetic.
 
 The practical implication for everyday identifiers is direct. UUID generation requires entropy collection, version/variant bit insertion, and hyphen formatting at approximately 100 ns or more; its 128-bit output expressed in hex or Base64 consumes 36 or 22 characters respectively. Tagma produces a 6-syllable identifier (18 axes, $1.9 \times 10^{24}$ space) in approximately 150 ns, and a 10-syllable identifier exceeding UUID space in approximately 260 ns, each requiring only multiplications and additions, as a human-readable Hangul string with no special characters, no padding, and zero collision probability. Similarly, a SHA-256 hash output as 64 hex characters is matched by 19 Tagma syllables covering the same $2^{256}$ space in approximately 456 ns. In all cases Tagma output is shorter, faster, and structurally self-validating. A software reference implementation confirming these measurements is described in Appendix [*-@sec-appendix-rust*].
 
@@ -385,6 +342,8 @@ This requires exactly $(N-1)$ multiply-add pairs, a fixed sequence of $2(N-1)$ a
 | 19 | 57 | $1.94 \times 10^{77}$ | SHA-256 (256-bit) equivalent |
 
 Each syllable retains independent hardware-verifiable validity ($19 \times 21 \times 28 = 11,172$ gates per syllable). The N-tuple identity space is the Cartesian product of $N$ independent 3D spaces, yielding a $3N$-dimensional structural coordinate system. We call this N-syllable sequence a CoordPath, distinct from the atomic Coord.
+
+This is not merely a larger address space, but a coordinate algebra of $3N$ independent axes whose semantics are entirely application-defined: a sensor network may assign axis 0 to device type, axis 1 to geographic zone, and axis 2 to timestamp, while a database system assigns the same axis positions to table, partition, and row. The coordinate arithmetic -- composition, decomposition, linearisation, Hamming distance, axis projection -- is invariant under semantic reinterpretation because the axes are fungible; the algebra depends only on the invariant structural relations among them, not on what any particular axis represents. This distinguishes Tagma from Euclidean space, where axes are bound to physical dimensions, and from hash space, where all structure is destroyed.
 
 ### Recursive State Space Expansion
 
@@ -458,7 +417,7 @@ Each of $a,b,c$ is itself linearised recursively until atomic Coords are reached
 
 #### Sparse Allocation
 
-The identifier space $S_k$ is not a storage allocation. A CoordMap (Appendix [*-@sec-appendix-rust*]) allocates a root array of 11,172 pointers (approximately 89 KB on 64-bit systems) and creates child nodes only along CoordPaths that are actually written to. Memory consumption is proportional to the number of stored entries, not the size of the address space.
+The identifier space $S_k$ is not a storage allocation. A CoordSpace (Appendix [*-@sec-appendix-rust*]) allocates a root array of 11,172 pointers (approximately 89 KB on 64-bit systems) and creates child nodes only along CoordPaths that are actually written to. Memory consumption is proportional to the number of stored entries, not the size of the address space.
 
 #### Magnitude
 
@@ -529,6 +488,45 @@ memory[coord]"];
 
 This one-cycle path from data to address eliminates the scaling relationship between entry count and retrieval cost, a property that standard complexity analysis cannot capture.
 
+### Structural Consequences
+
+The transition from hash-based indirection to coordinate-based addressing produces several interrelated consequences that define Tagma's operational regime. They are not independent properties of the implementation; they are necessary corollaries of the coordinate identity model.
+
+**Query reduces to arithmetic.** A coordinate's three axes are independent fields in a 16-bit word. A query that filters by axis value is a range projection over that field --- a bitmask and comparison, not an index scan. Proximity search is field-wise Hamming distance, computable as a single bitwise operation. The coordinate arithmetic is the query engine; no hash tables, B-trees, or CAM cells are needed.
+
+**Index structures are eliminated.** In current systems, identity generation and index maintenance are separate concerns: SHA-256 produces an opaque identifier, then a separate hash table or B-tree maps that identifier to a storage location. The coordinate is identity and address simultaneously. A Tagma identifier can be used directly as a memory address, array index, or routing path without an intervening translation layer. The elimination is not an optimization of the index layer; the index layer ceases to exist as a separate structure.
+
+**The coordinate space is a physical structure, not a software abstraction.** The decoder that maps a 16-bit coordinate to its three axis fields is a combinational circuit operating on a fixed encoding formula. A software library implementing the same formula on a general-purpose CPU is a faithful simulation of that circuit, not a design intent of its own. The space exists at the gate level before any software runs. This reverses the conventional relationship between software and hardware: software does not define the addressing scheme and then implement it in gates; the addressing scheme is already a gate-level structure, and software either uses it (on a Tagma-equipped processor) or simulates it (on a general-purpose CPU).
+
+**The coordinate space is a search engine, not a store.** Tagma replaces the key-value model with a searchable coordinate space. A hash table answers only "value at this exact key"; it cannot answer "entries satisfying a condition" without scanning. Tagma inverts this: the coordinate space is itself the execution plan, with projections, proximity searches, and set operations all reducing to coordinate arithmetic. The departure is fundamental: hash tables answer "get(key)", coordinate spaces answer "navigate(condition)" -- and the latter is what most queries need.
+
+| Property | Key-value store (HashMap) | Coordinate space (Tagma) |
+|----------|---------------------------|--------------------------|
+| Input | Key (string, hash) | Coordinate (Coord, CoordPath) |
+| Output | Value | Value + position in coordinate space |
+| Query model | Exact key match only | Axis projection, range, proximity, set operations |
+| String dependency | String keys require encoding, parsing, hashing | String is a display layer; the address is structural |
+| Index requirement | Separate index structures for conditional queries | Identity is the coordinate; no separate index exists |
+| Scaling variable | Entry count (collision chains, rehashing) | Coord Depth $d$ (fixed per schema, data-independent) |
+
+The shift from string-based to coordinate-based addressing eliminates an entire class of costs that conventional systems treat as unavoidable:
+
+::: {tbl-colwidths="[20, 30, 20, 30]"}
+
+| Vanishing cost | String-based | Tagma (Coord-based) | Effect |
+|----------------|-------------|---------------------|--------|
+| Memory allocation | heap allocation | a stack-allocated `u16` | Zero heap fragmentation; allocator and GC load eliminated |
+| Encoding validation | Every input string must be verified as valid UTF-8 | A `Coord` is a pre-validated 16-bit integer; any valid `u16` in range is structurally valid | Validation circuit and cycles eliminated |
+| Comparison | `str1 == str2` iterates bytes up to the shorter string length | `coord1 == coord2` is a single CPU compare instruction | $O(n) \rightarrow O(1)$; one cycle |
+| Hashing (storage) | A string key must hash its entire byte sequence before the map can be indexed | A `Coord` is itself a complete array index | Hash function call eliminated; zero collision resolution |
+| Serialization / parsing | Keys in JSON, MessagePack, or protocol buffers must be parsed, validated, and copied | A `Coord` is a fixed 2-byte binary value; the serialized form is the in-memory form | Parsing overhead eliminated; zero-copy direct mapping |
+
+:::
+
+These are not optimizations of the string path but its elimination. A system that never uses strings as addresses never pays string costs. The question of whether Tagma could be faster than a hash table on a particular benchmark is therefore misdirected: Tagma does not compete with hash tables on hash-table workloads. It competes by making the addressing substrate invisible --- an operation that hash tables cannot attempt because they depend on the very indirection Tagma removes.
+
+The question of string keys dissolves under this framing. An application that stores "user:123:item:456" must parse, hash, and index that string before it can retrieve anything. Tagma assigns a CoordPath directly --- Coord for user type, Coord for user ID, Coord for item --- and the path is both identifier and address. The string remains a human-readable label generated from the CoordPath for display, not parsed into one for storage. This separation eliminates hashing from the critical path.
+
 ### The Complexity of Structure: Coord Depth
 
 Standard complexity analysis classifies algorithms by how their cost scales with input size $N$ --- the number of data items. Tagma's retrieval cost does not scale with data volume at all. It scales with **Coord Depth** $d$, the number of syllables required to uniquely identify an entity under a given scheme. These are fundamentally different kinds of quantities: one measures data inventory, the other measures structural dimensionality.
@@ -550,9 +548,7 @@ A hash function receives a key and produces an address by destroying the key's i
 
 **The engineering frontier.** The mathematical bound holds for any fixed $d$: $2(d-1)$ arithmetic operations per lookup. On a general-purpose CPU, however, each operation incurs mechanical overhead: instruction dispatch, register pressure, pipeline latency, and cache hierarchy effects. At $d=1$ these are negligible (one array access). At $d=19$ the 18 multiply-add pairs accumulate approximately 456 ns on a GitHub Actions CI runner (x86_64) --- still 10x faster than a single SHA-256 computation, but measurably more than the O(1) ideal of a single cycle. This gap follows from running a structurally parallel operation on a sequential von Neumann machine rather than from a flaw in the theory. A dedicated combinational decoder will execute all $d$ syllable decodes concurrently at gate level, collapsing the gap entirely.
 
-### Consequence: Elimination of Separate Index Structures
-
-In current content-addressable systems, identity and index are separate data structures. The identity (hash) is content-derived but structurally opaque; indexes (hash tables, B-trees) must be maintained separately for multi-axis queries. Tagma's structural identity eliminates this separation:
+The elimination of separate index structures is a direct consequence of coordinate identity:
 
 ::: {tbl-colwidths="[20, 40, 40]"}
 
@@ -716,7 +712,7 @@ What Tagma replaces, partially replaces, and does not replace:
 | Domain | Hash Role | Tagma Replaces? | Tagma Alternative |
 |--------|----------|-----------------|-------------------|
 | ID generation | hash(data) to produce unique identifier | Yes | Coordinate assignment (1-2 cycles, zero collision) |
-| Hash map key | hash(key) to compute bucket index | Yes | CoordMap (direct array index) |
+| Hash map key | hash(key) to compute bucket index | Yes | CoordSpace (direct array index) |
 | Content addressing | data hash as storage address | Partial | Coordinate-to-data mapping; requires coordinator |
 | Cache key | file metadata hash as cache key | Partial | Composite Tagma coordinate from content attributes |
 | Integrity verification | data hash to detect tampering | No | Retain SHA-256 or BLAKE3 |
@@ -873,7 +869,7 @@ The coordinate space is implemented as a multi-crate Rust workspace (Apache 2.0)
 
 ### Core Library: `tagma-core`
 
-A `#![no_std]` library with an optional `alloc` feature (default: on). Without the alloc feature, only core types are available: `Coord`, `CoordPath`, `CoordSet`, and the single-syllable `CoordMap`. With alloc enabled, the full multi-syllable map family is available. The library builds for native targets and `wasm32-unknown-unknown`.
+A `#![no_std]` library with an optional `alloc` feature (default: on). Without the alloc feature, only core types are available: `Coord`, `CoordPath`, `CoordSet`, and the single-syllable `CoordSpace`. With alloc enabled, the full multi-syllable map family is available. The library builds for native targets and `wasm32-unknown-unknown`.
 
 #### Core Types
 
@@ -885,38 +881,38 @@ A `#![no_std]` library with an optional `alloc` feature (default: on). Without t
 
 #### Map Family
 
-The `CoordMap` series provides hash-free, collision-free address tables indexed by `Coord` or `CoordPath`. Every fixed-depth map (`CoordMap`, `CoordTreeMap`) exposes a consistent API: `get`, `insert`, `remove`, `contains_key`, `clear`, `iter`, `len`, `is_empty`, `FromIterator`, `IntoIterator`, and `Index`/`IndexMut`. `DynCoordMap` shares the core `get`/`insert`/`remove`/`clear`/`len`/`is_empty` interface but accepts `&[Coord]` slices instead of `CoordPath<N>` and does not yet expose `iter`.
+The `CoordSpace` series provides hash-free, collision-free coordinate-indexed spaces backed by direct array addressing. Every fixed-depth map (`CoordSpace`, `CoordSpace`) exposes a consistent set of array operations: `get`, `insert`, `remove`, `contains_key`, `clear`, `iter`, `len`, `is_empty`, `FromIterator`, `IntoIterator`, and `Index`/`IndexMut`. `DynCoordSpace` shares the core `get`/`insert`/`remove`/`clear`/`len`/`is_empty` interface but accepts `&[Coord]` slices instead of `CoordPath<N>` and does not yet expose `iter`.
 
-| Type | Depth | Address space | Allocation | Typical use |
+| Type | Depth | Address space | Allocation | Exploration pattern |
 |------|-------|---------------|------------|-------------|
-| `CoordMap` ($\equiv$ `CoordFlatMap`) | 1 | $11{,}172$ | None (inline array) | General single-syllable, no_std, MCU |
-| `CoordTreeMap<2, V>` | 2 | $1.25 \times 10^8$ | Heap (lazy) | Small KV, FIH cross-product |
-| `CoordTreeMap<3, V>` | 3 | $1.39 \times 10^{12}$ | Heap (lazy) | Three-axis grid |
-| `CoordTreeMap<6, V>` ($\equiv$ `CoordMap6`) | 6 | $1.94 \times 10^{24}$ | Heap (lazy) | UUID-scale identity |
-| `CoordTreeMap<12, V>` ($\equiv$ `CoordMap12`) | 12 | $2.41 \times 10^{67}$ | Heap (lazy) | Between UUID and SHA-256 |
-| `CoordTreeMap<19, V>` ($\equiv$ `CoordMap19`) | 19 | $\approx 2^{256}$ | Heap (lazy) | SHA-256-scale |
-| `DynCoordMap` | Runtime | Unlimited ($\texttt{\&[Coord]}$) | Heap (lazy) | Variable-depth paths |
+| `CoordSpace` ($\equiv$ `CoordFlatMap`) | 1 | $11{,}172$ | None (inline array) | General single-syllable, no_std, MCU |
+| `CoordSpaceN<2, V>` | 2 | $1.25 \times 10^8$ | Heap (lazy) | FIH cross-product, two-axis space |
+| `CoordSpaceN<3, V>` | 3 | $1.39 \times 10^{12}$ | Heap (lazy) | Three-axis coordinate space |
+| `CoordSpaceN<6, V>` ($\equiv$ `CoordSpace6`) | 6 | $1.94 \times 10^{24}$ | Heap (lazy) | UUID-scale identity |
+| `CoordSpaceN<12, V>` ($\equiv$ `CoordSpace12`) | 12 | $2.41 \times 10^{67}$ | Heap (lazy) | Between UUID and SHA-256 |
+| `CoordSpaceN<19, V>` ($\equiv$ `CoordSpace19`) | 19 | $\approx 2^{256}$ | Heap (lazy) | SHA-256-scale |
+| `DynCoordSpace` | Runtime | Unlimited ($\texttt{\&[Coord]}$) | Heap (lazy) | Variable-depth paths |
 
-**`CoordMap` (single-syllable, no allocator).** Backed by an inline $[\texttt{Option<V>}; 11172]$ array (22 KB for `Option<()>`, 89 KB for `Option<u64>`). Zero heap allocation. Every `Coord` is a direct array index: one load, no hashing, no collisions, no resizing. Full Entry API (`entry().or_insert_with()`), `drain()`, `retain()`, `iter_mut()`, `IntoIterator`, `Index<Coord>`, `PartialEq`, `Clone`, `Debug`. The zero-initialized array gives bulk operations a 15x advantage over `HashMap` (27 $\mu$s vs 402 $\mu$s for 11k inserts on Apple M1), but single insert pays the 22 KB construction cost (~1.7 $\mu$s vs 31 ns for `HashMap`).
+**`CoordSpace` (single-syllable, no allocator).** Backed by an inline $[\texttt{Option<V>}; 11172]$ array (22 KB for `Option<()>`, 89 KB for `Option<u64>`). Zero heap allocation. Every `Coord` is a direct array index: one load, no hashing, no collisions, no resizing. Full Entry API (`entry().or_insert_with()`), `drain()`, `retain()`, `iter_mut()`, `IntoIterator`, `Index<Coord>`, `PartialEq`, `Clone`, `Debug`.
 
-**`CoordTreeMap<N, V>` (multi-syllable, heap allocated).** An $N$-level tree where each level is a fixed 11,172-slot array. Memory is allocated lazily: only paths that are actually written to consume nodes. Each allocated node is 22 KB (Leaf) or 89 KB (Branch) regardless of occupancy; a single entry in `CoordTreeMap<6>` at maximum depth reaches approximately 500 KB. No hashing, no collisions at any depth. `N` array dereferences per lookup. The same API surface as `CoordMap`, plus `get_path`/`insert_path`/`remove_path` through `CoordPath<N>`.
+**`CoordSpaceN<N, V>` (multi-syllable, heap allocated).** An $N$-level tree where each level is a fixed 11,172-slot array. Memory is allocated lazily: only paths that are actually written to consume nodes. Each allocated node is 22 KB (Leaf) or 89 KB (Branch) regardless of occupancy; a single entry in `CoordSpaceN<6>` at maximum depth reaches approximately 500 KB. No hashing, no collisions at any depth. `N` array dereferences per lookup. The same API surface as `CoordSpace`, plus `get_path`/`insert_path`/`remove_path` through `CoordPath<N>`.
 
-**`DynCoordMap` (dynamic depth).** A trie accepting `&[Coord]` slices of any length. Each level is a boxed 11,172-slot array. Inserting both a shallow path and a deeper path sharing the same prefix preserves both values (via a `Both` slot variant). Clear walks the tree in-place without deallocating.
+**`DynCoordSpace` (dynamic depth).** A trie accepting `&[Coord]` slices of any length. Each level is a boxed 11,172-slot array. Inserting both a shallow path and a deeper path sharing the same prefix preserves both values (via a `Both` slot variant). Clear walks the tree in-place without deallocating.
 
-The following example illustrates the HashMap-compatible API across the map family:
+The following example illustrates the coordinate-navigation API across the map family:
 
 ```rust
-use tagma_core::{Coord, CoordMap, CoordMap6, CoordPath};
+use tagma_core::{Coord, CoordSpace, CoordSpace6, CoordPath};
 
 // Single-syllable: no allocator required
-let mut map = CoordMap::new();
+let mut map = CoordSpaceN::new();
 let c = Coord::new(42).unwrap();
 map.insert(c, "hello");
 assert_eq!(map.get(&c), Some(&"hello"));
 *map.entry(c).or_insert("world") = "updated";
 
 // Multi-syllable: compile-time depth N=6
-let mut map6 = CoordMap6::<u32>::new();
+let mut map6 = CoordSpace6::<u32>::new();
 let path = CoordPath::new([
     Coord::new(1).unwrap(),
     Coord::new(2).unwrap(),
@@ -931,7 +927,7 @@ assert_eq!(map6.get_path(&path), Some(&42));
 
 #### Quality Metrics
 
-- 163 unit and integration tests, 15 documentation tests, all passing
+- 166 unit and integration tests, 15 documentation tests, all passing
 - Zero `cargo clippy` warnings across all targets
 - Verified `no_std` + `no_alloc` build (`cargo build --no-default-features`)
 - Continuous integration via `run.sh` (format, lint, build, test, no_alloc check)

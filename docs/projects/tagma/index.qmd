@@ -326,9 +326,9 @@ This composition pattern extends beyond cryptography to every domain in the tabl
 The Tagma coordinate space is implemented as a Rust library providing:
 
 - **Coord** — A 16-bit value guaranteed structurally valid. Constructable from raw index, Unicode code point, character, or the three axes.
-- **CoordMap** — A direct-address table indexed by coordinate. Fixed capacity of 11,172 entries. O(1) insert, lookup, delete with no collisions, no resizing, no hashing.
+- **CoordSpace** — A direct-address table indexed by coordinate. Fixed capacity of 11,172 entries. O(1) insert, lookup, delete with no collisions, no resizing, no hashing.
 - **CoordSet** — A 1.4 KB bit array over the coordinate space. Insert, remove, membership: single-bit operations. Union, intersection, difference: bitwise over 175 machine words.
-- **CoordTreeMap<N, V>** — Multi-syllable direct-address tree indexed by CoordPath. Fixed compile-time depth N (2, 6, 12, 19). Variable-depth DynCoordMap for `&[Coord]` runtime paths.
+- **CoordSpaceN<N, V>** — Multi-syllable direct-address tree indexed by CoordPath. Fixed compile-time depth N (2, 6, 12, 19). Variable-depth DynCoordSpace for `&[Coord]` runtime paths.
 
 ## Papers
 

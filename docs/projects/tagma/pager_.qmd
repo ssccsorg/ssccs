@@ -49,84 +49,9 @@ metadata-files:
 %run ../../_include/_graphviz.py
 ```
 
-Tagma[^tagma] is a computing primitive: the discovery that a 16-bit Unicode block allocated to a 3-axis writing system provides a collision-free, hash-less, structurally addressable coordinate space for computing. Every valid 16-bit value in this space is simultaneously a 1-D address (Unicode code point), a 3-D coordinate (initial, medial, final), and a displayable Hangul syllable. This triple interpretation enables hash-less content addressing with zero collision probability and single-cycle combinational decoding at an estimated ~300 gates[^spec-status].
+Tagma[^tagma-etym] is a computing primitive where the address *is* the coordinate — not a flat pointer, but a point in an N-dimensional geometric space. This is made possible by a 16-bit Unicode block allocated to a 3-axis writing system, which provides a collision-free, hash-less, structurally addressable coordinate space. Every valid 16-bit value in this space is simultaneously a 1-D address (Unicode code point), a 3-D coordinate (initial, medial, final), and a displayable Hangul syllable. This triple interpretation enables hash-less content addressing with zero collision probability and single-cycle combinational decoding at an estimated ~300 gates[^spec-status].
 
 Every content-addressable system today generates identifiers through a hash function. SHA-256. UUID. Hash tables. This indirection layer imposes a predictable cost: gate area, cycle latency, storage overhead, and probabilistic collision resolution. The industry's answer has been faster hash units and larger hash tables -- never questioning whether hashing is needed at all. Tagma shows it is not. Where SHA-256 requires thousands of gates and dozens of cycles to generate a single identifier, Tagma does it in one cycle with an estimated ~300 gates. The identifier is not a random-looking hex string -- it is a pronounceable syllable that carries its own coordinate system.
-
-```{python}
-#| label: fig-man-frame
-#| fig-cap: '맨 (U+B9E8, \"man\"): three-axis syllable coordinate (6, 1, 4) packed into a 16-bit word.'
-
-dot("""
-digraph ManFrame {
-    splines=ortho;
-    node [shape=plaintext, fontname="Arial", fontcolor=black];
-    edge [color=black, minlen=1];
-
-    // Stage 1: syllable with three axes
-    syllable [fontcolor=black, label=<
-        <table border="0" cellborder="1" cellspacing="0" cellpadding="0" color="black">
-            <tr>
-                <td width="30%" height="96" align="center" valign="middle">
-                    <font point-size="12" color="black">ㅁ<br/>Initial (choseong, 초성)<br/>x: 6</font></td>
-                <td width="40%" height="96" align="center" valign="middle" border="2">
-                    <font point-size="60" color="black">맨</font></td>
-                <td width="30%" height="96" align="center" valign="middle">
-                    <font point-size="12" color="black">ㅐ<br/>Medial (jungseong, 중성)<br/>y: 1</font></td>
-            </tr>
-            <tr><td colspan="3" align="center" height="28">
-                <font point-size="12" color="black">ㄴ<br/>Final (jongseong, 종성) z: 4</font></td></tr>
-        </table>
-    >];
-
-    // Stage 2: 16-bit word layout (conceptual)
-    layout [fontcolor=black, label=<
-        <table border="0" cellborder="1" cellspacing="0" cellpadding="2" color="black" width="100%">
-            <tr><td colspan="16" align="center" height="18"><font point-size="12">16-bit word</font></td></tr>
-            <tr><td colspan="5" align="center"><font point-size="12">Initial</font></td>
-                <td colspan="5" align="center"><font point-size="12">Medial</font></td>
-                <td colspan="5" align="center"><font point-size="12">Final</font></td>
-                <td align="center"><font point-size="12">Reserved</font></td></tr>
-            <tr><td colspan="5" align="center"><font point-size="12">range: 19</font></td>
-                <td colspan="5" align="center"><font point-size="12">range: 21</font></td>
-                <td colspan="5" align="center"><font point-size="12">range: 28</font></td>
-                <td align="center"><font point-size="12">1</font></td></tr>
-            <tr><td colspan="16" align="center" height="16">
-                <font point-size="12">5 + 5 + 5 + 1 = 16 bits</font></td></tr>
-        </table>
-    >];
-
-    // Stage 3: actual encoding of 맨
-    encoding [fontcolor=black, label=<
-        <table border="0" cellborder="1" cellspacing="0" cellpadding="2" color="black">
-            <tr><td colspan="16" align="center" height="18"><font point-size="12">Actual encoding of 맨</font></td></tr>
-            <tr>
-                <td align="center" width="8.25%"><font point-size="11">0</font></td>
-                <td align="center" width="8.25%"><font point-size="11">0</font></td>
-                <td align="center" width="8.25%"><font point-size="11">1</font></td>
-                <td align="center" width="8.25%"><font point-size="11">1</font></td>
-                <td align="center" width="8.25%"><font point-size="11">0</font></td>
-                <td align="center" width="8.25%"><font point-size="11">0</font></td>
-                <td align="center" width="8.25%"><font point-size="11">0</font></td>
-                <td align="center" width="8.25%"><font point-size="11">0</font></td>
-                <td align="center" width="8.25%"><font point-size="11">0</font></td>
-                <td align="center" width="8.25%"><font point-size="11">1</font></td>
-                <td align="center" width="8.25%"><font point-size="11">0</font></td>
-                <td align="center" width="8.25%"><font point-size="11">0</font></td>
-                <td align="center" width="8.25%"><font point-size="11">1</font></td>
-                <td align="center" width="8.25%"><font point-size="11">0</font></td>
-                <td align="center" width="8.25%"><font point-size="11">0</font></td>
-                <td align="center" width="8.25%"><font point-size="11">0</font></td></tr>
-            <tr><td colspan="16" align="center" height="18"><font point-size="12">00110 00001 00100 0</font></td></tr>
-            <tr><td colspan="16" align="center" height="18"><font point-size="12">(x: 6, y: 1, z: 4)</font></td></tr>
-        </table>
-    >];
-
-    syllable -> layout;
-    layout -> encoding;
-}
-""")
-```
 
 ```{python}
 #| include: false
@@ -230,6 +155,81 @@ plt.subplots_adjust(left=0, right=1, bottom=0, top=1)
 plt.show()
 ```
 
+```{python}
+#| label: fig-man-frame
+#| fig-cap: '맨 (U+B9E8, \"man\"): three-axis syllable coordinate (6, 1, 4) packed into a 16-bit word.'
+
+dot("""
+digraph ManFrame {
+    splines=ortho;
+    node [shape=plaintext, fontname="Arial", fontcolor=black];
+    edge [color=black, minlen=1];
+
+    // Stage 1: syllable with three axes
+    syllable [fontcolor=black, label=<
+        <table border="0" cellborder="1" cellspacing="0" cellpadding="0" color="black">
+            <tr>
+                <td width="30%" height="96" align="center" valign="middle">
+                    <font point-size="12" color="black">ㅁ<br/>Initial (choseong, 초성)<br/>x: 6</font></td>
+                <td width="40%" height="96" align="center" valign="middle" border="2">
+                    <font point-size="60" color="black">맨</font></td>
+                <td width="30%" height="96" align="center" valign="middle">
+                    <font point-size="12" color="black">ㅐ<br/>Medial (jungseong, 중성)<br/>y: 1</font></td>
+            </tr>
+            <tr><td colspan="3" align="center" height="28">
+                <font point-size="12" color="black">ㄴ<br/>Final (jongseong, 종성) z: 4</font></td></tr>
+        </table>
+    >];
+
+    // Stage 2: 16-bit word layout (conceptual)
+    layout [fontcolor=black, label=<
+        <table border="0" cellborder="1" cellspacing="0" cellpadding="2" color="black" width="100%">
+            <tr><td colspan="16" align="center" height="18"><font point-size="12">16-bit word</font></td></tr>
+            <tr><td colspan="5" align="center"><font point-size="12">Initial</font></td>
+                <td colspan="5" align="center"><font point-size="12">Medial</font></td>
+                <td colspan="5" align="center"><font point-size="12">Final</font></td>
+                <td align="center"><font point-size="12">Reserved</font></td></tr>
+            <tr><td colspan="5" align="center"><font point-size="12">range: 19</font></td>
+                <td colspan="5" align="center"><font point-size="12">range: 21</font></td>
+                <td colspan="5" align="center"><font point-size="12">range: 28</font></td>
+                <td align="center"><font point-size="12">1</font></td></tr>
+            <tr><td colspan="16" align="center" height="16">
+                <font point-size="12">5 + 5 + 5 + 1 = 16 bits</font></td></tr>
+        </table>
+    >];
+
+    // Stage 3: actual encoding of 맨
+    encoding [fontcolor=black, label=<
+        <table border="0" cellborder="1" cellspacing="0" cellpadding="2" color="black">
+            <tr><td colspan="16" align="center" height="18"><font point-size="12">Actual encoding of 맨</font></td></tr>
+            <tr>
+                <td align="center" width="8.25%"><font point-size="11">0</font></td>
+                <td align="center" width="8.25%"><font point-size="11">0</font></td>
+                <td align="center" width="8.25%"><font point-size="11">1</font></td>
+                <td align="center" width="8.25%"><font point-size="11">1</font></td>
+                <td align="center" width="8.25%"><font point-size="11">0</font></td>
+                <td align="center" width="8.25%"><font point-size="11">0</font></td>
+                <td align="center" width="8.25%"><font point-size="11">0</font></td>
+                <td align="center" width="8.25%"><font point-size="11">0</font></td>
+                <td align="center" width="8.25%"><font point-size="11">0</font></td>
+                <td align="center" width="8.25%"><font point-size="11">1</font></td>
+                <td align="center" width="8.25%"><font point-size="11">0</font></td>
+                <td align="center" width="8.25%"><font point-size="11">0</font></td>
+                <td align="center" width="8.25%"><font point-size="11">1</font></td>
+                <td align="center" width="8.25%"><font point-size="11">0</font></td>
+                <td align="center" width="8.25%"><font point-size="11">0</font></td>
+                <td align="center" width="8.25%"><font point-size="11">0</font></td></tr>
+            <tr><td colspan="16" align="center" height="18"><font point-size="12">00110 00001 00100 0</font></td></tr>
+            <tr><td colspan="16" align="center" height="18"><font point-size="12">(x: 6, y: 1, z: 4)</font></td></tr>
+        </table>
+    >];
+
+    syllable -> layout;
+    layout -> encoding;
+}
+""")
+```
+
 ## The primitive hidden in a writing system
 
 Unicode assigns each script a fixed address block. Within this block, Hangul occupies a contiguous 16-bit segment (U+AC00--U+D7AF) invented in 1443 and allocated in Unicode 2.0 in 1996. Its composition formula embeds three independent structural axes into every code point:
@@ -238,6 +238,8 @@ $$C(i,m,f) = \text{U+AC00} + 588i + 28m + f$$
 $$\quad (0 \leq i < 19,\; 0 \leq m < 21,\; 0 \leq f < 28)$$
 
 Every valid 16-bit value carries three simultaneous interpretations: a 1-D Unicode address, a 3-D coordinate, and a Hangul syllable. A hardware decoder extracts these fields in a single combinational cycle at an estimated ~300 gate equivalents -- smaller than a single 32-bit multiplier. Of the 65,536 possible 16-bit values in this range, 11,172 are structurally valid (matching the composition formula), and the remaining 54,364 are immediately detectable as invalid by the same logic.
+
+These three axes are the atomic building block of an abstract N-dimensional coordinate algebra whose semantics are entirely application-defined. CoordPath chains multiple syllables to reach arbitrarily high dimensions (6 syllables = 18 axes, 19 syllables = 57 axes), and every axis position can represent a different categorical dimension -- region, device type, timestamp, shard, or any other application-level concept. The arithmetic operations (composition, decomposition, Hamming distance, axis projection) are invariant; only the axis interpretation changes per deployment.
 
 No other Unicode script satisfies all four conditions required: a contiguous fixed-width 16-bit address range, a closed-form composition formula, a complete three-axis decomposition, and an open international standard. Hangul is unique.
 
@@ -261,8 +263,6 @@ This is not possible with hash-based systems. A SHA-256 engine cannot be exhaust
 
 **LLM inference cache.** Key-value caches indexed by token sequence prefixes currently use hash tables or radix trees. Tagma replaces this with CoordPath-based direct access: each prefix maps to a unique CoordPath, lookup cost is O(1) direct array accesses with zero hash computation. Production cache sizes (typically $10^4$--$10^7$ entries) are covered by 2--4 syllables.
 
-**Radiation-tolerant computing (planned).** The structural validity check embedded in every decode is expected to provide inherent single-event upset detection at zero additional hardware cost. When a valid coordinate is flipped outside the U+AC00--U+D7AF range, the decoder would produce an immediate invalid flag. Exhaustive enumeration indicates a 24.1% average SEU detection rate from the structural check alone, before any ECC supplementation. The decoder's small estimated gate count would make triplication more feasible than protecting a full hash unit.
-
 **Graph and multi-dimensional query.** Each node maps to a Coord, each edge type to a CoordSet. Adjacency reduces to a single bitwise AND over 175 machine words. Multi-dimensional queries project directly to axis ranges without index intersection, with cost independent of graph size.
 
 **General-purpose content addressing.** Wherever UUIDs, hash keys, or sequence-number identifiers are used today -- database records, distributed nodes, file identifiers, commit hashes -- Tagma provides a shorter, faster, human-readable alternative with zero collision probability.
@@ -271,7 +271,7 @@ This is not possible with hash-based systems. A SHA-256 engine cannot be exhaust
 
 Tagma does not replace cryptographic primitives. SHA-256 remains for signatures, Merkle proofs, and preimage resistance. Encryption, authentication, and key derivation are outside its scope. Tagma replaces the use of hashes as structural identifiers and addresses. The two can also be combined: SHA-256 output encoded as 19 Hangul syllables is more readable than 64 hex characters while preserving the same $2^{-256}$ collision probability.
 
-Tagma is built on open international standards (Unicode) and open ISA (RISC-V) -- unencumbered by proprietary licensing or regional dependencies. It is a neutral, sovereign primitive for the global computing landscape.
+Tagma is built on open international standards and will run on open ISA (RISC-V) -- unencumbered by proprietary licensing or regional dependencies. It is a neutral, sovereign primitive for the global computing landscape.
 
 ## 588년 전의 설계, 데이터 주소 체계가 되다
 

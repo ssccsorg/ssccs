@@ -73,6 +73,16 @@ node are resolved locally; axes mapped to different nodes require transport. The
 not fixed per formula — it is a deployment parameter determined by the physical arrangement of
 decoder instances, memory controllers, and network links.
 
+**Axis fungibility.** The initial, medial, and final axes of a SynTagma triplet carry no intrinsic
+semantics at the protocol level. The topology mapping $\phi_k$ assigns axes to nodes based on
+deployment considerations — data locality, load balancing, fault isolation — not on the meaning
+an application layer assigns to each axis position. An application that interprets axis 0 as
+"region" and axis 1 as "shard" selects the same CoordPath arithmetic as an application that
+reverses these assignments. The resolver procedure, transport format, and consistency model are
+identical regardless of axis semantics. This separation between coordinate algebra and axis
+interpretation is what allows SynTagma to route CoordPaths across heterogeneous physical
+topologies without modification to the core arithmetic.
+
 A CoordPath of length $3k \cdot N$ syllables can be interpreted as a traversal of $k$ topology
 layers. At each layer, the three axis CoordPaths are dispatched to their assigned nodes for
 recursive resolution. The total access cost is the sum of:
