@@ -1,0 +1,284 @@
+---
+title: "Tagma Project"
+subtitle: A structural primitive for deterministic computing.
+version-prefix: tagmapager-1
+version-mark: true
+format:
+  pdf:
+    classoption:
+      - twocolumn
+    fontsize: 10pt
+    pdf-engine: xelatex
+    geometry:
+        - margin=14mm
+    include-in-header:
+      text: |
+        \usepackage{xcolor}
+        \usepackage{microtype}
+        \usepackage{xeCJK}
+        \setCJKmainfont{Noto Sans CJK KR}
+        \setkeys{Gin}{width=\linewidth,height=\textheight,keepaspectratio}
+        \addtokomafont{disposition}{\rmfamily}
+        \input{./_files/_metadata.tex}
+        \DeclareTOCStyleEntry[beforeskip=6pt]{default}{section}
+        \DeclareTOCStyleEntry[beforeskip=0pt]{default}{subsection}
+        \makeatletter
+        \def\@maketitle{
+          {\LARGE \bfseries \@title \par}
+          \vspace{0.3em}
+          {\large \@subtitle \par}
+          \vspace{0.3em}
+          {\normalsize Replacing Probabilistic Hashing with Deterministic Truth in an Estimated ~300 Gates, 1 Cycle\par}
+                \vspace{1em}
+                {\large \texttt{\href{https://www.linkedin.com/in/stells}{\@author}}, \authorrole, \texttt{\href{mailto:\authoremail}{\authoremail}} \par}
+                \vspace{0.3em}
+                {\normalsize \texttt{\href{https://tagma.ssccs.org}{\affiliationname}} \par}
+                \vspace{2em}
+        }
+        \makeatother
+  html: {}
+generate-title-meta: false
+metadata-files:
+  - ../../_include/author.founder.yml
+  - ../../_include/format.pdf.yml
+  - ../../_include/format.html.yml
+---
+
+```{python}
+#| include: false
+#| context: local
+%run ../../_include/_graphviz.py
+```
+
+Tagma[^tagma] is a computing primitive: the discovery that a 16-bit Unicode block allocated to a 3-axis writing system provides a collision-free, hash-less, structurally addressable coordinate space for computing. Every valid 16-bit value in this space is simultaneously a 1-D address (Unicode code point), a 3-D coordinate (initial, medial, final), and a displayable Hangul syllable. This triple interpretation enables hash-less content addressing with zero collision probability and single-cycle combinational decoding at an estimated ~300 gates[^spec-status].
+
+Every content-addressable system today generates identifiers through a hash function. SHA-256. UUID. Hash tables. This indirection layer imposes a predictable cost: gate area, cycle latency, storage overhead, and probabilistic collision resolution. The industry's answer has been faster hash units and larger hash tables -- never questioning whether hashing is needed at all. Tagma shows it is not. Where SHA-256 requires thousands of gates and dozens of cycles to generate a single identifier, Tagma does it in one cycle with an estimated ~300 gates. The identifier is not a random-looking hex string -- it is a pronounceable syllable that carries its own coordinate system.
+
+```{python}
+#| label: fig-man-frame
+#| fig-cap: '맨 (U+B9E8, \"man\"): three-axis syllable coordinate (6, 1, 4) packed into a 16-bit word.'
+
+dot("""
+digraph ManFrame {
+    splines=ortho;
+    node [shape=plaintext, fontname="Arial", fontcolor=black];
+    edge [color=black, minlen=1];
+
+    // Stage 1: syllable with three axes
+    syllable [fontcolor=black, label=<
+        <table border="0" cellborder="1" cellspacing="0" cellpadding="0" color="black">
+            <tr>
+                <td width="30%" height="96" align="center" valign="middle">
+                    <font point-size="12" color="black">ㅁ<br/>Initial (choseong, 초성)<br/>x: 6</font></td>
+                <td width="40%" height="96" align="center" valign="middle" border="2">
+                    <font point-size="60" color="black">맨</font></td>
+                <td width="30%" height="96" align="center" valign="middle">
+                    <font point-size="12" color="black">ㅐ<br/>Medial (jungseong, 중성)<br/>y: 1</font></td>
+            </tr>
+            <tr><td colspan="3" align="center" height="28">
+                <font point-size="12" color="black">ㄴ<br/>Final (jongseong, 종성) z: 4</font></td></tr>
+        </table>
+    >];
+
+    // Stage 2: 16-bit word layout (conceptual)
+    layout [fontcolor=black, label=<
+        <table border="0" cellborder="1" cellspacing="0" cellpadding="2" color="black" width="100%">
+            <tr><td colspan="16" align="center" height="18"><font point-size="12">16-bit word</font></td></tr>
+            <tr><td colspan="5" align="center"><font point-size="12">Initial</font></td>
+                <td colspan="5" align="center"><font point-size="12">Medial</font></td>
+                <td colspan="5" align="center"><font point-size="12">Final</font></td>
+                <td align="center"><font point-size="12">Reserved</font></td></tr>
+            <tr><td colspan="5" align="center"><font point-size="12">range: 19</font></td>
+                <td colspan="5" align="center"><font point-size="12">range: 21</font></td>
+                <td colspan="5" align="center"><font point-size="12">range: 28</font></td>
+                <td align="center"><font point-size="12">1</font></td></tr>
+            <tr><td colspan="16" align="center" height="16">
+                <font point-size="12">5 + 5 + 5 + 1 = 16 bits</font></td></tr>
+        </table>
+    >];
+
+    // Stage 3: actual encoding of 맨
+    encoding [fontcolor=black, label=<
+        <table border="0" cellborder="1" cellspacing="0" cellpadding="2" color="black">
+            <tr><td colspan="16" align="center" height="18"><font point-size="12">Actual encoding of 맨</font></td></tr>
+            <tr>
+                <td align="center" width="8.25%"><font point-size="11">0</font></td>
+                <td align="center" width="8.25%"><font point-size="11">0</font></td>
+                <td align="center" width="8.25%"><font point-size="11">1</font></td>
+                <td align="center" width="8.25%"><font point-size="11">1</font></td>
+                <td align="center" width="8.25%"><font point-size="11">0</font></td>
+                <td align="center" width="8.25%"><font point-size="11">0</font></td>
+                <td align="center" width="8.25%"><font point-size="11">0</font></td>
+                <td align="center" width="8.25%"><font point-size="11">0</font></td>
+                <td align="center" width="8.25%"><font point-size="11">0</font></td>
+                <td align="center" width="8.25%"><font point-size="11">1</font></td>
+                <td align="center" width="8.25%"><font point-size="11">0</font></td>
+                <td align="center" width="8.25%"><font point-size="11">0</font></td>
+                <td align="center" width="8.25%"><font point-size="11">1</font></td>
+                <td align="center" width="8.25%"><font point-size="11">0</font></td>
+                <td align="center" width="8.25%"><font point-size="11">0</font></td>
+                <td align="center" width="8.25%"><font point-size="11">0</font></td></tr>
+            <tr><td colspan="16" align="center" height="18"><font point-size="12">00110 00001 00100 0</font></td></tr>
+            <tr><td colspan="16" align="center" height="18"><font point-size="12">(x: 6, y: 1, z: 4)</font></td></tr>
+        </table>
+    >];
+
+    syllable -> layout;
+    layout -> encoding;
+}
+""")
+```
+
+```{python}
+#| include: false
+import numpy as np
+
+n_init, n_med, n_fin = 19, 21, 28
+stride = 2
+init_vals = np.arange(0, n_init, stride)
+med_vals  = np.arange(0, n_med,  stride)
+fin_vals  = np.arange(0, n_fin,  stride)
+
+I, M, F = np.meshgrid(init_vals, med_vals, fin_vals, indexing='ij')
+I_f, M_f, F_f = [a.flatten() for a in (I, M, F)]
+
+def box_edges(x0, y0, z0, x1, y1, z1):
+    edges = []
+    def add(xa, ya, za, xb, yb, zb):
+        edges.append(((xa, ya, za), (xb, yb, zb)))
+    for (dx, dy, dz) in [(x1,y0,z0),(x0,y1,z0),(x0,y0,z1)]:
+        add(x0,y0,z0,dx,dy,dz)
+    add(x1,y1,z0, x1,y0,z0); add(x1,y1,z0, x0,y1,z0); add(x1,y1,z0, x1,y1,z1)
+    add(x0,y1,z1, x1,y1,z1); add(x0,y1,z1, x0,y0,z1); add(x0,y1,z1, x0,y1,z0)
+    add(x1,y0,z1, x1,y1,z1); add(x1,y0,z1, x1,y0,z0); add(x1,y0,z1, x0,y0,z1)
+    return edges
+
+full_edges  = box_edges(0, 0, 0, 31, 31, 31)
+valid_edges = box_edges(0, 0, 0, 18, 20, 27)
+```
+
+```{python}
+#| label: fig-3d-decode
+#| fig-cap: "Three-dimensional bitcell organization. 19 x 21 x 28 lattice, 11,172 of 65,536 states valid."
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+
+fig = plt.figure(figsize=(8, 7))
+ax = fig.add_subplot(111, projection='3d')
+
+box = np.array([[0, 0, 0],
+                [18, 0, 0],
+                [18, 20, 0],
+                [0, 20, 0],
+                [0, 0, 27],
+                [18, 0, 27],
+                [18, 20, 27],
+                [0, 20, 27]])
+
+faces = [[0,1,2,3], [4,5,6,7], [0,1,5,4], [2,3,7,6], [0,3,7,4], [1,2,6,5]]
+
+valid_volume = Poly3DCollection([box[f] for f in faces], alpha=0.08, facecolor='#555555', edgecolor='none')
+ax.add_collection3d(valid_volume)
+
+ax.scatter(I_f, M_f, F_f, c='#666666', s=14, alpha=0.6, linewidth=0.15,
+           edgecolor='white', depthshade=True)
+
+# Highlight 맨 at (6, 1, 4)
+ax.scatter([6], [1], [4], c='black', s=80, marker='o', linewidth=1.5,
+           edgecolor='white', zorder=10, label='U+B9E8 (6, 1, 4)')
+ax.text(6, 2, 5, 'U+B9E8 (6, 1, 4)', fontsize=9, ha='center', va='bottom',
+        bbox=dict(boxstyle='round,pad=0.2', facecolor='white', edgecolor='black', alpha=0.9))
+
+
+for (xa, ya, za), (xb, yb, zb) in full_edges:
+    ax.plot([xa, xb], [ya, yb], [za, zb], color='#aaaaaa', linestyle='--', linewidth=0.5)
+ax.plot([], [], [], color='#aaaaaa', linestyle='--', linewidth=0.5, label='Full 32x32x32 addressable space')
+
+for (xa, ya, za), (xb, yb, zb) in valid_edges:
+    ax.plot([xa, xb], [ya, yb], [za, zb], color='#333333', linestyle='-', linewidth=0.8)
+ax.plot([], [], [], color='#333333', linestyle='-', linewidth=0.8, label='Valid 19x21x28 syllable region')
+
+ax.text(18, 20, 30, 'U+AC00 .. U+D7AF\n11,172 valid coordinates',
+        fontsize=8, ha='center', va='bottom',
+        bbox=dict(boxstyle='round,pad=0.3', facecolor='white', edgecolor='#333333', alpha=0.9))
+
+ax.set_xlabel('Initial (choseong)', fontsize=11)
+ax.set_ylabel('Medial (jungseong)', fontsize=11)
+ax.set_zlabel('Final (jongseong)', fontsize=11)
+ax.set_xlim(-1, 33); ax.set_ylim(-1, 33); ax.set_zlim(-3, 31)
+ax.xaxis.set_major_locator(plt.MaxNLocator(5))
+ax.yaxis.set_major_locator(plt.MaxNLocator(5))
+ax.zaxis.set_major_locator(plt.MaxNLocator(5))
+ax.xaxis.pane.fill = False; ax.yaxis.pane.fill = False; ax.zaxis.pane.fill = False
+ax.xaxis.pane.set_edgecolor('none'); ax.yaxis.pane.set_edgecolor('none'); ax.zaxis.pane.set_edgecolor('none')
+
+for coord in range(0, 33, 8):
+    ax.plot([coord, coord], [0, 31], [0, 0], color='#dddddd', linewidth=0.3, zorder=-1)
+    ax.plot([0, 31], [coord, coord], [0, 0], color='#dddddd', linewidth=0.3, zorder=-1)
+
+# Full axis lines from far end to origin (N → 0)
+ax.plot([18, 0], [0, 0], [0, 0], color='black', linewidth=1.2, linestyle='-', alpha=0.35)
+ax.plot([0, 0], [20, 0], [0, 0], color='black', linewidth=1.2, linestyle='-', alpha=0.35)
+ax.plot([0, 0], [0, 0], [27, 0], color='black', linewidth=1.2, linestyle='-', alpha=0.35)
+# Vector from origin to point
+ax.plot([0, 6], [0, 1], [0, 4], color='black', linewidth=1.2, linestyle='-', alpha=0.5)
+
+ax.dist = 5.5
+ax.view_init(elev=28, azim=-65)
+ax.legend(loc='upper left', fontsize='small', facecolor='white', edgecolor='#999999', framealpha=0.95)
+plt.subplots_adjust(left=0, right=1, bottom=0, top=1)
+plt.show()
+```
+
+## The primitive hidden in a writing system
+
+Unicode assigns each script a fixed address block. Within this block, Hangul occupies a contiguous 16-bit segment (U+AC00--U+D7AF) invented in 1443 and allocated in Unicode 2.0 in 1996. Its composition formula embeds three independent structural axes into every code point:
+
+$$C(i,m,f) = \text{U+AC00} + 588i + 28m + f$$
+$$\quad 0 \leq i < 19,\; 0 \leq m < 21,\; 0 \leq f < 28$$
+
+Every valid 16-bit value carries three simultaneous interpretations: a 1-D Unicode address, a 3-D coordinate, and a Hangul syllable. A hardware decoder extracts these fields in a single combinational cycle at an estimated ~300 gate equivalents -- smaller than a single 32-bit multiplier. Of the 65,536 possible 16-bit values in this range, 11,172 are structurally valid (matching the composition formula), and the remaining 54,364 are immediately detectable as invalid by the same logic.
+
+No other Unicode script satisfies all four conditions required: a contiguous fixed-width 16-bit address range, a closed-form composition formula, a complete three-axis decomposition, and an open international standard. Hangul is unique.
+
+## The cost of hashing: what Tagma removes
+
+Every hash-based identity system consumes energy and area before producing a single useful result. A SHA-256 engine requires approximately 10,000 gates and 64-75 cycles per operation, then needs a hash table, collision resolution, and dynamic resizing. UUID generation requires entropy collection and still delivers probabilistic uniqueness with 128-bit identifiers expressed as 36 hex characters.
+
+Tagma replaces all of this with a combinational decoder and a 16-bit register. The output is not an opaque hex string but a readable Hangul syllable -- or a sequence of syllables for larger spaces. A single syllable covers 11,172 identifiers. Six syllables (18 axes) cover $1.9 \times 10^{24}$ identifiers, exceeding typical distributed system needs. Nineteen syllables match the full SHA-256 space of $2^{256}$. At every scale, the identifier is human-readable, self-validating, and free of special characters.
+
+The measured software cost on an Apple M1: 2 ns for a single-syllable identifier versus 227 ns for SHA-256 (115x faster). At SHA-256 scale (19 syllables): 35 ns versus 227 ns (6.5x faster). In dedicated silicon, the gap is expected to widen further because the per-syllable decoder is a single combinational cycle independent of syllable count.
+
+## Verification by exhaustive enumeration
+
+The Tagma coordinate space is exhaustively enumerable: 65,536 possible 16-bit values, of which exactly 11,172 satisfy the composition formula. A verification harness generates all 65,536 inputs, applies the decoder specification, and records every result. The bijection is verified by enumeration: no collisions, no unassigned values within the block. Every implementation, hardware or software, can be verified against the same ground truth in milliseconds on any commodity system.
+
+This is not possible with hash-based systems. A SHA-256 engine cannot be exhaustively verified across its full input space. Tagma can, because its coordinate space is bounded and its formula is closed-form.
+
+## Application domains
+
+**Embedded and sensor systems.** The 11,172-identifier space fits entirely in a single no-allocator array of 22 KB (89 KB for 64-bit values). Every Coord is a direct array index: one load, no hashing, no collisions, no resizing. A zero-initialized array gives bulk operations a 15x advantage over HashMap for this class of use.
+
+**LLM inference cache.** Key-value caches indexed by token sequence prefixes currently use hash tables or radix trees. Tagma replaces this with CoordPath-based direct access: each prefix maps to a unique CoordPath, lookup cost is O(1) direct array accesses with zero hash computation. Production cache sizes (typically $10^4$--$10^7$ entries) are covered by 2--4 syllables.
+
+**Radiation-tolerant computing.** The structural validity check embedded in every decode provides inherent single-event upset detection at zero additional hardware cost. When a valid coordinate is flipped outside the U+AC00--U+D7AF range, the decoder produces an immediate invalid flag. Exhaustive enumeration confirms a 24.1% average SEU detection rate from the structural check alone, before any ECC supplementation. The decoder's small estimated gate count makes triplication feasible at lower cost than protecting a full hash unit.
+
+**Graph and multi-dimensional query.** Each node maps to a Coord, each edge type to a CoordSet. Adjacency reduces to a single bitwise AND over 175 machine words. Multi-dimensional queries project directly to axis ranges without index intersection, with cost independent of graph size.
+
+**General-purpose content addressing.** Wherever UUIDs, hash keys, or sequence-number identifiers are used today -- database records, distributed nodes, file identifiers, commit hashes -- Tagma provides a shorter, faster, human-readable alternative with zero collision probability.
+
+## Boundaries
+
+Tagma does not replace cryptographic primitives. SHA-256 remains for signatures, Merkle proofs, and preimage resistance. Encryption, authentication, and key derivation are outside its scope. Tagma replaces the use of hashes as structural identifiers and addresses. The two can also be combined: SHA-256 output encoded as 19 Hangul syllables is more readable than 64 hex characters while preserving the same $2^{-256}$ collision probability.
+
+Tagma is built on open international standards (Unicode) and open ISA (RISC-V) -- unencumbered by proprietary licensing or regional dependencies. It is a neutral, sovereign primitive for the global computing landscape.
+
+## 588년 전의 설계, 데이터 주소 체계가 되다
+
+한글의 과학적 원리가 21세기 컴퓨팅의 근본적인 문제를 해결합니다. 1443년 세종대왕이 창제한 한글은 초성 19자, 중성 21자, 종성 28자의 3축 조합 구조로 설계되었으며, 이 $19 \times 21 \times 28 = 11,172$개의 완성형 음절이 유니코드 표준(U+AC00--U+D7AF)에 그대로 반영되어 있습니다. 588년 전에 설계된 문자가 오늘날 해시 함수 없이도 충돌 없는 식별자를 300 게이트, 1 사이클에 생성하는 연산 원리가 된 것입니다. 한글은 유물이 아니라 아직 발견되지 않은 미래의 원리입니다.
+
+Tagma는 한국이 기여할 수 있는 독보적인 컴퓨팅 프리미티브입니다. 해시 기반 식별자 생성의 에너지와 면적을 한글 음절 하나로 대체합니다. Tagma가 사용하는 유니코드는 국제 표준(ISO/IEC 10646)이며 동시에 공공재입니다. 누구나 자유롭게 사용할 수 있고, 누구에게도 종속되지 않습니다.
+
+[^tagma]: [Tagma](https://github.com/ssccsorg/tagma) is an independent open-source project (Apache 2.0) under the SSCCS Foundation. Repository: github.com/ssccsorg/tagma (pre-release).
+[^spec-status]: Pre-silicon estimate based on the gate-level specification. The coprocessor attachment (RISC-V XIF) has not yet been synthesized or taped out; actual gate count and cycle timing will be confirmed through standard-cell synthesis and static timing analysis.
