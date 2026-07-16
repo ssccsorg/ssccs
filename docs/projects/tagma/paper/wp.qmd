@@ -1,6 +1,6 @@
 ---
 title: "Tagma"
-subtitle: "Identity–Address Coordinate Primitive on Unicode Syllabic Space"
+subtitle: "Hashless spatial primitive on the Unicode Hangul syllabic coordinate space"
 date: 2026-07
 date-format: "MMMM, YYYY"
 version-prefix: tagma-10.5281/zenodo.21302508
@@ -437,7 +437,7 @@ No physically meaningful comparison remains. There is no mathematical terminal; 
 
 #### From Observable Horizon to the Whole Universe
 
-The comparison value $10^{80}$ (atoms in the observable universe) is a familiar reference point, but it is defined by the cosmic light horizon at approximately 46.5 billion light-years. This is a causal limit, not a physical boundary. The actual universe may be many orders of magnitude larger or infinite. The coordinate space exceeds not only this local figure but any physically conceivable finite universe. Even the most generous estimates for the total baryon count of a finite universe under standard $\Lambda$CDM curvature bounds fall short of $S_1$ by more than 145 orders of magnitude. The coordinate space is not bounded by cosmological horizons; it is a mathematical object indexed by arithmetic composition. A SynTagma targets the whole universe, not merely the region visible from one planet.
+The comparison value $10^{80}$ (atoms in the observable universe) is a familiar reference point, but it is defined by the cosmic light horizon at approximately 46.5 billion light-years. This is a causal limit, not a physical boundary. The actual universe may be many orders of magnitude larger or infinite. The coordinate space exceeds not only this local figure but any physically conceivable finite universe. Even the most generous estimates for the total baryon count of a finite universe under standard $\Lambda$CDM curvature bounds fall short of $S_1$ by more than 145 orders of magnitude. The coordinate space is not bounded by cosmological horizons; it is a mathematical object indexed by arithmetic composition.
 
 ### Hash-less computation: Direct structural addressing {#sec-paradigm-shift}
 
@@ -526,6 +526,8 @@ The shift from string-based to coordinate-based addressing eliminates an entire 
 These are not optimizations of the string path but its elimination. A system that never uses strings as addresses never pays string costs. The question of whether Tagma could be faster than a hash table on a particular benchmark is therefore misdirected: Tagma does not compete with hash tables on hash-table workloads. It competes by making the addressing substrate invisible --- an operation that hash tables cannot attempt because they depend on the very indirection Tagma removes.
 
 The question of string keys dissolves under this framing. An application that stores "user:123:item:456" must parse, hash, and index that string before it can retrieve anything. Tagma assigns a CoordPath directly --- Coord for user type, Coord for user ID, Coord for item --- and the path is both identifier and address. The string remains a human-readable label generated from the CoordPath for display, not parsed into one for storage. This separation eliminates hashing from the critical path.
+
+The deeper distinction is between a map and a space. A hash map is lossy compression: it preserves only the mapping from each key to its value, discarding all structural relationships between keys. Two keys that differ by a single bit land in completely unrelated buckets; proximity is lost, axis structure is lost, the geometry of the identifier space is destroyed by the hash function. No amount of magnification applied to a map reveals the terrain it abstracts. Tagma is the uncompressed original: every coordinate retains its full structural position in the space, and every operation --- lookup, proximity search, axis projection, set membership --- operates on the coordinates directly. The space does not compress away structure because the structure is the address.
 
 ### The Complexity of Structure: Coord Depth
 
@@ -879,13 +881,13 @@ A `#![no_std]` library with an optional `alloc` feature (default: on). Without t
 
 - **CoordSet**: a fixed-size bit array over the 11,172-coordinate space. Backed by $[\texttt{u64}; 175]$ (1.4 KB, zero heap allocation, `Copy`). Insert, remove, and contains are single-bit operations. Union, intersection, difference, and symmetric difference are bitwise word operations. `FromIterator`, `IntoIterator`, and `Index<Coord>` (returning `bool`) are implemented.
 
-#### Map Family
+#### Space Family
 
-The `CoordSpace` series provides hash-free, collision-free coordinate-indexed spaces backed by direct array addressing. Every fixed-depth map (`CoordSpace`, `CoordSpace`) exposes a consistent set of array operations: `get`, `insert`, `remove`, `contains_key`, `clear`, `iter`, `len`, `is_empty`, `FromIterator`, `IntoIterator`, and `Index`/`IndexMut`. `DynCoordSpace` shares the core `get`/`insert`/`remove`/`clear`/`len`/`is_empty` interface but accepts `&[Coord]` slices instead of `CoordPath<N>` and does not yet expose `iter`.
+The `CoordSpace` series provides hash-free, collision-free coordinate-indexed spaces backed by direct array addressing. Every fixed-depth space (`CoordSpace`, `CoordSpaceN`) exposes a consistent set of operations: `place`, `at`, `vacate`, `occupied`, `clear`, `coords`, `len`, `is_empty`, `FromIterator`, `IntoIterator`, and `Index`/`IndexMut`. `DynCoordSpace` shares the core `place`/`at`/`vacate`/`clear`/`len`/`is_empty` interface but accepts `&[Coord]` slices instead of `CoordPath<N>`.
 
 | Type | Depth | Address space | Allocation | Exploration pattern |
 |------|-------|---------------|------------|-------------|
-| `CoordSpace` ($\equiv$ `CoordFlatMap`) | 1 | $11{,}172$ | None (inline array) | General single-syllable, no_std, MCU |
+| `CoordSpace` | 1 | $11{,}172$ | None (inline array) | General single-syllable, no_std, MCU |
 | `CoordSpaceN<2, V>` | 2 | $1.25 \times 10^8$ | Heap (lazy) | FIH cross-product, two-axis space |
 | `CoordSpaceN<3, V>` | 3 | $1.39 \times 10^{12}$ | Heap (lazy) | Three-axis coordinate space |
 | `CoordSpaceN<6, V>` ($\equiv$ `CoordSpace6`) | 6 | $1.94 \times 10^{24}$ | Heap (lazy) | UUID-scale identity |
@@ -895,7 +897,7 @@ The `CoordSpace` series provides hash-free, collision-free coordinate-indexed sp
 
 **`CoordSpace` (single-syllable, no allocator).** Backed by an inline $[\texttt{Option<V>}; 11172]$ array (22 KB for `Option<()>`, 89 KB for `Option<u64>`). Zero heap allocation. Every `Coord` is a direct array index: one load, no hashing, no collisions, no resizing. Full Entry API (`entry().or_insert_with()`), `drain()`, `retain()`, `iter_mut()`, `IntoIterator`, `Index<Coord>`, `PartialEq`, `Clone`, `Debug`.
 
-**`CoordSpaceN<N, V>` (multi-syllable, heap allocated).** An $N$-level tree where each level is a fixed 11,172-slot array. Memory is allocated lazily: only paths that are actually written to consume nodes. Each allocated node is 22 KB (Leaf) or 89 KB (Branch) regardless of occupancy; a single entry in `CoordSpaceN<6>` at maximum depth reaches approximately 500 KB. No hashing, no collisions at any depth. `N` array dereferences per lookup. The same API surface as `CoordSpace`, plus `get_path`/`insert_path`/`remove_path` through `CoordPath<N>`.
+**`CoordSpaceN<N, V>` (multi-syllable, heap allocated).** An $N$-level tree where each level is a fixed 11,172-slot array. Memory is allocated lazily: only paths that are actually written to consume nodes. Each allocated node is 22 KB (Leaf) or 89 KB (Branch) regardless of occupancy; a single entry in `CoordSpaceN<6>` at maximum depth reaches approximately 500 KB. No hashing, no collisions at any depth. `N` array dereferences per lookup. The same API surface as `CoordSpace`, plus `at_path`/`place_path`/`vacate_path` through `CoordPath<N>`.
 
 **`DynCoordSpace` (dynamic depth).** A trie accepting `&[Coord]` slices of any length. Each level is a boxed 11,172-slot array. Inserting both a shallow path and a deeper path sharing the same prefix preserves both values (via a `Both` slot variant). Clear walks the tree in-place without deallocating.
 
@@ -905,14 +907,14 @@ The following example illustrates the coordinate-navigation API across the map f
 use tagma_core::{Coord, CoordSpace, CoordSpace6, CoordPath};
 
 // Single-syllable: no allocator required
-let mut map = CoordSpaceN::new();
+let mut space = CoordSpace::new();
 let c = Coord::new(42).unwrap();
-map.insert(c, "hello");
-assert_eq!(map.get(&c), Some(&"hello"));
-*map.entry(c).or_insert("world") = "updated";
+space.place(c, "hello");
+assert_eq!(space.at(&c), Some(&"hello"));
+*space.entry(c).or_insert("world") = "updated";
 
 // Multi-syllable: compile-time depth N=6
-let mut map6 = CoordSpace6::<u32>::new();
+let mut space6 = CoordSpace6::<u32>::new();
 let path = CoordPath::new([
     Coord::new(1).unwrap(),
     Coord::new(2).unwrap(),
@@ -921,8 +923,8 @@ let path = CoordPath::new([
     Coord::new(5).unwrap(),
     Coord::new(6).unwrap(),
 ]);
-map6.insert_path(&path, 42);
-assert_eq!(map6.get_path(&path), Some(&42));
+space6.place_path(&path, 42);
+assert_eq!(space6.at_path(&path), Some(&42));
 ```
 
 #### Quality Metrics

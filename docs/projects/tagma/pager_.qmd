@@ -1,6 +1,6 @@
 ---
 title: "Tagma Project"
-subtitle: A structural primitive for deterministic computing.
+subtitle: "Hashless spatial primitive on the Unicode Hangul syllabic coordinate space"
 version-prefix: tagmapager-1
 version-mark: true
 format:
@@ -49,7 +49,9 @@ metadata-files:
 %run ../../_include/_graphviz.py
 ```
 
-Tagma[^tagma-etym] is a computing primitive where the address *is* the coordinate — not a flat pointer, but a point in an N-dimensional geometric space. This is made possible by a 16-bit Unicode block allocated to a 3-axis writing system, which provides a collision-free, hash-less, structurally addressable coordinate space. Every valid 16-bit value in this space is simultaneously a 1-D address (Unicode code point), a 3-D coordinate (initial, medial, final), and a displayable Hangul syllable. This triple interpretation enables hash-less content addressing with zero collision probability and single-cycle combinational decoding at an estimated ~300 gates[^spec-status].
+Identity is coordinate, and address is space.
+
+Tagma[^tagma] is a computing primitive where the address is the coordinate — not a flat pointer, but a point in an N-dimensional geometric space. This is made possible by a 16-bit Unicode block allocated to a 3-axis writing system, which provides a collision-free, hash-less, structurally addressable coordinate space. Every valid 16-bit value in this space is simultaneously a 1-D address (Unicode code point), a 3-D coordinate (initial, medial, final), and a displayable Hangul syllable. This triple interpretation enables hash-less content addressing with zero collision probability and single-cycle combinational decoding at an estimated ~300 gates[^spec-status].
 
 Every content-addressable system today generates identifiers through a hash function. SHA-256. UUID. Hash tables. This indirection layer imposes a predictable cost: gate area, cycle latency, storage overhead, and probabilistic collision resolution. The industry's answer has been faster hash units and larger hash tables -- never questioning whether hashing is needed at all. Tagma shows it is not. Where SHA-256 requires thousands of gates and dozens of cycles to generate a single identifier, Tagma does it in one cycle with an estimated ~300 gates. The identifier is not a random-looking hex string -- it is a pronounceable syllable that carries its own coordinate system.
 
