@@ -1,10 +1,10 @@
 ---
-title: Tagma
-subtitle: "Hashless spatial primitive on the Unicode Hangul syllabic coordinate space"
+title: "Tagma Primitive"
+subtitle: "Core coordinate primitive of the synTagma system"
 date: last-modified
 metadata-files:
-  - ../../_include/author.yml
-  - ../../_include/format.html.yml
+  - ../../../_include/author.yml
+  - ../../../_include/format.html.yml
 ---
 
 ```{python}
@@ -13,30 +13,28 @@ metadata-files:
 title_meta_items = {
     "html": [
         {"title": "DOI", "link": "https://doi.org/10.5281/zenodo.21302508", "content": "10.5281/zenodo.21302508", "icon": "bi bi-file-text"},
-        {"title": "Code", "link": "https://github.com/ssccsorg/tagma", "content": "GitHub (Pre-release)", "icon": "bi bi-link"},
+        {"title": "Code", "link": "https://github.com/ssccsorg/syntagma", "content": "GitHub (Pre-release)", "icon": "bi bi-link"},
         {"title": "References", "link": "https://www.unicode.org/charts/PDF/UAC00.pdf", "content": "Unicode Standard (UAC00)", "icon": "bi bi-link"},
         {"title": "References", "link": "https://www.iso.org/standard/76835.html", "content": "ISO/IEC 10646:2020", "icon": "bi bi-link"},
     ],
 }
 ```
 
-{{< include ../../_include/_title_meta_items.qmd >}}
+{{< include ../../../_include/_title_meta_items.qmd >}}
 
 ```{python}
 #| include: false
 #| context: local
-%run ../../_include/_graphviz.py
+%run ../../../_include/_graphviz.py
 ```
 
 Identity is coordinate, and address is space.
 
-## What is Tagma
+## Tagma Primitive
 
-Tagma is a structural identity primitive — a 16-bit coordinate space embedded in the Unicode Hangul syllable block (U+AC00--U+D7AF) that replaces hash-based addressing with a combinational decoder of approximately 300 gates.
+Tagma is the core coordinate primitive of the [synTagma](/projects/syntagma/) system: a 16-bit coordinate space embedded in the Unicode Hangul syllable block (U+AC00--U+D7AF) that replaces hash-based addressing with direct structural addressing. The Tagma composition formula maps three independent axes (initial, medial, final) to a unique 16-bit value in a single cycle. The result is collision-free by construction, hash-less by design, and decodable at the gate level.
 
-Every content-addressable system today generates identifiers through a hash function. This indirection layer carries a universal cost: gate area, cycle latency, probabilistic collision resolution, and the overhead of maintaining separate index structures. Tagma replaces the hash function with a closed-form composition formula that maps three independent axes (initial, medial, final) to a unique 16-bit value in a single cycle. The result is collision-free by construction, hash-less by design, and decodable at the gate level.
-
-The coordinate space that enables this is an open international standard (Unicode) and a public good. Tagma does not replace cryptographic primitives — SHA-256 remains for signatures, integrity verification, and key derivation.
+The coordinate space that enables this is an open international standard (Unicode) and a public good. For the full system including recursive coordination and distributed topology, see [synTagma](/projects/syntagma/).
 
 | Property | Value |
 |----------|-------|
@@ -229,7 +227,7 @@ ax.plot([18, 0], [0, 0], [0, 0], color='black', linewidth=1.2, linestyle='-', al
 ax.plot([0, 0], [20, 0], [0, 0], color='black', linewidth=1.2, linestyle='-', alpha=0.35)
 ax.plot([0, 0], [0, 0], [27, 0], color='black', linewidth=1.2, linestyle='-', alpha=0.35)
 # Vector from origin to point
-ax.plot([0, 6], [0, 1], [0, 4], color='black', linewidth=1.2, linestyle='-', alpha=0.5)
+ax.plot([0, 6], [0, 1], [0, 4], color='black', linewidth=1.2, linestyle='--', alpha=0.5)
 
 ax.dist = 5.5
 ax.view_init(elev=28, azim=-65)
@@ -244,7 +242,7 @@ One value, three uses. Of the 65,536 possible 16-bit values, 11,172 are valid st
 
 ## Why It Matters
 
-Hash-based identity generation costs approximately 10,000 gates and 64-75 cycles per operation. Tagma replaces this with a combinational decoder of approximately 300 gates and one cycle — a 30x reduction in hardware cost and a 64-75x reduction in latency.
+Hash-based identity generation costs approximately 10,000 gates and 64-75 cycles per operation. The Tagma decoder replaces this with approximately 300 gates and one cycle — a 30x reduction in hardware cost and a 64-75x reduction in latency.
 
 For larger identifier spaces, syllables compose linearly. Each syllable adds a factor of 11,172 to the addressable space:
 
@@ -261,7 +259,7 @@ Latency measurement for 100,000 identity generation operations on Apple M1, sing
 
 ```{python}
 #| label: fig-bench-latency
-#| fig-cap: "Identity generation latency: Tagma vs SHA-256, 100k operations on Apple M1."
+#| fig-cap: "Identity generation latency: Tagma N-syll vs SHA-256, 100k operations on Apple M1."
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -291,7 +289,7 @@ ax2.annotate('6x at 2^256', xy=(19, 35), xytext=(10, 120), arrowprops=dict(arrow
 plt.tight_layout(); plt.show()
 ```
 
-| Metric | SHA-256 | Tagma (1-syll) | Tagma (6-syll) | Tagma (19-syll) |
+| Metric | SHA-256 | Tagma 1-syll | Tagma6 | Tagma19 |
 |--------|---------|----------------|----------------|-----------------|
 | Latency per op | 227 ns | 2 ns | 11 ns | 35 ns |
 | Identity size | 32 bytes | 2 bytes | 12 bytes | 38 bytes |
@@ -338,7 +336,8 @@ The full technical specification and domain-specific analyses are available as s
 
 | Paper | Description |
 |-------|-------------|
-| [Tagma](./paper/wp.html) | Complete specification: coordinate space, decoder, coprocessor, compliance, benchmarks, SEU analysis |
+| [synTagma (System Overview)](/projects/syntagma/) | Spatial coordinate space computing system built on Tagma |
+| [Tagma (White Paper)](./paper/wp.html) | Complete specification: coordinate space, decoder, coprocessor, compliance, benchmarks, SEU analysis |
 | [Tagma-ID](./paper/id.html) | Content-addressable identity without hash functions |
 | Tagma-Memory *(forthcoming)* | Three-dimensional SRAM decode using structural coordinates |
 | Tagma-Hardware *(forthcoming)* | A 300-gate combinational decoder for processor pipeline attachment |
@@ -346,6 +345,6 @@ The full technical specification and domain-specific analyses are available as s
 
 ## Contact
 
-For inquiries or research collaboration: [tagma@ssccs.org](mailto:tagma@ssccs.org).
+For inquiries or research collaboration: [syntagma@ssccs.org](mailto:syntagma@ssccs.org).
 
-{{< include ../../_include/_license.md >}}
+{{< include ../../../_include/_license.md >}}
