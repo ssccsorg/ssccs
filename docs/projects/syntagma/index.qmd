@@ -30,59 +30,14 @@ synTagma is a spatial coordinate space computing system. Its core primitive, [Ta
 
 The system spans two layers:
 
-**Tagma (core primitive).** The atomic coordinate: a 16-bit value with closed-form composition, three independent axes, zero collision probability, and single-cycle combinational decoding. Tagma's N-syllable composition (CoordPath) extends the address space from $1.1 \times 10^4$ to $2^{256}$ while keeping lookup cost linear in syllable count. Defined in the [Tagma white paper](/projects/syntagma/tagma/paper/wp.html).
+**Tagma (core primitive).** The atomic coordinate: a 16-bit value with closed-form composition, three independent axes, zero collision probability, and single-cycle combinational decoding. Tagma's N-syllable composition (CoordPath) extends the address space from $1.1 \times 10^4$ to $2^{256}$ while keeping lookup cost linear in syllable count. Defined in the [Tagma white paper](/projects/syntagma/tagma/wp.html).
 
 **synTagma coordination system** The recursive and distributed extension of the Tagma arithmetic across physical topologies. A synTagma coordinate at recursion level $k$ is a Cartesian product of three Tagma CoordPaths at level $k-1$:
 
 $$\mathbb{T}_k = \mathbb{T}_{k-1} \times \mathbb{T}_{k-1} \times \mathbb{T}_{k-1}$$
 
 Each axis of a recursive coordinate can reside on a different physical node. A topology mapping function $\phi_k$ assigns axes to nodes; the recursive linearisation formula produces the same index regardless of how axes are distributed. No distributed consensus is required because each axis is independently stored and independently accessed.
-
-## System architecture
-
-```{python}
-#| label: fig-syntagma-architecture
-#| fig-cap: "synTagma system layers: Tagma core primitive and the coordination layer."
-dot("""
-digraph synTagmaArchitecture {
-    compound=true;
-    rankdir=TB;
-    node [shape=box, style=rounded];
-
-    subgraph cluster_syntagma {
-        label="synTagma (system)";
-        style=dashed; color=black;
-        fontsize=13;
-
-        subgraph cluster_coordination {
-            label="Coordination layer (distributed, recursive)";
-            style=dashed; color=#555555; fontsize=10;
-            routing [label="Self-routing CoordPath"];
-            topology [label="Topology mapping φ_k"];
-            resolver [label="Distributed resolver"];
-            consistency [label="No-consensus resolution"];
-        }
-
-        subgraph cluster_tagma {
-            label="Tagma core primitive";
-            style=dashed; color=#1b9e77; fontsize=10;
-            coord [label="Coord (16-bit, 3-axis)"];
-            path [label="CoordPath<N> (N-syllable)"];
-            set [label="CoordSet (bitwise set)"];
-            space [label="CoordSpace<N> (address space)"];
-        }
-    }
-
-    coord -> path [label="N × composition"];
-    path -> routing;
-    topology -> routing;
-    routing -> resolver;
-    resolver -> consistency;
-    space -> coord [style=dotted, label="   indexes by"];
-}
-""")
-```
-
+ 
 ## Tagma core primitive
 
 The core Tagma coordinate is defined by the Hangul composition formula (ISO/IEC 10646):
@@ -155,9 +110,9 @@ plt.show()
 
 | Document | Description |
 |----------|-------------|
-| [Tagma (White Paper)](/projects/syntagma/tagma/paper/wp.html) | Complete Tagma specification: coordinate space, decoder, hardware, benchmarks |
+| [Tagma (White Paper)](/projects/syntagma/tagma/wp.html) | Complete Tagma specification: coordinate space, decoder, hardware, benchmarks |
 | [Tagma Primary](/projects/syntagma/tagma/) | Tagma core primitive: types, data structures, API reference |
-| [Tagma-ID](/projects/syntagma/tagma/paper/id.html) | Content-addressable identity without hash functions |
+| [Tagma-ID](/projects/syntagma/tagma/id.html) | Content-addressable identity without hash functions |
 
 ## Contact
 
