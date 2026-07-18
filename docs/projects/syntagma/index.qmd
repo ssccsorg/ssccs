@@ -7,8 +7,6 @@ metadata-files:
   - ../../_include/format.html.yml
 ---
 
-{{< include ../../_include/_title_meta_items.qmd >}}
-
 ```{python}
 #| include: false
 #| context: local
@@ -19,6 +17,11 @@ title_meta_items = {
         {"title": "Reference", "link": "https://www.unicode.org/charts/PDF/UAC00.pdf", "content": "Unicode Standard (UAC00)", "icon": "bi bi-link"},
     ],
 }
+```
+
+{{< include ../../_include/_title_meta_items.qmd >}}
+
+```{python}
 %run ../../_include/_graphviz.py
 ```
 
@@ -77,39 +80,17 @@ $$\text{index}(a,b,c) = a \cdot S_{k-1}^2 + b \cdot S_{k-1} + c$$
 
 **Consistency.** Resolution requires no distributed consensus. Each axis is independently stored and independently accessed. The linearisation formula is a pure function of independent axis values, so cross-node reads require no coordination. Write operations affecting different axes target independent address subspaces on different nodes.
 
-## Benchmark
+## Performance
 
-```{python}
-#| label: fig-bench-syntagma
-#| fig-cap: "Tagma identity generation latency vs SHA-256, Apple M1."
-import matplotlib.pyplot as plt
-import numpy as np
+Based on a software reference implementation, measured lookup latency: 0.38 ns vs 227 ns for SHA-256 (597x) at single-syllable; 54.9 ns vs 227 ns (4.1x) at SHA-256 scale (19 syllables). Structural prefix queries show the decisive advantage: Tagma answers nonexistent prefix in 1.65 ns while a general-purpose hash table scans 10M entries in 23.05 ms (14.0Mx). See benchmarks section in [Tagma](/projects/syntagma/tagma/wp.html#sec-appendix-benches) Whitepaper: All measured on Apple M1 with [cargo bench code](https://github.com/ssccsorg/syntagma/blob/main/sw/rust/benches/bench.rs).
 
-categories = ['SHA-256', 'Tagma\n1-syll', 'Tagma\n6-syll', 'Tagma\n19-syll']
-latency_ns = [227, 0.38, 5.57, 54.9]
-fig, ax = plt.subplots(figsize=(8, 4))
-bars = ax.bar(categories, latency_ns, color=['white', 'white', 'white', 'white'], width=0.5, edgecolor='black', linewidth=0.8, hatch=['', '///', '///', '///'])
-ax.set_ylabel('Latency per operation (ns)')
-ax.set_yscale('log')
-for bar, val in zip(bars, latency_ns):
-    ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() * 1.1, f'{val} ns', ha='center', va='bottom', fontsize=9)
-plt.tight_layout()
-plt.show()
-```
-
-| Metric | SHA-256 | Tagma (1-syll) | Tagma (6-syll) | Tagma (19-syll) |
-|--------|---------|---------------|---------------|----------------|
-| Latency | 227 ns/op | 0.38 ns/op | 5.57 ns/op | 54.9 ns/op |
-| Speedup | baseline | 597x | 41x | 4.1x |
-| Address space | 2^256 | $1.1 \times 10^4$ | $1.9 \times 10^{24}$ | $2^{256}$ |
-| Collision | probabilistic | deterministic zero | deterministic zero | deterministic zero |
-
-## Publications
+## Documents
 
 | Document | Description |
 |----------|-------------|
 | [Tagma](/projects/syntagma/tagma/wp.html) | Complete Tagma specification: coordinate space, decoder, hardware, benchmarks |
-| [Tagma Primary](/projects/syntagma/tagma/) | Tagma core primitive: types, data structures, API reference |
+| [Tagma](/projects/syntagma/tagma/wp.html#sec-appendix-benches) benchmarks | 51 microbenchmarks across 12 criterion groups: identity generation (Tagma vs SHA-256), spatial query (CoordSpace vs HashMap), edge cases at 10M entries, UUID-scale and SHA-256-scale deep trees, and mixed-operation stress tests. |
+| [Tagma Core Primitive](/projects/syntagma/tagma/) | Tagma core primitive: types, data structures, API reference |
 | [Tagma-ID](/projects/syntagma/tagma/id.html) | Content-addressable identity without hash functions |
 
 ## Contact

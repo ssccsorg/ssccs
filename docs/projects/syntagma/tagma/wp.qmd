@@ -961,6 +961,7 @@ Rust's `std::collections::HashMap` compiles to C-grade machine code within 5-10%
 
 :::{ layout-ncol=4 }
 
+
 ```{python}
 #| label: fig-bench-identity
 #| fig-cap: "Identity generation latency"
@@ -982,23 +983,38 @@ plt.tight_layout(); plt.show()
 ```
 
 ```{python}
-#| label: fig-bench-nscaling
-#| fig-cap: "N-scaling: latency vs address space"
+#| label: fig-bench-address-space
+#| fig-cap: "Addressable space (bars, log) and lookup latency (line, right axis)."
 import matplotlib.pyplot as plt
 import numpy as np
-n_vals = [1, 2, 3, 6, 12, 19]
-latency = [0.38, 0.87, 2.65, 5.57, 20.3, 54.9]
-space = [1.1e4, 1.3e8, 1.4e12, 1.9e24, 2.4e67, 1.9e77]
-fig, ax1 = plt.subplots()
-ax1.plot(n_vals, latency, 's-', color='black', linewidth=1.5, markerfacecolor='white', markeredgecolor='black', markersize=5, label='Tagma lookup')
-ax1.plot(n_vals, [227]*len(n_vals), '--', color='gray', linewidth=1.2, label='SHA-256')
-ax1.set_xlabel('Syllables (N)'); ax1.set_ylabel('Latency (ns)'); ax1.set_yscale('log')
-ax1.set_xticks(n_vals); ax1.legend(fontsize=7, loc='upper left')
-ax2 = ax1.twinx()
-ax2.plot(n_vals, space, '^-', color='gray', linewidth=1, markerfacecolor='white', markeredgecolor='gray', markersize=4, alpha=0.6)
-ax2.set_ylabel('Address space', color='gray'); ax2.set_yscale('log')
-ax1.annotate('0.38 ns\nat 10^4', xy=(1, 0.38), xytext=(2.5, 0.12), fontsize=6.5, arrowprops=dict(arrowstyle='->', color='gray'), ha='center')
-ax1.annotate('54.9 ns\nat 10^77', xy=(19, 54.9), xytext=(13, 80), fontsize=6.5, arrowprops=dict(arrowstyle='->', color='gray'), ha='center')
+systems = ['UUID\n128-bit', 'SHA-256\n2^256', 'Tagma\nN=19', 'Observable\nuniverse\natoms', 'Tagma\nN=20', 'SHA-512\n2^512', 'Tagma\nk=1\n(19^3 syll)']
+spaces = [3.4e38, 1.1e77, 1.9e77, 1e80, 1.2e81, 1.3e154, 1e231]
+cost_type = ['ref', 'hash', 'direct', 'ref', 'direct', 'hash', 'direct']
+latency = [0, 227, 54.9, 0, 58, 450, 171]
+idxs = np.arange(len(systems))
+fig, ax1 = plt.subplots(figsize=(7, 4.5))
+edgecolors = ['black' if c == 'direct' else ('black' if c == 'hash' else 'gray') for c in cost_type]
+hatches = ['///' if c == 'direct' else ('' if c == 'hash' else '') for c in cost_type]
+bars = ax1.barh(idxs, spaces, color='white', edgecolor=edgecolors, linewidth=0.8, hatch=hatches, height=0.6)
+ax1.set_yticks(idxs); ax1.set_yticklabels(systems, fontsize=7.5)
+ax1.set_xscale('log'); ax1.set_xlabel('Addressable identifiers (log)')
+ax1.set_xlim(1e36, 1e240)
+for i, (b, sp) in enumerate(zip(bars, spaces)):
+    ax1.text(sp * 1.5, b.get_y() + b.get_height()/2, f'10^{int(np.log10(sp)):.0f}', va='center', fontsize=7)
+ax2 = ax1.twiny()
+lat_idxs = [i for i, l in enumerate(latency) if l > 0]
+lat_vals = [latency[i] for i in lat_idxs]
+ax2.plot(lat_vals, lat_idxs, 'o-', color='black', linewidth=1.5, markerfacecolor='white', markeredgecolor='black', markersize=6, zorder=10)
+for i, l in zip(lat_idxs, lat_vals):
+    label = f'{l} ns' if l < 100 else f'{l:.0f} ns'
+    off = 0.3 if i < 4 else -0.3
+    ax2.annotate(label, (l, i), xytext=(l * (1.8 if l < 100 else 1.15), i + off), fontsize=7, ha='left', arrowprops=dict(arrowstyle='->', color='gray', linewidth=0.5))
+ax2.set_xscale('log'); ax2.set_xlabel('Lookup latency (ns, log)', color='black')
+ax2.set_xlim(0.1, 2000)
+from matplotlib.patches import Patch
+ax1.legend(handles=[Patch(facecolor='white', edgecolor='black', hatch='///', label='Tagma (direct)'),
+                    Patch(facecolor='white', edgecolor='black', label='Hash-based'),
+                    Patch(facecolor='white', edgecolor='gray', label='Reference')], fontsize=7, loc=(0.5, 0.05))
 plt.tight_layout(); plt.show()
 ```
 
@@ -1115,8 +1131,8 @@ plt.tight_layout(); plt.show()
 
 :::
 
-- Identity generation: Tagma reaches SHA-256 address space at 19 syllables for 54.9 ns vs 227 ns.
-- N-scaling: lookup cost grows linearly (0.38 ns at N=1 to 54.9 ns at N=19) while address space grows exponentially ($10^4$ to $10^{77}$).
+- Identity generation: SHA-256 lookup costs 227 ns; Tagma reaches the same $2^{256}$ space at 19 syllables for 54.9 ns (↑4.1x).
+- Address space: N-lookup cost remains O(N). Tagma recursion k=1 reaches $10^{231}$ identifiers (SHA-512 space × $10^{77}$) at 171 ns, exceeds every hash system at a fraction of the cost.
 - Spatial query: CoordSet bitwise AND resolves compound axis filters at 329 Melem/s -- 137x faster than HashMap scan.
 - Edge: CS2 sparse get sustains 23.4x at 10M entries; CS19 get shows 19-dereference cost (0.50x); drain is 0.72x on the full space.
 - Bulk operations: CoordSpace outperforms HashMap by 14.6--17.3x across all operations on the full 11,172-entry space.
