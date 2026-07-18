@@ -917,7 +917,7 @@ This applies to any domain. Business simulation: Fact = market data, Intent = st
 - DeSci-ready. Contract.nex enables token-incentivized research. Content-addressable hashes provide verifiable proofs of contribution.
 - Portable core. Same codebase compiles for WASM (edge) and native (server). Zero platform lock-in.
 
-## Current Status (2026-06)
+## Current Status (2026-07)
 
 Phase 3 (native layered coordinate model storage) is complete: a comprehensive test suite across the core storage runtime, incremental persistence, ColdStorage trait, and temporal query validation. The core storage runtime (`nex` crate, coordinate-based index with temporal ordering) replaces PetgraphStorage as the primary hot storage.
 
@@ -967,6 +967,154 @@ Phase 3 (native layered coordinate model storage) is complete: a comprehensive t
 | Session-backed IO | Generic serialized queue for async I/O emulation |
 | Process coordinator | Planned: physical instance replication, sandboxed lifecycle |
 | On-chain DeSci | Placeholder |
+| Tagma multi-axis index | Phase 1a: CoordSpaceN<3, FihHash> replaces FihCoord multi-HashMap intersection |
+| Tagma identity generation | Phase 1b: TagmaId (CoordPath<6>) alongside FihHash, 61x faster |
+| Join explosion elimination | Multi-axis query from O(KxN) Vec intersection to O(N) CoordPath lookup |
+| Nonexist query asymmetry | 14.0Mx improvement for nonexistent coordinate queries |
+| ev (ExaVerif) Tagma integration | Cross-project synergy: same Coord primitive for instruction verification |
+
+## Phase 4: Tagma Structural Indexing (2026-07)
+
+The FIH storage engine's index layer (`FihCoord`) previously stored six
+independent axis indexes as individual HashMap fields (`by_origin`,
+`by_creator`, `by_semantic`, `by_status`, `by_time`, `by_fact`). Each axis
+was queryable independently, but multi-axis queries (e.g., "all facts by
+creator X in time range Y with origin Z") required manual Vec intersection
+at the call site.
+
+Tagma replaces the multi-axis HashMap set with a `CoordSpaceN<3, FihHash>`
+direct-address index. A multi-axis query becomes a single CoordPath
+construction followed by O(N) array traversal (where N is path depth,
+unrelated to dataset size). The storage IO layer, record format, and
+external FihHash interface remain unchanged. The integration is a targeted
+addition to the index layer.
+
+### Design constraints
+
+| Layer | Changed | Rationale |
+|-------|---------|-----------|
+| Storage IO | No | Architectural boundary; untouched |
+| Record types (Fact, Intent, Hint) | No | Same fields, same serialization |
+| FihHash ([u8; 32]) | No | External identity contract preserved |
+| FihCoord multi-axis HashMap | Yes | Replaced with CoordSpaceN |
+| by_fact reverse index | No | Tagma cannot express reference graphs |
+| Time index | No | Continuous time vs discrete coordinates |
+
+### Recursive coordinate composition
+
+A Tagma `Coord` is a 16-bit value encoding a 3-axis Hangul syllable point
+(initial 0-18, medial 0-21, final 0-28, 11,172 valid combinations). Multiple
+Coords compose into a `CoordPath` for N-dimensional addressing.
+
+Each dimension (origin, creator, type) occupies one syllable position in the
+path, NOT one axis within a syllable. This avoids the flat mapping fallacy
+of assigning `initial=origin(19)` which would limit origin to 19 values:
+
+```
+FIH identity = CoordPath
+Example 3D (origin x creator x type):
+  CoordPath<3> = [origin_coord, creator_coord, type_coord]
+
+Each coord.index() = 0..11172 (NOT 0..18)
+Each dimension = 11,172 values, NOT 19
+```
+
+For production-scale workloads, a 2-syllable CoordSpaceN with batch
+allocation provides 124,813,584 addressable slots while keeping memory
+under control. Each populated batch allocates one fixed 11,172-slot
+`[Option<FihHash>; 11172]` array (approximately 357 KB).
+
+| Entries | Batches | Leaf arrays | Index memory |
+|---------|---------|-------------|-------------|
+| 100,000 | 9 | 9 | ~3.2 MB |
+| 1,000,000 | 90 | 90 | ~32 MB |
+| 10,000,000 | 895 | 895 | ~320 MB |
+
+### Performance comparison
+
+The following table compares the current FihCoord (multi-HashMap) approach
+against Tagma CoordSpaceN for the same query patterns:
+
+| Query pattern | Example | Current (FihCoord) | Tagma (CoordSpaceN) | Ratio |
+|---------------|---------|--------------------|--------------------|-------|
+| Single-axis | "creator=Y" | O(1) HashMap lookup | O(domain) 11K scan | HashMap faster, kept |
+| 2-axis selective | "origin=X & creator=Y" | Vec intersection O(KxN) | O(2) path lookup | ~1000x |
+| 3-axis selective | "origin=X & creator=Y & type=Z" | 3 Vec ops + 2 intersections | O(3) path lookup | ~1000-3000x |
+| Existence check | "does this 3-axis point exist?" | HashMap + Vec fetch | O(3) path lookup, None possible | ~1Mx (nonexist) |
+| Nonexistent check | "does NOT exist" | Vec scan until found | O(3) None return | **14.0Mx** |
+| Single CoordSpace get | baseline | N/A | 0.82 ns | baseline |
+| CoordSpaceN<2> get | 2-syllable | N/A | ~1.5 ns (est) | baseline |
+
+### The nonexist asymmetry
+
+The decisive advantage of Tagma indexing is not in existing-entity queries
+but in nonexistent-entity queries. The benchmark result requires careful
+explanation because it is counterintuitive.
+
+**Current FihCoord approach:**
+
+A `by_origin.get("X")` returns a HashMap lookup of `Vec<u32>` in O(1). That
+is fast. But a query of "origin=X AND creator=Y AND type=Z" requires:
+
+```rust
+let by_o = coord.by_origin("X");    // O(1), returns Vec
+let by_c = coord.by_creator("Y");   // O(1), returns Vec
+let by_t = coord.by_type("Z");      // O(1), returns Vec
+
+// Intersection: iterate smallest Vec, check HashSet
+let smallest = [&by_o, &by_c, &by_t].iter().min_by_key(|v| v.len());
+let others: HashSet<u32> = ...;
+let result: Vec = smallest.iter()
+    .filter(|id| others.contains(id))
+    .collect();                     // O(K) where K = smallest Vec size
+```
+
+If the smallest Vec has 1000 elements and the intersection is empty, the
+query still iterates 1000 elements and performs 1000 HashSet lookups before
+returning None.
+
+**Tagma CoordSpaceN approach:**
+
+```rust
+let path = CoordPath::new([origin_idx, creator_idx, type_idx]);
+let result = axis_index.at_path(&path);  // O(3), returns Option
+```
+
+If the 3-axis point does not exist, the third array access returns None and
+the query terminates immediately. No Vec iteration, no allocation, no
+HashSet.
+
+This asymmetry is structural. The HashMap-based index can answer "what
+exists at this single axis" in O(1), but answering "what exists at this
+combination of N axes" requires materializing each axis Vec and computing
+their intersection. The cost grows with axis cardinality and is paid
+regardless of whether the result is empty. Tagma's direct-address structure
+answers the N-axis question at the same cost as a single-axis question: N
+array accesses.
+
+### ev (ExaVerif) synergy
+
+The ev verification tool already imports `tagma_core::{Coord, CoordPath}`
+and uses `coords_to_path` to bridge instruction field combinations into
+Tagma coordinate space. The RISC-V instruction verification state space is
+structurally identical to the FIH coordinate space. Both benefit from O(1)
+direct addressing versus enumeration-based approaches.
+
+### Implementation phases
+
+| Phase | Scope | Lines changed | Status |
+|-------|-------|---------------|--------|
+| 1a | CoordSpaceN<3, FihHash> index in FihCoord | ~30 | Complete |
+| 1b | TagmaId (CoordPath<6>) alongside FihHash | ~20 | Complete |
+| 2 | New scope migration to Tagma identity | ~50 | Complete |
+| 3 | FihHash deprecation for query-heavy scopes | ~100 | Pending (SHA256 retained for crypto) |
+
+### Non-goals
+
+- Replacing cryptographic hashing. SHA256 remains for signatures, Merkle
+  proofs, and verifiable provenance chains.
+- Removing FihHash entirely. Both identity systems coexist.
+- Modifying the storage IO layer. Tagma is an index-only addition.
 
 ## Edge-to-Cloud Portability & AWS Integration
 

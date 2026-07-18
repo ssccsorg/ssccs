@@ -1002,13 +1002,19 @@ ax1.set_xlim(1e36, 1e240)
 for i, (b, sp) in enumerate(zip(bars, spaces)):
     ax1.text(sp * 1.5, b.get_y() + b.get_height()/2, f'10^{int(np.log10(sp)):.0f}', va='center', fontsize=7)
 ax2 = ax1.twiny()
-lat_idxs = [i for i, l in enumerate(latency) if l > 0]
-lat_vals = [latency[i] for i in lat_idxs]
-ax2.plot(lat_vals, lat_idxs, 'o-', color='black', linewidth=1.5, markerfacecolor='white', markeredgecolor='black', markersize=6, zorder=10)
-for i, l in zip(lat_idxs, lat_vals):
-    label = f'{l} ns' if l < 100 else f'{l:.0f} ns'
-    off = 0.3 if i < 4 else -0.3
-    ax2.annotate(label, (l, i), xytext=(l * (1.8 if l < 100 else 1.15), i + off), fontsize=7, ha='left', arrowprops=dict(arrowstyle='->', color='gray', linewidth=0.5))
+sha_idxs = [1, 5]
+sha_vals = [latency[i] for i in sha_idxs]
+tagma_idxs = [2, 4, 6]
+tagma_vals = [latency[i] for i in tagma_idxs]
+ax2.plot(sha_vals, sha_idxs, 'o-', color='black', linewidth=1.2, markerfacecolor='white', markeredgecolor='black', markersize=6, zorder=10, label='Hash-based lookup')
+ax2.plot(tagma_vals, tagma_idxs, 's:', color='black', linewidth=1.2, markerfacecolor='white', markeredgecolor='black', markersize=5, zorder=10, label='Tagma (direct)')
+for i, l in zip(sha_idxs, sha_vals):
+    off = 0.3
+    ax2.annotate(f'{l:.0f} ns', (l, i), xytext=(l * 1.15, i + off), fontsize=7, ha='left', arrowprops=dict(arrowstyle='->', color='gray', linewidth=0.5))
+for i, l in zip(tagma_idxs, tagma_vals):
+    off = -0.3
+    ax2.annotate(f'{l:.0f} ns', (l, i), xytext=(l * 1.15, i + off), fontsize=7, ha='left', arrowprops=dict(arrowstyle='->', color='gray', linewidth=0.5))
+ax2.legend(fontsize=7, loc='lower right')
 ax2.set_xscale('log'); ax2.set_xlabel('Lookup latency (ns, log)', color='black')
 ax2.set_xlim(0.1, 2000)
 from matplotlib.patches import Patch
