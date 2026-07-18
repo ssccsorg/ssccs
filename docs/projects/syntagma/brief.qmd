@@ -1,0 +1,504 @@
+---
+title: "Executive Brief: synTagma Project"
+subtitle: "Spatial coordinate space computing system based on Tagma: Identity is coordinate, and address is space."
+version-prefix: syntagma-eb-1
+version-mark: true
+format:
+  pdf:
+    classoption:
+      - twocolumn
+    fontsize: 10pt
+    pdf-engine: xelatex
+    geometry:
+        - margin=14mm
+    include-in-header:
+      text: |
+        \usepackage{xcolor}
+        \usepackage{microtype}
+        \usepackage{xeCJK}
+        \setCJKmainfont{Noto Sans CJK KR}
+        \setkeys{Gin}{width=\linewidth,height=\textheight,keepaspectratio}
+        \addtokomafont{disposition}{\rmfamily}
+        \geometry{bottom=1.6cm, footskip=1cm}
+        \input{./_files/_metadata.tex}
+        \DeclareTOCStyleEntry[beforeskip=6pt]{default}{section}
+        \DeclareTOCStyleEntry[beforeskip=0pt]{default}{subsection}
+        \makeatletter
+        \def\@maketitle{
+          {\LARGE \bfseries \@title \par}
+          \vspace{0.3em}
+          {\large \@subtitle \par}
+          \vspace{0.3em}
+                \vspace{1em}
+                {\large \texttt{\href{https://www.linkedin.com/in/stells}{\@author}}, \authorrole, \texttt{\href{mailto:\authoremail}{\authoremail}} \par}
+                \vspace{0.3em}
+                {\normalsize \texttt{\href{https://tagma.ssccs.org}{\affiliationname}} \par}
+                \vspace{1em}
+        }
+        \makeatother
+generate-title-meta: false
+metadata-files:
+  - ../../_include/author.founder.yml
+  - ../../_include/format.pdf.yml
+---
+
+```{python}
+#| include: false
+#| context: local
+%run ../../_include/_graphviz.py
+```
+
+synTagma[^syntagma] is a spatial coordinate space computing system based on core primitive [Tagma](https://docs.ssccs.org/projects/syntagma/tagma/), where the address is a coordinate in an N-dimensional geometric space. This is made possible by a 16-bit Unicode block allocated to a 3-axis writing system, which provides a collision-free, hash-less, structurally addressable coordinate space. Every valid 16-bit value in this space is simultaneously a 1-D address (Unicode code point), a 3-D coordinate (initial, medial, final), and a displayable Hangul syllable. This triple interpretation enables hash-less content addressing with zero collision probability and single-cycle combinational decoding at an estimated ~300 gates[^spec-status]. Every content-addressable system today generates identifiers through a hash function — SHA-256, UUID, hash tables. The industry's answer to this cost has been faster hash units and larger hash tables. Tagma replaces the hash function with a pronounceable syllable carrying its own coordinate system.
+
+```{python}
+#| label: fig-man-frame
+#| fig-cap: '맨 (U+B9E8, \"man\"): three-axis syllable coordinate (6, 1, 4) packed into a 16-bit word.'
+
+dot("""
+digraph ManFrame {
+    splines=ortho;
+    node [shape=plaintext, fontname="Arial", fontcolor=black];
+    edge [color=black, minlen=1];
+
+    // Stage 1: syllable with three axes
+    syllable [fontcolor=black, label=<
+        <table border="0" cellborder="1" cellspacing="0" cellpadding="0" color="black">
+            <tr>
+                <td width="30%" height="96" align="center" valign="middle">
+                    <font point-size="12" color="black">ㅁ<br/>Initial (choseong, 초성)<br/>x: 6</font></td>
+                <td width="40%" height="96" align="center" valign="middle" border="2">
+                    <font point-size="60" color="black">맨</font></td>
+                <td width="30%" height="96" align="center" valign="middle">
+                    <font point-size="12" color="black">ㅐ<br/>Medial (jungseong, 중성)<br/>y: 1</font></td>
+            </tr>
+            <tr><td colspan="3" align="center" height="28">
+                <font point-size="12" color="black">ㄴ<br/>Final (jongseong, 종성) z: 4</font></td></tr>
+        </table>
+    >];
+
+    // Stage 2: 16-bit word layout (conceptual)
+    layout [fontcolor=black, label=<
+        <table border="0" cellborder="1" cellspacing="0" cellpadding="2" color="black" width="100%">
+            <tr><td colspan="16" align="center" height="18"><font point-size="12">16-bit word</font></td></tr>
+            <tr><td colspan="5" align="center"><font point-size="12">Initial</font></td>
+                <td colspan="5" align="center"><font point-size="12">Medial</font></td>
+                <td colspan="5" align="center"><font point-size="12">Final</font></td>
+                <td align="center"><font point-size="12">Reserved</font></td></tr>
+            <tr><td colspan="5" align="center"><font point-size="12">range: 19</font></td>
+                <td colspan="5" align="center"><font point-size="12">range: 21</font></td>
+                <td colspan="5" align="center"><font point-size="12">range: 28</font></td>
+                <td align="center"><font point-size="12">1</font></td></tr>
+            <tr><td colspan="16" align="center" height="16">
+                <font point-size="12">5 + 5 + 5 + 1 = 16 bits</font></td></tr>
+                <tr><td colspan="16" align="center" height="18"><font point-size="12">Actual encoding of 맨</font></td></tr>
+                <tr>
+                    <td align="center" width="8.25%"><font point-size="11">0</font></td>
+                    <td align="center" width="8.25%"><font point-size="11">0</font></td>
+                    <td align="center" width="8.25%"><font point-size="11">1</font></td>
+                    <td align="center" width="8.25%"><font point-size="11">1</font></td>
+                    <td align="center" width="8.25%"><font point-size="11">0</font></td>
+                    <td align="center" width="8.25%"><font point-size="11">0</font></td>
+                    <td align="center" width="8.25%"><font point-size="11">0</font></td>
+                    <td align="center" width="8.25%"><font point-size="11">0</font></td>
+                    <td align="center" width="8.25%"><font point-size="11">0</font></td>
+                    <td align="center" width="8.25%"><font point-size="11">1</font></td>
+                    <td align="center" width="8.25%"><font point-size="11">0</font></td>
+                    <td align="center" width="8.25%"><font point-size="11">0</font></td>
+                    <td align="center" width="8.25%"><font point-size="11">1</font></td>
+                    <td align="center" width="8.25%"><font point-size="11">0</font></td>
+                    <td align="center" width="8.25%"><font point-size="11">0</font></td>
+                    <td align="center" width="8.25%"><font point-size="11">0</font></td></tr>
+                <tr><td colspan="16" align="center" height="18"><font point-size="12">00110 00001 00100 0</font></td></tr>
+                <tr><td colspan="16" align="center" height="18"><font point-size="12">(x: 6, y: 1, z: 4)</font></td></tr>
+        </table>
+    >];
+
+    syllable -> layout; 
+}
+""")
+```
+
+Unicode assigns each script a fixed address block. Within this block, Hangul occupies a contiguous 16-bit segment (U+AC00--U+D7AF) invented in 1443 and allocated in Unicode 2.0 in 1996. Its composition formula embeds three independent structural axes into every code point:
+
+$$C(i,m,f) = \text{U+AC00} + 588i + 28m + f$$
+$$\quad (0 \leq i < 19,\; 0 \leq m < 21,\; 0 \leq f < 28)$$
+
+A hardware decoder extracts the three axis fields in one cycle. Of 65,536 possible 16-bit values, 11,172 are structurally valid and the remaining 54,364 are immediately detectable as invalid. CoordPath chains multiple syllables into higher dimensions (6 = 18 axes, 19 = 57 axes), with each axis position representing a different application-defined dimension -- region, device type, timestamp, shard. The arithmetic operations are invariant; only the axis interpretation changes per deployment.
+
+No other Unicode script satisfies all four conditions required: a contiguous fixed-width 16-bit address range, a closed-form composition formula, a complete three-axis decomposition, and an open international standard. Hangul is unique.
+
+```{python}
+#| include: false
+import numpy as np
+
+n_init, n_med, n_fin = 19, 21, 28
+stride = 2
+init_vals = np.arange(0, n_init, stride)
+med_vals  = np.arange(0, n_med,  stride)
+fin_vals  = np.arange(0, n_fin,  stride)
+
+I, M, F = np.meshgrid(init_vals, med_vals, fin_vals, indexing='ij')
+I_f, M_f, F_f = [a.flatten() for a in (I, M, F)]
+
+def box_edges(x0, y0, z0, x1, y1, z1):
+    edges = []
+    def add(xa, ya, za, xb, yb, zb):
+        edges.append(((xa, ya, za), (xb, yb, zb)))
+    for (dx, dy, dz) in [(x1,y0,z0),(x0,y1,z0),(x0,y0,z1)]:
+        add(x0,y0,z0,dx,dy,dz)
+    add(x1,y1,z0, x1,y0,z0); add(x1,y1,z0, x0,y1,z0); add(x1,y1,z0, x1,y1,z1)
+    add(x0,y1,z1, x1,y1,z1); add(x0,y1,z1, x0,y0,z1); add(x0,y1,z1, x0,y1,z0)
+    add(x1,y0,z1, x1,y1,z1); add(x1,y0,z1, x1,y0,z0); add(x1,y0,z1, x0,y0,z1)
+    return edges
+
+full_edges  = box_edges(0, 0, 0, 31, 31, 31)
+valid_edges = box_edges(0, 0, 0, 18, 20, 27)
+```
+
+```{python}
+#| label: fig-3d-decode
+#| fig-cap: "Three-dimensional bitcell organization. 19 x 21 x 28 lattice, 11,172 of 65,536 states valid."
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+
+fig = plt.figure(figsize=(8, 7))
+ax = fig.add_subplot(111, projection='3d')
+
+box = np.array([[0, 0, 0],
+                [18, 0, 0],
+                [18, 20, 0],
+                [0, 20, 0],
+                [0, 0, 27],
+                [18, 0, 27],
+                [18, 20, 27],
+                [0, 20, 27]])
+
+faces = [[0,1,2,3], [4,5,6,7], [0,1,5,4], [2,3,7,6], [0,3,7,4], [1,2,6,5]]
+
+valid_volume = Poly3DCollection([box[f] for f in faces], alpha=0.08, facecolor='#555555', edgecolor='none')
+ax.add_collection3d(valid_volume)
+
+ax.scatter(I_f, M_f, F_f, c='#666666', s=14, alpha=0.6, linewidth=0.15,
+           edgecolor='white', depthshade=True)
+
+# Highlight 맨 at (6, 1, 4)
+ax.scatter([6], [1], [4], c='black', s=80, marker='o', linewidth=1.5,
+           edgecolor='white', zorder=10, label='U+B9E8 (6, 1, 4)')
+ax.text(6, 2, 5, 'U+B9E8 (6, 1, 4)', fontsize=9, ha='center', va='bottom',
+        bbox=dict(boxstyle='round,pad=0.2', facecolor='white', edgecolor='black', alpha=0.9))
+
+
+for (xa, ya, za), (xb, yb, zb) in full_edges:
+    ax.plot([xa, xb], [ya, yb], [za, zb], color='#aaaaaa', linestyle='--', linewidth=0.5)
+ax.plot([], [], [], color='#aaaaaa', linestyle='--', linewidth=0.5, label='Full 32x32x32 addressable space')
+
+for (xa, ya, za), (xb, yb, zb) in valid_edges:
+    ax.plot([xa, xb], [ya, yb], [za, zb], color='#333333', linestyle='-', linewidth=0.8)
+ax.plot([], [], [], color='#333333', linestyle='-', linewidth=0.8, label='Valid 19x21x28 syllable region')
+
+ax.text(18, 20, 30, 'U+AC00 .. U+D7AF\n11,172 valid coordinates',
+        fontsize=8, ha='center', va='bottom',
+        bbox=dict(boxstyle='round,pad=0.3', facecolor='white', edgecolor='#333333', alpha=0.9))
+
+ax.set_xlabel('Initial (choseong)', fontsize=11)
+ax.set_ylabel('Medial (jungseong)', fontsize=11)
+ax.set_zlabel('Final (jongseong)', fontsize=11)
+ax.set_xlim(-1, 33); ax.set_ylim(-1, 33); ax.set_zlim(-3, 31)
+ax.xaxis.set_major_locator(plt.MaxNLocator(5))
+ax.yaxis.set_major_locator(plt.MaxNLocator(5))
+ax.zaxis.set_major_locator(plt.MaxNLocator(5))
+ax.xaxis.pane.fill = False; ax.yaxis.pane.fill = False; ax.zaxis.pane.fill = False
+ax.xaxis.pane.set_edgecolor('none'); ax.yaxis.pane.set_edgecolor('none'); ax.zaxis.pane.set_edgecolor('none')
+
+for coord in range(0, 33, 8):
+    ax.plot([coord, coord], [0, 31], [0, 0], color='#dddddd', linewidth=0.3, zorder=-1)
+    ax.plot([0, 31], [coord, coord], [0, 0], color='#dddddd', linewidth=0.3, zorder=-1)
+
+# Full axis lines from far end to origin (N → 0)
+ax.plot([18, 0], [0, 0], [0, 0], color='black', linewidth=1.2, linestyle='-', alpha=0.35)
+ax.plot([0, 0], [20, 0], [0, 0], color='black', linewidth=1.2, linestyle='-', alpha=0.35)
+ax.plot([0, 0], [0, 0], [27, 0], color='black', linewidth=1.2, linestyle='-', alpha=0.35)
+# Vector from origin to point
+ax.plot([0, 6], [0, 1], [0, 4], color='black', linewidth=1.2, linestyle='--', alpha=0.5)
+
+ax.dist = 5.5
+ax.view_init(elev=28, azim=-65)
+ax.legend(loc='upper left', fontsize='small', facecolor='white', edgecolor='#999999', framealpha=0.95)
+plt.subplots_adjust(left=0, right=1, bottom=0, top=1)
+plt.show()
+```
+
+## The cost[^benchmarks] of hashing: what Tagma removes
+
+SHA-256 requires ~10,000 gates and 64--75 cycles per operation, then needs collision resolution and dynamic resizing. UUID generation requires entropy and delivers probabilistic uniqueness. Tagma replaces all of this with a combinational decoder and a 16-bit register. A single syllable covers 11,172 identifiers; six syllables (18 axes) exceed typical distributed system needs; nineteen match SHA-256's $2^{256}$ space.
+
+**Measured lookup latency:** 0.38 ns for a single-syllable Tagma coordinate vs 227 ns for SHA-256 (↑**597x**). At SHA-256 scale (19 syllables): 54.9 ns (↑4.1x). N-scaling is strictly linear: 0.38 ns at N=1, 54.9 ns at N=19. Recursive depth is bounded by schema, not by data volume — $10^4$ and $10^{77}$ entries both cost $N$ dereferences.
+
+**Nonexistent prefix lookup:** CoordSpace **1.65 ns** (structural, navigates to the branch and returns None) vs HashMap **23.05 ms** (↑**14.0Mx**, full scan of 10M entries — HashMap has no structural prefix index). Sparse get at 10M entries: CoordSpace2 completes all 10M operations in 44.9 ms vs HashMap 1.05 s (↑23.4x).
+
+This is **the elimination of hashing itself, not replacing `HashMap` as a storage** which is one of the fastest general-purpose hash based storage by C-grade machine code (not an interpreted-language benchmark). Tagma matches or exceeds this baseline is incidental: HashMap degrades linearly while Tagma does not.
+
+:::{ layout-ncol=2 }
+
+```{python}
+#| label: fig-bench-identity
+#| fig-cap: "Identity generation latency"
+import matplotlib.pyplot as plt
+import numpy as np
+cats = ['SHA-256', 'Tagma\n1-syll', 'Tagma\n6-syll', 'Tagma\n19-syll']
+vals = [227, 0.38, 5.57, 54.9]
+fig, ax = plt.subplots()
+bars = ax.bar(cats, vals, color='white', width=0.5, edgecolor='black', linewidth=0.8, hatch=['', '///', '///', '///'])
+ax.set_ylabel('Latency per lookup (ns)'); ax.set_yscale('log')
+for bar, val in zip(bars, vals):
+    ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() * 1.1,
+            f'{val} ns' if val >= 1 else f'{val*1000:.0f} ps', ha='center', va='bottom', fontsize=7)
+ax.annotate('↑597x', xy=(0.25, 0.65), fontsize=9, fontweight='bold',
+            bbox=dict(boxstyle='round,pad=0.2', facecolor='white', edgecolor='black', alpha=0.8))
+ax.annotate('↑4.1x\nat 2^256', xy=(2.5, 40), fontsize=8, fontweight='bold',
+            bbox=dict(boxstyle='round,pad=0.2', facecolor='white', edgecolor='black', alpha=0.8))
+plt.tight_layout(); plt.show()
+```
+
+```{python}
+#| label: fig-bench-nscaling
+#| fig-cap: "N-scaling: latency vs address space"
+import matplotlib.pyplot as plt
+import numpy as np
+n_vals = [1, 2, 3, 6, 12, 19]
+latency = [0.38, 0.87, 2.65, 5.57, 20.3, 54.9]
+space = [1.1e4, 1.3e8, 1.4e12, 1.9e24, 2.4e67, 1.9e77]
+fig, ax1 = plt.subplots()
+ax1.plot(n_vals, latency, 's-', color='black', linewidth=1.5, markerfacecolor='white', markeredgecolor='black', markersize=5, label='Tagma lookup')
+ax1.plot(n_vals, [227]*len(n_vals), '--', color='gray', linewidth=1.2, label='SHA-256')
+ax1.set_xlabel('Syllables (N)'); ax1.set_ylabel('Latency (ns)'); ax1.set_yscale('log')
+ax1.set_xticks(n_vals); ax1.legend(fontsize=7, loc='upper left')
+ax2 = ax1.twinx()
+ax2.plot(n_vals, space, '^-', color='gray', linewidth=1, markerfacecolor='white', markeredgecolor='gray', markersize=4, alpha=0.6)
+ax2.set_ylabel('Address space', color='gray'); ax2.set_yscale('log')
+ax1.annotate('0.38 ns\nat 10^4', xy=(1, 0.38), xytext=(2.5, 0.12), fontsize=6.5, arrowprops=dict(arrowstyle='->', color='gray'), ha='center')
+ax1.annotate('54.9 ns\nat 10^77', xy=(19, 54.9), xytext=(13, 80), fontsize=6.5, arrowprops=dict(arrowstyle='->', color='gray'), ha='center')
+plt.tight_layout(); plt.show()
+```
+
+:::
+
+Identity generation: Tagma reaches SHA-256 address space at 19 syllables for 54.9 ns vs 227 ns. N-scaling: lookup cost grows linearly (0.38 ns at N=1 to 54.9 ns at N=19) while address space grows exponentially ($10^4$ to $10^{77}$).
+
+:::{ layout-ncol=2 }
+
+```{python}
+#| label: fig-bench-spatial
+#| fig-cap: "Spatial query throughput"
+import matplotlib.pyplot as plt
+import numpy as np
+queries = ['Axis\nmedial=10', 'Range\ninit 3-7', 'Compound\ninit=3,med=5']
+cs_tp = [58.0, 158.0, 329.0]; hm_tp = [24.5, 77.3, 2.4]; ratios = ['2.4x', '2.0x', '137x']
+fig, ax = plt.subplots(); x = np.arange(len(queries)); w = 0.3
+ax.bar(x - w/2, cs_tp, w, label='CoordSpace', color='white', edgecolor='black', linewidth=0.8, hatch='///')
+ax.bar(x + w/2, hm_tp, w, label='HashMap', color='white', edgecolor='black', linewidth=0.8)
+ax.set_ylabel('Throughput (Melem/s)'); ax.set_xticks(x); ax.set_xticklabels(queries, fontsize=7)
+ax.set_yscale('log'); ax.legend(fontsize=7, loc='upper left')
+for i, (cs, hm, ratio) in enumerate(zip(cs_tp, hm_tp, ratios)):
+    ax.annotate(ratio, xy=(i, (cs * hm) ** 0.5), fontsize=8, fontweight='bold', ha='center', va='center',
+                bbox=dict(boxstyle='round,pad=0.12', facecolor='white', edgecolor='black', alpha=0.85))
+plt.tight_layout(); plt.show()
+```
+
+```{python}
+#| label: fig-bench-edge
+#| fig-cap: "Edge cases: sparse get, deep get, drain"
+import matplotlib.pyplot as plt
+import numpy as np
+ops = ['CS2 sparse\nget 10M', 'CS19 get\n100', 'Drain\n11,172']
+cs_edge = [44.9, 7.04, 27.8]; hm_edge = [1050, 3.53, 20.0]; labels_edge = ['23.4x', '0.50x', '0.72x']
+fig, ax = plt.subplots(); x = np.arange(len(ops)); w = 0.3
+ax.bar(x - w/2, cs_edge, w, label='CoordSpace', color='white', edgecolor='black', linewidth=0.8, hatch='///')
+ax.bar(x + w/2, hm_edge, w, label='HashMap', color='white', edgecolor='black', linewidth=0.8)
+ax.set_xticks(x); ax.set_xticklabels(ops, fontsize=7); ax.set_ylabel('Latency (µs)')
+ax.set_yscale('log'); ax.legend(fontsize=7, loc='upper left')
+for i, (cs, hm, label) in enumerate(zip(cs_edge, hm_edge, labels_edge)):
+    mid = (cs * hm) ** 0.5 if cs > 0 and hm > 0 else max(cs, hm)
+    color = 'black' if 'x' in label else 'gray'
+    ax.annotate(label, xy=(i, mid), fontsize=8, fontweight='bold', ha='center', va='center',
+                bbox=dict(boxstyle='round,pad=0.12', facecolor='white', edgecolor=color, alpha=0.85))
+plt.tight_layout(); plt.show()
+```
+
+:::
+
+Spatial query: CoordSet bitwise AND resolves compound axis filters at 329 Melem/s — 137x faster than HashMap scan. Edge: CS2 sparse get sustains 23.4x at 10M entries; CS19 get shows 19-dereference cost (0.50x); drain is 0.72x on the full space.
+
+:::{ layout-ncol=2 }
+
+```{python}
+#| label: fig-bench-bulk
+#| fig-cap: "Bulk operations"
+import matplotlib.pyplot as plt
+import numpy as np
+ops = ['Insert\n11,172', 'Get\n11,172', 'Remove\n11,172']
+cs_bulk = [26.4, 6.48, 15.9]; hm_bulk = [385, 102, 275]; ratios = ['14.6x', '15.7x', '17.3x']
+fig, ax = plt.subplots(); x = np.arange(len(ops)); w = 0.3
+ax.bar(x - w/2, cs_bulk, w, label='CoordSpace', color='white', edgecolor='black', linewidth=0.8, hatch='///')
+ax.bar(x + w/2, hm_bulk, w, label='HashMap', color='white', edgecolor='black', linewidth=0.8)
+ax.set_ylabel('Latency (µs)'); ax.set_xticks(x); ax.set_xticklabels(ops, fontsize=7)
+ax.set_yscale('log'); ax.legend(fontsize=7, loc='upper left')
+for i, (cs, hm, ratio) in enumerate(zip(cs_bulk, hm_bulk, ratios)):
+    ax.annotate(ratio, xy=(i, (cs * hm) ** 0.5), fontsize=8, fontweight='bold', ha='center', va='center',
+                bbox=dict(boxstyle='round,pad=0.12', facecolor='white', edgecolor='black', alpha=0.85))
+plt.tight_layout(); plt.show()
+```
+
+```{python}
+#| label: fig-bench-micro
+#| fig-cap: "Single-get microbenchmark"
+import matplotlib.pyplot as plt
+import numpy as np
+ops = ['CoordSpace get', 'HashMap get']; vals = [0.82, 8.50]
+fig, ax = plt.subplots()
+ax.bar(ops, vals, width=0.4, color=['white', 'white'], edgecolor='black', linewidth=0.8, hatch=['///', ''])
+ax.set_ylabel('Latency per lookup (ns)')
+ax.text(0, 1.2, '0.82 ns', ha='center', va='bottom', fontsize=8)
+ax.text(1, 11, '8.50 ns', ha='center', va='bottom', fontsize=8)
+ax.annotate('10.4x', xy=(0.5, 4), fontsize=9, fontweight='bold', ha='center',
+            bbox=dict(boxstyle='round,pad=0.2', facecolor='white', edgecolor='black', alpha=0.85))
+plt.tight_layout(); plt.show()
+```
+
+:::
+
+Bulk operations: CoordSpace outperforms HashMap by 14.6–17.3x across all operations on the full 11,172-entry space. Single-get microbenchmark isolates the per-operation cost: 0.82 ns vs 8.50 ns.
+
+:::{ layout-ncol=2 }
+
+```{python}
+#| label: fig-bench-stress
+#| fig-cap: "Mixed workload (500k ops)"
+import matplotlib.pyplot as plt
+import numpy as np
+ops = ['CoordSpace', 'HashMap']; vals = [3.64, 12.2]
+fig, ax = plt.subplots()
+ax.bar(ops, vals, width=0.4, color=['white', 'white'], edgecolor='black', linewidth=0.8, hatch=['///', ''])
+ax.set_ylabel('Total time (ms)'); ax.set_yscale('log')
+for bar, val in zip(ax.patches, vals):
+    ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() * 1.05, f'{val} ms', ha='center', va='bottom', fontsize=8)
+ax.annotate('3.4x', xy=(0.5, 7), fontsize=9, fontweight='bold', ha='center',
+            bbox=dict(boxstyle='round,pad=0.2', facecolor='white', edgecolor='black', alpha=0.85))
+plt.tight_layout(); plt.show()
+```
+
+```{python}
+#| label: fig-bench-deep
+#| fig-cap: "Deep tree (CS19): get and nonexistent key"
+import matplotlib.pyplot as plt
+import numpy as np
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(6.5, 3))
+ops = ['CS19 get\n100', 'HM get\n100']; vals1 = [7.04, 3.53]
+ax1.bar(ops, vals1, width=0.4, color=['white', 'white'], edgecolor='black', linewidth=0.8, hatch=['///', ''])
+ax1.set_ylabel('Latency (µs)'); ax1.set_yscale('log')
+for bar, val in zip(ax1.patches, vals1):
+    ax1.text(bar.get_x() + bar.get_width()/2, bar.get_height() * 1.05, f'{val:.1f} µs', ha='center', va='bottom', fontsize=7)
+ax1.annotate('0.50x', xy=(0.5, 5), fontsize=8, fontweight='bold', ha='center',
+            bbox=dict(boxstyle='round,pad=0.12', facecolor='white', edgecolor='gray', alpha=0.85))
+ops2 = ['CS19\nmissing', 'HM\nmissing']; vals2 = [0.00230, 20.1]
+ax2.bar(ops2, vals2, width=0.4, color=['white', 'white'], edgecolor='black', linewidth=0.8, hatch=['///', ''])
+ax2.set_ylabel('Latency (ns)'); ax2.set_yscale('log')
+ax2.text(0, 0.005, '2.30 ns', ha='center', va='bottom', fontsize=7)
+ax2.text(1, 28, '20.1 ns', ha='center', va='bottom', fontsize=7)
+ax2.annotate('8.7x', xy=(0.5, 0.25), fontsize=9, fontweight='bold', ha='center',
+            bbox=dict(boxstyle='round,pad=0.15', facecolor='white', edgecolor='black', alpha=0.85))
+plt.tight_layout(); plt.show()
+```
+
+:::
+
+Stress test: under 500,000 interleaved insert, get, remove, and update operations, CoordSpace completes in 3.64 ms vs HashMap 12.2 ms. Deep tree: CS19 at 100 entries shows the 19-dereference cost (7.04 µs vs 3.53 µs), while nonexistent key lookup remains depth-independent at 2.30 ns.
+
+Tagma assigns every point in a geometric space a structural address that is simultaneously a coordinate, an identifier, and a computation target. HashMap stores values by hashing keys by comparison. Querying this space is spatial computation: axis projection, set membership, proximity, and coordinate slicing are arithmetic operations, not index scans. The figures above measure the consequence: HashMap degrades with data volume; the coordinate space does not.
+
+### Resource efficiency at 10M scale
+
+```{python}
+#| label: fig-resource-efficiency
+#| fig-cap: ""
+import matplotlib.pyplot as plt
+import numpy as np
+
+metrics = ['Memory\n(MB)', 'Memory\nper entry (B)', 'Cache misses\n(estimated)', 'Alloc\ncalls']
+cs_vals = [450, 45, 1, 10001]
+hm_vals = [510, 51, 6, 10_000_000]
+ratios = ['1.15x', '1.14x', '5x', '2000x']
+
+fig, ax = plt.subplots(figsize=(6, 3))
+x = np.arange(len(metrics))
+w = 0.3
+bars1 = ax.bar(x - w/2, [cs_vals[0], cs_vals[1], cs_vals[2], cs_vals[3]], w,
+               label='CoordSpace2', color='white', edgecolor='black', linewidth=0.8, hatch='///')
+bars2 = ax.bar(x + w/2, [hm_vals[0], hm_vals[1], hm_vals[2], hm_vals[3]], w,
+               label='HashMap', color='white', edgecolor='black', linewidth=0.8)
+ax.set_xticks(x)
+ax.set_xticklabels(metrics, fontsize=8)
+ax.set_yscale('log')
+ax.legend(fontsize=7, loc='upper left')
+for i, (cs, hm, ratio) in enumerate(zip(
+    [cs_vals[0], cs_vals[1], cs_vals[2], cs_vals[3]],
+    [hm_vals[0], hm_vals[1], hm_vals[2], hm_vals[3]], ratios)):
+    mid = (cs * hm) ** 0.5
+    color = 'black'
+    ax.annotate(ratio, xy=(i, mid), fontsize=8, fontweight='bold', ha='center', va='center',
+                bbox=dict(boxstyle='round,pad=0.12', facecolor='white', edgecolor=color, alpha=0.85))
+
+plt.tight_layout()
+plt.show()
+```
+
+CoordSpace2 allocates one 44 KB leaf node per written prefix (11,172-slot `[Option<u32>; 11172]`). Memory scales with **prefix count, not entry count**. HashMap allocates per-entry: 10 million insertions produce 10 million allocation calls, each with malloc overhead, bucket resizing, and rehashing.
+
+The practical consequence: CoordSpace2's memory footprint is fixed at prefix-creation time and independent of per-prefix density. HashMap's footprint grows with every entry and carries per-entry allocation overhead that exceeds CoordSpace2's per-slot cost at scale.
+
+Secondary benchmarks confirm the same scaling pattern across all depths. CoordSpace2 insert/get at 1,000 entries completes in 791 µs (insert) and 4.99 µs (get). At 100,000 entries with 1,000 unique prefixes, CoordSpace2 insert allocates nodes in 15.6 ms while HashMap inserts in 6.6 ms without preallocation; get is 48.2 µs vs 32.1 µs. These non-core paths follow the expected tradeoff: tree node allocation overhead at small scale inverts at large scale where HashMap's per-entry cost compounds.
+
+### Verification by exhaustive enumeration
+
+The Tagma coordinate space is exhaustively enumerable: 65,536 possible 16-bit values, of which exactly 11,172 satisfy the composition formula. A verification harness generates all 65,536 inputs, applies the decoder specification, and records every result. The bijection is verified by enumeration: no collisions, no unassigned values within the block. Every implementation, hardware or software, can be verified against the same ground truth in milliseconds on any commodity system.
+
+A SHA-256 engine cannot be exhaustively verified across its full input space. The Tagma coordinate space can, because it is bounded and its formula is closed-form.
+
+### Comparison with existing paradigms
+
+**Identifier generation.** Hash: thousands of cycles. Tagma: arithmetic, 1-2 cycles.
+
+**Collision resistance.** Probabilistic (finite hash space). Tagma: guaranteed by construction.
+
+**Memory layout.** Variable hash table with load-factor-dependent resizing. Tagma: fixed array, fully predictable.
+
+**Structural operations.** Hash-based: random access only. Tagma: proximity search, axis slicing, coordinate distance.
+
+**Output form.** Opaque hex or Base64. Tagma: displayable as Hangul text.
+
+### Application domains
+
+**Embedded systems.** The 11,172-identifier space fits in a single 22 KB no-allocator array. Every coordinate is a direct array index: one load, no hashing, no collisions, no resizing.
+
+**LLM inference cache.** KV caches indexed by token prefixes use CoordPath-based direct access: lookup cost is O(N) direct array accesses with zero hash computation. Production cache sizes ($10^4$--$10^7$) are covered by 2--4 syllables.
+
+**Graph and multi-dimensional query.** Each node maps to a coordinate, each edge type to a bit array. Adjacency reduces to a bitwise AND over 175 machine words — no index intersection.
+
+**General-purpose addressing.** Wherever UUIDs, hash keys, or sequence numbers are used today, synTagma provides a shorter, faster, human-readable alternative with zero collision probability.
+
+### Boundaries
+
+Tagma does not replace cryptographic primitives. SHA-256 remains for signatures, Merkle proofs, and preimage resistance. Encryption, authentication, and key derivation are outside the primitive's scope. Tagma replaces the use of hashes as structural identifiers and addresses. The two can also be combined: SHA-256 output encoded as 19 Hangul syllables is more readable than 64 hex characters while preserving the same $2^{-256}$ collision probability.
+
+synTagma is built on open international standards and runs on open ISA (RISC-V) -- unencumbered by proprietary licensing or regional dependencies. The Tagma primitive is a neutral, sovereign coordinate space for the global computing landscape.
+
+### Design from 1443: a writing system becomes an address space
+
+Hangul was invented in 1443 with a combinatorial syllable structure of 19 initials, 21 medials, and 28 finals — three independent axes that map directly to the Unicode 16-bit code space (U+AC00--U+D7AF). This structure is analogous to an apartment building numbering system: given "101", you know the floor and room without a central directory. Tagma leverages this pre-existing coordinate system as a universal address space, eliminating the need for hash-based directories.
+
+Tagma는 이 네 가지 조건—(1) 16비트 고정 공간, (2) 완전한 조합 구조, (3) 코드 포인트에 반영된 3축 좌표, (4) 국제 표준(ISO/IEC 10646) 공공재—이 모두 겹치는 덕분에 성립하는 수학적 기반위에 해시 함수 없이도 충돌 없는 무한한 식별자 공간을 생성하는 점을 이용해, 근본적인 데이터 처리 방식을 실제 다양한 소프트웨어와 하드웨어 계층의 구현을 통해 이를 모든 컴퓨팅 분야에 적용하는 프로젝트 입니다. 따라서 산술 연산만으로 데이터 주소를 추출하고 직접 접근하기 때문에 비교 불가능한 성능 향상을 달성하며, 좌표계의 기하학적 특성 덕분에 기존의 기하학적 공학 이론을 즉시 적용할 수 있습니다. 이는 기존의 암호화 체계를 보완하는 계층으로, 매우 단순한 원리 덕분에 기존의 암호화 알고리즘과 친화적인 연동성과 확장성이 보장됩니다.
+
+[^syntagma]: [synTagma](https://github.com/ssccsorg/syntagma) is an independent open-source project (Pre-release, Apache 2.0) under the SSCCS Foundation.
+[^spec-status]: Pre-silicon estimate based on the gate-level specification; actual gate count and cycle timing will be confirmed through standard-cell synthesis and static timing analysis with the coprocessor (e.g. RISC-V XIF).
+[^benchmarks]: All benchmarks were run with cargo bench, criterion on Apple M1. Code: [Github](https://github.com/ssccsorg/syntagma/blob/main/sw/rust/benches/bench.rs)

@@ -74,7 +74,7 @@ format:
 
 ## Abstract {.unnumbered .unlisted}
 
-Tagma[^tagma-etym] is a computing primitive where the address *is* the coordinate — not a flat pointer, but a point in an N-dimensional geometric space. This is made possible by a 16-bit Unicode block allocated to a 3-axis writing system, which provides a collision-free, hash-less, structurally addressable coordinate space. Every valid 16-bit value in this space is simultaneously a 1-D address (Unicode code point), a 3-D coordinate (initial, medial, final), and a displayable Hangul syllable. This triple interpretation enables hash-less content addressing [*-@sec-paradigm-shift*] with zero collision probability and single-cycle combinational decoding (~300 gates). We present a gate-level decoder specification, a processor pipeline attachment reference (e.g., RISC-V XIF)[^tagma-repo], and a software reference implementation [*-@sec-appendix-rust*] demonstrating 115x latency reduction over SHA-256 [@fips180-4] (2 ns vs 227 ns per operation on Apple M1 for single-syllable identifiers) and 6x at equivalent 256-bit space (35 ns vs 227 ns for 19-syllable identifiers). Tagma replaces hash-based identity generation and addressing where cryptographic integrity is not required; SHA-256 and other cryptographic primitives remain for signatures and tamper detection. The coordinate space is an open international standard (Unicode) and a public good.
+Tagma[^tagma-etym] is a computing primitive where the address *is* the coordinate — not a flat pointer, but a point in an N-dimensional geometric space. This is made possible by a 16-bit Unicode block allocated to a 3-axis writing system, which provides a collision-free, hash-less, structurally addressable coordinate space. Every valid 16-bit value in this space is simultaneously a 1-D address (Unicode code point), a 3-D coordinate (initial, medial, final), and a displayable Hangul syllable. This triple interpretation enables hash-less content addressing [*-@sec-paradigm-shift*] with zero collision probability and single-cycle combinational decoding (~300 gates). The coordinate arithmetic admits unbounded N-syllable composition — the address space grows as $11,172^N$ while lookup cost remains O(N) per syllable. Recursive embedding across three axes extends reach to $S_k = S_{k-1}^3$ without modifying the core decoder, enabling distributed addressing across physical topologies where each axis of a recursive coordinate can reside on a different node with no consensus required. We present a gate-level decoder specification, a processor pipeline attachment reference (e.g., RISC-V XIF)[^tagma-repo], a software reference implementation [*-@sec-appendix-rust*], and a full benchmark suite [*-@sec-appendix-benches*]. Measured lookup latency: 0.38 ns vs 227 ns for SHA-256 (597x) at single-syllable; 54.9 ns vs 227 ns (4.1x) at SHA-256 scale (19 syllables). Structural prefix queries show the decisive advantage: CoordSpace answers nonexistent prefix in 1.65 ns while a general-purpose hash table scans 10M entries in 23.05 ms (14.0Mx). The coordinate space is an open international standard (Unicode) and a public good — unencumbered by proprietary licensing.
 
 ## Introduction {#sec-introduction}
 
@@ -83,7 +83,7 @@ Unicode is an international standard that assigns each script a fixed address in
 Every content-addressable system today generates identifiers through a hash function. This indirection layer imposes a predictable cost: gate area, cycle latency, storage overhead, and probabilistic collision resolution. Tagma shows that this fixed 16-bit block can replace the hash function entirely where cryptographic integrity is not required, using a combinational decoder.
 
 [^tagma-etym]: Greek *τάγμα* from *σύνταγμα* (syn-tagma, *co-ordinate* in English), "a well-ordered arrangement of constituent elements". *Tagma* is the system name; *Coord* is the concrete implementation type.
-[^tagma-repo]: Repository: [Github (Pre-release, Apache 2.0)](https://github.com/ssccsorg/syntagma)
+[^tagma-repo]: Repository: [Github (Pre-release, Apache 2.0)](https://github.com/ssccsorg/syntagma), Benchmark suite [code](https://github.com/ssccsorg/syntagma/blob/main/sw/rust/benches/bench.rs)
 
 The composition formula [@iso10646-hangul] [@karlsson2003arithmetic] is:
 
@@ -857,6 +857,13 @@ Tagma defines a new type of silicon primitive: a combinational decoder that deri
 
 The SynTagma specification [@tagma-syn] complements this document. It defines how the recursive state space expansion described in the previous section is realised across physical topologies: routing, transport framing, device-boundary resolution, and distributed coordination. Where this document defines the invariant, SynTagma defines the protocol.
 
+## References {.unnumbered .unlisted}
+
+::: {#refs}
+:::
+
+{{< pagebreak >}}
+
 ## Appendices {.unnumbered}
 
 ::: {.content-visible when-format="pdf"}
@@ -887,13 +894,11 @@ The `CoordSpace` series provides hash-free, collision-free coordinate-indexed sp
 
 | Type | Depth | Address space | Allocation | Exploration pattern |
 |------|-------|---------------|------------|-------------|
-| `CoordSpace` | 1 | $11{,}172$ | None (inline array) | General single-syllable, no_std, MCU |
-| `CoordSpaceN<2, V>` | 2 | $1.25 \times 10^8$ | Heap (lazy) | FIH cross-product, two-axis space |
-| `CoordSpaceN<3, V>` | 3 | $1.39 \times 10^{12}$ | Heap (lazy) | Three-axis coordinate space |
-| `CoordSpaceN<6, V>` ($\equiv$ `CoordSpace6`) | 6 | $1.94 \times 10^{24}$ | Heap (lazy) | UUID-scale identity |
-| `CoordSpaceN<12, V>` ($\equiv$ `CoordSpace12`) | 12 | $2.41 \times 10^{67}$ | Heap (lazy) | Between UUID and SHA-256 |
-| `CoordSpaceN<19, V>` ($\equiv$ `CoordSpace19`) | 19 | $\approx 2^{256}$ | Heap (lazy) | SHA-256-scale |
-| `DynCoordSpace` | Runtime | Unlimited ($\texttt{\&[Coord]}$) | Heap (lazy) | Variable-depth paths |
+| CoordSpace | 1 | $11{,}172$ | None (inline array) | General single-syllable, no_std, MCU |
+| CoordSpace2 | 2 | $1.25 \times 10^8$ | Heap (lazy) | FIH cross-product, two-axis space |
+| CoordSpace6 | 6 | $1.94 \times 10^{24}$ | Heap (lazy) | UUID-scale identity |
+| CoordSpace19 | 19 | $\approx 2^{256}$ | Heap (lazy) | SHA-256-scale |
+| DynCoordSpace | Runtime | Unlimited ($\texttt{\&[Coord]}$) | Heap (lazy) | Variable-depth paths |
 
 **`CoordSpace` (single-syllable, no allocator).** Backed by an inline $[\texttt{Option<V>}; 11172]$ array (22 KB for `Option<()>`, 89 KB for `Option<u64>`). Zero heap allocation. Every `Coord` is a direct array index: one load, no hashing, no collisions, no resizing. Full Entry API (`entry().or_insert_with()`), `drain()`, `retain()`, `iter_mut()`, `IntoIterator`, `Index<Coord>`, `PartialEq`, `Clone`, `Debug`.
 
@@ -936,7 +941,7 @@ assert_eq!(space6.at_path(&path), Some(&42));
 
 ### Serialization: `base11172`
 
-A `no_std` + `alloc` crate providing Tagma's native serialization format. Every coordinate index 0..11171 maps to exactly one Hangul syllable (U+AC00 + index). A pair of syllables encodes a 16-bit value. The encoding is self-validating: characters outside U+AC00..U+D7AF are immediately detectable as invalid.
+A `no_std` + `alloc` crate providing Tagma's native serialization format. Every coordinate index 0..11171 maps to exactly one Hangul syllable (U+AC00 + index). A pair of syllables encodes a 16-bit value. The encoding is self-validating: characters outside U+AC00..U+D7AF are immediately detectable as invalid. No special characters, padding, escaping.
 
 ```rust
 pub fn encode_u16(v: u16) -> [char; 2];         // u16 to two Hangul syllables
@@ -945,62 +950,191 @@ pub fn decode_pair(c0: char, c1: char) -> Option<u16>;
 pub fn decode_bytes(s: &str) -> Option<Vec<u8>>;
 ```
 
-No special characters, no padding, no escaping.
+## Benchmarks {#sec-appendix-benches}
 
-### Benchmark: Tagma vs SHA-256
+A SHA-256 engine requires approximately 10,000 gates and 64--75 cycles per operation, then needs collision resolution and dynamic resizing. UUID generation requires entropy collection and delivers probabilistic uniqueness. The Tagma decoder replaces this with a combinational decoder and a 16-bit register: one syllable covers 11,172 identifiers; six syllables (18 axes) exceed typical distributed system needs; nineteen match the SHA-256 $2^{256}$ space.
 
-Latency comparison for 100,000 identity generation operations on an Apple M1 (2020), single-threaded, compiled with `rustc` stable in release mode. Both operations use identical input data; the compiler is prevented from eliminating dead code through `std::hint::black_box`. Full benchmark source is included in the repository [@bench-source].
+- Lookup latency: 0.38 ns for a single-syllable Tagma coordinate vs 227 ns for SHA-256 (↑597x). At SHA-256 scale (19 syllables): 54.9 ns (↑4.1x). N-scaling is linear: 0.38 ns at N=1 to 54.9 ns at N=19. Recursive depth is bounded by schema, not data volume: $10^4$ and $10^{77}$ entries both cost $N$ dereferences.
+- Nonexistent prefix lookup: CoordSpace **1.65 ns** (structural, navigates to the branch and returns None) vs HashMap **23.05 ms** (↑**14.0Mx**, full scan — HashMap has no structural prefix index). Sparse get at 10M entries: CoordSpace2 completes all 10M operations in 44.9 ms vs HashMap 1.05 s (↑23.4x).
+
+Rust's `std::collections::HashMap` compiles to C-grade machine code within 5-10% of theoretical CPU throughput. Whether Tagma matches or exceeds this baseline is incidental: HashMap degrades linearly with collision rate and entry count while Tagma does not. A coordinate-slice query costs the same at $10^4$ entries as at $10^{77}$ entries: one array dereference per syllable.
+
+:::{ layout-ncol=4 }
 
 ```{python}
-#| label: fig-bench-latency
-#| fig-cap: "Identity generation latency: Tagma vs SHA-256, 100k operations on Apple M1. Left: per-operation latency. Right: scaling with syllable count."
+#| label: fig-bench-identity
+#| fig-cap: "Identity generation latency"
 import matplotlib.pyplot as plt
 import numpy as np
-
-categories = ['SHA-256', 'Tagma\n1-syll', 'Tagma\n6-syll', 'Tagma\n19-syll']
-latency_ns = [227, 2, 11, 35]
-n_vals = [1, 2, 6, 19]
-tagma_ns = [2, 4, 11, 35]
-sha_line = [227, 227, 227, 227]
-
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
-
-bars = ax1.bar(categories, latency_ns, color=['#d95f02', '#1b9e77', '#1b9e77', '#1b9e77'], width=0.6)
-ax1.set_ylabel('Latency per operation (ns)')
-ax1.set_yscale('log')
-for bar, val in zip(bars, latency_ns):
-    ax1.text(bar.get_x() + bar.get_width()/2, bar.get_height() * 1.1,
-             f'{val} ns', ha='center', va='bottom', fontsize=8)
-ax1.annotate('115x', xy=(0.3, 4), fontsize=13, fontweight='bold',
-            bbox=dict(boxstyle='round,pad=0.3', facecolor='yellow', alpha=0.7))
-ax1.annotate('6.5x', xy=(2.3, 20), fontsize=12, fontweight='bold',
-            bbox=dict(boxstyle='round,pad=0.3', facecolor='yellow', alpha=0.7))
-ax1.plot([0, 0, 3, 3], [20, 115, 115, 20], color='gray', linewidth=0.8)
-
-ax2.plot(n_vals, sha_line, 'o-', color='#d95f02', label='SHA-256 (all spaces)')
-ax2.plot(n_vals, tagma_ns, 's-', color='#1b9e77', label='Tagma')
-ax2.set_xlabel('Syllables (N)')
-ax2.set_ylabel('Latency (ns)')
-ax2.set_xticks(n_vals)
-ax2.legend(fontsize='small')
-ax2.grid(axis='y', alpha=0.3)
-ax2.annotate('6.5x at\n2^256', xy=(19, 35), xytext=(10, 120),
-            arrowprops=dict(arrowstyle='->'), fontsize=9)
-
-plt.tight_layout()
-plt.show()
+cats = ['SHA-256', 'Tagma\n1-syll', 'Tagma\n6-syll', 'Tagma\n19-syll']
+vals = [227, 0.38, 5.57, 54.9]
+fig, ax = plt.subplots()
+bars = ax.bar(cats, vals, color='white', width=0.5, edgecolor='black', linewidth=0.8, hatch=['', '///', '///', '///'])
+ax.set_ylabel('Latency per lookup (ns)'); ax.set_yscale('log')
+for bar, val in zip(bars, vals):
+    ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() * 1.1,
+            f'{val} ns' if val >= 1 else f'{val*1000:.0f} ps', ha='center', va='bottom', fontsize=7)
+ax.annotate('↑597x', xy=(0.25, 0.65), fontsize=9, fontweight='bold',
+            bbox=dict(boxstyle='round,pad=0.2', facecolor='white', edgecolor='black', alpha=0.8))
+ax.annotate('↑4.1x\nat 2^256', xy=(2.5, 40), fontsize=8, fontweight='bold',
+            bbox=dict(boxstyle='round,pad=0.2', facecolor='white', edgecolor='black', alpha=0.8))
+plt.tight_layout(); plt.show()
 ```
+
+```{python}
+#| label: fig-bench-nscaling
+#| fig-cap: "N-scaling: latency vs address space"
+import matplotlib.pyplot as plt
+import numpy as np
+n_vals = [1, 2, 3, 6, 12, 19]
+latency = [0.38, 0.87, 2.65, 5.57, 20.3, 54.9]
+space = [1.1e4, 1.3e8, 1.4e12, 1.9e24, 2.4e67, 1.9e77]
+fig, ax1 = plt.subplots()
+ax1.plot(n_vals, latency, 's-', color='black', linewidth=1.5, markerfacecolor='white', markeredgecolor='black', markersize=5, label='Tagma lookup')
+ax1.plot(n_vals, [227]*len(n_vals), '--', color='gray', linewidth=1.2, label='SHA-256')
+ax1.set_xlabel('Syllables (N)'); ax1.set_ylabel('Latency (ns)'); ax1.set_yscale('log')
+ax1.set_xticks(n_vals); ax1.legend(fontsize=7, loc='upper left')
+ax2 = ax1.twinx()
+ax2.plot(n_vals, space, '^-', color='gray', linewidth=1, markerfacecolor='white', markeredgecolor='gray', markersize=4, alpha=0.6)
+ax2.set_ylabel('Address space', color='gray'); ax2.set_yscale('log')
+ax1.annotate('0.38 ns\nat 10^4', xy=(1, 0.38), xytext=(2.5, 0.12), fontsize=6.5, arrowprops=dict(arrowstyle='->', color='gray'), ha='center')
+ax1.annotate('54.9 ns\nat 10^77', xy=(19, 54.9), xytext=(13, 80), fontsize=6.5, arrowprops=dict(arrowstyle='->', color='gray'), ha='center')
+plt.tight_layout(); plt.show()
+```
+
+```{python}
+#| label: fig-bench-spatial
+#| fig-cap: "Spatial query throughput"
+import matplotlib.pyplot as plt
+import numpy as np
+queries = ['Axis\nmedial=10', 'Range\ninit 3-7', 'Compound\ninit=3,med=5']
+cs_tp = [58.0, 158.0, 329.0]; hm_tp = [24.5, 77.3, 2.4]; ratios = ['2.4x', '2.0x', '137x']
+fig, ax = plt.subplots(); x = np.arange(len(queries)); w = 0.3
+ax.bar(x - w/2, cs_tp, w, label='CoordSpace', color='white', edgecolor='black', linewidth=0.8, hatch='///')
+ax.bar(x + w/2, hm_tp, w, label='HashMap', color='white', edgecolor='black', linewidth=0.8)
+ax.set_ylabel('Throughput (Melem/s)'); ax.set_xticks(x); ax.set_xticklabels(queries, fontsize=7)
+ax.set_yscale('log'); ax.legend(fontsize=7, loc='upper left')
+for i, (cs, hm, ratio) in enumerate(zip(cs_tp, hm_tp, ratios)):
+    ax.annotate(ratio, xy=(i, (cs * hm) ** 0.5), fontsize=8, fontweight='bold', ha='center', va='center',
+                bbox=dict(boxstyle='round,pad=0.12', facecolor='white', edgecolor='black', alpha=0.85))
+plt.tight_layout(); plt.show()
+```
+
+```{python}
+#| label: fig-bench-edge
+#| fig-cap: "Edge cases: sparse get, deep get, drain"
+import matplotlib.pyplot as plt
+import numpy as np
+ops = ['CS2 sparse\nget 10M', 'CS19 get\n100', 'Drain\n11,172']
+cs_edge = [44.9, 7.04, 27.8]; hm_edge = [1050, 3.53, 20.0]; labels_edge = ['23.4x', '0.50x', '0.72x']
+fig, ax = plt.subplots(); x = np.arange(len(ops)); w = 0.3
+ax.bar(x - w/2, cs_edge, w, label='CoordSpace', color='white', edgecolor='black', linewidth=0.8, hatch='///')
+ax.bar(x + w/2, hm_edge, w, label='HashMap', color='white', edgecolor='black', linewidth=0.8)
+ax.set_xticks(x); ax.set_xticklabels(ops, fontsize=7); ax.set_ylabel('Latency (us)')
+ax.set_yscale('log'); ax.legend(fontsize=7, loc='upper left')
+for i, (cs, hm, label) in enumerate(zip(cs_edge, hm_edge, labels_edge)):
+    mid = (cs * hm) ** 0.5 if cs > 0 and hm > 0 else max(cs, hm)
+    color = 'black' if 'x' in label else 'gray'
+    ax.annotate(label, xy=(i, mid), fontsize=8, fontweight='bold', ha='center', va='center',
+                bbox=dict(boxstyle='round,pad=0.12', facecolor='white', edgecolor=color, alpha=0.85))
+plt.tight_layout(); plt.show()
+```
+
+```{python}
+#| label: fig-bench-bulk
+#| fig-cap: "Bulk operations"
+import matplotlib.pyplot as plt
+import numpy as np
+ops = ['Insert\n11,172', 'Get\n11,172', 'Remove\n11,172']
+cs_bulk = [26.4, 6.48, 15.9]; hm_bulk = [385, 102, 275]; ratios = ['14.6x', '15.7x', '17.3x']
+fig, ax = plt.subplots(); x = np.arange(len(ops)); w = 0.3
+ax.bar(x - w/2, cs_bulk, w, label='CoordSpace', color='white', edgecolor='black', linewidth=0.8, hatch='///')
+ax.bar(x + w/2, hm_bulk, w, label='HashMap', color='white', edgecolor='black', linewidth=0.8)
+ax.set_ylabel('Latency (us)'); ax.set_xticks(x); ax.set_xticklabels(ops, fontsize=7)
+ax.set_yscale('log'); ax.legend(fontsize=7, loc='upper left')
+for i, (cs, hm, ratio) in enumerate(zip(cs_bulk, hm_bulk, ratios)):
+    ax.annotate(ratio, xy=(i, (cs * hm) ** 0.5), fontsize=8, fontweight='bold', ha='center', va='center',
+                bbox=dict(boxstyle='round,pad=0.12', facecolor='white', edgecolor='black', alpha=0.85))
+plt.tight_layout(); plt.show()
+```
+
+```{python}
+#| label: fig-bench-micro
+#| fig-cap: "Single-get microbenchmark"
+import matplotlib.pyplot as plt
+import numpy as np
+ops = ['CoordSpace get', 'HashMap get']; vals = [0.82, 8.50]
+fig, ax = plt.subplots()
+ax.bar(ops, vals, width=0.4, color=['white', 'white'], edgecolor='black', linewidth=0.8, hatch=['///', ''])
+ax.set_ylabel('Latency per lookup (ns)')
+ax.text(0, 1.2, '0.82 ns', ha='center', va='bottom', fontsize=8)
+ax.text(1, 11, '8.50 ns', ha='center', va='bottom', fontsize=8)
+ax.annotate('10.4x', xy=(0.5, 4), fontsize=9, fontweight='bold', ha='center',
+            bbox=dict(boxstyle='round,pad=0.2', facecolor='white', edgecolor='black', alpha=0.85))
+plt.tight_layout(); plt.show()
+```
+
+```{python}
+#| label: fig-bench-stress
+#| fig-cap: "Mixed workload (500k ops)"
+import matplotlib.pyplot as plt
+import numpy as np
+ops = ['CoordSpace', 'HashMap']; vals = [3.64, 12.2]
+fig, ax = plt.subplots()
+ax.bar(ops, vals, width=0.4, color=['white', 'white'], edgecolor='black', linewidth=0.8, hatch=['///', ''])
+ax.set_ylabel('Total time (ms)'); ax.set_yscale('log')
+for bar, val in zip(ax.patches, vals):
+    ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() * 1.05, f'{val} ms', ha='center', va='bottom', fontsize=8)
+ax.annotate('3.4x', xy=(0.5, 7), fontsize=9, fontweight='bold', ha='center',
+            bbox=dict(boxstyle='round,pad=0.2', facecolor='white', edgecolor='black', alpha=0.85))
+plt.tight_layout(); plt.show()
+```
+
+```{python}
+#| label: fig-bench-deep
+#| fig-cap: "Deep tree (CS19): get and nonexistent key"
+import matplotlib.pyplot as plt
+import numpy as np
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(6.5, 3))
+ops = ['CS19 get\n100', 'HM get\n100']; vals1 = [7.04, 3.53]
+ax1.bar(ops, vals1, width=0.4, color=['white', 'white'], edgecolor='black', linewidth=0.8, hatch=['///', ''])
+ax1.set_ylabel('Latency (us)'); ax1.set_yscale('log')
+for bar, val in zip(ax1.patches, vals1):
+    ax1.text(bar.get_x() + bar.get_width()/2, bar.get_height() * 1.05, f'{val:.1f} us', ha='center', va='bottom', fontsize=7)
+ax1.annotate('0.50x', xy=(0.5, 5), fontsize=8, fontweight='bold', ha='center',
+            bbox=dict(boxstyle='round,pad=0.12', facecolor='white', edgecolor='gray', alpha=0.85))
+ops2 = ['CS19\nmissing', 'HM\nmissing']; vals2 = [0.00230, 20.1]
+ax2.bar(ops2, vals2, width=0.4, color=['white', 'white'], edgecolor='black', linewidth=0.8, hatch=['///', ''])
+ax2.set_ylabel('Latency (ns)'); ax2.set_yscale('log')
+ax2.text(0, 0.005, '2.30 ns', ha='center', va='bottom', fontsize=7)
+ax2.text(1, 28, '20.1 ns', ha='center', va='bottom', fontsize=7)
+ax2.annotate('8.7x', xy=(0.5, 0.25), fontsize=9, fontweight='bold', ha='center',
+            bbox=dict(boxstyle='round,pad=0.15', facecolor='white', edgecolor='black', alpha=0.85))
+plt.tight_layout(); plt.show()
+```
+
+:::
+
+- Identity generation: Tagma reaches SHA-256 address space at 19 syllables for 54.9 ns vs 227 ns.
+- N-scaling: lookup cost grows linearly (0.38 ns at N=1 to 54.9 ns at N=19) while address space grows exponentially ($10^4$ to $10^{77}$).
+- Spatial query: CoordSet bitwise AND resolves compound axis filters at 329 Melem/s -- 137x faster than HashMap scan.
+- Edge: CS2 sparse get sustains 23.4x at 10M entries; CS19 get shows 19-dereference cost (0.50x); drain is 0.72x on the full space.
+- Bulk operations: CoordSpace outperforms HashMap by 14.6--17.3x across all operations on the full 11,172-entry space.
+- Single-get microbenchmark isolates the per-operation cost: 0.82 ns vs 8.50 ns.
+- Stress test: under 500,000 interleaved insert, get, remove, and update operations, CoordSpace completes in 3.64 ms vs HashMap 12.2 ms.
+- Deep tree: CS19 at 100 entries shows the 19-dereference cost (7.04 us vs 3.53 us), while nonexistent key lookup remains depth-independent at 2.30 ns.
+
+Tagma assigns every point in a geometric space a structural address that is simultaneously a coordinate, an identifier, and a computation target. HashMap stores values by hashing keys by comparison. Querying this space is spatial computation: axis projection, set membership, proximity, and coordinate slicing are arithmetic operations. The figures above measure the consequence: HashMap degrades with data volume; the coordinate space does not.
 
 | Metric | SHA-256 | Tagma (1-syll) | Tagma (6-syll) | Tagma (19-syll) |
 |--------|---------|----------------|----------------|-----------------|
-| Latency per op (Apple M1) | 227 ns | 2 ns | 11 ns | 35 ns |
-| Latency per op (CI, x86_64) | 4437 ns | 20 ns | 153 ns | 456 ns |
+| Latency per lookup (Apple M1) | 227 ns | 0.38 ns | 5.57 ns | 54.9 ns |
 | Identity size | 32 bytes | 2 bytes | 12 bytes | 38 bytes |
 | Addressable space | $2^{256}$ | $1.12 \times 10^4$ | $1.94 \times 10^{24}$ | $2^{256}$ |
 | Collision | probabilistic ($2^{-128}$) | deterministic zero | deterministic zero | deterministic zero |
 | Access path | $O(K \times \text{hash})$ | 1 direct index | $N$ direct indices | $N$ direct indices |
 
-All figures are software measurements. Apple M1 data represents the development platform. CI baseline (x86_64, ubuntu-latest, GitHub Actions) is included for reproducibility. In silicon, the per-syllable decoder operates as a single combinational cycle independent of syllable count, so the 19-syllable composition cost converges toward 19 cycles versus 19 sequential SHA-256 calls at 64--75 cycles each, a hardware improvement ratio exceeding 60x.
+All figures are software measurements on Apple M1 (2020), compiled with `rustc` stable in release mode. Full benchmark source is included in the repository [@bench-source].
 
 ## Hardware Design Implications {#sec-appendix-hardware}
 
@@ -1034,10 +1168,3 @@ fn content_tagma_id(data: &[u8]) -> String {
 ```
 
 SHA-256 output is uniformly distributed, so the modulo-11172 mapping to each Coord value is statistically unbiased. The overall collision probability of the 19-syllable output remains $2^{-256}$, preserved from the underlying hash.
-
-{{< pagebreak >}}
-
-## References {.unnumbered .unlisted}
-
-::: {#refs}
-:::

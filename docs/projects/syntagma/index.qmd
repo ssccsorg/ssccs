@@ -30,14 +30,14 @@ synTagma is a spatial coordinate space computing system. Its core primitive, [Ta
 
 The system spans two layers:
 
-**Tagma (core primitive).** The atomic coordinate: a 16-bit value with closed-form composition, three independent axes, zero collision probability, and single-cycle combinational decoding. Tagma's N-syllable composition (CoordPath) extends the address space from $1.1 \times 10^4$ to $2^{256}$ while keeping lookup cost linear in syllable count. Defined in the [Tagma white paper](/projects/syntagma/tagma/wp.html).
+**Tagma (core primitive).** The atomic coordinate: a 16-bit value with closed-form composition, three independent axes, zero collision probability, and single-cycle combinational decoding. A variable-length syllable sequence extends the address space from $1.1 \times 10^4$ to $2^{256}$ while keeping lookup cost linear in syllable count.
 
-**synTagma coordination system** The recursive and distributed extension of the Tagma arithmetic across physical topologies. A synTagma coordinate at recursion level $k$ is a Cartesian product of three Tagma CoordPaths at level $k-1$:
+**synTagma coordination system** The recursive and distributed extension of the Tagma arithmetic across physical topologies. A synTagma coordinate at recursion level $k$ is a Cartesian product of three Tagma syllable sequences at level $k-1$:
 
 $$\mathbb{T}_k = \mathbb{T}_{k-1} \times \mathbb{T}_{k-1} \times \mathbb{T}_{k-1}$$
 
 Each axis of a recursive coordinate can reside on a different physical node. A topology mapping function $\phi_k$ assigns axes to nodes; the recursive linearisation formula produces the same index regardless of how axes are distributed. No distributed consensus is required because each axis is independently stored and independently accessed.
- 
+
 ## Tagma core primitive
 
 The core Tagma coordinate is defined by the Hangul composition formula (ISO/IEC 10646):
@@ -50,16 +50,14 @@ Of 65,536 representable 16-bit states, 11,172 satisfy this formula. The remainin
 - A 3-D coordinate (initial, medial, final) for structural queries
 - A Hangul syllable for human-readable display
 
-The primary data structures are:
+The core library provides several data structures built on the Tagma coordinate:
 
-| Type | Description | Heap |
-|------|-------------|------|
-| `Coord` | 16-bit atomic coordinate | No |
-| `CoordPath<N>` | N-syllable index path | No |
-| `CoordSet` | 1.4 KB bit array, bitwise set operations | No |
-| `CoordSpace<V>` | Single-syllable direct-address table, 11,172 slots | No |
-| `CoordSpaceN<N, V>` | N-level direct-address tree, lazy allocation | Yes |
-| `DynCoordSpace<V>` | Variable-depth trie for `&[Coord]` runtime paths | Yes |
+- A fixed-size bit array supporting bitwise set operations over the full coordinate space.
+- A direct-address table mapping each valid single-syllable coordinate to an associated value; lookup is a single index computation with no hashing.
+- A multi-level tree for storing values indexed by variable-length syllable sequences; allocation is demand-driven, and each level uses the same direct-address mechanism.
+- A variable-depth trie for sequences whose length is determined at runtime rather than compile time.
+
+All of these structures resolve collisions by construction: the coordinate space guarantees that distinct values produce distinct indices.
 
 Full documentation: [Tagma primitive page](/projects/syntagma/tagma/).
 
@@ -67,7 +65,7 @@ Full documentation: [Tagma primitive page](/projects/syntagma/tagma/).
 
 The coordination layer extends Tagma's arithmetic to physical topologies without modifying the core. Its components:
 
-**Recursive coordinate space.** The composition formula admits unbounded $k$ levels of recursion. A 19-syllable CoordPath at $k=0$ occupies the SHA-256 scale; at $k=1$ each of its three axes is itself a full 19-syllable CoordPath, producing $S_1 \approx 7.30 \times 10^{231}$ distinct addresses. Access follows the recursive linearisation formula:
+**Recursive coordinate space.** The composition formula admits unbounded $k$ levels of recursion. A 19-syllable sequence at $k=0$ occupies the SHA-256 scale; at $k=1$ each of its three axes is itself a full 19-syllable sequence, producing $S_1 \approx 7.30 \times 10^{231}$ distinct addresses. Access follows the recursive linearisation formula:
 
 $$\text{index}(a,b,c) = a \cdot S_{k-1}^2 + b \cdot S_{k-1} + c$$
 
@@ -75,7 +73,7 @@ $$\text{index}(a,b,c) = a \cdot S_{k-1}^2 + b \cdot S_{k-1} + c$$
 
 **Axis fungibility.** The coordinate axes carry no intrinsic semantics at the protocol level. The same resolver procedure, transport format, and consistency model apply whether axis 0 represents "region", "shard", or "timestamp". This separation between coordinate algebra and axis interpretation allows routing across heterogeneous topologies without modifying the core arithmetic.
 
-**Self-routing.** A CoordPath carries its own address. Given a CoordPath and current recursion depth, any node determines whether each sub-axis is local or remote by applying $\phi_k$. No separate routing table lookup is required.
+**Self-routing.** A syllable sequence carries its own address. Given a sequence and current recursion depth, any node determines whether each sub-axis is local or remote by applying $\phi_k$. No separate routing table lookup is required.
 
 **Consistency.** Resolution requires no distributed consensus. Each axis is independently stored and independently accessed. The linearisation formula is a pure function of independent axis values, so cross-node reads require no coordination. Write operations affecting different axes target independent address subspaces on different nodes.
 
@@ -83,14 +81,14 @@ $$\text{index}(a,b,c) = a \cdot S_{k-1}^2 + b \cdot S_{k-1} + c$$
 
 ```{python}
 #| label: fig-bench-syntagma
-#| fig-cap: "Tagma identity generation latency vs SHA-256, Apple M1, 100k operations."
+#| fig-cap: "Tagma identity generation latency vs SHA-256, Apple M1."
 import matplotlib.pyplot as plt
 import numpy as np
 
 categories = ['SHA-256', 'Tagma\n1-syll', 'Tagma\n6-syll', 'Tagma\n19-syll']
-latency_ns = [227, 2, 11, 35]
+latency_ns = [227, 0.38, 5.57, 54.9]
 fig, ax = plt.subplots(figsize=(8, 4))
-bars = ax.bar(categories, latency_ns, color=['#d95f02', '#1b9e77', '#1b9e77', '#1b9e77'], width=0.5)
+bars = ax.bar(categories, latency_ns, color=['white', 'white', 'white', 'white'], width=0.5, edgecolor='black', linewidth=0.8, hatch=['', '///', '///', '///'])
 ax.set_ylabel('Latency per operation (ns)')
 ax.set_yscale('log')
 for bar, val in zip(bars, latency_ns):
@@ -101,8 +99,8 @@ plt.show()
 
 | Metric | SHA-256 | Tagma (1-syll) | Tagma (6-syll) | Tagma (19-syll) |
 |--------|---------|---------------|---------------|----------------|
-| Latency | 227 ns/op | 2 ns/op | 11 ns/op | 35 ns/op |
-| Speedup | baseline | 115x | 21x | 6.5x |
+| Latency | 227 ns/op | 0.38 ns/op | 5.57 ns/op | 54.9 ns/op |
+| Speedup | baseline | 597x | 41x | 4.1x |
 | Address space | 2^256 | $1.1 \times 10^4$ | $1.9 \times 10^{24}$ | $2^{256}$ |
 | Collision | probabilistic | deterministic zero | deterministic zero | deterministic zero |
 
@@ -110,7 +108,7 @@ plt.show()
 
 | Document | Description |
 |----------|-------------|
-| [Tagma (White Paper)](/projects/syntagma/tagma/wp.html) | Complete Tagma specification: coordinate space, decoder, hardware, benchmarks |
+| [Tagma](/projects/syntagma/tagma/wp.html) | Complete Tagma specification: coordinate space, decoder, hardware, benchmarks |
 | [Tagma Primary](/projects/syntagma/tagma/) | Tagma core primitive: types, data structures, API reference |
 | [Tagma-ID](/projects/syntagma/tagma/id.html) | Content-addressable identity without hash functions |
 
