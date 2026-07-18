@@ -84,6 +84,8 @@ $$\text{index}(a,b,c) = a \cdot S_{k-1}^2 + b \cdot S_{k-1} + c$$
 
 Based on a software reference implementation, measured lookup latency: 0.38 ns vs 227 ns for SHA-256 (597x) at single-syllable; 54.9 ns vs 227 ns (4.1x) at SHA-256 scale (19 syllables). Structural prefix queries show the decisive advantage: Tagma answers nonexistent prefix in 1.65 ns while a general-purpose hash table scans 10M entries in 23.05 ms (14.0Mx). See benchmarks section in [Tagma](/projects/syntagma/tagma/wp.html#sec-appendix-benches) Whitepaper: All measured on Apple M1 with [cargo bench code](https://github.com/ssccsorg/syntagma/blob/main/sw/rust/benches/bench.rs).
 
+Cross-validation from hardware verification: the [Ibex RV32IMCB Exhaustive Verification Report](/projects/ev/ibex.html#performance-structural-enumeration-vs-standard-pipeline) using ev (ExaVerif) confirms the same structural advantage on real RISC-V instruction encoding spaces. synTagma-based structural enumeration verifies 524,288 combinations in 49.5 ms versus 3.63 s for the standard pipeline (73x), and at 2M scale reaches 846x by eliminating runtime constraint evaluation entirely. The verification covers the full lowRISC Ibex core ALU decode logic. See the full [Ibex RV32IMCB Exhaustive Verification Report](/projects/ev/ibex.html) for details.
+
 ## Documents
 
 | Document | Description |
@@ -92,6 +94,7 @@ Based on a software reference implementation, measured lookup latency: 0.38 ns v
 | [Tagma](/projects/syntagma/tagma/wp.html#sec-appendix-benches) benchmarks | 51 microbenchmarks across 12 criterion groups: identity generation (Tagma vs SHA-256), spatial query (CoordSpace vs HashMap), edge cases at 10M entries, UUID-scale and SHA-256-scale deep trees, and mixed-operation stress tests. |
 | [Tagma Core Primitive](/projects/syntagma/tagma/) | Tagma core primitive: types, data structures, API reference |
 | [Tagma-ID](/projects/syntagma/tagma/id.html) | Content-addressable identity without hash functions |
+| [Ibex RV32IMCB Exhaustive Verification Report](/projects/ev/ibex.html) | Exhaustive RISC-V verification using synTagma structural enumeration: 73x speedup over standard pipeline on Ibex core ALU decode |
 
 ## Contact
 

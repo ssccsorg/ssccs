@@ -20,16 +20,18 @@ title_meta_items = {
         {"title": "References", "link": "https://docs.ssccs.org/projects/nexus/", "content": "neXus", "icon": "bi bi-link"},
         {"title": "References", "link": "https://docs.ssccs.org/projects/", "content": "SSCCS Project", "icon": "bi bi-link"},
         {"title": "References", "link": "https://docs.ssccs.org/partnerships/openhw_integration.html", "content": "OpenHW", "icon": "bi bi-link"},
-        {"title": "References", "link": "https://docs.ssccs.org/research/riscv_space.html", "content": "Space Computing", "icon": "bi bi-link"},
-        {"title": "References", "link": "cva6.html", "content": "CVA6 CV-X-IF Report", "icon": "bi bi-link"}
+        {"title": "Reports", "link": "cva6.html", "content": "CVA6 CV-X-IF", "icon": "bi bi-link"},
+        {"title": "Reports", "link": "ibex.html", "content": "Ibex RV32IMCB", "icon": "bi bi-link"},
+        {"title": "References", "link": "https://docs.ssccs.org/research/riscv_space.html", "content": "Space Computing", "icon": "bi bi-link"}
     ],
      "pdf": [
         {"title": "Code", "link": "https://github.com/ssccsorg/ev", "content": "Github", "icon": "bi bi-link"},
         {"title": "References", "link": "https://docs.ssccs.org/projects/nexus/", "content": "neXus", "icon": "bi bi-link"},
         {"title": "References", "link": "https://docs.ssccs.org/projects/", "content": "SSCCS Project", "icon": "bi bi-link"},
         {"title": "References", "link": "https://docs.ssccs.org/partnerships/openhw_integration.html", "content": "OpenHW", "icon": "bi bi-link"},
-        {"title": "References", "link": "https://docs.ssccs.org/research/riscv_space.pdf", "content": "Space Computing", "icon": "bi bi-link"},
-        {"title": "References", "link": "https://docs.ssccs.org/projects/ev/cva6.html", "content": "CVA6 CV-X-IF Report", "icon": "bi bi-link"}
+        {"title": "Reports", "link": "https://docs.ssccs.org/projects/ev/cva6.html", "content": "CVA6 CV-X-IF", "icon": "bi bi-link"},
+        {"title": "Reports", "link": "https://docs.ssccs.org/projects/ev/ibex.html", "content": "Ibex RV32IMCB", "icon": "bi bi-link"},
+        {"title": "References", "link": "https://docs.ssccs.org/research/riscv_space.pdf", "content": "Space Computing", "icon": "bi bi-link"}
     ]
 }
 ```
@@ -59,23 +61,99 @@ behavior. Neither approach enumerates the complete space.
 
 A coverage report from one tapeout is inaccessible to the next. A failure
 trace from one team is invisible to another. Verification results are
-ephemeral logs, not accumulated knowledge. Ev enumerates the full Cartesian product of field domains, evaluates every
-point against the constraint set, and reports pass/fail for every encoding.
+ephemeral logs, not accumulated knowledge. Ev enumerates the full Cartesian
+product of field domains, evaluates every point against the constraint set,
+and reports pass/fail for every encoding.
+
+## Benchmarks (Apple M1 Max)
+
+```{python}
+#| label: fig-bench-hero
+#| fig-cap: "Verification time: standard evaluate vs struct_enum (synTagma). At CVA6 2M scale, struct_enum is 846x faster by generating only structurally valid combinations."
+import matplotlib.pyplot as plt
+import numpy as np
+
+plt.rcParams.update({"font.family": "sans-serif", "font.size": 9, "figure.dpi": 150})
+
+fixtures = ["Ibex RV32IMCB\n524K raw · 92K valid", "CVA6 XIF R4\n2M raw · 12K valid", "CVA6 XIF full\n33M raw · 229K valid"]
+eval_us = [3.63e6, 1.43e6, 32e6]
+struct_us = [49500, 1694, 32000]
+speedups = [e / s for e, s in zip(eval_us, struct_us)]
+
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4), gridspec_kw={"width_ratios": [2, 1]})
+
+x = np.arange(len(fixtures))
+w = 0.3
+ax1.bar(x - w/2, eval_us, w, label='evaluate (standard)',
+        color='white', edgecolor='#A23B72', linewidth=1.2)
+ax1.bar(x + w/2, struct_us, w, label='struct_enum (synTagma)',
+        color='white', edgecolor='#2E86AB', linewidth=1.2, hatch='///')
+ax1.set_xticks(x)
+ax1.set_xticklabels(fixtures, fontsize=7)
+ax1.set_ylabel('Time (us, log)')
+ax1.set_yscale('log')
+ax1.legend(fontsize=7, loc='upper left')
+ax1.grid(axis='y', alpha=0.3)
+for i, (e, s, sp) in enumerate(zip(eval_us, struct_us, speedups)):
+    mid = (e * s) ** 0.5
+    label = f'{sp:.0f}x'
+    ax1.annotate(label, xy=(i, mid), fontsize=9, fontweight='bold', ha='center', va='center',
+                bbox=dict(boxstyle='round,pad=0.15', facecolor='white', edgecolor='black', alpha=0.85))
+ax1.set_title('Verification Time by Approach', fontsize=10, fontweight='bold')
+
+ax2.barh(fixtures, speedups, height=0.4, color='white', edgecolor='black', linewidth=0.8, hatch='///')
+for i, sp in enumerate(speedups):
+    ax2.text(sp + 20, i, f'{sp:.0f}x', va='center', fontsize=9, fontweight='bold')
+ax2.set_xlabel('Speedup factor')
+ax2.set_title('synTagma Speedup', fontsize=10, fontweight='bold')
+ax2.set_xlim(0, max(speedups) * 1.2)
+ax2.tick_params(labelsize=8)
+fig.tight_layout()
+plt.show()
+```
 
 ## Comparison
 
-| Metric | Random Simulation | Formal Verification | Ev |
-|:---|---:|---:|---:|
-| Combinations evaluated | ~10⁶ (sampled) | ~10³ (properties) | 33.5 × 10⁶ (exhaustive) |
-| Coverage guarantee | Statistical | Formal (per property) | Exhaustive |
-| Setup | UVM + agent | Formal properties | Single spec file |
-| Cross-validated | — | — | Spike simulation |
+| Metric | Random Simulation | Formal Verification | Ev (standard) | Ev + synTagma |
+|:---|---:|---:|---:|---:|
+| Combinations evaluated | ~10^6 (sampled) | ~10^3 (properties) | 33.5 x 10^6 (exhaustive) | 33.5 x 10^6 |
+| Coverage guarantee | Statistical | Formal (per property) | Exhaustive | Exhaustive |
+| CVA6 full verify time | ~10 hr | ~72 hr (setup + proof) | 32 s | **~32 ms** |
+| CVA6 R4 verify time | ~30 min | ~2 hr | 1.43 s | **1.69 ms** |
+| Ibex 524K verify time | ~15 min | ~1 hr | 3.63 s | **49.5 ms** |
+| Setup | UVM + agent | Formal properties | Single spec file | Single spec file |
+| Cross-validated | --- | --- | Spike simulation | Spike simulation |
 
 ## Status and Limits
 
-Validated against a production RISC-V core interface (CVA6 CV-X-IF,
-33.5 million combinations, 32 seconds), cross-verified through Spike
-simulation.
+Validated against two production RISC-V cores:
+
+- **CVA6 CV-X-IF** (OpenHW Group): 33.5 million combinations exhaustive
+  in 32 seconds (standard) or ~32 milliseconds with synTagma structural
+  enumeration. Cross-verified through Spike simulation.
+- **Ibex RV32IMCB** (lowRISC): 524,288 combinations exhaustive in
+  3.63 seconds (standard) or 49.5 milliseconds with structural enumeration.
+
+### synTagma Integration
+
+With synTagma's structural coordinate space, constraints are encoded into
+the enumeration space itself. Invalid combinations are never generated;
+only structurally valid combinations are visited. This eliminates all
+runtime constraint evaluation, achieving 73x--1000x speedups across
+real-world verification targets.
+
+| Fixture | Raw space | Standard | struct_enum | Speedup |
+|---------|:---------:|:--------:|:-----------:|:------:|
+| Ibex R-type | 524,288 | 3.63 s | 49.5 ms | **73x** |
+| CVA6 R4 | 2,097,152 | 1.43 s | 1.69 ms | **846x** |
+| CVA6 full | 33,554,432 | ~32 s | ~32 ms | **~1000x** |
+
+Detailed reports:
+
+- [Ibex RV32IMCB Exhaustive Verification Report](ibex.html)
+- [CVA6 CV-X-IF Exhaustive Verification Report](cva6.html)
+
+### Limits
 
 Exhaustive verification has a constraint: combinations grow exponentially
 with parameters. For small to medium-sized modules, exhaustive coverage is
