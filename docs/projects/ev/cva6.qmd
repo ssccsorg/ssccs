@@ -5,13 +5,16 @@ date: last-modified
 metadata-files:
   - ../../_include/author.yml
 abstract: |
-  ExaVerif performed an exhaustive verification of the RISC-V CVA6 core's
+  ExaVerif performed exhaustive verification of the RISC-V CVA6 core's
   offloadable custom instruction encodings for the CV-X-IF coprocessor
-  interface. All 33,554,432 possible operand combinations were evaluated
-  deterministically in 32 seconds on a single Apple M1 Max core, yielding
-  196,608 valid encodings. Spike cross-validation confirmed 100% correctness.
-  This report compares the exhaustive approach to random-based verification
-  (riscv-dv) and identifies coverage gaps on both sides.
+  interface. The standard pipeline evaluates all 33,554,432 operand
+  combinations in 32 seconds on a single Apple M1 Max core, yielding
+  196,608 valid encodings. The synTagma-based structural enumeration
+  evaluates the same space in an estimated 200 milliseconds -- a ~160x
+  improvement -- by generating only structurally valid combinations
+  and eliminating all runtime constraint checks. At the CVA6 R4 fixture
+  (2M combinations), struct_enum achieves 846x speedup (1.43 s vs 1.69 ms).
+  Spike cross-validation confirms 100% correctness.
 ---
 
 ```{python}
@@ -136,6 +139,134 @@ fig.tight_layout()
 plt.show()
 ```
 
+## Structural Enumeration Performance
+
+```{python}
+#| label: fig-struct-speed
+#| fig-cap: "Verification time: standard evaluate (1.43s for R4, ~32s for full 33M) vs struct_enum (1.69ms for R4, ~200ms estimated for full). At CVA6 2M scale, struct_enum achieves 846x speedup by eliminating runtime constraint checks."
+import matplotlib.pyplot as plt
+import numpy as np
+
+plt.rcParams.update({"font.family": "sans-serif", "font.size": 9, "figure.dpi": 150})
+
+fixtures = ["CVA6 R4\n2M combos", "CVA6 full\n33M combos"]
+eval_times = [1.43e6, 32e6]  # 1.43 s, 32 s in µs
+struct_times = [1694, 200000]  # 1.69 ms, ~200 ms est. in µs
+speedups = [e / s for e, s in zip(eval_times, struct_times)]
+
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(9, 3.5), gridspec_kw={"width_ratios": [2, 1]})
+
+# Left: grouped bar
+x = np.arange(len(fixtures))
+w = 0.3
+ax1.bar(x - w/2, eval_times, w, label='evaluate (standard)',
+        color='white', edgecolor='#A23B72', linewidth=1.2)
+ax1.bar(x + w/2, struct_times, w, label='struct_enum (synTagma)',
+        color='white', edgecolor='#2E86AB', linewidth=1.2, hatch='///')
+ax1.set_xticks(x)
+ax1.set_xticklabels(fixtures, fontsize=8)
+ax1.set_ylabel('Time (µs, log)')
+ax1.set_yscale('log')
+ax1.legend(fontsize=7)
+ax1.grid(axis='y', alpha=0.3)
+for i, (e, s, sp) in enumerate(zip(eval_times, struct_times, speedups)):
+    mid = (e * s) ** 0.5
+    ax1.annotate(f'{sp:.0f}x', xy=(i, mid), fontsize=9, fontweight='bold', ha='center', va='center',
+                bbox=dict(boxstyle='round,pad=0.15', facecolor='white', edgecolor='black', alpha=0.85))
+ax1.set_title('CVA6 Verification Time', fontsize=10, fontweight='bold')
+
+# Right: speedup factor
+ax2.barh(fixtures, speedups, height=0.4, color='white', edgecolor='black', linewidth=0.8, hatch='///')
+for i, sp in enumerate(speedups):
+    ax2.text(sp + 20, i, f'{sp:.0f}x', va='center', fontsize=9, fontweight='bold')
+ax2.set_xlabel('Speedup factor')
+ax2.set_title('synTagma Speedup', fontsize=10, fontweight='bold')
+ax2.set_xlim(0, max(speedups) * 1.25)
+
+fig.tight_layout()
+plt.show()
+```
+
+## Scaling: O(N) vs O(V)
+
+```{python}
+#| label: fig-scaling
+#| fig-cap: "Scaling behavior: evaluate runs in O(N) where N is the full encoding space; struct_enum runs in O(V) where V is the structurally valid subset. CVA6 R4 (0.6% density) shows 846x speedup; denser spaces see lower but still significant gains."
+import matplotlib.pyplot as plt
+import numpy as np
+
+plt.rcParams.update({"font.family": "sans-serif", "font.size": 9, "figure.dpi": 150})
+
+# All four fixtures for scaling comparison
+raw_sizes = [27, 32768, 524288, 2097152]
+valid_sizes = [27, 20480, 92160, 12288]
+eval_times_us = [3.26, 6580, 3.63e6, 1.43e6]
+struct_times_us = [2.73, 3106, 49500, 1694]
+labels = ['Small\n27', 'Medium\n32K', 'Ibex\n524K', 'CVA6\n2M']
+
+fig, ax = plt.subplots(figsize=(7, 4))
+ax.plot(raw_sizes, eval_times_us, 'o-', color='#A23B72', linewidth=1.5,
+        markerfacecolor='white', markeredgecolor='#A23B72', markersize=6, label='evaluate (standard)')
+ax.plot(valid_sizes, struct_times_us, 's-', color='#2E86AB', linewidth=1.5,
+        markerfacecolor='white', markeredgecolor='#2E86AB', markersize=6, label='struct_enum (synTagma)')
+for (rx, ty), (vx, sy), lab in zip(zip(raw_sizes, eval_times_us), zip(valid_sizes, struct_times_us), labels):
+    sp = ty / sy
+    ax.annotate(f'{sp:.0f}x', xy=(rx, ty), fontsize=7, fontweight='bold',
+                xytext=(rx * 2.0, ty * 0.5),
+                arrowprops=dict(arrowstyle='->', color='gray', linewidth=0.5))
+ax.set_xscale('log')
+ax.set_yscale('log')
+ax.set_xlabel('Combinations (log scale)')
+ax.set_ylabel('Time (µs, log scale)')
+ax.set_title('Scaling: O(N) vs O(V)', fontsize=11, fontweight='bold')
+ax.legend(fontsize=8)
+ax.grid(True, alpha=0.3)
+fig.tight_layout()
+plt.show()
+```
+
+## Benchmark Results (Apple M1 Max)
+
+```{python}
+#| label: fig-bench-table
+#| fig-cap: "Complete benchmark data including CVA6 fixtures. struct_enum achieves 73x–846x speedup over the standard pipeline across all real-world RISC-V verification targets."
+import matplotlib.pyplot as plt
+import numpy as np
+
+plt.rcParams.update({"font.family": "sans-serif", "font.size": 8, "figure.dpi": 150})
+
+columns = ('Fixture', 'Raw combos', 'Valid combos', 'Density',
+           'evaluate', 'struct_enum', 'Speedup')
+data = [
+    ('Small',      '27',         '27',       '100%',   '3.26 µs',   '2.73 µs',   '1.2x'),
+    ('Medium',     '32,768',     '20,480',   '62.5%',  '6.58 ms',   '3.11 ms',   '2.1x'),
+    ('Ibex R-type','524,288',    '92,160',   '17.6%',  '3.63 s',    '49.5 ms',   '73x'),
+    ('CVA6 R4',    '2,097,152',  '12,288',   '0.6%',   '1.43 s',    '1.69 ms',   '846x'),
+    ('CVA6 full',  '33,554,432', '196,608',  '0.6%',   '~32 s',     '~200 ms',   '~160x'),
+]
+
+fig, ax = plt.subplots(figsize=(9, 3.2))
+ax.axis('off')
+table = ax.table(cellText=data, colLabels=columns, loc='center', cellLoc='center')
+table.auto_set_font_size(False)
+table.set_fontsize(8)
+table.scale(1, 1.4)
+for j in range(len(columns)):
+    cell = table[0, j]
+    cell.set_facecolor('#2E86AB')
+    cell.set_text_props(color='white', fontweight='bold')
+for i in range(len(data)):
+    cell = table[i + 1, 6]
+    sp_str = data[i][6].lstrip('~')
+    sp = float(sp_str.rstrip('x'))
+    if sp >= 100:
+        cell.set_facecolor('#A23B72')
+        cell.set_text_props(color='white', fontweight='bold')
+    elif sp >= 10:
+        cell.set_facecolor('#F18F01')
+plt.show()
+```
+
 ## How It Works
 
 A single YAML file describes the encoding space and its constraints. The
@@ -153,6 +284,29 @@ runs it under Spike + pk. All 196,608 pass.
 ```bash
 EV_SIM_BACKEND=spike ev simulate --target cva6_xif_ref.xif.yaml
 ```
+
+## Structural vs Standard: the mechanism
+
+| Aspect | Standard (`evaluate`) | Structural (`struct_enum`) |
+|--------|----------------------|---------------------------|
+| Combinations generated | **All** 33,554,432 | **Valid only** 196,608 |
+| Constraint evaluation | 10 checks × 33.5M | **0** (structurally encoded) |
+| Invalid detection | `check.allows()` → false | Vacant slot → 1.65 ns |
+| Memory (CVA6 R4) | 4 GB peak (Vec) | 0 (lazy iterator) |
+| Time (CVA6 R4) | 1.43 s | 1.69 ms |
+| Time (CVA6 full) | ~32 s | ~200 ms (est.) |
+
+## Comparison with synTagma Benchmarks
+
+The struct_enum speedup mirrors synTagma's core thesis: structural
+addressing eliminates hash-based lookup overhead.
+
+| synTagma primitive | ev application | Measured | Advantage |
+|--------------------|---------------|:--------:|:---------:|
+| Nonexistent prefix lookup | Invalid encoding detection | **1.65 ns** | 14.0Mx vs HashMap |
+| CoordPath indexing | Combination addressing | **5.2 ns** | O(depth) = O(5) |
+| CoordSpace sparse get | Valid encoding iteration | **1.69 ms** (2M space) | 846x vs evaluate |
+| Axis projection | funct7/funct3 filtering | **49.5 ms** (524K space) | 73x vs evaluate |
 
 ## Comparison with Random Verification (riscv-dv)
 
