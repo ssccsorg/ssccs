@@ -16,13 +16,29 @@ abstract: |
   92,160 (R-type) plus 55,616 (I-type).
 ---
 
-{{< include ../../_include/_title_meta_items.qmd >}}
-
 ```{python}
 #| include: false
 #| context: local
+title_meta_items = {
+    "html": [
+        {"title": "Code", "link": "https://github.com/ssccsorg/ev", "content": "Github", "icon": "bi bi-link"},
+        {"title": "Benchmarks", "link": "https://github.com/ssccsorg/ev/blob/main/benches/bench.rs", "content": "bench.rs", "icon": "bi bi-bar-chart"},
+        {"title": "Fixture", "link": "https://github.com/ssccsorg/ev/blob/main/tests/fixtures/ibex/rv32imcb.xif.yaml", "content": "Ibex RV32IMCB spec", "icon": "bi bi-file-yaml"},
+        {"title": "References", "link": "https://docs.ssccs.org/projects/nexus/", "content": "neXus", "icon": "bi bi-link"},
+        {"title": "References", "link": "https://docs.ssccs.org/partnerships/openhw_integration.html", "content": "OpenHW", "icon": "bi bi-link"}
+    ],
+    "pdf": [
+        {"title": "Code", "link": "https://github.com/ssccsorg/ev", "content": "Github", "icon": "bi bi-link"},
+        {"title": "Benchmarks", "link": "https://github.com/ssccsorg/ev/blob/main/benches/bench.rs", "content": "bench.rs", "icon": "bi bi-bar-chart"},
+        {"title": "Fixture", "link": "https://github.com/ssccsorg/ev/blob/main/tests/fixtures/ibex/rv32imcb.xif.yaml", "content": "Ibex RV32IMCB spec", "icon": "bi bi-file-yaml"},
+        {"title": "References", "link": "https://docs.ssccs.org/projects/nexus/", "content": "neXus", "icon": "bi bi-link"},
+        {"title": "References", "link": "https://docs.ssccs.org/partnerships/openhw_integration.html", "content": "OpenHW", "icon": "bi bi-link"}
+    ]
+}
 %run ../../_include/_graphviz.py
 ```
+
+{{< include ../../_include/_title_meta_items.qmd >}}
 
 ## Verification Target
 
@@ -244,10 +260,10 @@ for j in range(len(columns)):
     cell.set_facecolor('#2E86AB')
     cell.set_text_props(color='white', fontweight='bold')
 
-# Highlight speedup column
+# Highlight speedup column (index 6)
 for i in range(len(data)):
-    cell = table[i + 1, -1]
-    sp = float(data[i][-1].rstrip('x'))
+    cell = table[i + 1, 6]
+    sp = float(data[i][6].rstrip('x'))
     if sp >= 100:
         cell.set_facecolor('#A23B72')
         cell.set_text_props(color='white', fontweight='bold')
