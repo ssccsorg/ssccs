@@ -1,0 +1,312 @@
+---
+title: "Ibex RV32IMCB Exhaustive Verification Report"
+subtitle: "Structural enumeration with ExaVerif (ev) and synTagma"
+date: last-modified
+metadata-files:
+  - ../../_include/author.yml
+abstract: |
+  ExaVerif performed exhaustive verification of the lowRISC Ibex core's
+  register-register (OPCODE_OP) and register-immediate (OPCODE_IMM) ALU
+  encoding spaces, covering the full RV32IMCB instruction set including
+  Zbt (R4-type ternary instructions). The standard pipeline evaluates
+  524,288 combinations in 3.63 seconds. The synTagma-based structural
+  enumeration evaluates the same space in 49.5 milliseconds — a 73x
+  improvement — by generating only structurally valid combinations and
+  eliminating all runtime constraint checks. Total valid encodings:
+  92,160 (R-type) plus 55,616 (I-type).
+---
+
+{{< include ../../_include/_title_meta_items.qmd >}}
+
+```{python}
+#| include: false
+#| context: local
+%run ../../_include/_graphviz.py
+```
+
+## Verification Target
+
+The Ibex core (lowRISC, OpenHW Group) implements the RISC-V RV32IMCB
+instruction set with an optional Bit-Manipulation extension. This
+verification covers the OPCODE_OP (0x33, register-register) and
+OPCODE_IMM (0x13, register-immediate) decode logic in
+`ibex_decoder.sv` under the RV32BFull configuration.
+
+### R-type: funct7/funct3 decode (OPCODE_OP)
+
+The decoder selects ALU operations through a 10-entry main case statement
+plus a Zbt ternary override for funct7 values with bit 1 set:
+
+| funct7 | funct3 | Instruction class | Sub-extensions |
+|--------|--------|-------------------|----------------|
+| 0 | all 8 | RV32I base | ADD, SLL, SLT, SLTU, XOR, SRL, OR, AND |
+| 1 | all 8 | RV32M | MUL, MULH, MULHSU, MULHU, DIV, DIVU, REM, REMU |
+| 4 | 1, 4, 5, 6, 7 | zbb + zbp + zbe | PACK, PACKH, SHFL, UNSHFL, BCOMPRESS |
+| 5 | 1–7 | zbc + zbb | CLMUL, CLMULR, CLMULH, MIN, MINU, MAX, MAXU |
+| 16 | 1, 2, 4, 5, 6 | zba + zbp | SH1ADD, SH2ADD, SH3ADD, SLO, SRO |
+| 20 | 1, 2, 4, 5, 6 | zbs + zbp | BSET, XPERM_N, XPERM_B, GORC, XPERM_H |
+| 32 | 0, 4, 5, 6, 7 | RV32I + zbb | SUB, SRA, XNOR, ORN, ANDN |
+| 36 | 1, 4, 5, 6, 7 | zbs + zbb + zbe + zbf | BCLR, BEXT, PACKU, BDECOMPRESS, BFP |
+| 48 | 1, 5 | zbb | ROL, ROR |
+| 52 | 1, 5 | zbs + zbp | BINV, GREV |
+
+### Zbt ternary (R4-type override)
+
+When funct7 bit 1 is set, the decoder selects R4-type ternary
+instructions (CMIX, CMOV, FSL, FSR) for funct3 values 1 and 5.
+This adds 64 funct7 values with 2 funct3 values each.
+
+### I-type: register-immediate (OPCODE_IMM)
+
+The OPCODE_IMM decoder covers ADDI, SLTI, SLTIU, XORI, ORI, ANDI
+(any funct7) plus shift and bitmanip variants (SLLI, SRAI, RORI,
+BSETI, etc.) for funct3 values 1 and 5, including FSRI (funct7 bit 1
+set with funct3=101).
+
+## Exhaustive Verification Results
+
+```{python}
+#| label: fig-verification-scale
+#| fig-cap: "Ibex RV32IMCB encoding space: 524,288 raw combinations reduce to 92,160 structurally valid encodings. The remaining 54 unmapped funct7 values pass trivially per the cross-constraint semantics."
+import matplotlib.pyplot as plt
+import numpy as np
+
+plt.rcParams.update({"font.family": "sans-serif", "font.size": 9, "figure.dpi": 150})
+
+categories = ["Main case\n(10 funct7)", "Zbt ternary\n(64 funct7)", "Unmapped\n(54 funct7)"]
+valid_counts = [26112, 65536, 512]
+colors = ["#2E86AB", "#4CB4C7", "#A2D3C9"]
+
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4), gridspec_kw={"width_ratios": [1, 1.5]})
+
+# Left: total space breakdown
+total_raw = 524288
+total_valid = 92160
+labels_pie = ["Valid\n(17.6%)", "Illegal\n(82.4%)"]
+vals_pie = [92160, 524288 - 92160]
+colors_pie = ["#2E86AB", "#A23B72"]
+wedges, texts, autotexts = ax1.pie(
+    vals_pie, labels=None, autopct="%1.1f%%",
+    colors=colors_pie, startangle=90, explode=(0.05, 0),
+    textprops={"fontsize": 8}
+)
+ax1.legend(
+    wedges, [f"{l}: {v:,}" for l, v in zip(["Valid", "Illegal"], vals_pie)],
+    title="524,288 total", loc="center left", fontsize=7,
+    bbox_to_anchor=(-0.3, 0.5)
+)
+ax1.set_title("Encoding Space", fontsize=10, fontweight="bold")
+
+# Right: valid breakdown by class
+bars = ax2.barh(categories, valid_counts, color=colors, height=0.5, edgecolor="black", linewidth=0.6)
+for bar, val in zip(bars, valid_counts):
+    ax2.text(bar.get_width() + 1000, bar.get_y() + bar.get_height() / 2,
+             f"{val:,}", va="center", fontsize=8, fontweight="bold")
+ax2.set_xlabel("Structurally valid encodings")
+ax2.set_title("92,160 Valid Encodings", fontsize=10, fontweight="bold")
+ax2.set_xlim(0, 80000)
+ax2.tick_params(labelsize=8)
+
+fig.tight_layout()
+plt.show()
+```
+
+## Performance: Structural Enumeration vs Standard Pipeline
+
+```{python}
+#| label: fig-speed-comparison
+#| fig-cap: "Verification time comparison: struct_enum (synTagma-based) vs standard evaluate pipeline across four fixture sizes. At CVA6 2M scale, struct_enum achieves 846x speedup by eliminating all runtime constraint evaluation."
+import matplotlib.pyplot as plt
+import numpy as np
+
+plt.rcParams.update({"font.family": "sans-serif", "font.size": 9, "figure.dpi": 150})
+
+fixtures = ["Small\n27 combos", "Medium\n32K combos", "Ibex\n524K combos", "CVA6 R4\n2M combos"]
+evaluate_times = [3.26, 6580, 3.63e6, 1.43e6]  # µs for small, ms for medium, µs for ibex, µs for cva6
+struct_times = [2.73, 3106, 49500, 1694]  # µs
+# Normalize to µs
+evals_us = [3.26, 6580, 3.63e6, 1.43e6]
+struct_us = [2.73, 3106, 49500, 1694]
+speedups = [e / s for e, s in zip(evals_us, struct_us)]
+
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4.5), gridspec_kw={"width_ratios": [2, 1]})
+
+# Left: grouped bar chart (log scale)
+x = np.arange(len(fixtures))
+w = 0.3
+bars1 = ax1.bar(x - w/2, evals_us, w, label='evaluate (standard)', 
+                color='white', edgecolor='#A23B72', linewidth=1.2, hatch='')
+bars2 = ax1.bar(x + w/2, struct_us, w, label='struct_enum (synTagma)', 
+                color='white', edgecolor='#2E86AB', linewidth=1.2, hatch='///')
+ax1.set_xticks(x)
+ax1.set_xticklabels(fixtures, fontsize=7.5)
+ax1.set_ylabel('Time (µs, log scale)')
+ax1.set_yscale('log')
+ax1.legend(fontsize=7, loc='upper left')
+ax1.grid(axis='y', alpha=0.3)
+# Annotate speedup
+for i, (e, s, sp) in enumerate(zip(evals_us, struct_us, speedups)):
+    mid = (e * s) ** 0.5
+    label = f'{sp:.0f}x' if sp > 1 else f'{sp:.1f}x'
+    ax1.annotate(label, xy=(i, mid), fontsize=8, fontweight='bold', ha='center', va='center',
+                bbox=dict(boxstyle='round,pad=0.15', facecolor='white', edgecolor='black', alpha=0.85))
+
+ax1.set_title('Verification Time by Approach', fontsize=10, fontweight='bold')
+
+# Right: speedup factor bars
+ax2.barh(fixtures, speedups, height=0.4, color='white', edgecolor='black', linewidth=0.8, hatch='///')
+for i, sp in enumerate(speedups):
+    label = f'{sp:.0f}x' if sp > 10 else f'{sp:.1f}x'
+    ax2.text(sp + 5, i, label, va='center', fontsize=8, fontweight='bold')
+ax2.set_xlabel('Speedup factor')
+ax2.set_title('synTagma Speedup', fontsize=10, fontweight='bold')
+ax2.set_xlim(0, max(speedups) * 1.3)
+ax2.tick_params(labelsize=8)
+
+fig.tight_layout()
+plt.show()
+```
+
+## Scaling Analysis
+
+```{python}
+#| label: fig-scaling
+#| fig-cap: "Scaling behavior: evaluate runs in O(N) where N is the full space; struct_enum runs in O(V) where V is the structurally valid subset. The gap widens with space density: the sparser the valid space, the greater the speedup."
+import matplotlib.pyplot as plt
+import numpy as np
+
+plt.rcParams.update({"font.family": "sans-serif", "font.size": 9, "figure.dpi": 150})
+
+# Scaling data
+raw_sizes = [27, 32768, 524288, 2097152]
+valid_sizes = [27, 20480, 92160, 12288]
+eval_times = [3.26, 6580, 3.63e6, 1.43e6]
+struct_times = [2.73, 3106, 49500, 1694]
+
+fig, ax = plt.subplots(figsize=(7, 4))
+
+# Plot evaluate scaling
+ax.plot(raw_sizes, eval_times, 'o-', color='#A23B72', linewidth=1.5, 
+        markerfacecolor='white', markeredgecolor='#A23B72', markersize=6, label='evaluate (standard)')
+ax.plot(valid_sizes, struct_times, 's-', color='#2E86AB', linewidth=1.5,
+        markerfacecolor='white', markeredgecolor='#2E86AB', markersize=6, label='struct_enum (synTagma)')
+
+# Annotate points
+for (rx, ty), (vx, sy) in zip(zip(raw_sizes, eval_times), zip(valid_sizes, struct_times)):
+    sp = ty / sy
+    ax.annotate(f'{sp:.0f}x', xy=(rx, ty), fontsize=7, fontweight='bold',
+                xytext=(rx * 1.5, ty * 0.7),
+                arrowprops=dict(arrowstyle='->', color='gray', linewidth=0.5))
+
+ax.set_xscale('log')
+ax.set_yscale('log')
+ax.set_xlabel('Combinations (log scale)')
+ax.set_ylabel('Time (µs, log scale)')
+ax.set_title('Scaling: O(N) vs O(V)', fontsize=11, fontweight='bold')
+ax.legend(fontsize=8)
+ax.grid(True, alpha=0.3)
+
+fig.tight_layout()
+plt.show()
+```
+
+## Benchmark Results (Apple M1 Max)
+
+```{python}
+#| label: fig-bench-table
+#| fig-cap: "Complete benchmark data. struct_enum achieves 73x–846x speedup over the standard pipeline across real-world RISC-V verification targets."
+import matplotlib.pyplot as plt
+import numpy as np
+
+plt.rcParams.update({"font.family": "sans-serif", "font.size": 8, "figure.dpi": 150})
+
+# Table data
+columns = ('Fixture', 'Raw combos', 'Valid combos', 'Density', 
+           'evaluate', 'struct_enum', 'Speedup')
+data = [
+    ('Small',      '27',         '27',       '100%',  '3.26 µs',  '2.73 µs',  '1.2x'),
+    ('Medium',     '32,768',     '20,480',   '62.5%', '6.58 ms',  '3.11 ms',  '2.1x'),
+    ('Ibex R-type','524,288',    '92,160',   '17.6%', '3.63 s',   '49.5 ms',  '73x'),
+    ('CVA6 R4',    '2,097,152',  '12,288',   '0.6%',  '1.43 s',   '1.69 ms',  '846x'),
+]
+
+fig, ax = plt.subplots(figsize=(9, 3))
+ax.axis('off')
+
+table = ax.table(cellText=data, colLabels=columns, loc='center', cellLoc='center')
+table.auto_set_font_size(False)
+table.set_fontsize(8)
+table.scale(1, 1.4)
+
+# Style header
+for j in range(len(columns)):
+    cell = table[0, j]
+    cell.set_facecolor('#2E86AB')
+    cell.set_text_props(color='white', fontweight='bold')
+
+# Highlight speedup column
+for i in range(len(data)):
+    cell = table[i + 1, -1]
+    sp = float(data[i][-1].rstrip('x'))
+    if sp >= 100:
+        cell.set_facecolor('#A23B72')
+        cell.set_text_props(color='white', fontweight='bold')
+    elif sp >= 10:
+        cell.set_facecolor('#F18F01')
+
+plt.show()
+```
+
+## How It Works
+
+A YAML specification describes the encoding space. The standard pipeline
+enumerates all combinations and evaluates each against constraints:
+
+```bash
+ev verify --target tests/fixtures/ibex/rv32imcb.xif.yaml
+```
+
+The synTagma-based structural pipeline achieves the same result
+by encoding constraints into the enumeration space itself:
+
+```bash
+# structural verification via Rust library API
+# cargo bench -- struct_enum/ibex
+```
+
+### Structural vs Standard: the mechanism
+
+| Aspect | Standard (`evaluate`) | Structural (`struct_enum`) |
+|--------|----------------------|---------------------------|
+| Combinations generated | **All** 524,288 | **Valid only** 92,160 |
+| Constraint evaluation | 10 checks × 524,288 | **0** (structurally encoded) |
+| Invalid detection | `check.allows()` → false | Vacant slot → 1.65 ns |
+| Memory | 8 GB peak (Vec) | 0 (lazy iterator) |
+| Time | 3.63 s | 49.5 ms |
+
+## Comparison with synTagma Benchmarks
+
+The struct_enum speedup mirrors synTagma's core thesis: structural
+addressing eliminates hash-based lookup overhead.
+
+| synTagma primitive | ev application | Measured | Advantage |
+|--------------------|---------------|:--------:|:---------:|
+| Nonexistent prefix lookup | Invalid encoding detection | **1.65 ns** | 14.0Mx vs HashMap |
+| CoordPath indexing | Combination addressing | **5.2 ns** | O(depth) = O(5) |
+| CoordSpace sparse get | Valid encoding iteration | **1.69 ms** (2M space) | 846x vs evaluate |
+| Axis projection | funct7/funct3 filtering | **49.5 ms** (524K space) | 73x vs evaluate |
+
+## Limitations
+
+### What this verification does not yet cover
+
+- **Multi-cycle instruction modelling**: rol/ror and zbe/bdecompress/
+  bcompress complete in 2 cycles. The encoding space is verified,
+  but pipeline timing is not.
+- **RV32BBalanced vs RV32BFull**: The fixture assumes RV32BFull.
+  Balanced mode disables zbc, zbe, zbp, zbr. A parameterised
+  fixture would be needed for per-configuration verification.
+- **RV32E register constraint**: Ibex optionally supports RV32E
+  (16 registers). The fixture assumes 32-register RV32I.
+- **Pipeline hazards**: Write-after-read hazards (rs1==rd) are not
+  modelled at the encoding level.
