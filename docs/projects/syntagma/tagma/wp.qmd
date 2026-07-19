@@ -807,13 +807,18 @@ A SHA-256 engine requires approximately 10,000 gates and 64--75 cycles per opera
 - Lookup latency: native CoordSpace (dense array) is flat at **0.39 ns** across all depths — every syllable resolves to a single array load. The tree fallback (CoordSpaceN) scales linearly with depth: 2.69 ns at N=3, 58.6 ns at N=19 (SHA-256 scale, ↑**3.9x** vs SHA-256's 227 ns). Native CoordSpace reaches **582x** vs SHA-256. Recursive depth is bounded by schema, not data volume: $10^4$ and $10^{77}$ entries both cost $N$ dereferences in the fallback path, while the native dense path costs a constant 0.39 ns.
 - Nonexistent prefix lookup: CoordSpace **1.65 ns** (structural, navigates to the branch and returns None) vs HashMap **23.05 ms** (↑**14.0Mx**, full scan — HashMap has no structural prefix index). Sparse get at 10M entries: CoordSpaceN2 completes all 10M operations in 44.9 ms vs HashMap 1.05 s (↑23.4x).
 
-Rust's `std::collections::HashMap` compiles to C-grade machine code within 5-10% of theoretical CPU throughput. Whether Tagma matches or exceeds this baseline is incidental: HashMap degrades linearly with collision rate and entry count while Tagma does not. A coordinate-slice query costs the same at $10^4$ entries as at $10^{77}$ entries: one array dereference per syllable.
-
-:::{ layout-ncol=4 }
+:::{ layout-ncol=2 }
 
 {{< include ../_include/bench/fig-bench-identity.qmd >}}
 
 {{< include ../_include/bench/fig-bench-address-space.qmd >}}
+
+:::
+
+- Identity generation: SHA-256 lookup costs 227 ns; the tree fallback (CoordSpaceN) reaches $2^{256}$ at 19 syllables for 58.6 ns (↑3.9x). The native dense path (CoordSpace, CoordSpace2, CoordSpaceM3) holds at a flat 0.39 ns.
+- Address space: tree fallback lookup cost scales as O(N); native dense path is O(1) flat. Tagma recursion k=1 reaches $10^{231}$ identifiers (SHA-512 space × $10^{77}$) at 171 ns.
+
+:::{ layout-ncol=3 }
 
 {{< include ../_include/bench/fig-bench-spatial.qmd >}}
 
@@ -829,8 +834,6 @@ Rust's `std::collections::HashMap` compiles to C-grade machine code within 5-10%
 
 :::
 
-- Identity generation: SHA-256 lookup costs 227 ns; the tree fallback (CoordSpaceN) reaches $2^{256}$ at 19 syllables for 58.6 ns (↑3.9x). The native dense path (CoordSpace, CoordSpace2, CoordSpaceM3) holds at a flat 0.39 ns.
-- Address space: tree fallback lookup cost scales as O(N); native dense path is O(1) flat. Tagma recursion k=1 reaches $10^{231}$ identifiers (SHA-512 space × $10^{77}$) at 171 ns.
 - Spatial query: CoordSet bitwise AND resolves compound axis filters at 329 Melem/s -- 137x faster than HashMap scan.
 - Edge: CS2 sparse get sustains 23.4x at 10M entries; CS19 get shows 19-dereference cost (0.50x); drain is 0.72x on the full space.
 - Bulk operations: CoordSpace outperforms HashMap by 14.6--17.3x across all operations on the full 11,172-entry space.
@@ -839,6 +842,8 @@ Rust's `std::collections::HashMap` compiles to C-grade machine code within 5-10%
 - Deep tree: CoordSpaceN19 at 100 entries shows the 19-dereference tree traversal cost (7.04 us vs 3.53 us for HashMap). Nonexistent key lookup remains depth-independent: CoordSpace2 0.39 ns, CoordSpaceN19 2.30 ns, HashMap 20.1 ns.
 
 Tagma assigns every point in a geometric space a structural address that is simultaneously a coordinate, an identifier, and a computation target. HashMap stores values by hashing keys by comparison. Querying this space is spatial computation: axis projection, set membership, proximity, and coordinate slicing are arithmetic operations. The figures above measure the consequence: HashMap degrades with data volume; the coordinate space does not.
+
+> Rust's `std::collections::HashMap` compiles to C-grade machine code within 5-10% of theoretical CPU throughput. Whether Tagma matches or exceeds this baseline is incidental: HashMap degrades linearly with collision rate and entry count while Tagma does not. A coordinate-slice query costs the same at $10^4$ entries as at $10^{77}$ entries: one array dereference per syllable.
 
 | Metric | SHA-256 | Tagma (1-syll) | Tagma (6-syll) | Tagma (19-syll) |
 |--------|---------|----------------|----------------|-----------------|

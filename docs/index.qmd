@@ -168,16 +168,16 @@ for node in node_list:
     pr = pagerank.get(node, 0.0)
     pr_norm = (pr - pr_min) / pr_range  # 0..1
     is_note = nodes.get(node, {}).get("is_note", False)
-    
+
     # Radius: core docs inner, Notes outer — wide spread
     if is_note:
         r = 8.0 + rng.random() * 6.0
     else:
         r = 3.0 + d * 3.0 + pr_norm * 1.5
-    
+
     theta = node_theta[node]
     phi = node_phi[node]
-    
+
     x = r * math.sin(phi) * math.cos(theta)
     y = r * math.sin(phi) * math.sin(theta)
     z = r * math.cos(phi)
@@ -242,7 +242,7 @@ for node in node_list:
         ht = f"<b>{title}</b><br>{preview}"
     else:
         ht = f"<b>{title}</b>"
-    
+
     if is_note:
         note_x.append(x); note_y.append(y); note_z.append(z)
         note_colors.append("rgb(100,100,100)")
