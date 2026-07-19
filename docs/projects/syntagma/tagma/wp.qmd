@@ -895,21 +895,33 @@ The `CoordSpace` series provides hash-free, collision-free coordinate-indexed sp
 | Type | Depth | Address space | Allocation | Exploration pattern |
 |------|-------|---------------|------------|-------------|
 | CoordSpace | 1 | $11{,}172$ | None (inline array) | General single-syllable, no_std, MCU |
-| CoordSpace2 | 2 | $1.25 \times 10^8$ | Heap (lazy) | FIH cross-product, two-axis space |
-| CoordSpace6 | 6 | $1.94 \times 10^{24}$ | Heap (lazy) | UUID-scale identity |
-| CoordSpace19 | 19 | $\approx 2^{256}$ | Heap (lazy) | SHA-256-scale |
+| CoordSpaceN2 | 2 | $1.25 \times 10^8$ | Heap (lazy) | FIH cross-product, two-axis space |
+| CoordSpaceN6 | 6 | $1.94 \times 10^{24}$ | Heap (lazy) | UUID-scale identity |
+| CoordSpaceN19 | 19 | $\approx 2^{256}$ | Heap (lazy) | SHA-256-scale |
 | DynCoordSpace | Runtime | Unlimited ($\texttt{\&[Coord]}$) | Heap (lazy) | Variable-depth paths |
 
 **`CoordSpace` (single-syllable, no allocator).** Backed by an inline $[\texttt{Option<V>}; 11172]$ array (22 KB for `Option<()>`, 89 KB for `Option<u64>`). Zero heap allocation. Every `Coord` is a direct array index: one load, no hashing, no collisions, no resizing. Full Entry API (`entry().or_insert_with()`), `drain()`, `retain()`, `iter_mut()`, `IntoIterator`, `Index<Coord>`, `PartialEq`, `Clone`, `Debug`.
 
-**`CoordSpaceN<N, V>` (multi-syllable, heap allocated).** An $N$-level tree where each level is a fixed 11,172-slot array. Memory is allocated lazily: only paths that are actually written to consume nodes. Each allocated node is 22 KB (Leaf) or 89 KB (Branch) regardless of occupancy; a single entry in `CoordSpaceN<6>` at maximum depth reaches approximately 500 KB. No hashing, no collisions at any depth. `N` array dereferences per lookup. The same API surface as `CoordSpace`, plus `at_path`/`place_path`/`vacate_path` through `CoordPath<N>`.
+**`CoordSpaceN<N, V>` (multi-syllable, heap allocated).** An $N$-level tree where each level is a fixed 11,172-slot array. Memory is allocated lazily: only paths that are actually written to consume nodes. Each allocated node is 22 KB (Leaf) or 89 KB (Branch) regardless of occupancy; a single entry in `CoordSpaceN6` at maximum depth reaches approximately 500 KB. No hashing, no collisions at any depth. `N` array dereferences per lookup. The same API surface as `CoordSpace`, plus `at_path`/`place_path`/`vacate_path` through `CoordPath<N>`.
 
 **`DynCoordSpace` (dynamic depth).** A trie accepting `&[Coord]` slices of any length. Each level is a boxed 11,172-slot array. Inserting both a shallow path and a deeper path sharing the same prefix preserves both values (via a `Both` slot variant). Clear walks the tree in-place without deallocating.
+
+##### Implementation Tradeoff: Dense vs Sparse
+
+Tagma's theoretical promise -- collision-free O(1) direct addressing -- is fully realized only when the entire address space fits in contiguous memory. For N=1 (11,172 slots) this is trivial. For N $>$ 1 the address space $11{,}172^N$ exceeds feasible single-allocation memory, requiring a software fallback.
+
+| Implementation | Allocation | Access | Tagma principle |
+|---------------|-----------|--------|-----------------|
+| CoordSpace / CoordSet (N=1) | All slots reserved (zeroed) | Single load or bitwise op | Complete |
+| CoordSpaceN$\langle N \rangle$ (N $>$ 1) | Root reserved, leaves lazy | N dereferences + enum match | Fallback |
+| CoordSetN (N $>$ 1) | Built on CoordSpaceN | Tree walk O(entries) | Partial |
+
+A hardware cluster of dense CoordSpace nodes, each hosting 11,172 slots with a topology mapping function $\phi_k$, recovers the complete Tagma principle at any depth without tree traversal or heap allocation. See the engineering devlog for detailed memory cost, cache behavior, and naming rationale [@tagma-devlog].
 
 The following example illustrates the coordinate-navigation API across the map family:
 
 ```rust
-use tagma_core::{Coord, CoordSpace, CoordSpace6, CoordPath};
+use tagma_core::{Coord, CoordSpace, CoordSpaceN6, CoordPath};
 
 // Single-syllable: no allocator required
 let mut space = CoordSpace::new();
@@ -918,8 +930,8 @@ space.place(c, "hello");
 assert_eq!(space.at(&c), Some(&"hello"));
 *space.entry(c).or_insert("world") = "updated";
 
-// Multi-syllable: compile-time depth N=6
-let mut space6 = CoordSpace6::<u32>::new();
+// Multi-syllable: compile-time depth N=6 (tree-based hybrid)
+let mut space6 = CoordSpaceN6::<u32>::new();
 let path = CoordPath::new([
     Coord::new(1).unwrap(),
     Coord::new(2).unwrap(),
@@ -955,7 +967,7 @@ pub fn decode_bytes(s: &str) -> Option<Vec<u8>>;
 A SHA-256 engine requires approximately 10,000 gates and 64--75 cycles per operation, then needs collision resolution and dynamic resizing. UUID generation requires entropy collection and delivers probabilistic uniqueness. The Tagma decoder replaces this with a combinational decoder and a 16-bit register: one syllable covers 11,172 identifiers; six syllables (18 axes) exceed typical distributed system needs; nineteen match the SHA-256 $2^{256}$ space.
 
 - Lookup latency: 0.38 ns for a single-syllable Tagma coordinate vs 227 ns for SHA-256 (↑597x). At SHA-256 scale (19 syllables): 54.9 ns (↑4.1x). N-scaling is linear: 0.38 ns at N=1 to 54.9 ns at N=19. Recursive depth is bounded by schema, not data volume: $10^4$ and $10^{77}$ entries both cost $N$ dereferences.
-- Nonexistent prefix lookup: CoordSpace **1.65 ns** (structural, navigates to the branch and returns None) vs HashMap **23.05 ms** (↑**14.0Mx**, full scan — HashMap has no structural prefix index). Sparse get at 10M entries: CoordSpace2 completes all 10M operations in 44.9 ms vs HashMap 1.05 s (↑23.4x).
+- Nonexistent prefix lookup: CoordSpace **1.65 ns** (structural, navigates to the branch and returns None) vs HashMap **23.05 ms** (↑**14.0Mx**, full scan — HashMap has no structural prefix index). Sparse get at 10M entries: CoordSpace2N completes all 10M operations in 44.9 ms vs HashMap 1.05 s (↑23.4x).
 
 Rust's `std::collections::HashMap` compiles to C-grade machine code within 5-10% of theoretical CPU throughput. Whether Tagma matches or exceeds this baseline is incidental: HashMap degrades linearly with collision rate and entry count while Tagma does not. A coordinate-slice query costs the same at $10^4$ entries as at $10^{77}$ entries: one array dereference per syllable.
 

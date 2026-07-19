@@ -235,7 +235,7 @@ SHA-256 requires ~10,000 gates and 64--75 cycles per operation, then needs colli
 
 **Measured lookup latency:** 0.38 ns for a single-syllable Tagma coordinate vs 227 ns for SHA-256 (↑**597x**). At SHA-256 scale (19 syllables): 54.9 ns (↑4.1x). N-scaling is strictly linear: 0.38 ns at N=1, 54.9 ns at N=19. Recursive depth is bounded by schema, not by data volume — $10^4$ and $10^{77}$ entries both cost $N$ dereferences.
 
-**Nonexistent prefix lookup:** CoordSpace **1.65 ns** (structural, navigates to the branch and returns None) vs HashMap **23.05 ms** (↑**14.0Mx**, full scan of 10M entries — HashMap has no structural prefix index). Sparse get at 10M entries: CoordSpace2 completes all 10M operations in 44.9 ms vs HashMap 1.05 s (↑23.4x).
+**Nonexistent prefix lookup:** CoordSpace **1.65 ns** (structural, navigates to the branch and returns None) vs HashMap **23.05 ms** (↑**14.0Mx**, full scan of 10M entries — HashMap has no structural prefix index). Sparse get at 10M entries: CoordSpace2N completes all 10M operations in 44.9 ms vs HashMap 1.05 s (↑23.4x).
 
 This is **the elimination of hashing itself, not replacing `HashMap` as a storage** which is one of the fastest general-purpose hash based storage by C-grade machine code (not an interpreted-language benchmark). Tagma matches or exceeds this baseline is incidental: HashMap degrades linearly while Tagma does not.
 
@@ -455,7 +455,7 @@ fig, ax = plt.subplots(figsize=(6, 3))
 x = np.arange(len(metrics))
 w = 0.3
 bars1 = ax.bar(x - w/2, [cs_vals[0], cs_vals[1], cs_vals[2], cs_vals[3]], w,
-               label='CoordSpace2', color='white', edgecolor='black', linewidth=0.8, hatch='///')
+               label='CoordSpace2N', color='white', edgecolor='black', linewidth=0.8, hatch='///')
 bars2 = ax.bar(x + w/2, [hm_vals[0], hm_vals[1], hm_vals[2], hm_vals[3]], w,
                label='HashMap', color='white', edgecolor='black', linewidth=0.8)
 ax.set_xticks(x)
@@ -474,11 +474,11 @@ plt.tight_layout()
 plt.show()
 ```
 
-CoordSpace2 allocates one 44 KB leaf node per written prefix (11,172-slot). Memory scales with **prefix count, not entry count**. HashMap allocates per-entry: 10 million insertions produce 10 million allocation calls, each with malloc overhead, bucket resizing, and rehashing.
+CoordSpace2N allocates one 44 KB leaf node per written prefix (11,172-slot). Memory scales with **prefix count, not entry count**. HashMap allocates per-entry: 10 million insertions produce 10 million allocation calls, each with malloc overhead, bucket resizing, and rehashing.
 
-The practical consequence: CoordSpace2's memory footprint is fixed at prefix-creation time and independent of per-prefix density. HashMap's footprint grows with every entry and carries per-entry allocation overhead that exceeds CoordSpace2's per-slot cost at scale.
+The practical consequence: CoordSpace2N's memory footprint is fixed at prefix-creation time and independent of per-prefix density. HashMap's footprint grows with every entry and carries per-entry allocation overhead that exceeds CoordSpace2N's per-slot cost at scale.
 
-Secondary benchmarks confirm the same scaling pattern across all depths. CoordSpace2 insert/get at 1,000 entries completes in 791 µs (insert) and 4.99 µs (get). At 100,000 entries with 1,000 unique prefixes, CoordSpace2 insert allocates nodes in 15.6 ms while HashMap inserts in 6.6 ms without preallocation; get is 48.2 µs vs 32.1 µs. These non-core paths follow the expected tradeoff: tree node allocation overhead at small scale inverts at large scale where HashMap's per-entry cost compounds.
+Secondary benchmarks confirm the same scaling pattern across all depths. CoordSpace2N insert/get at 1,000 entries completes in 791 µs (insert) and 4.99 µs (get). At 100,000 entries with 1,000 unique prefixes, CoordSpace2N insert allocates nodes in 15.6 ms while HashMap inserts in 6.6 ms without preallocation; get is 48.2 µs vs 32.1 µs. These non-core paths follow the expected tradeoff: tree node allocation overhead at small scale inverts at large scale where HashMap's per-entry cost compounds.
 
 ### Verification by exhaustive enumeration
 
