@@ -1,0 +1,17 @@
+```{python}
+#| label: fig-bench-spatial
+#| fig-cap: "Spatial query throughput"
+import matplotlib.pyplot as plt
+import numpy as np
+queries = ['Axis\nmedial=10', 'Range\ninit 3-7', 'Compound\ninit=3,med=5']
+cs_tp = [58.0, 158.0, 329.0]; hm_tp = [24.5, 77.3, 2.4]; ratios = ['2.4x', '2.0x', '137x']
+fig, ax = plt.subplots(); x = np.arange(len(queries)); w = 0.3
+ax.bar(x - w/2, cs_tp, w, label='CoordSpace', color='white', edgecolor='black', linewidth=0.8, hatch='///')
+ax.bar(x + w/2, hm_tp, w, label='HashMap', color='white', edgecolor='black', linewidth=0.8)
+ax.set_ylabel('Throughput (Melem/s)'); ax.set_xticks(x); ax.set_xticklabels(queries, fontsize=7)
+ax.set_yscale('log'); ax.legend(fontsize=7, loc='upper left')
+for i, (cs, hm, ratio) in enumerate(zip(cs_tp, hm_tp, ratios)):
+    ax.annotate(ratio, xy=(i, (cs * hm) ** 0.5), fontsize=8, fontweight='bold', ha='center', va='center',
+                bbox=dict(boxstyle='round,pad=0.12', facecolor='white', edgecolor='black', alpha=0.85))
+plt.tight_layout(); plt.show()
+```

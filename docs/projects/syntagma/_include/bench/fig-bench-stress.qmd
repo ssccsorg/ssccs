@@ -1,0 +1,15 @@
+```{python}
+#| label: fig-bench-stress
+#| fig-cap: "Mixed workload (500k ops)"
+import matplotlib.pyplot as plt
+import numpy as np
+ops = ['CoordSpace', 'HashMap']; vals = [3.64, 12.2]
+fig, ax = plt.subplots()
+ax.bar(ops, vals, width=0.4, color=['white', 'white'], edgecolor='black', linewidth=0.8, hatch=['///', ''])
+ax.set_ylabel('Total time (ms)'); ax.set_yscale('log')
+for bar, val in zip(ax.patches, vals):
+    ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() * 1.05, f'{val} ms', ha='center', va='bottom', fontsize=8)
+ax.annotate('3.4x', xy=(0.5, 7), fontsize=9, fontweight='bold', ha='center',
+            bbox=dict(boxstyle='round,pad=0.2', facecolor='white', edgecolor='black', alpha=0.85))
+plt.tight_layout(); plt.show()
+```

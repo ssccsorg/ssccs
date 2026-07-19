@@ -1,0 +1,17 @@
+```{python}
+#| label: fig-bench-bulk
+#| fig-cap: "Bulk operations"
+import matplotlib.pyplot as plt
+import numpy as np
+ops = ['Insert\n11,172', 'Get\n11,172', 'Remove\n11,172']
+cs_bulk = [26.4, 6.48, 15.9]; hm_bulk = [385, 102, 275]; ratios = ['14.6x', '15.7x', '17.3x']
+fig, ax = plt.subplots(); x = np.arange(len(ops)); w = 0.3
+ax.bar(x - w/2, cs_bulk, w, label='CoordSpace', color='white', edgecolor='black', linewidth=0.8, hatch='///')
+ax.bar(x + w/2, hm_bulk, w, label='HashMap', color='white', edgecolor='black', linewidth=0.8)
+ax.set_ylabel('Latency (µs)'); ax.set_xticks(x); ax.set_xticklabels(ops, fontsize=7)
+ax.set_yscale('log'); ax.legend(fontsize=7, loc='upper left')
+for i, (cs, hm, ratio) in enumerate(zip(cs_bulk, hm_bulk, ratios)):
+    ax.annotate(ratio, xy=(i, (cs * hm) ** 0.5), fontsize=8, fontweight='bold', ha='center', va='center',
+                bbox=dict(boxstyle='round,pad=0.12', facecolor='white', edgecolor='black', alpha=0.85))
+plt.tight_layout(); plt.show()
+```

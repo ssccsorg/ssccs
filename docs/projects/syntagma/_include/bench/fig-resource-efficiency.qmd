@@ -1,0 +1,32 @@
+```{python}
+#| label: fig-resource-efficiency
+#| fig-cap: "Resource usage at 10K entries: CoordSpace2 (dense), CoordSpaceN2 (tree), and HashMap. Dense coordinate space uses a fixed 119 MB regardless of occupancy, making per-entry cost (11900 B) high at low density but allocation-free. Tree scales per-prefix: 45 B/entry with minimal allocations. HashMap pays per-entry malloc overhead (51 B/entry) and accumulates 10M allocation calls."
+import matplotlib.pyplot as plt
+import numpy as np
+
+metrics = ['Memory\n(MB)', 'Memory\nper entry (B)', 'Cache misses\n(estimated)', 'Alloc\ncalls']
+cs2_vals = [119, 11900, 1, 1]
+csn2_vals = [450, 45, 1, 10001]
+hm_vals = [510, 51, 6, 10_000_000]
+
+fig, ax = plt.subplots(figsize=(6, 3.2))
+x = np.arange(len(metrics))
+w = 0.25
+bars1 = ax.bar(x - w, cs2_vals, w,
+               label='CoordSpace2', color='white', edgecolor='black', linewidth=0.8, hatch='///')
+bars2 = ax.bar(x, csn2_vals, w,
+               label='CoordSpaceN2', color='white', edgecolor='black', linewidth=0.8, hatch='...')
+bars3 = ax.bar(x + w, hm_vals, w,
+               label='HashMap', color='white', edgecolor='black', linewidth=0.8)
+ax.set_xticks(x)
+ax.set_xticklabels(metrics, fontsize=8)
+ax.set_yscale('log')
+ax.legend(fontsize=7, loc='upper left')
+
+# Annotate the CoordSpace2 memory-per-entry tradeoff directly on the chart
+ax.annotate('fixed cost, preallocated', xy=(1, 11900), fontsize=6.5, ha='center', va='bottom',
+            color='dimgray', fontstyle='italic')
+
+plt.tight_layout()
+plt.show()
+```

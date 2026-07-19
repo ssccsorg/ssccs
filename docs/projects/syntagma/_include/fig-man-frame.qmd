@@ -1,0 +1,77 @@
+
+```{python}
+#| label: fig-man-frame
+#| fig-cap: '맨 (U+B9E8, \"man\"): three-axis syllable coordinate (6, 1, 4) packed into a 16-bit word.'
+#| fig-width: 10
+#| fig-height: 5
+
+dot("""
+digraph ManFrame {
+    splines=ortho;
+    node [shape=plaintext, fontname="Arial", fontcolor=black];
+    edge [color=black, minlen=1];
+
+    // Stage 1: syllable with three axes
+    syllable [fontcolor=black, label=<
+        <table border="0" cellborder="1" cellspacing="0" cellpadding="0" color="black">
+            <tr>
+                <td width="30%" height="96" align="center" valign="middle">
+                    <font point-size="12" color="black">ㅁ<br/>Initial (choseong, 초성)<br/>x: 6</font></td>
+                <td width="40%" height="96" align="center" valign="middle" border="2">
+                    <font point-size="60" color="black">맨</font></td>
+                <td width="30%" height="96" align="center" valign="middle">
+                    <font point-size="12" color="black">ㅐ<br/>Medial (jungseong, 중성)<br/>y: 1</font></td>
+            </tr>
+            <tr><td colspan="3" align="center" height="28">
+                <font point-size="12" color="black">ㄴ<br/>Final (jongseong, 종성) z: 4</font></td></tr>
+        </table>
+    >];
+
+    // Stage 2: 16-bit word layout (conceptual)
+    layout [fontcolor=black, label=<
+        <table border="0" cellborder="1" cellspacing="0" cellpadding="2" color="black" width="100%">
+            <tr><td colspan="16" align="center" height="18"><font point-size="12">16-bit word</font></td></tr>
+            <tr><td colspan="5" align="center"><font point-size="12">Initial</font></td>
+                <td colspan="5" align="center"><font point-size="12">Medial</font></td>
+                <td colspan="5" align="center"><font point-size="12">Final</font></td>
+                <td align="center"><font point-size="12">Reserved</font></td></tr>
+            <tr><td colspan="5" align="center"><font point-size="12">range: 19</font></td>
+                <td colspan="5" align="center"><font point-size="12">range: 21</font></td>
+                <td colspan="5" align="center"><font point-size="12">range: 28</font></td>
+                <td align="center"><font point-size="12">1</font></td></tr>
+            <tr><td colspan="16" align="center" height="16">
+                <font point-size="12">5 + 5 + 5 + 1 = 16 bits</font></td></tr>
+        </table>
+    >];
+
+    // Stage 3: actual encoding of 맨
+    encoding [fontcolor=black, label=<
+        <table border="0" cellborder="1" cellspacing="0" cellpadding="2" color="black">
+            <tr><td colspan="16" align="center" height="18"><font point-size="12">Actual encoding of 맨</font></td></tr>
+            <tr>
+                <td align="center" width="8.25%"><font point-size="11">0</font></td>
+                <td align="center" width="8.25%"><font point-size="11">0</font></td>
+                <td align="center" width="8.25%"><font point-size="11">1</font></td>
+                <td align="center" width="8.25%"><font point-size="11">1</font></td>
+                <td align="center" width="8.25%"><font point-size="11">0</font></td>
+                <td align="center" width="8.25%"><font point-size="11">0</font></td>
+                <td align="center" width="8.25%"><font point-size="11">0</font></td>
+                <td align="center" width="8.25%"><font point-size="11">0</font></td>
+                <td align="center" width="8.25%"><font point-size="11">0</font></td>
+                <td align="center" width="8.25%"><font point-size="11">1</font></td>
+                <td align="center" width="8.25%"><font point-size="11">0</font></td>
+                <td align="center" width="8.25%"><font point-size="11">0</font></td>
+                <td align="center" width="8.25%"><font point-size="11">1</font></td>
+                <td align="center" width="8.25%"><font point-size="11">0</font></td>
+                <td align="center" width="8.25%"><font point-size="11">0</font></td>
+                <td align="center" width="8.25%"><font point-size="11">0</font></td></tr>
+            <tr><td colspan="16" align="center" height="18"><font point-size="12">00110 00001 00100 0</font></td></tr>
+            <tr><td colspan="16" align="center" height="18"><font point-size="12">(x: 6, y: 1, z: 4)</font></td></tr>
+        </table>
+    >];
+
+    syllable -> layout;
+    layout -> encoding;
+}
+""")
+```

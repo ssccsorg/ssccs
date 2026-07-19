@@ -255,15 +255,16 @@ For larger identifier spaces, syllables compose linearly. Each syllable adds a f
 
 ## Benchmark
 
-Based on a software reference implementation, measured lookup latency: 0.38 ns vs 227 ns for SHA-256 (597x) at single-syllable; 54.9 ns vs 227 ns (4.1x) at SHA-256 scale (19 syllables). Structural prefix queries show the decisive advantage: Tagma answers nonexistent prefix in 1.65 ns while a general-purpose hash table scans 10M entries in 23.05 ms (14.0Mx). See benchmarks section in [Tagma](/projects/syntagma/tagma/wp.html#sec-appendix-benches) Whitepaper: All measured on Apple M1 with [cargo bench code](https://github.com/ssccsorg/syntagma/blob/main/sw/rust/benches/bench.rs).
+Based on a software reference implementation, measured lookup latency: 0.38-0.40 ns for dense CoordSpace variants vs 227 ns for SHA-256 (567-597x) at single-syllable; 54.9 ns vs 227 ns (4.1x) at SHA-256 scale (19 syllables via CoordSpaceN fallback). Structural prefix queries show the decisive advantage: Tagma answers nonexistent prefix in 1.65 ns while a general-purpose hash table scans 10M entries in 23.05 ms (14.0Mx). See benchmarks section in [Tagma](/projects/syntagma/tagma/wp.html#sec-appendix-benches) Whitepaper: All measured on Apple M1 with [cargo bench code](https://github.com/ssccsorg/syntagma/blob/main/sw/rust/benches/bench.rs).
 
-| Metric | SHA-256 | Tagma (1-syll) | Tagma (6-syll) | Tagma (19-syll) |
-|--------|---------|----------------|----------------|-----------------|
-| Latency per lookup (Apple M1) | 227 ns | 0.38 ns | 5.57 ns | 54.9 ns |
-| Identity size | 32 bytes | 2 bytes | 12 bytes | 38 bytes |
-| Addressable space | $2^{256}$ | $1.12 \times 10^4$ | $1.94 \times 10^{24}$ | $2^{256}$ |
-| Collision | probabilistic ($2^{-128}$) | deterministic zero | deterministic zero | deterministic zero |
-| Access path | $O(K \times \text{hash})$ | 1 direct index | $N$ direct indices | $N$ direct indices |
+| Metric | SHA-256 | CoordSpace (N=1) | CoordSpace2 (N=2) | CoordSpaceM3 (N=3) | CoordSpaceN (any N) |
+|--------|---------|------------------|-------------------|--------------------|--------------------|
+| Latency per lookup (Apple M1) | 227 ns | 0.39 ns | 0.39 ns | 0.40 ns | 0.94-40.8 ns |
+| Allocation | — | Inline 22 KB | Heap 119 MB | Mmap 1.27 TB | Sparse tree |
+| Identity size | 32 bytes | 2 bytes | 4 bytes | 6 bytes | $2N$ bytes |
+| Addressable space | $2^{256}$ | $1.12 \times 10^4$ | $1.25 \times 10^8$ | $1.39 \times 10^{12}$ | variable |
+| Collision | probabilistic ($2^{-128}$) | deterministic zero | deterministic zero | deterministic zero | deterministic zero |
+| Tagma | — | Complete | Complete | Complete | Fallback |
 
 ## Comparison
 
@@ -295,9 +296,21 @@ This composition pattern extends beyond cryptography to every domain in the tabl
 The Tagma coordinate space is implemented as a Rust library providing:
 
 - **Coord** — A 16-bit value guaranteed structurally valid. Constructable from raw index, Unicode code point, character, or the three axes.
-- **CoordSpace** — A direct-address table indexed by coordinate. Fixed capacity of 11,172 entries. O(1) insert, lookup, delete with no collisions, no resizing, no hashing.
 - **CoordSet** — A 1.4 KB bit array over the coordinate space. Insert, remove, membership: single-bit operations. Union, intersection, difference: bitwise over 175 machine words.
-- **CoordSpaceN<N, V>** — Multi-syllable direct-address tree indexed by CoordPath. Fixed compile-time depth N (2, 6, 12, 19). Variable-depth DynCoordSpace for `&[Coord]` runtime paths.
+
+The CoordSpace family follows a three-tier design that scales from embedded to datacenter:
+
+| Variant | Allocation | Access | Latency | Tagma |
+|---------|-----------|--------|---------|-------|
+| CoordSpace (N=1) | Inline 22 KB | Single load | 0.39 ns | Complete |
+| CoordSpace2 (N=2) | Heap 119 MB | Single load | 0.39 ns | Complete |
+| CoordSpaceM3 (N=3) | Mmap 1.27 TB | Single load | 0.40 ns | Complete |
+| CoordSpaceN\<N\> (any N) | Sparse tree | N dereferences | 0.94-40.8 ns | Fallback |
+
+- **CoordSpace (N=1)** — Dense inline array, 22 KB stack allocation for the full single-syllable space. No heap, no allocator. Single-load O(1) access, zero collisions, zero hashing.
+- **CoordSpace2 (N=2)** — Dense heap allocation, 119 MB covering the full two-syllable space. Same single-load O(1) guarantee as N=1.
+- **CoordSpaceM3 (N=3)** — Dense mmap allocation, 1.27 TB with MAP_NORESERVE for the full three-syllable space. Physical pages fault on demand. Same single-load O(1) latency.
+- **CoordSpaceN\<N, V\>** (any N) — Multi-syllable direct-address tree indexed by CoordPath. Fixed compile-time depth N (2, 6, 12, 19). N dereferences per lookup. Variable-depth DynCoordSpace for `&[Coord]` runtime paths. Used as fallback when the dense variants exceed system memory.
 
 ## Papers
 

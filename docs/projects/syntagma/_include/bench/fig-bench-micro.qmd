@@ -1,0 +1,15 @@
+```{python}
+#| label: fig-bench-micro
+#| fig-cap: "Single-get microbenchmark"
+import matplotlib.pyplot as plt
+import numpy as np
+ops = ['CoordSpace get', 'HashMap get']; vals = [0.82, 8.50]
+fig, ax = plt.subplots()
+ax.bar(ops, vals, width=0.4, color=['white', 'white'], edgecolor='black', linewidth=0.8, hatch=['///', ''])
+ax.set_ylabel('Latency per lookup (ns)')
+ax.text(0, 1.2, '0.82 ns', ha='center', va='bottom', fontsize=8)
+ax.text(1, 11, '8.50 ns', ha='center', va='bottom', fontsize=8)
+ax.annotate('10.4x', xy=(0.5, 4), fontsize=9, fontweight='bold', ha='center',
+            bbox=dict(boxstyle='round,pad=0.2', facecolor='white', edgecolor='black', alpha=0.85))
+plt.tight_layout(); plt.show()
+```

@@ -1,0 +1,99 @@
+```{python}
+#| label: fig-3d-decode
+#| fig-cap: "Three-dimensional bitcell organization. 19 x 21 x 28 lattice, 11,172 of 65,536 states valid."
+import numpy as np
+
+n_init, n_med, n_fin = 19, 21, 28
+stride = 2
+init_vals = np.arange(0, n_init, stride)
+med_vals  = np.arange(0, n_med,  stride)
+fin_vals  = np.arange(0, n_fin,  stride)
+
+I, M, F = np.meshgrid(init_vals, med_vals, fin_vals, indexing='ij')
+I_f, M_f, F_f = [a.flatten() for a in (I, M, F)]
+
+def box_edges(x0, y0, z0, x1, y1, z1):
+    edges = []
+    def add(xa, ya, za, xb, yb, zb):
+        edges.append(((xa, ya, za), (xb, yb, zb)))
+    for (dx, dy, dz) in [(x1,y0,z0),(x0,y1,z0),(x0,y0,z1)]:
+        add(x0,y0,z0,dx,dy,dz)
+    add(x1,y1,z0, x1,y0,z0); add(x1,y1,z0, x0,y1,z0); add(x1,y1,z0, x1,y1,z1)
+    add(x0,y1,z1, x1,y1,z1); add(x0,y1,z1, x0,y0,z1); add(x0,y1,z1, x0,y1,z0)
+    add(x1,y0,z1, x1,y1,z1); add(x1,y0,z1, x1,y0,z0); add(x1,y0,z1, x0,y0,z1)
+    return edges
+
+full_edges  = box_edges(0, 0, 0, 31, 31, 31)
+valid_edges = box_edges(0, 0, 0, 18, 20, 27)
+
+## Render
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+
+fig = plt.figure(figsize=(8, 7))
+ax = fig.add_subplot(111, projection='3d')
+
+box = np.array([[0, 0, 0],
+                [18, 0, 0],
+                [18, 20, 0],
+                [0, 20, 0],
+                [0, 0, 27],
+                [18, 0, 27],
+                [18, 20, 27],
+                [0, 20, 27]])
+
+faces = [[0,1,2,3], [4,5,6,7], [0,1,5,4], [2,3,7,6], [0,3,7,4], [1,2,6,5]]
+
+valid_volume = Poly3DCollection([box[f] for f in faces], alpha=0.08, facecolor='#555555', edgecolor='none')
+ax.add_collection3d(valid_volume)
+
+ax.scatter(I_f, M_f, F_f, c='#666666', s=14, alpha=0.6, linewidth=0.15,
+           edgecolor='white', depthshade=True)
+
+# Highlight 맨 at (6, 1, 4)
+ax.scatter([6], [1], [4], c='black', s=80, marker='o', linewidth=1.5,
+           edgecolor='white', zorder=10, label='U+B9E8 (6, 1, 4)')
+ax.text(6, 2, 5, 'U+B9E8 (6, 1, 4)', fontsize=9, ha='center', va='bottom',
+        bbox=dict(boxstyle='round,pad=0.2', facecolor='white', edgecolor='black', alpha=0.9))
+
+
+for (xa, ya, za), (xb, yb, zb) in full_edges:
+    ax.plot([xa, xb], [ya, yb], [za, zb], color='#aaaaaa', linestyle='--', linewidth=0.5)
+ax.plot([], [], [], color='#aaaaaa', linestyle='--', linewidth=0.5, label='Full 32x32x32 addressable space')
+
+for (xa, ya, za), (xb, yb, zb) in valid_edges:
+    ax.plot([xa, xb], [ya, yb], [za, zb], color='#333333', linestyle='-', linewidth=0.8)
+ax.plot([], [], [], color='#333333', linestyle='-', linewidth=0.8, label='Valid 19x21x28 syllable region')
+
+ax.text(18, 20, 30, 'U+AC00 .. U+D7AF\n11,172 valid coordinates',
+        fontsize=8, ha='center', va='bottom',
+        bbox=dict(boxstyle='round,pad=0.3', facecolor='white', edgecolor='#333333', alpha=0.9))
+
+ax.set_xlabel('Initial (choseong)', fontsize=11)
+ax.set_ylabel('Medial (jungseong)', fontsize=11)
+ax.set_zlabel('Final (jongseong)', fontsize=11)
+ax.set_xlim(-1, 33); ax.set_ylim(-1, 33); ax.set_zlim(-3, 31)
+ax.xaxis.set_major_locator(plt.MaxNLocator(5))
+ax.yaxis.set_major_locator(plt.MaxNLocator(5))
+ax.zaxis.set_major_locator(plt.MaxNLocator(5))
+ax.xaxis.pane.fill = False; ax.yaxis.pane.fill = False; ax.zaxis.pane.fill = False
+ax.xaxis.pane.set_edgecolor('none'); ax.yaxis.pane.set_edgecolor('none'); ax.zaxis.pane.set_edgecolor('none')
+
+for coord in range(0, 33, 8):
+    ax.plot([coord, coord], [0, 31], [0, 0], color='#dddddd', linewidth=0.3, zorder=-1)
+    ax.plot([0, 31], [coord, coord], [0, 0], color='#dddddd', linewidth=0.3, zorder=-1)
+
+# Full axis lines from far end to origin (N → 0)
+ax.plot([18, 0], [0, 0], [0, 0], color='black', linewidth=1.2, linestyle='-', alpha=0.35)
+ax.plot([0, 0], [20, 0], [0, 0], color='black', linewidth=1.2, linestyle='-', alpha=0.35)
+ax.plot([0, 0], [0, 0], [27, 0], color='black', linewidth=1.2, linestyle='-', alpha=0.35)
+# Vector from origin to point
+ax.plot([0, 6], [0, 1], [0, 4], color='black', linewidth=1.2, linestyle='--', alpha=0.5)
+
+ax.dist = 5.5
+ax.view_init(elev=28, azim=-65)
+ax.legend(loc='upper left', fontsize='small', facecolor='white', edgecolor='#999999', framealpha=0.95)
+plt.subplots_adjust(left=0, right=1, bottom=0, top=1)
+plt.show()
+```

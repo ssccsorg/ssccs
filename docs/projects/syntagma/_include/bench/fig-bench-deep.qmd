@@ -1,0 +1,41 @@
+```{python}
+#| label: fig-bench-deep
+#| fig-cap: "Deep tree: get and nonexistent key across the CoordSpace family"
+import matplotlib.pyplot as plt
+import numpy as np
+
+metrics = ['get 100\n(µs)', 'missing key\n(ns)']
+cs2_vals = [0.05, 0.39]
+csvm3_vals = [0.05, 0.39]
+csn19_vals = [7.04, 2.30]
+hm_vals = [3.53, 20.1]
+
+fig, ax = plt.subplots(figsize=(5, 3.5))
+x = np.arange(len(metrics))
+w = 0.2
+bars1 = ax.bar(x - 1.5*w, cs2_vals, w,
+               label='CoordSpace2', color='white', edgecolor='black', linewidth=0.8, hatch='///')
+bars2 = ax.bar(x - 0.5*w, csvm3_vals, w,
+               label='CoordSpaceM3', color='white', edgecolor='black', linewidth=0.8, hatch='xxx')
+bars3 = ax.bar(x + 0.5*w, csn19_vals, w,
+               label='CoordSpaceN19', color='white', edgecolor='black', linewidth=0.8, hatch='...')
+bars4 = ax.bar(x + 1.5*w, hm_vals, w,
+               label='HashMap', color='white', edgecolor='black', linewidth=0.8)
+ax.set_xticks(x)
+ax.set_xticklabels(metrics, fontsize=8)
+ax.set_ylabel('Latency')
+ax.set_yscale('log')
+ax.legend(fontsize=7, loc='upper left')
+
+# Annotate bars
+units = ['µs', 'ns']
+for bars, vals in [(bars1, cs2_vals), (bars2, csvm3_vals), (bars3, csn19_vals), (bars4, hm_vals)]:
+    for bar, val, unit in zip(bars, vals, units):
+        fmt = f'{val:.2f} {unit}' if val >= 0.1 else f'{val:.2f} {unit}'
+        offset = 1.25 if val < 1 else (1.15 if val < 10 else 1.08)
+        ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() * offset,
+                fmt, ha='center', va='bottom', fontsize=6)
+
+plt.tight_layout()
+plt.show()
+```
