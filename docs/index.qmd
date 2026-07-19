@@ -48,6 +48,9 @@ for item in data:
     if not obj_id:
         continue
     title = item.get("title", "")
+    # Strip placeholder titles starting with "-"
+    if title.startswith("-"):
+        title = title.lstrip("- ").strip() or obj_id
     crumbs = item.get("crumbs", [])
     text = item.get("text", "")[:500]
     nodes[obj_id] = {"title": title, "crumbs": crumbs, "preview": text}
@@ -73,7 +76,19 @@ for item in data:
                 edges.append({"from": obj_id, "to": target, "type": "CITES"})
 
 # ----------------------------------------------------------------------
-# 3. Add sibling relationship (SIBLING): connect nodes that share the same parent
+# 3. Identify Note nodes (de-emphasized leaves)
+# ----------------------------------------------------------------------
+# Detect by objectID path: Notes/ or notes/
+# These are peripheral content, not core specification.
+def _is_note(oid: str) -> bool:
+    lower = oid.lower()
+    return lower.startswith("notes/") or "/notes/" in lower or lower.startswith("note_")
+
+for nid in list(nodes.keys()):
+    nodes[nid]["is_note"] = _is_note(nid)
+
+# ----------------------------------------------------------------------
+# 4. Add sibling relationship (SIBLING)
 # ----------------------------------------------------------------------
 # parent -> list of children
 parent_to_children = {}
@@ -82,25 +97,30 @@ for child, parents in node_to_parents.items():
         parent_to_children.setdefault(parent, []).append(child)
 
 for parent, children in parent_to_children.items():
-    # Create combinations to prevent duplicate connections
     for i in range(len(children)):
         for j in range(i+1, len(children)):
             edges.append({"from": children[i], "to": children[j], "type": "SIBLING"})
 
 # ----------------------------------------------------------------------
-# 4. Graph construction and depth calculation
+# 5. Graph construction and semantic depth
 # ----------------------------------------------------------------------
 G = nx.DiGraph()
 G.add_nodes_from(nodes.keys())
 for e in edges:
     G.add_edge(e["from"], e["to"])
 
-# Root node (entry degree 0)
-roots = [n for n in G.nodes() if G.in_degree(n) == 0]
+# Roots: authoritative documents only — exclude Notes/
+roots = [
+    n for n in G.nodes()
+    if G.in_degree(n) == 0 and not nodes.get(n, {}).get("is_note", False)
+]
+if not roots:
+    roots = [n for n in G.nodes() if G.in_degree(n) == 0]
 if not roots:
     roots = [list(G.nodes())[0]]
 
-# Hierarchy depth of each node (longest distance from root)
+# Semantic depth: shortest path from core roots
+# Notes that only connect via Note-to-Note links get no path → assigned max depth
 depth = {}
 for node in G.nodes():
     max_dist = 0
@@ -112,44 +132,74 @@ for node in G.nodes():
         except nx.NetworkXNoPath:
             continue
     depth[node] = max_dist
+
+# Nodes unreachable from core roots get assigned one level deeper than max
+reachable = [d for d in depth.values() if d > 0]
+max_reachable = max(reachable) if reachable else 1
+for node in depth:
+    if depth[node] == 0 and node not in roots:
+        depth[node] = max_reachable + 1
+
 max_depth = max(depth.values()) if depth else 1
 
+# Semantic importance: PageRank (more citations = more central)
+pagerank = nx.pagerank(G, alpha=0.85)
+pr_min = min(pagerank.values())
+pr_max = max(pagerank.values())
+pr_range = pr_max - pr_min if pr_max > pr_min else 1.0
+
 # ----------------------------------------------------------------------
-# 5. 3D coordinate placement (spiral + depth reflection)
+# 6. 3D coordinate placement — spherical cloud
 # ----------------------------------------------------------------------
 random.seed(42)
 np.random.seed(42)
 
 node_list = sorted(G.nodes())
-golden_angle = math.pi * (3 - math.sqrt(5))  # About 137.5 degrees
+
+# Spherical coordinates: radius varies by depth (inner = core, outer = Notes),
+# theta/phi are random for even distribution on the sphere surface.
+rng = random.Random(42)
+node_theta = {node: rng.random() * 2 * math.pi for node in node_list}
+node_phi   = {node: math.acos(2 * rng.random() - 1) for node in node_list}
 
 pos = {}
-for idx, node in enumerate(node_list):
+for node in node_list:
     d = depth[node]
-    radius = 2.5 + d * 2.2
-    base_angle = idx * golden_angle
-    twist = d * 0.5
-    angle = base_angle + twist
-    z = 2.5 - d * 0.9
-    x = radius * math.cos(angle)
-    y = radius * math.sin(angle)
-    # a little noise
-    x += np.random.normal(0, 0.15)
-    y += np.random.normal(0, 0.15)
-    z += np.random.normal(0, 0.08)
+    pr = pagerank.get(node, 0.0)
+    pr_norm = (pr - pr_min) / pr_range  # 0..1
+    is_note = nodes.get(node, {}).get("is_note", False)
+    
+    # Radius: core docs inner, Notes outer — wide spread
+    if is_note:
+        r = 8.0 + rng.random() * 6.0
+    else:
+        r = 3.0 + d * 3.0 + pr_norm * 1.5
+    
+    theta = node_theta[node]
+    phi = node_phi[node]
+    
+    x = r * math.sin(phi) * math.cos(theta)
+    y = r * math.sin(phi) * math.sin(theta)
+    z = r * math.cos(phi)
+    x += np.random.normal(0, 0.5)
+    y += np.random.normal(0, 0.5)
+    z += np.random.normal(0, 0.5)
     pos[node] = (x, y, z)
 
 # ----------------------------------------------------------------------
-# 6. Plotly trace (styling by edge type)
+# 7. Plotly trace — edge styling by semantic role
 # ----------------------------------------------------------------------
 edge_traces = []
+
+# CITES: semantic connections — dark amber
 edge_styles = {
-    "PARENT_OF": {"color": "#888888", "width": 1.0, "opacity": 0.6},
-    "CITES": {"color": "#ff7f0e", "width": 1.8, "opacity": 0.9},
-    "SIBLING": {"color": "#2ca02c", "width": 0.8, "opacity": 0.5}
+    "CITES": {"color": "#8b4513", "width": 2.5, "opacity": 0.85},
+    "SIBLING": {"color": "#2d5a2d", "width": 0.6, "opacity": 0.4},
+    "PARENT_OF": {"color": "#666666", "width": 0.5, "opacity": 0.3},
 }
 
-for etype, style in edge_styles.items():
+for etype in ["CITES", "SIBLING", "PARENT_OF"]:
+    style = edge_styles[etype]
     x_vals, y_vals, z_vals = [], [], []
     for e in edges:
         if e["type"] != etype:
@@ -172,72 +222,99 @@ for etype, style in edge_styles.items():
             hoverinfo='none'
         ))
 
-# node trace
-node_x = [pos[n][0] for n in node_list]
-node_y = [pos[n][1] for n in node_list]
-node_z = [pos[n][2] for n in node_list]
+# Separate node traces: core docs vs Notes
+core_x, core_y, core_z = [], [], []
+core_colors, core_sizes, core_hover = [], [], []
+note_x, note_y, note_z = [], [], []
+note_colors, note_sizes, note_hover = [], [], []
 
-# Node color based on depth (darker blue means deeper layer)
-node_colors = []
 for node in node_list:
+    is_note = nodes.get(node, {}).get("is_note", False)
+    x, y, z = pos[node]
     d = depth[node]
-    intensity = 0.4 + 0.6 * (d / max_depth) if max_depth > 0 else 0.7
-    r = int(70 * (1 - intensity))
-    g = int(130 * (1 - intensity))
-    b = int(200 * intensity)
-    node_colors.append(f'rgb({r},{g},{b})')
-
-# hover text
-hover_texts = []
-for node in node_list:
+    pr = pagerank.get(node, 0.0)
+    pr_norm = (pr - pr_min) / pr_range
     info = nodes.get(node, {})
     title = info.get("title", node)
     preview = info.get("preview", "")
     if preview:
-        preview = preview[:200] + "…" if len(preview) > 200 else preview
-        hover_texts.append(f"<b>{title}</b><br>{preview}")
+        preview = preview[:200] + "\u2026" if len(preview) > 200 else preview
+        ht = f"<b>{title}</b><br>{preview}"
     else:
-        hover_texts.append(f"<b>{title}</b>")
+        ht = f"<b>{title}</b>"
+    
+    if is_note:
+        note_x.append(x); note_y.append(y); note_z.append(z)
+        note_colors.append("rgb(100,100,100)")
+        note_sizes.append(6)
+        note_hover.append(ht)
+    else:
+        core_x.append(x); core_y.append(y); core_z.append(z)
+        # Core node color: grayscale — shallow = light, deep = dark
+        intensity = 0.1 + 0.5 * (d / max_depth) if max_depth > 0 else 0.3
+        v = int(60 + 140 * (1 - intensity))
+        core_colors.append(f'rgb({v},{v},{v})')
+        # Core node size: base 10 + PageRank boost (max 20)
+        core_sizes.append(10 + pr_norm * 10)
+        core_hover.append(ht)
 
-node_trace = go.Scatter3d(
-    x=node_x, y=node_y, z=node_z,
+core_trace = go.Scatter3d(
+    x=core_x, y=core_y, z=core_z,
     mode='markers',
     marker=dict(
-        size=6,
-        color=node_colors,
+        size=core_sizes,
+        color=core_colors,
         symbol='circle',
-        line=dict(width=0.5, color='white')
+        line=dict(width=0.3, color='rgba(0,0,0,0.5)')
     ),
-    text=hover_texts,
+    text=core_hover,
     hoverinfo='text',
-    name='Nodes'
+    name='Core documents'
+)
+
+note_trace = go.Scatter3d(
+    x=note_x, y=note_y, z=note_z,
+    mode='markers',
+    marker=dict(
+        size=note_sizes,
+        color=note_colors,
+        symbol='circle',
+        line=dict(width=0, color='rgba(0,0,0,0)')
+    ),
+    text=note_hover,
+    hoverinfo='text',
+    name='Notes',
+    opacity=1.0
 )
 
 # ----------------------------------------------------------------------
-# 7. Final layout
+# 8. Final layout
 # ----------------------------------------------------------------------
-fig = go.Figure(data=edge_traces + [node_trace])
+fig = go.Figure(data=edge_traces + [core_trace, note_trace])
 
-# Camera angle (journal style)
-azim_deg, elev_deg = 135, 25
+azim_deg, elev_deg = 45, -20
 azim_rad = azim_deg * math.pi / 180
 elev_rad = elev_deg * math.pi / 180
-r_cam = 1.8
+r_cam = 1.1
 eye_x = r_cam * math.cos(elev_rad) * math.sin(azim_rad)
 eye_y = r_cam * math.cos(elev_rad) * math.cos(azim_rad)
 eye_z = r_cam * math.sin(elev_rad)
 
 fig.update_layout(
     scene=dict(
-        xaxis=dict(showbackground=False, gridcolor='lightgray', zerolinecolor='gray', title=''),
-        yaxis=dict(showbackground=False, gridcolor='lightgray', zerolinecolor='gray', title=''),
-        zaxis=dict(title="Hierarchical depth", showbackground=False, gridcolor='lightgray', zerolinecolor='gray'),
-        aspectmode='manual',
-        aspectratio=dict(x=1.2, y=1.2, z=0.9),
-        camera=dict(eye=dict(x=eye_x, y=eye_y, z=eye_z), center=dict(x=0, y=0, z=-0.2))
+        xaxis=dict(showbackground=False, gridcolor='lightgray', zerolinecolor='black', title=''),
+        yaxis=dict(showbackground=False, gridcolor='lightgray', zerolinecolor='black', title=''),
+        zaxis=dict(showbackground=False, gridcolor='lightgray', zerolinecolor='black', title=''),
+        aspectmode='cube',
+        aspectratio=dict(x=1, y=1, z=1),
+        camera=dict(eye=dict(x=eye_x, y=eye_y, z=eye_z), center=dict(x=0, y=0, z=0))
     ),
-    legend=dict(x=0.02, y=0.98, xanchor='left', yanchor='top', bgcolor='white', bordercolor='black', borderwidth=0.5),
-    margin=dict(l=0, r=0, t=40, b=0),
+    legend=dict(
+        x=0.02, y=0.98, xanchor='left', yanchor='top',
+        bordercolor='black', borderwidth=1,
+        traceorder='normal'
+    ),
+    margin=dict(l=0, r=0, t=0, b=0),
     showlegend=True
 )
 

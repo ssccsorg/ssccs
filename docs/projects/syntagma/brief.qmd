@@ -32,7 +32,7 @@ format:
                 \vspace{1em}
                 {\large \texttt{\href{https://www.linkedin.com/in/stells}{\@author}}, \authorrole, \texttt{\href{mailto:\authoremail}{\authoremail}} \par}
                 \vspace{0.3em}
-                {\normalsize \texttt{\href{https://tagma.ssccs.org}{\affiliationname}} \par}
+                {\normalsize \texttt{\href{https://ssccs.org}{\affiliationname}} \par}
                 \vspace{1em}
         }
         \makeatother
@@ -57,13 +57,15 @@ Unicode assigns each script a fixed address block. Within this block, Hangul occ
 $$C(i,m,f) = \text{U+AC00} + 588i + 28m + f$$
 $$\quad (0 \leq i < 19,\; 0 \leq m < 21,\; 0 \leq f < 28)$$
 
-A hardware decoder extracts the three axis fields in one cycle. Of 65,536 possible 16-bit values, 11,172 are structurally valid and the remaining 54,364 are immediately detectable as invalid. CoordPath chains multiple syllables into higher dimensions (6 = 18 axes, 19 = 57 axes), with each axis position representing a different application-defined dimension -- region, device type, timestamp, shard. The arithmetic operations are invariant; only the axis interpretation changes per deployment.
+A hardware decoder extracts the three axis fields in one cycle. Of 65,536 possible 16-bit values, 11,172 are structurally valid and the remaining 54,364 are immediately detectable as invalid. CoordPath chains multiple syllables into higher dimensions (6 = 18 axes, 19 = 57 axes), with each axis position representing a different application-defined dimension — region, device type, timestamp, shard. The arithmetic operations are invariant; only the axis interpretation changes per deployment.
 
 No other Unicode script satisfies all four conditions required: a contiguous fixed-width 16-bit address range, a closed-form composition formula, a complete three-axis decomposition, and an open international standard. Hangul is unique.
 
 {{< include ./_include/fig-3d-decode.qmd >}}
 
 ## The cost[^benchmarks] of hashing: what Tagma removes
+
+*CoordSpace* is the Rust type family that realizes the Tagma core primitive: a generic direct-address array indexed by coordinate, zero hash and collision. The benchmarks below compare its performance against standard hash maps.
 
 SHA-256 requires ~10,000 gates and 64--75 cycles per operation, then needs collision resolution and dynamic resizing. UUID generation requires entropy and delivers probabilistic uniqueness. Tagma replaces all of this with a combinational decoder and a 16-bit register. A single syllable covers 11,172 identifiers; six syllables (18 axes) exceed typical distributed system needs; nineteen match SHA-256's $2^{256}$ space.
 
