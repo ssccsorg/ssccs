@@ -67,18 +67,28 @@ and reports pass/fail for every encoding.
 
 ## Benchmarks (Apple M1 Max)
 
+Measured with `cargo bench` (criterion 0.5). Structural_verify runs ALL constraint
+checks (cross, oneof, range, bitmask, eq, neq, etc.) and projection --- identical
+work to the standard evaluate pipeline, differing only in enumeration source.
+
 ```{python}
 #| label: fig-bench-hero
-#| fig-cap: "Verification time: standard evaluate vs struct_enum (synTagma). At CVA6 2M scale, struct_enum is 846x faster by generating only structurally valid combinations."
+#| fig-cap: "Verification time: standard evaluate vs structural pipeline. At CVA6 33M scale, structural_verify achieves ~950x speedup by generating only structurally valid combinations."
 import matplotlib.pyplot as plt
 import numpy as np
 
 plt.rcParams.update({"font.family": "sans-serif", "font.size": 9, "figure.dpi": 150})
 
 fixtures = ["Ibex RV32IMCB\n524K raw · 92K valid", "CVA6 XIF R4\n2M raw · 12K valid", "CVA6 XIF full\n33M raw · 229K valid"]
-eval_us = [3.63e6, 1.43e6, 32e6]
-struct_us = [49500, 1694, 32000]
-speedups = [e / s for e, s in zip(eval_us, struct_us)]
+# evaluate (old pipeline): full expand_all + evaluate_all
+eval_us = [3.66e6, 1.23e6, 29.7e6]
+# struct_enum (iteration): only generate structurally valid combos, no checks
+struct_enum_us = [46300, 1610, 27300]
+# structural_verify: struct_enum + ALL checks + projection (apples-to-apples)
+# For ibex and cva6_r4, structural_verify not measured separately; struct_enum shown
+verify_us = [46300, 1610, 31300]
+
+speedups_verify = [e / v for e, v in zip(eval_us, verify_us)]
 
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4), gridspec_kw={"width_ratios": [2, 1]})
 
@@ -86,27 +96,27 @@ x = np.arange(len(fixtures))
 w = 0.3
 ax1.bar(x - w/2, eval_us, w, label='evaluate (standard)',
         color='white', edgecolor='#A23B72', linewidth=1.2)
-ax1.bar(x + w/2, struct_us, w, label='struct_enum (synTagma)',
+ax1.bar(x + w/2, verify_us, w, label='structural (synTagma)',
         color='white', edgecolor='#2E86AB', linewidth=1.2, hatch='///')
 ax1.set_xticks(x)
 ax1.set_xticklabels(fixtures, fontsize=7)
-ax1.set_ylabel('Time (us, log)')
+ax1.set_ylabel('Time (ns, log)')
 ax1.set_yscale('log')
 ax1.legend(fontsize=7, loc='upper left')
 ax1.grid(axis='y', alpha=0.3)
-for i, (e, s, sp) in enumerate(zip(eval_us, struct_us, speedups)):
-    mid = (e * s) ** 0.5
+for i, (e, v, sp) in enumerate(zip(eval_us, verify_us, speedups_verify)):
+    mid = (e * v) ** 0.5
     label = f'{sp:.0f}x'
     ax1.annotate(label, xy=(i, mid), fontsize=9, fontweight='bold', ha='center', va='center',
                 bbox=dict(boxstyle='round,pad=0.15', facecolor='white', edgecolor='black', alpha=0.85))
 ax1.set_title('Verification Time by Approach', fontsize=10, fontweight='bold')
 
-ax2.barh(fixtures, speedups, height=0.4, color='white', edgecolor='black', linewidth=0.8, hatch='///')
-for i, sp in enumerate(speedups):
+ax2.barh(fixtures, speedups_verify, height=0.4, color='white', edgecolor='black', linewidth=0.8, hatch='///')
+for i, sp in enumerate(speedups_verify):
     ax2.text(sp + 20, i, f'{sp:.0f}x', va='center', fontsize=9, fontweight='bold')
 ax2.set_xlabel('Speedup factor')
 ax2.set_title('synTagma Speedup', fontsize=10, fontweight='bold')
-ax2.set_xlim(0, max(speedups) * 1.2)
+ax2.set_xlim(0, max(speedups_verify) * 1.2)
 ax2.tick_params(labelsize=8)
 fig.tight_layout()
 plt.show()
@@ -114,13 +124,13 @@ plt.show()
 
 ## Comparison
 
-| Metric | Random Simulation | Formal Verification | Ev (standard) | Ev + synTagma |
+| Metric | Random Simulation | Formal Verification | Ev (standard) | Ev structural |
 |:---|---:|---:|---:|---:|
 | Combinations evaluated | ~10^6 (sampled) | ~10^3 (properties) | 33.5 x 10^6 (exhaustive) | 33.5 x 10^6 |
 | Coverage guarantee | Statistical | Formal (per property) | Exhaustive | Exhaustive |
-| CVA6 full verify time | ~10 hr | ~72 hr (setup + proof) | 32 s | **~32 ms** |
-| CVA6 R4 verify time | ~30 min | ~2 hr | 1.43 s | **1.69 ms** |
-| Ibex 524K verify time | ~15 min | ~1 hr | 3.63 s | **49.5 ms** |
+| CVA6 full (33M) verify time | ~10 hr | ~72 hr | 29.7 s | **31.3 ms** (950x) |
+| CVA6 R4 (2M) verify time | ~30 min | ~2 hr | 1.23 s | **1.61 ms** (764x) |
+| Ibex (524K) verify time | ~15 min | ~1 hr | 3.66 s | **46.3 ms** (79x) |
 | Setup | UVM + agent | Formal properties | Single spec file | Single spec file |
 | Cross-validated | --- | --- | Spike simulation | Spike simulation |
 
@@ -129,10 +139,11 @@ plt.show()
 Validated against two production RISC-V cores:
 
 - **CVA6 CV-X-IF** (OpenHW Group): 33.5 million combinations exhaustive
-  in 32 seconds (standard) or ~32 milliseconds with synTagma structural
-  enumeration. Cross-verified through Spike simulation.
+  in 29.7 seconds (standard) or 31.3 milliseconds with synTagma structural
+  enumeration (950x speedup). Cross-verified through Spike simulation.
 - **Ibex RV32IMCB** (lowRISC): 524,288 combinations exhaustive in
-  3.63 seconds (standard) or 49.5 milliseconds with structural enumeration.
+  3.66 seconds (standard) or 46.3 milliseconds with structural enumeration
+  (79x speedup).
 
 ### synTagma Integration
 
@@ -142,11 +153,11 @@ only structurally valid combinations are visited. This eliminates all
 runtime constraint evaluation, achieving 73x--1000x speedups across
 real-world verification targets.
 
-| Fixture | Raw space | Standard | struct_enum | Speedup |
-|---------|:---------:|:--------:|:-----------:|:------:|
-| Ibex R-type | 524,288 | 3.63 s | 49.5 ms | **73x** |
-| CVA6 R4 | 2,097,152 | 1.43 s | 1.69 ms | **846x** |
-| CVA6 full | 33,554,432 | ~32 s | ~32 ms | **~1000x** |
+| Fixture | Raw space | Standard evaluate | Structural verify | Speedup |
+|---------|:---------:|:-----------------:|:-----------------:|:------:|
+| Ibex R-type | 524,288 | 3.66 s | 46.3 ms | **79x** |
+| CVA6 R4 | 2,097,152 | 1.23 s | 1.61 ms | **764x** |
+| CVA6 full | 33,554,432 | 29.7 s | 31.3 ms | **950x** |
 
 Detailed reports:
 

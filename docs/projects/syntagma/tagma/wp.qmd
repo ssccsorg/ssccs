@@ -845,13 +845,15 @@ Tagma assigns every point in a geometric space a structural address that is simu
 
 > Rust's `std::collections::HashMap` compiles to C-grade machine code within 5-10% of theoretical CPU throughput. Whether Tagma matches or exceeds this baseline is incidental: HashMap degrades linearly with collision rate and entry count while Tagma does not. A coordinate-slice query costs the same at $10^4$ entries as at $10^{77}$ entries: one array dereference per syllable.
 
-| Metric | SHA-256 | Tagma (1-syll) | Tagma (6-syll) | Tagma (19-syll) |
-|--------|---------|----------------|----------------|-----------------|
-| Latency per lookup (Apple M1) | 227 ns | 0.39 ns | 5.96 ns | 58.6 ns |
-| Identity size | 32 bytes | 2 bytes | 12 bytes | 38 bytes |
-| Addressable space | $2^{256}$ | $1.12 \times 10^4$ | $1.94 \times 10^{24}$ | $2^{256}$ |
-| Collision | probabilistic ($2^{-128}$) | deterministic zero | deterministic zero | deterministic zero |
-| Access path | $O(K \times \text{hash})$ | 1 direct index | $N$ direct indices | $N$ direct indices |
+| Metric | SHA-256 | CoordSpace (N=1) | CoordSpace2 (N=2) | CoordSpaceM3 (N=3) | CoordSpaceN6 (tree) | CoordSpaceN19 (tree) |
+|--------|---------|-----------------|-------------------|--------------------|--------------------|---------------------|
+| Latency (Apple M1) | 227 ns | 0.39 ns | 0.39 ns | 0.40 ns | 5.60 ns | 53.2 ns |
+| Backing | hash | inline array | heap alloc_zeroed | mmap MAP_NORESERVE | sparse tree | sparse tree |
+| Allocation | per-entry heap | 22 KB | 119 MB | 1.27 TB (virtual) | per-node | per-node |
+| Identity size | 32 bytes | 2 bytes | 4 bytes | 6 bytes | 12 bytes | 38 bytes |
+| Addressable space | $2^{256}$ | $1.12 \times 10^4$ | $1.25 \times 10^8$ | $1.39 \times 10^{12}$ | $1.94 \times 10^{24}$ | $1.94 \times 10^{77}$ |
+| Collision | probabilistic ($2^{-128}$) | zero | zero | zero | zero | zero |
+| Native | — | Yes (dense) | Yes (dense) | Yes (dense) | No (fallback) | No (fallback) |
 
 All figures are software measurements on Apple M1 (2020), compiled with `rustc` stable in release mode. Full benchmark source is included in the repository [@bench-source].
 

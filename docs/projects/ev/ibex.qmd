@@ -9,8 +9,8 @@ abstract: |
   register-register (OPCODE_OP) and register-immediate (OPCODE_IMM) ALU
   encoding spaces, covering the full RV32IMCB instruction set including
   Zbt (R4-type ternary instructions). The standard pipeline evaluates
-  524,288 combinations in 3.63 seconds. The synTagma-based structural
-  enumeration evaluates the same space in 49.5 milliseconds — a 73x
+  524,288 combinations in 3.66 seconds. The Tagma-based structural
+  enumeration evaluates the same space in 46.3 milliseconds — a 79x
   improvement — by generating only structurally valid combinations and
   eliminating all runtime constraint checks. Total valid encodings:
   92,160 (R-type) plus 55,616 (I-type).
@@ -131,18 +131,17 @@ plt.show()
 
 ```{python}
 #| label: fig-speed-comparison
-#| fig-cap: "Verification time comparison: struct_enum (synTagma-based) vs standard evaluate pipeline across four fixture sizes. At CVA6 2M scale, struct_enum achieves 846x speedup by eliminating all runtime constraint evaluation."
+#| fig-cap: "Verification time comparison: struct_enum (Tagma-based) vs standard evaluate pipeline across four fixture sizes. At CVA6 R4 2M scale, struct_enum achieves 764x speedup by eliminating all runtime constraint evaluation."
 import matplotlib.pyplot as plt
 import numpy as np
 
 plt.rcParams.update({"font.family": "sans-serif", "font.size": 9, "figure.dpi": 150})
 
 fixtures = ["Small\n27 combos", "Medium\n32K combos", "Ibex\n524K combos", "CVA6 R4\n2M combos"]
-evaluate_times = [3.26, 6580, 3.63e6, 1.43e6]  # µs for small, ms for medium, µs for ibex, µs for cva6
-struct_times = [2.73, 3106, 49500, 1694]  # µs
-# Normalize to µs
-evals_us = [3.26, 6580, 3.63e6, 1.43e6]
-struct_us = [2.73, 3106, 49500, 1694]
+evaluate_times = [3.26, 6580, 3.66e6, 1.23e6]  # µs
+struct_times = [2.73, 3106, 46300, 1610]  # µs
+evals_us = [3.26, 6580, 3.66e6, 1.23e6]
+struct_us = [2.73, 3106, 46300, 1610]
 speedups = [e / s for e, s in zip(evals_us, struct_us)]
 
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4.5), gridspec_kw={"width_ratios": [2, 1]})
@@ -230,7 +229,7 @@ plt.show()
 
 ```{python}
 #| label: fig-bench-table
-#| fig-cap: "Complete benchmark data. struct_enum achieves 73x–846x speedup over the standard pipeline across real-world RISC-V verification targets."
+#| fig-cap: "Complete benchmark data. struct_enum achieves 79x–764x speedup over the standard pipeline across real-world RISC-V verification targets."
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -242,8 +241,8 @@ columns = ('Fixture', 'Raw combos', 'Valid combos', 'Density',
 data = [
     ('Small',      '27',         '27',       '100%',  '3.26 µs',  '2.73 µs',  '1.2x'),
     ('Medium',     '32,768',     '20,480',   '62.5%', '6.58 ms',  '3.11 ms',  '2.1x'),
-    ('Ibex R-type','524,288',    '92,160',   '17.6%', '3.63 s',   '49.5 ms',  '73x'),
-    ('CVA6 R4',    '2,097,152',  '12,288',   '0.6%',  '1.43 s',   '1.69 ms',  '846x'),
+    ('Ibex R-type','524,288',    '92,160',   '17.6%', '3.66 s',   '46.3 ms',  '79x'),
+    ('CVA6 R4',    '2,097,152',  '12,288',   '0.6%',  '1.23 s',   '1.61 ms',  '764x'),
 ]
 
 fig, ax = plt.subplots(figsize=(9, 3))
@@ -282,7 +281,7 @@ enumerates all combinations and evaluates each against constraints:
 ev verify --target tests/fixtures/ibex/rv32imcb.xif.yaml
 ```
 
-The synTagma-based structural pipeline achieves the same result
+The Tagma-based structural pipeline achieves the same result
 by encoding constraints into the enumeration space itself:
 
 ```bash
@@ -298,7 +297,7 @@ by encoding constraints into the enumeration space itself:
 | Constraint evaluation | 10 checks × 524,288 | **0** (structurally encoded) |
 | Invalid detection | `check.allows()` → false | Vacant slot → 1.65 ns |
 | Memory | 8 GB peak (Vec) | 0 (lazy iterator) |
-| Time | 3.63 s | 49.5 ms |
+| Time | 3.66 s | 46.3 ms |
 
 ## Comparison with synTagma Benchmarks
 
@@ -310,7 +309,7 @@ addressing eliminates hash-based lookup overhead.
 | Nonexistent prefix lookup | Invalid encoding detection | **1.65 ns** | 14.0Mx vs HashMap |
 | CoordPath indexing | Combination addressing | **5.2 ns** | O(depth) = O(5) |
 | CoordSpace sparse get | Valid encoding iteration | **1.69 ms** (2M space) | 846x vs evaluate |
-| Axis projection | funct7/funct3 filtering | **49.5 ms** (524K space) | 73x vs evaluate |
+| Axis projection | funct7/funct3 filtering | **46.3 ms** (524K space) | 79x vs evaluate |
 
 ## Limitations
 
