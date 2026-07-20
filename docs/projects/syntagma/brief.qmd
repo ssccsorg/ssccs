@@ -1,9 +1,10 @@
 ---
-title: "Executive Brief"
-subtitle: "Project synTagma: a system where identity is coordinate and address is space."
+title: "Project Brief"
+subtitle: "synTagma: a system where identity is coordinate and address is space."
 version-prefix: syntagma-eb-1
 version-mark: true
 format:
+  html: {}
   pdf:
     classoption:
       - twocolumn
@@ -40,6 +41,7 @@ generate-title-meta: false
 metadata-files:
   - ../../_include/author.founder.yml
   - ../../_include/format.pdf.yml
+  - ../../_include/format.html.yml
 ---
 
 ```{python}
@@ -115,7 +117,7 @@ Stress test: under 500,000 interleaved insert, get, remove, and update operation
 
 Tagma assigns every point in a geometric space a structural address that is simultaneously a coordinate, an identifier, and a computation target. HashMap stores values by hashing keys by comparison. Querying this space is spatial computation: axis projection, set membership, proximity, and coordinate slicing are arithmetic operations, not index scans. The figures above measure the consequence: HashMap degrades with data volume; the coordinate space does not.
 
-### Resource efficiency at 10M scale
+## Resource efficiency at 10M scale
 
 {{< include _include/bench/fig-resource-efficiency.qmd >}}
 
@@ -125,13 +127,13 @@ The practical consequence: dense eliminates allocation entirely but pays a fixed
 
 Secondary benchmarks confirm the same scaling pattern across all depths. CoordSpaceN2 insert/get at 1,000 entries completes in 791 µs (insert) and 4.99 µs (get). At 100,000 entries with 1,000 unique prefixes, CoordSpaceN2 insert allocates nodes in 15.6 ms while HashMap inserts in 6.6 ms without preallocation; get is 48.2 µs vs 32.1 µs. These non-core paths follow the expected tradeoff: tree node allocation overhead at small scale inverts at large scale where HashMap's per-entry cost compounds.
 
-#### Verification by exhaustive enumeration
+### Verification by exhaustive enumeration
 
 The Tagma coordinate space is exhaustively enumerable: 65,536 possible 16-bit values, of which exactly 11,172 satisfy the composition formula. A verification harness generates all 65,536 inputs, applies the decoder specification, and records every result. The bijection is verified by enumeration: no collisions, no unassigned values within the block. Every implementation, hardware or software, can be verified against the same ground truth in milliseconds on any commodity system.
 
 A SHA-256 engine cannot be exhaustively verified across its full input space. The Tagma coordinate space can, because it is bounded and its formula is closed-form.
 
-#### Application domains
+## Application domains
 
 **Embedded systems.** The 11,172-identifier space fits in a single 22 KB no-allocator array. Every coordinate is a direct array index: one load, no hashing, no collisions, no resizing.
 
@@ -141,13 +143,13 @@ A SHA-256 engine cannot be exhaustively verified across its full input space. Th
 
 **General-purpose addressing.** Wherever UUIDs, hash keys, or sequence numbers are used today, synTagma provides a shorter, faster, human-readable alternative with zero collision probability.
 
-#### Boundaries
+## Boundaries
 
 Tagma does not replace cryptographic primitives. SHA-256 remains for signatures, Merkle proofs, and preimage resistance. Encryption, authentication, and key derivation are outside the primitive's scope. Tagma replaces the use of hashes as structural identifiers and addresses. The two can also be combined: SHA-256 output encoded as 19 Hangul syllables is more readable than 64 hex characters while preserving the same $2^{-256}$ collision probability.
 
 synTagma is built on open international standards and runs on open ISA (RISC-V) -- unencumbered by proprietary licensing or regional dependencies. The Tagma primitive is a neutral, sovereign coordinate space for the global computing landscape.
 
-#### Design from 1443: a writing system becomes an address space
+## Design from 1443: a writing system becomes an address space
 
 Hangul was invented in 1443 with a combinatorial syllable structure of 19 initials, 21 medials, and 28 finals — three independent axes that map directly to the Unicode 16-bit code space (U+AC00--U+D7AF). This structure is analogous to an apartment building numbering system: given "101", you know the floor and room without a central directory. Tagma leverages this pre-existing coordinate system as a universal address space, eliminating the need for hash-based directories.
 
