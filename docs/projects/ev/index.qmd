@@ -122,6 +122,8 @@ fig.tight_layout()
 plt.show()
 ```
 
+The two pipelines differ in enumeration strategy, not in verification scope. The standard pipeline computes the full Cartesian product of field domains then filters each combination through constraint checks. The structural pipeline encodes cross-field constraints directly into the coordinate space of synTagma's `DynCoordSpace`; enumeration visits only combinations that satisfy those constraints a priori. Both pipelines evaluate the full constraint set on every combination they visit, and both classify every point of the encoding space. The standard pipeline visits 33,554,432 points of which 229,376 pass; the structural pipeline visits 229,376 points directly.
+
 ## Comparison
 
 | Metric | Random Simulation | Formal Verification | Ev (standard) | Ev structural |

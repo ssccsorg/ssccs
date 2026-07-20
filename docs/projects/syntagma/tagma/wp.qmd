@@ -889,3 +889,132 @@ fn content_tagma_id(data: &[u8]) -> String {
 ```
 
 SHA-256 output is uniformly distributed, so the modulo-11172 mapping to each Coord value is statistically unbiased. The overall collision probability of the 19-syllable output remains $2^{-256}$, preserved from the underlying hash.
+
+## Structural Enumeration in Practice: RISC-V Verification {#sec-appendix-exaverif}
+
+ExaVerif (`ev`) exhaustively verifies RISC-V custom instruction encodings.
+Its standard pipeline generates the full Cartesian product of field domains
+and filters each combination through constraint checks. At the CVA6 CV-X-IF
+space (5 fields, 33,554,432 raw combinations), this takes 29.7 seconds and
+yields 229,376 valid encodings.
+
+The Tagma-based structural pipeline replaces post-hoc filtering with
+structure-preserving generation. Cross-field constraints (funct3→funct7
+mapping, oneof, enable_mask) are encoded into a `DynCoordSpace<CoordSet>`
+during enumeration setup. The iterator visits only combinations that satisfy
+those constraints a priori. Constraint evaluation on visited combinations is
+identical to the standard pipeline.
+
+The two charts below capture the result. The first shows the speedup across
+all fixtures from the standard pipeline to structural enumeration: 79x at
+Ibex scale, 766x at CVA6 R4 scale. The second zooms into the CVA6 encoding
+space, showing the full 33M space in 29.7 seconds versus 31.3 milliseconds ---
+a 950x reduction in verification time.
+
+:::{ layout-ncol=2 }
+
+```{python}
+#| label: fig-exaverif-ibex
+#| fig-cap: "Verification time: standard evaluate vs structural enumeration across four fixture sizes. At CVA6 R4 2M scale, structural enumeration achieves 766x speedup."
+import matplotlib.pyplot as plt
+import numpy as np
+
+plt.rcParams.update({"font.family": "sans-serif", "font.size": 9, "figure.dpi": 150})
+
+fixtures = ["Small\n27 combos", "Medium\n32K combos", "Ibex\n524K combos", "CVA6 R4\n2M combos"]
+evaluate_times = [3.26, 6580, 3.66e6, 1.23e6]
+struct_times = [2.73, 3106, 46100, 1600]
+speedups = [e / s for e, s in zip(evaluate_times, struct_times)]
+
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4.5), gridspec_kw={"width_ratios": [2, 1]})
+
+x = np.arange(len(fixtures))
+w = 0.3
+ax1.bar(x - w/2, evaluate_times, w, label='evaluate (standard)',
+        color='white', edgecolor='#A23B72', linewidth=1.2)
+ax1.bar(x + w/2, struct_times, w, label='struct_enum (synTagma)',
+        color='white', edgecolor='#2E86AB', linewidth=1.2, hatch='///')
+ax1.set_xticks(x)
+ax1.set_xticklabels(fixtures, fontsize=7.5)
+ax1.set_ylabel('Time (us, log scale)')
+ax1.set_yscale('log')
+ax1.legend(fontsize=7, loc='upper left')
+ax1.grid(axis='y', alpha=0.3)
+for i, (e, s, sp) in enumerate(zip(evaluate_times, struct_times, speedups)):
+    mid = (e * s) ** 0.5
+    label = f'{sp:.0f}x' if sp > 1 else f'{sp:.1f}x'
+    ax1.annotate(label, xy=(i, mid), fontsize=8, fontweight='bold', ha='center', va='center',
+                bbox=dict(boxstyle='round,pad=0.15', facecolor='white', edgecolor='black', alpha=0.85))
+ax1.set_title('Verification Time by Approach', fontsize=10, fontweight='bold')
+
+ax2.barh(fixtures, speedups, height=0.4, color='white', edgecolor='black', linewidth=0.8, hatch='///')
+for i, sp in enumerate(speedups):
+    label = f'{sp:.0f}x' if sp > 10 else f'{sp:.1f}x'
+    ax2.text(sp + 5, i, label, va='center', fontsize=8, fontweight='bold')
+ax2.set_xlabel('Speedup factor')
+ax2.set_title('synTagma Speedup', fontsize=10, fontweight='bold')
+ax2.set_xlim(0, max(speedups) * 1.3)
+ax2.tick_params(labelsize=8)
+fig.tight_layout()
+plt.show()
+```
+
+```{python}
+#| label: fig-exaverif-cva6
+#| fig-cap: "CVA6 CV-X-IF encoding space: standard evaluate (29.7s for 33M) vs structural_verify with all constraint checks (31.3ms), a 950x speedup."
+import matplotlib.pyplot as plt
+import numpy as np
+
+plt.rcParams.update({"font.family": "sans-serif", "font.size": 9, "figure.dpi": 150})
+
+fixtures = ["CVA6 R4\n2M combos", "CVA6 full\n33M combos"]
+eval_times = [1.23e6, 29.7e6]
+verify_times = [1600, 31300]
+speedups = [e / v for e, v in zip(eval_times, verify_times)]
+
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(9, 3.5), gridspec_kw={"width_ratios": [2, 1]})
+
+x = np.arange(len(fixtures))
+w = 0.3
+ax1.bar(x - w/2, eval_times, w, label='evaluate (standard)',
+        color='white', edgecolor='#A23B72', linewidth=1.2)
+ax1.bar(x + w/2, verify_times, w, label='structural (synTagma)',
+        color='white', edgecolor='#2E86AB', linewidth=1.2, hatch='///')
+ax1.set_xticks(x)
+ax1.set_xticklabels(fixtures, fontsize=8)
+ax1.set_ylabel('Time (us, log)')
+ax1.set_yscale('log')
+ax1.legend(fontsize=7)
+ax1.grid(axis='y', alpha=0.3)
+for i, (e, v, sp) in enumerate(zip(eval_times, verify_times, speedups)):
+    mid = (e * v) ** 0.5
+    ax1.annotate(f'{sp:.0f}x', xy=(i, mid), fontsize=9, fontweight='bold', ha='center', va='center',
+                bbox=dict(boxstyle='round,pad=0.15', facecolor='white', edgecolor='black', alpha=0.85))
+ax1.set_title('CVA6 Verification Time', fontsize=10, fontweight='bold')
+
+ax2.barh(fixtures, speedups, height=0.4, color='white', edgecolor='black', linewidth=0.8, hatch='///')
+for i, sp in enumerate(speedups):
+    ax2.text(sp + 20, i, f'{sp:.0f}x', va='center', fontsize=9, fontweight='bold')
+ax2.set_xlabel('Speedup factor')
+ax2.set_title('synTagma Speedup', fontsize=10, fontweight='bold')
+ax2.set_xlim(0, max(speedups) * 1.25)
+fig.tight_layout()
+plt.show()
+```
+
+:::
+
+| Fixture | Raw space | Valid space | Density | Standard evaluate | Structural verify | Speedup |
+|---------|:---------:|:-----------:|:-------:|:-----------------:|:-----------------:|:-------:|
+| Ibex R-type | 524,288 | 92,160 | 17.6% | 3.66 s | 46.1 ms | 79x |
+| CVA6 R4 | 2,097,152 | 12,288 | 0.6% | 1.23 s | 1.60 ms | 766x |
+| CVA6 full | 33,554,432 | 229,376 | 0.7% | 29.7 s | 31.3 ms | 950x |
+
+The speedup is not algorithmic optimization. It is a change in enumeration
+strategy: the standard pipeline generates all 33,554,432 combinations then
+filters, while the structural pipeline generates only the 229,376 valid
+combinations by construction. Every combination that the structural pipeline
+visits, it evaluates with the same constraint checks as the standard
+pipeline. The 99.3% of the space that is invalid is never allocated, never
+iterated, and never tested --- this is not faster filtering; it is the
+absence of filtering.
