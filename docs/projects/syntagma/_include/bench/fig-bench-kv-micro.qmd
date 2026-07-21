@@ -1,0 +1,38 @@
+```{python}
+#| label: fig-bench-kv-micro
+#| fig-cap: "Single insert and get latency — all four variants"
+import matplotlib.pyplot as plt
+import numpy as np
+
+ops = ['Insert', 'Get']
+x = np.arange(len(ops))
+w = 0.18
+
+# Data: ns/op
+kv2  = [18.69, 22.06]
+kvn  = [18.88, 21.73]
+dyn  = [49.44, 42.40]
+hm   = [44.87, 23.79]
+
+fig, ax = plt.subplots(figsize=(5, 3.5))
+
+ax.bar(x - 1.5*w, kv2, w, label='CoordKV2', color='white', edgecolor='black', linewidth=0.8, hatch='///')
+ax.bar(x - 0.5*w, kvn, w, label='CoordKVN<2>', color='white', edgecolor='gray', linewidth=0.8, hatch='...')
+ax.bar(x + 0.5*w, dyn, w, label='DynCoordKV', color='white', edgecolor='gray', linewidth=0.8, hatch='oo')
+ax.bar(x + 1.5*w, hm,  w, label='HashMap', color='white', edgecolor='black', linewidth=0.8)
+
+ax.set_xticks(x)
+ax.set_xticklabels(ops, fontsize=10)
+ax.set_ylabel('Latency (ns)', fontsize=10)
+ax.legend(fontsize=7.5, loc='upper left')
+ax.grid(axis='y', linestyle=':', alpha=0.3)
+
+# Value labels
+for xi, (a, b, c, d) in enumerate(zip(kv2, kvn, dyn, hm)):
+    ax.text(xi - 1.5*w, a + 1.5, f'{a}', fontsize=7, ha='center')
+    ax.text(xi - 0.5*w, b + 1.5, f'{b}', fontsize=7, ha='center')
+    ax.text(xi + 0.5*w, c + 1.5, f'{c}', fontsize=7, ha='center')
+    ax.text(xi + 1.5*w, d + 1.5, f'{d}', fontsize=7, ha='center')
+
+plt.tight_layout(); plt.show()
+```

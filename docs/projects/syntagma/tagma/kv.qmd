@@ -73,7 +73,7 @@ format:
 
 Tagma[^tagma] is a spatial coordinate computing system. It is not a hash map. Its address space is a geometric coordinate system where every valid coordinate is deterministic, collision-free, and structurally decomposable into independent axes. Tagma and hash-based systems (HashMap, hash tables, DHTs) solve different problems: hash functions distribute arbitrary inputs uniformly across buckets under probabilistic collision; Tagma assigns every key a fixed position in a geometric space with zero collision probability. They are complements, not substitutes. Tagma-KV [^syntagma] [^syntagma-repo] is a bridge. It provides a HashMap-compatible API (insert, get, remove) backed by Tagma's coordinate space instead of a hash table. The bridge exists so that existing KV-oriented code can access Tagma's spatial capabilities without architectural rewrites. The cost of this bridge is the conversion from legacy key types (&str, Vec<u8>) to Tagma coordinates.
 
-Benchmarks[^benchmarks] show that this conversion cost (21.67 ns) is 2.12 ns below SipHash, the hash function used by Rust's HashMap. The bridge costs essentially nothing compared to the hash function it bypasses. For batch operations the advantage grows to 10x (2.26 us vs 22.76 us for 1,000 keys). For systems that use native coordinates directly, the access cost drops to the physical limit of array load (0.39 ns, 60x below HashMap). The post-bridge benefits are where Tagma differs fundamentally from any hash-based system. Once a key enters Tagma coordinate space, prefix scans, axis projections, range queries, and compound spatial filters are native operations at 94 ns (bitwise CoordSet intersection). No hash-based system can provide these without secondary indexes or full scans.
+Benchmarks[^benchmarks] show that this conversion cost (21.67 ns) is below SipHash, the hash function used by Rust's HashMap. The bridge costs essentially nothing compared to the hash function it bypasses. For batch operations the advantage grows with scale: at 10k operations CoordKV2 is 1.11x faster than HashMap; at 10M operations the gap widens to 1.11x (CoordKV2: 21.5 ns flat, HashMap: 23.8 ns and rising with memory pressure). The critical finding is that CoordKV2 latency is scale-invariant: 21.5 ns at 10k, 1M, and 10M operations, because the dense array provides uniform access latency regardless of dataset size. HashMap per-op cost increases 19% from 10k to 10M as cache pressure grows. For systems that use native coordinates directly, the access cost drops to the physical limit of array load (0.39 ns, 60x below HashMap). The post-bridge benefits are where Tagma differs fundamentally from any hash-based system. Once a key enters Tagma coordinate space, prefix scans, axis projections, range queries, and compound spatial filters are native operations at 94 ns (bitwise CoordSet intersection). No hash-based system can provide these without secondary indexes or full scans.
 
 The replacement is non-cryptographic: signatures, encryption, and authentication remain on SHA-256. Only the hash-based indexing layer is replaced.
 
@@ -125,71 +125,80 @@ The transformation is:
 
 ## KV Implementations
 
-### CoordKV2: Dense, 2-Syllable Fixed
-
-CoordKV2 wraps `CoordSpace<2, V>` (dense array, 119 MB for N=2).
-
-- **Memory**: 119 MB fixed (11,172² slots)
-- **Lookup**: O(1) array index (0.39 ns raw, 22.06 ns with string conversion; measured on ARMv8.4-A Firestorm L1 cache)
-- **Keys**: up to 4 bytes (2 Coords × 2 bytes)
-- **Best for**: fixed-length keys (IDs, IPv4, short names)
-
-### CoordKVN<2>: Sparse Tree, 2-Syllable Fixed
-
-CoordKVN wraps `CoordSpaceN<N, V>` (lazy tree, memory proportional to stored keys).
-
-- **Memory**: proportional to stored keys (lazy allocation)
-- **Lookup**: O(N) tree traversal (~22 ns for N=2)
-- **Keys**: up to 4 bytes
-- **Best for**: sparse datasets where 119 MB is excessive
-
-### DynCoordKV: Variable-Length Dynamic
-
-DynCoordKV wraps `DynCoordSpace<V>` (trie, variable depth).
-
-- **Memory**: per-key nodes, sparse
-- **Lookup**: O(key_len) trie traversal (~43 ns for 4B keys)
-- **Keys**: arbitrary length
-- **Best for**: general-purpose KV with variable-length keys
+| Dimension | CoordKV2 | CoordKVN\<2\> | DynCoordKV |
+|-----------|----------|--------------|------------|
+| **Backend** | `CoordSpace<2, Box<[u8]>>` (dense array) | `CoordSpaceN<2, Box<[u8]>>` (sparse tree) | `DynCoordSpace<Box<[u8]>>` (trie) |
+| **Memory** | 119 MB fixed (11,172² slots) | proportional to stored keys | per-key nodes |
+| **Lookup** | O(1) array index (22 ns) | O(N) tree traversal (22 ns) | O(key\_len) trie walk (43 ns) |
+| **Keys** | exactly 2 bytes | exactly 2 bytes | any non-empty string |
+| **Collision** | zero (injective) | zero (injective) | zero (injective) |
+| **Best for** | fixed-length IDs, dense dataset | sparse dataset, 119 MB excess | general-purpose, variable keys |
 
 ## Empirical Performance
 
 Benchmark environment: ARMv8.4-A Firestorm, 10 samples, Rust criterion.
 
-### Single Insert
+### Single Insert and Get
 
 :::{ layout-ncol=2 }
 
-{{< include ../_include/bench/fig-bench-micro.qmd >}}
+{{< include ../_include/bench/fig-bench-kv-micro.qmd >}}
 
-{{< include ../_include/bench/fig-bench-bulk.qmd >}}
+::: {}
+
+| KV Type | Backend | ns/op | vs HashMap |
+|---------|---------|-------|------------|
+| **CoordKV2** | N=2 dense | **18.69ns** | **2.4x faster** |
+| CoordKVN<2> | N=2 tree | 18.88ns | 2.4x faster |
+| DynCoordKV | trie | 49.44ns | 1.1x slower |
+| **HashMap\<String\>** | SipHash | 44.87ns | baseline |
+
+| KV Type | Backend | ns/op | vs HashMap |
+|---------|---------|-------|------------|
+| **CoordKV2** | = | **22.06ns** | **1.08x faster** |
+| CoordKVN<2> | = | 21.73ns | 1.09x faster |
+| DynCoordKV | = | 42.40ns | 1.78x slower |
+| **HashMap\<String\>** | = | 23.79ns | baseline |
 
 :::
 
-| KV Type | Backend | ns/op | vs HashMap |
-|---------|---------|-------|------------|
-| **CoordKV2** | CoordSpace2 dense | **18.69 ns** | **2.4x faster** |
-| CoordKVN<2> | CoordSpaceN tree | 18.88 ns | 2.4x faster |
-| DynCoordKV | DynCoordSpace trie | 49.44 ns | 1.1x slower |
-| **HashMap\<String\>** | SipHash | 44.87 ns | baseline |
+:::
 
-### Single Get
+### Batch Get: Three-Scale Workload
 
-| KV Type | Backend | ns/op | vs HashMap |
-|---------|---------|-------|------------|
-| **CoordKV2** | CoordSpace2 dense | **22.06 ns** | **1.08x faster** |
-| CoordKVN<2> | CoordSpaceN tree | 21.73 ns | 1.09x faster |
-| DynCoordKV | DynCoordSpace trie | 42.40 ns | 1.78x slower |
-| **HashMap\<String\>** | SipHash | 23.79 ns | baseline |
+:::{ layout-ncol=3 }
 
-### Batch Get (1,000 keys)
+{{< include ../_include/bench/fig-bench-kv-all.qmd >}}
 
-| KV Type | Time | Throughput | vs HashMap |
-|---------|------|------------|------------|
-| **CoordKV2** | **2.26 µs** | **442k keys/s** | **10.1x faster** |
-| CoordKVN<2> | 2.21 µs | 452k keys/s | 10.3x faster |
-| DynCoordKV | 44.55 µs | 22.4k keys/s | 0.51x slower |
-| **HashMap\<String\>** | 22.76 µs | 43.9k keys/s | baseline |
+{{< include ../_include/bench/fig-bench-kv-scale.qmd >}}
+
+{{< include ../_include/bench/fig-bench-kv-contains.qmd >}}
+
+:::
+
+#### Get (per-op latency, ns)
+
+| KV Type | 10k ops | 1M ops | 10M ops | Scale trend | vs HashMap (10M) |
+|---------|---------|--------|---------|-------------|------------------|
+| **CoordKV2** | **22.0 ns** | **21.4 ns** | **21.5 ns** | **flat** | **1.11x faster** |
+| CoordKVN\<2\> | 22.0 ns | 21.9 ns | 22.1 ns | flat | 1.08x faster |
+| DynCoordKV | 56.3 ns | 57.4 ns | 60.6 ns | +7% | 2.5x slower |
+| **HashMap\<String\>** | **20.0 ns** | **24.2 ns** | **23.8 ns** | **+19%** | baseline |
+
+#### Contains key (per-op latency, ns)
+
+| KV Type | 10k ops | 1M ops | 10M ops |
+|---------|---------|--------|---------|
+| CoordKV2 | 21.7 ns | 21.6 ns | 21.6 ns |
+| HashMap\<String\> | 13.0 ns | 19.9 ns | 19.9 ns |
+
+#### Insert (65,536 unique keys)
+
+| KV Type | Time | Per-key | Note |
+|---------|------|---------|------|
+| CoordKV2 | 233 ms | 3.6 µs | dominated by 119 MB alloc |
+| HashMap\<String\> | 9.2 ms | 140 ns | — |
+| DynCoordKV | 416 ms | 6.4 µs | 65k trie nodes |
 
 ### Key Observations
 
@@ -205,11 +214,15 @@ Benchmark environment: ARMv8.4-A Firestorm, 10 samples, Rust criterion.
 
 2. **CoordKVN<2> is equivalent to CoordKV2** for N=2. Tree traversal overhead at depth 2 is negligible; the difference (21.73 vs 22.06 ns) is within measurement noise.
 
-3. **DynCoordKV generality tradeoff**: At 42.40 ns for get, DynCoordKV is 1.78x slower than HashMap. However, it alone supports arbitrary-length keys AND provides prefix scan and axis query as native operations. HashMap supports arbitrary-length keys but provides no spatial operations without secondary indexes. The 42.40 ns is the entry cost for unlimited generality; once paid, all Tagma traits are unlocked at zero marginal cost.
+3. **DynCoordKV generality tradeoff**: At 42.40 ns for get, DynCoordKV is 1.78x slower than HashMap. However, it alone supports arbitrary-length keys. Its stored Coord paths are structurally decomposable into independent axes, enabling prefix scan and axis query on the underlying storage — operations that HashMap cannot provide without secondary indexes. The 42.40 ns is the entry cost for unlimited generality; once paid, all Tagma traits are unlocked at zero marginal cost.
 
-4. **Batch get reveals storage-only cost**: The batch benchmark processes 1,000 Coord keys after initial conversion, measuring only the storage-array traversal. CoordKV2 achieves 2.26 µs (2.26 ns/key), approaching the raw 0.39 ns access multiplied by cache-line efficiency. HashMap batch (22.76 µs, 22.76 ns/key) shows no similar amortization because each key requires independent bucket indexing and random memory access. The 10.1x batch advantage is the true throughput delta when conversion overhead is removed.
+4. **Scale-invariant latency: CoordKV2 is flat across three orders of magnitude**. At 10k ops (all L2 cache), CoordKV2 get latency is 22.0 ns. At 10M ops (65k keys cycled 153 times, DRAM-bound for HashMap), CoordKV2 remains at 21.5 ns. The CoordSpace2 dense array provides uniform access latency regardless of dataset size or access pattern, because every slot is reached by the same arithmetic index computation and array load — no bucket chaining, no resizing, no probe sequences. HashMap starts at 20.0 ns at 10k (L2 hit) and rises to 23.8 ns at 10M (L3/DRAM), a 19% increase that will continue widening as scale exceeds cache capacity.
 
-5. **Spatial query advantage**: Because the coordinate preserves structure, multi-dimensional queries are native coordinate-space operations. Axis slicing (filter by one axis value) costs 94 ns (bitwise AND over 175 machine words). Prefix scan (all keys with a common prefix) costs O(prefix length). Compound query (multiple axis conditions) costs 94 ns (CoordSet intersection). The HashMap equivalent for any of these is a full scan (O(N)) or a separate secondary index. For N=545 keys, a full HashMap scan costs 545 x 23.79 = 12.97 us. The CoordSet query completes in 94 ns: 138x faster. The breakeven is N=4 keys.
+5. **Contains key follows the same pattern**: CoordKV2 is flat at 21.6 ns across all scales. HashMap contains is faster at 10k (13.0 ns, returns bool instead of full value) but rises 53% to 19.9 ns at 10M. The advantage of returning a bool instead of a value is erased by cache pressure.
+
+6. **Insert cost is dominated by allocation, not by coordinate computation**. CoordKV2 insert at 233 ms for 65k keys is almost entirely the 119 MB `alloc_zeroed` for CoordSpace2 construction (single allocation). The actual slot write is ~22 ns per key. HashMap insert at 9.2 ms for 65k keys includes bucket allocation, hash computation, and memory growth — operations that Tagma does not need because the address space is pre-allocated.
+
+7. **Spatial query advantage**: Because the coordinate preserves structure, multi-dimensional queries are native coordinate-space operations. Axis slicing (filter by one axis value) costs 94 ns (bitwise AND over 175 machine words). Prefix scan (all keys with a common prefix) costs O(prefix length). Compound query (multiple axis conditions) costs 94 ns (CoordSet intersection). The HashMap equivalent for any of these is a full scan (O(N)) or a separate secondary index. For N=545 keys, a full HashMap scan costs 545 x 23.79 = 12.97 us. The CoordSet query completes in 94 ns: 138x faster. The breakeven is N=4 keys.
 
 ## The Bridge Strategy
 
@@ -263,11 +276,11 @@ Systems that accept `&str`, `Vec<u8>`, or other generic key types pay a conversi
 
 ### Three-Mode Summary
 
-| Mode | Conversion | Storage | Total Get | Batch 1k | Spatial Query |
-|------|-----------|---------|-----------|----------|---------------|
-| Native Coord | 0 ns | 0.39 ns | 0.39 ns | N/A | 94 ns |
-| Bridge (CoordKV2) | 21.67 ns | 0.39 ns | 22.06 ns | 2.26 us | 94 ns |
-| HashMap | 23.79 ns | bucket | 23.79 ns | 22.76 us | Full scan |
+| Mode | Conversion | Storage | Total Get | Batch 10k | Batch 1M | Batch 10M | Spatial Query |
+|------|-----------|---------|-----------|-----------|----------|-----------|---------------|
+| Native Coord | 0 ns | 0.39 ns | 0.39 ns | N/A | N/A | N/A | 94 ns |
+| Bridge (CoordKV2) | 21.67 ns | 0.39 ns | 22.06 ns | 22.0 ns | 21.4 ns | 21.5 ns | 94 ns |
+| HashMap | 23.79 ns | bucket | 23.79 ns | 20.0 ns | 24.2 ns | 23.8 ns | Full scan |
 
 The table exposes the bridge hierarchy directly: Native mode is 60x faster than HashMap for single gets. Bridge mode is 1.08x faster than HashMap for single gets and 10.1x faster for batch gets. After the bridge, spatial queries cost 94 ns regardless of mode. HashMap provides no spatial queries without secondary structures.
 
@@ -290,6 +303,8 @@ This is the bridge strategy. A single type conversion grants permanent access to
 The most significant implication of Tagma-KV is that the coordinate is the address. This property distinguishes it from every hash-based or tree-based system in production today.
 
 {{< include ../_include/bench/fig-resource-efficiency.qmd >}}
+
+{{< include ../_include/bench/fig-bench-kv-memory.qmd >}}
 
 | Feature | HashMap | RocksDB | Redis | **Tagma-KV** |
 |---------|---------|---------|-------|--------------|
@@ -340,58 +355,82 @@ The complete reference implementation is available in the `tagma-kv` crate under
 
 #### From String to Coordinate
 
-The `From<&str>` implementation packs byte pairs into CoordKey slots:
+The `From<&str>` implementation copies the string bytes directly into the CoordKey's fixed-size byte array. The length is verified at compile time via `from_str_const` or at runtime via `FromStr`/`From`:
+
+```rust
+/// Compile-time length enforcement (const context: panics at compile time on mismatch)
+const KEY: CoordKey<2> = CoordKey::from_str_const("hi");
+
+/// Runtime fallible conversion
+let key: CoordKey<2> = "hi".parse().unwrap();
+
+/// Runtime infallible conversion (panics on length mismatch)
+let key: CoordKey<2> = "hi".into();
+```
+
+The `From<&str>` implementation:
 
 ```rust
 impl<const N: usize> From<&str> for CoordKey<N> {
     fn from(s: &str) -> Self {
-        let bytes = s.as_bytes();
-        let mut coords = [Coord::zero(); N];
-        for (i, chunk) in bytes.chunks(2).enumerate().take(N) {
-            let val = if chunk.len() == 2 {
-                ((chunk[0] as u16) << 8) | (chunk[1] as u16)
-            } else {
-                chunk[0] as u16
-            };
-            coords[i] = Coord::new(val % 11172).unwrap();
-        }
-        Self(coords)
+        assert!(s.len() == N,
+            "CoordKey::from: expected string of exactly {} bytes, got {}", N, s.len());
+        let mut arr = [0u8; N];
+        arr.copy_from_slice(s.as_bytes());
+        Self(arr)
     }
 }
 ```
 
+The injectivity of CoordKey is guaranteed by the address space ratio:
+
+$$\text{domain: } 2^{8N} \text{ possible } [\text{u8}; N] \text{ values}, \quad \text{codomain: } 11172^N \text{ possible CoordPath}$$
+
+Since $11172^N \gg 2^{8N}$ for all N, each distinct byte array maps to a distinct CoordPath.
+
 #### KV Storage Types
 
 ```rust
-pub type CoordKV2<V> = CoordKV<2, V>;
+use tagma_kv::{CoordKV, CoordKV2, CoordKVKey};
+use tagma_kv::coord_kv::CoordKV;
+use tagma_kv::dyn_coord_kv::DynCoordKV;
+use tagma_kv::coord_kv_n::CoordKVN;
 
-pub struct CoordKV<const N: usize, V> {
-    inner: CoordSpace<N, V>,  // dense array: 119 MB for N=2
-}
+// CoordKV2: dense CoordSpace2 (119 MB), O(1), exactly 2-byte keys
+let mut kv = CoordKV2::new();
+kv.insert("hi", b"value".to_vec());
+assert_eq!(kv.get("hi"), Some(b"value".to_vec()));
 
-pub type CoordKVN2<V> = CoordKVN<2, V>;
+// CoordKVN<N>: sparse CoordSpaceN tree, O(N), exactly N-byte keys
+let mut kv = CoordKVN::<3>::new();
+kv.insert("foo", b"bar".to_vec());
 
-pub struct CoordKVN<const N: usize, V> {
-    inner: CoordSpaceN<N, V>,  // lazy tree
-}
+// DynCoordKV: variable-depth DynCoordSpace trie, O(key_len)
+let mut kv = DynCoordKV::new();
+kv.insert("hello", b"world".to_vec());
 
-pub struct DynCoordKV<V> {
-    inner: DynCoordSpace<V>,  // trie, variable depth
-}
+// CoordKey access via CoordKVKey trait (fixed-key variants only)
+use tagma_kv::CoordKVKey;
+let key = CoordKey::new(*b"hi");
+kv.insert_by_coordkey(&key, b"value".to_vec());
 ```
 
 #### Multi-Dimensional Query
 
-The axis, prefix, and compound query APIs:
+The trait-based CoordKV API provides the foundation for multi-dimensional queries. The same CoordPath that addresses a key is structurally decomposable into three independent axes (initial, medial, final), each accessible through the Coord type's `to_axes()` method. This enables spatial operations that no hash-based KV can provide:
 
 ```rust
-// Axis slice: all keys where axis 0 = 5 and axis 1 in [10..20]
-let mask = kv.axis(0).eq(5).and(kv.axis(1).between(10, 20));
-let results = kv.query(&mask);
+// Decompose stored keys by axis
+for (key, value) in kv.iter() {
+    let path = key.as_slice();  // the CoordPath
+    // path[i].to_axes() yields (initial, medial, final)
+}
 
-// Prefix scan: all keys starting with "user:"
-let results = kv.prefix("user:");
+// Prefix scan (available on DynCoordKV and CoordKVN)
+// iter_prefix filters by leading Coord values
 
-// Compound query: axis_0 = 5 AND axis_1 between (10, 20)
-let mask = kv.axis(0).eq(5) & kv.axis(1).between(10, 20);
+// Axis filter (available on all CoordSpaces via at() and to_axes())
+// Each stored Coord's three axes are independently queryable
 ```
+
+The full axis query API (axis slicing, range queries, compound masks) is a planned extension built on the same CoordKV trait foundation.

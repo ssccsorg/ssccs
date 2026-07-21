@@ -1,0 +1,46 @@
+```{python}
+#| label: fig-bench-kv-all
+#| fig-cap: "Get latency across three scales — all four variants. CoordKV2 and CoordKVN<2> are scale-invariant; DynCoordKV and HashMap degrade with scale due to trie depth and cache pressure respectively."
+import matplotlib.pyplot as plt
+import numpy as np
+
+scales = ['10k', '1M', '10M']
+x = np.arange(len(scales))
+
+kv2  = [22.0, 21.4, 21.5]
+kvn  = [22.0, 21.9, 22.1]
+dyn  = [56.3, 57.4, 60.6]
+hm   = [20.0, 24.2, 23.8]
+
+fig, ax = plt.subplots(figsize=(6, 4))
+
+ax.plot(x, kv2, '-o', color='black', markerfacecolor='white', markeredgecolor='black',
+        markersize=7, linewidth=1.5, label='CoordKV2 (dense array)')
+ax.plot(x, kvn, '-^', color='black', markerfacecolor='white', markeredgecolor='gray',
+        markersize=7, linewidth=1.5, label='CoordKVN<2> (sparse tree)')
+ax.plot(x, dyn, '-v', color='gray', markerfacecolor='white', markeredgecolor='gray',
+        markersize=7, linewidth=1.5, label='DynCoordKV (trie)')
+ax.plot(x, hm, '-s', color='black', markerfacecolor='black', markeredgecolor='black',
+        markersize=7, linewidth=1.5, label='HashMap (SipHash)')
+
+ax.set_xticks(x)
+ax.set_xticklabels([f'{s} ops' for s in scales], fontsize=10)
+ax.set_ylabel('Per-op latency (ns)', fontsize=10)
+ax.set_ylim(15, 68)
+ax.legend(fontsize=8, loc='upper left')
+ax.grid(axis='y', linestyle=':', alpha=0.4)
+
+# Highlight the scale-invariance band
+ax.axhspan(21, 22.5, alpha=0.08, color='black')
+ax.text(2.4, 21.8, 'scale-invariant region\nCoordKV2 / CoordKVN<2>', fontsize=7.5,
+        color='gray', va='center')
+
+# Ratio vs HashMap at 10M
+for name, vals in [('CoordKV2', kv2), ('CoordKVN<2>', kvn), ('DynCoordKV', dyn)]:
+    r = hm[-1] / vals[-1]
+    ax.annotate(f'{r:.2f}x vs HM', xy=(2.3, vals[-1]),
+                fontsize=7, ha='left', va='center',
+                bbox=dict(boxstyle='round,pad=0.1', facecolor='white', edgecolor='gray', alpha=0.7))
+
+plt.tight_layout(); plt.show()
+```

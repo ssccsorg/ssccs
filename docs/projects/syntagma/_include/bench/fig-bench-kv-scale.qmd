@@ -1,0 +1,47 @@
+```{python}
+#| label: fig-bench-kv-scale
+#| fig-cap: "Get latency across three scales: CoordKV2 (flat) vs HashMap (rising with memory pressure)"
+import matplotlib.pyplot as plt
+import numpy as np
+
+scales = ['10k', '1M', '10M']
+x = np.arange(len(scales))
+
+kv2 = [22.0, 21.4, 21.5]
+hm  = [20.0, 24.2, 23.8]
+rat = [0.91, 1.13, 1.11]  # hm/kv2
+
+fig, ax1 = plt.subplots(figsize=(5.5, 3.5))
+
+ax1.plot(x, kv2, '-o', color='black', markerfacecolor='white', markeredgecolor='black',
+         markersize=8, linewidth=1.8, label='CoordKV2 (dense array)')
+ax1.plot(x, hm, '-s', color='black', markerfacecolor='black', markeredgecolor='black',
+         markersize=8, linewidth=1.8, label='HashMap (SipHash + bucket)')
+
+ax1.set_xticks(x)
+ax1.set_xticklabels([f'{s}\nops' for s in scales], fontsize=9)
+ax1.set_ylabel('Per-op latency (ns)', fontsize=10)
+ax1.set_ylim(15, 30)
+ax1.legend(fontsize=8, loc='upper left')
+ax1.grid(axis='y', linestyle=':', alpha=0.4)
+
+# Value labels
+for xi, y1, y2 in zip(x, kv2, hm):
+    ax1.text(xi - 0.1, y1 + 1.2, f'{y1} ns', fontsize=8, ha='center', color='black')
+    ax1.text(xi + 0.1, y2 + 1.2, f'{y2} ns', fontsize=8, ha='center', color='black')
+
+# Ratio annotations
+for xi, r in zip(x, rat):
+    arrow = '▲' if r > 1.0 else '▼'
+    ax1.annotate(f'{arrow} {r:.2f}x', xy=(xi, 15.8), fontsize=8, ha='center',
+                bbox=dict(boxstyle='round,pad=0.15', facecolor='white', edgecolor='gray', alpha=0.8))
+
+# Insight annotation
+ax1.annotate('CoordKV2: scale-invariant\n21.5 ns across 10k→10M',
+             xy=(1.5, 21.5), xytext=(2.5, 19), fontsize=8,
+             arrowprops=dict(arrowstyle='->', color='black', lw=0.8),
+             bbox=dict(boxstyle='round,pad=0.2', facecolor='white', edgecolor='black', alpha=0.8),
+             ha='center')
+
+plt.tight_layout(); plt.show()
+```
