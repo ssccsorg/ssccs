@@ -3,7 +3,7 @@ title: "Tagma-ID"
 subtitle: "Content-Addressable Identity Without Hash Functions"
 date: 2026-07
 date-format: "MMMM, YYYY"
-version-prefix: tagmaid-0.1
+version-prefix: tagma-id-1.0
 version-mark: true
 bibliography: ./_include/reference.bib
 csl: ../../../_include/ieee.csl
@@ -15,7 +15,7 @@ metadata-files:
     - ../../../_include/format.html.yml
 colorlinks: true
 abstract: |
-  SHA-256 is the de facto standard for content-addressable identity generation across storage engines, distributed systems, and databases. This paper demonstrates that SHA-256 can be replaced by a structural coordinate composition derived from the Unicode Hangul syllable block, reducing identity generation latency by approximately 115x (from 227 ns to 2 ns per operation), eliminating collision handling entirely, and converting multi-axis index queries from O(K x N) intersection to O(1) direct coordinate extraction. The replacement is not cryptographic: preimage resistance, authentication, and encryption remain with SHA-256. Identity generation alone is replaced. A software proof of concept confirming these measurements over 100k operations on Apple M1 silicon is provided as open-source reference implementation.
+  SHA-256 is the de facto standard for content-addressable identity generation across storage engines, distributed systems, and databases. This paper demonstrates that SHA-256 can be replaced by a structural coordinate composition derived from the Unicode Hangul syllable block, reducing identity generation latency by approximately 115x (from 227 ns to 2 ns per operation), eliminating collision handling entirely, and converting multi-axis index queries from O(K x N) intersection to O(1) direct coordinate extraction. The replacement is not cryptographic: preimage resistance, authentication, and encryption remain with SHA-256. Identity generation alone is replaced. A software proof of concept confirming these measurements over 100k operations on ARMv8.4-A Firestorm silicon is provided as open-source reference implementation.
 format:
   html:
     number-sections: true
@@ -69,53 +69,13 @@ format:
 %run ../../../_include/_graphviz.py
 ```
 
-```{python}
-#| label: fig-bench-latency
-#| fig-cap: "Identity generation latency: Tagma vs SHA-256, 100k operations on Apple M1. Left: per-operation latency. Right: scaling with syllable count."
-import matplotlib.pyplot as plt
-import numpy as np
-
-categories = ['SHA-256', 'Tagma\n1-syll', 'Tagma\n6-syll', 'Tagma\n19-syll']
-latency_ns = [227, 2, 11, 35]
-n_vals = [1, 2, 6, 19]
-tagma_ns = [2, 2, 11, 35]
-sha_line = [227, 227, 227, 227]
-
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
-
-bars = ax1.bar(categories, latency_ns, color=['#d95f02', '#1b9e77', '#1b9e77', '#1b9e77'], width=0.6)
-ax1.set_ylabel('Latency per operation (ns)')
-ax1.set_yscale('log')
-for bar, val in zip(bars, latency_ns):
-    ax1.text(bar.get_x() + bar.get_width()/2, bar.get_height() * 1.1,
-             f'{val} ns', ha='center', va='bottom', fontsize=8)
-ax1.annotate('115x', xy=(0.3, 4), fontsize=13, fontweight='bold',
-            bbox=dict(boxstyle='round,pad=0.3', facecolor='yellow', alpha=0.7))
-ax1.annotate('6x', xy=(2.3, 25), fontsize=12, fontweight='bold',
-            bbox=dict(boxstyle='round,pad=0.3', facecolor='yellow', alpha=0.7))
-ax1.plot([0, 0, 3, 3], [90, 115, 115, 90], color='gray', linewidth=0.8)
-
-ax2.plot(n_vals, sha_line, 'o-', color='#d95f02', label='SHA-256 (all spaces)')
-ax2.plot(n_vals, tagma_ns, 's-', color='#1b9e77', label='Tagma')
-ax2.set_xlabel('Syllables (N)')
-ax2.set_ylabel('Latency (ns)')
-ax2.set_xticks(n_vals)
-ax2.legend(fontsize='small')
-ax2.grid(axis='y', alpha=0.3)
-ax2.annotate('6x at\n2^256', xy=(19, 35), xytext=(10, 60),
-            arrowprops=dict(arrowstyle='->'), fontsize=9)
-
-plt.tight_layout()
-plt.show()
-```
-
 ## Introduction
 
 Every content-addressable system in computing today generates identifiers through a hash function. Storage engines use SHA-256 of content as the record key. Distributed systems use hash-based identifiers for node membership. Databases maintain hash indexes for fast lookup. The approach is universal, and it carries a universal cost: approximately 10,000 gate equivalents and 64-75 cycles for each identifier generation in hardware; 200-300 nanoseconds per operation in software.
 
 This paper demonstrates that for the narrow task of identity generation -- creating a unique, deterministic identifier from structured data -- the hash function can be replaced by a closed-form coordinate composition that is 115x faster in software and approximately 30x cheaper in gates. The replacement is not cryptographic. Preimage resistance, authentication, encryption, and signature verification remain unchanged. Only identity generation is affected.
 
-The coordinate space that enables this replacement is the Unicode Hangul syllable block [@unicode-hangul-block]. Its closed-form composition formula provides a 16-bit deterministic mapping from three independent axes to a unique identifier, with zero collisions by construction. The same coordinate can be read as a 16-bit value by hardware, decomposed into its three axis values by software, or displayed as a single Hangul syllable for human inspection.
+The Tagma coordinate space, defined in the whitepaper [@tagma-wp], provides a 16-bit deterministic mapping from three independent axes to a unique identifier with zero collisions by construction.
 
 ## The Problem: SHA-256 as Default Identity Generator
 
@@ -132,124 +92,14 @@ Despite this, every content-addressable system pays the full cost of both roles 
 |---------------|-------|
 | Gate equivalents | ~10,000 |
 | Latency (hardware) | 64-75 cycles |
-| Latency (software, Apple M1) | 227 ns per op |
+| Latency (software, ARMv8.4-A Firestorm) | 227 ns per op |
 | Identifier size | 256 bits (32 bytes) |
 | Collision handling | probabilistic, requires resolution table |
 | Multi-axis query | requires separate index structures |
 
 ## The Alternative: Tagma Coordinate Composition
 
-The Tagma coordinate replaces SHA-256's deterministic mapping with a closed-form arithmetic formula derived from the Unicode Hangul syllable block [@unicode-hangul-block; @unicode-chapter3]:
-
-$$C(i,m,f) = \text{U+AC00} + 588i + 28m + f, \quad 0 \leq i < 19,\; 0 \leq m < 21,\; 0 \leq f < 28$$
-
-::: {.cell layout="[[50, 50]]"}
-
-```{python}
-#| label: fig-composition
-#| fig-cap: "Tagma coordinate composition formula."
-dot("""
-digraph TagmaComposition {
-    node [shape=box];
-    i [label="initial (choseong)\\n19 values, 5 bits"];
-    m [label="medial (jungseong)\\n21 values, 5 bits"];
-    f [label="final (jongseong)\\n28 values, 5 bits"];
-    mul1 [label="x 588", shape=box];
-    mul2 [label="x 28", shape=box];
-    add [label="+", shape=circle];
-    base [label="0xAC00", shape=box];
-    cp [label="code point\\nU+AC00..U+D7A3\\n16-bit", shape=box];
-    i -> mul1; m -> mul2;
-    mul1 -> add; mul2 -> add;
-    f -> add; add -> cp;
-    base -> cp;
-}
-""")
-```
-
-
-```{python}
-#| label: fig-man-frame
-#| fig-cap: 'Example for U+B9E8: three-axis syllable coordinate (6, 1, 4) packed into a 16-bit word.'
-#| fig-width: 10
-#| fig-height: 4
-
-dot("""
-digraph ManFrame {
-    splines=ortho;
-    node [shape=plaintext, fontname="Arial", fontcolor=black];
-    edge [color=black, minlen=1];
-
-    // Stage 1: syllable with three axes
-    syllable [fontcolor=black, label=<
-        <table border="0" cellborder="1" cellspacing="0" cellpadding="0" color="black">
-            <tr>
-                <td width="30%" height="96" align="center" valign="middle">
-                    <font point-size="12" color="black">ㅁ<br/>Initial (choseong, 초성)<br/>x: 6</font></td>
-                <td width="40%" height="96" align="center" valign="middle" border="2">
-                    <font point-size="60" color="black">맨</font></td>
-                <td width="30%" height="96" align="center" valign="middle">
-                    <font point-size="12" color="black">ㅐ<br/>Medial (jungseong, 중성)<br/>y: 1</font></td>
-            </tr>
-            <tr><td colspan="3" align="center" height="28">
-                <font point-size="12" color="black">ㄴ<br/>Final (jongseong, 종성) z: 4</font></td></tr>
-        </table>
-    >];
-
-    // Stage 2: 16-bit word layout (conceptual)
-    layout [fontcolor=black, label=<
-        <table border="0" cellborder="1" cellspacing="0" cellpadding="2" color="black" width="100%">
-            <tr><td colspan="16" align="center" height="18"><font point-size="12">16-bit word</font></td></tr>
-            <tr><td colspan="5" align="center"><font point-size="12">Initial</font></td>
-                <td colspan="5" align="center"><font point-size="12">Medial</font></td>
-                <td colspan="5" align="center"><font point-size="12">Final</font></td>
-                <td align="center"><font point-size="12">Reserved</font></td></tr>
-            <tr><td colspan="5" align="center"><font point-size="12">range: 19</font></td>
-                <td colspan="5" align="center"><font point-size="12">range: 21</font></td>
-                <td colspan="5" align="center"><font point-size="12">range: 28</font></td>
-                <td align="center"><font point-size="12">1</font></td></tr>
-            <tr><td colspan="16" align="center" height="16">
-                <font point-size="12">5 + 5 + 5 + 1 = 16 bits</font></td></tr>
-        </table>
-    >];
-
-    // Stage 3: actual encoding of 맨
-    encoding [fontcolor=black, label=<
-        <table border="0" cellborder="1" cellspacing="0" cellpadding="2" color="black">
-            <tr><td colspan="16" align="center" height="18"><font point-size="12">Actual encoding of 맨</font></td></tr>
-            <tr>
-                <td align="center" width="8.25%"><font point-size="11">0</font></td>
-                <td align="center" width="8.25%"><font point-size="11">0</font></td>
-                <td align="center" width="8.25%"><font point-size="11">1</font></td>
-                <td align="center" width="8.25%"><font point-size="11">1</font></td>
-                <td align="center" width="8.25%"><font point-size="11">0</font></td>
-                <td align="center" width="8.25%"><font point-size="11">0</font></td>
-                <td align="center" width="8.25%"><font point-size="11">0</font></td>
-                <td align="center" width="8.25%"><font point-size="11">0</font></td>
-                <td align="center" width="8.25%"><font point-size="11">0</font></td>
-                <td align="center" width="8.25%"><font point-size="11">1</font></td>
-                <td align="center" width="8.25%"><font point-size="11">0</font></td>
-                <td align="center" width="8.25%"><font point-size="11">0</font></td>
-                <td align="center" width="8.25%"><font point-size="11">1</font></td>
-                <td align="center" width="8.25%"><font point-size="11">0</font></td>
-                <td align="center" width="8.25%"><font point-size="11">0</font></td>
-                <td align="center" width="8.25%"><font point-size="11">0</font></td></tr>
-            <tr><td colspan="16" align="center" height="18"><font point-size="12">00110 00001 00100 0</font></td></tr>
-            <tr><td colspan="16" align="center"><font point-size="9">U+B9E8 − U+AC00 = 3560<br/>3560 ÷ 588 = 6<br/>32 · 32 ÷ 28 = 1<br/>4<br/></font></td></tr>
-            <tr><td colspan="16" align="center" height="18"><font point-size="12">(x: 6, y: 1, z: 4)</font></td></tr>
-        </table>
-    >];
-
-    syllable -> layout;
-    layout -> encoding;
-}
-""")
-```
-
-
-:::
-
-The three axes -- initial (choseong), medial (jungseong), final (jongseong) -- correspond to the structural decomposition of a Hangul syllable. The formula is a bijection between the 19 x 21 x 28 = 11,172 valid coordinate tuples and the Unicode code points U+AC00 through U+D7A3:
+The Tagma coordinate space provides a closed-form deterministic mapping with three independent structural axes per syllable. The full specification, composition formula, and compliance criteria are defined in the Tagma whitepaper [@tagma-wp]. The relevant property for identity generation is that each coordinate is simultaneously a unique identifier and a decomposable address, eliminating the need for separate index structures.
 
 ## N-Syllable Expansion
 
@@ -267,6 +117,8 @@ $$S(N) = 11,172^N \approx 10^{4.05N}$$
 The coordinate space grows exponentially with syllable count. At 10 syllables it exceeds the UUID (128-bit) space, and at 19 syllables it reaches the SHA-256 (256-bit) equivalent space.
 
 Each CoordPath defines $3N$ independent axes whose semantics are entirely application-defined. The same N-syllable sequence may encode geographic coordinates in one system and token sequence positions in another. The coordinate algebra -- composition, decomposition, linearisation, axis projection -- is invariant; the axis meaning is not. Tagma is an abstract coordinate algebra, not a fixed geometry.
+
+{{< include ../_include/bench/fig-bench-address-space.qmd >}}
 
 ## Index Elimination
 
@@ -287,6 +139,8 @@ A software proof of concept implements the Tagma coordinate in Rust, with 10 int
 | Addressable space | $2^{256}$ | $1.12 \times 10^4$ | $1.94 \times 10^{24}$ | $2^{256}$ |
 | Collision | probabilistic ($2^{-128}$) | deterministic zero | deterministic zero | deterministic zero |
 | Multi-axis query | $O(K \times N)$ | $O(1)$ direct | $O(1)$ direct | $O(1)$ direct |
+
+{{< include ../_include/bench/fig-bench-identity.qmd >}}
 
 ## Conclusion
 

@@ -61,11 +61,11 @@ For larger identifier spaces, syllables compose linearly. Each syllable adds a f
 
 ## Benchmark
 
-Based on a software reference implementation, measured lookup latency: 0.38-0.40 ns for dense CoordSpace variants vs 227 ns for SHA-256 (567-597x) at single-syllable; 54.9 ns vs 227 ns (4.1x) at SHA-256 scale (19 syllables via CoordSpaceN fallback). Structural prefix queries show the decisive advantage: Tagma answers nonexistent prefix in 1.65 ns while a general-purpose hash table scans 10M entries in 23.05 ms (14.0Mx). See benchmarks section in [Tagma](/projects/syntagma/tagma/wp.html#sec-appendix-benches) Whitepaper: All measured on Apple M1 with [cargo bench code](https://github.com/ssccsorg/syntagma/blob/main/sw/rust/benches/bench.rs).
+Based on a software reference implementation, measured lookup latency: 0.38-0.40 ns for dense CoordSpace variants vs 227 ns for SHA-256 (567-597x) at single-syllable; 54.9 ns vs 227 ns (4.1x) at SHA-256 scale (19 syllables via CoordSpaceN fallback). Structural prefix queries show the decisive advantage: Tagma answers nonexistent prefix in 1.65 ns while a general-purpose hash table scans 10M entries in 23.05 ms (14.0Mx). See benchmarks section in [Tagma](/projects/syntagma/tagma/wp.html#sec-appendix-benches) Whitepaper: All measured on ARMv8.4-A Firestorm with [cargo bench code](https://github.com/ssccsorg/syntagma/blob/main/sw/rust/benches/bench.rs).
 
 | Metric | SHA-256 | CoordSpace (N=1) | CoordSpace2 (N=2) | CoordSpaceM3 (N=3) | CoordSpaceN (any N) |
 |--------|---------|------------------|-------------------|--------------------|--------------------|
-| Latency per lookup (Apple M1) | 227 ns | 0.39 ns | 0.39 ns | 0.40 ns | 0.94-40.8 ns |
+| Latency per lookup (ARMv8.4-A Firestorm) | 227 ns | 0.39 ns | 0.39 ns | 0.40 ns | 0.94-40.8 ns |
 | Allocation | — | Inline 22 KB | Heap 119 MB | Mmap 1.27 TB | Sparse tree |
 | Identity size | 32 bytes | 2 bytes | 4 bytes | 6 bytes | $2N$ bytes |
 | Addressable space | $2^{256}$ | $1.12 \times 10^4$ | $1.25 \times 10^8$ | $1.39 \times 10^{12}$ | variable |

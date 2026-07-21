@@ -847,7 +847,7 @@ Tagma assigns every point in a geometric space a structural address that is simu
 
 | Metric | SHA-256 | CoordSpace (N=1) | CoordSpace2 (N=2) | CoordSpaceM3 (N=3) | CoordSpaceN6 (tree) | CoordSpaceN19 (tree) |
 |--------|---------|-----------------|-------------------|--------------------|--------------------|---------------------|
-| Latency (Apple M1) | 227 ns | 0.39 ns | 0.39 ns | 0.40 ns | 5.60 ns | 53.2 ns |
+| Latency (ARMv8.4-A Firestorm) | 227 ns | 0.39 ns | 0.39 ns | 0.40 ns | 5.60 ns | 53.2 ns |
 | Backing | hash | inline array | heap alloc_zeroed | mmap MAP_NORESERVE | sparse tree | sparse tree |
 | Allocation | per-entry heap | 22 KB | 119 MB | 1.27 TB (virtual) | per-node | per-node |
 | Identity size | 32 bytes | 2 bytes | 4 bytes | 6 bytes | 12 bytes | 38 bytes |
@@ -855,7 +855,7 @@ Tagma assigns every point in a geometric space a structural address that is simu
 | Collision | probabilistic ($2^{-128}$) | zero | zero | zero | zero | zero |
 | Native | — | Yes (dense) | Yes (dense) | Yes (dense) | No (fallback) | No (fallback) |
 
-All figures are software measurements on Apple M1 (2020), compiled with `rustc` stable in release mode. Full benchmark source is included in the repository [@bench-source].
+All figures are software measurements on ARMv8.4-A Firestorm (2020), compiled with `rustc` stable in release mode. Full benchmark source is included in the repository [@bench-source].
 
 ## Hardware Design Implications {#sec-appendix-hardware}
 
