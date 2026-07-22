@@ -1,0 +1,74 @@
+```{python}
+#| label: fig-bench-kv-onetime-cost
+#| fig-cap: "Cumulative cost model: CoordKV2 with by_coordkey API pays the conversion cost once and then accesses at slot-load cost. HashMap pays SipHash on every operation."
+import matplotlib.pyplot as plt
+import numpy as np
+
+# Operations
+ops = np.array([1, 10, 100, 1000, 10000, 100000])
+
+# Cumulative latency formulas (ns):
+#   CoordKV2 (str API):     22 * x          — each get pays conversion + slot
+#   CoordKV2 (by_coordkey): 22 + 1 * (x-1)  — first pays conversion, rest slot load only
+#   HashMap:                23.8 * x        — every get pays SipHash + probe
+kv2_str        = 22.0 * ops
+kv2_by_coord   = 22.0 + 1.0 * (ops - 1)
+hm             = 23.8 * ops
+
+fig, ax = plt.subplots(figsize=(5.5, 4.0))
+
+ax.plot(ops, kv2_str, '--o', color='black', markerfacecolor='white',
+        markeredgecolor='black', markersize=8, linewidth=1.5,
+        label='CoordKV2 (str API) — conversion every op')
+
+ax.plot(ops, kv2_by_coord, '-o', color='black', markerfacecolor='white',
+        markeredgecolor='black', markersize=8, linewidth=2.0,
+        label='CoordKV2 (by_coordkey) — one-time conversion')
+
+ax.plot(ops, hm, '-s', color='black', markerfacecolor='black',
+        markeredgecolor='black', markersize=8, linewidth=1.8,
+        label='HashMap — SipHash every op')
+
+ax.set_xscale('log')
+ax.set_yscale('log')
+ax.set_xlabel('Number of operations', fontsize=10)
+ax.set_ylabel('Cumulative latency (ns)', fontsize=10)
+ax.set_xlim(0.8, 1.2e5)
+ax.set_ylim(1e1, 1e7)
+ax.legend(fontsize=8, loc='upper left')
+ax.grid(True, which='both', linestyle=':', alpha=0.35)
+ax.set_axisbelow(True)
+
+# Value labels at selected points
+label_ops = [1, 10, 1000]
+for x_op in label_ops:
+    idx = np.where(ops == x_op)[0][0]
+    # str API label
+    ax.text(x_op * 1.5, kv2_str[idx], f'{kv2_str[idx]:.0f}', fontsize=7.5,
+            color='black', ha='left', va='center')
+    # by_coordkey label
+    ax.text(x_op * 1.5, kv2_by_coord[idx], f'{kv2_by_coord[idx]:.0f}', fontsize=7.5,
+            color='black', ha='left', va='center')
+    # HashMap label
+    ax.text(x_op * 1.5, hm[idx], f'{hm[idx]:.0f}', fontsize=7.5,
+            color='black', ha='left', va='center')
+
+# Annotation: crossover point
+ax.annotate('by_coordkey crosses\nHashMap after ~1 op',
+            xy=(2, 23), xytext=(4, 40), fontsize=8,
+            arrowprops=dict(arrowstyle='->', color='black', lw=0.8),
+            bbox=dict(boxstyle='round,pad=0.2', facecolor='white',
+                      edgecolor='black', alpha=0.85),
+            ha='center')
+
+# Annotation: growing gap
+ax.annotate('Gap grows unboundedly\nby_coordkey: O(1·ops)\nHashMap: O(23.8·ops)',
+            xy=(1000, 1000), xytext=(200, 3000), fontsize=8,
+            arrowprops=dict(arrowstyle='->', color='black', lw=0.8),
+            bbox=dict(boxstyle='round,pad=0.2', facecolor='white',
+                      edgecolor='black', alpha=0.85),
+            ha='center')
+
+plt.tight_layout()
+plt.show()
+```

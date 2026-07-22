@@ -1,0 +1,87 @@
+```{python}
+#| label: fig-bench-kv-cost-breakdown
+#| fig-cap: "Latency breakdown: CoordKV2 get vs HashMap get. CoordKV2 pays str-to-CoordKey conversion once at the API boundary; the slot load itself is 0.39 ns. HashMap pays SipHash on every access with no structural benefit."
+import matplotlib.pyplot as plt
+import numpy as np
+
+categories = ('CoordKV2 get', 'HashMap get')
+x = np.arange(len(categories))
+bar_width = 0.6
+
+# ---- Segment data (ns) ----
+# CoordKV2: 5.0 + 16.67 + 0.39 = 22.06
+kv2_bottom = [
+    ('str → CoordKey\nconversion',        5.00),
+    ('Vec<u8> clone\n(Box → Vec)',       16.67),
+    ('CoordSpace2\nslot load',            0.39),
+]
+
+# HashMap: 15.0 + 5.0 + 3.79 = 23.79
+hm_bottom = [
+    ('SipHash\ncomputation',             15.00),
+    ('Bucket probe',                      5.00),
+    ('Return ref\n+ collision',           3.79),
+]
+
+segments = [kv2_bottom, hm_bottom]
+
+colors = ['white', 'white', 'white']
+hatches = ['///', '\\\\', 'xxx']
+
+fig, ax = plt.subplots(figsize=(4.5, 4.0))
+
+for i, seg_list in enumerate(segments):
+    bottom = 0.0
+    for j, (label, val) in enumerate(seg_list):
+        ax.bar(
+            x[i], val, width=bar_width,
+            bottom=bottom,
+            color=colors[j],
+            edgecolor='black',
+            linewidth=0.6,
+            hatch=hatches[j],
+            label=label if i == 0 else None,
+            zorder=3,
+        )
+        # Segment label inside bar if tall enough, otherwise above
+        if val > 1.5:
+            y_pos = bottom + val / 2
+            fontsize = 8
+        else:
+            y_pos = bottom + val + 0.3
+            fontsize = 7.5
+        ax.text(x[i], y_pos, f'{val:.2f} ns', ha='center', va='center',
+                fontsize=fontsize, fontweight='normal')
+
+        bottom += val
+
+# Total labels above bars
+totals = [22.06, 23.79]
+for i, t in enumerate(totals):
+    ax.text(x[i], t + 0.6, f'total {t:.2f} ns', ha='center', va='bottom',
+            fontsize=9, fontweight='bold')
+
+ax.set_xticks(x)
+ax.set_xticklabels(categories, fontsize=10)
+ax.set_ylabel('Latency (ns)', fontsize=10)
+ax.set_ylim(0, 30)
+ax.grid(axis='y', linestyle=':', alpha=0.4, zorder=0)
+ax.set_axisbelow(True)
+
+# Legend
+handles, labels = ax.get_legend_handles_labels()
+# Add a dummy patch for each hatch pattern
+from matplotlib.patches import Patch
+legend_entries = []
+for j in range(3):
+    # Reconstruct the label from the first group
+    lbl = segments[0][j][0].replace('\n', ' ')
+    legend_entries.append(
+        Patch(facecolor=colors[j], edgecolor='black', hatch=hatches[j], label=lbl)
+    )
+ax.legend(handles=legend_entries, fontsize=7.5, loc='upper right',
+          framealpha=0.85, edgecolor='gray')
+
+plt.tight_layout()
+plt.show()
+```
