@@ -322,6 +322,20 @@ The transition from hash-based indirection to coordinate-based addressing produc
 
 **The coordinate space is a physical structure, not a software abstraction.** The decoder that maps a 16-bit coordinate to its three axis fields is a combinational circuit operating on a fixed encoding formula. A software library implementing the same formula on a general-purpose CPU is a faithful simulation of that circuit, not a design intent of its own. The space exists at the gate level before any software runs. This reverses the conventional relationship between software and hardware: software does not define the addressing scheme and then implement it in gates; the addressing scheme is already a gate-level structure, and software either uses it (on a Tagma-equipped processor) or simulates it (on a general-purpose CPU).
 
+For example, the software reference implementation reveals this inversion clearly. The `Coord::to_axes()` method decomposes a Coord into its three axis fields using arithmetic:
+
+```rust
+pub fn to_axes(self) -> (u8, u8, u8) {
+    let v = self.0 as usize;
+    let initial = (v / 588) as u8;
+    let medial = (v % 588 / 28) as u8;
+    let final_ = (v % 28) as u8;
+    (initial, medial, final_)
+}
+```
+
+The code computes division and modulo because it is simulating a gate-level structure on a sequential processor. In hardware, the same fields are present as three contiguous 5-bit groups in the 16-bit word. The hardware does not compute; it reads. The division and modulo in the software are artifacts of simulating a parallel bit extraction on a sequential ALU. A Tagma-equipped processor executes `to_axes()` in zero cycles — the axes are already present on the output wires of the decoder. The software complexity inversely indicates the hardware simplicity: the more arithmetic the reference implementation requires, the more directly the hardware structure implements it. This is the opposite of hash functions, where software and hardware complexity are proportional: SHA-256 is expensive in both domains.
+
 **The coordinate space is a search engine, not a store.** Tagma replaces the key-value model with a searchable coordinate space. A hash table answers only "value at this exact key"; it cannot answer "entries satisfying a condition" without scanning. Tagma inverts this: the coordinate space is itself the execution plan, with projections, proximity searches, and set operations all reducing to coordinate arithmetic. The departure is fundamental: hash tables answer "get(key)", coordinate spaces answer "navigate(condition)" -- and the latter is what most queries need.
 
 | Property | Key-value store (HashMap) | Coordinate space (Tagma) |
