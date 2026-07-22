@@ -52,9 +52,9 @@ The SSCCS documentation suite consists of several formal documents:
 - **[Whitepaper](https://ssccs.org/wp)**: The core technical
   specification, available as PDF and HTML.
 - **[Project Direction](/docs/direction/index.md)**: Strategic orientation and regional engagement for the SSCCS initiative.
-- **[Manifesto](/docs/ssccs/manifesto.qmd)**: The high‑level philosophical and
+- **[Manifesto](/docs/axioms/manifesto.qmd)**: The high‑level philosophical and
   technical introduction.
-- **[Guide](/docs/ssccs/guide.md)**: A comprehensive guide to SSCCS core
+- **[Guide](/docs/axioms/guide.md)**: A comprehensive guide to SSCCS core
   concepts.
 - **[Legal documents](/docs/legal/index.qmd)**: The foundation’s charter
   and statutes.
