@@ -11,8 +11,8 @@ metrics = [
 ]
 
 # ── Store lookup cost ──
-cs2_vals = [0.05, 0.39, 0.0003]    # dense: 0.39 ns * 9 ≈ 3.5 ns → negligible
-csvm3_vals = [0.05, 0.39, 0.0003]  # same
+cs2_vals = [0.05, 0.39, 0.0185]    # dense: 0.39 ns * 9 ≈ 3.5 ns → negligible
+csvm3_vals = [0.05, 0.39, 0.0185]  # same
 csn2_vals = [0.22, 2.30, 0.285]    # tree: 9 lookups at 21.8 ns = 196 ns + 89 ns
 hm_vals = [3.53, 20.1, 3.53]       # HashMap: same as get 100 (full scan)
 
@@ -48,7 +48,7 @@ for bars, vals in [(bars_dense, cs2_vals), (bars_native, csvm3_vals), (bars_tree
                 fmt, ha='center', va='bottom', fontsize=5.5, rotation=45)
 
 # Annotate CoordCube key insight on the tree proximity bar
-ax.annotate('CoordCube on tree:\n+0.06 µs over baseline\n(= spatial query at 96 Melem/s)',
+ax.annotate('CoordCube proximity: tree (0.28 µs) vs dense (0.02 µs)\n= spatial query at 96 Melem/s\ntree overhead: +0.26 µs (from 9 lookups)',
             xy=(2, 0.285), xytext=(2.8, 0.6),
             fontsize=6.5, ha='left', color='#1b9e77', fontweight='bold',
             arrowprops=dict(arrowstyle='->', color='#1b9e77', linewidth=0.8))

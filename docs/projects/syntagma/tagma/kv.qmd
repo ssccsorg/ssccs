@@ -447,6 +447,8 @@ kv.insert_by_coordkey(&key, b"value".to_vec());
 
 The trait-based CoordKV API provides the foundation for multi-dimensional queries. The same CoordPath that addresses a key is structurally decomposable into three independent axes (Axis 0, Axis 1, Axis 2), each accessible through the Coord type's `to_axes()` method. This enables spatial operations that no hash-based KV can provide:
 
+CoordCube extends this by generating **sets of CoordPaths** from a spatial region specification (proximity radius or bounding box).  CoordCube does **not** store data — it generates paths for the existing tree to look up.  The `CoordCubeKV` trait pairs path generation (via `tagma-geo`) with tree lookup (via `CoordKV`) in a single call:
+
 ```rust
 // Decompose stored keys by axis
 for (key, value) in kv.iter() {

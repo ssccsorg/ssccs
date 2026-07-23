@@ -94,7 +94,7 @@ Address space grows with N; the tree fallback lookup cost scales as O(N), while 
 :::
 
 Spatial query: CoordSet bitwise AND resolves compound axis filters at 329 Melem/s — 137x faster than HashMap scan. Edge: CS2 sparse get sustains 23.4x at 10M entries; CoordSpaceN19 get shows 19-dereference cost (0.50x); drain is 0.72x on the full space.
- The CoordCube (§[sec-coordcube]) adds a second query channel: spatial region generation over the same CoordPath bytes. Proximity search enumerates L∞ neighborhoods at 96-353 Melem/s; bounding boxes achieve 289-699 Melem/s. Distance metrics (hamming, euclidean approx, manhattan) cost ~320 ps per call — below a single array lookup (390 ps) — because all computation is register-only. KV proximity queries decompose into path generation (5% of total time) and CoordSpace tree traversal (95%), with end-to-end throughput of 31-584 Melem/s depending on store density.
+ The CoordCube (§[sec-coordcube]) adds a second query channel: spatial region generation over the same CoordPath bytes, with zero additional memory overhead — all operations are register-only arithmetic.  Proximity search on the CoordSpaceN tree achieves 96-353 Melem/s (near-native dense throughput); bounding boxes reach 699 Melem/s.  Distance metrics cost ~320 ps — below a single CoordSpace lookup (390 ps).  KV proximity queries decompose into path generation (5% of total time) and CoordSpace tree traversal (95%), with end-to-end throughput of 31-584 Melem/s depending on store density.  CoordCube does not modify the tree — it generates paths for the existing tree to look up.
 :::{ layout-ncol=2 }
 
 {{< include _include/bench/fig-bench-bulk.qmd >}}
