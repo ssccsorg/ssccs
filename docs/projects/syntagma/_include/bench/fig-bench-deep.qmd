@@ -21,11 +21,11 @@ x = np.arange(len(metrics))
 w = 0.18
 
 bars_dense = ax.bar(x - 1.5*w, cs2_vals, w,
-                    label='CoordSpace2 (dense)', color='white', edgecolor='black', linewidth=0.8, hatch='///')
+                    label='Dense + CoordPath (native)', color='white', edgecolor='black', linewidth=0.8, hatch='///')
 bars_native = ax.bar(x - 0.5*w, csvm3_vals, w,
-                     label='CoordSpaceM3 (dense)', color='white', edgecolor='black', linewidth=0.8, hatch='xxx')
+                     label='Dense + CoordPath (mmap)', color='white', edgecolor='black', linewidth=0.8, hatch='xxx')
 bars_tree = ax.bar(x + 0.5*w, [csn2_vals[0], csn2_vals[1], csn2_vals[2]], w,
-                   label='CoordSpaceN2 (tree)', color='white', edgecolor='black', linewidth=0.8, hatch='...')
+                   label='Tree + CoordPath (fallback)', color='white', edgecolor='black', linewidth=0.8, hatch='...')
 bars_hm = ax.bar(x + 1.5*w, hm_vals, w,
                  label='HashMap', color='white', edgecolor='black', linewidth=0.8)
 

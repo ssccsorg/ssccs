@@ -25,8 +25,8 @@ tagma_tree_vals = [latency[i] for i in tagma_tree_idxs]
 tagma_native_idxs = [2, 4, 6]
 tagma_native_vals = [0.39, 0.39, 0.39]
 ax2.plot(sha_vals, sha_idxs, 'o-', color='black', linewidth=1.2, markerfacecolor='white', markeredgecolor='black', markersize=6, zorder=10, label='Hash-based lookup')
-ax2.plot(tagma_tree_vals, tagma_tree_idxs, 's:', color='black', linewidth=1.2, markerfacecolor='white', markeredgecolor='black', markersize=5, zorder=10, label='CoordSpaceN (tree fallback)')
-ax2.plot(tagma_native_vals, tagma_native_idxs, 'D--', color='black', linewidth=1.5, markerfacecolor='white', markeredgecolor='black', markersize=5, zorder=11, label='Native CoordSpace (dense, 0.39 ns)')
+ax2.plot(tagma_tree_vals, tagma_tree_idxs, 's:', color='black', linewidth=1.2, markerfacecolor='white', markeredgecolor='black', markersize=5, zorder=10, label='Tree + CoordPath (fallback)')
+ax2.plot(tagma_native_vals, tagma_native_idxs, 'D--', color='black', linewidth=1.5, markerfacecolor='white', markeredgecolor='black', markersize=5, zorder=11, label='Dense + CoordPath (native, 0.39 ns)')
 for i, l in zip(sha_idxs, sha_vals):
     ax2.text(l * 1.2, i + 0.25, f'{l:.0f} ns', fontsize=7, ha='left')
 for i, l in zip(tagma_tree_idxs, tagma_tree_vals):
@@ -38,7 +38,7 @@ ax2.set_xscale('log'); ax2.set_xlabel('Lookup latency (ns, log)')
 ax2.set_xlim(0.1, 2000)
 
 from matplotlib.patches import Patch
-ax1.legend(handles=[Patch(facecolor='white', edgecolor='black', hatch='///', label='Dense (true Tagma)'),
+ax1.legend(handles=[Patch(facecolor='white', edgecolor='black', hatch='///', label='Dense + CoordPath (native)'),
                     Patch(facecolor='white', edgecolor='black', label='Hash-based'),
                     Patch(facecolor='white', edgecolor='gray', label='Reference')], fontsize=7, loc=(0.4, 0.0))
 plt.tight_layout(); plt.show()
