@@ -29,18 +29,7 @@ for xi, y1, y2 in zip(x, kv2, hm):
     ax.text(xi - 0.1, y1 + 1.0, f'{y1} ns', fontsize=8, ha='center')
     ax.text(xi + 0.1, y2 + 1.0, f'{y2} ns', fontsize=8, ha='center')
 
-# Insight annotation
-ax.annotate('HashMap starts 1.7x faster\n(bool vs full value), cache\nerases advantage by 1M',
-            xy=(1, 16.5), xytext=(2.5, 12), fontsize=7.5,
-            arrowprops=dict(arrowstyle='->', color='black', lw=0.8),
-            bbox=dict(boxstyle='round,pad=0.2', facecolor='white', edgecolor='black', alpha=0.8),
-            ha='center')
 
-ax.annotate('CoordKV2: flat 21.6 ns\nacross all scales',
-            xy=(2, 21.6), xytext=(0.5, 26), fontsize=7.5,
-            arrowprops=dict(arrowstyle='->', color='black', lw=0.8),
-            bbox=dict(boxstyle='round,pad=0.2', facecolor='white', edgecolor='black', alpha=0.8),
-            ha='center')
 
 plt.tight_layout(); plt.show()
 ```

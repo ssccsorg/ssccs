@@ -580,15 +580,15 @@ CoordCube does **not** replace or modify the storage tree. It is a **path genera
 
 A 6-syllable path (N=6) can be interpreted as CoordPath<6> (6 independent axes, 11,172 precision each) or CoordCube<3, 2> (3 spatial dimensions, 11,172^2 ≈ 1.25 × 10^8 precision each). The same bits serve both views; the user chooses based on workload.
 
-**Granularity tradeoff.**  CoordPath adds one independent axis per syllable —
+**Granularity tradeoff.** CoordPath adds one independent axis per syllable —
 fine-grained control over the address space at a cost of O(N) tree traversal
-per access.  CoordCube groups R syllables into a single dimension, reducing
+per access. CoordCube groups R syllables into a single dimension, reducing
 the number of independent axes from N to D but gaining spatial semantics:
 proximity, bounding box, and distance metrics become arithmetic operations.
 The coarse step (R syllables per dimension) is compensated by adjacency-driven
 throughput — generating all 5^2 = 25 paths in a 2D neighborhood at radius 2
 costs 137 ns (182 Melem/s), faster than 25 sequential CoordPath lookups on
-the same tree (25 × 21.8 ns = 545 ns).  The user chooses: fine-grained linear
+the same tree (25 × 21.8 ns = 545 ns). The user chooses: fine-grained linear
 control (CoordPath) or coarse-grained spatial power (CoordCube).
 
 ### Cost comparison: CoordPath lookup vs CoordCube region generation
