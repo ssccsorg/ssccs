@@ -461,4 +461,21 @@ for (key, value) in kv.iter() {
 // Each stored Coord's three axes are independently queryable
 ```
 
-The full axis query API (axis slicing, range queries, compound masks) is a planned extension built on the same CoordKV trait foundation.
+The full axis query API (axis slicing, range queries, compound masks) is implemented as the `SpatialKV` trait on top of the same CoordKV trait foundation. Given a center `CoordPath<N>` interpreted as a `CoordCube<N, D, R>` (N = D × R), the `proximity` method generates all paths within L∞ radius and returns stored entries:
+
+```rust
+use tagma_kv::spatial::SpatialKV;
+
+let center = CoordPath::<2>::new([c0, c1]);
+// Interpret as D=2, R=1: a 2D cube with one syllable per dimension
+let results: Vec<(CoordPath<2>, Vec<u8>)> = kv.proximity::<2, 1>(&center, 1);
+```
+
+The `bounding_box_range` method accepts per-syllable min/max ranges:
+
+```rust
+let ranges = [(0u16, 100u16), (0u16, 100u16)];
+let results = kv.bounding_box_range(&ranges);
+```
+
+Both methods combine CoordCube path generation (55-700 Melem/s) with CoordSpace tree lookup. Path generation accounts for approximately 5% of total query time; the remainder is tree traversal and result collection.
