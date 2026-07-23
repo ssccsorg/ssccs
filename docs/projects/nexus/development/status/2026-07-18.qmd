@@ -101,12 +101,11 @@ addition to the index layer.
 
 ### Recursive coordinate composition
 
-A Tagma `Coord` is a 16-bit value encoding a 3-axis Hangul syllable point
-(initial 0-18, medial 0-21, final 0-28, 11,172 valid combinations). Multiple
+A Tagma `Coord` is a 16-bit value defined by a 3-axis composition formula with ranges Axis 0 (19), Axis 1 (21), and Axis 2 (28), yielding 11,172 valid combinations.[^tagma-coord-struct] Multiple
 Coords compose into a `CoordPath` for N-dimensional addressing.
 
-Each dimension (origin, creator, type) occupies one syllable position in the
-path, NOT one axis within a syllable. This avoids the flat mapping fallacy
+Each dimension (origin, creator, type) occupies one Coord position in the
+path, NOT one axis within a Coord. This avoids the flat mapping fallacy
 of assigning `initial=origin(19)` which would limit origin to 19 values:
 
 ```text
@@ -118,7 +117,7 @@ Each coord.index() = 0..11172 (NOT 0..18)
 Each dimension = 11,172 values, NOT 19
 ```
 
-For production-scale workloads, a 2-syllable CoordSpaceN with batch
+For production-scale workloads, a 2-Coord CoordSpaceN with batch
 allocation provides 124,813,584 addressable slots while keeping memory
 under control. Each populated batch allocates one fixed 11,172-slot
 `[Option<FihHash>; 11172]` array (approximately 357 KB).
@@ -209,3 +208,5 @@ direct addressing versus enumeration-based approaches.
   proofs, and verifiable provenance chains.
 - Removing FihHash entirely. Both identity systems coexist.
 - Modifying the storage IO layer. Tagma is an index-only addition.
+
+[^tagma-coord-struct]: The ranges 19, 21, and 28 derive from the Unicode block U+AC00–U+D7AF, which encodes the Hangul writing system.
