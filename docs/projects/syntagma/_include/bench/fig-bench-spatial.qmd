@@ -1,6 +1,6 @@
 ```{python}
 #| label: fig-bench-spatial
-#| fig-cap: "Tree vs Cube throughput matrix: CoordPath-on-tree axis filters (58-329 Melem/s via CoordSet) vs CoordCube-on-tree region generation (96-699 Melem/s). The cube compensates its coarser granularity (R syllables per dimension vs 1) with adjacency-driven throughput — generating 121 paths at radius 5 costs 343 ns (353 Melem/s), while 121 sequential CoordPath lookups on the same tree cost 2.6 µs."
+#| fig-cap: "Tree vs Cube throughput matrix: CoordPath-on-tree axis filters (58-329 Melem/s via CoordSet) vs CoordCube-on-tree region generation (96-699 Melem/s). The cube compensates coarser granularity (R syllables per dimension) with adjacency-driven throughput — generating 121 paths at radius 5 costs 343 ns (353 Melem/s), while 121 sequential CoordPath lookups on the same tree cost 2.6 µs. CoordCube on tree achieves near-native throughput: path generation + tree lookup at 96 Melem/s."
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -30,9 +30,9 @@ ax.bar(x[1] + w/2, hm_tp[1], w, color='white', edgecolor='black', linewidth=0.8)
 ax.bar(x[2] + w/2, hm_tp[2], w, color='white', edgecolor='black', linewidth=0.8)
 
 off = 3
-ax.bar(x[off], cube_tp[0], w * 1.5, label='CoordCube on tree\n(path generation)', color='white', edgecolor='#1b9e77', linewidth=0.8, hatch='xxx')
-ax.bar(x[off+1], cube_tp[1], w * 1.5, color='white', edgecolor='#1b9e77', linewidth=0.8, hatch='xxx')
-ax.bar(x[off+2], cube_tp[2], w * 1.5, color='white', edgecolor='#1b9e77', linewidth=0.8, hatch='xxx')
+ax.bar(x[off], cube_tp[0], w * 1.5, label='CoordCube on tree', color='white', edgecolor='black', linewidth=0.8, hatch='...')
+ax.bar(x[off+1], cube_tp[1], w * 1.5, color='white', edgecolor='black', linewidth=0.8, hatch='...')
+ax.bar(x[off+2], cube_tp[2], w * 1.5, color='white', edgecolor='black', linewidth=0.8, hatch='...')
 
 all_labels = queries + cube_ops
 ax.set_xticks(list(x))
@@ -46,8 +46,6 @@ for i, (cs, hm, ratio) in enumerate(zip(cs_tp, hm_tp, ratios)):
     ax.annotate(ratio, xy=(i, (cs * hm) ** 0.5), fontsize=8, fontweight='bold',
                 ha='center', va='center',
                 bbox=dict(boxstyle='round,pad=0.12', facecolor='white', edgecolor='black', alpha=0.85))
-
-ax.annotate('CoordCube on tree:\npath gen + tree lookup\n= near-native throughput', xy=(off+2, 350), fontsize=6.5, ha='center', fontweight='bold', color='#1b9e77')
 
 plt.tight_layout()
 plt.show()

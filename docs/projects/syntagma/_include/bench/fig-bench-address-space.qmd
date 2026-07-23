@@ -1,6 +1,6 @@
 ```{python}
 #| label: fig-bench-address-space
-#| fig-cap: "Addressable space (bars, log) and lookup latency (line, right axis)."
+#| fig-cap: "Addressable space and lookup latency. Dense native paths (CoordSpace/CoordSpace2/CoordSpaceM3) hold flat at 0.39 ns across all N. Tree fallback (CoordSpaceN) scales O(N): 58.6 ns at N=19 (SHA-256 scale, 3.9x faster than SHA-256's 227 ns). SHA-512 is reached at 171 ns (k=1 recursion). All values measured on ARMv8.4-A Firestorm."
 import matplotlib.pyplot as plt
 import numpy as np
 systems = ['UUID\n128-bit', 'SHA-256\n2^256', 'Tagma\nN=19', 'Observable\nuniverse\natoms', 'Tagma\nN=20', 'SHA-512\n2^512', 'Tagma\nk=1\n(19^3 syll)']
@@ -18,35 +18,28 @@ ax1.set_xlim(1e36, 1e240)
 for i, (b, sp) in enumerate(zip(bars, spaces)):
     ax1.text(sp * 1.5, b.get_y() + b.get_height()/2, f'10^{int(np.log10(sp)):.0f}', va='center', fontsize=7)
 ax2 = ax1.twiny()
-# Hash-based: SHA-256 (N=19) and SHA-512 (k=1)
 sha_idxs = [1, 5]
 sha_vals = [latency[i] for i in sha_idxs]
-# Tagma software fallback (CoordSpaceN tree): N=19, N=20, k=1
 tagma_tree_idxs = [2, 4, 6]
 tagma_tree_vals = [latency[i] for i in tagma_tree_idxs]
-# Tagma native dense (CoordSpace/CoordSpace2/CoordSpaceM3): flat 0.39 ns
 tagma_native_idxs = [2, 4, 6]
 tagma_native_vals = [0.39, 0.39, 0.39]
 ax2.plot(sha_vals, sha_idxs, 'o-', color='black', linewidth=1.2, markerfacecolor='white', markeredgecolor='black', markersize=6, zorder=10, label='Hash-based lookup')
 ax2.plot(tagma_tree_vals, tagma_tree_idxs, 's:', color='black', linewidth=1.2, markerfacecolor='white', markeredgecolor='black', markersize=5, zorder=10, label='CoordSpaceN (tree fallback)')
-ax2.plot(tagma_native_vals, tagma_native_idxs, 'D--', color='#1b9e77', linewidth=1.5, markerfacecolor='white', markeredgecolor='#1b9e77', markersize=5, zorder=11, label='Native CoordSpace (dense, 0.39 ns)')
+ax2.plot(tagma_native_vals, tagma_native_idxs, 'D--', color='black', linewidth=1.5, markerfacecolor='white', markeredgecolor='black', markersize=5, zorder=11, label='Native CoordSpace (dense, 0.39 ns)')
 for i, l in zip(sha_idxs, sha_vals):
-    off = 0.3
-    ax2.annotate(f'{l:.0f} ns', (l, i), xytext=(l * 1.15, i + off), fontsize=7, ha='left', arrowprops=dict(arrowstyle='->', color='gray', linewidth=0.5))
+    ax2.text(l * 1.2, i + 0.25, f'{l:.0f} ns', fontsize=7, ha='left')
 for i, l in zip(tagma_tree_idxs, tagma_tree_vals):
-    off = -0.3
-    ax2.annotate(f'{l:.0f} ns', (l, i), xytext=(l * 1.15, i + off), fontsize=7, ha='left', arrowprops=dict(arrowstyle='->', color='gray', linewidth=0.5))
+    ax2.text(l * 1.2, i - 0.35, f'{l:.0f} ns', fontsize=7, ha='left')
 for i, l in zip(tagma_native_idxs, tagma_native_vals):
-    off = 0.3
-    ax2.annotate(f'{l:.2f} ns', (l, i), xytext=(l * 2.5, i + off), fontsize=7, ha='left', color='#1b9e77', arrowprops=dict(arrowstyle='->', color='#1b9e77', linewidth=0.5))
+    ax2.text(l * 1.8, i + 0.25, f'{l:.2f} ns', fontsize=7, ha='left')
 ax2.legend(fontsize=7, loc='lower right')
-ax2.set_xscale('log'); ax2.set_xlabel('Lookup latency (ns, log)', color='black')
+ax2.set_xscale('log'); ax2.set_xlabel('Lookup latency (ns, log)')
 ax2.set_xlim(0.1, 2000)
 
 from matplotlib.patches import Patch
 ax1.legend(handles=[Patch(facecolor='white', edgecolor='black', hatch='///', label='Dense (true Tagma)'),
                     Patch(facecolor='white', edgecolor='black', label='Hash-based'),
-                    Patch(facecolor='white', edgecolor='gray', label='Reference'),
-                    Patch(facecolor='white', edgecolor='#1b9e77', label='Native CoordSpace')], fontsize=7, loc=(0.4, 0.0))
+                    Patch(facecolor='white', edgecolor='gray', label='Reference')], fontsize=7, loc=(0.4, 0.0))
 plt.tight_layout(); plt.show()
 ```
