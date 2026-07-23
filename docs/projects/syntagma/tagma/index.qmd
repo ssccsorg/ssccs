@@ -50,9 +50,9 @@ This combination of properties — a contiguous 16-bit block with a closed-form 
 
 Hash-based identity generation costs approximately 10,000 gates and 64-75 cycles per operation. The Tagma decoder replaces this with approximately 300 gates and one cycle — a 30x reduction in hardware cost and a 64-75x reduction in latency.
 
-For larger identifier spaces, syllables compose linearly. Each syllable adds a factor of 11,172 to the addressable space:
+For larger identifier spaces, Coords compose linearly. Each Coord adds a factor of 11,172 to the addressable space:
 
-| Syllables | Addressable identifiers | Equivalent to |
+| Coords | Addressable identifiers | Equivalent to |
 |-----------|------------------------|---------------|
 | 1 | 1.12 x 10^4 | Sensor tags |
 | 6 | 1.94 x 10^24 | Below UUID space |
@@ -61,7 +61,7 @@ For larger identifier spaces, syllables compose linearly. Each syllable adds a f
 
 ## Benchmark
 
-Based on a software reference implementation, measured lookup latency: 0.38-0.40 ns for dense CoordSpace variants vs 227 ns for SHA-256 (567-597x) at single-syllable; 54.9 ns vs 227 ns (4.1x) at SHA-256 scale (19 syllables via CoordSpaceN fallback). Structural prefix queries show the decisive advantage: Tagma answers nonexistent prefix in 1.65 ns while a general-purpose hash table scans 10M entries in 23.05 ms (14.0Mx). See benchmarks section in [Tagma](/projects/syntagma/tagma/wp.html#sec-appendix-benches) Whitepaper: All measured on ARMv8.4-A Firestorm with [cargo bench code](https://github.com/ssccsorg/syntagma/blob/main/sw/rust/benches/bench.rs).
+Based on a software reference implementation, measured lookup latency: 0.38-0.40 ns for dense CoordSpace variants vs 227 ns for SHA-256 (567-597x) at single-Coord; 54.9 ns vs 227 ns (4.1x) at SHA-256 scale (19 Coords via CoordSpaceN fallback). Structural prefix queries show the decisive advantage: Tagma answers nonexistent prefix in 1.65 ns while a general-purpose hash table scans 10M entries in 23.05 ms (14.0Mx). See benchmarks section in [Tagma](/projects/syntagma/tagma/wp.html#sec-appendix-benches) Whitepaper: All measured on ARMv8.4-A Firestorm with [cargo bench code](https://github.com/ssccsorg/syntagma/blob/main/sw/rust/benches/bench.rs).
 
 | Metric | SHA-256 | CoordSpace (N=1) | CoordSpace2 (N=2) | CoordSpaceM3 (N=3) | CoordSpaceN (any N) |
 |--------|---------|------------------|-------------------|--------------------|--------------------|
@@ -113,10 +113,10 @@ The CoordSpace family follows a three-tier design that scales from embedded to d
 | CoordSpaceM3 (N=3) | Mmap 1.27 TB | Single load | 0.40 ns | Complete |
 | CoordSpaceN\<N\> (any N) | Sparse tree | N dereferences | 0.94-40.8 ns | Fallback |
 
-- **CoordSpace (N=1)** — Dense inline array, 22 KB stack allocation for the full single-syllable space. No heap, no allocator. Single-load O(1) access, zero collisions, zero hashing.
-- **CoordSpace2 (N=2)** — Dense heap allocation, 119 MB covering the full two-syllable space. Same single-load O(1) guarantee as N=1.
-- **CoordSpaceM3 (N=3)** — Dense mmap allocation, 1.27 TB with MAP_NORESERVE for the full three-syllable space. Physical pages fault on demand. Same single-load O(1) latency.
-- **CoordSpaceN\<N, V\>** (any N) — Multi-syllable direct-address tree indexed by CoordPath. Fixed compile-time depth N (2, 6, 12, 19). N dereferences per lookup. Variable-depth DynCoordSpace for `&[Coord]` runtime paths. Used as fallback when the dense variants exceed system memory.
+- **CoordSpace (N=1)** — Dense inline array, 22 KB stack allocation for the full single-Coord space. No heap, no allocator. Single-load O(1) access, zero collisions, zero hashing.
+- **CoordSpace2 (N=2)** — Dense heap allocation, 119 MB covering the full two-Coord space. Same single-load O(1) guarantee as N=1.
+- **CoordSpaceM3 (N=3)** — Dense mmap allocation, 1.27 TB with MAP_NORESERVE for the full three-Coord space. Physical pages fault on demand. Same single-load O(1) latency.
+- **CoordSpaceN\<N, V\>** (any N) — Multi-Coord direct-address tree indexed by CoordPath. Fixed compile-time depth N (2, 6, 12, 19). N dereferences per lookup. Variable-depth DynCoordSpace for `&[Coord]` runtime paths. Used as fallback when the dense variants exceed system memory.
 
 ## Papers
 
@@ -131,7 +131,7 @@ The full technical specification and domain-specific analyses are available as s
 | Tagma-Hardware *(forthcoming)* | A 300-gate combinational decoder for processor pipeline attachment |
 | Tagma-Encoding *(forthcoming)* | Base11172: human-readable, self-validating serialization |
 
-[^1]: The constants 19, 21, and 28 derive from the syllable structure of Hangul, the writing system for which the Unicode block U+AC00–U+D7AF was originally allocated.
+[^1]: The constants 19, 21, and 28 derive from the writing system structure of Hangul, the writing system for which the Unicode block U+AC00–U+D7AF was originally allocated.
 
 ## Contact
 

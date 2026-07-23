@@ -34,9 +34,9 @@ synTagma is a spatial coordinate space computing system. Its core primitive, [Ta
 
 The system spans two layers:
 
-**Tagma (core primitive).** The atomic coordinate: a 16-bit value with closed-form composition, three independent axes, zero collision probability, and single-cycle combinational decoding. A variable-length syllable sequence extends the address space from $1.1 \times 10^4$ to $2^{256}$ while keeping lookup cost linear in syllable count.
+**Tagma (core primitive).** The atomic coordinate: a 16-bit value with closed-form composition, three independent axes, zero collision probability, and single-cycle combinational decoding. A variable-length Coord sequence extends the address space from $1.1 \times 10^4$ to $2^{256}$ while keeping lookup cost linear in Coord count.
 
-**synTagma coordination system** The recursive and distributed extension of the Tagma arithmetic across physical topologies. A synTagma coordinate at recursion level $k$ is a Cartesian product of three Tagma syllable sequences at level $k-1$:
+**synTagma coordination system** The recursive and distributed extension of the Tagma arithmetic across physical topologies. A synTagma coordinate at recursion level $k$ is a Cartesian product of three Tagma Coord sequences at level $k-1$:
 
 $$\mathbb{T}_k = \mathbb{T}_{k-1} \times \mathbb{T}_{k-1} \times \mathbb{T}_{k-1}$$
 
@@ -57,8 +57,8 @@ Of 65,536 representable 16-bit states, 11,172 satisfy this formula. The remainin
 The core library provides several data structures built on the Tagma coordinate:
 
 - A fixed-size bit array supporting bitwise set operations over the full coordinate space.
-- A direct-address table mapping each valid single-syllable coordinate to an associated value; lookup is a single index computation with no hashing.
-- A multi-level tree for storing values indexed by variable-length syllable sequences; allocation is demand-driven, and each level uses the same direct-address mechanism.
+- A direct-address table mapping each valid single-Coord coordinate to an associated value; lookup is a single index computation with no hashing.
+- A multi-level tree for storing values indexed by variable-length Coord sequences; allocation is demand-driven, and each level uses the same direct-address mechanism.
 - A variable-depth trie for sequences whose length is determined at runtime rather than compile time.
 
 All of these structures resolve collisions by construction: the coordinate space guarantees that distinct values produce distinct indices.
@@ -69,7 +69,7 @@ Full documentation: [Tagma primitive page](/projects/syntagma/tagma/).
 
 The coordination layer extends Tagma's arithmetic to physical topologies without modifying the core. Its components:
 
-**Recursive coordinate space.** The composition formula admits unbounded $k$ levels of recursion. A 19-syllable sequence at $k=0$ occupies the SHA-256 scale; at $k=1$ each of its three axes is itself a full 19-syllable sequence, producing $S_1 \approx 7.30 \times 10^{231}$ distinct addresses. Access follows the recursive linearisation formula:
+**Recursive coordinate space.** The composition formula admits unbounded $k$ levels of recursion. A 19-Coord sequence at $k=0$ occupies the SHA-256 scale; at $k=1$ each of its three axes is itself a full 19-Coord sequence, producing $S_1 \approx 7.30 \times 10^{231}$ distinct addresses. Access follows the recursive linearisation formula:
 
 $$\text{index}(a,b,c) = a \cdot S_{k-1}^2 + b \cdot S_{k-1} + c$$
 
@@ -77,13 +77,13 @@ $$\text{index}(a,b,c) = a \cdot S_{k-1}^2 + b \cdot S_{k-1} + c$$
 
 **Axis fungibility.** The coordinate axes carry no intrinsic semantics at the protocol level. The same resolver procedure, transport format, and consistency model apply whether axis 0 represents "region", "shard", or "timestamp". This separation between coordinate algebra and axis interpretation allows routing across heterogeneous topologies without modifying the core arithmetic.
 
-**Self-routing.** A syllable sequence carries its own address. Given a sequence and current recursion depth, any node determines whether each sub-axis is local or remote by applying $\phi_k$. No separate routing table lookup is required.
+**Self-routing.** A Coord sequence carries its own address. Given a sequence and current recursion depth, any node determines whether each sub-axis is local or remote by applying $\phi_k$. No separate routing table lookup is required.
 
 **Consistency.** Resolution requires no distributed consensus. Each axis is independently stored and independently accessed. The linearisation formula is a pure function of independent axis values, so cross-node reads require no coordination. Write operations affecting different axes target independent address subspaces on different nodes.
 
 ## Performance
 
-Based on a software reference implementation, measured lookup latency: 0.38 ns vs 227 ns for SHA-256 (597x) at single-syllable; 54.9 ns vs 227 ns (4.1x) at SHA-256 scale (19 syllables). Structural prefix queries show the decisive advantage: Tagma answers nonexistent prefix in 1.65 ns while a general-purpose hash table scans 10M entries in 23.05 ms (14.0Mx). See benchmarks section in [Tagma](/projects/syntagma/tagma/wp.html#sec-appendix-benches) Whitepaper: All measured on ARMv8.4-A Firestorm with [cargo bench code](https://github.com/ssccsorg/syntagma/blob/main/sw/rust/benches/bench.rs).
+Based on a software reference implementation, measured lookup latency: 0.38 ns vs 227 ns for SHA-256 (597x) at single-Coord; 54.9 ns vs 227 ns (4.1x) at SHA-256 scale (19 Coords). Structural prefix queries show the decisive advantage: Tagma answers nonexistent prefix in 1.65 ns while a general-purpose hash table scans 10M entries in 23.05 ms (14.0Mx). See benchmarks section in [Tagma](/projects/syntagma/tagma/wp.html#sec-appendix-benches) Whitepaper: All measured on ARMv8.4-A Firestorm with [cargo bench code](https://github.com/ssccsorg/syntagma/blob/main/sw/rust/benches/bench.rs).
 
 Cross-validation from hardware verification: the [Ibex RV32IMCB Exhaustive Verification Report](/projects/ev/ibex.html#performance-structural-enumeration-vs-standard-pipeline) using ev (ExaVerif) confirms the same structural advantage on real RISC-V instruction encoding spaces. Tagma-based structural enumeration verifies 524,288 combinations in 49.5 ms versus 3.63 s for the standard pipeline (73x), and at 2M scale reaches 846x by eliminating runtime constraint evaluation entirely.
 

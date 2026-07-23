@@ -74,7 +74,7 @@ format:
 
 ## Abstract {.unnumbered .unlisted}
 
-Tagma[^tagma-etym] is a computing primitive where the address *is* the coordinate — not a flat pointer, but a point in an N-dimensional geometric space. This is made possible by a fixed 16-bit Unicode block (U+AC00-U+D7AF), which provides a collision-free, hash-less, structurally addressable coordinate space. Every valid 16-bit value in this space is simultaneously a 1-D address, a 3-D coordinate (Axis 0, Axis 1, Axis 2). This triple interpretation enables hash-less content addressing [*-@sec-paradigm-shift*] with zero collision probability and single-cycle combinational decoding (~300 gates). The coordinate arithmetic admits unbounded N-syllable composition — the address space grows as $11,172^N$ while lookup cost remains O(N) per syllable. We present a gate-level decoder specification, a processor pipeline attachment reference (e.g., RISC-V XIF)[^tagma-repo], a software reference implementation [*-@sec-appendix-rust*], and a full benchmark suite [*-@sec-appendix-benches*]. Measured lookup latency: 0.38 ns vs 227 ns for SHA-256 (597x) at single-syllable; 54.9 ns vs 227 ns (4.1x) at SHA-256 scale (19 syllables). Structural prefix queries show the decisive advantage: a direct-address table answers nonexistent prefix in 1.65 ns while a general-purpose hash table scans 10M entries in 23.05 ms (14.0Mx). Bit-set axis filters resolve compound queries at 329 Melem/s vs hash table scan at 2.4 Melem/s (137x, bitwise AND vs full scan). The same table completes 10M sparse get operations in 44.9 ms vs hash table 1.05 s (23.4x). The coordinate space is an open international standard (Unicode) and a public good — unencumbered by proprietary licensing.
+Tagma[^tagma-etym] is a computing primitive where the address *is* the coordinate — not a flat pointer, but a point in an N-dimensional geometric space. This is made possible by a fixed 16-bit Unicode block (U+AC00-U+D7AF), which provides a collision-free, hash-less, structurally addressable coordinate space. Every valid 16-bit value in this space is simultaneously a 1-D address, a 3-D coordinate (Axis 0, Axis 1, Axis 2). This triple interpretation enables hash-less content addressing [*-@sec-paradigm-shift*] with zero collision probability and single-cycle combinational decoding (~300 gates). The coordinate arithmetic admits unbounded N-Coord composition — the address space grows as $11,172^N$ while lookup cost remains O(N) per Coord. We present a gate-level decoder specification, a processor pipeline attachment reference (e.g., RISC-V XIF)[^tagma-repo], a software reference implementation [*-@sec-appendix-rust*], and a full benchmark suite [*-@sec-appendix-benches*]. Measured lookup latency: 0.38 ns vs 227 ns for SHA-256 (597x) at single-Coord; 54.9 ns vs 227 ns (4.1x) at SHA-256 scale (19 Coords). Structural prefix queries show the decisive advantage: a direct-address table answers nonexistent prefix in 1.65 ns while a general-purpose hash table scans 10M entries in 23.05 ms (14.0Mx). Bit-set axis filters resolve compound queries at 329 Melem/s vs hash table scan at 2.4 Melem/s (137x, bitwise AND vs full scan). The same table completes 10M sparse get operations in 44.9 ms vs hash table 1.05 s (23.4x). The coordinate space is an open international standard (Unicode) and a public good — unencumbered by proprietary licensing.
 
 ## Introduction {#sec-introduction}
 
@@ -138,23 +138,23 @@ Every system that stores data by content rather than by location must generate i
 | CAM | per-bit comparison | 9-16 transistors/bit | none | associative [@paget-cam-survey] | ~2.5x less area for sparse sets |
 | **Tagma** | **16 bits** | **1 cycle (combinational)** | **none (formulaic)** | **direct (coordinate = address)** | baseline |
 
-A single syllable covers 11,172 identifiers — sufficient for sensor arrays, embedded device registries, and moderate-scale lookups [@cam-cell-design]. N-syllable composition (below) extends this to UUID-scale and SHA-256-scale spaces without changing the decoder or the arithmetic.
+A single Coord covers 11,172 identifiers — sufficient for sensor arrays, embedded device registries, and moderate-scale lookups [@cam-cell-design]. N-Coord composition (below) extends this to UUID-scale and SHA-256-scale spaces without changing the decoder or the arithmetic.
 
-The practical implication for everyday identifiers is direct. UUID generation requires entropy collection, version/variant bit insertion, and hyphen formatting at approximately 100 ns or more; its 128-bit output expressed in hex or Base64 consumes 36 or 22 characters respectively. Tagma produces a 6-syllable identifier (18 axes, $1.9 \times 10^{24}$ space) in approximately 150 ns, and a 10-syllable identifier exceeding UUID space in approximately 260 ns, each requiring only multiplications and additions, as a human-readable string with no special characters, no padding, and zero collision probability. Similarly, a SHA-256 hash output as 64 hex characters is matched by 19 Tagma syllables covering the same $2^{256}$ space in approximately 456 ns. In all cases Tagma output is shorter, faster, and structurally self-validating. A software reference implementation confirming these measurements is described in Appendix [*-@sec-appendix-rust*].
+The practical implication for everyday identifiers is direct. UUID generation requires entropy collection, version/variant bit insertion, and hyphen formatting at approximately 100 ns or more; its 128-bit output expressed in hex or Base64 consumes 36 or 22 characters respectively. Tagma produces a 6-Coord identifier (18 axes, $1.9 \times 10^{24}$ space) in approximately 150 ns, and a 10-Coord identifier exceeding UUID space in approximately 260 ns, each requiring only multiplications and additions, as a human-readable string with no special characters, no padding, and zero collision probability. Similarly, a SHA-256 hash output as 64 hex characters is matched by 19 Tagma Coords covering the same $2^{256}$ space in approximately 456 ns. In all cases Tagma output is shorter, faster, and structurally self-validating. A software reference implementation confirming these measurements is described in Appendix [*-@sec-appendix-rust*].
 
-### N-Syllable Composition: From 16 Bits to SHA-256 Scale
+### N-Coord Composition: From 16 Bits to SHA-256 Scale
 
-A single Tagma syllable provides 11,172 unique identifiers over 16 bits. For larger address spaces, syllables compose linearly:
+A single Tagma Coord provides 11,172 unique identifiers over 16 bits. For larger address spaces, Coords compose linearly:
 
 $$S(N) = 11,172^N \approx 10^{4.05N}$$
 
-**Linearization.** An N-syllable coordinate (c_1, ..., c_N) maps to a single linear index via row-major order:
+**Linearization.** An N-Coord coordinate (c_1, ..., c_N) maps to a single linear index via row-major order:
 
 $$\text{index}(c_1, \ldots, c_N) = \sum_{k=1}^{N} c_k \times 11,172^{\,N-k}$$
 
-This requires exactly $(N-1)$ multiply-add pairs, a fixed sequence of $2(N-1)$ arithmetic operations independent of the addressable space. Since $N$ is a compile-time constant, the lookup remains O(1) for any N-syllable composition.
+This requires exactly $(N-1)$ multiply-add pairs, a fixed sequence of $2(N-1)$ arithmetic operations independent of the addressable space. Since $N$ is a compile-time constant, the lookup remains O(1) for any N-Coord composition.
 
-| Syllables | Axes | Identifier space | Equivalent to |
+| Coords | Axes | Identifier space | Equivalent to |
 |-----------|------|-----------------|---------------|
 | 1 | 3 | $1.12 \times 10^4$ | Sensor tags |
 | 2 | 6 | $1.25 \times 10^8$ | Database records |
@@ -165,15 +165,15 @@ This requires exactly $(N-1)$ multiply-add pairs, a fixed sequence of $2(N-1)$ a
 | 10 | 30 | $2.69 \times 10^{40}$ | Exceeds UUID ($3.4 \times 10^{38}$) |
 | 19 | 57 | $1.94 \times 10^{77}$ | SHA-256 (256-bit) equivalent |
 
-Each syllable retains independent hardware-verifiable validity ($19 \times 21 \times 28 = 11,172$ gates per syllable). The N-tuple identity space is the Cartesian product of $N$ independent 3D spaces, yielding a $3N$-dimensional structural coordinate system. We call this N-syllable sequence a CoordPath, distinct from the atomic Coord.
+Each Coord retains independent hardware-verifiable validity ($19 \times 21 \times 28 = 11,172$ gates per Coord). The N-tuple identity space is the Cartesian product of $N$ independent 3D spaces, yielding a $3N$-dimensional structural coordinate system. We call this N-Coord sequence a CoordPath, distinct from the atomic Coord.
 
 This is not merely a larger address space, but a coordinate algebra of $3N$ independent axes whose semantics are entirely application-defined: a sensor network may assign axis 0 to device type, axis 1 to geographic zone, and axis 2 to timestamp, while a database system assigns the same axis positions to table, partition, and row. The coordinate arithmetic -- composition, decomposition, linearisation, Hamming distance, axis projection -- is invariant under semantic reinterpretation because the axes are fungible; the algebra depends only on the invariant structural relations among them, not on what any particular axis represents. This distinguishes Tagma from Euclidean space, where axes are bound to physical dimensions, and from hash space, where all structure is destroyed.
 
 ### Recursive State Space Expansion
 
-The composition formula $C(i,m,f)$ accepts three axes whose ranges are fixed: 19, 21, and 28. Nothing in the formula requires these ranges to be atomic. A SynTagma is the structure that results when these axes are themselves composed of CoordPaths. An $N$-syllable CoordPath can occupy any axis position, replacing the original range with its own $11,172^{\,N}$ values.
+The composition formula $C(i,m,f)$ accepts three axes whose ranges are fixed: 19, 21, and 28. Nothing in the formula requires these ranges to be atomic. A SynTagma is the structure that results when these axes are themselves composed of CoordPaths. An $N$-Coord CoordPath can occupy any axis position, replacing the original range with its own $11,172^{\,N}$ values.
 
-Let $\mathbb{T}_0$ be the set of all valid 19-syllable CoordPaths:
+Let $\mathbb{T}_0$ be the set of all valid 19-Coord CoordPaths:
 
 $$S_0 = |\mathbb{T}_0| = 11,172^{19} \approx 1.94 \times 10^{77}$$
 
@@ -183,7 +183,7 @@ $$\mathbb{T}_1 = \mathbb{T}_0 \times \mathbb{T}_0 \times \mathbb{T}_0$$
 
 $$S_1 = |\mathbb{T}_1| = S_0^{\,3} = (11,172^{19})^3 = 11,172^{57}$$
 
-A CoordPath of length $3k \cdot N$ syllables can be interpreted as either a flat sequence of $3kN$ atomic coordinates or a $k$-deep nested structure of SynTagma triplets. Both interpretations produce the same linear index through the same arithmetic.
+A CoordPath of length $3k \cdot N$ Coords can be interpreted as either a flat sequence of $3kN$ atomic coordinates or a $k$-deep nested structure of SynTagma triplets. Both interpretations produce the same linear index through the same arithmetic.
 
 ```{python}
 #| label: fig-syntagma-nest
@@ -237,7 +237,7 @@ Access follows from the recursive linearisation formula:
 
 $$\text{index}(a,b,c) = a \cdot S_{k-1}^2 + b \cdot S_{k-1} + c$$
 
-Each of $a,b,c$ is itself linearised recursively until atomic Coords are reached. The number of integer operations per lookup is proportional to the total syllable count, independent of the number of stored entries.
+Each of $a,b,c$ is itself linearised recursively until atomic Coords are reached. The number of integer operations per lookup is proportional to the total Coord count, independent of the number of stored entries.
 
 #### Sparse Allocation
 
@@ -245,7 +245,7 @@ The identifier space $S_k$ is not a storage allocation. A CoordSpace (Appendix [
 
 #### Magnitude
 
-For $k=1$ with a 19-syllable base:
+For $k=1$ with a 19-Coord base:
 
 $$S_1 \approx 7.30 \times 10^{231}$$
 
@@ -253,7 +253,7 @@ The estimated number of atoms in the observable universe is approximately $10^{8
 
 $$\frac{S_1}{10^{80}} \approx 7.30 \times 10^{151}$$
 
-A single recursive step on a 19-syllable base exceeds the atomic count of the observable universe by 151 orders of magnitude. For $k=2$:
+A single recursive step on a 19-Coord base exceeds the atomic count of the observable universe by 151 orders of magnitude. For $k=2$:
 
 $$S_2 = S_1^{\,3} \approx 3.89 \times 10^{695}$$
 
@@ -369,7 +369,7 @@ The deeper distinction is between a map and a space. A hash map is lossy compres
 
 ### The Complexity of Structure: Coord Depth
 
-Standard complexity analysis classifies algorithms by how their cost scales with input size $N$ --- the number of data items. Tagma's retrieval cost does not scale with data volume at all. It scales with **Coord Depth** $d$, the number of syllables required to uniquely identify an entity under a given scheme. These are fundamentally different kinds of quantities: one measures data inventory, the other measures structural dimensionality.
+Standard complexity analysis classifies algorithms by how their cost scales with input size $N$ --- the number of data items. Tagma's retrieval cost does not scale with data volume at all. It scales with **Coord Depth** $d$, the number of Coords required to uniquely identify an entity under a given scheme. These are fundamentally different kinds of quantities: one measures data inventory, the other measures structural dimensionality.
 
 $d$ is a system constant determined at schema design time. A sensor identifier requires $d=1$ (single Coord, 11,172 identifiers). UUID-scale identity uses $d=6$. SHA-256-scale identity uses $d=19$. Adding a billion entries does not increase $d$.
 
@@ -384,9 +384,9 @@ $$\text{Retrieval cost} = O(d), \quad d \ll \log N_{\text{entries}}$$
 | Lookup | Hash + resolve + dereference | Direct array access |
 | Output | Opaque 256-bit value | Self-describing 16-bit value |
 
-A hash function receives a key and produces an address by destroying the key's internal structure. The lookup is indirect: hash, resolve collision, dereference. Coord inverts this: the syllable sequence carries its own address --- the data is already the address. This inversion makes Coord Depth a distinct scaling regime, expressible neither as $O(1)$ (which implies independence from any parameter) nor as $O(N)$ (which implies dependence on data volume). Coord Depth $O(d)$ parameterizes retrieval by the identifier's inherent dimensionality, a quantity bounded by the application schema, not by the data set.
+A hash function receives a key and produces an address by destroying the key's internal structure. The lookup is indirect: hash, resolve collision, dereference. Coord inverts this: the Coord sequence carries its own address --- the data is already the address. This inversion makes Coord Depth a distinct scaling regime, expressible neither as $O(1)$ (which implies independence from any parameter) nor as $O(N)$ (which implies dependence on data volume). Coord Depth $O(d)$ parameterizes retrieval by the identifier's inherent dimensionality, a quantity bounded by the application schema, not by the data set.
 
-**The engineering frontier.** The mathematical bound holds for any fixed $d$: $2(d-1)$ arithmetic operations per lookup. On a general-purpose CPU, however, each operation incurs mechanical overhead: instruction dispatch, register pressure, pipeline latency, and cache hierarchy effects. At $d=1$ these are negligible (one array access). At $d=19$ the 18 multiply-add pairs accumulate approximately 456 ns on a GitHub Actions CI runner (x86_64) --- still 10x faster than a single SHA-256 computation, but measurably more than the O(1) ideal of a single cycle. This gap follows from running a structurally parallel operation on a sequential von Neumann machine rather than from a flaw in the theory. A dedicated combinational decoder will execute all $d$ syllable decodes concurrently at gate level, collapsing the gap entirely.
+**The engineering frontier.** The mathematical bound holds for any fixed $d$: $2(d-1)$ arithmetic operations per lookup. On a general-purpose CPU, however, each operation incurs mechanical overhead: instruction dispatch, register pressure, pipeline latency, and cache hierarchy effects. At $d=1$ these are negligible (one array access). At $d=19$ the 18 multiply-add pairs accumulate approximately 456 ns on a GitHub Actions CI runner (x86_64) --- still 10x faster than a single SHA-256 computation, but measurably more than the O(1) ideal of a single cycle. This gap follows from running a structurally parallel operation on a sequential von Neumann machine rather than from a flaw in the theory. A dedicated combinational decoder will execute all $d$ Coord decodes concurrently at gate level, collapsing the gap entirely.
 
 The elimination of separate index structures is a direct consequence of coordinate identity:
 
@@ -522,7 +522,7 @@ digraph TagmaPosition {
 """)
 ```
 
-Existing addressing paradigms each optimize a different axis: pointers minimize generation cost (zero) but provide no content-addressability; hash functions maximize identifier space at the cost of indirection; CAM cells offer full associativity at a transistor premium. Tagma occupies a fourth category, structural addressing, where identifier, address, and structure converge into a single 16-bit value decodable at the gate level. Every coordinate maps to exactly one slot, in one cycle, with zero collision resolution. Hash-based systems accept probabilistic guarantees and variable latency; Tagma guarantees both latency and uniqueness by construction. Combined with N-syllable composition (yielding up to $1.94 \times 10^{77}$ identifiers at 19 syllables), the bound dissolves for practical purposes while per-syllable determinism is preserved.
+Existing addressing paradigms each optimize a different axis: pointers minimize generation cost (zero) but provide no content-addressability; hash functions maximize identifier space at the cost of indirection; CAM cells offer full associativity at a transistor premium. Tagma occupies a fourth category, structural addressing, where identifier, address, and structure converge into a single 16-bit value decodable at the gate level. Every coordinate maps to exactly one slot, in one cycle, with zero collision resolution. Hash-based systems accept probabilistic guarantees and variable latency; Tagma guarantees both latency and uniqueness by construction. Combined with N-Coord composition (yielding up to $1.94 \times 10^{77}$ identifiers at 19 Coords), the bound dissolves for practical purposes while per-Coord determinism is preserved.
 :::
 
 A comprehensive comparison across dimensions not covered by individual paradigms above:
@@ -633,13 +633,13 @@ An exact enumeration of all 11,172 valid coordinates confirms the detection rate
 
 **Proximity search.** The three-axis structure enables field-wise Hamming distance computation through parallel XOR gates, supporting nearest-neighbor lookup without CAM cells or hash-based index intersection.
 
-**KV cache addressing.** LLM inference engines maintain key-value caches indexed by token sequence prefixes. Current implementations use hash tables or radix trees with $O(L \times H)$ cost per lookup (sequence length $L$, hash cost $H$). Tagma replaces this with CoordPath-based direct access: each prefix maps to a unique CoordPath of length $L$, and lookup cost is $O(L)$ array accesses with zero hash computation. Production KV cache sizes (typically $10^4$--$10^7$ entries) are covered by 2--4 syllables ($1.25 \times 10^8$ to $1.55 \times 10^{16}$ identifiers), with deterministic O(1) access and no collision resolution.
+**KV cache addressing.** LLM inference engines maintain key-value caches indexed by token sequence prefixes. Current implementations use hash tables or radix trees with $O(L \times H)$ cost per lookup (sequence length $L$, hash cost $H$). Tagma replaces this with CoordPath-based direct access: each prefix maps to a unique CoordPath of length $L$, and lookup cost is $O(L)$ array accesses with zero hash computation. Production KV cache sizes (typically $10^4$--$10^7$ entries) are covered by 2--4 Coords ($1.25 \times 10^8$ to $1.55 \times 10^{16}$ identifiers), with deterministic O(1) access and no collision resolution.
 
 **Graph adjacency and multi-dimensional query.** Graph engines check adjacency via hash lookups or index intersections ($O(\deg(v))$) and query multi-dimensional attributes via composite indexes or join operations. Tagma represents each node as a Coord and each edge type as a CoordSet; adjacency reduces to a single bitwise AND over 175 machine words. Multi-dimensional queries (e.g., "nodes with Axis 0=a, Axis 1=b") project directly to axis ranges without index intersection, with cost independent of graph size.
 
 ## Boundaries
 
-The 11,172-identifier bound per syllable is a consequence of the 19 x 21 x 28 composition formula, not a configurable parameter. It defines the single-syllable direct-address range. Applications requiring larger identifier spaces compose multiple syllables via CoordPath (Section N-Syllable Composition). The decoder's structural validity check does not eliminate the need for full error-correcting codes: single-bit errors that map one valid coordinate to another are not detected.
+The 11,172-identifier bound per Coord is a consequence of the 19 x 21 x 28 composition formula, not a configurable parameter. It defines the single-Coord direct-address range. Applications requiring larger identifier spaces compose multiple Coords via CoordPath (Section N-Coord Composition). The decoder's structural validity check does not eliminate the need for full error-correcting codes: single-bit errors that map one valid coordinate to another are not detected.
 
 Tagma does not replace cryptographic primitives. SHA-256 remains for signatures, Merkle proofs, and preimage resistance. Encryption, authentication, and key derivation are outside its scope. Tagma replaces the use of hashes as structural identifiers and addresses.
 
@@ -647,10 +647,10 @@ For applications requiring content determinism, where the same data must always 
 
 | Property | SHA-256 hex | SHA-256 with Tagma |
 |----------|------------|--------------------|
-| Output | 64 hex characters | 19 syllables |
+| Output | 64 hex characters | 19 Coords |
 | Determinism | Yes | Yes (SHA preserved) |
 | Human readable | No | Yes |
-| Self-validating | No | Yes (each syllable checked) |
+| Self-validating | No | Yes (each Coord checked) |
 | Collision resistance | 2^-256 | 2^-256 (SHA preserved) |
 
 The combination serves use cases such as file identification, content-addressed storage, and commit hashing where determinism is required but hex output is not. An implementation example combining SHA-256 with Tagma encoding is provided in Appendix [*-@sec-appendix-sha-tagma*].
@@ -684,7 +684,7 @@ conditions:
    the same input across all languages, platforms, and hardware configurations:
    composition, decomposition, and linearization.
 
-6. **Coord atomicity.** Coord is a single-syllable atomic value. An
+6. **Coord atomicity.** Coord is a single-Coord atomic value. An
    implementation must not impose application-level semantics on Coord's three
    axis fields or assume any particular storage strategy for CoordPaths. Coord's
    only invariant is structural validity.
@@ -716,7 +716,7 @@ The coordinate space is implemented as a multi-crate Rust workspace (Apache 2.0)
 
 ### Core Library: `tagma-core`
 
-A `#![no_std]` library with an optional `alloc` feature (default: on). Without the alloc feature, only core types are available: `Coord`, `CoordPath`, `CoordSet`, and the single-syllable `CoordSpace`. With alloc enabled, the full multi-syllable map family is available. The library builds for native targets and `wasm32-unknown-unknown`.
+A `#![no_std]` library with an optional `alloc` feature (default: on). Without the alloc feature, only core types are available: `Coord`, `CoordPath`, `CoordSet`, and the single-Coord `CoordSpace`. With alloc enabled, the full multi-Coord map family is available. The library builds for native targets and `wasm32-unknown-unknown`.
 
 #### Core Types
 
@@ -732,7 +732,7 @@ The `CoordSpace` series provides hash-free, collision-free coordinate-indexed sp
 
 | Type | Depth | Address space | Allocation | Latency | Exploration pattern |
 |------|-------|---------------|------------|---------|-------------|
-| CoordSpace | 1 | $11{,}172$ | None (inline array) | 0.39 ns | General single-syllable, no_std, MCU |
+| CoordSpace | 1 | $11{,}172$ | None (inline array) | 0.39 ns | General single-Coord, no_std, MCU |
 | CoordSpace2 | 2 | $1.25 \times 10^8$ | Dense heap (119 MB) | 0.39 ns | FIH cross-product, two-axis space |
 | CoordSpaceM3 | 3 | $1.39 \times 10^{12}$ | mmap (1.27 TB) | 0.39 ns | Large-scale dense space |
 | CoordSpaceN2 | 2 | $1.25 \times 10^8$ | Heap (lazy) | 0.90 ns | FIH cross-product, two-axis space |
@@ -740,13 +740,13 @@ The `CoordSpace` series provides hash-free, collision-free coordinate-indexed sp
 | CoordSpaceN19 | 19 | $\approx 2^{256}$ | Heap (lazy) | 58.6 ns | SHA-256-scale |
 | DynCoordSpace | Runtime | Unlimited ($\texttt{\&[Coord]}$) | Heap (lazy) | N/A | Variable-depth paths |
 
-**`CoordSpace` (single-syllable, no allocator).** Backed by an inline $[\texttt{Option<V>}; 11172]$ array (22 KB for `Option<()>`, 89 KB for `Option<u64>`). Zero heap allocation. Every `Coord` is a direct array index: one load, no hashing, no collisions, no resizing. Full Entry API (`entry().or_insert_with()`), `drain()`, `retain()`, `iter_mut()`, `IntoIterator`, `Index<Coord>`, `PartialEq`, `Clone`, `Debug`.
+**`CoordSpace` (single-Coord, no allocator).** Backed by an inline $[\texttt{Option<V>}; 11172]$ array (22 KB for `Option<()>`, 89 KB for `Option<u64>`). Zero heap allocation. Every `Coord` is a direct array index: one load, no hashing, no collisions, no resizing. Full Entry API (`entry().or_insert_with()`), `drain()`, `retain()`, `iter_mut()`, `IntoIterator`, `Index<Coord>`, `PartialEq`, `Clone`, `Debug`.
 
-**`CoordSpace2<V>` (N=2, dense heap).** Backed by a single `alloc_zeroed` of 119 MB ($V=()$) or 952 MB ($V=\texttt{u32}$). Single `Box` dereference, no hashing. Every two-syllable `CoordPath<2>` maps to a direct index into a flat $[\texttt{Option<V>}; 11172^2]$ slab. True Tagma throughout: one load, no collisions.
+**`CoordSpace2<V>` (N=2, dense heap).** Backed by a single `alloc_zeroed` of 119 MB ($V=()$) or 952 MB ($V=\texttt{u32}$). Single `Box` dereference, no hashing. Every two-Coord `CoordPath<2>` maps to a direct index into a flat $[\texttt{Option<V>}; 11172^2]$ slab. True Tagma throughout: one load, no collisions.
 
 **`CoordSpaceM3<V>` (N=3, dense mmap).** Backed by an anonymous mmap with `MAP_NORESERVE`. Pages are committed lazily by the kernel on first write. The full $[\texttt{Option<()>}; 11172^3]$ space is reserved at 1.27 TB but physical RAM cost tracks actual occupancy. Single pointer dereference per lookup; the first access to a cold page incurs a minor page fault.
 
-**`CoordSpaceN<N, V>` (multi-syllable, heap allocated).** An $N$-level tree where each level is a fixed 11,172-slot array. Memory is allocated lazily: only paths that are actually written to consume nodes. Each allocated node is 22 KB (Leaf) or 89 KB (Branch) regardless of occupancy; a single entry in `CoordSpaceN6` at maximum depth reaches approximately 500 KB. No hashing, no collisions at any depth. `N` array dereferences per lookup. The same API surface as `CoordSpace`, plus `at_path`/`place_path`/`vacate_path` through `CoordPath<N>`.
+**`CoordSpaceN<N, V>` (multi-Coord, heap allocated).** An $N$-level tree where each level is a fixed 11,172-slot array. Memory is allocated lazily: only paths that are actually written to consume nodes. Each allocated node is 22 KB (Leaf) or 89 KB (Branch) regardless of occupancy; a single entry in `CoordSpaceN6` at maximum depth reaches approximately 500 KB. No hashing, no collisions at any depth. `N` array dereferences per lookup. The same API surface as `CoordSpace`, plus `at_path`/`place_path`/`vacate_path` through `CoordPath<N>`.
 
 **`DynCoordSpace` (dynamic depth).** A trie accepting `&[Coord]` slices of any length. Each level is a boxed 11,172-slot array. Inserting both a shallow path and a deeper path sharing the same prefix preserves both values (via a `Both` slot variant). Clear walks the tree in-place without deallocating.
 
@@ -769,20 +769,20 @@ The following example illustrates the coordinate-navigation API across the map f
 ```rust
 use tagma_core::{Coord, CoordSpace, CoordSpace2, CoordSpaceN6, CoordPath};
 
-// Single-syllable dense: no allocator required, 0.39 ns
+// Single-Coord dense: no allocator required, 0.39 ns
 let mut space = CoordSpace::new();
 let c = Coord::new(42).unwrap();
 space.place(c, "hello");
 assert_eq!(space.at(&c), Some(&"hello"));
 *space.entry(c).or_insert("world") = "updated";
 
-// Two-syllable dense: single alloc_zeroed, 0.39 ns
+// Two-Coord dense: single alloc_zeroed, 0.39 ns
 let mut space2 = CoordSpace2::<u32>::new();
 let path2 = CoordPath::new([Coord::new(1).unwrap(), Coord::new(2).unwrap()]);
 space2.place_path(&path2, 42);
 assert_eq!(space2.at_path(&path2), Some(&42));
 
-// Multi-syllable tree: compile-time depth N=6 (software fallback, 5.96 ns)
+// Multi-Coord tree: compile-time depth N=6 (software fallback, 5.96 ns)
 let mut space6 = CoordSpaceN6::<u32>::new();
 let path = CoordPath::new([
     Coord::new(1).unwrap(),
@@ -805,7 +805,7 @@ assert_eq!(space6.at_path(&path), Some(&42));
 
 ### Serialization: `base11172`
 
-A `no_std` + `alloc` crate providing Tagma's native serialization format. Every coordinate index 0..11171 maps to exactly one Unicode character (U+AC00 + index). A pair of syllables encodes a 16-bit value. The encoding is self-validating: characters outside U+AC00..U+D7AF are immediately detectable as invalid. No special characters, padding, escaping.
+A `no_std` + `alloc` crate providing Tagma's native serialization format. Every coordinate index 0..11171 maps to exactly one Unicode character (U+AC00 + index). A pair of Coords encodes a 16-bit value. The encoding is self-validating: characters outside U+AC00..U+D7AF are immediately detectable as invalid. No special characters, padding, escaping.
 
 ```rust
 pub fn encode_u16(v: u16) -> [char; 2];         // u16 to two Unicode characters
@@ -816,9 +816,9 @@ pub fn decode_bytes(s: &str) -> Option<Vec<u8>>;
 
 ## Benchmarks {#sec-appendix-benches}
 
-A SHA-256 engine requires approximately 10,000 gates and 64--75 cycles per operation, then needs collision resolution and dynamic resizing. UUID generation requires entropy collection and delivers probabilistic uniqueness. The Tagma decoder replaces this with a combinational decoder and a 16-bit register: one syllable covers 11,172 identifiers; six syllables (18 axes) exceed typical distributed system needs; nineteen match the SHA-256 $2^{256}$ space.
+A SHA-256 engine requires approximately 10,000 gates and 64--75 cycles per operation, then needs collision resolution and dynamic resizing. UUID generation requires entropy collection and delivers probabilistic uniqueness. The Tagma decoder replaces this with a combinational decoder and a 16-bit register: one Coord covers 11,172 identifiers; six Coords (18 axes) exceed typical distributed system needs; nineteen match the SHA-256 $2^{256}$ space.
 
-- Lookup latency: native CoordSpace (dense array) is flat at **0.39 ns** across all depths — every syllable resolves to a single array load. The tree fallback (CoordSpaceN) scales linearly with depth: 2.69 ns at N=3, 58.6 ns at N=19 (SHA-256 scale, ↑**3.9x** vs SHA-256's 227 ns). Native CoordSpace reaches **582x** vs SHA-256. Recursive depth is bounded by schema, not data volume: $10^4$ and $10^{77}$ entries both cost $N$ dereferences in the fallback path, while the native dense path costs a constant 0.39 ns.
+- Lookup latency: native CoordSpace (dense array) is flat at **0.39 ns** across all depths — every Coord resolves to a single array load. The tree fallback (CoordSpaceN) scales linearly with depth: 2.69 ns at N=3, 58.6 ns at N=19 (SHA-256 scale, ↑**3.9x** vs SHA-256's 227 ns). Native CoordSpace reaches **582x** vs SHA-256. Recursive depth is bounded by schema, not data volume: $10^4$ and $10^{77}$ entries both cost $N$ dereferences in the fallback path, while the native dense path costs a constant 0.39 ns.
 - Nonexistent prefix lookup: CoordSpace **1.65 ns** (structural, navigates to the branch and returns None) vs HashMap **23.05 ms** (↑**14.0Mx**, full scan — HashMap has no structural prefix index). Sparse get at 10M entries: CoordSpaceN2 completes all 10M operations in 44.9 ms vs HashMap 1.05 s (↑23.4x).
 
 :::{ layout-ncol=2 }
@@ -829,7 +829,7 @@ A SHA-256 engine requires approximately 10,000 gates and 64--75 cycles per opera
 
 :::
 
-- Identity generation: SHA-256 lookup costs 227 ns; the tree fallback (CoordSpaceN) reaches $2^{256}$ at 19 syllables for 58.6 ns (↑3.9x). The native dense path (CoordSpace, CoordSpace2, CoordSpaceM3) holds at a flat 0.39 ns.
+- Identity generation: SHA-256 lookup costs 227 ns; the tree fallback (CoordSpaceN) reaches $2^{256}$ at 19 Coords for 58.6 ns (↑3.9x). The native dense path (CoordSpace, CoordSpace2, CoordSpaceM3) holds at a flat 0.39 ns.
 - Address space: tree fallback lookup cost scales as O(N); native dense path is O(1) flat. Tagma recursion k=1 reaches $10^{231}$ identifiers (SHA-512 space × $10^{77}$) at 171 ns.
 
 :::{ layout-ncol=3 }
@@ -857,7 +857,7 @@ A SHA-256 engine requires approximately 10,000 gates and 64--75 cycles per opera
 
 Tagma assigns every point in a geometric space a structural address that is simultaneously a coordinate, an identifier, and a computation target. HashMap stores values by hashing keys by comparison. Querying this space is spatial computation: axis projection, set membership, proximity, and coordinate slicing are arithmetic operations. The figures above measure the consequence: HashMap degrades with data volume; the coordinate space does not.
 
-> Rust's `std::collections::HashMap` compiles to C-grade machine code within 5-10% of theoretical CPU throughput. Whether Tagma matches or exceeds this baseline is incidental: HashMap degrades linearly with collision rate and entry count while Tagma does not. A coordinate-slice query costs the same at $10^4$ entries as at $10^{77}$ entries: one array dereference per syllable.
+> Rust's `std::collections::HashMap` compiles to C-grade machine code within 5-10% of theoretical CPU throughput. Whether Tagma matches or exceeds this baseline is incidental: HashMap degrades linearly with collision rate and entry count while Tagma does not. A coordinate-slice query costs the same at $10^4$ entries as at $10^{77}$ entries: one array dereference per Coord.
 
 | Metric | SHA-256 | CoordSpace (N=1) | CoordSpace2 (N=2) | CoordSpaceM3 (N=3) | CoordSpaceN6 (tree) | CoordSpaceN19 (tree) |
 |--------|---------|-----------------|-------------------|--------------------|--------------------|---------------------|
@@ -902,7 +902,7 @@ fn content_tagma_id(data: &[u8]) -> String {
 }
 ```
 
-SHA-256 output is uniformly distributed, so the modulo-11172 mapping to each Coord value is statistically unbiased. The overall collision probability of the 19-syllable output remains $2^{-256}$, preserved from the underlying hash.
+SHA-256 output is uniformly distributed, so the modulo-11172 mapping to each Coord value is statistically unbiased. The overall collision probability of the 19-Coord output remains $2^{-256}$, preserved from the underlying hash.
 
 ## Structural Enumeration in Practice: RISC-V Verification {#sec-appendix-exaverif}
 

@@ -33,7 +33,7 @@ This tax scales with data. A hash table that performs well at 10,000 entries deg
 
 synTagma replaces hashing with a fixed 16-bit Unicode coordinate space: a contiguous address block whose composition formula embeds three independent structural axes. A combinational decoder of approximately 300 gates extracts the three axis fields from any valid 16-bit value in a single cycle, with zero collisions and zero hash computation. Of 65,536 possible values, exactly 11,172 are structurally valid and the remaining 54,364 are detectable as invalid at the hardware level.
 
-Multi-syllable composition extends the address space without modifying the decoder. Six syllables exceed typical distributed system requirements; nineteen match SHA-256's 2^256 space. Each axis position can represent an application-defined dimension -- region, device type, timestamp, shard -- making the address itself a structured coordinate.
+Multi-Coord composition extends the address space without modifying the decoder. Six Coords exceed typical distributed system requirements; nineteen match SHA-256's 2^256 space. Each axis position can represent an application-defined dimension -- region, device type, timestamp, shard -- making the address itself a structured coordinate.
 
 ## Measured performance: vs. Rust HashMap
 
@@ -43,13 +43,13 @@ Multi-syllable composition extends the address space without modifying the decod
 **Bulk operations (11K):** 26.4 µs vs 385 µs (14.6x) \
 **500K interleaved ops:** 3.64 ms vs 12.2 ms (3.4x)
 
-Lookup latency is flat across all depths in the native path: 0.39 ns at every N, because every syllable resolves to a single array load. The tree fallback scales linearly with N (2.69 ns at N=3, 58.6 ns at N=19). Neither path depends on data volume -- 10^4 and 10^77 entries cost the same number of dereferences.
+Lookup latency is flat across all depths in the native path: 0.39 ns at every N, because every Coord resolves to a single array load. The tree fallback scales linearly with N (2.69 ns at N=3, 58.6 ns at N=19). Neither path depends on data volume -- 10^4 and 10^77 entries cost the same number of dereferences.
 
 Memory efficiency follows a different curve from hash tables. Dense preallocation (fixed 119 MB for the full coordinate grid) drops to 11.9 B/entry at 10M entries. Tree allocation scales with prefix count, not entry count: each leaf node covers 11,172 slots regardless of occupancy. Hash table memory and allocation calls grow linearly with every entry and exceed both strategies at scale.
 
 ## Application domains
 
-**LLM inference cache.** KV caches indexed by token prefixes achieve O(N) direct array access with zero hash computation. Production cache sizes (10^4--10^7 entries) are covered by 2--4 syllables.
+**LLM inference cache.** KV caches indexed by token prefixes achieve O(N) direct array access with zero hash computation. Production cache sizes (10^4--10^7 entries) are covered by 2--4 Coords.
 
 **Embedded systems.** The 11,172-identifier space fits in a single 22 KB no-allocator array. Every coordinate is a direct array index: one load, no hashing, no collisions, no resizing.
 
