@@ -1,6 +1,6 @@
 ```{python}
 #| label: fig-bench-cube-vs-path
-#| fig-cap: "Tree + CoordPath vs Tree + CoordCube: raw data for 9-path neighborhood query (D=2, R=1, radius=1). Tree+CoordPath: 9 sequential CoordSpaceN2 lookups at 21.8 ns each = 196 ns. Tree+CoordCube: proximity r=1 generates 9 paths in 93 ns (96 Melem/s) — 2.1x faster. Dense+CoordPath reference: 9 lookups at 0.39 ns = 3.5 ns. Path generation alone (empty tree): 15.4 ns."
+#| fig-cap: "Tree + CoordPath vs Tree + CoordCube: measured comparison for 9-path neighborhood (D=2, R=1, radius=1). Tree+Path (sequential): 9 CoordSpaceN2 lookups at 159 ns. Tree+Cube (dense store): proximity r=1 at 287 ns — cube adds BoundingBoxIter + Vec push overhead. Tree+Cube (sparse store, 9 entries): proximity r=1 at 48 ns — 3.3x faster than sequential. Cube advantages are spatial semantics (distance, region) and sparse-store throughput, not raw dense-store lookup speed."
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -11,7 +11,7 @@ ops = [
     '9 lookups\n(Dense+Path\nreference)',
 ]
 
-times = [196.0, 93.0, 15.4, 3.5]
+times = [159.0, 287.0, 48.0, 15.4]
 hatches = ['...', '...', '...', '///']
 edges = ['black', 'black', 'black', 'black']
 
@@ -27,14 +27,16 @@ for bar, val in zip(bars, times):
     ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 5,
             f'{val} ns', ha='center', fontsize=8, fontweight='bold')
 
-# Ratio annotation
-ax.annotate('2.1x faster', xy=(1, 93), xytext=(1, 160),
-            fontsize=10, ha='center', fontweight='bold',
-            bbox=dict(boxstyle='round,pad=0.15', facecolor='white', edgecolor='black', alpha=0.9))
+# Ratio annotations
+ax.annotate('sequential
+wins by 1.8x', xy=(1, 287), xytext=(1, 200),
+            fontsize=8, ha='center', fontweight='bold',
+            bbox=dict(boxstyle='round,pad=0.12', facecolor='white', edgecolor='black', alpha=0.9))
 
-ax.annotate('1.2x faster', xy=(2, 15.4), xytext=(2, 50),
-            fontsize=9, ha='center', fontweight='bold',
-            bbox=dict(boxstyle='round,pad=0.1', facecolor='white', edgecolor='black', alpha=0.8))
+ax.annotate('cube wins
+by 3.3x', xy=(2, 48), xytext=(2, 110),
+            fontsize=9, ha='center', fontweight='bold', color='black',
+            bbox=dict(boxstyle='round,pad=0.12', facecolor='white', edgecolor='black', alpha=0.9))
 
 plt.tight_layout()
 plt.show()

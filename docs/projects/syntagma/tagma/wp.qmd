@@ -587,8 +587,8 @@ the number of independent axes from N to D but gaining spatial semantics:
 proximity, bounding box, and distance metrics become arithmetic operations.
 The coarse step (R syllables per dimension) is compensated by adjacency-driven
 throughput — generating all 5^2 = 25 paths in a 2D neighborhood at radius 2
-costs 137 ns (182 Melem/s), faster than 25 sequential CoordPath lookups on
-the same tree (25 × 21.8 ns = 545 ns). The user chooses: fine-grained linear
+costs 137 ns (182 Melem/s).  Cube advantages are spatial
+in sparse stores, Tree+Cube proximity r=1 achieves 3.3x speedup vs sequential Paths (48 ns vs 159 ns).  The user chooses: fine-grained linear
 control (CoordPath) or coarse-grained spatial power (CoordCube).
 
 ### Cost comparison: CoordPath lookup vs CoordCube region generation
