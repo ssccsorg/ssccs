@@ -1,0 +1,41 @@
+```{python}
+#| label: fig-bench-cube-vs-path
+#| fig-cap: "Tree + CoordPath vs Tree + CoordCube: raw data for 9-path neighborhood query (D=2, R=1, radius=1). Tree+CoordPath: 9 sequential CoordSpaceN2 lookups at 21.8 ns each = 196 ns. Tree+CoordCube: proximity r=1 generates 9 paths in 93 ns (96 Melem/s) — 2.1x faster. Dense+CoordPath reference: 9 lookups at 0.39 ns = 3.5 ns. Path generation alone (empty tree): 15.4 ns."
+import matplotlib.pyplot as plt
+import numpy as np
+
+ops = [
+    '9 sequential\nlookups\n(Tree+Path)',
+    'Proximity r=1\n9 paths\n(Tree+Cube)',
+    'Path gen only\n(empty tree)',
+    '9 lookups\n(Dense+Path\nreference)',
+]
+
+times = [196.0, 93.0, 15.4, 3.5]
+hatches = ['...', '...', '...', '///']
+edges = ['black', 'black', 'black', 'black']
+
+fig, ax = plt.subplots(figsize=(5, 3.5))
+bars = ax.bar(range(len(ops)), times, color='white', edgecolor='black', linewidth=0.8, hatch=hatches)
+
+ax.set_xticks(range(len(ops)))
+ax.set_xticklabels(ops, fontsize=8)
+ax.set_ylabel('ns (lower is better)')
+ax.set_ylim(0, 230)
+
+for bar, val in zip(bars, times):
+    ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 5,
+            f'{val} ns', ha='center', fontsize=8, fontweight='bold')
+
+# Ratio annotation
+ax.annotate('2.1x faster', xy=(1, 93), xytext=(1, 160),
+            fontsize=10, ha='center', fontweight='bold',
+            bbox=dict(boxstyle='round,pad=0.15', facecolor='white', edgecolor='black', alpha=0.9))
+
+ax.annotate('1.2x faster', xy=(2, 15.4), xytext=(2, 50),
+            fontsize=9, ha='center', fontweight='bold',
+            bbox=dict(boxstyle='round,pad=0.1', facecolor='white', edgecolor='black', alpha=0.8))
+
+plt.tight_layout()
+plt.show()
+```

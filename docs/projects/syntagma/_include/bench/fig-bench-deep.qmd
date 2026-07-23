@@ -47,6 +47,11 @@ for bars, vals in [(bars_dense, cs2_vals), (bars_native, csvm3_vals), (bars_tree
         ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() * off,
                 fmt, ha='center', va='bottom', fontsize=5.5, rotation=45)
 
+# Tree+Path vs Tree+Cube raw comparison (inline, no arrows)
+ax.annotate('Tree+Path: 196 ns (9 x 21.8)\nTree+Cube:  93 ns (r=1)\n2.1x faster',
+            xy=(2, 0.285), fontsize=6.5, ha='left',
+            bbox=dict(boxstyle='round,pad=0.3', facecolor='white', edgecolor='black', alpha=0.85))
+
 plt.tight_layout()
 plt.show()
 ```
