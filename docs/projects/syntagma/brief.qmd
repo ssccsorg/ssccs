@@ -61,7 +61,7 @@ $$\quad (0 \leq i < 19,\; 0 \leq m < 21,\; 0 \leq f < 28)$$
 
 A hardware decoder extracts the three axis fields in one cycle. Of 65,536 possible 16-bit values, 11,172 are structurally valid and the remaining 54,364 are immediately detectable as invalid. CoordPath chains multiple Coords into higher dimensions (6 = 18 axes, 19 = 57 axes), with each axis position representing a different application-defined dimension — region, device type, timestamp, shard. The arithmetic operations are invariant; only the axis interpretation changes per deployment.
 
-No other Unicode script satisfies all four conditions required: a contiguous fixed-width 16-bit address range, a closed-form composition formula, a complete three-axis decomposition, and an open international standard. The block U+AC00--U+D7AF (Hangul) is unique.
+No other Unicode script satisfies all four conditions required: a contiguous fixed-width 16-bit address range, a closed-form composition formula, a complete three-axis decomposition, and an open international standard. This block (Hangul) is unique.
 
 {{< include ./_include/fig-3d-decode.qmd >}}
 
@@ -151,7 +151,7 @@ synTagma is built on open international standards and runs on open ISA (RISC-V) 
 
 ## Design from 1443: a writing system becomes an address space
 
-The block U+AC00--U+D7AF was allocated in Unicode 2.0 (1996).[^hangul-coord-structure] Its encoding formula provides three independent axes — Axis 0, Axis 1, and Axis 2 — the coordinate ranges used by Tagma. This structure is analogous to an apartment building numbering system: given "101", you know the floor and room without a central directory. Tagma leverages this pre-existing coordinate space as a universal address space, eliminating the need for hash-based directories.
+This block was allocated in Unicode 2.0 (1996).[^hangul-coord-structure] Its encoding formula provides three independent axes — Axis 0, Axis 1, and Axis 2 — the coordinate ranges used by Tagma. This structure is analogous to an apartment building numbering system: given "101", you know the floor and room without a central directory. Tagma leverages this pre-existing coordinate space as a universal address space, eliminating the need for hash-based directories.
 
 [^syntagma]: [synTagma](https://github.com/ssccsorg/syntagma) is an independent open-source project (Pre-release, Apache 2.0) under the SSCCS Foundation.
 [^spec-status]: Pre-silicon estimate based on the gate-level specification; actual gate count and cycle timing will be confirmed through standard-cell synthesis and static timing analysis with the coprocessor (e.g. RISC-V XIF).

@@ -78,7 +78,7 @@ Tagma[^tagma-etym] is a computing primitive where the address *is* the coordinat
 
 ## Introduction {#sec-introduction}
 
-Unicode is an international standard that assigns each script a fixed address in a shared encoding space. Within this space, the block U+AC00--U+D7AF [@unicode-hangul-block] occupies a contiguous 16-bit segment whose closed-form composition formula embeds three independent structural axes into every code point.
+Unicode is an international standard that assigns each script a fixed address in a shared encoding space. Within this space, this block [@unicode-hangul-block] occupies a contiguous 16-bit segment whose closed-form composition formula embeds three independent structural axes into every code point.
 
 Every content-addressable system today generates identifiers through a hash function. This indirection layer imposes a predictable cost: gate area, cycle latency, storage overhead, and probabilistic collision resolution. Tagma shows that this fixed 16-bit block can replace the hash function entirely where cryptographic integrity is not required, using a combinational decoder.
 
@@ -103,7 +103,7 @@ Every valid 16-bit value carries **three simultaneous interpretations**: a 1-D U
 
 Tagma requires the simultaneous satisfaction of four properties: **a contiguous fixed-width 16-bit address range, a closed-form composition formula, a complete three-axis decomposition, and an open international standard.** The absence of any single property makes a Tagma-compatible coordinate space impossible.
 
-The block U+AC00-U+D7AF satisfies all four. It resides on Unicode's Basic Multilingual Plane (Plane 0) --- the foundational layer that every implementation must support --- making Tagma universally compatible without requiring supplementary planes or special handling. Every other encoding on the BMP uses atomic assignments inherited from ASCII. None embeds three structural axes into each code point.
+This block satisfies all four. It resides on Unicode's Basic Multilingual Plane (Plane 0) --- the foundational layer that every implementation must support --- making Tagma universally compatible without requiring supplementary planes or special handling. Every other encoding on the BMP uses atomic assignments inherited from ASCII. None embeds three structural axes into each code point.
 
 | Script | Contiguous Address | Combinatorial Structure | Three-Axis Decomposition | Tagma-compatible? |
 |--------|-------------------|----------------------|--------------------------|-------------------|
@@ -115,7 +115,7 @@ The block U+AC00-U+D7AF satisfies all four. It resides on Unicode's Basic Multil
 
 ## The Encoding Problem
 
-Variable-length encoding has architectural consequences that are independent of any particular implementation. Memory alignment is not guaranteed. Instruction decoding must detect boundary positions. Prefetch and pipeline efficiency are affected. These are structural properties of variable-length design, not engineering limitations. The structural constraint in Tagma arises from the fixed composition formula of block U+AC00-U+D7AF. As established in the Structural Conjunction section, only 11,172 of 65,536 states satisfy the composition formula. A hardware decoder can distinguish valid from invalid states using combinational logic derived from that formula.
+Variable-length encoding has architectural consequences that are independent of any particular implementation. Memory alignment is not guaranteed. Instruction decoding must detect boundary positions. Prefetch and pipeline efficiency are affected. These are structural properties of variable-length design, not engineering limitations. The structural constraint in Tagma arises from the fixed composition formula of this block. As established in the Structural Conjunction section, only 11,172 of 65,536 states satisfy the composition formula. A hardware decoder can distinguish valid from invalid states using combinational logic derived from that formula.
 
 | Encoding | Storage unit | Addressable symbols | Wasted bits/unit | Fixed alignment | Structural HW check |
 |----------|-------------|-------------------|----------------|-----------------|---------------------|
@@ -691,7 +691,7 @@ conditions:
 
 ## Vision
 
-Tagma defines a new type of silicon primitive: a combinational decoder that derives identity from structure at approximately 300 gates and one cycle. At this gate cost, content-addressable operation becomes viable where hash-based approaches are too expensive in power, area, or latency. The structural validity check embedded in every decode provides inherent error detection, relevant for radiation-tolerant computing in space environments. The coordinate space that enables this is Unicode block U+AC00-U+D7AF, an open international standard and a public good. Tagma will be released as open-source silicon, inviting the next conversation: what else becomes possible when identity costs less than a single multiply. The broader hardware design implications of this shift are discussed in Appendix [*-@sec-appendix-hardware*].
+Tagma defines a new type of silicon primitive: a combinational decoder that derives identity from structure at approximately 300 gates and one cycle. At this gate cost, content-addressable operation becomes viable where hash-based approaches are too expensive in power, area, or latency. The structural validity check embedded in every decode provides inherent error detection, relevant for radiation-tolerant computing in space environments. The coordinate space that enables this is this Unicode block, an open international standard and a public good. Tagma will be released as open-source silicon, inviting the next conversation: what else becomes possible when identity costs less than a single multiply. The broader hardware design implications of this shift are discussed in Appendix [*-@sec-appendix-hardware*].
 
 The SynTagma specification [@tagma-syn] complements this document. It defines how the recursive state space expansion described in the previous section is realised across physical topologies: routing, transport framing, device-boundary resolution, and distributed coordination. Where this document defines the invariant, SynTagma defines the protocol.
 
