@@ -564,8 +564,7 @@ What Tagma replaces, partially replaces, and does not replace:
 
 CoordPath treats N syllables as a linear sequence: each syllable is an independent axis with 11,172 values, giving 11,172^N total addressable space. The same bytes can be reinterpreted as a D-dimensional grid via `CoordCube<N, D, R>` where N = D × R. Each dimension now has R syllables of resolution, sacrificing per-syllable precision for spatial semantics — a dimension can represent region, timestamp, or any application-defined quantity, and operations on that dimension (proximity, range, distance) become arithmetic on the bytes.
 
-CoordCube does **not** replace or modify the storage tree.  It is a **path generator** that feeds the existing `CoordSpaceN` or `DynCoordSpace` tree — the same tree that handles single-path `get`/`insert`/`remove`.  The tree remains the store; CoordCube adds a new way to ask which paths to look up.  Memory overhead from CoordCube is zero: all spatial operations are register-only arithmetic on the existing byte array.
-
+CoordCube does **not** replace or modify the storage tree. It is a **path generator** that feeds the existing `CoordSpaceN` or `DynCoordSpace` tree — the same tree that handles single-path `get`/`insert`/`remove`. The tree remains the store; CoordCube adds a new way to ask which paths to look up. Memory overhead from CoordCube is zero: all spatial operations are register-only arithmetic on the existing byte array.
 
 ### Precision tradeoff
 
@@ -603,7 +602,7 @@ The CoordCubeKV trait combines region generation (CoordCube) with tree lookup (C
 - Tree traversal: ~196 ns (69%, 9 CoordSpaceN lookups at 21.8 ns each)
 - Vec push: ~74 ns (26%, allocating result storage)
 
-Memory overhead from CoordCube is zero: all three phases use only registers and the existing tree.  The tree allocation strategy (per-prefix, not per-entry) is unchanged — CoordCube neither allocates nor preallocates.
+Memory overhead from CoordCube is zero: all three phases use only registers and the existing tree. The tree allocation strategy (per-prefix, not per-entry) is unchanged — CoordCube neither allocates nor preallocates.
 Sparse stores that fit in L1 cache reduce total time to 47.8 ns (188 Melem/s); empty stores measure 15.4 ns — pure generation cost.
 
 See Fig. [fig-bench-spatial] for the combined throughput comparison across both channels.
@@ -786,7 +785,7 @@ The `CoordSpace` series provides hash-free, collision-free coordinate-indexed sp
 | CoordSpace2 | 2 | $1.25 \times 10^8$ | Dense heap (119 MB) | 0.39 ns | FIH cross-product, two-axis space |
 | CoordSpaceM3 | 3 | $1.39 \times 10^{12}$ | mmap (1.27 TB) | 0.39 ns | Large-scale dense space |
 | CoordSpaceN2 | 2 | $1.25 \times 10^8$ | Heap (lazy) | 0.90 ns | FIH cross-product, two-axis space |
-| CoordSpaceN6 | 6 | $1.94 \times 10^{24}$ | Heap (lazy) | 5.96 ns | UUID-scale identity |
+| CoordSpaceN6 | 6 | $1.94 \times 10^{24}$ | Heap (lazy) | 5.91 ns | UUID-scale identity |
 | CoordSpaceN19 | 19 | $\approx 2^{256}$ | Heap (lazy) | 58.6 ns | SHA-256-scale |
 | DynCoordSpace | Runtime | Unlimited ($\texttt{\&[Coord]}$) | Heap (lazy) | N/A | Variable-depth paths |
 
@@ -898,7 +897,7 @@ A SHA-256 engine requires approximately 10,000 gates and 64--75 cycles per opera
 
 :::
 
-- **Spatial query — two tiers**: (a) CoordSet bitwise AND resolves compound axis filters at 329 Melem/s -- 150x faster than HashMap scan. (b) **CoordCube on CoordSpaceN tree** generates proximity regions at 96-353 Melem/s and bounding boxes at 699 Melem/s.  The tree scales as O(N) for single lookups (2.69 ns at N=3, 58.6 ns at N=19); CoordCube adds spatial query capability with only ~60 ns fixed overhead above the tree baseline, achieving near-native dense throughput without preallocating the full address space.  The tree fallback becomes a spatial query engine.
+- **Spatial query — two tiers**: (a) CoordSet bitwise AND resolves compound axis filters at 329 Melem/s -- 137x faster than HashMap scan. (b) **CoordCube on CoordSpaceN tree** generates proximity regions at 96-353 Melem/s and bounding boxes at 699 Melem/s. The tree scales as O(N) for single lookups (2.69 ns at N=3, 58.6 ns at N=19); CoordCube adds spatial query capability with only ~60 ns fixed overhead above the tree baseline, achieving near-native dense throughput without preallocating the full address space. The tree fallback becomes a spatial query engine.
 - Edge: CS2 sparse get sustains 23.4x at 10M entries; CS19 get shows 19-dereference cost (0.50x); drain is 0.72x on the full space.
 - Bulk operations: CoordSpace outperforms HashMap by 14.6--17.3x across all operations on the full 11,172-entry space.
 - Single-get microbenchmark isolates the per-operation cost: 0.82 ns vs 8.50 ns.
@@ -911,7 +910,7 @@ Tagma assigns every point in a geometric space a structural address that is simu
 
 | Metric | SHA-256 | CoordSpace (N=1) | CoordSpace2 (N=2) | CoordSpaceM3 (N=3) | CoordSpaceN6 (tree) | CoordSpaceN19 (tree) |
 |--------|---------|-----------------|-------------------|--------------------|--------------------|---------------------|
-| Latency (ARMv8.4-A Firestorm) | 227 ns | 0.39 ns | 0.39 ns | 0.40 ns | 5.60 ns | 53.2 ns |
+| Latency (ARMv8.4-A Firestorm) | 227 ns | 0.39 ns | 0.39 ns | 0.40 ns | 5.91 ns | 58.6 ns |
 | Backing | hash | inline array | heap alloc_zeroed | mmap MAP_NORESERVE | sparse tree | sparse tree |
 | Allocation | per-entry heap | 22 KB | 119 MB | 1.27 TB (virtual) | per-node | per-node |
 | Identity size | 32 bytes | 2 bytes | 4 bytes | 6 bytes | 12 bytes | 38 bytes |
