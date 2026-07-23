@@ -562,7 +562,7 @@ What Tagma replaces, partially replaces, and does not replace:
 
 ## CoordCube: D-dimensional spatial interpretation {#sec-coordcube}
 
-CoordPath treats N syllables as a linear sequence: each syllable is an independent axis with 11,172 values, giving 11,172^N total addressable space.  The same bytes can be reinterpreted as a D-dimensional grid via `CoordCube<N, D, R>` where N = D × R.  Each dimension now has R syllables of resolution, sacrificing per-syllable precision for spatial semantics — a dimension can represent region, timestamp, or any application-defined quantity, and operations on that dimension (proximity, range, distance) become arithmetic on the bytes.
+CoordPath treats N syllables as a linear sequence: each syllable is an independent axis with 11,172 values, giving 11,172^N total addressable space. The same bytes can be reinterpreted as a D-dimensional grid via `CoordCube<N, D, R>` where N = D × R. Each dimension now has R syllables of resolution, sacrificing per-syllable precision for spatial semantics — a dimension can represent region, timestamp, or any application-defined quantity, and operations on that dimension (proximity, range, distance) become arithmetic on the bytes.
 
 ### Precision tradeoff
 
@@ -574,11 +574,11 @@ CoordPath treats N syllables as a linear sequence: each syllable is an independe
 | Use case | Key-value addressing | Spatial region queries |
 | Conversion cost | Baseline | 960 ps from CoordPath (no data copy) |
 
-A 6-syllable path (N=6) can be interpreted as CoordPath<6> (6 independent axes, 11,172 precision each) or CoordCube<3, 2> (3 spatial dimensions, 11,172^2 ≈ 1.25 × 10^8 precision each).  The same bits serve both views; the user chooses based on workload.
+A 6-syllable path (N=6) can be interpreted as CoordPath<6> (6 independent axes, 11,172 precision each) or CoordCube<3, 2> (3 spatial dimensions, 11,172^2 ≈ 1.25 × 10^8 precision each). The same bits serve both views; the user chooses based on workload.
 
 ### Cost comparison: CoordPath lookup vs CoordCube region generation
 
-CoordPath direct array lookup costs a constant 0.39 ns regardless of data volume — a single load from a 22 KB inline array.  CoordCube proximity generation does not answer "what value is at this exact key?" but "all keys within distance r of this center," a query with no equivalent in hash-based systems.
+CoordPath direct array lookup costs a constant 0.39 ns regardless of data volume — a single load from a 22 KB inline array. CoordCube proximity generation does not answer "what value is at this exact key?" but "all keys within distance r of this center," a query with no equivalent in hash-based systems.
 
 | Operation | CoordPath | CoordCube | Ratio |
 |-----------|-----------|-----------|-------|
@@ -588,13 +588,13 @@ CoordPath direct array lookup costs a constant 0.39 ns regardless of data volume
 | Distance measurement | 322 ps (Coord hamming) | 316-322 ps (cube hamming/euclidean/manhattan) | ~1x |
 | Bounding box 10K paths | N/A (requires full table scan) | 14.6 µs (699 Melem/s) | — |
 
-Distance metrics cost approximately 320 ps regardless of channel — comparable to or below a single CoordSpace array lookup (390 ps) — because all computation is register-only with no memory access.  The compiler inlines and unrolls hamming, euclidean, and manhattan to the point where measurement noise dominates.
+Distance metrics cost approximately 320 ps regardless of channel — comparable to or below a single CoordSpace array lookup (390 ps) — because all computation is register-only with no memory access. The compiler inlines and unrolls hamming, euclidean, and manhattan to the point where measurement noise dominates.
 
-Proximity generation throughput increases monotonically with radius as the fixed setup cost (~8.6 ns) is amortized: at radius 1 (9 paths) 96 Melem/s; at radius 5 (121 paths) 353 Melem/s.  Dimensional scaling follows output path count (2r+1)^D, not N directly.
+Proximity generation throughput increases monotonically with radius as the fixed setup cost (~8.6 ns) is amortized: at radius 1 (9 paths) 96 Melem/s; at radius 5 (121 paths) 353 Melem/s. Dimensional scaling follows output path count (2r+1)^D, not N directly.
 
 ### Storage-backed queries
 
-The CoordCubeKV trait combines region generation (CoordCube) with tree lookup (CoordSpaceN).  Total query time breaks down as:
+The CoordCubeKV trait combines region generation (CoordCube) with tree lookup (CoordSpaceN). Total query time breaks down as:
 
 - Path generation: ~15 ns (5% of total, for D=2, R=1, r=1)
 - Tree traversal: ~196 ns (69%, 9 CoordSpaceN lookups at 21.8 ns each)
@@ -604,8 +604,7 @@ Sparse stores that fit in L1 cache reduce total time to 47.8 ns (188 Melem/s); e
 
 {{< include ../_include/bench/fig-bench-2ch.qmd >}}
 
-The architectural significance: no hash-based system can replicate this dual channel.  A HashMap key — a uniformly distributed digest — cannot be reinterpreted as a spatial coordinate; the hash function destroys proximity, axis structure, and geometry.  A CoordPath can, because its structure is the address.  The conversion is 960 ps and changes no state.
-
+The architectural significance: no hash-based system can replicate this dual channel. A HashMap key — a uniformly distributed digest — cannot be reinterpreted as a spatial coordinate; the hash function destroys proximity, axis structure, and geometry. A CoordPath can, because its structure is the address. The conversion is 960 ps and changes no state.
 
 ## Memory Hierarchy Penetration
 
@@ -918,10 +917,9 @@ Tagma assigns every point in a geometric space a structural address that is simu
 
 All figures are software measurements on ARMv8.4-A Firestorm (2020), compiled with `rustc` stable in release mode. Full benchmark source is included in the repository [@bench-source].
 
-
 ### CoordCube spatial benchmarks
 
-The following figures measure the second access channel: CoordCube-based proximity generation, bounding box enumeration, and distance metric throughput.  All measurements are on ARMv8.4-A Firestorm using the same harness as the core lookup benchmarks.
+The following figures measure the second access channel: CoordCube-based proximity generation, bounding box enumeration, and distance metric throughput. All measurements are on ARMv8.4-A Firestorm using the same harness as the core lookup benchmarks.
 
 {{< include ../_include/bench/fig-bench-cubeproximity.qmd >}}
 
@@ -931,7 +929,8 @@ The following figures measure the second access channel: CoordCube-based proximi
 
 {{< include ../_include/bench/fig-bench-kvproximity.qmd >}}
 
-Proximity generation throughput scales with output path count: 55 Melem/s at radius 0 (1 path) to 353 Melem/s at radius 5 (121 paths).  Dimensional scaling follows output count (2r+1)^D rather than N alone.  Distance metrics cost ~320 ps — below a single array lookup (390 ps) — because all computation is register-only with no memory access.  KV proximity queries decompose into path generation (5% of total time) and CoordSpace tree traversal (95%).
+Proximity generation throughput scales with output path count: 55 Melem/s at radius 0 (1 path) to 353 Melem/s at radius 5 (121 paths). Dimensional scaling follows output count (2r+1)^D rather than N alone. Distance metrics cost ~320 ps — below a single array lookup (390 ps) — because all computation is register-only with no memory access. KV proximity queries decompose into path generation (5% of total time) and CoordSpace tree traversal (95%).
+
 ## Hardware Design Implications {#sec-appendix-hardware}
 
 Tagma changes the problem that hardware must solve alongside the speed at which it solves it. Conventional hardware spends area and energy on finding data through hash computation, cache tag matching, and address translation. Tagma replaces finding with knowing: the coordinate is known at encoding time, so the hardware need only decode.

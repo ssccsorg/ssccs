@@ -1,0 +1,42 @@
+::: {#fig-bench-cubescaling}
+
+```{python}
+#| label: fig-bench-cubescaling
+#| fig-cap: "CoordCube dimensional and resolution scaling. Proximity generation time grows with output path count (2r+1)^N, not with N alone. Per-path cost decreases at higher dimensions as setup amortizes."
+#| fig-subcap:
+#|   - "Dimensional scaling (R=1, radius=2)"
+#|   - "Resolution scaling (D=1, radius=2)"
+dot("""
+graph G {
+  layout=neato  overlap=false  splines=true  sep=+4
+  node [shape=box style=rounded]
+
+  subgraph cluster_dim {
+    label="Dimensional scaling (radius=2)";  fontsize=11
+    d1 [label="D=1 (N=1)\\n5 paths\\n37 ns" fillcolor="#ADD8E6" style=filled]
+    d2 [label="D=2 (N=2)\\n25 paths\\n137 ns" fillcolor="#87CEEB" style=filled]
+    d3 [label="D=3 (N=3)\\n125 paths\\n475 ns" fillcolor="#4682B4" fontcolor=white style=filled]
+    d4 [label="D=4 (N=4)\\n625 paths\\n2.08 µs" fillcolor="#0000CD" fontcolor=white style=filled]
+    d1 -- d2 -- d3 -- d4 [style=invis]
+  }
+
+  subgraph cluster_res {
+    label="Resolution scaling (D=1, radius=2)";  fontsize=11
+    r1 [label="R=1 (N=1)\\n5 paths\\n37 ns·135 Melem/s" fillcolor="#98FB98" style=filled]
+    r2 [label="R=2 (N=2)\\n25 paths\\n160 ns·147 Melem/s" fillcolor="#3CB371" fontcolor=white style=filled]
+    r3 [label="R=3 (N=3)\\n125 paths\\n540 ns·232 Melem/s" fillcolor="#006400" fontcolor=white style=filled]
+    r1 -- r2 -- r3 [style=invis]
+  }
+
+  subgraph cluster_contrast {
+    label="Contrast with tree lookup";  fontsize=11  style=dashed
+    tree [label="CoordSpaceN tree\\nsingle get: O(N)\\nN=3: 2.69 ns\\nN=6: 5.91 ns"]
+    cube [label="CoordCube proximity\\nregion gen: O(N·K^D)\\nD=3: 475 ns (125 paths)\\nD=6: ~12 µs (5^6 paths)"]
+    note [label="Different operations:\\ntree = single element locate\\ncube = region enumeration"]
+    tree -- cube -- note [style=invis]
+  }
+}
+""")
+```
+
+:::

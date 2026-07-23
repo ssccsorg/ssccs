@@ -1,0 +1,36 @@
+::: {#fig-bench-cubedist}
+
+```{python}
+#| label: fig-bench-cubedist
+#| fig-cap: "CoordCube distance metric cost vs CoordSpace lookup. All three metrics (hamming, euclidean approx, manhattan) measure below a single array lookup — pure register arithmetic vs memory access."
+dot("""
+graph G {
+  layout=neato  overlap=false  splines=true  sep=+4
+  node [shape=box style=rounded]
+
+  subgraph cluster_dist {
+    label="Operation cost (ARMv8.4-A Firestorm)";  fontsize=11
+    lookup [label="CoordSpace::at\\n390 ps" fillcolor="#FFB6C1" style=filled]
+    hamm [label="Hamming\\n322 ps (0.83x)" fillcolor="#90EE90" style=filled]
+    eucl [label="Euclidean\\n321 ps (0.82x)" fillcolor="#90EE90" style=filled]
+    manh [label="Manhattan\\n316 ps (0.81x)" fillcolor="#90EE90" style=filled]
+    lookup -- hamm -- eucl -- manh [style=invis]
+  }
+
+  subgraph cluster_r2 {
+    label="R=2 (multi-syllable) variants";  fontsize=11
+    h2 [label="Hamming R=2\\n314 ps" fillcolor="#98FB98" style=filled]
+    e2 [label="Euclidean R=2\\n315 ps" fillcolor="#98FB98" style=filled]
+    m2 [label="Manhattan R=2\\n315 ps" fillcolor="#98FB98" style=filled]
+    h2 -- e2 -- m2 [style=invis]
+  }
+
+  subgraph cluster_note {
+    label="Why cheaper than lookup";  fontsize=11  style=dashed
+    note [label="Lookup: L1 load ~3-4 cycles (~300 ps)\\n+ struct access overhead\\n\\nDistance: register-only ALU\\nCompiler inlines and unrolls\\nEuclidean sqrt via Newton-Raphson\\n12 fmul+fadd+fdiv iterations\\nstill fits in ~1 cycle equivalent"]
+  }
+}
+""")
+```
+
+:::

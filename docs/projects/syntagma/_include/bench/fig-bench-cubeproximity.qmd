@@ -1,0 +1,40 @@
+::: {#fig-bench-cubeproximity}
+
+```{python}
+#| label: fig-bench-cubeproximity
+#| fig-cap: "CoordCube proximity generation throughput (D=2, R=1). Throughput increases with radius as fixed setup cost is amortized over more paths. At radius 5, throughput reaches 353 Melem/s — approaching the raw mixed-radix counter rate."
+#| fig-subcap:
+#|   - "Throughput vs radius"
+#|   - "Per-path cost vs radius"
+dot("""
+graph G {
+  layout=neato  overlap=false  splines=true  sep=+4
+  node [shape=box style=rounded]
+
+  subgraph cluster_throughput {
+    label="Throughput (Melem/s)";  fontsize=11
+    r0 [label="r=0\\n55 Melem/s"  fillcolor="#ADD8E6" style=filled]
+    r1 [label="r=1\\n96 Melem/s"  fillcolor="#87CEEB" style=filled]
+    r2 [label="r=2\\n176 Melem/s" fillcolor="#4682B4" fontcolor=white style=filled]
+    r3 [label="r=3\\n207 Melem/s" fillcolor="#4169E1" fontcolor=white style=filled]
+    r5 [label="r=5\\n353 Melem/s" fillcolor="#0000CD" fontcolor=white style=filled]
+    r0 -- r1 -- r2 -- r3 -- r5 [style=invis]
+  }
+
+  subgraph cluster_amort {
+    label="Cost model";  fontsize=11
+    setup [label="Setup\\n~8.6 ns"]
+    perpath [label="Per path\\n~1.7-9.4 ns"]
+    paths [label="Output paths\\n(2r+1)^D"]
+    setup -- perpath -- paths [style=invis]
+  }
+
+  subgraph cluster_insight {
+    label="Key insight";  fontsize=11  style=dashed
+    msg [label="Throughput ↑ with radius\\nCounterintuitive: larger region = faster per-path\\namortization dominates"]
+  }
+}
+""")
+```
+
+:::
