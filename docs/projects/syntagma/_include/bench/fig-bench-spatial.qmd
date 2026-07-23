@@ -1,6 +1,6 @@
 ```{python}
 #| label: fig-bench-spatial
-#| fig-cap: "Spatial query throughput across paradigms. CoordCube on CoordSpaceN tree achieves near-native dense throughput — 96 Melem/s for 9-path proximity despite tree traversal. The tree fallback becomes a spatial query engine."
+#| fig-cap: "Tree vs Cube throughput matrix: CoordPath-on-tree axis filters (58-329 Melem/s via CoordSet) vs CoordCube-on-tree region generation (96-699 Melem/s). The cube compensates its coarser granularity (R syllables per dimension vs 1) with adjacency-driven throughput — generating 121 paths at radius 5 costs 343 ns (353 Melem/s), while 121 sequential CoordPath lookups on the same tree cost 2.6 µs."
 import matplotlib.pyplot as plt
 import numpy as np
 

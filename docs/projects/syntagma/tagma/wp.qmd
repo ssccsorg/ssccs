@@ -572,23 +572,37 @@ CoordCube does **not** replace or modify the storage tree. It is a **path genera
 |-----------|---------------|-------------------|
 | Independent axes | N (every syllable) | D (groups of R syllables) |
 | Precision per axis | 11,172 (one syllable) | 11,172^R (R syllables bundled) |
+| Granularity | 1 syllable (fine, per-axis) | R syllables (coarse, bundled) |
 | Query capability | Exact lookup, slice by axis value | Proximity, bounding box, distance metrics |
+| Performance driver | Per-access latency (0.39 ns) | Adjacency throughput (96-699 Melem/s) |
 | Use case | Key-value addressing | Spatial region queries |
 | Conversion cost | Baseline | 960 ps from CoordPath (no data copy) |
 
 A 6-syllable path (N=6) can be interpreted as CoordPath<6> (6 independent axes, 11,172 precision each) or CoordCube<3, 2> (3 spatial dimensions, 11,172^2 ≈ 1.25 × 10^8 precision each). The same bits serve both views; the user chooses based on workload.
 
+**Granularity tradeoff.**  CoordPath adds one independent axis per syllable —
+fine-grained control over the address space at a cost of O(N) tree traversal
+per access.  CoordCube groups R syllables into a single dimension, reducing
+the number of independent axes from N to D but gaining spatial semantics:
+proximity, bounding box, and distance metrics become arithmetic operations.
+The coarse step (R syllables per dimension) is compensated by adjacency-driven
+throughput — generating all 5^2 = 25 paths in a 2D neighborhood at radius 2
+costs 137 ns (182 Melem/s), faster than 25 sequential CoordPath lookups on
+the same tree (25 × 21.8 ns = 545 ns).  The user chooses: fine-grained linear
+control (CoordPath) or coarse-grained spatial power (CoordCube).
+
 ### Cost comparison: CoordPath lookup vs CoordCube region generation
 
 CoordPath direct array lookup costs a constant 0.39 ns regardless of data volume — a single load from a 22 KB inline array. CoordCube proximity generation does not answer "what value is at this exact key?" but "all keys within distance r of this center," a query with no equivalent in hash-based systems.
 
-| Operation | CoordPath | CoordCube | Ratio |
-|-----------|-----------|-----------|-------|
-| Single element access | 0.39 ns (direct index) | N/A | — |
-| Region enumeration (9 paths) | N/A (requires 9 separate lookups) | 93 ns (proximity r=1) | — |
-| Region enumeration (121 paths) | N/A | 343 ns (proximity r=5) | — |
-| Distance measurement | 322 ps (Coord hamming) | 316-322 ps (cube hamming/euclidean/manhattan) | ~1x |
-| Bounding box 10K paths | N/A (requires full table scan) | 14.6 µs (699 Melem/s) | — |
+| Storage view | Query view | Operation | Cost | Scaling |
+|-------------|-----------|-----------|------|---------|
+| Dense (CoordSpace) | CoordPath | Single element access | 0.39 ns | O(1) flat |
+| Tree (CoordSpaceN) | CoordPath | Single element access | 2.69-58.6 ns | O(N) linear |
+| Tree (CoordSpaceN) | CoordCube | Proximity r=1 (9 paths) | 93 ns | 96 Melem/s |
+| Tree (CoordSpaceN) | CoordCube | Proximity r=5 (121 paths) | 343 ns | 353 Melem/s |
+| Tree (CoordSpaceN) | CoordCube | Bounding box 10K paths | 14.6 µs | 699 Melem/s |
+| Any | CoordCube | Distance metrics | ~320 ps | Register-only |
 
 Distance metrics cost approximately 320 ps regardless of channel — comparable to or below a single CoordSpace array lookup (390 ps) — because all computation is register-only with no memory access. The compiler inlines and unrolls hamming, euclidean, and manhattan to the point where measurement noise dominates.
 
