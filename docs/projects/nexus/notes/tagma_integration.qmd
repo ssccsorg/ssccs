@@ -83,13 +83,12 @@ directly to a FihHash. No HashMap lookup, no intersection, no allocation.
 
 ## Recursive Coordinate Composition
 
-A Tagma `Coord` is a 16-bit value encoding a 3-axis Hangul syllable point
-(initial 0-18, medial 0-21, final 0-28, 11,172 valid combinations total).
+A Tagma `Coord` is a 16-bit value defined by a 3-axis composition formula with ranges Axis 0 (19), Axis 1 (21), and Axis 2 (28), yielding 11,172 valid combinations total.[^tagma-coord-struct]
 Multiple `Coord` values compose into a `CoordPath` of arbitrary length for
 N-dimensional addressing.
 
 The critical design property is that each dimension (origin, creator, type)
-occupies one syllable position in the path, NOT one axis within a syllable:
+occupies one Coord position in the path, NOT one axis within a Coord:
 
 ```text
 FIH identity = CoordPath (variable length)
@@ -107,7 +106,7 @@ individual Coord is an internal encoding detail used only for Hamming distance
 and human readability. The storage and query hot path uses only `coord.index()`
 which is a flat 0..11172 value.
 
-For tens of millions of entries, a 2-syllable `CoordSpaceN<2, FihHash>` with
+For tens of millions of entries, a 2-Coord `CoordSpaceN<2, FihHash>` with
 batch allocation (first coord = allocation batch, second coord = slot within
 batch) provides 124,813,584 addressable slots while keeping memory under
 control:
@@ -138,7 +137,7 @@ the syntagma Criterion benchmark suite on ARMv8.4-A Firestorm.
 | Existence check | "does this 3-axis point exist?" | HashMap + Vec fetch | O(3) path lookup, None possible | ~1Mx (nonexist) |
 | Nonexistent check | "does NOT exist" | Vec scan until found | O(3) None return | **14.0Mx** |
 | Single CoordSpace get | baseline | N/A | 0.82 ns | baseline |
-| CoordSpaceN<2> get | 2-syllable | N/A | ~1.5 ns (est) | baseline |
+| CoordSpaceN<2> get | 2-Coord | N/A | ~1.5 ns (est) | baseline |
 
 The nonexist column requires explanation and is detailed below.
 
@@ -148,15 +147,15 @@ Tagma CoordPath generation replaces SHA256-based FihHash creation in new
 code paths. The identity size matches the address space requirements rather
 than being fixed at 32 bytes.
 
-| Method | N-syll | Address space | Latency (ns/op) | Size (bytes) | Speedup vs SHA256 |
+| Method | N-Coord | Address space | Latency (ns/op) | Size (bytes) | Speedup vs SHA256 |
 |--------|--------|---------------|-----------------|-------------|-------------------|
 | SHA256 | N/A | 2^256 | 227 | 32 | 1x |
-| Tagma 1-syll | 1 | 1.12e4 | 0.38 | 2 | 597x |
-| Tagma 2-syll | 2 | 1.25e8 | 1.1 | 4 | 206x |
-| Tagma 6-syll | 6 | 1.94e24 | 3.7 | 12 | 61x |
-| Tagma 19-syll | 19 | ~2^256 | 54.9 | 38 | 4.1x |
+| Tagma 1-Coord | 1 | 1.12e4 | 0.38 | 2 | 597x |
+| Tagma 2-Coord | 2 | 1.25e8 | 1.1 | 4 | 206x |
+| Tagma 6-Coord | 6 | 1.94e24 | 3.7 | 12 | 61x |
+| Tagma 19-Coord | 19 | ~2^256 | 54.9 | 38 | 4.1x |
 
-For FIH identity generation, a 6-syllable Tagma CoordPath (12 bytes,
+For FIH identity generation, a 6-Coord Tagma CoordPath (12 bytes,
 1.94e24 address space, ~3.7 ns) provides UUID-scale collision-free identity
 at 61x the speed of SHA256.
 
@@ -286,7 +285,7 @@ FihHash remains for workloads requiring cryptographic preimage resistance.
 |--------|-------------------|--------------------|--------|
 | Multi-axis query | Vec intersection O(KxN) | CoordPath O(N) | 1000x+ |
 | Nonexist detection | Vec scan until empty | O(N) None return | 14.0Mx |
-| Identity generation | SHA256 227 ns | CoordPath ~3.7 ns (6-syll) | 61x |
+| Identity generation | SHA256 227 ns | CoordPath ~3.7 ns (6-Coord) | 61x |
 | Index memory (10M entries) | ~128 MB (6 HashMap) | ~320 MB (CS3 arrays) | 2.5x more |
 | Code change | baseline | +30 lines | negligible |
 | Storage IO | baseline | unchanged | 0 |
@@ -307,3 +306,5 @@ Fact records).
 - nexus issue #150: nex-tagma PoC.
 - ev (github.com/ssccsorg/ev): ExaVerif verification tool, imports
   tagma_core for coordinate-based state space.
+
+[^tagma-coord-struct]: The ranges 19, 21, and 28 derive from the Unicode block U+AC00–U+D7AF, which encodes the Hangul writing system.

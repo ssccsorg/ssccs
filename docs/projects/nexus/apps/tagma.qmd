@@ -10,9 +10,9 @@ abstract: |
   bridges the Tagma three-axis coordinate space and the neXus FIH
   three-dimensional storage. It demonstrates that the O(1) direct
   addressing, collision-free uniqueness, axis decomposition, and proximity
-  search properties of the Tagma syllabic coordinate system form an
-  isomorphic mapping with the Fact-Inference-Hint three-dimensional cube.
-  Every valid Hangul syllable becomes a first-class coordinate in FIH
+  properties of the Tagma coordinate system form an
+    isomorphic mapping with the Fact-Inference-Hint three-dimensional cube.
+    Every valid 16-bit Coord becomes a first-class coordinate in FIH
   storage.
 
   nex-tagma serves as a bridge and an experimental ground for neXus core
@@ -81,9 +81,9 @@ structural, not metaphorical:
 
 | Tagma Axis | FIH Dimension | Question |
 |----------|---------|------|
-| initial (choseong) | origin | Where did the fact come from? |
-| medial (jungseong) | creator | Who created it? |
-| final (jongseong) | type | What kind of fact is it? |
+| Axis 0 (origin) | origin | Where did the fact come from? |
+| Axis 1 (creator) | creator | Who created it? |
+| Axis 2 (type) | type | What kind of fact is it? |
 
 Every valid (origin, creator, type) combination is encoded as one Tagma
 coordinate, mapped directly into an O(1) slot of the three-dimensional
@@ -92,12 +92,11 @@ approach (by\_origin &cap; by\_creator &cap; by\_type &rarr; O(K)), because the
 coordinate space guarantees constant-time addressing without index
 intersection or bitmap maintenance.
 
-The mapping uses the entire Hangul syllabic space: 19 onsets &times;
-21 nuclei &times; 28 codas = 11,172 addressable coordinates per coord. Each
+The mapping uses the full coordinate space: 19 &times; 21 &times; 28 = 11,172 addressable coordinates per Coord. Each
 coordinate is a native Unicode scalar value, not an opaque hash. For
 multi-dimensional addressing, multiple coords compose into a CoordPath
-of arbitrary length, where each dimension occupies one syllable position
-rather than one axis within a syllable:
+of arbitrary length, where each dimension occupies one Coord position
+rather than one axis within a Coord:
 
 ## Property Transfer
 
@@ -224,3 +223,5 @@ direct CoordPath lookup.
 
 Stage 4 is active: axis-slice queries, proximity search via Hamming
 distance, and OODA scheduler integration using the new index.
+
+[^tagma-coord-struct]: The ranges 19, 21, and 28 derive from the Unicode block U+AC00–U+D7AF, which encodes the Hangul writing system.
