@@ -30,75 +30,96 @@ Identity is coordinate, and address is space.
 
 ## Overview
 
-synTagma is a spatial coordinate space computing system. Its core primitive, [Tagma](/projects/syntagma/tagma/), is a 16-bit coordinate embedded in a fixed Unicode block (U+AC00--U+D7AF) that replaces hash-based addressing with direct structural addressing. Every valid 16-bit value is simultaneously a 1-D address (Unicode code point), a 3-D coordinate (Axis 0, Axis 1, Axis 2)
+synTagma is a spatial coordinate space computing system. Its core primitive, [Tagma](/projects/syntagma/tagma/), is a 16-bit coordinate embedded in a fixed Unicode block (U+AC00--U+D7AF) that replaces hash-based addressing with direct structural addressing. Every valid 16-bit value is simultaneously a 1-D address (Unicode code point), a 3-D coordinate (Axis 0, Axis 1, Axis 2), and a displayable Unicode character.[^hangul-block]
 
 The system spans two layers:
 
-**Tagma (core primitive).** The atomic coordinate: a 16-bit value with closed-form composition, three independent axes, zero collision probability, and single-cycle combinational decoding. A variable-length Coord sequence extends the address space from $1.1 \times 10^4$ to $2^{256}$ while keeping lookup cost linear in Coord count.
+**Tagma (core primitive).** The atomic coordinate: a 16-bit value with closed-form composition, three independent axes, zero collision probability, and single-cycle combinational decoding (~300 gates). A variable-length Coord sequence extends the address space from $1.12 \times 10^4$ to $2^{256}$ while keeping lookup cost linear in Coord count.
 
-**synTagma coordination system** The recursive and distributed extension of the Tagma arithmetic across physical topologies. A synTagma coordinate at recursion level $k$ is a Cartesian product of three Tagma Coord sequences at level $k-1$:
+**synTagma coordination system.** The recursive and distributed extension of Tagma arithmetic across physical topologies. A synTagma coordinate at recursion level $k$ is a Cartesian product of three Tagma Coord sequences at level $k-1$:
 
 $$\mathbb{T}_k = \mathbb{T}_{k-1} \times \mathbb{T}_{k-1} \times \mathbb{T}_{k-1}$$
 
-Each axis of a recursive coordinate can reside on a different physical node. A topology mapping function $\phi_k$ assigns axes to nodes; the recursive linearisation formula produces the same index regardless of how axes are distributed. No distributed consensus is required because each axis is independently stored and independently accessed.
+Each axis of a recursive coordinate can reside on a different physical node. No distributed consensus is required because each axis is independently stored and independently accessed.
 
 ## Tagma core primitive
 
-The core Tagma coordinate is defined by the composition formula (ISO/IEC 10646) for block U+AC00–U+D7AF:
+The core Tagma coordinate is defined by the composition formula (ISO/IEC 10646) for block U+AC00--U+D7AF:
 
 $$C(i,m,f) = \text{U+AC00} + 588i + 28m + f, \quad 0 \leq i < 19,\; 0 \leq m < 21,\; 0 \leq f < 28$$
 
-Of 65,536 representable 16-bit states, 11,172 satisfy this formula. The remaining 54,364 are structurally invalid and hardware-detectable. Each valid value is:
+Of 65,536 representable 16-bit states, 11,172 satisfy this formula. The remaining 54,364 are structurally invalid and hardware-detectable. Each valid value carries three interpretations: a Unicode code point for flat addressing, a triple-axis coordinate for structural queries, and a Unicode character for display.
 
-- A 1-D address (Unicode code point) for flat array indexing
-- A 3-D coordinate (Axis 0, Axis 1, Axis 2) for structural queries
-- A Unicode code point for human-readable display
+CoordPath composition extends the address space linearly with Coord count:
 
-The core library provides several data structures built on the Tagma coordinate:
+| Coords | Axes | Identifier space | Equivalent to |
+|--------|------|-----------------|---------------|
+| 1 | 3 | $1.12 \times 10^4$ | Sensor tags |
+| 6 | 18 | $1.94 \times 10^{24}$ | UUID scale |
+| 10 | 30 | $2.69 \times 10^{40}$ | Exceeds 128-bit |
+| 19 | 57 | $1.94 \times 10^{77}$ | SHA-256 scale |
 
-- A fixed-size bit array supporting bitwise set operations over the full coordinate space.
-- A direct-address table mapping each valid single-Coord coordinate to an associated value; lookup is a single index computation with no hashing.
-- A multi-level tree for storing values indexed by variable-length Coord sequences; allocation is demand-driven, and each level uses the same direct-address mechanism.
-- A variable-depth trie for sequences whose length is determined at runtime rather than compile time.
+The decoder extracts three axis fields from a 16-bit input in one combinational cycle: range check, field extraction (division by 588 and 28), and axis validation. Total gate count is approximately 300 gates in 28nm -- smaller than a single 32-bit multiplier.
 
-All of these structures resolve collisions by construction: the coordinate space guarantees that distinct values produce distinct indices.
+Core data structures include:
 
-Full documentation: [Tagma primitive page](/projects/syntagma/tagma/).
+- **CoordSpace (N=1)** -- Dense inline array, 22 KB stack allocation, single-load O(1) access. No heap, no hashing, no collisions.
+- **CoordSpace2 (N=2)** -- Dense heap allocation, 119 MB, same single-load O(1) guarantee.
+- **CoordSpaceN\<N\>** -- Sparse tree for N-Coord paths, memory proportional to stored entries.
+- **CoordSet** -- Fixed-size bit array over the coordinate space, bitwise set operations over 175 machine words.
 
 ## Coordination layer
 
-The coordination layer extends Tagma's arithmetic to physical topologies without modifying the core. Its components:
+The coordination layer extends Tagma's arithmetic to physical topologies without modifying the core:
 
-**Recursive coordinate space.** The composition formula admits unbounded $k$ levels of recursion. A 19-Coord sequence at $k=0$ occupies the SHA-256 scale; at $k=1$ each of its three axes is itself a full 19-Coord sequence, producing $S_1 \approx 7.30 \times 10^{231}$ distinct addresses. Access follows the recursive linearisation formula:
+**Recursive coordinate space.** The composition formula admits unbounded $k$ levels of recursion. A 19-Coord sequence at $k=0$ occupies the SHA-256 scale; at $k=1$ each of its three axes is itself a full 19-Coord sequence.
 
-$$\text{index}(a,b,c) = a \cdot S_{k-1}^2 + b \cdot S_{k-1} + c$$
+**Self-routing.** A Coord sequence carries its own address. Given a sequence and current recursion depth, any node determines whether each sub-axis is local or remote by applying the topology function $\phi_k$. No routing table lookup is required.
 
-**Physical topology mapping.** The three axes of a recursive coordinate need not reside on the same device. The topology function $\phi_k: \{i,m,f\} \rightarrow \mathcal{N}$ assigns each axis to a physical node. Axes on the same node are resolved locally; axes on different nodes require transport. The assignment is a deployment parameter determined by data locality and fault isolation.
-
-**Axis fungibility.** The coordinate axes carry no intrinsic semantics at the protocol level. The same resolver procedure, transport format, and consistency model apply whether axis 0 represents "region", "shard", or "timestamp". This separation between coordinate algebra and axis interpretation allows routing across heterogeneous topologies without modifying the core arithmetic.
-
-**Self-routing.** A Coord sequence carries its own address. Given a sequence and current recursion depth, any node determines whether each sub-axis is local or remote by applying $\phi_k$. No separate routing table lookup is required.
-
-**Consistency.** Resolution requires no distributed consensus. Each axis is independently stored and independently accessed. The linearisation formula is a pure function of independent axis values, so cross-node reads require no coordination. Write operations affecting different axes target independent address subspaces on different nodes.
+**Axis fungibility.** The three axes carry no intrinsic semantics. Axis 0 may represent "region", "shard", or "timestamp" depending on deployment. The coordinate arithmetic -- composition, decomposition, linearisation -- is invariant.
 
 ## Performance
 
-Based on a software reference implementation, measured lookup latency: 0.38 ns vs 227 ns for SHA-256 (597x) at single-Coord; 54.9 ns vs 227 ns (4.1x) at SHA-256 scale (19 Coords). Structural prefix queries show the decisive advantage: Tagma answers nonexistent prefix in 1.65 ns while a general-purpose hash table scans 10M entries in 23.05 ms (14.0Mx). See benchmarks section in [Tagma](/projects/syntagma/tagma/wp.html#sec-appendix-benches) Whitepaper: All measured on ARMv8.4-A Firestorm with [cargo bench code](https://github.com/ssccsorg/syntagma/blob/main/sw/rust/benches/bench.rs).
+Based on a software reference implementation on ARMv8.4-A Firestorm:
 
-Cross-validation from hardware verification: the [Ibex RV32IMCB Exhaustive Verification Report](/projects/ev/ibex.html#performance-structural-enumeration-vs-standard-pipeline) using ev (ExaVerif) confirms the same structural advantage on real RISC-V instruction encoding spaces. Tagma-based structural enumeration verifies 524,288 combinations in 49.5 ms versus 3.63 s for the standard pipeline (73x), and at 2M scale reaches 846x by eliminating runtime constraint evaluation entirely.
+| Metric | SHA-256 | Tagma dense (N=1) | Tagma tree (N=19) |
+|--------|---------|------------------|--------------------|
+| Latency | 227 ns | 0.39 ns (582x) | 58.6 ns (3.9x) |
+| Collision | probabilistic | zero | zero |
+| Nonexistent prefix (10M) | 23.05 ms (HashMap scan) | 1.65 ns (14.0Mx) | -- |
+
+Spatial query: CoordSet bitwise AND resolves compound axis filters at 329 Melem/s -- 137x faster than HashMap scan. All operations are scale-invariant: lookup cost depends on Coord Depth, not data volume.
+
+Cross-validation from hardware verification: the [Ibex RV32IMCB Exhaustive Verification Report](/projects/ev/ibex.html) using ev (ExaVerif) confirms the same structural advantage on real RISC-V instruction encoding spaces. Tagma-based structural enumeration verifies 524,288 combinations in 49.5 ms versus 3.63 s for the standard pipeline (73x).
+
+## Application domains
+
+**Embedded systems.** The 11,172-identifier space fits in a 22 KB no-allocator array: one load, no hashing, no collisions.
+
+**LLM inference cache.** KV caches indexed by token prefixes use CoordPath-based direct access: production cache sizes ($10^4$--$10^7$) are covered by 2--4 Coords, with zero hash computation.
+
+**Graph and multi-dimensional query.** Each node maps to a Coord, each edge type to a CoordSet. Adjacency reduces to a bitwise AND over 175 machine words -- no index intersection.
+
+**General-purpose addressing.** Replaces UUIDs, hash keys, and sequence numbers with shorter, faster, deterministic identifiers.
+
+## Boundaries
+
+Tagma replaces hash-based identity generation and addressing. SHA-256 remains for signatures, Merkle proofs, and integrity verification. Encryption, authentication, and key derivation are outside the primitive's scope. The two strategies compose: SHA-256 output encoded as 19 Coords is more readable than 64 hex characters while preserving $2^{-256}$ collision probability.
 
 ## Documents
 
 | Document | Description |
 |----------|-------------|
 | [Tagma](/projects/syntagma/tagma/wp.html) | Complete Tagma specification: coordinate space, decoder, hardware, benchmarks |
-| [Tagma](/projects/syntagma/tagma/wp.html#sec-appendix-benches) benchmarks | 51 microbenchmarks across 12 criterion groups: identity generation (Tagma vs SHA-256), spatial query (CoordSpace vs HashMap), edge cases at 10M entries, UUID-scale and SHA-256-scale deep trees, and mixed-operation stress tests. |
-| [Tagma Core Primitive](/projects/syntagma/tagma/) | Tagma core primitive: types, data structures, API reference |
+| [Tagma](/projects/syntagma/tagma/wp.html#sec-appendix-benches) benchmarks | 51 microbenchmarks across 12 criterion groups: identity generation, spatial query, edge cases at 10M entries, deep trees, mixed-operation stress tests |
+| [Tagma Core Primitive](/projects/syntagma/tagma/) | Core types, data structures, API reference |
 | [Tagma-ID](/projects/syntagma/tagma/id.html) | Content-addressable identity without hash functions |
 | [Tagma-KV](/projects/syntagma/tagma/kv) | Hashless Key-Value Storage |
-| [Ibex RV32IMCB Exhaustive Verification Report](/projects/ev/ibex.html) | Exhaustive RISC-V verification using synTagma structural enumeration: 73x speedup over standard pipeline on Ibex core ALU decode |
-| [CVA6 CV-X-IF Exhaustive Verification Report](/projects/ev/cva6) | Standard evaluate (1.43s for R4, ~32s for full 33M) vs struct_enum (1.69ms for R4, ~32ms estimated for full). At CVA6 2M scale, struct_enum achieves 846x speedup. |
+| [Ibex RV32IMCB Verification](/projects/ev/ibex.html) | Exhaustive RISC-V verification using structural enumeration: 73x speedup |
+| [CVA6 CV-X-IF Verification](/projects/ev/cva6) | At 2M scale, structural enumeration achieves 846x speedup |
 
 ## Contact
 
 For inquiries or research collaboration: [syntagma@ssccs.org](mailto:syntagma@ssccs.org).
+
+[^hangul-block]: The ranges 19, 21, and 28 derive from the Unicode block U+AC00--U+D7AF, which encodes the Hangul writing system. The composition formula is defined in ISO/IEC 10646.
