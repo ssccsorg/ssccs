@@ -1,56 +1,36 @@
 ```{python}
 #| label: fig-bench-deep
-#| fig-cap: "Tree vs Cube matrix: CoordPath-on-tree (CoordSpaceN2) scales O(N) at 0.22 µs for 9 lookups; CoordCube-on-tree adds spatial queries at 0.28 µs for the same 9 paths — only 57 ns overhead (0.26 µs from 9 lookups, 0.02 µs path generation). The cube compensates for the tree O(N) cost by generating multiple paths at once via adjacency-driven throughput (96 Melem/s). Dense stores (CoordSpace2, CoordSpaceM3) reach 0.0185 µs for the same query."
+#| fig-cap: "Deep tree: single-key access across CoordSpace family. Dense+CoordPath (CoordSpace2, CoordSpaceM3) holds flat at 0.05 µs for 100 gets (0.39 ns each). Tree+CoordPath (CoordSpaceN19) scales O(N): 7.04 µs for 100 gets, 2.30 ns per missing key. HashMap: 3.53 µs for 100 gets, 20.1 ns per missing key. See fig-bench-cube-vs-path for spatial query comparison."
 import matplotlib.pyplot as plt
 import numpy as np
 
-metrics = [
-    'get 100\n(µs)',
-    'missing\nkey (ns)',
-    'proximity r=1\n9 paths (µs)\non CoordSpaceN',
-]
+metrics = ['get 100\n(µs)', 'missing\nkey (ns)']
+cs2_vals   = [0.05, 0.39]
+csvm3_vals = [0.05, 0.39]
+csn19_vals = [7.04, 2.30]
+hm_vals    = [3.53, 20.1]
 
-# ── Store lookup cost ──
-cs2_vals = [0.05, 0.39, 0.0185]    # dense: 0.39 ns * 9 ≈ 3.5 ns + 15 ns gen
-csvm3_vals = [0.05, 0.39, 0.0185]  # same
-csn2_vals = [0.22, 2.30, 0.285]    # tree: 9 lookups at 21.8 ns = 196 ns + 89 ns
-hm_vals = [3.53, 20.1, 3.53]       # HashMap: same as get 100 (full scan)
-
-fig, ax = plt.subplots(figsize=(5.5, 3.5))
+fig, ax = plt.subplots(figsize=(5, 3.5))
 x = np.arange(len(metrics))
-w = 0.18
-
-bars_dense = ax.bar(x - 1.5*w, cs2_vals, w,
-                    label='Dense + CoordPath (native)', color='white', edgecolor='black', linewidth=0.8, hatch='///')
-bars_native = ax.bar(x - 0.5*w, csvm3_vals, w,
-                     label='Dense + CoordPath (mmap)', color='white', edgecolor='black', linewidth=0.8, hatch='xxx')
-bars_tree = ax.bar(x + 0.5*w, [csn2_vals[0], csn2_vals[1], csn2_vals[2]], w,
-                   label='Tree + CoordPath (fallback)', color='white', edgecolor='black', linewidth=0.8, hatch='...')
-bars_hm = ax.bar(x + 1.5*w, hm_vals, w,
-                 label='HashMap', color='white', edgecolor='black', linewidth=0.8)
+w = 0.2
+ax.bar(x - 1.5*w, cs2_vals, w, label='Dense+CoordPath (native)', color='white', edgecolor='black', linewidth=0.8, hatch='///')
+ax.bar(x - 0.5*w, csvm3_vals, w, label='Dense+CoordPath (mmap)', color='white', edgecolor='black', linewidth=0.8, hatch='xxx')
+ax.bar(x + 0.5*w, csn19_vals, w, label='Tree+CoordPath (fallback)', color='white', edgecolor='black', linewidth=0.8, hatch='\\\\')
+ax.bar(x + 1.5*w, hm_vals, w, label='HashMap', color='white', edgecolor='black', linewidth=0.8)
 
 ax.set_xticks(x)
-ax.set_xticklabels(metrics, fontsize=7.5)
+ax.set_xticklabels(metrics, fontsize=8)
 ax.set_ylabel('Latency')
 ax.set_yscale('log')
-ax.set_ylim(0.0001, 50)
 ax.legend(fontsize=6.5, loc='upper left')
 
-# Annotate bars with values only (no arrows)
-units = ['µs', 'ns', 'µs']
-for bars, vals in [(bars_dense, cs2_vals), (bars_native, csvm3_vals), (bars_tree, csn2_vals), (bars_hm, hm_vals)]:
+units = ['µs', 'ns']
+for bars, vals in [(ax.patches[:2], cs2_vals), (ax.patches[2:4], csvm3_vals), (ax.patches[4:6], csn19_vals), (ax.patches[6:8], hm_vals)]:
     for bar, val, unit in zip(bars, vals, units):
-        if val == 0:
-            continue
-        fmt = f'{val:.2f} {unit}' if val >= 0.1 else f'{val:.3f} {unit}'
+        fmt = f'{val} {unit}'
         off = 1.25 if val < 1 else (1.15 if val < 10 else 1.08)
         ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() * off,
-                fmt, ha='center', va='bottom', fontsize=5.5, rotation=45)
-
-# Tree+Path vs Tree+Cube raw comparison (inline, no arrows)
-ax.annotate('Tree+Path: 196 ns (9 x 21.8)\nTree+Cube:  93 ns (r=1)\n2.1x faster',
-            xy=(2, 0.285), fontsize=6.5, ha='left',
-            bbox=dict(boxstyle='round,pad=0.3', facecolor='white', edgecolor='black', alpha=0.85))
+                fmt, ha='center', va='bottom', fontsize=7)
 
 plt.tight_layout()
 plt.show()

@@ -1,48 +1,52 @@
 ```{python}
 #| label: fig-bench-spatial
-#| fig-cap: "Tree vs Cube throughput matrix: CoordPath-on-tree axis filters (58-329 Melem/s via CoordSet) vs CoordCube-on-tree region generation (96-699 Melem/s). The cube compensates coarser granularity (R syllables per dimension) with adjacency-driven throughput — generating 121 paths at radius 5 costs 343 ns (353 Melem/s), while 121 sequential CoordPath lookups on the same tree cost 2.6 µs. CoordCube on tree achieves near-native throughput: path generation + tree lookup at 96 Melem/s."
+#| fig-cap: "Spatial query throughput by channel. Channel 1: CoordSet axis filters on Dense+CoordPath (58-329 Melem/s via bitwise AND). Channel 2: CoordCube region generation on Tree+CoordCube (96-353 Melem/s path gen, 31 Melem/s KV lookup). The two channels are complementary — CoordSet for set membership, CoordCube for spatial region enumeration."
 import matplotlib.pyplot as plt
 import numpy as np
 
-queries = [
-    'Axis\nmedial=10',
-    'Range\ninit 3-7',
-    'Compound\ninit=3,med=5',
-]
+ch1_ops = ['Axis\nmedial=10', 'Range\ninit 3-7', 'Compound\ninit=3,med=5']
+ch2_ops = ['Prox r=1\n9 paths', 'Prox r=5\n121 paths', 'BBox 10K\n10K paths']
 
-cs_tp   = [ 58.0, 158.0, 329.0]
-hm_tp   = [ 24.5,  77.3,   2.4]
-ratios  = [ '2.4x', '2.0x', '137x']
+ch1_cs = [ 58.0, 158.0, 329.0]   # CoordSet AND (Dense+Path)
+ch1_hm = [ 24.5,  77.3,   2.4]
+ratios  = ['2.4x', '2.0x', '137x']
 
-cube_ops  = ['Prox r=1 (tree)\n9 paths·93 ns', 'Prox r=5 (tree)\n121 paths·343 ns', 'BBox 10K (tree)\n10K paths·14.6 µs']
-cube_tp   = [ 96.4,  353.0,  699.0]
+ch2_gen = [ 96.4, 353.0, 699.0]   # CoordCube path gen (pure)
+ch2_kv  = [ 31.4,  39.5,   0.0]   # CoordCube KV lookup (dense, r=1/r=2; bbox N/A)
 
-fig, ax = plt.subplots(figsize=(6.2, 3.8))
-x = range(len(queries) + len(cube_ops))
-w = 0.28
+fig, ax = plt.subplots(figsize=(7, 4))
+x = range(len(ch1_ops) + len(ch2_ops))
+w = 0.22
 
-ax.bar(x[0] - w/2, cs_tp[0], w, label='Dense + CoordPath (native)', color='white', edgecolor='black', linewidth=0.8, hatch='///')
-ax.bar(x[1] - w/2, cs_tp[1], w, color='white', edgecolor='black', linewidth=0.8, hatch='///')
-ax.bar(x[2] - w/2, cs_tp[2], w, color='white', edgecolor='black', linewidth=0.8, hatch='///')
+# Channel 1: CoordSet AND (Dense+Path) vs HashMap
+for i in range(3):
+    ax.bar(x[i] - w, ch1_cs[i], w, color='white', edgecolor='black', linewidth=0.8, hatch='///')
+    ax.bar(x[i], ch1_hm[i], w, color='white', edgecolor='black', linewidth=0.8)
 
-ax.bar(x[0] + w/2, hm_tp[0], w, label='HashMap', color='white', edgecolor='black', linewidth=0.8)
-ax.bar(x[1] + w/2, hm_tp[1], w, color='white', edgecolor='black', linewidth=0.8)
-ax.bar(x[2] + w/2, hm_tp[2], w, color='white', edgecolor='black', linewidth=0.8)
-
+# Channel 2: CoordCube Gen (tree) + KV lookup (tree)
 off = 3
-ax.bar(x[off], cube_tp[0], w * 1.5, label='Tree + CoordCube (spatial)', color='white', edgecolor='black', linewidth=0.8, hatch='...')
-ax.bar(x[off+1], cube_tp[1], w * 1.5, color='white', edgecolor='black', linewidth=0.8, hatch='...')
-ax.bar(x[off+2], cube_tp[2], w * 1.5, color='white', edgecolor='black', linewidth=0.8, hatch='...')
+for i in range(3):
+    ax.bar(x[off+i] - w, ch2_gen[i], w, color='white', edgecolor='black', linewidth=0.8, hatch='...')
+    if ch2_kv[i] > 0:
+        ax.bar(x[off+i], ch2_kv[i], w, color='white', edgecolor='black', linewidth=0.8, hatch='ooo')
 
-all_labels = queries + cube_ops
+all_labels = ch1_ops + ch2_ops
 ax.set_xticks(list(x))
-ax.set_xticklabels(all_labels, fontsize=6.8)
+ax.set_xticklabels(all_labels, fontsize=7)
 ax.set_ylabel('Throughput (Melem/s)')
 ax.set_yscale('log')
 ax.set_ylim(1, 2000)
-ax.legend(fontsize=6.5, loc='upper left')
 
-for i, (cs, hm, ratio) in enumerate(zip(cs_tp, hm_tp, ratios)):
+# Legend
+from matplotlib.patches import Patch
+ax.legend(handles=[
+    Patch(facecolor='white', edgecolor='black', hatch='///', label='Dense+CoordPath (CoordSet)'),
+    Patch(facecolor='white', edgecolor='black', label='HashMap'),
+    Patch(facecolor='white', edgecolor='black', hatch='...', label='Tree+CoordCube (path gen)'),
+    Patch(facecolor='white', edgecolor='black', hatch='ooo', label='Tree+CoordCube (KV lookup)'),
+], fontsize=6.5, loc='upper left')
+
+for i, (cs, hm, ratio) in enumerate(zip(ch1_cs, ch1_hm, ratios)):
     ax.annotate(ratio, xy=(i, (cs * hm) ** 0.5), fontsize=8, fontweight='bold',
                 ha='center', va='center',
                 bbox=dict(boxstyle='round,pad=0.12', facecolor='white', edgecolor='black', alpha=0.85))

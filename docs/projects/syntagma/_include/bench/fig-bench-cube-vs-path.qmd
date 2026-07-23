@@ -1,42 +1,40 @@
 ```{python}
 #| label: fig-bench-cube-vs-path
-#| fig-cap: "Tree + CoordPath vs Tree + CoordCube: measured comparison for 9-path neighborhood (D=2, R=1, radius=1). Tree+Path (sequential): 9 CoordSpaceN2 lookups at 159 ns. Tree+Cube (dense store): proximity r=1 at 287 ns — cube adds BoundingBoxIter + Vec push overhead. Tree+Cube (sparse store, 9 entries): proximity r=1 at 48 ns — 3.3x faster than sequential. Cube advantages are spatial semantics (distance, region) and sparse-store throughput, not raw dense-store lookup speed."
+#| fig-cap: "Tree + CoordPath vs Tree + CoordCube: direct comparison on CoordSpaceN2 tree (D=2 R=1 radius=1, 9 paths). Tree+Path: 9 sequential get_by_coordkey at 159 ns. Tree+Cube dense: proximity r=1 at 287 ns — BoundingBoxIter + Vec push overhead makes it 1.8x slower. Tree+Cube sparse (9 entries): 48 ns — 3.3x faster with fewer tree nodes and zero Vec overhead. Path gen only (empty tree): 15.4 ns baseline."
 import matplotlib.pyplot as plt
 import numpy as np
 
 ops = [
-    '9 sequential\nlookups\n(Tree+Path)',
-    'Proximity r=1\n9 paths\n(Tree+Cube)',
-    'Path gen only\n(empty tree)',
-    '9 lookups\n(Dense+Path\nreference)',
+    'Path gen\n(empty tree)',
+    'Tree+Path\n(seq 9 keys)',
+    'Tree+Cube\ndense 10K',
+    'Tree+Cube\nsparse 9',
 ]
 
-times = [159.0, 287.0, 48.0, 15.4]
-hatches = ['...', '...', '...', '///']
-edges = ['black', 'black', 'black', 'black']
+times = [15.4, 159.0, 287.0, 48.0]
+edges = ['black'] * 4
+hatches = ['', '\\\\', '...', 'ooo']
 
 fig, ax = plt.subplots(figsize=(5, 3.5))
 bars = ax.bar(range(len(ops)), times, color='white', edgecolor='black', linewidth=0.8, hatch=hatches)
 
 ax.set_xticks(range(len(ops)))
-ax.set_xticklabels(ops, fontsize=8)
+ax.set_xticklabels(ops, fontsize=9)
 ax.set_ylabel('ns (lower is better)')
-ax.set_ylim(0, 230)
+ax.set_ylim(0, 340)
 
 for bar, val in zip(bars, times):
-    ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 5,
-            f'{val} ns', ha='center', fontsize=8, fontweight='bold')
+    ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 8,
+            f'{val} ns', ha='center', fontsize=9, fontweight='bold')
 
-# Ratio annotations
-ax.annotate('sequential
-wins by 1.8x', xy=(1, 287), xytext=(1, 200),
+# Ratio annotations (no arrows)
+ax.annotate('1.8x slower\n(overhead)', xy=(2, 287), xytext=(2, 170),
+            fontsize=7.5, ha='center',
+            bbox=dict(boxstyle='round,pad=0.15', facecolor='white', edgecolor='black', alpha=0.9))
+
+ax.annotate('3.3x faster\n(no overhead)', xy=(3, 48), xytext=(3, 120),
             fontsize=8, ha='center', fontweight='bold',
-            bbox=dict(boxstyle='round,pad=0.12', facecolor='white', edgecolor='black', alpha=0.9))
-
-ax.annotate('cube wins
-by 3.3x', xy=(2, 48), xytext=(2, 110),
-            fontsize=9, ha='center', fontweight='bold', color='black',
-            bbox=dict(boxstyle='round,pad=0.12', facecolor='white', edgecolor='black', alpha=0.9))
+            bbox=dict(boxstyle='round,pad=0.15', facecolor='white', edgecolor='black', alpha=0.9))
 
 plt.tight_layout()
 plt.show()
