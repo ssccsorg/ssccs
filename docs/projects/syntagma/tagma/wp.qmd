@@ -599,7 +599,9 @@ CoordPath direct array lookup costs a constant 0.39 ns regardless of data volume
 |------------|-----------|------|---------|
 | Dense + CoordPath (native) | Single element access | 0.39 ns | O(1) flat |
 | Tree + CoordPath (fallback) | Single element access | 2.69-58.6 ns | O(N) linear |
-| Tree + CoordCube (spatial) | Proximity r=1 (9 paths) | 93 ns | 96 Melem/s |
+| Tree + CoordCube (spatial) | Proximity r=1: path gen | 93 ns | 96 Melem/s (path gen) |
+| Tree + CoordCube (spatial) | Proximity r=1: full KV (sparse) | 48 ns | 3.3x vs sequential |
+| Tree + CoordCube (spatial) | Proximity r=1: full KV (dense) | 287 ns | 9 lookups + Vec push |
 | Tree + CoordCube (spatial) | Proximity r=5 (121 paths) | 343 ns | 353 Melem/s |
 | Tree + CoordCube (spatial) | Bounding box 10K paths | 14.6 µs | 699 Melem/s |
 | Any + CoordCube | Distance metrics | ~320 ps | Register-only |
