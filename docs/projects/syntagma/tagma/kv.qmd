@@ -461,10 +461,10 @@ for (key, value) in kv.iter() {
 // Each stored Coord's three axes are independently queryable
 ```
 
-The full axis query API (axis slicing, range queries, compound masks) is implemented as the `SpatialKV` trait on top of the same CoordKV trait foundation. Given a center `CoordPath<N>` interpreted as a `CoordCube<N, D, R>` (N = D × R), the `proximity` method generates all paths within L∞ radius and returns stored entries:
+The full axis query API (axis slicing, range queries, compound masks) is implemented as the `CoordCubeKV` trait on top of the same CoordKV trait foundation. Given a center `CoordPath<N>` interpreted as a `CoordCube<N, D, R>` (N = D × R), the `proximity` method generates all paths within L∞ radius and returns stored entries:
 
 ```rust
-use tagma_kv::spatial::SpatialKV;
+use tagma_kv::spatial::CoordCubeKV;
 
 let center = CoordPath::<2>::new([c0, c1]);
 // Interpret as D=2, R=1: a 2D cube with one syllable per dimension
