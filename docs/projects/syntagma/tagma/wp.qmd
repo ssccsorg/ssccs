@@ -602,7 +602,7 @@ The CoordCubeKV trait combines region generation (CoordCube) with tree lookup (C
 
 Sparse stores that fit in L1 cache reduce total time to 47.8 ns (188 Melem/s); empty stores measure 15.4 ns — pure generation cost.
 
-{{< include ../_include/bench/fig-bench-2ch.qmd >}}
+See Fig. [fig-bench-spatial] for the combined throughput comparison across both channels.
 
 The architectural significance: no hash-based system can replicate this dual channel. A HashMap key — a uniformly distributed digest — cannot be reinterpreted as a spatial coordinate; the hash function destroys proximity, axis structure, and geometry. A CoordPath can, because its structure is the address. The conversion is 960 ps and changes no state.
 
@@ -894,7 +894,7 @@ A SHA-256 engine requires approximately 10,000 gates and 64--75 cycles per opera
 
 :::
 
-- Spatial query: CoordSet bitwise AND resolves compound axis filters at 329 Melem/s -- 137x faster than HashMap scan.
+- **Spatial query — two tiers**: (a) CoordSet bitwise AND resolves compound axis filters at 329 Melem/s -- 150x faster than HashMap scan. (b) **CoordCube on CoordSpaceN tree** generates proximity regions at 96-353 Melem/s and bounding boxes at 699 Melem/s, achieving near-native throughput despite tree traversal — the tree fallback becomes a spatial query engine with only ~60 ns overhead above the baseline.
 - Edge: CS2 sparse get sustains 23.4x at 10M entries; CS19 get shows 19-dereference cost (0.50x); drain is 0.72x on the full space.
 - Bulk operations: CoordSpace outperforms HashMap by 14.6--17.3x across all operations on the full 11,172-entry space.
 - Single-get microbenchmark isolates the per-operation cost: 0.82 ns vs 8.50 ns.
@@ -917,19 +917,6 @@ Tagma assigns every point in a geometric space a structural address that is simu
 
 All figures are software measurements on ARMv8.4-A Firestorm (2020), compiled with `rustc` stable in release mode. Full benchmark source is included in the repository [@bench-source].
 
-### CoordCube spatial benchmarks
-
-The following figures measure the second access channel: CoordCube-based proximity generation, bounding box enumeration, and distance metric throughput. All measurements are on ARMv8.4-A Firestorm using the same harness as the core lookup benchmarks.
-
-{{< include ../_include/bench/fig-bench-cubeproximity.qmd >}}
-
-{{< include ../_include/bench/fig-bench-cubescaling.qmd >}}
-
-{{< include ../_include/bench/fig-bench-cubedist.qmd >}}
-
-{{< include ../_include/bench/fig-bench-kvproximity.qmd >}}
-
-Proximity generation throughput scales with output path count: 55 Melem/s at radius 0 (1 path) to 353 Melem/s at radius 5 (121 paths). Dimensional scaling follows output count (2r+1)^D rather than N alone. Distance metrics cost ~320 ps — below a single array lookup (390 ps) — because all computation is register-only with no memory access. KV proximity queries decompose into path generation (5% of total time) and CoordSpace tree traversal (95%).
 
 ## Hardware Design Implications {#sec-appendix-hardware}
 

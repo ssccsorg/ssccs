@@ -1,17 +1,54 @@
 ```{python}
 #| label: fig-bench-spatial
-#| fig-cap: "Spatial query throughput"
+#| fig-cap: "Spatial query throughput across paradigms. CoordCube on CoordSpaceN tree achieves near-native dense throughput — 96 Melem/s for 9-path proximity despite tree traversal. The tree fallback becomes a spatial query engine."
 import matplotlib.pyplot as plt
 import numpy as np
-queries = ['Axis\nmedial=10', 'Range\ninit 3-7', 'Compound\ninit=3,med=5']
-cs_tp = [58.0, 158.0, 329.0]; hm_tp = [24.5, 77.3, 2.4]; ratios = ['2.4x', '2.0x', '137x']
-fig, ax = plt.subplots(); x = np.arange(len(queries)); w = 0.3
-ax.bar(x - w/2, cs_tp, w, label='CoordSpace', color='white', edgecolor='black', linewidth=0.8, hatch='///')
-ax.bar(x + w/2, hm_tp, w, label='HashMap', color='white', edgecolor='black', linewidth=0.8)
-ax.set_ylabel('Throughput (Melem/s)'); ax.set_xticks(x); ax.set_xticklabels(queries, fontsize=7)
-ax.set_yscale('log'); ax.legend(fontsize=7, loc='upper left')
+
+queries = [
+    'Axis\nmedial=10',
+    'Range\ninit 3-7',
+    'Compound\ninit=3,med=5',
+]
+
+cs_tp   = [ 58.0, 158.0, 329.0]
+hm_tp   = [ 24.5,  77.3,   2.4]
+ratios  = [ '2.4x', '2.0x', '137x']
+
+cube_ops  = ['Prox r=1\n(tree)\n9 paths', 'Prox r=5\n(tree)\n121 paths', 'BBox 10K\n(tree)\n10K paths']
+cube_tp   = [ 96.4,  353.0,  699.0]
+
+fig, ax = plt.subplots(figsize=(6.2, 3.8))
+x = range(len(queries) + len(cube_ops))
+w = 0.28
+
+ax.bar(x[0] - w/2, cs_tp[0], w, label='CoordSpace (native)', color='white', edgecolor='black', linewidth=0.8, hatch='///')
+ax.bar(x[1] - w/2, cs_tp[1], w, color='white', edgecolor='black', linewidth=0.8, hatch='///')
+ax.bar(x[2] - w/2, cs_tp[2], w, color='white', edgecolor='black', linewidth=0.8, hatch='///')
+
+ax.bar(x[0] + w/2, hm_tp[0], w, label='HashMap', color='white', edgecolor='black', linewidth=0.8)
+ax.bar(x[1] + w/2, hm_tp[1], w, color='white', edgecolor='black', linewidth=0.8)
+ax.bar(x[2] + w/2, hm_tp[2], w, color='white', edgecolor='black', linewidth=0.8)
+
+off = 3
+ax.bar(x[off], cube_tp[0], w * 1.5, label='CoordCube on tree\n(path generation)', color='white', edgecolor='#1b9e77', linewidth=0.8, hatch='xxx')
+ax.bar(x[off+1], cube_tp[1], w * 1.5, color='white', edgecolor='#1b9e77', linewidth=0.8, hatch='xxx')
+ax.bar(x[off+2], cube_tp[2], w * 1.5, color='white', edgecolor='#1b9e77', linewidth=0.8, hatch='xxx')
+
+all_labels = queries + cube_ops
+ax.set_xticks(list(x))
+ax.set_xticklabels(all_labels, fontsize=6.8)
+ax.set_ylabel('Throughput (Melem/s)')
+ax.set_yscale('log')
+ax.set_ylim(1, 2000)
+ax.legend(fontsize=6.5, loc='upper left')
+
 for i, (cs, hm, ratio) in enumerate(zip(cs_tp, hm_tp, ratios)):
-    ax.annotate(ratio, xy=(i, (cs * hm) ** 0.5), fontsize=8, fontweight='bold', ha='center', va='center',
+    ax.annotate(ratio, xy=(i, (cs * hm) ** 0.5), fontsize=8, fontweight='bold',
+                ha='center', va='center',
                 bbox=dict(boxstyle='round,pad=0.12', facecolor='white', edgecolor='black', alpha=0.85))
-plt.tight_layout(); plt.show()
+
+ax.annotate('near-native\nthroughput', xy=(off+2, 400), fontsize=7, ha='center', fontweight='bold', color='#1b9e77')
+
+plt.tight_layout()
+plt.show()
 ```
