@@ -203,7 +203,7 @@ digraph SynTagmaNest {
         fontsize=11;
 
         subgraph cluster_a {
-            label="initial axis";
+            label="Axis 0";
             style=dashed; color=black; pencolor=black; fontcolor=black;
             fontsize=9;
             a0 [label="CoordPath\nS\u2080 = 11,172\u00b9\u2079", fontsize=9, width=1.1, height=0.5];
@@ -212,7 +212,7 @@ digraph SynTagmaNest {
         }
 
         subgraph cluster_b {
-            label="medial axis";
+            label="Axis 1";
             style=dashed; color=black; pencolor=black; fontcolor=black;
             fontsize=9;
             b0 [label="CoordPath\nS\u2080", fontsize=9, width=1.1, height=0.5];
@@ -221,7 +221,7 @@ digraph SynTagmaNest {
         }
 
         subgraph cluster_c {
-            label="final axis";
+            label="Axis 2";
             style=dashed; color=black; pencolor=black; fontcolor=black;
             fontsize=9;
             c0 [label="CoordPath\nS\u2080", fontsize=9, width=1.1, height=0.5];
@@ -482,7 +482,7 @@ Three custom instructions implement the core `Coord` API:
 
 **tagma_check rd, rs1.** Decodes the lower 16 bits of rs1. Returns a 16-bit value packed as: valid flag (bit 15, 1 = valid), reserved (bit 14, reads as zero), Axis 0 (bits 13--9, 5 bits, range 0--18), Axis 1 (bits 8--4, 5 bits, range 0--20), Axis 2 (bits 3--0, 5 bits, range 0--27). Invalid inputs produce a zero valid flag with undefined field values. Corresponds to `Coord::new(rs1).map(|c| c.to_axes())`. One cycle, combinational.
 
-**tagma_compose rd, rs1, rs2, imm5.** Composes a coordinate from three 5-bit axis fields. rs1 supplies the initial field (selected by imm5 = 0), rs2 supplies the remaining two fields, or the immediate fields are extracted from rs1[14:0] directly (Axis 0 at bits 14--10, Axis 1 at bits 9--5, Axis 2 at bits 4--0). Returns the 16-bit coordinate index (0--11171) in rd, or zero if any axis is out of range. Corresponds to `Coord::from_axes(initial, medial, final).map(|c| c.index())`. One cycle, combinational.
+**tagma_compose rd, rs1, rs2, imm5.** Composes a coordinate from three 5-bit axis fields. rs1 supplies the Axis 0 field (selected by imm5 = 0), rs2 supplies the remaining two fields, or the immediate fields are extracted from rs1[14:0] directly (Axis 0 at bits 14--10, Axis 1 at bits 9--5, Axis 2 at bits 4--0). Returns the 16-bit coordinate index (0--11171) in rd, or zero if any axis is out of range. Corresponds to `Coord::from_axes(initial, medial, final).map(|c| c.index())`. One cycle, combinational.
 
 **tagma_dist rd, rs1, rs2.** Computes field-wise absolute difference between the two 16-bit coordinates. Returns three 5-bit distances packed as: Axis 0 (bits 14--10), Axis 1 (bits 9--5), Axis 2 (bits 4--0); bit 15 is reserved. Corresponds to `Coord::hamming_distance(rs1, rs2)`. One cycle, combinational.
 
