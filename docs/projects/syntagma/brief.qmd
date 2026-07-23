@@ -50,18 +50,18 @@ metadata-files:
 %run ../../_include/_graphviz.py
 ```
 
-synTagma[^syntagma] is a spatial coordinate space computing system based on core primitive [Tagma](https://docs.ssccs.org/projects/syntagma/tagma/), where the address is a coordinate in an N-dimensional geometric space. This is made possible by a 16-bit Unicode block allocated to a 3-axis writing system, which provides a collision-free, hash-less, structurally addressable coordinate space. Every valid 16-bit value in this space is simultaneously a 1-D address (Unicode code point), a 3-D coordinate (initial, medial, final), and a displayable Hangul syllable. This triple interpretation enables hash-less content addressing with zero collision probability and single-cycle combinational decoding at an estimated ~300 gates[^spec-status]. Every content-addressable system today generates identifiers through a hash function — SHA-256, UUID, hash tables. The industry's answer to this cost has been faster hash units and larger hash tables. Tagma replaces the hash function with a pronounceable syllable carrying its own coordinate system.
+synTagma[^syntagma] is a spatial coordinate space computing system based on core primitive [Tagma](https://docs.ssccs.org/projects/syntagma/tagma/), where the address is a coordinate in an N-dimensional geometric space. This is made possible by a 16-bit Unicode block allocated to a 3-axis writing system, which provides a collision-free, hash-less, structurally addressable coordinate space. Every valid 16-bit value in this space is simultaneously a 1-D address (Unicode code point), a 3-D coordinate (Axis 0, Axis 1, Axis 2), and a displayable syllable. This triple interpretation enables hash-less content addressing with zero collision probability and single-cycle combinational decoding at an estimated ~300 gates[^spec-status]. Every content-addressable system today generates identifiers through a hash function — SHA-256, UUID, hash tables. The industry's answer to this cost has been faster hash units and larger hash tables. Tagma replaces the hash function with a pronounceable syllable carrying its own coordinate system.
 
 {{< include ./_include/fig-man-frame.qmd >}}  
 
-Unicode assigns each script a fixed address block. Within this block, Hangul occupies a contiguous 16-bit segment (U+AC00--U+D7AF) invented in 1443 and allocated in Unicode 2.0 in 1996. Its composition formula embeds three independent structural axes into every code point:
+Unicode assigns each script a fixed address block. One such block (U+AC00--U+D7AF) occupies a contiguous 16-bit segment. Its encoding formula embeds three independent structural axes into every code point:
 
 $$C(i,m,f) = \text{U+AC00} + 588i + 28m + f$$
 $$\quad (0 \leq i < 19,\; 0 \leq m < 21,\; 0 \leq f < 28)$$
 
 A hardware decoder extracts the three axis fields in one cycle. Of 65,536 possible 16-bit values, 11,172 are structurally valid and the remaining 54,364 are immediately detectable as invalid. CoordPath chains multiple syllables into higher dimensions (6 = 18 axes, 19 = 57 axes), with each axis position representing a different application-defined dimension — region, device type, timestamp, shard. The arithmetic operations are invariant; only the axis interpretation changes per deployment.
 
-No other Unicode script satisfies all four conditions required: a contiguous fixed-width 16-bit address range, a closed-form composition formula, a complete three-axis decomposition, and an open international standard. Hangul is unique.
+No other Unicode script satisfies all four conditions required: a contiguous fixed-width 16-bit address range, a closed-form composition formula, a complete three-axis decomposition, and an open international standard. The block U+AC00--U+D7AF (Hangul) is unique.
 
 {{< include ./_include/fig-3d-decode.qmd >}}
 
@@ -145,14 +145,15 @@ A SHA-256 engine cannot be exhaustively verified across its full input space. Th
 
 ## Boundaries
 
-Tagma does not replace cryptographic primitives. SHA-256 remains for signatures, Merkle proofs, and preimage resistance. Encryption, authentication, and key derivation are outside the primitive's scope. Tagma replaces the use of hashes as structural identifiers and addresses. The two can also be combined: SHA-256 output encoded as 19 Hangul syllables is more readable than 64 hex characters while preserving the same $2^{-256}$ collision probability.
+Tagma does not replace cryptographic primitives. SHA-256 remains for signatures, Merkle proofs, and preimage resistance. Encryption, authentication, and key derivation are outside the primitive's scope. Tagma replaces the use of hashes as structural identifiers and addresses. The two can also be combined: SHA-256 output encoded as 19 syllables is more readable than 64 hex characters while preserving the same $2^{-256}$ collision probability.
 
 synTagma is built on open international standards and runs on open ISA (RISC-V) -- unencumbered by proprietary licensing or regional dependencies. The Tagma primitive is a neutral, sovereign coordinate space for the global computing landscape.
 
 ## Design from 1443: a writing system becomes an address space
 
-Hangul was invented in 1443 with a combinatorial syllable structure of 19 initials, 21 medials, and 28 finals — three independent axes that map directly to the Unicode 16-bit code space (U+AC00--U+D7AF). This structure is analogous to an apartment building numbering system: given "101", you know the floor and room without a central directory. Tagma leverages this pre-existing coordinate system as a universal address space, eliminating the need for hash-based directories.
+The block U+AC00--U+D7AF was allocated in Unicode 2.0 (1996).[^hangul-syllable-structure] Its encoding formula provides three independent axes — Axis 0, Axis 1, and Axis 2 — the coordinate ranges used by Tagma. This structure is analogous to an apartment building numbering system: given "101", you know the floor and room without a central directory. Tagma leverages this pre-existing coordinate space as a universal address space, eliminating the need for hash-based directories.
 
 [^syntagma]: [synTagma](https://github.com/ssccsorg/syntagma) is an independent open-source project (Pre-release, Apache 2.0) under the SSCCS Foundation.
 [^spec-status]: Pre-silicon estimate based on the gate-level specification; actual gate count and cycle timing will be confirmed through standard-cell synthesis and static timing analysis with the coprocessor (e.g. RISC-V XIF).
 [^benchmarks]: All benchmarks were run with cargo bench, criterion on ARMv8.4-A Firestorm. Code: [Github](https://github.com/ssccsorg/syntagma/blob/main/sw/rust/benches/bench.rs)
+[^hangul-syllable-structure]: The constants 19, 21, and 28 correspond to the number of initial consonants, medial vowels, and final consonants in Hangul (invented 1443), the writing system encoded in block U+AC00--U+D7AF.

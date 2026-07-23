@@ -32,19 +32,19 @@ Identity is coordinate, and address is space.
 
 ## Tagma
 
-Tagma is the core coordinate primitive of the synTagma: a 16-bit coordinate space embedded in the Unicode Hangul syllable block (U+AC00--U+D7AF) that replaces hash-based addressing with direct structural addressing. The Tagma composition formula maps three independent axes (initial, medial, final) to a unique 16-bit value in a single cycle. The result is collision-free by construction, hash-less by design, and decodable at the gate level.
+Tagma is the core coordinate primitive of the synTagma: a 16-bit coordinate space embedded in a fixed Unicode block (U+AC00--U+D7AF) that replaces hash-based addressing with direct structural addressing. The Tagma composition formula maps three independent axes (Axis 0, Axis 1, Axis 2) to a unique 16-bit value in a single cycle. The result is collision-free by construction, hash-less by design, and decodable at the gate level.
 
 The coordinate space that enables this is an open international standard (Unicode) and a public good. For the full system including recursive coordination and distributed topology, see [synTagma](/projects/syntagma/).
 
 | Property | Value |
 |----------|-------|
-| Coordinate space | 19 initials x 21 medials x 28 finals = **11,172** valid 16-bit values |
+| Coordinate space | 19 (Axis 0)[^1] x 21 (Axis 1) x 28 (Axis 2) = **11,172** valid 16-bit values |
 | Invalidity margin | 54,364 of 65,536 states are structurally invalid (hardware-detectable) |
 | 1-D interpretation | Unicode code point U+AC00--U+D7AF (character encoding) |
-| 3-D interpretation | (initial, medial, final) coordinate (structural positioning) |
-| Display interpretation | Hangul syllable (debugging aid, zero exposure in the process) |
+| 3-D interpretation | (Axis 0, Axis 1, Axis 2) coordinate (structural positioning) |
+| Display interpretation | Unicode character (debugging aid, zero exposure in the process) |
 
-This combination of properties — a contiguous 16-bit block with a closed-form composition formula, complete three-axis decomposition, and a built-in invalidity margin — exists in no other Unicode character range. The Hangul syllable block is the only one that satisfies all conditions simultaneously.
+This combination of properties — a contiguous 16-bit block with a closed-form composition formula, complete three-axis decomposition, and a built-in invalidity margin — exists in no other Unicode character range. The block U+AC00–U+D7AF is the only one that satisfies all conditions simultaneously.
 
 ## What problem Tagma solves
 
@@ -130,6 +130,8 @@ The full technical specification and domain-specific analyses are available as s
 | Tagma-Memory *(forthcoming)* | Three-dimensional SRAM decode using structural coordinates |
 | Tagma-Hardware *(forthcoming)* | A 300-gate combinational decoder for processor pipeline attachment |
 | Tagma-Encoding *(forthcoming)* | Base11172: human-readable, self-validating serialization |
+
+[^1]: The constants 19, 21, and 28 derive from the syllable structure of Hangul, the writing system for which the Unicode block U+AC00–U+D7AF was originally allocated.
 
 ## Contact
 

@@ -15,7 +15,7 @@ metadata-files:
     - ../../../_include/format.html.yml
 colorlinks: true
 abstract: |
-  SHA-256 is the de facto standard for content-addressable identity generation across storage engines, distributed systems, and databases. This paper demonstrates that SHA-256 can be replaced by a structural coordinate composition derived from the Unicode Hangul syllable block, reducing identity generation latency by approximately 115x (from 227 ns to 2 ns per operation), eliminating collision handling entirely, and converting multi-axis index queries from O(K x N) intersection to O(1) direct coordinate extraction. The replacement is not cryptographic: preimage resistance, authentication, and encryption remain with SHA-256. Identity generation alone is replaced. A software proof of concept confirming these measurements over 100k operations on ARMv8.4-A Firestorm silicon is provided as open-source reference implementation.
+  SHA-256 is the de facto standard for content-addressable identity generation across storage engines, distributed systems, and databases. This paper demonstrates that SHA-256 can be replaced by a structural coordinate composition derived from a fixed 16-bit Unicode block (U+AC00–U+D7AF), reducing identity generation latency by approximately 115x (from 227 ns to 2 ns per operation), eliminating collision handling entirely, and converting multi-axis index queries from O(K x N) intersection to O(1) direct coordinate extraction. The replacement is not cryptographic: preimage resistance, authentication, and encryption remain with SHA-256. Identity generation alone is replaced. A software proof of concept confirming these measurements over 100k operations on ARMv8.4-A Firestorm silicon is provided as open-source reference implementation.
 format:
   html:
     number-sections: true
@@ -99,13 +99,13 @@ Despite this, every content-addressable system pays the full cost of both roles 
 
 ## The Alternative: Tagma Coordinate Composition
 
-The Tagma coordinate space provides a closed-form deterministic mapping with three independent structural axes per syllable. The full specification, composition formula, and compliance criteria are defined in the Tagma whitepaper [@tagma-wp]. The relevant property for identity generation is that each coordinate is simultaneously a unique identifier and a decomposable address, eliminating the need for separate index structures.
+The Tagma coordinate space provides a closed-form deterministic mapping with three independent structural axes per coordinate. The full specification, composition formula, and compliance criteria are defined in the Tagma whitepaper [@tagma-wp]. The relevant property for identity generation is that each coordinate is simultaneously a unique identifier and a decomposable address, eliminating the need for separate index structures.
 
-## N-Syllable Expansion
+## N-Coordinate Expansion
 
 $$S(N) = 11,172^N \approx 10^{4.05N}$$
 
-| Syllables | Axes | Identifier space | Bytes | Equivalent to |
+| Coordinates | Axes | Identifier space | Bytes | Equivalent to |
 |-----------|------|-----------------|-------|---------------|
 | 1 | 3 | 1.12 x 10^4 | 2 | Sensor tags |
 | 2 | 6 | 1.25 x 10^8 | 4 | Database records |
@@ -114,9 +114,9 @@ $$S(N) = 11,172^N \approx 10^{4.05N}$$
 | 10 | 30 | $2.69 \times 10^{40}$ | 20 | Exceeds UUID (128-bit) |
 | 19 | 57 | $1.9 \times 10^{77}$ | 38 | SHA-256 (256-bit) |
 
-The coordinate space grows exponentially with syllable count. At 10 syllables it exceeds the UUID (128-bit) space, and at 19 syllables it reaches the SHA-256 (256-bit) equivalent space.
+The coordinate space grows exponentially with coordinate count. At 10 coordinates it exceeds the UUID (128-bit) space, and at 19 coordinates it reaches the SHA-256 (256-bit) equivalent space.
 
-Each CoordPath defines $3N$ independent axes whose semantics are entirely application-defined. The same N-syllable sequence may encode geographic coordinates in one system and token sequence positions in another. The coordinate algebra -- composition, decomposition, linearisation, axis projection -- is invariant; the axis meaning is not. Tagma is an abstract coordinate algebra, not a fixed geometry.
+Each CoordPath defines $3N$ independent axes whose semantics are entirely application-defined. The same N-coordinate sequence may encode geographic coordinates in one system and token sequence positions in another. The coordinate algebra -- composition, decomposition, linearisation, axis projection -- is invariant; the axis meaning is not. Tagma is an abstract coordinate algebra, not a fixed geometry.
 
 {{< include ../_include/bench/fig-bench-address-space.qmd >}}
 
@@ -132,7 +132,7 @@ Each CoordPath defines $3N$ independent axes whose semantics are entirely applic
 
 A software proof of concept implements the Tagma coordinate in Rust, with 10 integration tests covering all 11,172 valid coordinates and all 54,364 invalid states.
 
-| Metric | SHA-256 | Tagma (1-syll) | Tagma (6-syll) | Tagma (19-syll) |
+| Metric | SHA-256 | Tagma (1-coord) | Tagma (6-coord) | Tagma (19-coord) |
 |--------|---------|----------------|----------------|-----------------|
 | Latency per op | 227 ns | 2 ns | 11 ns | 35 ns |
 | Identifier size | 32 bytes | 2 bytes | 12 bytes | 38 bytes |
@@ -153,7 +153,7 @@ A software proof of concept implements the Tagma coordinate in Rust, with 10 int
 
 The complete reference implementation is available.
 
-Remark. The Unicode Hangul syllable block is the only script in the international standard whose encoding follows a closed-form composition formula with three independent structural axes. This property, documented in the Hunminjeongeum Haerye of 1443, remained a linguistic feature for over five centuries until content-addressable computing made it relevant as a hardware identity primitive. The gap between design intent and technological application is not unprecedented: the conic sections of Apollonius of Perga found their application in Keplerian orbits eighteen centuries later. Tagma does not claim that Hangul was designed for computing, only that its structural properties solve a problem that computing currently solves with greater expense.
+Remark. The Unicode block U+AC00–U+D7AF (which encodes the Hangul writing system) is the only block in the international standard whose encoding follows a closed-form composition formula with three independent structural axes. This property, documented in the Hunminjeongeum Haerye of 1443, remained a linguistic feature for over five centuries until content-addressable computing made it relevant as a hardware identity primitive. The gap between design intent and technological application is not unprecedented: the conic sections of Apollonius of Perga found their application in Keplerian orbits eighteen centuries later. Tagma does not claim that Hangul was designed for computing, only that its structural properties solve a problem that computing currently solves with greater expense.
 
 ## References {.unnumbered .unlisted}
 

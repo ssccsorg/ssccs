@@ -30,7 +30,7 @@ Identity is coordinate, and address is space.
 
 ## Overview
 
-synTagma is a spatial coordinate space computing system. Its core primitive, [Tagma](/projects/syntagma/tagma/), is a 16-bit coordinate embedded in the Unicode Hangul syllable block (U+AC00--U+D7AF) that replaces hash-based addressing with direct structural addressing. Every valid 16-bit value is simultaneously a 1-D address (Unicode code point), a 3-D coordinate (initial, medial, final), and a displayable Hangul syllable.
+synTagma is a spatial coordinate space computing system. Its core primitive, [Tagma](/projects/syntagma/tagma/), is a 16-bit coordinate embedded in a fixed Unicode block (U+AC00--U+D7AF) that replaces hash-based addressing with direct structural addressing. Every valid 16-bit value is simultaneously a 1-D address (Unicode code point), a 3-D coordinate (Axis 0, Axis 1, Axis 2)
 
 The system spans two layers:
 
@@ -44,15 +44,15 @@ Each axis of a recursive coordinate can reside on a different physical node. A t
 
 ## Tagma core primitive
 
-The core Tagma coordinate is defined by the Hangul composition formula (ISO/IEC 10646):
+The core Tagma coordinate is defined by the composition formula (ISO/IEC 10646) for block U+AC00–U+D7AF:
 
 $$C(i,m,f) = \text{U+AC00} + 588i + 28m + f, \quad 0 \leq i < 19,\; 0 \leq m < 21,\; 0 \leq f < 28$$
 
 Of 65,536 representable 16-bit states, 11,172 satisfy this formula. The remaining 54,364 are structurally invalid and hardware-detectable. Each valid value is:
 
 - A 1-D address (Unicode code point) for flat array indexing
-- A 3-D coordinate (initial, medial, final) for structural queries
-- A Hangul syllable for human-readable display
+- A 3-D coordinate (Axis 0, Axis 1, Axis 2) for structural queries
+- A Unicode code point for human-readable display
 
 The core library provides several data structures built on the Tagma coordinate:
 
