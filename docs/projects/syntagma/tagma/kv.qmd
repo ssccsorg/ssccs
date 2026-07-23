@@ -115,7 +115,7 @@ The critical observation is that **hash functions are universal but not optimal 
 
 ## The Alternative: Structural Coordinate Transformation
 
-The Tagma coordinate system replaces hash functions with a closed-form arithmetic mapping defined on the Unicode Hangul syllable block. The full specification, composition formula, and compliance criteria are defined in the Tagma whitepaper [@tagma-wp]. For the purpose of KV storage, the relevant operation is the conversion from a legacy string key to a `CoordKey<N>`, implemented via `From<&str>` (see appendix @sec-appendix-rust).
+The Tagma coordinate system replaces hash functions with a closed-form arithmetic mapping defined on a fixed 16-bit Unicode block (U+AC00–U+D7AF). The full specification, composition formula, and compliance criteria are defined in the Tagma whitepaper [@tagma-wp]. For the purpose of KV storage, the relevant operation is the conversion from a legacy string key to a `CoordKey<N>`, implemented via `From<&str>` (see appendix @sec-appendix-rust).
 
 The transformation is:
 
@@ -370,7 +370,7 @@ The approach is bidirectional in effect: data enters through a standard `insert(
 
 The complete reference implementation is available in the `tagma-kv` crate under Apache 2.0.
 
-**Remark.** The structural coordinate space that enables this is derived from the Unicode Hangul syllable block. The full specification, including the composition formula and compliance criteria, is defined in the Tagma whitepaper [@tagma-wp].
+**Remark.** The structural coordinate space that enables this is derived from a fixed 16-bit Unicode block (U+AC00–U+D7AF). The block encodes the Hangul writing system, which provides the 19, 21, and 28 axis ranges. The full specification, including the composition formula and compliance criteria, is defined in the Tagma whitepaper [@tagma-wp].
 
 ## References {.unnumbered .unlisted}
 
@@ -445,7 +445,7 @@ kv.insert_by_coordkey(&key, b"value".to_vec());
 
 #### Multi-Dimensional Query
 
-The trait-based CoordKV API provides the foundation for multi-dimensional queries. The same CoordPath that addresses a key is structurally decomposable into three independent axes (initial, medial, final), each accessible through the Coord type's `to_axes()` method. This enables spatial operations that no hash-based KV can provide:
+The trait-based CoordKV API provides the foundation for multi-dimensional queries. The same CoordPath that addresses a key is structurally decomposable into three independent axes (Axis 0, Axis 1, Axis 2), each accessible through the Coord type's `to_axes()` method. This enables spatial operations that no hash-based KV can provide:
 
 ```rust
 // Decompose stored keys by axis

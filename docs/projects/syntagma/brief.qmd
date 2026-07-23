@@ -50,18 +50,18 @@ metadata-files:
 %run ../../_include/_graphviz.py
 ```
 
-synTagma[^syntagma] is a spatial coordinate space computing system based on core primitive [Tagma](https://docs.ssccs.org/projects/syntagma/tagma/), where the address is a coordinate in an N-dimensional geometric space. This is made possible by a 16-bit Unicode block allocated to a 3-axis writing system, which provides a collision-free, hash-less, structurally addressable coordinate space. Every valid 16-bit value in this space is simultaneously a 1-D address (Unicode code point), a 3-D coordinate (initial, medial, final), and a displayable Hangul syllable. This triple interpretation enables hash-less content addressing with zero collision probability and single-cycle combinational decoding at an estimated ~300 gates[^spec-status]. Every content-addressable system today generates identifiers through a hash function — SHA-256, UUID, hash tables. The industry's answer to this cost has been faster hash units and larger hash tables. Tagma replaces the hash function with a pronounceable syllable carrying its own coordinate system.
+synTagma[^syntagma] is a spatial coordinate space computing system based on core primitive [Tagma](https://docs.ssccs.org/projects/syntagma/tagma/), where the address is a coordinate in an N-dimensional geometric space. This is made possible by a 16-bit Unicode block allocated to a 3-axis writing system, which provides a collision-free, hash-less, structurally addressable coordinate space. Every valid 16-bit value in this space is simultaneously a 1-D address (Unicode code point), a 3-D coordinate (Axis 0, Axis 1, Axis 2), and a displayable Coord. This triple interpretation enables hash-less content addressing with zero collision probability and single-cycle combinational decoding at an estimated ~300 gates[^spec-status]. Every content-addressable system today generates identifiers through a hash function — SHA-256, UUID, hash tables. The industry's answer to this cost has been faster hash units and larger hash tables. Tagma replaces the hash function with a pronounceable Coord carrying its own coordinate system.
 
 {{< include ./_include/fig-man-frame.qmd >}}  
 
-Unicode assigns each script a fixed address block. Within this block, Hangul occupies a contiguous 16-bit segment (U+AC00--U+D7AF) invented in 1443 and allocated in Unicode 2.0 in 1996. Its composition formula embeds three independent structural axes into every code point:
+Unicode assigns each script a fixed address block. One such block (U+AC00--U+D7AF) occupies a contiguous 16-bit segment. Its encoding formula embeds three independent structural axes into every code point:
 
 $$C(i,m,f) = \text{U+AC00} + 588i + 28m + f$$
 $$\quad (0 \leq i < 19,\; 0 \leq m < 21,\; 0 \leq f < 28)$$
 
-A hardware decoder extracts the three axis fields in one cycle. Of 65,536 possible 16-bit values, 11,172 are structurally valid and the remaining 54,364 are immediately detectable as invalid. CoordPath chains multiple syllables into higher dimensions (6 = 18 axes, 19 = 57 axes), with each axis position representing a different application-defined dimension — region, device type, timestamp, shard. The arithmetic operations are invariant; only the axis interpretation changes per deployment.
+A hardware decoder extracts the three axis fields in one cycle. Of 65,536 possible 16-bit values, 11,172 are structurally valid and the remaining 54,364 are immediately detectable as invalid. CoordPath chains multiple Coords into higher dimensions (6 = 18 axes, 19 = 57 axes), with each axis position representing a different application-defined dimension — region, device type, timestamp, shard. The arithmetic operations are invariant; only the axis interpretation changes per deployment.
 
-No other Unicode script satisfies all four conditions required: a contiguous fixed-width 16-bit address range, a closed-form composition formula, a complete three-axis decomposition, and an open international standard. Hangul is unique.
+No other Unicode script satisfies all four conditions required: a contiguous fixed-width 16-bit address range, a closed-form composition formula, a complete three-axis decomposition, and an open international standard. This block (Hangul) is unique.
 
 {{< include ./_include/fig-3d-decode.qmd >}}
 
@@ -69,9 +69,9 @@ No other Unicode script satisfies all four conditions required: a contiguous fix
 
 *CoordSpace* is the Rust type family that realizes the Tagma core primitive: a generic direct-address array indexed by coordinate, zero hash and collision. The benchmarks below compare its performance against standard hash maps.
 
-SHA-256 requires ~10,000 gates and 64--75 cycles per operation, then needs collision resolution and dynamic resizing. UUID generation requires entropy and delivers probabilistic uniqueness. Tagma replaces all of this with a combinational decoder and a 16-bit register. A single syllable covers 11,172 identifiers; six syllables (18 axes) exceed typical distributed system needs; nineteen match SHA-256's $2^{256}$ space.
+SHA-256 requires ~10,000 gates and 64--75 cycles per operation, then needs collision resolution and dynamic resizing. UUID generation requires entropy and delivers probabilistic uniqueness. Tagma replaces all of this with a combinational decoder and a 16-bit register. A single Coord covers 11,172 identifiers; six Coords (18 axes) exceed typical distributed system needs; nineteen match SHA-256's $2^{256}$ space.
 
-**Measured lookup latency:** 0.39 ns for a single-syllable native CoordSpace (dense array, no allocator) vs 227 ns for SHA-256 (↑**582x**). Native CoordSpace is flat across all N: 0.39 ns at every depth, because every syllable resolves to a single array load regardless of syllable count. The tree fallback (CoordSpaceN) scales linearly with N: 2.69 ns at N=3, 58.6 ns at N=19, because each level requires a heap dereference and enum match. Recursive depth is bounded by schema, not by data volume — $10^4$ and $10^{77}$ entries both cost $N$ dereferences in the fallback path, while the native dense path costs a constant 0.39 ns.
+**Measured lookup latency:** 0.39 ns for a single-Coord native CoordSpace (dense array, no allocator) vs 227 ns for SHA-256 (↑**582x**). Native CoordSpace is flat across all N: 0.39 ns at every depth, because every Coord resolves to a single array load regardless of Coord count. The tree fallback (CoordSpaceN) scales linearly with N: 2.69 ns at N=3, 58.6 ns at N=19, because each level requires a heap dereference and enum match. Recursive depth is bounded by schema, not by data volume — $10^4$ and $10^{77}$ entries both cost $N$ dereferences in the fallback path, while the native dense path costs a constant 0.39 ns.
 
 **Nonexistent prefix lookup:** CoordSpace **1.65 ns** (structural, navigates to the branch and returns None) vs HashMap **23.05 ms** (↑**14.0Mx**, full scan of 10M entries — HashMap has no structural prefix index). Sparse get at 10M entries: CoordSpaceN2 completes all 10M operations in 44.9 ms vs HashMap 1.05 s (↑23.4x).
 
@@ -79,7 +79,7 @@ This is **the elimination of hashing itself, not replacing `HashMap` as a storag
 
 {{< include _include/bench/fig-bench-identity.qmd >}}
 
-SHA-256 lookup costs 227 ns; the tree fallback (CoordSpaceN) reaches $2^{256}$ at 19 syllables for 58.6 ns (↑3.9x). The native dense path (CoordSpace / CoordSpace2 / CoordSpaceM3) holds at a flat 0.39 ns.
+SHA-256 lookup costs 227 ns; the tree fallback (CoordSpaceN) reaches $2^{256}$ at 19 Coords for 58.6 ns (↑3.9x). The native dense path (CoordSpace / CoordSpace2 / CoordSpaceM3) holds at a flat 0.39 ns.
 
 {{< include _include/bench/fig-bench-address-space.qmd >}}
 
@@ -137,7 +137,7 @@ A SHA-256 engine cannot be exhaustively verified across its full input space. Th
 
 **Embedded systems.** The 11,172-identifier space fits in a single 22 KB no-allocator array. Every coordinate is a direct array index: one load, no hashing, no collisions, no resizing.
 
-**LLM inference cache.** KV caches indexed by token prefixes use CoordPath-based direct access: lookup cost is O(N) direct array accesses with zero hash computation. Production cache sizes ($10^4$--$10^7$) are covered by 2--4 syllables.
+**LLM inference cache.** KV caches indexed by token prefixes use CoordPath-based direct access: lookup cost is O(N) direct array accesses with zero hash computation. Production cache sizes ($10^4$--$10^7$) are covered by 2--4 Coords.
 
 **Graph and multi-dimensional query.** Each node maps to a coordinate, each edge type to a bit array. Adjacency reduces to a bitwise AND over 175 machine words — no index intersection.
 
@@ -145,14 +145,15 @@ A SHA-256 engine cannot be exhaustively verified across its full input space. Th
 
 ## Boundaries
 
-Tagma does not replace cryptographic primitives. SHA-256 remains for signatures, Merkle proofs, and preimage resistance. Encryption, authentication, and key derivation are outside the primitive's scope. Tagma replaces the use of hashes as structural identifiers and addresses. The two can also be combined: SHA-256 output encoded as 19 Hangul syllables is more readable than 64 hex characters while preserving the same $2^{-256}$ collision probability.
+Tagma does not replace cryptographic primitives. SHA-256 remains for signatures, Merkle proofs, and preimage resistance. Encryption, authentication, and key derivation are outside the primitive's scope. Tagma replaces the use of hashes as structural identifiers and addresses. The two can also be combined: SHA-256 output encoded as 19 Coords is more readable than 64 hex characters while preserving the same $2^{-256}$ collision probability.
 
 synTagma is built on open international standards and runs on open ISA (RISC-V) -- unencumbered by proprietary licensing or regional dependencies. The Tagma primitive is a neutral, sovereign coordinate space for the global computing landscape.
 
 ## Design from 1443: a writing system becomes an address space
 
-Hangul was invented in 1443 with a combinatorial syllable structure of 19 initials, 21 medials, and 28 finals — three independent axes that map directly to the Unicode 16-bit code space (U+AC00--U+D7AF). This structure is analogous to an apartment building numbering system: given "101", you know the floor and room without a central directory. Tagma leverages this pre-existing coordinate system as a universal address space, eliminating the need for hash-based directories.
+This block was allocated in Unicode 2.0 (1996).[^hangul-coord-structure] Its encoding formula provides three independent axes — Axis 0, Axis 1, and Axis 2 — the coordinate ranges used by Tagma. This structure is analogous to an apartment building numbering system: given "101", you know the floor and room without a central directory. Tagma leverages this pre-existing coordinate space as a universal address space, eliminating the need for hash-based directories.
 
 [^syntagma]: [synTagma](https://github.com/ssccsorg/syntagma) is an independent open-source project (Pre-release, Apache 2.0) under the SSCCS Foundation.
 [^spec-status]: Pre-silicon estimate based on the gate-level specification; actual gate count and cycle timing will be confirmed through standard-cell synthesis and static timing analysis with the coprocessor (e.g. RISC-V XIF).
 [^benchmarks]: All benchmarks were run with cargo bench, criterion on ARMv8.4-A Firestorm. Code: [Github](https://github.com/ssccsorg/syntagma/blob/main/sw/rust/benches/bench.rs)
+[^hangul-coord-structure]: The constants 19, 21, and 28 correspond to the number of initial consonants, medial vowels, and final consonants in Hangul (invented 1443), the writing system encoded in block U+AC00--U+D7AF.
