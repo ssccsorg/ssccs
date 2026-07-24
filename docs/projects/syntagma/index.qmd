@@ -36,11 +36,7 @@ The system spans two layers:
 
 **Tagma (core primitive).** The atomic coordinate: a 16-bit value with closed-form composition, three independent axes, zero collision probability, and single-cycle combinational decoding (~300 gates). A variable-length Coord sequence extends the address space from $1.12 \times 10^4$ to $2^{256}$ while keeping lookup cost linear in Coord count.
 
-**synTagma coordination system.** The recursive and distributed extension of Tagma arithmetic across physical topologies. A synTagma coordinate at recursion level $k$ is a Cartesian product of three Tagma Coord sequences at level $k-1$:
-
-$$\mathbb{T}_k = \mathbb{T}_{k-1} \times \mathbb{T}_{k-1} \times \mathbb{T}_{k-1}$$
-
-Each axis of a recursive coordinate can reside on a different physical node. No distributed consensus is required because each axis is independently stored and independently accessed.
+**synTagma coordination system.** The distributed extension of Tagma arithmetic across physical topologies. Each axis of a multi-Coord coordinate can reside on a different node. No distributed consensus is required because each axis is independently stored and accessed. The full recursive formulation is defined in the [Tagma whitepaper](/projects/syntagma/tagma/wp.html).
 
 ## Tagma core primitive
 

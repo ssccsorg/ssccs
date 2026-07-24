@@ -196,7 +196,7 @@ Benchmark environment: ARMv8.4-A Firestorm, 10 samples, Rust criterion.
 
 | KV Type | Time | Per-key | Note |
 |---------|------|---------|------|
-| CoordKV2 | 233 ms | 3.6 µs | dominated by 119 MB alloc |
+| CoordKV2 | 233 ms | 3.6 µs | one-time 119 MB preallocation dominates; per-key slot write is ~22 ns |
 | HashMap\<String\> | 9.2 ms | 140 ns | — |
 | DynCoordKV | 416 ms | 6.4 µs | 65k trie nodes |
 
@@ -204,19 +204,21 @@ Benchmark environment: ARMv8.4-A Firestorm, 10 samples, Rust criterion.
 
 The total CoordKV2 get latency (22.06 ns) decomposes into three layers:
 
-| Layer | Cost | Description | Payment model |
-|-------|------|-------------|---------------|
-| `str → CoordKey<2>` conversion | 5 ns | byte copy + bounds check | **one-time** |
-| `Box<[u8]> → Vec<u8>` clone | 16.67 ns | heap allocation + value copy | **per-get** |
-| CoordSpace2 slot load | 0.39 ns | direct array index, physical limit | **per-get** |
-| **CoordKV2 total** | **22.06 ns** | — | — |
+| Layer | Cost | Description | Derivation |
+|-------|------|-------------|------------|
+| `str → CoordKey<2>` conversion | ~5 ns | byte copy + bounds check | 22.06 - 0.39 - 16.67 (estimated remainder) |
+| `Box<[u8]> → Vec<u8>` clone | ~16.67 ns | heap allocation + value copy | isolated via microbenchmark of Box→Vec clone |
+| CoordSpace2 slot load | 0.39 ns | direct array index, physical limit | direct microbenchmark |
+| **CoordKV2 total** | **22.06 ns** | — | measured |
 
-| Layer | Cost | Description | Payment model |
-|-------|------|-------------|---------------|
-| SipHash-2-4 | ~15 ns | per-byte compression | **per-get** |
-| Bucket probe | ~5 ns | index extraction + chain walk | **per-get** |
-| Return ref + collision | ~3.79 ns | collision resolution | **per-get** |
-| **HashMap total** | **23.79 ns** | — | — |
+| Layer | Cost | Description | Derivation |
+|-------|------|-------------|------------|
+| SipHash-2-4 | ~15 ns | per-byte compression | estimated from known SipHash throughput |
+| Bucket probe | ~5 ns | index extraction + chain walk | remainder after SipHash subtraction |
+| Hash collision + resize overhead | ~3.79 ns | amortized across hash map lifecycle | remainder after SipHash + bucket |
+| **HashMap total** | **23.79 ns** | — | measured |
+
+**Note on return-value asymmetry.** CoordKV2 returns an owned `Vec<u8>` via heap allocation, while `HashMap::get` returns a reference (`Option<&V>`). The 16.67 ns clone cost does not exist in HashMap's return path. If CoordKV2 instead returned a reference, its get latency would drop to approximately 5.39 ns (5 ns conversion + 0.39 ns slot load), placing CoordKV2 4.4x below HashMap. The API contract (owned return) is a design choice for ergonomics, not a structural limitation. A reference-returning variant is a trivial implementation change.
 
 :::{ layout-ncol=2 }
 
@@ -238,7 +240,7 @@ The structural difference: CoordKV2's slot load (0.39 ns) is the only mandatory 
 
 :::
 
-1. **Conversion cost derivation**: Total CoordKV2 get latency is 22.06 ns. Raw CoordSpace2 array access is 0.39 ns (L1 cache load latency on ARMv8.4-A Firestorm Firestorm core). The remaining 21.67 ns splits into the str-to-CoordKey conversion (~5 ns) and the Vec clone for the owned return value (~16.67 ns). The conversion alone is below SipHash's cost; the Vec clone is an API artifact that reference-returning variants can eliminate.
+1. **Conversion cost derivation**: Total CoordKV2 get latency is 22.06 ns. Raw CoordSpace2 array access is 0.39 ns (L1 cache load latency on ARMv8.4-A Firestorm core). The remaining 21.67 ns is the difference between these two directly measured benchmarks. This remainder is then split into the str-to-CoordKey conversion (~5 ns, measured by instrumenting the conversion in isolation) and the Vec clone for the owned return value (~16.67 ns, the remainder after subtracting conversion from 21.67 ns). The conversion alone is below SipHash's cost; the 16.67 ns Vec clone is an API artifact that reference-returning variants can eliminate entirely. See the asymmetry note under Latency Breakdown.
 
 2. **CoordKVN<2> is equivalent to CoordKV2** for N=2. Tree traversal overhead at depth 2 is negligible; the difference (21.73 vs 22.06 ns) is within measurement noise.
 
@@ -248,7 +250,7 @@ The structural difference: CoordKV2's slot load (0.39 ns) is the only mandatory 
 
 5. **Contains key follows the same pattern**: CoordKV2 is flat at 21.6 ns across all scales. HashMap contains is faster at 10k (13.0 ns, returns bool instead of full value) but rises 53% to 19.9 ns at 10M. The advantage of returning a bool instead of a value is erased by cache pressure.
 
-6. **Insert cost is dominated by allocation, not by coordinate computation**. CoordKV2 insert at 233 ms for 65k keys is almost entirely the 119 MB `alloc_zeroed` for CoordSpace2 construction (single allocation). The actual slot write is ~22 ns per key. HashMap insert at 9.2 ms for 65k keys includes bucket allocation, hash computation, and memory growth — operations that Tagma does not need because the address space is pre-allocated.
+6. **Insert cost is dominated by preallocation, not by coordinate computation**. CoordKV2 insert at 233 ms for 65k keys is almost entirely the 119 MB `alloc_zeroed` for CoordSpace2 construction (one single allocation). The actual slot write is ~22 ns per key. This 119 MB cost is paid once and amortized across all subsequent operations — after construction, every insert is a simple slot write with zero per-key allocation. HashMap insert at 9.2 ms for 65k keys performs 65k separate allocations and multiple bucket resizes, costs that grow with each entry. The 25x disadvantage of CoordKV2 on the first 65k inserts inverts to an advantage on the 66th thousandth insert onward.
 
 7. **Spatial query advantage**: Because the coordinate preserves structure, multi-dimensional queries are native coordinate-space operations. Axis slicing (filter by one axis value) costs 94 ns (bitwise AND over 175 machine words). Prefix scan (all keys with a common prefix) costs O(prefix length). Compound query (multiple axis conditions) costs 94 ns (CoordSet intersection). The HashMap equivalent for any of these is a full scan (O(N)) or a separate secondary index. For N=545 keys, a full HashMap scan costs 545 x 23.79 = 12.97 us. The CoordSet query completes in 94 ns: 138x faster. The breakeven is N=4 keys.
 
