@@ -71,7 +71,7 @@ format:
 
 ## Abstract
 
-Tagma[^tagma] is a spatial coordinate computing system. It is not a hash map. Its address space is a geometric coordinate system where every valid coordinate is deterministic, collision-free, and structurally decomposable into independent axes. Tagma and hash-based systems (HashMap, hash tables, DHTs) solve different problems: hash functions distribute arbitrary inputs uniformly across buckets under probabilistic collision; Tagma assigns every key a fixed position in a geometric space with zero collision probability. They are complements, not substitutes. Tagma-KV [^syntagma] [^syntagma-repo] provides a HashMap-compatible API (insert, get, remove, contains_key) backed by Tagma's coordinate space. It exists so that existing KV-oriented code can access Tagma's spatial capabilities without architectural rewrites. The cost is the conversion from legacy key types (&str, Vec<u8>) to Tagma coordinates.
+Tagma[^tagma] is a spatial coordinate computing system. It is not a hash map. Its address space is a geometric coordinate system where every valid coordinate is deterministic, collision-free, and structurally decomposable into independent axes. Tagma and hash-based systems (HashMap, hash tables, DHTs) solve different problems: hash functions distribute arbitrary inputs uniformly across buckets under probabilistic collision; Tagma assigns every key a fixed position in a geometric space with zero collision probability. They are complements, not substitutes. Tagma-KV [^syntagma] provides a HashMap-compatible API (insert, get, remove, contains_key) backed by Tagma's coordinate space. It exists so that existing KV-oriented code can access Tagma's spatial capabilities without architectural rewrites. The cost is the conversion from legacy key types (&str, Vec<u8>) to Tagma coordinates.
 
 Benchmarks[^benchmarks] show that this conversion cost is 5 ns (str-to-CoordKey byte copy) — approximately 3x faster than SipHash-2-4. The remaining 16.67 ns of the 21.67 ns total get latency is the Vec clone for the owned return value, an API artifact that reference-returning variants can eliminate. The critical finding is that CoordKV2 latency is scale-invariant: 21.5 ns at 10k, 1M, and 10M operations, because the CoordSpace2 dense array provides uniform access latency regardless of dataset size. HashMap per-op cost rises 19% from 10k to 10M as the working set exceeds cache capacity, and this trend continues with scale. The conversion is a one-time cost: once paid at the entry boundary, subsequent accesses via CoordKey skip it entirely, and CoordKey is a 128-bit Copy type that can be cached at zero marginal cost. HashMap has no equivalent amortization — it pays SipHash on every operation with no bypass. For systems that use native coordinates directly, the access cost drops to the physical limit of array load (0.39 ns, 60x below HashMap).
 
@@ -81,9 +81,8 @@ The post-conversion benefits are where Tagma differs fundamentally. Once a key e
 
 Key-value stores are the most frequently used data structure in computing. Every database engine, caching layer, distributed system, and in-memory application relies on some form of KV lookup. The universal implementation pattern is the hash map: a hash function computes a bucket index from the key; the bucket is then searched for the exact key.
 
-[^syntagma]: synTagma: a spatial coordinate space computing system based on the Tagma primitive. <https://docs.ssccs.org/projects/syntagma>
-[^syntagma-repo]: Repository: [Github (Pre-release, Apache 2.0)](https://github.com/ssccsorg/syntagma)
-[^benchmarks]: ARMv8.4-A Firestorm @ 3.2GHz. Benchmark suite [code](https://github.com/ssccsorg/syntagma/blob/main/sw/rust/benches/bench.rs)
+[^syntagma]: synTagma: a spatial coordinate space computing system based on the Tagma primitive. [Docs](https://docs.ssccs.org/projects/syntagma), Repository: [Github (Pre-release, Apache 2.0)](https://github.com/ssccsorg/syntagma)
+[^benchmarks]: ARMv8.4-A Firestorm 3.2GHz. Benchmark suite <https://github.com/ssccsorg/syntagma/blob/main/sw/rust/benches/bench.rs>
 [^tagma]: Tagma Whitepaper: <https://doi.org/10.5281/zenodo.21302508>
 
 The hash function is the critical path in every KV operation. SipHash, xxHash, CityHash, SHA-256: these are all solutions to the same problem: turning a variable-length key into a fixed-size token that can be used for fast indexing.
@@ -95,7 +94,7 @@ But the hash function solves two distinct problems:
 
 For in-memory KV, problem 1 is essential and problem 2 is an overhead. For disk-based KV, problem 1 is essential and problem 2 is multiplied by the storage hierarchy. For multi-dimensional indexing, both problems are exacerbated because the hash destroys the key's structure.
 
-Tagma solves neither of these problems because it does not hash. Instead, it converts every key into a coordinate in a fixed, finite, enumerable geometric space [@tagma-wp]. The conversion is a bijection for keys up to 2N bytes: no collisions, no bucket probing, no resizing.
+Tagma solves neither of these problems because it does not hash. Instead, it converts every key into a coordinate in a fixed, finite, enumerable geometric space [^tagma]. The conversion is a bijection for keys up to 2N bytes: no collisions, no bucket probing, no resizing.
 
 The critical question is the cost of this conversion relative to the hash function it replaces. Section 4 measures this empirically across three scales (10k, 1M, 10M operations) and decomposes the latency into its structural components. The total wrapped get latency (22 ns) is at parity with HashMap, while the pure conversion (5 ns) is approximately 3x faster than SipHash-2-4.
 
@@ -115,7 +114,7 @@ The critical observation is that **hash functions are universal but not optimal 
 
 ## The Alternative: Structural Coordinate Transformation
 
-The Tagma coordinate system replaces hash functions with a closed-form arithmetic mapping defined on a fixed 16-bit Unicode block (U+AC00–U+D7AF). The full specification, composition formula, and compliance criteria are defined in the Tagma whitepaper [@tagma-wp]. For the purpose of KV storage, the relevant operation is the conversion from a legacy string key to a `CoordKey<N>`, implemented via `From<&str>` (see appendix @sec-appendix-rust).
+The Tagma coordinate system replaces hash functions with a closed-form arithmetic mapping defined on a fixed 16-bit Unicode block (U+AC00–U+D7AF). The full specification, composition formula, and compliance criteria are defined in the Tagma whitepaper [^tagma]. For the purpose of KV storage, the relevant operation is the conversion from a legacy string key to a `CoordKey<N>`, implemented via `From<&str>` (see appendix @sec-appendix-rust).
 
 The transformation is:
 
@@ -151,7 +150,7 @@ Benchmark environment: ARMv8.4-A Firestorm, 10 samples, Rust criterion.
 | **CoordKV2** | N=2 dense | **18.69ns** | **2.4x faster** |
 | CoordKVN<2> | N=2 tree | 18.88ns | 2.4x faster |
 | DynCoordKV | trie | 49.44ns | 1.1x slower |
-| **HashMap\<String\>** | SipHash | 44.87ns | baseline |
+| **HashMap** | SipHash | 44.87ns | baseline |
 
 | KV Type | Backend | ns/op | vs HashMap |
 |---------|---------|-------|------------|
@@ -372,7 +371,7 @@ The approach is bidirectional in effect: data enters through a standard `insert(
 
 The complete reference implementation is available in the `tagma-kv` crate under Apache 2.0.
 
-**Remark.** The structural coordinate space that enables this is derived from a fixed 16-bit Unicode block (U+AC00–U+D7AF). The block encodes the compositional writing system, which provides the 19, 21, and 28 axis ranges. The full specification, including the composition formula and compliance criteria, is defined in the Tagma whitepaper [@tagma-wp].
+**Remark.** The structural coordinate space that enables this is derived from a fixed 16-bit Unicode block (U+AC00–U+D7AF). The block encodes the compositional writing system, which provides the 19, 21, and 28 axis ranges. The full specification, including the composition formula and compliance criteria, is defined in the Tagma whitepaper [^tagma].
 
 ## References {.unnumbered .unlisted}
 
