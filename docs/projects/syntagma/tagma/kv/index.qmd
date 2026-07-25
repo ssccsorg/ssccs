@@ -69,7 +69,7 @@ format:
 %run ../../../../_include/_graphviz.py
 ```
 
-## Abstract
+## Abstract {.unnumbered .unlisted}
 
 Tagma[^tagma] is a spatial coordinate computing system. It is not a hash map. Its address space is a geometric coordinate system where every valid coordinate is deterministic, collision-free, and structurally decomposable into independent axes. Tagma and hash-based systems (HashMap, hash tables, DHTs) solve different problems: hash functions distribute arbitrary inputs uniformly across buckets under probabilistic collision; Tagma assigns every key a fixed position in a geometric space with zero collision probability. They are complements, not substitutes. Tagma-KV [^syntagma] provides a HashMap-compatible API (insert, get, remove, contains_key) backed by Tagma's coordinate space. It exists so that existing KV-oriented code can access Tagma's spatial capabilities without architectural rewrites. The cost is the conversion from legacy key types (&str, Vec<u8>) to Tagma coordinates.
 
