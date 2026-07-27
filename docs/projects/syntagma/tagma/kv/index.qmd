@@ -326,24 +326,23 @@ Systems that accept `&str`, `Vec<u8>`, or other generic key types pay a conversi
 
 The table exposes the hierarchy directly: Native mode is 60x faster than HashMap for single gets. CoordKV2 mode is 1.08x faster than HashMap for single gets and 10.1x faster for batch gets. After conversion, spatial queries cost 94 ns regardless of mode. HashMap provides no spatial queries without secondary structures.
 
-## Write-Read Separation
+## Write-Read Symmetry
 
-Tagma-KV supports a two-phase access pattern. Data enters through the KV interface: `insert("key", value)` converts the string key to a CoordPath once and stores it in the CoordSpace. Subsequent reads bypass the KV layer entirely, operating on the CoordPath or Coord directly:
+Tagma-KV preserves full KV read/write semantics. `insert("key", value)` and `get("key")` continue to work exactly as in any HashMap. The difference is that every key is also stored as a native CoordPath, which enables an additional read path through the Tagma spatial layer without changing the existing KV interface:
 
 ```rust
-// Phase 1: load through KV interface (one-time conversion)
+// KV interface: works for both read and write, unchanged
 kv.insert("user:42", payload);
+let val = kv.get("user:42");          // still works, 22 ns
 
-// Phase 2: query through Tagma native layer (zero additional conversion)
-let coord = Coord::new(index).unwrap();
-let axes = coord.to_axes();                        // 3-axis decomposition
-let membership = coords.contains(&coord);           // CoordSet membership
+// Tagma native read: additional path, zero extra conversion cost
+let path: CoordPath<6> = /* ... */;
+let axes = path[0].to_axes();                    // 3-axis decomposition
+let membership = set.contains(&path[0]);           // CoordSet membership
 let intersection = set_a & set_b;                   // bitwise compound query
 ```
 
-The conversion cost is paid exactly once at write time. Every subsequent read -- structural decomposition, set membership, spatial filter -- operates at Tagma's native speed with no further KV overhead.
-
-The two modes compose: load data through Mode B (KV insert with string keys), then query through Mode A (native CoordPath access for spatial operations). The conversion cost is paid once at write time; every subsequent read benefits from Tagma's full structural capability at zero additional cost.
+The conversion cost is paid once at write or first-access time. After that, both the KV read path and the Tagma native read path are available at no additional cost. KV reads remain at 22 ns; Tagma native reads reach 0.39 ns with full spatial capability.
 
 ### Conversion Boundary
 
