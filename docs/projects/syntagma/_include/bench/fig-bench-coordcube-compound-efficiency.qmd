@@ -1,0 +1,19 @@
+```{python}
+#| label: fig-bench-coordcube-compound-efficiency
+#| fig-cap: "Compound query efficiency: iterator fusion vs collect-then-filter"
+import matplotlib.pyplot as plt
+import numpy as np
+
+ops = ['Proximity\n+ Vec collect', 'Proximity\n+ filter fused', 'CoordSet\nAND only']
+vals = [84.0, 13.5, 83.3]
+
+fig, ax = plt.subplots(figsize=(4, 3.5))
+bars = ax.bar(ops, vals, color='white', edgecolor='black', linewidth=0.8, hatch=['', '///', ''])
+ax.set_ylabel('Latency (ns)')
+for bar, val in zip(bars, vals):
+    ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 1.5, f'{val} ns', ha='center', fontsize=9)
+ax.annotate('6.2x faster', xy=(1, 13.5), xytext=(0.5, 60), fontsize=9, fontweight='bold', ha='center',
+            arrowprops=dict(arrowstyle='->', color='black'),
+            bbox=dict(boxstyle='round,pad=0.15', facecolor='white', edgecolor='black', alpha=0.85))
+plt.tight_layout(); plt.show()
+```

@@ -26,7 +26,7 @@ fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 3.5))
 # Left: Per-entry cost (linear)
 ax1.plot(x, kv2_b, '-o', color='black', markerfacecolor='white', markeredgecolor='black',
          markersize=7, linewidth=1.5, label='CoordKV2 (dense)')
-ax1.plot(x, kvn_b, '-^', color='black', markerfacecolor='white', markeredgecolor='gray',
+ax1.plot(x, kvn_b, '-^', color='black', markerfacecolor='white', markeredgecolor='black',
          markersize=7, linewidth=1.5, label='CoordKVN<2> (tree)')
 ax1.plot(x, hm_b, '-s', color='black', markerfacecolor='black', markeredgecolor='black',
          markersize=7, linewidth=1.5, label='HashMap')
@@ -38,14 +38,14 @@ ax1.legend(fontsize=7, loc='upper right')
 ax1.grid(axis='y', linestyle=':', alpha=0.3)
 
 # Annotation: crossover point
-ax1.axvline(x=1.5, color='gray', linestyle='--', linewidth=0.5, alpha=0.5)
+ax1.axvline(x=1.5, color='black', linestyle='--', linewidth=0.5, alpha=0.5)
 ax1.text(1.5, 250, 'CoordKV2 becomes\nmore efficient\nthan HashMap here',
-         fontsize=6.5, color='gray', ha='center')
+         fontsize=6.5, color='black', ha='center')
 
 # Right: Total memory (log)
 ax2.plot(x, kv2_mb, '-o', color='black', markerfacecolor='white', markeredgecolor='black',
          markersize=7, linewidth=1.5, label='CoordKV2 (dense)')
-ax2.plot(x, kvn_mb, '-^', color='black', markerfacecolor='white', markeredgecolor='gray',
+ax2.plot(x, kvn_mb, '-^', color='black', markerfacecolor='white', markeredgecolor='black',
          markersize=7, linewidth=1.5, label='CoordKVN<2> (tree)')
 ax2.plot(x, hm_mb, '-s', color='black', markerfacecolor='black', markeredgecolor='black',
          markersize=7, linewidth=1.5, label='HashMap')

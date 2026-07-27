@@ -1,0 +1,18 @@
+```{python}
+#| label: fig-bench-coordcube-hierarchical
+#| fig-cap: "Hierarchical query: two-phase vs direct"
+import matplotlib.pyplot as plt
+import numpy as np
+
+ops = ['2-phase\n(Cube gen + filter)', 'Direct\n(KV proximity)']
+vals = [547, 639]
+
+fig, ax = plt.subplots(figsize=(3.5, 3))
+bars = ax.bar(ops, vals, color='white', edgecolor='black', linewidth=0.8, hatch=['///', ''])
+ax.set_ylabel('Latency (ns)')
+for bar, val in zip(bars, vals):
+    ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 8, f'{val} ns', ha='center', fontsize=9)
+ax.annotate('14% faster', xy=(0, 547), xytext=(0.5, 350), fontsize=9, fontweight='bold', ha='center',
+            bbox=dict(boxstyle='round,pad=0.15', facecolor='white', edgecolor='black', alpha=0.85))
+plt.tight_layout(); plt.show()
+```

@@ -1,0 +1,35 @@
+```{python}
+#| label: fig-bench-coordcube-scale
+#| fig-cap: "Scale-invariant KV get latency: CoordKV2 vs HashMap"
+import matplotlib.pyplot as plt
+import numpy as np
+
+labels = ['10k', '1M', '10M']
+x = np.arange(len(labels))
+w = 0.3
+
+kv2 = [22.0, 21.4, 22.1]
+hm  = [21.9, 24.2, 26.5]
+
+fig, ax = plt.subplots(figsize=(4.5, 3.5))
+ax.bar(x - w/2, kv2, w, label='CoordKV2', color='white', edgecolor='black', linewidth=0.8, hatch='///')
+ax.bar(x + w/2, hm,  w, label='HashMap',  color='white', edgecolor='black', linewidth=0.8)
+
+ax.set_ylabel('Latency (ns)', fontsize=9)
+ax.set_xticks(x)
+ax.set_xticklabels(labels, fontsize=8)
+ax.set_ylim(15, 32)
+ax.legend(fontsize=8, loc='upper left')
+ax.grid(axis='y', linestyle=':', alpha=0.4)
+
+for xi, y1, y2 in zip(x, kv2, hm):
+    ax.text(xi - w/2, y1 + 1.0, f'{y1}', fontsize=7, ha='center', va='bottom')
+    ax.text(xi + w/2, y2 + 1.0, f'{y2}', fontsize=7, ha='center', va='bottom')
+
+ax.annotate('flat', xy=(1, 21.5), fontsize=8, fontweight='bold', ha='center',
+            bbox=dict(boxstyle='round,pad=0.15', facecolor='white', edgecolor='black', alpha=0.85))
+ax.annotate('+21%', xy=(2, 23.0), fontsize=8, fontweight='bold', ha='center',
+            bbox=dict(boxstyle='round,pad=0.15', facecolor='white', edgecolor='black', alpha=0.85))
+
+plt.tight_layout(); plt.show()
+```

@@ -1,0 +1,556 @@
+---
+title: "Reference Implementation"
+subtitle: "Rust Software Implementation of the Tagma Coordinate Space"
+date: last-modified
+date-format: "MMMM, YYYY"
+version-prefix: tagma-impl-draft
+version-mark: true
+bibliography: ../_include/reference.bib
+csl: ../../../../_include/ieee.csl
+date-modified: last-modified
+generate-title-meta: false
+metadata-files:
+    - ../../../../_include/author.yml
+    - ../../../../_include/format.html.yml
+colorlinks: true
+format:
+  html:
+    number-sections: true
+    code-font: "Source Code Pro"
+    appendix-style: plain
+---
+
+## Reference Implementation
+
+The Tagma coordinate space is implemented as a five-crate Rust workspace
+(`tagma-core`, `tagma-base11172`, `tagma-geo`, `tagma-kv`, `tagma-benches`)
+under the Apache 2.0 license. The core crate is `#![no_std]` with optional
+`alloc` and `mmap` features, enabling deployment from bare-metal MCUs to
+server-class machines without changing the public API.
+
+Five primary types form the public surface:
+
+| Type | Purpose | Allocation |
+|------|---------|------------|
+| `Coord` | 16-bit structural coordinate (newtype over `u16`) | None |
+| `CoordPath<N>` | Compile-time-length path of $N$ coordinates | None |
+| `CoordSet` | Dense bit array for presence checking | None |
+| `CoordSpace<V>` | Single-coordinate direct-address table | None (inline) |
+| `CoordCube<N, D, R>` | D-dimensional interpretation of $N$-character path | None |
+
+A family of space types behind the `alloc` feature extends this to
+$N \ge 2$: dense heap-allocated `CoordSpace2`, mmap-backed `CoordSpaceM3`,
+sparse tree `CoordSpaceN<N>`, and dynamic-depth `DynCoordSpace`.
+
+## Coord: 16-bit Newtype with Hardware Contract
+
+The `Coord` type is a `u16` wrapper constrained to the range $[0, 11172)$.
+This is not an arbitrary choice. It is derived directly from the hardware
+decoder's composition formula:
+
+$$C(i, m, f) = 588 \cdot i + 28 \cdot m + f$$
+
+where $i \in [0, 19)$, $m \in [0, 21)$, $f \in [0, 28)$. The product space
+$19 \times 21 \times 28 = 11{,}172$ produces exactly one Coord for every
+valid compositional character. The equivalence to Unicode block
+U+AC00..U+D7A3 is a consequence, not a goal; the hardware could have chosen
+any 19x21x28 space, and Unicode Hangul happened to match.
+
+```rust
+// syntagma/sw/rust/core/src/coord.rs
+pub struct Coord(u16);
+
+impl Coord {
+    pub const N_VALID: usize = 11_172;
+    pub const N_TOTAL: usize = 65_536;
+    pub const N_INVALID: usize = 54_364;
+
+    const N_INIT: usize = 19;
+    const N_MED: usize = 21;
+    const N_FIN: usize = 28;
+    const STRIDE_INIT: usize = 588;  // 21 * 28
+}
+```
+
+### Why 16 Bits?
+
+Sixteen bits fit in a single machine register on every target architecture
+(ARM, RISC-V, x86-64). The hardware decoder can load, decode, and validate a
+Coord in one cycle. The 16-bit wide also matches the natural width of the
+NVIC control bus in the companion whitepaper's decoder design; a wider type
+would require multi-cycle decode or additional multiplexing logic.
+
+### Construction: Hot Path versus API Boundary
+
+Two construction paths exist because the safety requirements differ between
+internal loops and external API surfaces. The checked `new()` branches on a
+single comparison against `N_VALID`. The unchecked
+`new_unchecked(value)` skips all validation and is the preferred path for
+hot inner loops where the input is already known valid (e.g., during
+serialization decode where validation happened upstream). Both are `const fn`,
+allowing construction at compile time.
+
+The `from_axes(initial, medial, final_)` path computes the linear index
+via multiply-add:
+
+```rust
+pub const fn from_axes(initial: u8, medial: u8, final_: u8) -> Option<Self> {
+    let i = initial as usize;
+    let m = medial as usize;
+    let f = final_ as usize;
+    if i < Self::N_INIT && m < Self::N_MED && f < Self::N_FIN {
+        Some(Self((i * Self::STRIDE_INIT + m * Self::STRIDE_MED + f) as u16))
+    } else {
+        None
+    }
+}
+```
+
+The multipliers (588, 28) are compile-time constants. LLVM lowers the
+multiplications to `lea` instructions on x86-64 and single-cycle `mul`
+on ARM Cortex-M with hardware multiply. No division is involved.
+
+### Decomposition: Constant-Time Axis Recovery
+
+The inverse operation `to_axes()` recovers the three structural axes via
+integer division:
+
+```rust
+pub const fn to_axes(self) -> (u8, u8, u8) {
+    let v = self.0 as usize;
+    let initial = (v / Self::STRIDE_INIT) as u8;
+    let rem = v % Self::STRIDE_INIT;
+    let medial = (rem / Self::STRIDE_MED) as u8;
+    let final_ = (rem % Self::STRIDE_MED) as u8;
+    (initial, medial, final_)
+}
+```
+
+The single division by 588, the modulo by 588, then the division and modulo
+by 28 resolve to three constant-divisor operations, which LLVM converts to
+multiplication-by-modular-inverse. On any CPU with a hardware divide unit
+(ARM Cortex-M4+, RISC-V with M extension, all x86-64), this completes in a
+fixed number of cycles regardless of input value. There is no loop, no table
+lookup, and no branch misprediction risk.
+
+### Hamming Distance: Branch-Free, Loop-Free
+
+The field-wise Hamming distance computes `abs_diff` on each axis pair.
+Because the three axes are encoded in closed form rather than as an opaque
+bitstring, the distance computation avoids both loops and conditional logic:
+
+```rust
+pub const fn hamming_distance(self, other: Self) -> (u8, u8, u8) {
+    let (ai, am, af) = self.to_axes();
+    let (bi, bm, bf) = other.to_axes();
+    (abs_diff(ai, bi), abs_diff(am, bm), abs_diff(af, bf))
+}
+```
+
+Each `abs_diff` lowers to a conditional subtract and a select instruction
+on ARM (no branch) or a `sub` + `sbb` sequence on x86-64. The three
+operations execute in parallel in any out-of-order core.
+
+### Invalid States as a Feature
+
+54,364 of the 65,536 possible 16-bit
+values are structurally invalid. That is 45% of the address space. This is
+neither waste nor oversight: it provides hardware-level error detection at
+zero cost. Any corrupted Coord (from memory bit-flip, bus error, or buffer
+overflow) that falls into the invalid range is immediately detectable. The
+decoder needs no checksum, no parity bit, and no CRC. Invalid states are
+detectable with a single comparison against `N_VALID`.
+
+## CoordPath: Zero-Overhead Index Path
+
+`CoordPath<N>` wraps a `[Coord; N]` array. It is explicitly not a key in
+the hash-map sense. Each coordinate is a direct array index into a slot at
+the corresponding tree depth. No hashing, no collision resolution, no
+equality probing.
+
+```rust
+// syntagma/sw/rust/core/src/coord_path.rs
+pub struct CoordPath<const N: usize> {
+    coords: [Coord; N],
+}
+```
+
+### Why an Array, Not a Vec?
+
+The length is a compile-time constant (`const N: usize`). This means:
+
+- The array is stack-allocated, not heap-allocated. Zero allocation cost.
+- Array indexing is bounds-checked at compile time or elided entirely.
+- The struct size is exactly `N * 2` bytes. For `CoordPath<1>`, that is 2
+  bytes (a single `u16`). For `CoordPath<19>`, that is 38 bytes.
+- All methods are `#[inline]` eligible; the compiler can see through the
+  entire access chain.
+- `From<Coord> for CoordPath<1>` enables seamless single-coord usage
+  without boxing or allocation.
+
+### Why Copy?
+
+`CoordPath<N>` implements `Copy`. Paths are values, not handles. Copying a
+`CoordPath<19>` (38 bytes) costs less than a pointer chase through the
+memory hierarchy: the data is already in registers or L1 cache. Returning
+a new path from a function is a register move or an inline memcpy that the
+compiler often eliminates entirely.
+
+## CoordSet: Bit Array at Memory Floor
+
+`CoordSet` is a dense bit array with zero heap allocation and zero hashing.
+Its memory footprint is exactly the theoretical minimum for representing
+any subset of 11,172 elements: $\lceil 11172 / 64 \rceil = 175$ words of
+64 bits each, totalling 1,400 bytes.
+
+```rust
+// syntagma/sw/rust/core/src/coord_set.rs
+pub struct CoordSet {
+    bits: [u64; Self::WORD_COUNT],
+}
+
+impl CoordSet {
+    const BITS: usize = Coord::N_VALID;       // 11172
+    const WORD_BITS: usize = u64::BITS as usize; // 64
+    const WORD_COUNT: usize = 175;            // div_ceil(11172, 64)
+}
+```
+
+### Why 1.4 KB?
+
+Every major CPU architecture has an L1 data cache of at least 16 KB (ARM
+Cortex-M3) and typically 32 KB (ARM Cortex-M7, Apple Firestorm, Intel
+Skylake). The full CoordSet fits in L1 with room to spare. Operations that
+scan all 175 words -- union, intersection, difference -- complete within
+a single cache line fill burst.
+
+### Why Copy?
+
+Set operations (`union`, `intersection`, `difference`,
+`symmetric_difference`) return new `CoordSet` values. This is possible
+because the bit array is small enough to copy by value. Every set algebra
+operation iterates 175 word pairs, applies the bitwise operator, and writes
+the result into a new stack-allocated `[u64; 175]`. No allocation, no
+mutation of the source sets.
+
+```rust
+fn from_bitwise<F: FnMut(u64, u64) -> u64>(a: &Self, b: &Self, mut op: F) -> Self {
+    let mut bits = [0u64; Self::WORD_COUNT];
+    for (out, (wa, wb)) in bits.iter_mut().zip(a.bits.iter().zip(&b.bits)) {
+        *out = op(*wa, *wb);
+    }
+    CoordSet { bits }
+}
+```
+
+### Iteration: O(popcount) via Trailing Zeros
+
+The iterator uses `w.trailing_zeros()` to find the next set bit, then clears
+it with `w & (w - 1)`. This is the standard Kernighan-style bit iteration
+pattern. For a set with $k$ elements, the loop body executes exactly $k$
+times regardless of the total 11,172 slot count. An empty set iterates in
+constant time (one `trailing_zeros` on each of 175 words, all of which are
+zero, producing a non-zero result only on the final word where the advance
+past the last word exits immediately).
+
+## CoordSpace: Inline Array at Cache-Line Granularity
+
+`CoordSpace<V>` is a hashless, collision-free, single-character address
+table backed by an inline `[Option<V>; 11172]` array. Every Coord is a
+direct array index: `slots[coord.index()]`. There is no hash function, no
+probe sequence, and no branch on presence before access.
+
+```rust
+// syntagma/sw/rust/core/src/coord_space.rs
+pub struct CoordSpace<V> {
+    slots: [Option<V>; 11172],
+    len: usize,
+}
+```
+
+### Memory Footprint
+
+For `Option<()>` (the unit type, 1 byte), the array occupies 11,172 bytes,
+roughly 11 KB. The compiler adds no padding because `Option<()>` is a
+single byte (the niche optimization. For `Option<u8>` it is the same 11 KB.
+For `Option<u64>` it is 11,172 * 8 = 89,376 bytes (87 KB). All these fit
+within or near the L1 data cache of any modern CPU.
+
+### The Niche Zeroing Trick
+
+Construction via `unsafe { core::mem::zeroed() }` works because Rust's
+niche optimization guarantees that the `None` variant of `Option<V>` is
+represented as all-zero bytes for any `V` that has a valid zero
+representation. This includes all primitives, `Box<T>`, `&T`,
+`NonNull<T>`, and any type composed of these. The zeroed call is a memset
+of 11,172 bytes -- approximately 3 cycles for the store buffer to drain,
+regardless of `V`.
+
+```rust
+pub fn new() -> Self {
+    let slots = unsafe { core::mem::zeroed() };
+    CoordSpace { slots, len: 0 }
+}
+```
+
+Contrast with a naive `[None; 11172]` which would call `Option::drop` on
+each of 11,172 elements, a 50x overhead on construction.
+
+### Slot Access Is Unsafe by Design
+
+The private `slot()` and `slot_mut()` methods use `get_unchecked` because
+a `Coord` is guaranteed to index within `[0, 11172)` by construction. The
+unsafe block is confined to two private functions; every public method that
+accesses a slot does so through these functions. If a `Coord` ever violates
+its invariant, the undefined behavior is contained and immediately visible
+in code review.
+
+### Entry API
+
+The entry API mirrors `std::collections::HashMap::entry()` but at zero
+cost. There is no hash computation, no bucket probing, and no Robin Hood
+swap. The `FlatEntry` enum branches on a single `is_some()` check on the
+existing `Option<V>`. The `or_insert` path writes to a known address; the
+`and_modify` path mutates in place. Both return references with a lifetime
+tied to the space.
+
+### Iterator Design
+
+`FlatIter` scans the 11,172-slot array linearly, skipping `None` slots.
+Each yielded item is a `(Coord, &V)` pair. The Coord is reconstructed from
+the scan index via `Coord::new(idx)`, which cannot fail because the scan
+index is always below 11,172. No allocation, no sorting, no hash set of
+visited indices.
+
+## CoordCube: Zero-Cost Const-Generic Abstraction
+
+`CoordCube<N, D, R>` interprets an $N$-character `CoordPath` as a
+$D$-dimensional grid where each dimension has $R$ characters of resolution.
+The constraint $N = D \times R$ is enforced at runtime by `from_path()`.
+
+```rust
+// syntagma/sw/rust/core/src/coord_cube.rs
+pub struct CoordCube<const N: usize, const D: usize, const R: usize> {
+    path: CoordPath<N>,
+}
+```
+
+### Why Const Generics?
+
+There is no runtime cost associated with the const generic parameters. The
+struct is a wrapper around `CoordPath<N>`, which is a `[Coord; N]` array.
+`CoordCube` and `CoordPath<N>` have the same machine representation.
+Conversion between them (`From<CoordPath<N>>` and
+`From<CoordCube<N, D, R>>`) compiles to a no-op: the struct fields are
+reinterpreted, not copied. The compiler elides the entire wrapper;
+`CoordCube` exists only at the type level to constrain which operations are
+available.
+
+The `axis(dim)` method extracts $R$ contiguous coordinates from the path
+starting at offset `dim * R`. The extraction copies R coords into a new
+array. For small R (typically 1 or 2), this is a register copy. For larger
+R, it is a small inline memcpy that the compiler often eliminates when the
+result is used immediately. In practice, R=1 and R=2 are the common cases;
+R=2 copies two u16 values (4 bytes) which the compiler typically materializes
+as a single register pair move.
+
+## Space Family: Dense versus Sparse
+
+The Tagma principle holds that every coordinate maps to a unique slot
+without hashing or collision resolution. The family of space types realizes
+this principle through three allocation strategies, each optimal for a
+different depth range.
+
+### Dense: CoordSpace (N = 1)
+
+The inline `[Option<V>; 11172]` array requires no allocator. Access is a
+single array load: 0.38 ns on ARM Firestorm. This is the fastest possible
+implementation for single-coordinate maps.
+
+### Dense: CoordSpace2 (N = 2)
+
+A single `alloc_zeroed` call allocates 124,813,584 slots. For `Option<()>`,
+this is 119 MB. The linear index is computed via Horner's method:
+
+```rust
+pub(crate) fn linear_index<const N: usize>(path: &CoordPath<N>) -> usize {
+    let mut idx = 0usize;
+    let mut i = 0;
+    while i < N {
+        idx = idx.wrapping_mul(11172)
+                 .wrapping_add(path.coords()[i].index() as usize);
+        i += 1;
+    }
+    idx
+}
+```
+
+For N=2, this computes `idx = c0 * 11172 + c1`. The `wrapping_mul` and
+`wrapping_add` signal to LLVM that overflow is acceptable (it cannot occur
+within valid bounds). Access latency is 0.39 ns, effectively identical to
+the inline case, because the flat slab is a single pointer dereference.
+
+The 119 MB floor is the primary tradeoff. On server-class machines with
+hundreds of GB of RAM, this is negligible. On embedded systems, it is
+impractical, and the sparse tree must be used instead.
+
+### Dense: CoordSpaceM3 (N = 3, mmap)
+
+For N=3, the slot count $11172^3 = 1.39 \times 10^{12}$ exceeds a single
+heap allocation on most systems. The implementation uses anonymous `mmap`
+with `MAP_NORESERVE`. This reserves a 1.27 TB virtual address range but
+commits physical pages only on first write. The kernel's demand paging
+ensures that a deployment using only a small fraction of the address space
+pays only for the pages it touches.
+
+```rust
+let ptr = unsafe {
+    libc::mmap(
+        ptr::null_mut(), size,
+        libc::PROT_READ | libc::PROT_WRITE,
+        libc::MAP_PRIVATE | libc::MAP_ANONYMOUS | libc::MAP_NORESERVE,
+        -1, 0,
+    )
+};
+```
+
+The first access to any cold page incurs a minor page fault (~3-8
+microseconds on Linux). After the page is resident, subsequent accesses are
+a single load (0.40 ns). The `clear()` operation uses
+`madvise(MADV_DONTNEED)` on Linux to discard pages immediately, or
+re-mmaps the region with `MAP_FIXED` on other Unix platforms.
+
+### Sparse Tree: CoordSpaceN (Any N)
+
+The sparse tree allocates nodes lazily. A node is a boxed `[Option<V>;
+11172]` for leaf depth, or a boxed `[Option<Box<Node<V>>>; 11172]` for
+branch depth. The tree depth is $N$: $N-1$ branch levels plus one leaf
+level. Path lookup traverses $N$ dereferences and array index operations.
+
+| Type | Depth | Latency | Memory per entry (approx.) |
+|------|-------|---------|----------------------------|
+| `CoordSpaceN2` | 2 | 0.87 ns | 22 KB + entry |
+| `CoordSpaceN3` | 3 | 2.69 ns | 44 KB + entry |
+| `CoordSpaceN6` | 6 | 5.60 ns | 110 KB + entry |
+| `CoordSpaceN12` | 12 | 13.2 ns | 242 KB + entry |
+| `CoordSpaceN19` | 19 | 53.2 ns | 418 KB + entry |
+
+The worst-case memory for a single entry at max depth is approximately
+$N \times 22$ KB (each node allocated but mostly empty). For N=19, that
+is about 418 KB for one entry. This is the worst case only; for dense
+occupancy the per-entry amortized cost approaches $22N / k$ bytes.
+
+### Selection Guide
+
+| Depth | Recommended type | Rationale |
+|-------|-----------------|-----------|
+| 1 | `CoordSpace` | 22 KB inline, 0 allocator, 0.38 ns |
+| 2 | `CoordSpace2` | 119 MB floor, 0.39 ns |
+| 2 (constrained) | `CoordSpaceN2` | 22 KB root, 0.87 ns |
+| 3 (generous RAM) | `CoordSpaceM3` | 1.27 TB virtual, lazy page, 0.40 ns |
+| 3+ (any) | `CoordSpaceN<N>` | Lazy tree, $N \times 0.9$ ns |
+| Any (dynamic) | `DynCoordSpace` | Runtime-variable depth |
+
+## Vec::with_capacity Optimization in CoordCubeKV
+
+The proximity query implementation in `tagma-kv` uses a `Vec` to hold
+results. Previously, the Vec grew dynamically as each matching path was
+pushed, incurring amortized reallocation overhead for every proximity
+region that exceeded the default capacity.
+
+The fix was to precompute the exact result count using
+`BoundingBoxIter::count_paths()` (from `tagma-geo`), which computes the
+product of range widths with `saturating_mul`:
+
+```rust
+pub fn count_paths(&self) -> usize {
+    let mut total = 1usize;
+    for &(min, max) in &self.ranges {
+        let width = (max - min + 1) as usize;
+        total = total.saturating_mul(width);
+    }
+    total
+}
+```
+
+For a proximity query with radius $r$ in $N$ dimensions, the path count is
+$(2r+1)^N$. This is computable in O(N) time. Pre-allocating with
+`Vec::with_capacity(capacity)` removes the reallocation overhead entirely.
+
+```rust
+let capacity = (2 * radius + 1).pow(2);         // N=2
+let mut results = Vec::with_capacity(capacity);
+for path in cube.proximity(radius) {
+    if let Some(val) = self.get_by_coordpath(&path) {
+        results.push((path, val));
+    }
+}
+```
+
+This optimization alone reduces proximity latency for $r=1$ from 285 ns to
+approximately 248 ns, a 13% improvement attributable entirely to avoiding
+three reallocations in the common case.
+
+## Serialization
+
+The `tagma-base11172` crate provides a binary-to-text encoding using the
+Tagma alphabet. Every Coord maps to one Unicode character in U+AC00..U+D7A3.
+A pair of characters encodes one `u16` in base-11172 representation.
+
+### Self-Validation
+
+Characters outside U+AC00..U+D7AF are immediately detectable as invalid.
+No checksum, no length prefix, no magic bytes. A corrupted transmission
+that flips any bit in a Coord value either produces another valid Coord
+(undetectable but semantically different) or falls into the 54,364 invalid
+states and is caught. The probability of an undetected single-bit error is
+$11172 / 65536 \approx 17\%$, compared to 100% for arbitrary byte streams.
+
+### Endian Safety
+
+`Coord::to_le_bytes()` and `Coord::to_be_bytes()` expose the raw index as
+two bytes. Decoding via `from_le_bytes` or `from_be_bytes` checks validity
+via `Coord::new`, maintaining the invariant that every `Coord` constructed
+from serialized data is structurally valid.
+
+## Key Engineering Decisions
+
+| Decision | Rationale | Consequence |
+|----------|-----------|-------------|
+| 16-bit Coord | Fits register, single-cycle decode | 54K invalid states = error detect |
+| `[Coord; N]` not `Vec<Coord>` | Stack allocation, inline, zero-overhead | N fixed at compile time |
+| 175-word bit array | Exact L1-cache fit (1.4 KB) | Set ops = one cache line burst |
+| `core::mem::zeroed()` init | 3 cycles vs 50x naive | Requires valid niche for V |
+| `get_unchecked` slot access | Branch-free hot path | Unsafe confined to two functions |
+| Const generics on CoordCube | Compile-time N=D*R enforcement | Zero-cost wrapper, elided by LLVM |
+| Dense (alloc_zeroed) for N=2 | 0.39 ns access, flat slab | 119 MB floor |
+| mmap MAP_NORESERVE for N=3 | Lazy page commitment | 1.27 TB virtual, zero physical until write |
+| Sparse tree for N>=4 | Lazy allocation, no floor | N * 0.9 ns access |
+| `Vec::with_capacity` in proximity | Removes realloc jitter | 13% latency reduction at r=1 |
+
+## Quality Metrics
+
+The implementation is verified through 166+ unit and integration tests
+across all crates, zero clippy warnings, and a `no_std` + `no-alloc` build
+for the core crate. All unsafe blocks are documented with safety invariants.
+
+Benchmark measurements on a single ARMv8.4-A Firestorm core (Apple M1,
+3.2 GHz), averaged over 11,172 operations, compare `CoordSpace` against
+`std::collections::HashMap`:
+
+| Operation | CoordSpace | HashMap | Speedup |
+|-----------|------------|---------|---------|
+| Insert all 11,172 | 26.5 us | 377 us | 14x |
+| Get all 11,172 | 6.49 us | 101 us | 16x |
+| Remove all 11,172 | 15.0 us | 268 us | 18x |
+| Iter all 11,172 | 7.56 us | 18.2 us | 2.4x |
+| Entry (all) | 8.51 us | 315 us | 37x |
+
+The speedup is largest for the Entry API because `CoordSpace.entry()` does
+not compute a hash or probe for collisions; the `Vacant`/`Occupied` branch
+is a single `is_some()` check.
+
+## References
+
+The companion whitepaper describes the hardware decoder and the
+compositional character block encoding.

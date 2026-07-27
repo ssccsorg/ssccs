@@ -71,9 +71,9 @@ format:
 
 ## Abstract {.unnumbered .unlisted}
 
-Tagma[^tagma] is a spatial coordinate computing system. It is not a hash map. Its address space is a geometric coordinate system where every valid coordinate is deterministic, collision-free, and structurally decomposable into independent axes. Tagma and hash-based systems (HashMap, hash tables, DHTs) solve different problems: hash functions distribute arbitrary inputs uniformly across buckets under probabilistic collision; Tagma assigns every key a fixed position in a geometric space with zero collision probability. They are complements, not substitutes. Tagma-KV [^syntagma] provides a HashMap-compatible API (insert, get, remove, contains_key) backed by Tagma's coordinate space. It exists so that existing KV-oriented code can access Tagma's spatial capabilities without architectural rewrites. The cost is the conversion from legacy key types (&str, Vec<u8>) to Tagma coordinates.
+Tagma[^tagma] is a spatial coordinate computing system. It is not a hash map. Its address space is a geometric coordinate system where every valid coordinate is deterministic, collision-free, and structurally decomposable into independent axes. Tagma and hash-based systems (HashMap, hash tables, DHTs) solve different problems: hash functions distribute arbitrary inputs uniformly across buckets under probabilistic collision; Tagma assigns every key a fixed position in a geometric space with zero collision probability. They are complements, not substitutes. Tagma-KV [^syntagma] [^refimpl] provides a HashMap-compatible API (insert, get, remove, contains_key) backed by Tagma's coordinate space. It exists so that existing KV-oriented code can access Tagma's spatial capabilities without architectural rewrites. The cost is the conversion from legacy key types (&str, Vec<u8>) to Tagma coordinates.
 
-Benchmarks[^benchmarks] show that this conversion cost is 5 ns (str-to-CoordKey byte copy) — approximately 3x faster than SipHash-2-4. The remaining 16.67 ns of the 21.67 ns total get latency is the Vec clone for the owned return value, an API artifact that reference-returning variants can eliminate. The critical finding is that CoordKV2 latency is scale-invariant: 21.5 ns at 10k, 1M, and 10M operations, because the CoordSpace2 dense array provides uniform access latency regardless of dataset size. HashMap per-op cost rises 19% from 10k to 10M as the working set exceeds cache capacity, and this trend continues with scale. The conversion is a one-time cost: once paid at the entry boundary, subsequent accesses via CoordKey skip it entirely, and CoordKey is a 128-bit Copy type that can be cached at zero marginal cost. HashMap has no equivalent amortization — it pays SipHash on every operation with no bypass. For systems that use native coordinates directly, the access cost drops to the physical limit of array load (0.39 ns, 60x below HashMap).
+Benchmarks[^benchmarks] show that this conversion cost is 5 ns (str-to-CoordKey byte copy) — approximately 3x faster than SipHash-2-4. The remaining 16.67 ns of the 21.67 ns total get latency is the Vec clone for the owned return value, an API artifact that reference-returning variants can eliminate. The critical finding is that CoordKV2 latency is scale-invariant: 22.0 ns at 10k, 21.4 ns at 1M, and 22.1 ns at 10M operations, because the CoordSpace2 dense array provides uniform access latency regardless of dataset size. HashMap per-op cost rises 21% from 10k to 10M as the working set exceeds cache capacity, and this trend continues with scale. The conversion is a one-time cost: once paid at the entry boundary, subsequent accesses via CoordKey skip it entirely, and CoordKey is a 128-bit Copy type that can be cached at zero marginal cost. HashMap has no equivalent amortization — it pays SipHash on every operation with no bypass. For systems that use native coordinates directly, the access cost drops to the physical limit of array load (0.39 ns, 60x below HashMap).
 
 The post-conversion benefits are where Tagma differs fundamentally. Once a key enters Tagma coordinate space, prefix scans, axis projections, range queries, and compound spatial filters are native operations at 94 ns (bitwise CoordSet intersection). No hash-based system can provide these without secondary indexes or full scans. There is no storage amplification: the coordinate is the index. The conversion cost is not a penalty but a baseline: even paying the full 22 ns on every get is at parity with HashMap, and the spatial capabilities are delivered at zero additional cost above this baseline. The replacement is non-cryptographic: signatures, encryption, and authentication remain on SHA-256. Only the hash-based indexing layer is replaced.
 
@@ -82,8 +82,9 @@ The post-conversion benefits are where Tagma differs fundamentally. Once a key e
 Key-value stores are the most frequently used data structure in computing. Every database engine, caching layer, distributed system, and in-memory application relies on some form of KV lookup. The universal implementation pattern is the hash map: a hash function computes a bucket index from the key; the bucket is then searched for the exact key.
 
 [^syntagma]: synTagma: a spatial coordinate space computing system based on the Tagma primitive. [Docs](https://docs.ssccs.org/projects/syntagma), Repository: [Github (Pre-release, Apache 2.0)](https://github.com/ssccsorg/syntagma)
-[^benchmarks]: ARMv8.4-A Firestorm 3.2GHz. Benchmark suite <https://github.com/ssccsorg/syntagma/blob/main/sw/rust/benches/bench.rs>
-[^tagma]: Tagma Whitepaper: <https://doi.org/10.5281/zenodo.21302508>
+[^benchmarks]: ARMv8.4-A Firestorm 3.2GHz. All benchmark figures are measured on the code <https://github.com/ssccsorg/syntagma/blob/main/sw/rust/benches/bench.rs>
+[^tagma]: Tagma whitepaper: <https://docs.ssccs.org/projects/syntagma/tagma/wp/index.pdf>
+[^refimpl]: Type names such as `CoordKV2`, `CoordSpace2`, `CoordKey`, `DynCoordKV`, and `CoordKVN` refer to types in the reference implementation: <https://github.com/ssccsorg/syntagma/tree/main/sw/rust/kv>
 
 The hash function is the critical path in every KV operation. SipHash, xxHash, CityHash, SHA-256: these are all solutions to the same problem: turning a variable-length key into a fixed-size token that can be used for fast indexing.
 
@@ -179,17 +180,17 @@ Benchmark environment: ARMv8.4-A Firestorm, 10 samples, Rust criterion.
 
 | KV Type | 10k ops | 1M ops | 10M ops | Scale trend | vs HashMap (10M) |
 |---------|---------|--------|---------|-------------|------------------|
-| **CoordKV2** | **22.0 ns** | **21.4 ns** | **21.5 ns** | **flat** | **1.11x faster** |
+| **CoordKV2** | **22.0 ns** | **21.4 ns** | **22.1 ns** | **flat** | **1.20x faster** |
 | CoordKVN\<2\> | 22.0 ns | 21.9 ns | 22.1 ns | flat | 1.08x faster |
 | DynCoordKV | 56.3 ns | 57.4 ns | 60.6 ns | +7% | 2.5x slower |
-| **HashMap\<String\>** | **20.0 ns** | **24.2 ns** | **23.8 ns** | **+19%** | baseline |
+| **HashMap\<String\>** | **20.0 ns** | **24.2 ns** | **26.5 ns** | **+21%** | baseline |
 
 #### Contains key (per-op latency, ns)
 
 | KV Type | 10k ops | 1M ops | 10M ops |
 |---------|---------|--------|---------|
 | CoordKV2 | 21.7 ns | 21.6 ns | 21.6 ns |
-| HashMap\<String\> | 13.0 ns | 19.9 ns | 19.9 ns |
+| HashMap\<String\> | 13.0 ns | 19.9 ns | 26.5 ns |
 
 #### Insert (65,536 unique keys)
 
@@ -245,15 +246,31 @@ The structural difference: CoordKV2's slot load (0.39 ns) is the only mandatory 
 
 3. **DynCoordKV generality tradeoff**: At 42.40 ns for get, DynCoordKV is 1.78x slower than HashMap. However, it alone supports arbitrary-length keys. Its stored Coord paths are structurally decomposable into independent axes, enabling prefix scan and axis query on the underlying storage — operations that HashMap cannot provide without secondary indexes. The 42.40 ns is the entry cost for unlimited generality; once paid, all Tagma traits are unlocked at zero marginal cost.
 
-4. **Scale-invariant latency: CoordKV2 is flat across three orders of magnitude**. At 10k ops (all L2 cache), CoordKV2 get latency is 22.0 ns. At 10M ops (65k keys cycled 153 times, DRAM-bound for HashMap), CoordKV2 remains at 21.5 ns. The CoordSpace2 dense array provides uniform access latency regardless of dataset size or access pattern, because every slot is reached by the same arithmetic index computation and array load — no bucket chaining, no resizing, no probe sequences. HashMap starts at 20.0 ns at 10k (L2 hit) and rises to 23.8 ns at 10M (L3/DRAM), a 19% increase that will continue widening as scale exceeds cache capacity.
+4. **Scale-invariant latency: CoordKV2 is flat across three orders of magnitude**. At 10k ops (all L2 cache), CoordKV2 get latency is 22.0 ns. At 10M ops (65k keys cycled 153 times, DRAM-bound for HashMap), CoordKV2 remains at 22.1 ns. The CoordSpace2 dense array provides uniform access latency regardless of dataset size or access pattern, because every slot is reached by the same arithmetic index computation and array load — no bucket chaining, no resizing, no probe sequences. HashMap starts at 20.0 ns at 10k (L2 hit) and rises to 26.5 ns at 10M (L3/DRAM), a 21% increase that will continue widening as scale exceeds cache capacity.
 
-5. **Contains key follows the same pattern**: CoordKV2 is flat at 21.6 ns across all scales. HashMap contains is faster at 10k (13.0 ns, returns bool instead of full value) but rises 53% to 19.9 ns at 10M. The advantage of returning a bool instead of a value is erased by cache pressure.
+5. **Contains key follows the same pattern**: CoordKV2 is flat at 21.6 ns across all scales. HashMap contains is faster at 10k (13.0 ns, returns bool instead of full value) but rises to 26.5 ns at 10M (+100%). The advantage of returning a bool instead of a value is erased by cache pressure.
 
-6. **Insert cost is dominated by preallocation, not by coordinate computation**. CoordKV2 insert at 233 ms for 65k keys is almost entirely the 119 MB `alloc_zeroed` for CoordSpace2 construction (one single allocation). The actual slot write is ~22 ns per key. This 119 MB cost is paid once and amortized across all subsequent operations — after construction, every insert is a simple slot write with zero per-key allocation. HashMap insert at 9.2 ms for 65k keys performs 65k separate allocations and multiple bucket resizes, costs that grow with each entry. The 25x disadvantage of CoordKV2 on the first 65k inserts inverts to an advantage on the 66th thousandth insert onward.
+6. **Insert cost is dominated by preallocation, not by coordinate computation**. CoordKV2 insert at 233 ms for 65k keys is almost entirely the 119 MB `alloc_zeroed` for CoordSpace2 construction (one single allocation). The actual slot write is ~22 ns per key. This 119 MB cost is paid once and amortized across all subsequent operations — after construction, every insert is a simple slot write with zero per-key allocation. HashMap insert at 14 ms for 65k keys performs 65k separate allocations and multiple bucket resizes, costs that grow with each entry. The 25x disadvantage of CoordKV2 on the first 65k inserts inverts to an advantage on the 66th thousandth insert onward.
 
 7. **Spatial query advantage**: Because the coordinate preserves structure, multi-dimensional queries are native coordinate-space operations. Axis slicing (filter by one axis value) costs 94 ns (bitwise AND over 175 machine words). Prefix scan (all keys with a common prefix) costs O(prefix length). Compound query (multiple axis conditions) costs 94 ns (CoordSet intersection). The HashMap equivalent for any of these is a full scan (O(N)) or a separate secondary index. For N=545 keys, a full HashMap scan costs 545 x 23.79 = 12.97 us. The CoordSet query completes in 94 ns: 138x faster. The breakeven is N=4 keys.
 
-## HashMap-Compatible Interface
+### CoordCube Spatial Layer on KV Stores
+
+The CoordCube interpretation layer adds spatial query capability to any KV store without changing the storage key[^tagma-geo]. A CoordPath of N bytes is reinterpreted as a D-dimensional grid with R bytes per dimension (N = D * R), enabling proximity queries, bounding box enumeration, and distance metrics that CoordPath alone cannot express. Query cost is bounded by region size (path count), not store size.
+
+:::{ layout-ncol=3 }
+
+{{< include ../../_include/bench/fig-bench-coordcube-store-scale.qmd >}}
+
+{{< include ../../_include/bench/fig-bench-coordcube-hitrate.qmd >}}
+
+{{< include ../../_include/bench/fig-bench-coordcube-scale.qmd >}}
+
+:::
+
+The full design, all benchmarks, and comparison with existing systems are described in the Tagma-Geo whitepaper.
+
+[^tagma-geo]: Tagma-Geo whitepaper: Spatial Query Layer on Structural Coordinate Spaces. <https://docs.ssccs.org/projects/syntagma/tagma/geo>
 
 The benchmark data reveals a structural insight: the conversion cost (21.67 ns) is below the SipHash cost (implicit in HashMap's 23.79 ns total). This inverts the expected relationship: the conversion from legacy types into Coord space costs less than the hash function it replaces. The conversion is a one-time payment at the boundary. After payment, the key exists permanently in Tagma coordinate space.
 
@@ -308,8 +325,8 @@ Systems that accept `&str`, `Vec<u8>`, or other generic key types pay a conversi
 | Mode | Conversion | Storage | Total Get | Batch 10k | Batch 1M | Batch 10M | Spatial Query |
 |------|-----------|---------|-----------|-----------|----------|-----------|---------------|
 | Native Coord | 0 ns | 0.39 ns | 0.39 ns | N/A | N/A | N/A | 94 ns |
-| CoordKV2 (string-key) | 21.67 ns | 0.39 ns | 22.06 ns | 22.0 ns | 21.4 ns | 21.5 ns | 94 ns |
-| HashMap | 23.79 ns | bucket | 23.79 ns | 20.0 ns | 24.2 ns | 23.8 ns | Full scan |
+| CoordKV2 (string-key) | 21.67 ns | 0.39 ns | 22.06 ns | 22.0 ns | 21.4 ns | 22.1 ns | 94 ns |
+| HashMap | 23.79 ns | bucket | 23.79 ns | 20.0 ns | 24.2 ns | 26.5 ns | Full scan |
 
 The table exposes the hierarchy directly: Native mode is 60x faster than HashMap for single gets. CoordKV2 mode is 1.08x faster than HashMap for single gets and 10.1x faster for batch gets. After conversion, spatial queries cost 94 ns regardless of mode. HashMap provides no spatial queries without secondary structures.
 

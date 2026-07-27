@@ -1,0 +1,24 @@
+```{python}
+#| label: fig-bench-coordcube-store-scale
+#| fig-cap: "Query cost vs store size: CoordCube proximity vs HashMap filter"
+import matplotlib.pyplot as plt
+import numpy as np
+
+sizes = [10, 100, 1000, 10000, 100000, 1000000, 10000000]
+hm_scan = [s * 23.8 for s in sizes]
+cube_dense = [285] * len(sizes)
+cube_empty = [15.7] * len(sizes)
+
+fig, ax = plt.subplots(figsize=(5, 3.5))
+ax.plot(sizes, hm_scan, 'o-', color='black', linewidth=1.5, label='HashMap filter (O(N) scan)')
+ax.plot(sizes, cube_dense, 's--', color='black', linewidth=1.5, label='CoordCube prox r=1 (bounded)')
+ax.plot(sizes, cube_empty, '^:', color='black', linewidth=1.5, label='CoordCube empty (short-circuit)')
+ax.set_xscale('log'); ax.set_yscale('log')
+ax.set_xlabel('Store size (entries)')
+ax.set_ylabel('Query latency (ns)')
+ax.legend(fontsize=7, loc='upper left')
+ax.grid(True, which='both', linestyle=':', alpha=0.3)
+ax.annotate('Crosses at ~12 entries', xy=(12, 285), fontsize=7,
+            bbox=dict(boxstyle='round,pad=0.15', facecolor='white', edgecolor='black', alpha=0.8))
+plt.tight_layout(); plt.show()
+```

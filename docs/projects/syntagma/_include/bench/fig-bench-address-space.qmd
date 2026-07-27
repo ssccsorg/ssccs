@@ -29,16 +29,16 @@ tagma_native_idxs = [2, 4, 6]
 tagma_native_vals = [0.39, 0.39, 0.39]
 ax2.plot(sha_vals, sha_idxs, 'o-', color='black', linewidth=1.2, markerfacecolor='white', markeredgecolor='black', markersize=6, zorder=10, label='Hash-based lookup')
 ax2.plot(tagma_tree_vals, tagma_tree_idxs, 's:', color='black', linewidth=1.2, markerfacecolor='white', markeredgecolor='black', markersize=5, zorder=10, label='CoordSpaceN (tree fallback)')
-ax2.plot(tagma_native_vals, tagma_native_idxs, 'D--', color='#1b9e77', linewidth=1.5, markerfacecolor='white', markeredgecolor='#1b9e77', markersize=5, zorder=11, label='Native CoordSpace (dense, 0.39 ns)')
+ax2.plot(tagma_native_vals, tagma_native_idxs, 'D--', color='black', linewidth=1.5, markerfacecolor='white', markeredgecolor='black', markersize=5, zorder=11, label='Native CoordSpace (dense, 0.39 ns)')
 for i, l in zip(sha_idxs, sha_vals):
     off = 0.3
-    ax2.annotate(f'{l:.0f} ns', (l, i), xytext=(l * 1.15, i + off), fontsize=7, ha='left', arrowprops=dict(arrowstyle='->', color='gray', linewidth=0.5))
+    ax2.annotate(f'{l:.0f} ns', (l, i), xytext=(l * 1.15, i + off), fontsize=7, ha='left', arrowprops=dict(arrowstyle='->', color='black', linewidth=0.5))
 for i, l in zip(tagma_tree_idxs, tagma_tree_vals):
     off = -0.3
-    ax2.annotate(f'{l:.0f} ns', (l, i), xytext=(l * 1.15, i + off), fontsize=7, ha='left', arrowprops=dict(arrowstyle='->', color='gray', linewidth=0.5))
+    ax2.annotate(f'{l:.0f} ns', (l, i), xytext=(l * 1.15, i + off), fontsize=7, ha='left', arrowprops=dict(arrowstyle='->', color='black', linewidth=0.5))
 for i, l in zip(tagma_native_idxs, tagma_native_vals):
     off = 0.3
-    ax2.annotate(f'{l:.2f} ns', (l, i), xytext=(l * 2.5, i + off), fontsize=7, ha='left', color='#1b9e77', arrowprops=dict(arrowstyle='->', color='#1b9e77', linewidth=0.5))
+    ax2.annotate(f'{l:.2f} ns', (l, i), xytext=(l * 2.5, i + off), fontsize=7, ha='left', color='black', arrowprops=dict(arrowstyle='->', color='black', linewidth=0.5))
 ax2.legend(fontsize=7, loc='lower right')
 ax2.set_xscale('log'); ax2.set_xlabel('Lookup latency (ns, log)', color='black')
 ax2.set_xlim(0.1, 2000)
@@ -46,7 +46,7 @@ ax2.set_xlim(0.1, 2000)
 from matplotlib.patches import Patch
 ax1.legend(handles=[Patch(facecolor='white', edgecolor='black', hatch='///', label='Dense (true Tagma)'),
                     Patch(facecolor='white', edgecolor='black', label='Hash-based'),
-                    Patch(facecolor='white', edgecolor='gray', label='Reference'),
-                    Patch(facecolor='white', edgecolor='#1b9e77', label='Native CoordSpace')], fontsize=7, loc=(0.4, 0.0))
+                    Patch(facecolor='white', edgecolor='black', label='Reference'),
+                    Patch(facecolor='white', edgecolor='black', label='Native CoordSpace')], fontsize=7, loc=(0.4, 0.0))
 plt.tight_layout(); plt.show()
 ```

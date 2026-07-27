@@ -1,0 +1,27 @@
+```{python}
+#| label: fig-bench-coordcube-strategies
+#| fig-cap: "Spatial query strategies: CoordSet vs CoordCube"
+import matplotlib.pyplot as plt
+import numpy as np
+
+categories = ['CoordSet\n(axis filter)', 'CoordCube\n(proximity r=1)', 'HashMap\n(axis filter)']
+values_ns  = [85.7, 86.6, 12300.0]  # HashMap in ns (12.3 us)
+
+fig, ax = plt.subplots(figsize=(4.5, 3.5))
+bars = ax.bar(categories, values_ns, width=0.5, color='white', edgecolor='black', linewidth=0.8,
+              hatch=['///', '///', ''])
+
+ax.set_ylabel('Latency', fontsize=9)
+ax.set_yscale('log')
+ax.set_ylim(10, 50000)
+
+for bar, val in zip(bars, values_ns):
+    label = f'{val:.1f} ns' if val < 1000 else f'{val/1000:.1f} µs'
+    ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() * 1.1,
+            label, ha='center', va='bottom', fontsize=8)
+
+ax.annotate('Same cost,\ndifferent question', xy=(0.5, 200), fontsize=8, fontweight='bold', ha='center',
+            bbox=dict(boxstyle='round,pad=0.2', facecolor='white', edgecolor='black', alpha=0.85))
+
+plt.tight_layout(); plt.show()
+```

@@ -5,14 +5,14 @@ date: 2026-07
 date-format: "MMMM, YYYY"
 version-prefix: tagma-10.5281/zenodo.21302508
 version-mark: true
-bibliography: ./_include/reference.bib
-csl: ../../../_include/ieee.csl
+bibliography: ../_include/reference.bib
+csl: ../../../../_include/ieee.csl
 date-modified: last-modified
 generate-title-meta: false
 metadata-files:
-    - ../../../_include/author.founder.yml
-    - ../../../_include/format.pdf.yml
-    - ../../../_include/format.html.yml
+    - ../../../../_include/author.founder.yml
+    - ../../../../_include/format.pdf.yml
+    - ../../../../_include/format.html.yml
 colorlinks: true
 latex-clean: false
 format:
@@ -69,7 +69,7 @@ format:
 ```{python}
 #| include: false
 #| context: local
-%run ../../../_include/_graphviz.py
+%run ../../../../_include/_graphviz.py
 ```
 
 ## Abstract {.unnumbered .unlisted}
@@ -82,9 +82,6 @@ Unicode is an international standard that assigns each script a fixed address in
 
 Every content-addressable system today generates identifiers through a hash function. This indirection layer imposes a predictable cost: gate area, cycle latency, storage overhead, and probabilistic collision resolution. Tagma shows that this fixed 16-bit block can replace the hash function entirely where cryptographic integrity is not required, using a combinational decoder.
 
-[^tagma-etym]: Greek *τάγμα* from *σύνταγμα* (syn-tagma, *co-ordinate* in English), "a well-ordered arrangement of constituent elements". *Tagma* is the system name; *Coord* is the concrete implementation type.
-[^tagma-repo]: Repository: [Github (Pre-release, Apache 2.0)](https://github.com/ssccsorg/syntagma), Benchmark suite [code](https://github.com/ssccsorg/syntagma/blob/main/sw/rust/benches/bench.rs)
-
 The composition formula [@iso10646-hangul] [@karlsson2003arithmetic] is:
 
 $$C(i,m,f) = \text{U+AC00} + 588i + 28m + f, \quad 0 \leq i < 19,\; 0 \leq m < 21,\; 0 \leq f < 28$$
@@ -93,9 +90,9 @@ Every valid 16-bit value carries **three simultaneous interpretations**: a 1-D U
 
 ::: {.cell layout="[[50, 50]]"}
 
-{{< include ../_include/fig-man-frame.qmd >}}
+{{< include ../../_include/fig-man-frame.qmd >}}
 
-{{< include ../_include/fig-3d-decode.qmd >}}
+{{< include ../../_include/fig-3d-decode.qmd >}}
 
 :::
 
@@ -712,148 +709,73 @@ The SynTagma specification [@tagma-syn] complements this document. It defines ho
 
 ## Reference Implementation {#sec-appendix-rust}
 
-The coordinate space is implemented as a multi-crate Rust workspace (Apache 2.0). The `Coord` type is defined in the core library and is bit-exact with the hardware decoder. The workspace is published on GitHub [@tagma-source].
+The coordinate space is implemented as a multi-crate Rust reference implementation[^tagma-swref]. The `Coord` type is defined in the core library and is bit-exact with the hardware decoder. The workspace is published on GitHub (Apache 2.0) [@tagma-source].
 
-### Core Library: `tagma-core`
+### Core Types
 
-A `#![no_std]` library with an optional `alloc` feature (default: on). Without the alloc feature, only core types are available: `Coord`, `CoordPath`, `CoordSet`, and the single-Coord `CoordSpace`. With alloc enabled, the full multi-Coord map family is available. The library builds for native targets and `wasm32-unknown-unknown`.
+| Type | Description | Key property |
+|------|-------------|--------------|
+| **Coord** | 16-bit newtype valid in $[0, 11171]$. Three-axis decomposition, composition, Hamming distance, Unicode display. | Bit-exact with hardware decoder |
+| **CoordPath\<N\>** | Compile-time $N$-element Coord array. Index path through multi-level address table. Each element is a direct array index at the corresponding tree depth. | No hashing, no equality comparison |
+| **CoordSet** | Fixed-size bit array over 11,172-coordinate space. $[\texttt{u64}; 175]$ (1.4 KB, zero heap, `Copy`). Bitwise union, intersection, difference. | Single-bit ops; 175-word AND for compound axis filter |
 
-#### Core Types
+These three types are always available (no allocator required). With the `alloc` feature, the Space family below is added.
 
-- **Coord**: a 16-bit newtype guaranteed valid in $[0, 11171]$. Bit-exact with the hardware decoder. Methods include three-axis decomposition `(initial, medial, final)`, composition, range validation, Hamming distance, and byte-order conversion. The `Display` trait renders a Coord as its corresponding Unicode character (U+AC00 + index), making encoded values human-readable without decoding.
-
-- **CoordPath\<N\>**: a compile-time $N$-element array of `Coord` values serving as an index path through a multi-level address table. It is not a hash key: each element is used directly as an array index at the corresponding tree depth. No hashing, no equality comparison.
-
-- **CoordSet**: a fixed-size bit array over the 11,172-coordinate space. Backed by $[\texttt{u64}; 175]$ (1.4 KB, zero heap allocation, `Copy`). Insert, remove, and contains are single-bit operations. Union, intersection, difference, and symmetric difference are bitwise word operations. `FromIterator`, `IntoIterator`, and `Index<Coord>` (returning `bool`) are implemented.
+The **CoordPath** types above treat coordinate space as a tree: index paths through multi-level arrays. **CoordCube** (from `tagma-geo`) reinterprets the same CoordPath keys as **D-dimensional coordinates**, enabling proximity, bounding box, and distance queries that CoordPath alone cannot express [*-@sec-appendix-coordcube*]. The two access patterns share the same underlying storage; CoordCube is a zero-cost view (construction 0.96 ns, axis extraction at raw path speed 319 ps).
 
 #### Space Family
 
-The `CoordSpace` series provides hash-free, collision-free coordinate-indexed spaces backed by direct array addressing. Every fixed-depth space (`CoordSpace`, `CoordSpaceN`) exposes a consistent set of operations: `place`, `at`, `vacate`, `occupied`, `clear`, `coords`, `len`, `is_empty`, `FromIterator`, `IntoIterator`, and `Index`/`IndexMut`. `DynCoordSpace` shares the core `place`/`at`/`vacate`/`clear`/`len`/`is_empty` interface but accepts `&[Coord]` slices instead of `CoordPath<N>`.
+The `CoordSpace` series provides hash-free, collision-free coordinate-indexed spaces backed by direct array addressing.
 
 | Type | Depth | Address space | Allocation | Latency | Exploration pattern |
 |------|-------|---------------|------------|---------|-------------|
 | CoordSpace | 1 | $11{,}172$ | None (inline array) | 0.39 ns | General single-Coord, no_std, MCU |
-| CoordSpace2 | 2 | $1.25 \times 10^8$ | Dense heap (119 MB) | 0.39 ns | FIH cross-product, two-axis space |
+| CoordSpace2 | 2 | $1.25 \times 10^8$ | Dense heap (119 MB) | 0.39 ns | Two-axis space |
 | CoordSpaceM3 | 3 | $1.39 \times 10^{12}$ | mmap (1.27 TB) | 0.39 ns | Large-scale dense space |
-| CoordSpaceN2 | 2 | $1.25 \times 10^8$ | Heap (lazy) | 0.90 ns | FIH cross-product, two-axis space |
+| CoordSpaceN2 | 2 | $1.25 \times 10^8$ | Heap (lazy) | 0.90 ns | Two-axis space |
 | CoordSpaceN6 | 6 | $1.94 \times 10^{24}$ | Heap (lazy) | 5.96 ns | UUID-scale identity |
-| CoordSpaceN19 | 19 | $\approx 2^{256}$ | Heap (lazy) | 58.6 ns | SHA-256-scale |
+| CoordSpaceN19 | 19 | $\approx 2^{256}$ | Heap (lazy) | 47.8 ns | SHA-256-scale |
 | DynCoordSpace | Runtime | Unlimited ($\texttt{\&[Coord]}$) | Heap (lazy) | N/A | Variable-depth paths |
-
-**`CoordSpace` (single-Coord, no allocator).** Backed by an inline $[\texttt{Option<V>}; 11172]$ array (22 KB for `Option<()>`, 89 KB for `Option<u64>`). Zero heap allocation. Every `Coord` is a direct array index: one load, no hashing, no collisions, no resizing. Full Entry API (`entry().or_insert_with()`), `drain()`, `retain()`, `iter_mut()`, `IntoIterator`, `Index<Coord>`, `PartialEq`, `Clone`, `Debug`.
-
-**`CoordSpace2<V>` (N=2, dense heap).** Backed by a single `alloc_zeroed` of 119 MB ($V=()$) or 952 MB ($V=\texttt{u32}$). Single `Box` dereference, no hashing. Every two-Coord `CoordPath<2>` maps to a direct index into a flat $[\texttt{Option<V>}; 11172^2]$ slab. True Tagma throughout: one load, no collisions.
-
-**`CoordSpaceM3<V>` (N=3, dense mmap).** Backed by an anonymous mmap with `MAP_NORESERVE`. Pages are committed lazily by the kernel on first write. The full $[\texttt{Option<()>}; 11172^3]$ space is reserved at 1.27 TB but physical RAM cost tracks actual occupancy. Single pointer dereference per lookup; the first access to a cold page incurs a minor page fault.
-
-**`CoordSpaceN<N, V>` (multi-Coord, heap allocated).** An $N$-level tree where each level is a fixed 11,172-slot array. Memory is allocated lazily: only paths that are actually written to consume nodes. Each allocated node is 22 KB (Leaf) or 89 KB (Branch) regardless of occupancy; a single entry in `CoordSpaceN6` at maximum depth reaches approximately 500 KB. No hashing, no collisions at any depth. `N` array dereferences per lookup. The same API surface as `CoordSpace`, plus `at_path`/`place_path`/`vacate_path` through `CoordPath<N>`.
-
-**`DynCoordSpace` (dynamic depth).** A trie accepting `&[Coord]` slices of any length. Each level is a boxed 11,172-slot array. Inserting both a shallow path and a deeper path sharing the same prefix preserves both values (via a `Both` slot variant). Clear walks the tree in-place without deallocating.
-
-##### Implementation Tradeoff: Dense vs Sparse
-
-Tagma's theoretical promise -- collision-free O(1) direct addressing -- is fully realized only when the entire address space fits in contiguous memory. For N=1 (11,172 slots) this is trivial. For N $>$ 1 the address space $11{,}172^N$ exceeds feasible single-allocation memory, requiring a software fallback.
-
-| Implementation | Allocation | Access | Tagma principle |
-|---------------|-----------|--------|-----------------|
-| CoordSpace / CoordSet (N=1) | All slots reserved (zeroed) | Single load or bitwise op | Complete |
-| CoordSpace2 (N=2) | Dense alloc_zeroed (119 MB) | Single load | Complete |
-| CoordSpaceM3 (N=3) | Anonymous mmap MAP_NORESERVE (1.27 TB) | Single load (+ page fault on cold touch) | Complete |
-| CoordSpaceN$\langle N \rangle$ (N $>$ 1) | Root reserved, leaves lazy | N dereferences + enum match | Fallback |
-| CoordSetN (N $>$ 1) | Built on CoordSpaceN | Tree walk O(entries) | Partial |
-
-A hardware cluster of dense CoordSpace nodes, each hosting 11,172 slots with a topology mapping function $\phi_k$, recovers the complete Tagma principle at any depth without tree traversal or heap allocation. See the engineering devlog for detailed memory cost, cache behavior, and naming rationale [@tagma-devlog].
-
-The following example illustrates the coordinate-navigation API across the map family:
-
-```rust
-use tagma_core::{Coord, CoordSpace, CoordSpace2, CoordSpaceN6, CoordPath};
-
-// Single-Coord dense: no allocator required, 0.39 ns
-let mut space = CoordSpace::new();
-let c = Coord::new(42).unwrap();
-space.place(c, "hello");
-assert_eq!(space.at(&c), Some(&"hello"));
-*space.entry(c).or_insert("world") = "updated";
-
-// Two-Coord dense: single alloc_zeroed, 0.39 ns
-let mut space2 = CoordSpace2::<u32>::new();
-let path2 = CoordPath::new([Coord::new(1).unwrap(), Coord::new(2).unwrap()]);
-space2.place_path(&path2, 42);
-assert_eq!(space2.at_path(&path2), Some(&42));
-
-// Multi-Coord tree: compile-time depth N=6 (software fallback, 5.96 ns)
-let mut space6 = CoordSpaceN6::<u32>::new();
-let path = CoordPath::new([
-    Coord::new(1).unwrap(),
-    Coord::new(2).unwrap(),
-    Coord::new(3).unwrap(),
-    Coord::new(4).unwrap(),
-    Coord::new(5).unwrap(),
-    Coord::new(6).unwrap(),
-]);
-space6.place_path(&path, 42);
-assert_eq!(space6.at_path(&path), Some(&42));
-```
-
-#### Quality Metrics
-
-- 166 unit and integration tests, 15 documentation tests, all passing
-- Zero `cargo clippy` warnings across all targets
-- Verified `no_std` + `no_alloc` build (`cargo build --no-default-features`)
-- Continuous integration via `run.sh` (format, lint, build, test, no_alloc check)
 
 ### Serialization: `base11172`
 
 A `no_std` + `alloc` crate providing Tagma's native serialization format. Every coordinate index 0..11171 maps to exactly one Unicode character (U+AC00 + index). A pair of Coords encodes a 16-bit value. The encoding is self-validating: characters outside U+AC00..U+D7AF are immediately detectable as invalid. No special characters, padding, escaping.
 
-```rust
-pub fn encode_u16(v: u16) -> [char; 2];         // u16 to two Unicode characters
-pub fn encode_bytes(bytes: &[u8]) -> String;     // bytes to encoded string
-pub fn decode_pair(c0: char, c1: char) -> Option<u16>;
-pub fn decode_bytes(s: &str) -> Option<Vec<u8>>;
-```
+Code-level analysis of all types -- including `Coord` bit layout, `CoordSpace` inline array with niche optimization, `CoordSet` bit iteration with `trailing_zeros`, and `CoordSpaceN` sparse tree with lazy node allocation -- is in the reference implementation report [Reference Implementation](./impl.html).
 
 ## Benchmarks {#sec-appendix-benches}
 
 A SHA-256 engine requires approximately 10,000 gates and 64--75 cycles per operation, then needs collision resolution and dynamic resizing. UUID generation requires entropy collection and delivers probabilistic uniqueness. The Tagma decoder replaces this with a combinational decoder and a 16-bit register: one Coord covers 11,172 identifiers; six Coords (18 axes) exceed typical distributed system needs; nineteen match the SHA-256 $2^{256}$ space.
 
-- Lookup latency: native CoordSpace (dense array) is flat at **0.39 ns** across all depths — every Coord resolves to a single array load. The tree fallback (CoordSpaceN) scales linearly with depth: 2.69 ns at N=3, 58.6 ns at N=19 (SHA-256 scale, ↑**3.9x** vs SHA-256's 227 ns). Native CoordSpace reaches **582x** vs SHA-256. Recursive depth is bounded by schema, not data volume: $10^4$ and $10^{77}$ entries both cost $N$ dereferences in the fallback path, while the native dense path costs a constant 0.39 ns.
+- Lookup latency: native CoordSpace (dense array) is flat at **0.39 ns** across all depths — every Coord resolves to a single array load. The tree fallback (CoordSpaceN) scales linearly with depth: 2.69 ns at N=3, 47.8 ns at N=19 (SHA-256 scale, ↑**4.7x** vs SHA-256's 227 ns). Native CoordSpace reaches **582x** vs SHA-256. Recursive depth is bounded by schema, not data volume: $10^4$ and $10^{77}$ entries both cost $N$ dereferences in the fallback path, while the native dense path costs a constant 0.39 ns.
 - Nonexistent prefix lookup: CoordSpace **1.65 ns** (structural, navigates to the branch and returns None) vs HashMap **23.05 ms** (↑**14.0Mx**, full scan — HashMap has no structural prefix index). Sparse get at 10M entries: CoordSpaceN2 completes all 10M operations in 44.9 ms vs HashMap 1.05 s (↑23.4x).
 
 :::{ layout-ncol=2 }
 
-{{< include ../_include/bench/fig-bench-identity.qmd >}}
+{{< include ../../_include/bench/fig-bench-identity.qmd >}}
 
-{{< include ../_include/bench/fig-bench-address-space.qmd >}}
+{{< include ../../_include/bench/fig-bench-address-space.qmd >}}
 
 :::
 
-- Identity generation: SHA-256 lookup costs 227 ns; the tree fallback (CoordSpaceN) reaches $2^{256}$ at 19 Coords for 58.6 ns (↑3.9x). The native dense path (CoordSpace, CoordSpace2, CoordSpaceM3) holds at a flat 0.39 ns.
+- Identity generation: SHA-256 lookup costs 227 ns; the tree fallback (CoordSpaceN) reaches $2^{256}$ at 19 Coords for 47.8 ns (↑3.9x). The native dense path (CoordSpace, CoordSpace2, CoordSpaceM3) holds at a flat 0.39 ns.
 - Address space: tree fallback lookup cost scales as O(N); native dense path is O(1) flat. Tagma recursion k=1 reaches $10^{231}$ identifiers (SHA-512 space × $10^{77}$) at 171 ns.
 
 :::{ layout-ncol=3 }
 
-{{< include ../_include/bench/fig-bench-spatial.qmd >}}
+{{< include ../../_include/bench/fig-bench-spatial.qmd >}}
 
-{{< include ../_include/bench/fig-bench-edge.qmd >}}
+{{< include ../../_include/bench/fig-bench-edge.qmd >}}
 
-{{< include ../_include/bench/fig-bench-bulk.qmd >}}
+{{< include ../../_include/bench/fig-bench-bulk.qmd >}}
 
-{{< include ../_include/bench/fig-bench-micro.qmd >}}
+{{< include ../../_include/bench/fig-bench-micro.qmd >}}
 
-{{< include ../_include/bench/fig-bench-stress.qmd >}}
+{{< include ../../_include/bench/fig-bench-stress.qmd >}}
 
-{{< include ../_include/bench/fig-bench-deep.qmd >}}
+{{< include ../../_include/bench/fig-bench-deep.qmd >}}
 
 :::
-
-- Spatial query: CoordSet bitwise AND resolves compound axis filters at 329 Melem/s -- 137x faster than HashMap scan.
-- Edge: CS2 sparse get sustains 23.4x at 10M entries; CS19 get shows 19-dereference cost (0.50x); drain is 0.72x on the full space.
-- Bulk operations: CoordSpace outperforms HashMap by 14.6--17.3x across all operations on the full 11,172-entry space.
-- Single-get microbenchmark isolates the per-operation cost: 0.82 ns vs 8.50 ns.
-- Stress test: under 500,000 interleaved insert, get, remove, and update operations, CoordSpace completes in 3.64 ms vs HashMap 12.2 ms.
-- Deep tree: CoordSpaceN19 at 100 entries shows the 19-dereference tree traversal cost (7.04 us vs 3.53 us for HashMap). Nonexistent key lookup remains depth-independent: CoordSpace2 0.39 ns, CoordSpaceN19 2.30 ns, HashMap 20.1 ns.
 
 Tagma assigns every point in a geometric space a structural address that is simultaneously a coordinate, an identifier, and a computation target. HashMap stores values by hashing keys by comparison. Querying this space is spatial computation: axis projection, set membership, proximity, and coordinate slicing are arithmetic operations. The figures above measure the consequence: HashMap degrades with data volume; the coordinate space does not.
 
@@ -861,7 +783,7 @@ Tagma assigns every point in a geometric space a structural address that is simu
 
 | Metric | SHA-256 | CoordSpace (N=1) | CoordSpace2 (N=2) | CoordSpaceM3 (N=3) | CoordSpaceN6 (tree) | CoordSpaceN19 (tree) |
 |--------|---------|-----------------|-------------------|--------------------|--------------------|---------------------|
-| Latency (ARMv8.4-A Firestorm) | 227 ns | 0.39 ns | 0.39 ns | 0.40 ns | 5.60 ns | 53.2 ns |
+| Latency (ARMv8.4-A Firestorm) | 227 ns | 0.39 ns | 0.39 ns | 0.40 ns | 5.44 ns | 53.2 ns |
 | Backing | hash | inline array | heap alloc_zeroed | mmap MAP_NORESERVE | sparse tree | sparse tree |
 | Allocation | per-entry heap | 22 KB | 119 MB | 1.27 TB (virtual) | per-node | per-node |
 | Identity size | 32 bytes | 2 bytes | 4 bytes | 6 bytes | 12 bytes | 38 bytes |
@@ -870,6 +792,28 @@ Tagma assigns every point in a geometric space a structural address that is simu
 | Native | — | Yes (dense) | Yes (dense) | Yes (dense) | No (fallback) | No (fallback) |
 
 All figures are software measurements on ARMv8.4-A Firestorm (2020), compiled with `rustc` stable in release mode. Full benchmark source is included in the repository [@bench-source].
+
+## CoordCube: Spatial Interpretation Layer {#sec-appendix-coordcube}
+
+The CoordCube layer reinterprets existing CoordPath storage keys as D-dimensional coordinates without modifying the underlying key, enabling proximity queries, bounding box enumeration, and distance metrics that fall outside the core CoordPath scope. The full design, benchmarks, and comparison with existing systems are described in the Tagma-Geo whitepaper[^tagma-geo].
+
+:::{ layout-ncol=2 }
+
+{{< include ../../_include/bench/fig-bench-coordcube-compound-efficiency.qmd >}}
+
+{{< include ../../_include/bench/fig-bench-coordcube-proximity.qmd >}}
+
+:::
+
+| Query | CoordPath | CoordCube |
+|-------|-----------|-----------|
+| Point lookup | O(k) direct | O(k) direct |
+| Neighborhood of P | external index required | proximity(r) |
+| Bounding box | manual loop | bounding_box() |
+| Distance metric | manual compute | 1.75 ns hamming |
+| Scale cost (10M entries) | O(k log N) | bounded O(paths) |
+| Empty region check | O(k log N) None | 15.7 ns immediate |
+| Compound axis filter | O(N) scan | 85.7 ns AND |
 
 ## Hardware Design Implications {#sec-appendix-hardware}
 
@@ -887,26 +831,57 @@ Conventional hardware searches. Tagma hardware interprets. This shifts the hardw
 
 ## SHA-256 with Tagma Encoding {#sec-appendix-sha-tagma}
 
-```rust
-use sha2::{Sha256, Digest};
-
-fn content_tagma_id(data: &[u8]) -> String {
-    let hash = Sha256::digest(data);
-    let coords: Vec<String> = hash.chunks(2)
-        .filter_map(|c| {
-            let v = u16::from_be_bytes([c[0], c[1]]);
-            Some(Coord::new(v % 11172)?.to_char())
-        })
-        .collect();
-    coords.into_iter().collect()
-}
-```
-
 SHA-256 output is uniformly distributed, so the modulo-11172 mapping to each Coord value is statistically unbiased. The overall collision probability of the 19-Coord output remains $2^{-256}$, preserved from the underlying hash.
+
+## Tagma-KV[^tagma-kv]: Key-Value Store on Coordinate Primitives {#sec-appendix-tagma-kv}
+
+Tagma-KV builds a practical key-value storage engine on top of
+the coordinate primitives described in this document. Where the core Tagma
+library provides collision-free O(1) addressing within a single address space,
+Tagma-KV extends the model to handle legacy infrastructure requirements that
+fall outside the core library scope: multi-node coordinated sharding,
+persistence to backing stores, protocol adaptation (Redis RESP, S3 REST),
+and operational tooling.
+
+The structural addressing model handles what legacy systems delegate to hash
+functions and index structures: key placement, collision resolution, and
+range partitioning. Tagma-KV supplies what the coordinate model intentionally
+abstracts away: durable storage, wire protocols, and cluster management.
+
+The full design and benchmark results are described in the Tagma-KV
+whitepaper. Selected CoordCube benchmarks that measure KV-relevant
+metrics are reproduced below.
+
+### Throughput: Store Density and Proximity
+
+:::{ layout-ncol=3 }
+
+{{< include ../../_include/bench/fig-bench-coordcube-store-scale.qmd >}}
+
+{{< include ../../_include/bench/fig-bench-coordcube-hitrate.qmd >}}
+
+{{< include ../../_include/bench/fig-bench-coordcube-scale.qmd >}}
+
+:::
+
+- CoordCube proximity on dense stores adds 127 ns overhead over sequential lookup, but this overhead is dominated by Vec allocation/push (87%), not coordinate arithmetic (13%).
+- On sparse stores, CoordCube is up to 3.3x faster than sequential lookup (48.5 ns vs 158 ns) because it avoids tree lookups for nonexistent paths.
+- On empty stores, CoordCube returns immediately at 15.7 ns (pure path generation cost) — sequential lookup still pays 158 ns for 9 tree misses.
+- The crossover point where CoordCube becomes faster than sequential is at roughly 55% hit rate. Below this, generating paths and checking is cheaper than looking up known paths.
+- CoordCube query cost is bounded by region size (path count), not store size. HashMap spatial queries cost O(N) full scan. At 10M entries, CoordCube proximity is 285 ns vs HashMap filter at 238 ms — a million-fold advantage.
+- Hierarchical queries (CoordCube proximity + manual post-filter) are faster than direct KV proximity on multi-character dimensions (547 ns vs 639 ns).
+
+### Throughput: General KV Operations
+
+- Edge: CS2 sparse get sustains 23.4x at 10M entries; CS19 get shows 19-dereference cost (0.50x); drain is 0.72x on the full space.
+- Bulk operations: CoordSpace outperforms HashMap by 14.6--17.3x across all operations on the full 11,172-entry space.
+- Single-get microbenchmark isolates the per-operation cost: 0.82 ns vs 8.50 ns.
+- Stress test: under 500,000 interleaved insert, get, remove, and update operations, CoordSpace completes in 3.64 ms vs HashMap 12.2 ms.
+- Deep tree: CoordSpaceN19 at 100 entries shows the 19-dereference tree traversal cost (7.04 us vs 3.53 us for HashMap). Nonexistent key lookup remains depth-independent: CoordSpace2 0.39 ns, CoordSpaceN19 2.30 ns, HashMap 20.1 ns.
 
 ## Structural Enumeration in Practice: RISC-V Verification {#sec-appendix-exaverif}
 
-ExaVerif (`ev`) exhaustively verifies RISC-V custom instruction encodings.
+ExaVerif[^exaverif] exhaustively verifies RISC-V custom instruction encodings.
 Its standard pipeline generates the full Cartesian product of field domains
 and filters each combination through constraint checks. At the CVA6 CV-X-IF
 space (5 fields, 33,554,432 raw combinations), this takes 29.7 seconds and
@@ -945,9 +920,9 @@ fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4.5), gridspec_kw={"width_rati
 x = np.arange(len(fixtures))
 w = 0.3
 ax1.bar(x - w/2, evaluate_times, w, label='evaluate (standard)',
-        color='white', edgecolor='#A23B72', linewidth=1.2)
+        color='white', edgecolor='black', linewidth=0.8)
 ax1.bar(x + w/2, struct_times, w, label='struct_enum (synTagma)',
-        color='white', edgecolor='#2E86AB', linewidth=1.2, hatch='///')
+        color='white', edgecolor='black', linewidth=1.2, hatch='///')
 ax1.set_xticks(x)
 ax1.set_xticklabels(fixtures, fontsize=7.5)
 ax1.set_ylabel('Time (us, log scale)')
@@ -991,9 +966,9 @@ fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(9, 3.5), gridspec_kw={"width_ratio
 x = np.arange(len(fixtures))
 w = 0.3
 ax1.bar(x - w/2, eval_times, w, label='evaluate (standard)',
-        color='white', edgecolor='#A23B72', linewidth=1.2)
+        color='white', edgecolor='black', linewidth=0.8)
 ax1.bar(x + w/2, verify_times, w, label='structural (synTagma)',
-        color='white', edgecolor='#2E86AB', linewidth=1.2, hatch='///')
+        color='white', edgecolor='black', linewidth=1.2, hatch='///')
 ax1.set_xticks(x)
 ax1.set_xticklabels(fixtures, fontsize=8)
 ax1.set_ylabel('Time (us, log)')
@@ -1032,3 +1007,10 @@ visits, it evaluates with the same constraint checks as the standard
 pipeline. The 99.3% of the space that is invalid is never allocated, never
 iterated, and never tested --- this is not faster filtering; it is the
 absence of filtering.
+
+[^tagma-etym]: Greek *τάγμα* from *σύνταγμα* (syn-tagma, *co-ordinate* in English), "a well-ordered arrangement of constituent elements". *Tagma* is the system name; *Coord* is the concrete implementation type.
+[^tagma-repo]: Repository: [Github (Pre-release, Apache 2.0)](https://github.com/ssccsorg/syntagma), Benchmark suite [code](https://github.com/ssccsorg/syntagma/blob/main/sw/rust/benches/bench.rs)
+[^tagma-kv]: Tagma-KV whitepaper (DOI: [10.5281/zenodo.21550431](https://doi.org/10.5281/zenodo.21550431)): <https://docs.ssccs.org/projects/syntagma/tagma/kv>
+[^tagma-geo]: Tagma-Geo whitepaper (draft): <https://docs.ssccs.org/projects/syntagma/tagma/geo>
+[^tagma-swref]: Tagma Software Reference Implementation in Rust: <https://docs.ssccs.org/projects/syntagma/tagma/wp/impl.html>
+[^exaverif]: Project ExaVerif, Exhaustive Verification for RISC-V Custom Instructions <https://docs.ssccs.org/projects/ev>

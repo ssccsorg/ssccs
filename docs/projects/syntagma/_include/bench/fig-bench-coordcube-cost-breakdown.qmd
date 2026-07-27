@@ -1,0 +1,19 @@
+```{python}
+#| label: fig-bench-coordcube-cost-breakdown
+#| fig-cap: "Where does the 127ns CoordCube overhead go?"
+import matplotlib.pyplot as plt
+import numpy as np
+
+categories = ['Path generation', 'Vec allocation', 'Vec::push x9', 'Tree lookup']
+values = [16, 37, 74, 158]
+hatches = ['///', '\\\\', 'xxx', '']
+
+fig, ax = plt.subplots(figsize=(5, 3))
+bars = ax.barh(categories, values, color='white', edgecolor='black', linewidth=0.8, hatch=hatches)
+ax.set_xlabel('Latency (ns)')
+for i, v in enumerate(values):
+    ax.text(v + 2, i, f'{v} ns', va='center', fontsize=8)
+ax.axvline(x=158, color='black', linestyle='--', linewidth=1, label='Baseline (158 ns)')
+ax.legend(fontsize=8)
+plt.tight_layout(); plt.show()
+```

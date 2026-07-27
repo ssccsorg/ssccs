@@ -1,0 +1,28 @@
+```{python}
+#| label: fig-bench-coordcube-largen
+#| fig-cap: "Large-N CoordCube capability"
+import matplotlib.pyplot as plt
+import numpy as np
+
+groups = ['N=6', 'N=12', 'N=19']
+x = np.arange(len(groups))
+w = 0.3
+
+path_gen = [6.52, 17.5, 27.2]
+kv_prox  = [81.4, 119, 106]
+
+fig, ax = plt.subplots(figsize=(4.5, 3.5))
+ax.bar(x - w/2, path_gen, w, label='Path gen r=0',  color='white', edgecolor='black', linewidth=0.8, hatch='///')
+ax.bar(x + w/2, kv_prox,  w, label='KV prox r=0',   color='white', edgecolor='black', linewidth=0.8, hatch='')
+
+ax.set_ylabel('Latency (ns)', fontsize=9)
+ax.set_xticks(x); ax.set_xticklabels(groups, fontsize=8)
+ax.legend(fontsize=7, loc='upper left')
+ax.grid(axis='y', linestyle=':', alpha=0.4)
+
+for xi, p, k in zip(x, path_gen, kv_prox):
+    ax.text(xi - w/2, p + 2.0, f'{p}', fontsize=7, ha='center', va='bottom')
+    ax.text(xi + w/2, k + 2.0, f'{k}', fontsize=7, ha='center', va='bottom')
+
+plt.tight_layout(); plt.show()
+```

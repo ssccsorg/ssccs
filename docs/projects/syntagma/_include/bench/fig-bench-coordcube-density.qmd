@@ -1,0 +1,25 @@
+```{python}
+#| label: fig-bench-coordcube-density
+#| fig-cap: "Store density effect on CoordCube proximity"
+import matplotlib.pyplot as plt
+import numpy as np
+
+categories = ['Empty store', 'Sparse (9 entries)', 'Dense (10K entries)']
+values = [15.7, 48.5, 285.0]
+
+fig, ax = plt.subplots(figsize=(4.5, 3.5))
+bars = ax.bar(categories, values, width=0.5, color='white', edgecolor='black', linewidth=0.8, hatch='///')
+
+ax.set_ylabel('Latency (ns)', fontsize=9)
+ax.set_ylim(0, 340)
+
+for bar, val in zip(bars, values):
+    ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 8,
+            f'{val:.1f} ns' if val < 100 else f'{val:.0f} ns',
+            ha='center', va='bottom', fontsize=8)
+
+ax.annotate('Structural\nshort-circuit', xy=(0, 8), fontsize=8, fontweight='bold', ha='center',
+            bbox=dict(boxstyle='round,pad=0.15', facecolor='white', edgecolor='black', alpha=0.85))
+
+plt.tight_layout(); plt.show()
+```

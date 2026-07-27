@@ -16,9 +16,9 @@ fig, ax = plt.subplots(figsize=(6, 4))
 
 ax.plot(x, kv2, '-o', color='black', markerfacecolor='white', markeredgecolor='black',
         markersize=7, linewidth=1.5, label='CoordKV2 (dense array)')
-ax.plot(x, kvn, '-^', color='black', markerfacecolor='white', markeredgecolor='gray',
+ax.plot(x, kvn, '-^', color='black', markerfacecolor='white', markeredgecolor='black',
         markersize=7, linewidth=1.5, label='CoordKVN<2> (sparse tree)')
-ax.plot(x, dyn, '-v', color='gray', markerfacecolor='white', markeredgecolor='gray',
+ax.plot(x, dyn, '-v', color='black', markerfacecolor='white', markeredgecolor='black',
         markersize=7, linewidth=1.5, label='DynCoordKV (trie)')
 ax.plot(x, hm, '-s', color='black', markerfacecolor='black', markeredgecolor='black',
         markersize=7, linewidth=1.5, label='HashMap (SipHash)')
@@ -33,14 +33,14 @@ ax.grid(axis='y', linestyle=':', alpha=0.4)
 # Highlight the scale-invariance band
 ax.axhspan(21, 22.5, alpha=0.08, color='black')
 ax.text(1.5, 18.8, 'scale-invariant region\nCoordKV2 / CoordKVN<2>', fontsize=7.5,
-        color='gray', ha='center', va='center')
+        color='black', ha='center', va='center')
 
 # Ratio vs HashMap at 10M
 for name, vals in [('CoordKV2', kv2), ('CoordKVN<2>', kvn), ('DynCoordKV', dyn)]:
     r = hm[-1] / vals[-1]
     ax.annotate(f'{r:.2f}x vs HM', xy=(2.3, vals[-1]),
                 fontsize=7, ha='left', va='center',
-                bbox=dict(boxstyle='round,pad=0.1', facecolor='white', edgecolor='gray', alpha=0.7))
+                bbox=dict(boxstyle='round,pad=0.1', facecolor='white', edgecolor='black', alpha=0.7))
 
 plt.tight_layout(); plt.show()
 ```

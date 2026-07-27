@@ -1,0 +1,26 @@
+```{python}
+#| label: fig-bench-coordcube-vs-path
+#| fig-cap: "CoordCube vs CoordPath on KV store"
+import matplotlib.pyplot as plt
+import numpy as np
+
+categories = ['CoordPath\nsequential 9-path', 'CoordCube\nproximity r=1', 'CoordCube\nproximity r=2']
+values = [158, 285, 626]
+
+fig, ax = plt.subplots(figsize=(4.5, 3.5))
+bars = ax.bar(categories, values, width=0.5, color='white', edgecolor='black', linewidth=0.8,
+              hatch=['', '///', '///'])
+
+ax.set_ylabel('Latency (ns)', fontsize=9)
+ax.set_ylim(0, 750)
+
+for bar, val in zip(bars, values):
+    ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 12,
+            f'{val} ns', ha='center', va='bottom', fontsize=8)
+
+# Callout for the 127ns gap between first two bars
+ax.annotate('127 ns\ngap', xy=(0.5, 222), fontsize=7, fontweight='bold', ha='center',
+            bbox=dict(boxstyle='round,pad=0.15', facecolor='white', edgecolor='black', alpha=0.85))
+
+plt.tight_layout(); plt.show()
+```

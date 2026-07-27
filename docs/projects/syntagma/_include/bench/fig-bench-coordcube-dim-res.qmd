@@ -1,0 +1,44 @@
+```{python}
+#| label: fig-bench-coordcube-dim-res
+#| fig-cap: "Dimensional vs Resolution scaling (proximity r=2)"
+import matplotlib.pyplot as plt
+import numpy as np
+
+# Dim group: D=1, D=2, D=3, D=4
+d_labels = ['1', '2', '3', '4']
+d_vals   = [33.8, 126.5, 441.9, 1887.0]  # ns
+
+# Res group: R=1, R=2, R=3 (R=1 aligns with D=1, etc.)
+r_labels = ['1', '2', '3']
+r_vals   = [34.3, 127.8, 447.1]  # ns
+
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(6.0, 3.5), sharey=True)
+
+# Left: Dimensional
+x1 = np.arange(len(d_labels))
+ax1.bar(x1, d_vals, width=0.5, color='white', edgecolor='black', linewidth=0.8, hatch='///')
+ax1.set_xticks(x1); ax1.set_xticklabels(d_labels, fontsize=8)
+ax1.set_xlabel('Dimension D', fontsize=9)
+ax1.set_ylabel('Latency (ns)', fontsize=9)
+ax1.set_title('D variation', fontsize=9)
+ax1.grid(axis='y', linestyle=':', alpha=0.4)
+for xi, val in zip(x1, d_vals):
+    label = f'{val:.1f}' if val < 1000 else f'{val/1000:.3f} µs'
+    ax1.text(xi, val * 1.05, label, ha='center', va='bottom', fontsize=7)
+
+# Right: Resolution
+x2 = np.arange(len(r_labels))
+ax2.bar(x2, r_vals, width=0.5, color='white', edgecolor='black', linewidth=0.8, hatch='')
+ax2.set_xticks(x2); ax2.set_xticklabels(r_labels, fontsize=8)
+ax2.set_xlabel('Resolution R', fontsize=9)
+ax2.set_title('R variation', fontsize=9)
+ax2.grid(axis='y', linestyle=':', alpha=0.4)
+for xi, val in zip(x2, r_vals):
+    label = f'{val:.1f}'
+    ax2.text(xi, val * 1.05, label, ha='center', va='bottom', fontsize=7)
+
+# Shared annotation
+fig.text(0.5, 0.92, 'Identical scaling pattern: D=n ⇔ R=n', ha='center', fontsize=9, fontweight='bold')
+
+plt.tight_layout(); plt.show()
+```

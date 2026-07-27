@@ -1,0 +1,25 @@
+```{python}
+#| label: fig-bench-coordcube-hitrate
+#| fig-cap: "CoordCube vs sequential lookup: hit-rate crossover"
+import matplotlib.pyplot as plt
+import numpy as np
+
+methods = ['Empty store\n(0% hit)', 'Sparse store\n(100% hit, 9 entries)', 'Dense store\n(100% hit, 10K entries)', 'Sequential\n(100% hit)']
+latency = [15.7, 48.5, 285, 158]
+
+fig, ax = plt.subplots(figsize=(4.5, 3.5))
+hatches = ['///', '///', '', '\\\\']
+bars = ax.bar(methods, latency, color='white', edgecolor='black', linewidth=0.8, hatch=hatches)
+ax.set_ylabel('Query latency (ns)')
+ax.set_xticks(range(len(methods)))
+ax.set_xticklabels(methods, fontsize=7)
+for bar, val in zip(bars, latency):
+    ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 3, f'{val} ns', ha='center', va='bottom', fontsize=8)
+ax.annotate('Structural\nshort-circuit', xy=(0, 15.7), xytext=(0.5, 100), fontsize=8,
+            arrowprops=dict(arrowstyle='->', color='black'), ha='center',
+            bbox=dict(boxstyle='round,pad=0.15', facecolor='white', edgecolor='black', alpha=0.85))
+ax.annotate('3.3x faster\nthan\nsequential', xy=(1, 48.5), xytext=(0.5, 100), fontsize=8,
+            arrowprops=dict(arrowstyle='->', color='black'), ha='center',
+            bbox=dict(boxstyle='round,pad=0.15', facecolor='white', edgecolor='black', alpha=0.85))
+plt.tight_layout(); plt.show()
+```
