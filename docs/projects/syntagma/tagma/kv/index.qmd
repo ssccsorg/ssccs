@@ -185,8 +185,8 @@ Benchmark environment: ARMv8.4-A Firestorm, 10 samples, Rust criterion.
 
 | KV Type | 10k ops | 1M ops | 10M ops |
 |---------|---------|--------|---------|
-| CoordKV2 | 21.7 ns | 21.6 ns | 21.6 ns |
-| HashMap\<String\> | 13.0 ns | 19.9 ns | 26.5 ns |
+| CoordKV2 | 21.7 ns | 21.6 ns | 21.3 ns |
+| HashMap\<String\> | 13.0 ns | 17.0 ns | 18.2 ns |
 
 #### Insert (65,536 unique keys)
 
@@ -244,7 +244,7 @@ The structural difference: CoordKV2's slot load (0.39 ns) is the only mandatory 
 
 4. **Scale-invariant latency: CoordKV2 is flat across three orders of magnitude**. At 10k ops (all L2 cache), CoordKV2 get latency is 22.0 ns. At 10M ops (65k keys cycled 153 times, DRAM-bound for HashMap), CoordKV2 remains at 22.1 ns. The CoordSpace2 dense array provides uniform access latency regardless of dataset size or access pattern, because every slot is reached by the same arithmetic index computation and array load — no bucket chaining, no resizing, no probe sequences. HashMap starts at 20.0 ns at 10k (L2 hit) and rises to 26.5 ns at 10M (L3/DRAM), a 21% increase that will continue widening as scale exceeds cache capacity.
 
-5. **Contains key follows the same pattern**: CoordKV2 is flat at 21.6 ns across all scales. HashMap contains is faster at 10k (13.0 ns, returns bool instead of full value) but rises to 26.5 ns at 10M (+100%). The advantage of returning a bool instead of a value is erased by cache pressure.
+5. **Contains key follows the same pattern**: CoordKV2 is flat at 21.6 ns across all scales. HashMap contains is faster at 10k (13.0 ns, returns bool instead of full value) but rises to 18.2 ns at 10M (+38%). The advantage of returning a bool instead of a value is erased by cache pressure.
 
 6. **Insert cost is dominated by preallocation, not by coordinate computation**. CoordKV2 insert at 233 ms for 65k keys is almost entirely the 119 MB `alloc_zeroed` for CoordSpace2 construction (one single allocation). The actual slot write is ~22 ns per key. This 119 MB cost is paid once and amortized across all subsequent operations — after construction, every insert is a simple slot write with zero per-key allocation. HashMap insert at 14 ms for 65k keys performs 65k separate allocations and multiple bucket resizes, costs that grow with each entry. The 25x disadvantage of CoordKV2 on the first 65k inserts inverts to an advantage on the 66th thousandth insert onward.
 

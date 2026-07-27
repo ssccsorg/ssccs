@@ -1,14 +1,14 @@
 ```{python}
 #| label: fig-bench-kv-contains
-#| fig-cap: "Contains key latency across three scales: CoordKV2 (flat) vs HashMap (bool advantage erased by cache pressure)"
+#| fig-cap: "Contains key latency across three scales: CoordKV2 (flat) vs HashMap (bool advantage narrows under cache pressure)"
 import matplotlib.pyplot as plt
 import numpy as np
 
 scales = ['10k', '1M', '10M']
 x = np.arange(len(scales))
 
-kv2 = [21.7, 21.6, 21.6]
-hm  = [13.0, 19.9, 19.9]
+kv2 = [21.7, 21.6, 21.3]
+hm  = [13.0, 17.0, 18.2]
 
 fig, ax = plt.subplots(figsize=(5.5, 3.5))
 
