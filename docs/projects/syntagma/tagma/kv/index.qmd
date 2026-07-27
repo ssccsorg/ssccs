@@ -306,59 +306,7 @@ $$\text{cost}(\text{op}(K_{\text{tagma}})) = \text{cost}(\text{op}(\text{CoordPa
 
 Once K is stored as CoordPath, no further conversion is incurred. The user pays the conversion once and thereafter accesses Tagma's full spatial repertoire at native cost.
 
-### Two Entry Paths
-
-### Mode A: Native Coordinates
-
-Systems designed from scratch to use `Coord` or `CoordPath` as their native key type require no conversion cost. Storage lookup reaches 0.39 ns (raw array index) and multi-axis queries execute at 94 ns (bitwise CoordSet intersection). Access latency approaches the physical limit of gate delay.
-
-### Mode B: String-Key Input
-
-Systems that accept `&str`, `Vec<u8>`, or other generic key types pay a conversion cost of 21.67 ns exactly once per key. After conversion, total get latency is 22.06 ns, 1.73 ns below HashMap at 23.79 ns. All Tagma spatial benefits are available at zero additional cost after this one-time conversion.
-
-### Summary
-
-| Mode | Conversion | Storage | Total Get | Batch 10k | Batch 1M | Batch 10M | Spatial Query |
-|------|-----------|---------|-----------|-----------|----------|-----------|---------------|
-| Native Coord | 0 ns | 0.39 ns | 0.39 ns | N/A | N/A | N/A | 94 ns |
-| CoordKV2 (string-key) | 21.67 ns | 0.39 ns | 22.06 ns | 22.0 ns | 21.4 ns | 22.1 ns | 94 ns |
-| HashMap | 23.79 ns | bucket | 23.79 ns | 20.0 ns | 24.2 ns | 26.5 ns | Full scan |
-
-The table exposes the hierarchy directly: Native mode is 60x faster than HashMap for single gets. CoordKV2 mode is 1.08x faster than HashMap for single gets and 10.1x faster for batch gets. After conversion, spatial queries cost 94 ns regardless of mode. HashMap provides no spatial queries without secondary structures.
-
-## Write-Read Symmetry
-
-Tagma-KV preserves full KV read/write semantics. `insert("key", value)` and `get("key")` continue to work exactly as in any HashMap. The difference is that every key is also stored as a native CoordPath, which enables an additional read path through the Tagma spatial layer without changing the existing KV interface:
-
-```rust
-// KV interface: works for both read and write, unchanged
-kv.insert("user:42", payload);
-let val = kv.get("user:42");          // still works, 22 ns
-
-// Tagma native read: additional path, zero extra conversion cost
-let path: CoordPath<6> = /* ... */;
-let axes = path[0].to_axes();                    // 3-axis decomposition
-let membership = set.contains(&path[0]);           // CoordSet membership
-let intersection = set_a & set_b;                   // bitwise compound query
-```
-
-The conversion cost is paid once at write or first-access time. After that, both the KV read path and the Tagma native read path are available at no additional cost. KV reads remain at 22 ns; Tagma native reads reach 0.39 ns with full spatial capability.
-
-### Conversion Boundary
-
-| Stage | Cost | Payer |
-|-------|------|-------|
-| Entry (insert/get with `&str`) | 21.67 ns (str to Coord) | User, one time |
-| Storage inside coordinate space | 0.39 ns (array access) | Tagma, permanent |
-| Prefix scan | O(prefix length) | Tagma, zero marginal cost |
-| Axis projection | 94 ns (bitwise AND) | Tagma, zero marginal cost |
-| Range query | 94 ns (bitwise AND) | Tagma, zero marginal cost |
-
-The user pays a small conversion fee at the entry boundary. Once the key is inside Tagma space, all spatial operations (prefix scan, axis slice, compound query, range scan) are native operations on the coordinate structure. Hash-based systems cannot implement any of these without secondary indexes or full scans.
-
-CoordKV2's get/insert API mirrors HashMap for compatibility, but every stored key exists as a native CoordPath in a CoordSpace. Users can read and query through the full Tagma spatial layer -- axis decomposition, CoordSet bitwise operations, range projection -- directly via the underlying CoordSpace, at zero additional cost above the one-time conversion. **The KV interface is the write entry point; the coordinate space is the read substrate.**
-
-This is the core insight. A single type conversion grants permanent access to collision-free, multi-dimensionally indexable storage with lookup latency below the hash baseline.
+The two entry paths (native coordinate and string-key), the write-read symmetry pattern, and the detailed conversion cost breakdown are described in the [Usage Patterns appendix](#sec-appendix-usage).
 
 ## Comparison with Existing Systems
 
@@ -412,6 +360,66 @@ The complete reference implementation is available in the `tagma-kv` crate under
 :::
 
 ## Appendices {.unnumbered}
+
+::: {.content-visible when-format="pdf"}
+\appendix
+\renewcommand{\thesection}{\Alph{section}}
+\renewcommand{\thesubsection}{\Alph{section}.\arabic{subsection}}
+:::
+
+## Usage Patterns {#sec-appendix-usage}
+
+### Mode A: Native Coordinates
+
+Systems designed from scratch to use `Coord` or `CoordPath` as their native key type require no conversion cost. Storage lookup reaches 0.39 ns (raw array index) and multi-axis queries execute at 94 ns (bitwise CoordSet intersection). Access latency approaches the physical limit of gate delay.
+
+### Mode B: String-Key Input
+
+Systems that accept `&str`, `Vec<u8>`, or other generic key types pay a conversion cost of 21.67 ns exactly once per key. After conversion, total get latency is 22.06 ns, 1.73 ns below HashMap at 23.79 ns. All Tagma spatial benefits are available at zero additional cost after this one-time conversion.
+
+### Performance Summary
+
+| Mode | Conversion | Storage | Total Get | Batch 10k | Batch 1M | Batch 10M | Spatial Query |
+|------|-----------|---------|-----------|-----------|----------|-----------|---------------|
+| Native Coord | 0 ns | 0.39 ns | 0.39 ns | N/A | N/A | N/A | 94 ns |
+| CoordKV2 (string-key) | 21.67 ns | 0.39 ns | 22.06 ns | 22.0 ns | 21.4 ns | 22.1 ns | 94 ns |
+| HashMap | 23.79 ns | bucket | 23.79 ns | 20.0 ns | 24.2 ns | 26.5 ns | Full scan |
+
+The table exposes the hierarchy directly: Native mode is 60x faster than HashMap for single gets. CoordKV2 mode is 1.08x faster than HashMap for single gets and 10.1x faster for batch gets. After conversion, spatial queries cost 94 ns regardless of mode. HashMap provides no spatial queries without secondary structures.
+
+## Write-Read Symmetry
+
+Tagma-KV preserves full KV read/write semantics. `insert("key", value)` and `get("key")` continue to work exactly as in any HashMap. The difference is that every key is also stored as a native CoordPath, which enables an additional read path through the Tagma spatial layer without changing the existing KV interface:
+
+```rust
+// KV interface: works for both read and write, unchanged
+kv.insert("user:42", payload);
+let val = kv.get("user:42");          // still works, 22 ns
+
+// Tagma native read: additional path, zero extra conversion cost
+let path: CoordPath<6> = /* ... */;
+let axes = path[0].to_axes();                    // 3-axis decomposition
+let membership = set.contains(&path[0]);           // CoordSet membership
+let intersection = set_a & set_b;                   // bitwise compound query
+```
+
+The conversion cost is paid once at write or first-access time. After that, both the KV read path and the Tagma native read path are available at no additional cost. KV reads remain at 22 ns; Tagma native reads reach 0.39 ns with full spatial capability.
+
+### Conversion Boundary
+
+| Stage | Cost | Payer |
+|-------|------|-------|
+| Entry (insert/get with `&str`) | 21.67 ns (str to Coord) | User, one time |
+| Storage inside coordinate space | 0.39 ns (array access) | Tagma, permanent |
+| Prefix scan | O(prefix length) | Tagma, zero marginal cost |
+| Axis projection | 94 ns (bitwise AND) | Tagma, zero marginal cost |
+| Range query | 94 ns (bitwise AND) | Tagma, zero marginal cost |
+
+The user pays a small conversion fee at the entry boundary. Once the key is inside Tagma space, all spatial operations (prefix scan, axis slice, compound query, range scan) are native operations on the coordinate structure. Hash-based systems cannot implement any of these without secondary indexes or full scans.
+
+CoordKV2's get/insert API mirrors HashMap for compatibility, but every stored key exists as a native CoordPath in a CoordSpace. Users can read and query through the full Tagma spatial layer -- axis decomposition, CoordSet bitwise operations, range projection -- directly via the underlying CoordSpace, at zero additional cost above the one-time conversion. **The KV interface is the write entry point; the coordinate space is the read substrate.**
+
+This is the core insight. A single type conversion grants permanent access to collision-free, multi-dimensionally indexable storage with lookup latency below the hash baseline.
 
 ### Reference Implementation {#sec-appendix-rust}
 
