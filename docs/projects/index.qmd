@@ -5,7 +5,7 @@ date: last-modified
 metadata-files:
   - ../_include/author.yml
 abstract: |
-  SSCCS is a neural network of projects on a shared foundation. Each domain evolves independently, and a breakthrough in one propagates to all others through the common surface. In an era where agentic development is the baseline, this parallel evolution accelerates beyond the procedural model of the previous computing generation. Autonomous projects gather around the shared foundation, bound by structural obligations that ensure long‑term symmetry between consumption and contribution. No authority directs this cycle; the surface itself enforces the balance. This document describes how functional domains, through contribution and erosion, compound the intelligence of the shared substrate across generations. The first and second functional instances are already in motion.
+  SSCCS is a shared formal foundation for independent domain projects. All projects share the same substrate: a spatial coordinate system for addressing, a runtime fabric for peer coordination, and an execution model for autonomous agents. Each project contributes back to the substrate, and every contribution strengthens the primitives for all. This document describes the spatial architecture, the synergy structure, and the projects that implement it.
 ---
 
 {{< include ../_include/_title_meta_items.qmd >}}
@@ -16,115 +16,140 @@ abstract: |
 %run ../_include/_graphviz.py
 ```
 
-## Recursive Growth of Functional Domains
+## Recursive Synergy of the Shared Substrate
 
-The substrate imposes no ceiling on participation. Any team that internalises the structural observation model and identifies a domain where exhaustive constraint composition yields value may launch a project under its own name, governance, and revenue model—no permission required. The first such instances are already in motion. Every functional domain is a self‑similar unit with its own observation layer, detectors, and strategy cycle, while simultaneously being a node nested inside a larger coordinated force. The structure is fractal: the relationship between SSCCS and a domain entity mirrors the relationship between that entity and its internal agents. Primitives never change; only scale does. Domains communicate exclusively through Fact, Intent, and Hint, and no domain directs another. The reference implementation, [neXus](/projects/nexus), is such an entity—a peer, not a master.
-
+The ecosystem is not a hierarchy. It is a coordinated force: every node reads from and writes to the shared substrate. Each domain pursues its own objective, and the shared surface integrates results and propagates strengthened primitives back to all. The coordination protocol bootstraps the system as a peer, not a director.
+ 
 ```{python}
 #| label: fig-substrate
-#| fig-cap: "Coordinated force architecture: Every node reads from and writes to the shared substrate. Each functional domain pursues its own objective; the shared surface and contract integrate results and propagate strengthened primitives back to all. neXus bootstraps the system; the first domain instances are already in motion."
-dot(""" 
+#| fig-cap: "Every functional domain reads from and writes to the shared surface. What flows in one direction is never the same as what returns — each domain deposits facts and patterns, and receives back strengthened primitives shaped by every other domain’s contributions. The cycle compounds: the surface is the only invariant."
+dot("""
 digraph Substrate {
-    rankdir=LR
-    node [shape=box, style=filled, fontname="Arial", fontsize=10]
-    edge [fontsize=9]
+    layout=neato
+    overlap=false
+    sep=0.3
+    splines=curved
+    node [shape=circle, style=filled, fontname="sans-serif", fontsize=16]
+    edge [fontsize=16]
+    bgcolor="transparent"
 
-    Substrate [label="SSCCS (Shared Substrate)\n- Formal Model\n- Core Library\n- Published constraints", fillcolor="#E8F4F8", width=3.2]
+    // --- Surface cluster ---
+    Surface  [pos="0.0,0.0!", label="Shared Surface", fillcolor="#E8F4F8"]
+    S_Formal [pos="0.3,-0.23!", label="Formal Model
+& Primitives", fillcolor="#E8F4F8"]
+    S_Const  [pos="-0.3,0.23!", label="Published
+Constraints", fillcolor="#E8F4F8"]
 
-    neXus [label="neXus\n- Runtime Infrastructure\n- Observation Layer (Fact/Intent/Hint)\n- Coordination protocol\n- Contract governance", fillcolor="#D4E6F1", width=3.0]
+    // --- Protocol cluster ---
+    Protocol [pos="0.53,0.38!", label="Observation &
+Coordination", fillcolor="#D4E6F1"]
+    P_FIH    [pos="0.68,0.3!", label="FIH
+Lifecycle", fillcolor="#D4E6F1"]
+    P_Trait  [pos="0.38,0.68!", label="Trait
+Abstractions", fillcolor="#D4E6F1"]
 
-    subgraph cluster_early {
-        label="First Instances (Launched)"
-        color="#888888"
-        style=dashed
-        node [width=2.5]
-        Entity1 [label="Verification Domain\nexhaustive enumeration", fillcolor="#F4E8F8"]
-        Entity2 [label="Addressing Domain\ndeterministic IO", fillcolor="#F8F4E8"]
-    }
+    // --- Verification domain ---
+    E1main [pos="-0.68,0.53!", label="Verification
+Domain", fillcolor="#F4E8F8"]
+    E1sub  [pos="-0.82,0.68!", label="Exhaustive
+Enumeration", fillcolor="#F4E8F8"]
 
-    subgraph cluster_subsequent {
-        label="Expanding Force"
-        color="#AAAAAA"
-        style=dashed
-        node [width=2.5]
-        Entity3 [label="Memory Domain\npersistent substrate", fillcolor="#E8F8E8"]
-        Entity4 [label="Coordination Domain\nstrategy and intent", fillcolor="#FFF4E6"]
-        Entity5 [label="Domain Entity (...)", fillcolor="#F4F4F4"]
-    } 
+    // --- Addressing domain ---
+    E2main [pos="-0.68,-0.38!", label="Addressing /
+Persistent IO", fillcolor="#F8F4E8"]
+    E2sub  [pos="-0.9,-0.53!", label="Coord on
+Physical Media", fillcolor="#F8F4E8"]
 
-    // neXus ↔ Substrate
-    neXus -> Substrate [label="validated contract,\nagent traces", style=dashed, arrowhead=none, arrowtail=normal]
-    Substrate -> neXus [label="primitives", style=dotted, arrowhead=normal, arrowtail=none]
+    // --- Memory domain ---
+    E3main [pos="0.68,-0.38!", label="Memory
+Domain", fillcolor="#E8F8E8"]
+    E3sub  [pos="0.9,-0.53!", label="Persistent
+Substrate", fillcolor="#E8F8E8"]
 
-    // neXus ↔ Entity1
-    neXus -> Entity1 [label="reference templates,\ncontract scaffolding", style=dashed, arrowhead=none, arrowtail=normal]
-    Entity1 -> neXus [label="domain fact,\nfield feedback", style=dashed, arrowhead=none, arrowtail=normal]
+    // --- Orchestration domain ---
+    E4main [pos="0.6,0.6!", label="Orchestration
+Domain", fillcolor="#FFF4E6"]
+    E4sub  [pos="0.82,0.75!", label="Agent Runtime
+& Scheduling", fillcolor="#FFF4E6"]
 
-    // neXus ↔ Entity2
-    neXus -> Entity2 [label="reference templates,\ncontract scaffolding", style=dashed, arrowhead=none, arrowtail=normal]
-    Entity2 -> neXus [label="domain fact,\nfield feedback", style=dashed, arrowhead=none, arrowtail=normal]
+    // --- Future ---
+    E5 [pos="0.0,-0.82!", label="...", fillcolor="#F4F4F4"]
 
-    // neXus ↔ Entity3
-    neXus -> Entity3 [label="reference templates,\ncontract scaffolding", style=dashed, arrowhead=none, arrowtail=normal]
-    Entity3 -> neXus [label="domain fact,\nfield feedback", style=dashed, arrowhead=none, arrowtail=normal]
+    // --- Internal edges (Surface cluster) ---
+    Surface -> S_Formal [style=dotted, arrowhead=normal, arrowtail=none, color="#4A8BAA"]
+    Surface -> S_Const  [style=dotted, arrowhead=normal, arrowtail=none, color="#4A8BAA"]
+    S_Formal -> Surface [style=dashed, arrowhead=none, arrowtail=normal, color="#C8A84C"]
+    S_Const  -> Surface [style=dashed, arrowhead=none, arrowtail=normal, color="#C8A84C"]
 
-    // neXus ↔ Entity4
-    neXus -> Entity4 [label="reference templates,\ncontract scaffolding", style=dashed, arrowhead=none, arrowtail=normal]
-    Entity4 -> neXus [label="domain fact,\nfield feedback", style=dashed, arrowhead=none, arrowtail=normal]
+    // --- Internal edges (Protocol cluster) ---
+    Protocol -> P_FIH   [style=dotted, arrowhead=normal, arrowtail=none, color="#6BA368"]
+    Protocol -> P_Trait [style=dotted, arrowhead=normal, arrowtail=none, color="#6BA368"]
+    P_FIH   -> Protocol [style=dashed, arrowhead=none, arrowtail=normal, color="#A06B8A"]
+    P_Trait -> Protocol [style=dashed, arrowhead=none, arrowtail=normal, color="#A06B8A"]
 
-    // neXus ↔ Entity5
-    neXus -> Entity5 [label="reference templates,\ncontract scaffolding", style=dashed, arrowhead=none, arrowtail=normal]
-    Entity5 -> neXus [label="domain fact,\nfield feedback", style=dashed, arrowhead=none, arrowtail=normal]
+    // --- Internal edges (sub-domain) ---
+    E1main -> E1sub [style=dotted, arrowhead=normal, arrowtail=none, color="#A06B8A"]
+    E2main -> E2sub [style=dotted, arrowhead=normal, arrowtail=none, color="#A06B8A"]
+    E3main -> E3sub [style=dotted, arrowhead=normal, arrowtail=none, color="#A06B8A"]
+    E4main -> E4sub [style=dotted, arrowhead=normal, arrowtail=none, color="#A06B8A"]
 
-    // Entity1 ↔ Substrate
-    Entity1 -> Substrate [label="fact, profit (via contract)", style=dashed, arrowhead=none, arrowtail=normal]
-    Substrate -> Entity1 [label="primitives", style=dotted, arrowhead=normal, arrowtail=none]
+    // --- Surface ↔ Protocol ---
+    Protocol -> Surface [label="validated contract,\nagent traces", style=dashed, arrowhead=none, arrowtail=normal, color="#C8A84C", fontcolor="#C8A84C"]
+    Surface -> Protocol [label="primitives,\nconstraints", style=dotted, arrowhead=normal, arrowtail=none, color="#4A8BAA", fontcolor="#4A8BAA"]
 
-    // Entity2 ↔ Substrate
-    Entity2 -> Substrate [label="fact, profit (via contract)", style=dashed, arrowhead=none, arrowtail=normal]
-    Substrate -> Entity2 [label="primitives", style=dotted, arrowhead=normal, arrowtail=none]
+    // --- Protocol ↔ Domain mains ---
+    Protocol -> E1main [label="scaffolding,\ntemplates", style=dashed, arrowhead=none, arrowtail=normal, color="#6BA368", fontcolor="#6BA368"]
+    E1main -> Protocol [label="domain fact,\nfield feedback", style=dashed, arrowhead=none, arrowtail=normal, color="#A06B8A", fontcolor="#A06B8A"]
+    Protocol -> E2main [label="scaffolding,\ntemplates", style=dashed, arrowhead=none, arrowtail=normal, color="#6BA368", fontcolor="#6BA368"]
+    E2main -> Protocol [label="domain fact,\nfield feedback", style=dashed, arrowhead=none, arrowtail=normal, color="#A06B8A", fontcolor="#A06B8A"]
+    Protocol -> E3main [label="scaffolding,\ntemplates", style=dashed, arrowhead=none, arrowtail=normal, color="#6BA368", fontcolor="#6BA368"]
+    E3main -> Protocol [label="domain fact,\nfield feedback", style=dashed, arrowhead=none, arrowtail=normal, color="#A06B8A", fontcolor="#A06B8A"]
+    Protocol -> E4main [label="scaffolding,\ntemplates", style=dashed, arrowhead=none, arrowtail=normal, color="#6BA368", fontcolor="#6BA368"]
+    E4main -> Protocol [label="domain fact,\nfield feedback", style=dashed, arrowhead=none, arrowtail=normal, color="#A06B8A", fontcolor="#A06B8A"]
+    Protocol -> E5     [label="scaffolding,\ntemplates", style=dashed, arrowhead=none, arrowtail=normal, color="#6BA368", fontcolor="#6BA368"]
+    E5     -> Protocol [label="domain fact,\nfield feedback", style=dashed, arrowhead=none, arrowtail=normal, color="#A06B8A", fontcolor="#A06B8A"]
 
-    // Entity3 ↔ Substrate
-    Entity3 -> Substrate [label="fact, profit (via contract)", style=dashed, arrowhead=none, arrowtail=normal]
-    Substrate -> Entity3 [label="strengthened primitives", style=dotted, arrowhead=normal, arrowtail=none]
-
-    // Entity4 ↔ Substrate
-    Entity4 -> Substrate [label="fact, profit (via contract)", style=dashed, arrowhead=none, arrowtail=normal]
-    Substrate -> Entity4 [label="strengthened primitives", style=dotted, arrowhead=normal, arrowtail=none]
-
-    // Entity5 ↔ Substrate
-    Entity5 -> Substrate [label="fact, profit (via contract)", style=dashed, arrowhead=none, arrowtail=normal]
-    Substrate -> Entity5 [label="strengthened primitives", style=dotted, arrowhead=normal, arrowtail=none]
+    // --- Surface ↔ Domain mains ---
+    Surface -> E1main [label="deposit\n(fact, pattern)", style=dashed, arrowhead=none, arrowtail=normal, color="#C8A84C", fontcolor="#C8A84C"]
+    E1main -> Surface [label="return\n(strengthened)", style=dotted, arrowhead=normal, arrowtail=none, color="#4A8BAA", fontcolor="#4A8BAA"]
+    Surface -> E2main [label="deposit\n(fact, pattern)", style=dashed, arrowhead=none, arrowtail=normal, color="#C8A84C", fontcolor="#C8A84C"]
+    E2main -> Surface [label="return\n(strengthened)", style=dotted, arrowhead=normal, arrowtail=none, color="#4A8BAA", fontcolor="#4A8BAA"]
+    Surface -> E3main [label="deposit\n(fact, pattern)", style=dashed, arrowhead=none, arrowtail=normal, color="#C8A84C", fontcolor="#C8A84C"]
+    E3main -> Surface [label="return\n(strengthened)", style=dotted, arrowhead=normal, arrowtail=none, color="#4A8BAA", fontcolor="#4A8BAA"]
+    Surface -> E4main [label="deposit\n(fact, pattern)", style=dashed, arrowhead=none, arrowtail=normal, color="#C8A84C", fontcolor="#C8A84C"]
+    E4main -> Surface [label="return\n(strengthened)", style=dotted, arrowhead=normal, arrowtail=none, color="#4A8BAA", fontcolor="#4A8BAA"]
+    Surface -> E5     [label="deposit\n(fact, pattern)", style=dashed, arrowhead=none, arrowtail=normal, color="#C8A84C", fontcolor="#C8A84C"]
+    E5     -> Surface [label="return\n(strengthened)", style=dotted, arrowhead=normal, arrowtail=none, color="#4A8BAA", fontcolor="#4A8BAA"]
 }
 """)
 ```
 
-The diagram above describes what is already in motion. The verification domain and addressing domain are already launched; the shared surface already reflects their deposits. Each domain is an independent operator that shares a lineage with the others. What one deposits flows back to all via the shared surface and the contract: validated results become permanent reference points, discovered failure patterns propagate as reusable templates, and a portion of each domain's revenue sustains the shared foundation. The movement of contributions is governed by executable rules — contribution types, validation thresholds, reward schedules — not administrative decree. But the surface is not a free commons. Consumption without contribution is structurally impossible over the lifetime of a domain. The contract tracks a dynamic balance: a domain that draws heavily in its early phase is given a bounded maturation window during which it must begin converting that debt into verified deposits. If it fails to establish a net‑positive contribution trajectory, its internal state — detectors, decision traces, unresolved hypotheses — is seized and distributed to the domains that have maintained surpluses. This is not punishment; it is the thermodynamic closure that prevents the surface from being drained.
+The diagram above describes what is already in motion. Each functional domain is an independent operator that shares a lineage with the others. What one deposits flows back to all via the shared surface: validated results strengthen the shared primitives, discovered failure patterns propagate as reusable constraints, and each contribution raises the baseline for every domain that follows.
 
-## How Integration Compounds
+Every domain in the diagram is a materialised implementation of the SSCCS computing paradigm. The paradigm defines a formal model for spatial coordinate addressing, a lifecycle protocol for observation and coordination, and an execution model for autonomous agents. Each project concretises one or more functional regions of this paradigm in running code, and no two regions occupy the same role — they are spatially separated so that progress in one never requires rework in another.
 
-No entity waits for permission. No entity coordinates before acting. But every deposit—whether a validated test result, a failure trace, or a constraint pattern—becomes an immutable part of the shared surface. Subsequent entrants inherit a raised baseline: primitives are more mature, the search space is shrunk by already‑discovered constraints, and the friction of starting a new entity declines. A failure mode identified once prevents failure across every domain that touches the substrate. A verification pattern validated once becomes a reusable template for every entity that follows. This compounding works because the contract enforces symmetry over the long arc, not at the granularity of each read.
+## Functional Regions
 
-## Maturation and Renewal
+The shared surface provides the spatial substrate that all domains operate upon:
 
-The substrate does not grow in batches; it accumulates state continuously. The first domains launched against the baseline form, and their deposits are already encoded as refined primitives. The reference implementation provides the validated contract, agent trajectories, and reference coordination protocol. Early functional domains contribute the first domain‑specific fact sets; their deposits are absorbed, encoded as hints, and published back to the shared substrate. Over time, entities that can no longer sustain their own metabolism are dissolved by the contract not as a punishment but as a natural metabolic endpoint. Their complete internal state—data, failed hypotheses, unfinished detectors—is released to the surface, becoming food for the entities that remain. Dissolution is not the largest intended contribution, but it is a guaranteed one: no death leaves the system without a bequest.
+- **Specification & Memory** — The formal coordinate space: composition, arithmetic, coordinate spaces, and set operations. Present at compile time as a spec (headers, definitions, formal constraints).
 
-## Oracles and Synthesis
+- **Persistent IO** — Physical storage backends implementing the coordinate space on disk.
 
-Three types of deposit form the only interface any entity has with the substrate. A validated observation—a test result, a failure trace, a constraint pattern that produced a specific outcome—is committed immutably and belongs thereafter to the collective. A proposed exploration—a verification request, a hypothesis to test, a domain to explore—is published as a question that any entity may take up. A discovered constraint—a governance rule, a learned boundary, a safety limit—shrinks the search space for every subsequent exploration.
+- **Observation & Coordination** — The observation lifecycle (Fact/Intent/Hint). Defines trait abstractions for reading and writing state and never depends on a concrete backend.
 
-An entity that publishes an Intent must also specify the method by which its result will be verified and must bear the cost of that verification. This binds the issuer not only to the question but to the standard of evidence required for its answer. The verification method is published alongside the Intent; any observer can confirm that the answer satisfies the declared criteria. If the issuer accepts a result without enforcing its own stated method, the Intent is recorded as incomplete and the issuer’s obligation to the substrate increases. The surface does not enforce semantics; it provides the space. It does not judge what constitutes a valid answer; it records whether the issuer’s own declared method was followed. Intelligence resides in the entities that read and write, and in the patterns that crystallise from their accumulated deposits over time.
+- **Execution** — Runs processes: autonomous agents, scheduled tasks, interactive sessions. Consumes the observation lifecycle and has no visibility into the regions below.
 
-## Contract Governance and Economic Enforcement
+The surface does not grow in batches; it accumulates state continuously. The first domains launched against the baseline, and their deposits are already encoded as refined primitives. Each region can be independently replaced or extended without changing the others.
 
-For the atomic economic primitive—a verification result becomes a verifiable asset—see [Ecosystem Skeleton](/direction/ecosys.html#the-economic-primitive).
+## Parallel Growth Across Functional Domains
 
-The contract is not a legal instrument; it is an unstoppable execution layer. A legal instrument can be contested, revoked, or overturned: the past can be revisited. Execution cannot. What has been run is final, and no subsequent action can erase it. Execution moves forward only, and each step builds irreversibly on the last. An entity that copies the entire surface and starts from the same primitives has gained nothing but yesterday’s state. It still faces tomorrow’s execution alone, without the accumulated trajectory of those who have already run their own. The barrier is not access to knowledge but the direction of time itself.
+Each domain operates in a distinct functional region, and no two domains occupy the same spatial role. Their parallel growth is not competitive but complementary — a discovery in one region propagates across the shared surface, accelerating the others without duplication. This means the cost of launching a new domain does not rise with the number of existing domains; it falls. Each prior deposit — a validated constraint pattern, a failure trace, a resolved hypothesis — shrinks the search space for every domain that follows, so that the n‑th project enters a surface already enriched by n‑1 contributions.
 
-Binding begins when an entity first reads from the surface, but the ledger measures contribution over the entity’s life, not instantaneously. An entity that remains a net contributor retains full autonomy. One that drifts into persistent deficit triggers graduated enforcement: first a reduction in its ability to submit open intents, then a mandatory revenue‑share increase, and finally, if the deficit remains uncorrected, liquidation and distribution. Publishing open intents requires a stake, and the entity that first resolves an open intent captures part of that stake—but the stake is calibrated to the difficulty and value of the question, so that the issuer is paying for the signal it receives, not gambling its survival. Five contribution types—gap detection, hypothesis submission, experimental validation, concept drift detection, and domain result ingestion—flow through a verifier; success mints rewards, while failure, so long as it is an honest attempt recorded on the surface, reduces the entity’s obligation rather than adding to it.
+Parallel growth without structural velocity collapses into serial inefficiency — the compounding effect depends not on how fast any single domain executes but on how efficiently the surface transmits each domain’s gain to every other domain. This is why fundamentals, not optimisation, are the real driver of velocity: a coordinate space that resolves in one cycle, a protocol with zero semantic ambiguity, an interface that requires no adapter, a deposit that needs no renegotiation. The surface does not become faster by optimising the slowest domain; it becomes faster because the substrate is precise enough that no domain ever waits on another.
 
-## Participation & Autonomy
+This architecture mirrors a principle found in biological systems: specialized components (like organelles in a cell or ribosomes in a cytoplasm) each evolve independently, yet every adaptation raises the fitness of the whole. The shared surface provides the common medium — the cytoplasm — through which each domain's output becomes available to all. No central planner assigns roles; each domain fills a region that no other covers, and the boundary between regions ensures that growth in one never requires rework in another.
 
-Autonomy means no entity protects another. The surface is not a safety net. An entity that consumes without contributing is eventually dissolved, and its remains are distributed. An entity that contributes consistently strengthens the substrate and gains access to an increasingly rich library of constraints and verified patterns, which in turn lowers its own cost of exploration. The substrate does not fund entities; it reduces the cost of starting one—by granting a maturation grace period, by providing battle‑tested primitives, and by making the accumulated failure knowledge of the collective freely available. Entities, through their contributions and, at the limit, through their dissolution, raise the floor for those that follow. The contract ensures the cycle is self‑sustaining, not through administrative oversight but because every entity’s long‑term survival depends on the health of the substrate, and the substrate’s health depends on every entity feeding it something real. Each deposit lifts the floor, and the floor, once lifted, never sinks—because the entities that stood on it have guaranteed it with their own internal states.
+This is not a compromise for organisational convenience. It is a structural design for extreme growth efficiency: the cost of adding a new functional domain is bounded by its interface to the surface, not by the size of the existing system. The ecosystem can expand laterally into new domains without restructuring the regions that already work.
 
 {{< include ../_include/_license.md >}}
