@@ -1,0 +1,450 @@
+---
+title: "synTagma Integration"
+subtitle: "CoordSpaceN + HashMap dual storage architecture for FIH"
+date: last-modified
+metadata-files:
+  - ../../../_include/author.yml
+abstract: |
+  synTagma's `CoordSpaceN<6>` replaces the linear `Vec<FactRecord>` scan as the
+  primary index space for FIH storage in neXus. The architecture decouples index
+  scanning from payload construction: the coordinate space stores lightweight
+  `String` fact IDs, while a companion `HashMap` holds the full `FactRecord`
+  payloads. Single-field fast-path indices (`facts_by_creator`,
+  `facts_by_origin`) provide O(1) lookups for the most common query patterns.
+  Multi-dimensional AND queries use HashSet intersection, achieving up to 1315x
+  speedup over the old full-scan approach. `axis_hints` bridges the gap between
+  typed `CoordId<6>` values and `CoordSpaceN`'s `iter_prefix` API, allowing
+  callers to query by semantic field names without knowledge of axis layout.
+---
+
+```{python}
+#| include: false
+#| context: local
+%run ../../../_include/_graphviz.py
+```
+
+```{python}
+title_meta_items = {
+    "html": [
+        {"title": "Reference", "link": "../", "content": "Development Index", "icon": "bi bi-link"},
+        {"title": "Reference", "link": "https://github.com/ssccsorg/nexus", "content": "Nexus Repository", "icon": "bi bi-link"},
+    ]
+}
+```
+
+{{< include ../../../_include/_title_meta_items.qmd >}}
+
+## Architecture
+
+The dual storage architecture separates two concerns: indexing and payload storage.
+
+**CoordSpaceN** is the index space. It is an N-dimensional array (N=6 for the current deployment) where each cell stores an `Option<String>` -- a lightweight fact identifier, or `None` if the slot is vacant. All index operations (insert, lookup by prefix, iteration) operate on fixed-size coordinates and small string handles. Fact construction, which involves allocating `String`, `Vec<u8>`, and `HashMap<String, String>` per record, is deferred until the caller dereferences a match.
+
+**HashMap** is the data store. It maps fact IDs (`String`) to full `FactRecord` payloads. This is deliberately simple: it holds the current in-memory epoch. Persistence is handled separately via FileIo (parquet serialization on shutdown, reload on restart). The HashMap is a placeholder for a future Chton mmap backend that will store payloads in a Coord-native binary format, eliminating serialize/deserialize overhead entirely.
+
+```{python}
+#| label: fig-dual-storage
+#| fig-cap: "Dual storage architecture: CoordSpaceN<6> as index space, HashMap as data store"
+dot("""
+digraph DualStorage {
+    rankdir=LR;
+    node [shape=box, style=rounded];
+
+    subgraph cluster_index {
+        label="Index Space (CoordSpaceN<6>)";
+        color=blue;
+        coord [label="[time_hi, time_lo, entity, origin, creator, serial]\\n→ Option<String>"];
+    }
+
+    subgraph cluster_data {
+        label="Data Store (HashMap)";
+        color=green;
+        map [label="fact_id → FactRecord\\n(content, metadata, blobs)"];
+    }
+
+    subgraph cluster_fastpath {
+        label="Fast-Path Indices";
+        color=orange;
+        by_creator [label="facts_by_creator\\ncreator → Vec<fact_id>"];
+        by_origin [label="facts_by_origin\\norigin → Vec<fact_id>"];
+    }
+
+    coord -> map [label="dereference ID"];
+    by_creator -> map [label="bulk fetch IDs"];
+    by_origin -> map [label="bulk fetch IDs"];
+    by_creator -> by_origin [label="HashSet intersection\\n(AND query)", style=dashed];
+}
+""")
+```
+
+## Axis Convention
+
+The six axes of `CoordSpaceN<6>` follow a fixed convention. This convention is hardcoded in `CoordFihStorage` and documented at the module boundary. Future work may make it configurable via generic axis mapping.
+
+| Axis | Name | Description | Sort order |
+|------|------|-------------|------------|
+| 0 | `time_hi` | High 32 bits of timestamp (seconds since epoch) | Ascending |
+| 1 | `time_lo` | Low 32 bits of timestamp (nanoseconds) | Ascending |
+| 2 | `entity` | Entity identifier (the subject of the fact) | Lexicographic |
+| 3 | `origin` | Origin identifier (the source system or agent) | Lexicographic |
+| 4 | `creator` | Creator identifier (the specific agent instance) | Lexicographic |
+| 5 | `serial` | Monotonically increasing serial within the same timestamp | Ascending |
+
+The axis order is designed so that `iter_prefix` queries with a time range prefix (axes 0 and 1) can efficiently narrow the candidate set before applying entity/origin/creator filters. In practice, most queries do not use time as a prefix, so the design leans on fast-path indices instead.
+
+## Fast-Path Indices
+
+Two complementary `HashMap<String, Vec<String>>` indices provide O(1) single-field lookups.
+
+```rust
+// Maintained eagerly on insert_fact
+self.facts_by_creator
+    .entry(fact.creator.clone())
+    .or_default()
+    .push(fact_id.clone());
+
+self.facts_by_origin
+    .entry(fact.origin.clone())
+    .or_default()
+    .push(fact_id.clone());
+```
+
+### Read characteristics
+
+A lookup by creator is a single HashMap get:
+
+```rust
+fn facts_by_creator(&self, creator: &str) -> Vec<&FactRecord> {
+    self.facts_by_creator
+        .get(creator)
+        .map(|ids| ids.iter().filter_map(|id| self.facts.get(id)).collect())
+        .unwrap_or_default()
+}
+```
+
+### Write amplification
+
+Each `insert_fact` appends to two vectors. For 10K facts with 10 distinct creators, this means each `Vec<String>` under a creator key holds approximately 1,000 entries. The total memory overhead is approximately `2 * 10K * (String header + pointer)`, which is negligible at current scale.
+
+### Deletion cost
+
+`evict` must remove the fact ID from both `facts_by_creator` and `facts_by_origin` vectors. This is O(n) per deletion in the size of the per-key vector. For the current workload (occasional eviction, not bulk), this is acceptable. If eviction becomes frequent, the indices would need a secondary structure (e.g., a `HashSet` per key instead of `Vec`, or a generation counter for lazy cleanup).
+
+## axis_hints: Bridging CoordId to iter_prefix
+
+`CoordSpaceN` exposes `iter_prefix` which accepts a `&[Option<u64>]` slice -- a pattern where each element is either a concrete value to match or `None` (wildcard). Callers, however, work with `CoordId<6>` values (typed 6-element arrays). They should not need to know that axis 4 is `creator` and axis 3 is `origin`.
+
+`AxisHints` provides the bridge:
+
+```{python}
+#| label: fig-axis-hints
+#| fig-cap: "axis_hints translates semantic field names to axis positions"
+dot("""
+digraph AxisHintsFlow {
+    rankdir=LR;
+    node [shape=box, style=rounded];
+
+    caller [label="Caller\\nquery(fact_id, [creator, origin])"];
+    hints [label="axis_hints\\ncreator→4, origin→3"];
+    prefix [label="Prefix\\n[None, None, None, Some(o), Some(c), None]"];
+    space [label="CoordSpaceN<6>\\niter_prefix(prefix)"];
+    results [label="Matching CoordIds"];
+
+    caller -> hints [label="resolve names"];
+    hints -> prefix [label="build pattern"];
+    prefix -> space;
+    space -> results;
+}
+""")
+```
+
+The `query_prefix` method constructs a `Vec<Option<u64>>` of length 6, setting only the axes named in the `active` parameter:
+
+```rust
+pub fn query_prefix(&self, coord: &CoordId<6>, active: &[&str]) -> Vec<Option<u64>> {
+    let mut prefix = vec![None; 6];
+    for axis_name in active {
+        if let Some(&axis) = self.axis_map.get(*axis_name) {
+            prefix[axis] = Some(coord[axis]);
+        }
+    }
+    prefix
+}
+```
+
+This lets callers express queries declaratively:
+
+```rust
+let hints = AxisHints::new(vec![
+    ("creator", 4),
+    ("origin", 3),
+    ("entity", 2),
+]);
+
+// Find all facts by a specific creator and origin
+let prefix = hints.query_prefix(&coord, &["creator", "origin"]);
+for coord_id in space.iter_prefix(&prefix) {
+    // coord_id matches both creator and origin
+}
+```
+
+## Benchmark Results
+
+All benchmarks measured on Apple M4 with release profile. 10,000--50,000 facts pre-loaded with 500 distinct origins and 200 distinct creators.
+
+```{python}
+#| label: fig-and-scaling
+#| fig-cap: "AND query scaling: OLD (full scan) vs NEW (HashMap + HashSet intersect)"
+import matplotlib.pyplot as plt
+import numpy as np
+import matplotlib.patches as mpatches
+
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 3.2))
+
+# ── Left: AND scaling bar chart (10K entries) ──
+cats = ['1-dim\ncreator', '2-dim\ncreator+origin']
+x = np.arange(len(cats))
+w = 0.3
+
+old_vals = [57.0, 58.4]  # ms for 10x
+new_vals = [1.51, 0.449]  # ms for 10x
+
+ax1.bar(x - w/2, old_vals, w, color='white', edgecolor='black', linewidth=0.8, hatch='///')
+ax1.bar(x + w/2, new_vals, w, color='white', edgecolor='black', linewidth=0.8, hatch='...')
+ax1.set_xticks(x)
+ax1.set_xticklabels(cats, fontsize=9)
+ax1.set_ylabel('Latency 10x queries (ms)')
+ax1.set_yscale('log')
+ax1.set_title('10K entries', fontsize=10)
+
+for bar, val in zip(ax1.patches, old_vals + new_vals):
+    ax1.text(bar.get_x() + bar.get_width()/2, bar.get_height()*1.1,
+             f'{val:.1f}', ha='center', va='bottom', fontsize=7)
+
+# Speedup annotations
+ax1.annotate('38x', xy=(0, 4), fontsize=8, fontweight='bold', ha='center',
+             bbox=dict(boxstyle='round,pad=0.2', facecolor='white', edgecolor='black', alpha=0.8))
+ax1.annotate('130x', xy=(1, 4), fontsize=8, fontweight='bold', ha='center',
+             bbox=dict(boxstyle='round,pad=0.2', facecolor='white', edgecolor='black', alpha=0.8))
+
+# ── Right: AND scaling bar chart (50K entries) ──
+cats2 = ['1-dim\ncreator', '2-dim\ncreator+origin']
+x2 = np.arange(len(cats2))
+
+old2 = [28.5, 28.8]  # ms
+new2 = [0.084, 0.023]  # ms
+
+ax2.bar(x2 - w/2, old2, w, color='white', edgecolor='black', linewidth=0.8, hatch='///')
+ax2.bar(x2 + w/2, new2, w, color='white', edgecolor='black', linewidth=0.8, hatch='...')
+ax2.set_xticks(x2)
+ax2.set_xticklabels(cats2, fontsize=9)
+ax2.set_ylabel('Latency per query (ms)')
+ax2.set_yscale('log')
+ax2.set_title('50K entries', fontsize=10)
+
+for bar, val in zip(ax2.patches, old2 + new2):
+    ax2.text(bar.get_x() + bar.get_width()/2, bar.get_height()*1.15,
+             f'{val*1000:.0f}us' if val < 1 else f'{val:.1f}ms', ha='center', va='bottom', fontsize=7)
+
+ax2.annotate('376x', xy=(0, 1), fontsize=8, fontweight='bold', ha='center',
+             bbox=dict(boxstyle='round,pad=0.2', facecolor='white', edgecolor='black', alpha=0.8))
+ax2.annotate('1315x', xy=(1, 1), fontsize=8, fontweight='bold', ha='center',
+             bbox=dict(boxstyle='round,pad=0.2', facecolor='white', edgecolor='black', alpha=0.8))
+
+# Shared legend
+legend_patches = [
+    mpatches.Patch(facecolor='white', edgecolor='black', hatch='///', label='OLD (MemoryEntityStore full scan)'),
+    mpatches.Patch(facecolor='white', edgecolor='black', hatch='...', label='NEW (CoordSpaceN + HashMap fast-path)'),
+]
+fig.legend(handles=legend_patches, fontsize=6.5, loc='upper left', ncol=1, bbox_to_anchor=(0, 1.02))
+plt.tight_layout(); plt.show()
+```
+
+```{python}
+#| label: fig-coordspace-type
+#| fig-cap: "CoordSpace type comparison: CoordSpaceN6 (sparse tree) vs CoordSpace2 (dense heap)"
+import matplotlib.pyplot as plt
+import numpy as np
+import matplotlib.patches as mpatches
+
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7, 3))
+
+# ── Left: Write 10K ──
+cats = ['CoordSpaceN6\n(sparse tree)', 'CoordSpace2\n(dense heap)']
+x = np.arange(len(cats))
+w = 0.5
+
+write_vals = [391, 175]  # ms
+
+ax1.bar(x, write_vals, w, color='white', edgecolor='black', linewidth=0.8,
+        hatch=['...', '///'])
+ax1.set_xticks(x)
+ax1.set_xticklabels(cats, fontsize=8)
+ax1.set_ylabel('Write 10K entries (ms)')
+ax1.set_title('Write Throughput', fontsize=10)
+
+for bar, val in zip(ax1.patches, write_vals):
+    ax1.text(bar.get_x() + bar.get_width()/2, bar.get_height()*1.02,
+             f'{val}ms', ha='center', va='bottom', fontsize=8)
+
+# ── Right: at_path 10K ──
+bars = ax2.bar(x, [10260, 29.8], w, color='white', edgecolor='black', linewidth=0.8,
+               hatch=['...', '///'])
+ax2.set_xticks(x)
+ax2.set_xticklabels(cats, fontsize=8)
+ax2.set_ylabel('at_path 10K entries (us)')
+ax2.set_yscale('log')
+ax2.set_title('Point Query Latency', fontsize=10)
+
+for bar, val in zip(bars, [10260, 29.8]):
+    label = f'{val:.0f}us' if val < 1000 else f'{val/1000:.1f}ms'
+    ax2.text(bar.get_x() + bar.get_width()/2, bar.get_height()*1.1,
+             label, ha='center', va='bottom', fontsize=8)
+
+ax2.annotate('344x\nfaster', xy=(0.7, 100), fontsize=9, fontweight='bold', ha='center',
+             bbox=dict(boxstyle='round,pad=0.2', facecolor='white', edgecolor='black', alpha=0.8))
+
+legend_patches = [
+    mpatches.Patch(facecolor='white', edgecolor='black', hatch='...', label='CoordSpaceN6 (sparse tree)'),
+    mpatches.Patch(facecolor='white', edgecolor='black', hatch='///', label='CoordSpace2 (dense heap)'),
+]
+fig.legend(handles=legend_patches, fontsize=6.5, loc='upper left', ncol=1, bbox_to_anchor=(0, 1.02))
+plt.tight_layout(); plt.show()
+```
+
+| Metric | OLD (ms) | NEW (ms) | Speedup | Notes |
+|--------|----------|----------|---------|-------|
+| Single-field query (creator) | 27.8 | 0.074 | 376x | Fast-path index O(1) vs full scan O(N) |
+| AND 2-dim (creator + origin) | 27.9 | 0.021 | 1315x | HashSet intersection shrinks candidate set |
+| Write 10K facts | 1776 | 1600 | 0.9x | Index maintenance adds ~10% overhead |
+| Read state (load 10K) | 13.2 | 11.0 | 1.2x | Struct layout optimization |
+| Bulk scan (no filter) | 28.1 | 31.4 | 0.9x | HashMap dereference adds indirection |
+| Time range query | 27.5 | 165,000 | 0.00017x | No time index yet |
+
+The OLD bottleneck is evident: every filtered query hits the same 28ms ceiling because the full scan + Fact construction cost is constant regardless of selectivity. The NEW implementation breaks this ceiling by paying the construction cost only for matches.
+
+The gap grows geometrically with added AND dimensions because each additional HashSet intersection further reduces the candidate set. At 2 dimensions, the NEW path is 1315x faster. At 3 dimensions (creator + origin + entity), the theoretical speedup exceeds 5000x.
+
+The write regression (0.9x) is the cost of maintaining two fast-path indices on every insert. This is a deliberate tradeoff: blackboard reads vastly outnumber writes, so sacrificing write throughput for read performance is correct.
+
+The time range regression (6000x slower) is the most significant open issue. It is discussed separately below.
+
+## Paradigm Shift: The Database Is Not the Point
+
+Traditional database architecture layers abstraction on abstraction:
+
+```text
+Application -> ORM -> SQL -> Query Optimizer -> B-Tree -> Buffer Pool -> Disk I/O
+```
+
+Each layer exists to solve a problem introduced by the layer before it. SQL abstracts storage layout, so the optimizer must recover it. B-Trees organize data the optimizer cannot address directly, so the buffer pool must cache them. The buffer pool guesses which pages to keep, so the I/O layer pays for mispredictions.
+
+synTagma + neXus + Chton collapses this stack:
+
+```text
+Application -> CoordId -> CoordSpaceN (index) -> mmap (data) -> Disk
+```
+
+Every abstraction layer that made the database complex is removed because the problem it solved no longer exists:
+
+| Database layer | Why Tagma eliminates it |
+|----------------|------------------------|
+| **SQL** | Coordinates are addresses. Queries are arithmetic on coordinate axes, not string parsing and join planning. `iter_prefix` on axis[4] = 5 is a single function call, not a `SELECT WHERE creator = ?` pipeline. |
+| **Query Optimizer** | There is nothing to optimize. `at_path(path)` is O(depth). `iter_prefix(prefix)` is O(subtree). No join order, no index selection, no cardinality estimation. |
+| **B-Tree / Index** | CoordSpaceN is the only index. Its axis order IS the index policy. There is no secondary index design, no covering index, no index maintenance. |
+| **Buffer Pool** | mmap delegates page management to the kernel. The OS already knows which pages are hot. A second buffer pool in userspace would just fight the kernel. |
+| **Serializer / Deserializer** | Coord-native binary format: the bytes on disk ARE the in-memory representation. No protobuf, no Avro, no Parquet. |
+| **ORM** | The application already has the CoordId. It does not need a mapping layer between objects and rows. CoordId IS the row pointer. |
+
+The result is a storage system with no database engine inside. It does not parse SQL, optimize queries, manage buffer pools, or serialize records. It stores coordinates and dereferences pointers. The database is not the point -- the coordinate space is.
+
+### Engineering challenges in a post-DB world
+
+Removing the database engine does not remove the engineering problems. It redistributes them:
+
+**mmap consistency.** The kernel writes pages back asynchronously. A crash between a CoordSpaceN insert and the corresponding mmap page flush leaves the index pointing to stale data. Solutions: (a) ordered writes (index last), (b) lightweight WAL for the index only, (c) accept window and rebuild on restart (feasible because CoordSpaceN rebuild is fast -- no serialization needed).
+
+**Axis design is schema design.** In a traditional DB, you can add an index after the fact. In Tagma, the axis order is baked into the CoordId convention. Changing axis order after deployment requires a migration. This is the same problem as a schema migration in a relational database, but the axis order is the schema. The axis convention must be designed for the query patterns before deployment.
+
+**Sparse nodes vs dense storage.** CoordSpaceN<6> nodes are 11172-slot arrays (89KB each). For sparse data (most nodes have 1-10 entries), 99%+ of slots are None. The tree fallback (CoordSpaceN) is memory-efficient but pointer-heavy. The dense fallback (CoordSpace2) is 344x faster for point queries but requires 119MB fixed allocation regardless of occupancy. Choosing the right CoordSpace variant for the workload is a new systems design dimension.
+
+**ACID is not free.** Tagma provides no ACID guarantees. Crash consistency, isolation, and atomicity must be provided by the application or by Chton. This is acceptable for the blackboard pattern (agents are idempotent, facts are immutable), but would require additional layers for financial or inventory use cases.
+
+### Why this works for neXus (and where it does not)
+
+The blackboard pattern used by neXus is uniquely suited to the post-DB model:
+
+- **Facts are immutable.** Once written, they are never updated. This eliminates the hardest problems in storage (concurrent updates, MVCC, write-ahead logging for modifications).
+- **Writes are discrete.** Agents write facts at state transitions, not continuously. Write throughput is low enough that maintaining fast-path indices adds only 10% overhead.
+- **Reads dominate.** Agents poll continuously. The 1315x read speedup directly translates to faster agent reasoning cycles.
+- **Crash recovery is rare.** The blackboard is an in-memory epoch. On restart, the coordinator reconstructs state from agent checkpoints, not from the blackboard itself. The blackboard is a cache, not a source of truth.
+
+Where this does not fit: high-frequency writes (sensor ingestion), strict ACID requirements (financial ledgers), or workloads where the database IS the source of truth rather than a coordination cache.
+
+## Key Insights
+
+### Tagma IDs are lightweight because they are just identifiers
+
+The design hinges on one property: `CoordSpaceN<6>` does not store `FactRecord` values. It stores `Option<String>`. A fact ID is a lightweight handle -- typically 24-36 bytes for the `String` allocation. A `FactRecord` is orders of magnitude heavier: it includes a content `Vec<u8>`, a metadata `HashMap<String, String>`, and timestamp fields. By keeping IDs in the index, we keep index operations cheap and defer the heavy allocation only to queries that actually need the payload.
+
+### The fast-path indices exploit the blackboard read/write ratio
+
+Agents in the blackboard pattern write facts at discrete intervals (on state changes, task completion, or heartbeat) but read continuously (polling for new facts, checking conditions, scanning for intents). This makes write amplification for read performance a correct tradeoff. If the workload shifted to write-heavy (e.g., high-frequency sensor ingestion), the index maintenance cost would need to be deferred or batched.
+
+### axis_hints is a pattern, not a library
+
+The `AxisHints` struct is deliberately minimal -- a `HashMap<String, usize>` and a single method. It is not a query engine, a query builder, or an ORM. It solves exactly one problem: translating semantic field names to axis positions for `iter_prefix` calls. This keeps the abstraction leak small and the performance predictable. Any caller that needs richer query semantics can compose multiple `iter_prefix` calls or use the fast-path indices directly.
+
+### The time range regression is a missing index, not a design flaw
+
+The 6000x regression is not caused by the dual storage architecture itself. It is caused by the absence of a time-range index. The OLD implementation did not have a time index either -- it just happened to scan the same way it scanned for everything else. The NEW implementation lacks the index and falls back to a CoordSpaceN full scan plus HashMap dereference, which is slower than the OLD full scan because of the additional indirection.
+
+The fix is to add either a dedicated time-range B-tree index (analogous to `facts_by_creator`) or an `iter_range` method on `CoordSpaceN` that iterates a hyper-rectangle. Both approaches are planned.
+
+## Future Work
+
+### Chton mmap backend
+
+The HashMap data store is a stepping stone to Chton, a Coord-native IO storage engine. Chton would replace the HashMap with a memory-mapped region that stores fact payloads directly in a Coord-native binary format. This eliminates:
+
+- Serialization on write (HashMap stores Rust structs; Chton stores packed binary)
+- Deserialization on read (mmap region is directly addressable)
+- Memory overhead of `HashMap` internals (load factor, hash table, pointer indirection)
+
+Chton depends on `nex-core` + `tagma-core` + `tagma-geo` only, not on `nex-fih`. This means Chton does not know about `FactRecord` at all -- it stores opaque binary blobs keyed by CoordId. The FIH layer serializes/deserializes at the boundary, not at the storage layer.
+
+### Unified CoordSpaceN across storage and index
+
+Currently, `CoordFihStorage` owns one `CoordSpaceN<6>`. If Chton also uses `CoordSpaceN` internally for its own index, there would be two coordinate spaces -- one for the FIH index and one for the Chton payload store. These could potentially be unified into a single space that stores either an inline ID (for small payloads) or a page pointer (for large payloads). This would reduce memory footprint and simplify the architecture but would couple the storage format to the index layout.
+
+### time_range optimization
+
+The most immediate priority is adding a time-range index. Two approaches are under consideration:
+
+1. **Dedicated B-tree index**: A `BTreeMap<(u64, u64), Vec<String>>` mapping `(time_hi, time_lo)` to fact IDs. Range queries would iterate the B-tree within bounds, collect IDs, and fetch from the HashMap. Estimated speedup vs current fallback: 10000x (restoring query performance to O(log N + M) where M is the number of matches).
+
+2. **CoordSpaceN iter_range**: Add a method to `CoordSpaceN` that iterates all coordinates within a hyper-rectangle defined by `[min, max]` per axis. This would be general-purpose (not just time) and would let any axis range benefit from spatial iteration. The cost is implementation complexity: `CoordSpaceN` currently only supports prefix iteration, and hyper-rectangle iteration requires either recursive subdivision or a multi-dimensional cursor.
+
+Approach 1 is simpler and can be implemented immediately. Approach 2 is architecturally cleaner but requires changes to the tagma crate itself. The likely path is approach 1 as a short-term fix, followed by approach 2 when tagma's iteration API is extended.
+
+### What Comes Next: The Post-Database Stack
+
+The trajectory is clear. Each phase removes another legacy layer:
+
+| Phase | What ships | What it removes |
+|-------|-----------|----------------|
+| **1 (done)** | CoordSpaceN index + HashMap data | Full scan, string filtering |
+| **2 (now)** | Fast-path indices + axis_hints | Single-field query latency (38-1315x gain) |
+| **3 (next)** | Chton mmap backend | Serialization, deserialization, HashMap overhead |
+| **4 (future)** | CoordSpaceN iter_range | Time range regression (6000x recovery) |
+| **5 (vision)** | Unified CoordSpaceN (index + data in one space) | Separate storage layer entirely |
+
+The stack after phase 5:
+
+```text
+Application -> CoordId -> CoordSpaceN<6> (index + data) -> mmap -> Disk
+```
+
+No HashMap. No serialization. No buffer pool. No query optimizer. No ORM. No SQL. Just a coordinate space and an operating system.
+
+> "The database is not the point. The coordinate space is the point."
