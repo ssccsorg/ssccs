@@ -22,8 +22,11 @@ format:
     code-font: "Source Code Pro"
     appendix-style: plain
   pdf:
+    pdf-engine: xelatex
     geometry:
-        - margin=26mm
+        - margin=15mm
+        - bottom=1.6cm
+        - footskip=1cm
     keep-tex: true
     number-sections: true
     execute:
@@ -39,6 +42,8 @@ format:
         \usepackage{xcolor}
         \usepackage{microtype}
         \setkeys{Gin}{width=\linewidth,height=\textheight,keepaspectratio}
+        \usepackage{xeCJK}
+        \setCJKmainfont{Noto Sans CJK KR}
         \addtokomafont{disposition}{\rmfamily}
         \input{./_files/wp_metadata.tex}
         \DeclareTOCStyleEntry[beforeskip=6pt]{default}{section}
@@ -144,6 +149,22 @@ A software proof of concept implements the Tagma coordinate in Rust, with 10 int
 
 ## Conclusion
 
+This a single atom's ID in a coordinate space larger than the observable universe:
+
+`맨가억빈힣쐭롮직랯픟첹겨뇨됴듸뤼뮈븨싀쨔`
+
+Twenty Korean syllables (U+AC00--U+D7AF) form a coordinate path.
+Each syllable encodes a value drawn from 11,172 possibilities through
+its initial, medial, and final decompositions, yielding 11,172²⁰ ≈
+2.17 × 10⁸¹ possible addresses. This is enough to assign a unique
+address to each atom in a volume 21.7 times larger than the
+observable universe. Yet the entire address is a 20-syllable Korean
+string. It is not a hash of a larger datum, but the address itself
+rendered in human-readable Hangul, decodable by anyone who reads
+Korean without a hex dump.
+
+The Unicode block U+AC00–U+D7AF (which encodes the compositional writing system) is the only block in the international standard whose encoding follows a closed-form composition formula with three independent structural axes. This property, documented in the Hunminjeongeum Haerye of 1443, remained a linguistic feature for over five centuries until content-addressable computing made it relevant as a hardware identity primitive. The gap between design intent and technological application is not unprecedented: the conic sections of Apollonius of Perga found their application in Keplerian orbits eighteen centuries later. Tagma designed for computing, that its structural properties solve a problem that computing currently solves with greater expense:
+
 - 115x faster in software (2 ns vs 227 ns per operation)
 - 6x faster at equivalent address space (35 ns vs 227 ns for 2^256 space)
 - 30x cheaper in hardware (300 vs 10,000 gates)
@@ -151,9 +172,7 @@ A software proof of concept implements the Tagma coordinate in Rust, with 10 int
 - Structurally transparent (identity encodes its own axis values)
 - Hardware-verifiable (validity check in one cycle)
 
-The complete reference implementation is available.
-
-Remark. The Unicode block U+AC00–U+D7AF (which encodes the compositional writing system) is the only block in the international standard whose encoding follows a closed-form composition formula with three independent structural axes. This property, documented in the Hunminjeongeum Haerye of 1443, remained a linguistic feature for over five centuries until content-addressable computing made it relevant as a hardware identity primitive. The gap between design intent and technological application is not unprecedented: the conic sections of Apollonius of Perga found their application in Keplerian orbits eighteen centuries later. Tagma designed for computing, that its structural properties solve a problem that computing currently solves with greater expense.
+The complete reference implementation is available. 
 
 ## References {.unnumbered .unlisted}
 

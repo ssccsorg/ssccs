@@ -1008,6 +1008,62 @@ pipeline. The 99.3% of the space that is invalid is never allocated, never
 iterated, and never tested --- this is not faster filtering; it is the
 absence of filtering.
 
+## CoordSpace20
+
+This is a single atom's address in a coordinate space larger than the observable universe:
+
+```text
+맨가억빈힣쐭롮직랯픟첹겨뇨됴듸뤼뮈븨싀쨔 
+```
+
+Twenty Korean syllables (U+AC00--U+D7AF) form a coordinate path.
+Each syllable encodes a value drawn from 11,172 possibilities through
+its initial, medial, and final decompositions, yielding 11,172²⁰ ≈
+2.17 × 10⁸¹ possible addresses. This is enough to assign a unique
+address to each atom in a volume 21.7 times larger than the
+observable universe. Yet the entire address is a 20-syllable Korean
+string. It is not a hash of a larger datum, but the address itself
+rendered in human-readable Hangul, decodable by anyone who reads
+Korean without a hex dump.
+
+::: {layout-ncol=2}
+
+### Syllable to Coordinate Mapping
+
+| # | Syllable | Initial | Medial | Final | Linear Index |
+|---|----------|---------|--------|-------|-------------|
+| 1 | 맨 | 6 (ㅁ) | 1 (ㅏ) | 4 (ㄴ) | 3,560 |
+| 2 | 가 | 0 (ㄱ) | 0 (ㅏ) | 0 | 0 |
+| 3 | 억 | 11 (ㅇ) | 3 (ㅓ) | 13 (ㄱ) | 6,565 |
+| 4 | 빈 | 7 (ㅂ) | 20 (ㅣ) | 8 (ㄴ) | 4,684 |
+| 5 | 힣 | 18 (ㅎ) | 20 (ㅣ) | 27 (ㅎ) | 11,171 |
+| 6 | 쐭 | 10 (ㅆ) | 11 (ㅗ) | 1 (ㄱ) | 6,189 |
+| 7 | 롮 | 5 (ㄹ) | 8 (ㅗ) | 18 (ㅍ) | 3,182 |
+| 8 | 직 | 12 (ㅈ) | 20 (ㅣ) | 1 (ㄱ) | 7,617 |
+| 9 | 랯 | 5 (ㄹ) | 1 (ㅏ) | 23 (ㅌ) | 2,991 |
+| 10 | 픟 | 17 (ㅍ) | 18 (ㅡ) | 27 (ㅎ) | 10,527 |
+| 11 | 첹 | 14 (ㅊ) | 5 (ㅕ) | 5 (ㄴ) | 8,377 |
+| 12 | 겨 | 0 (ㄱ) | 5 (ㅕ) | 20 | 160 |
+| 13 | 뇨 | 2 (ㄴ) | 6 (ㅛ) | 24 (ㅎ) | 1,368 |
+| 14 | 됴 | 3 (ㄷ) | 9 (ㅛ) | 20 | 2,036 |
+| 15 | 듸 | 3 (ㄷ) | 19 (ㅟ) | 0 | 2,296 |
+| 16 | 뤼 | 5 (ㄹ) | 16 (ㅟ) | 0 | 3,388 |
+| 17 | 뮈 | 6 (ㅁ) | 6 (ㅛ) | 24 (ㅎ) | 3,720 |
+| 18 | 븨 | 7 (ㅂ) | 0 (ㅡ) | 20 | 4,136 |
+| 19 | 싀 | 9 (ㅅ) | 19 (ㅟ) | 0 | 5,824 |
+| 20 | 쨔 | 11 (ㅉ) | 1 (ㅏ) | 0 | 6,868 |
+
+### Hexadecimal View
+
+```text
+0x0DE8 0x0000 0x19A5 0x124C 0x2BA3
+0x182D 0x0C6E 0x1DC1 0x0BAF 0x291F
+0x20B9 0x00A0 0x0558 0x07F4 0x08F8
+0x0D3C 0x0E88 0x1028 0x16C0 0x1AD4
+```
+
+:::
+
 [^tagma-etym]: Greek *τάγμα* from *σύνταγμα* (syn-tagma, *co-ordinate* in English), "a well-ordered arrangement of constituent elements". *Tagma* is the system name; *Coord* is the concrete implementation type.
 [^tagma-repo]: Repository: [Github (Pre-release, Apache 2.0)](https://github.com/ssccsorg/syntagma), Benchmark suite [code](https://github.com/ssccsorg/syntagma/blob/main/sw/rust/benches/bench.rs)
 [^tagma-kv]: Tagma-KV whitepaper (DOI: [10.5281/zenodo.21550431](https://doi.org/10.5281/zenodo.21550431)): <https://docs.ssccs.org/projects/syntagma/tagma/kv>
