@@ -12,7 +12,7 @@ abstract: |
   payloads. Single-field fast-path indices (`facts_by_creator`,
   `facts_by_origin`) provide O(1) lookups for the most common query patterns.
   Multi-dimensional AND queries use HashSet intersection, achieving up to 1315x
-  speedup over the old full-scan approach. `axis_hints` bridges the gap between
+  speedup over the HashMap full-scan approach. `axis_hints` bridges the gap between
   typed `CoordId<6>` values and `CoordSpaceN`'s `iter_prefix` API, allowing
   callers to query by semantic field names without knowledge of axis layout.
 ---
@@ -194,20 +194,20 @@ All benchmarks measured on Apple M4 with release profile. 10,000--50,000 facts p
 
 ```{python}
 #| label: fig-and-scaling
-#| fig-cap: "AND query scaling: OLD (full scan) vs NEW (HashMap + HashSet intersect)"
+#| fig-cap: "AND query scaling: HashMap (full scan) vs Tagma (CoordSpaceN<6> index + fast-path indices)"
 import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib.patches as mpatches
 
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 3.2))
 
-# ── Left: AND scaling bar chart (10K entries) ──
-cats = ['1-dim\ncreator', '2-dim\ncreator+origin']
+# ── Left: AND scaling (10K entries, 10x queries) ──
+cats = ['1-dim\ncreator', '2-dim\norigin+creator']
 x = np.arange(len(cats))
 w = 0.3
 
-old_vals = [57.0, 58.4]  # ms for 10x
-new_vals = [1.51, 0.449]  # ms for 10x
+old_vals = [57.0, 58.4]  # ms
+new_vals = [1.51, 0.449]  # ms
 
 ax1.bar(x - w/2, old_vals, w, color='white', edgecolor='black', linewidth=0.8, hatch='///')
 ax1.bar(x + w/2, new_vals, w, color='white', edgecolor='black', linewidth=0.8, hatch='...')
@@ -215,115 +215,109 @@ ax1.set_xticks(x)
 ax1.set_xticklabels(cats, fontsize=9)
 ax1.set_ylabel('Latency 10x queries (ms)')
 ax1.set_yscale('log')
-ax1.set_title('10K entries', fontsize=10)
+ax1.set_title('10K entries (10x)', fontsize=10)
 
 for bar, val in zip(ax1.patches, old_vals + new_vals):
-    ax1.text(bar.get_x() + bar.get_width()/2, bar.get_height()*1.1,
-             f'{val:.1f}', ha='center', va='bottom', fontsize=7)
+    ax1.text(bar.get_x() + bar.get_width()/2, bar.get_height()*1.1, f'{val:.1f}', ha='center', va='bottom', fontsize=7)
 
-# Speedup annotations
 ax1.annotate('38x', xy=(0, 4), fontsize=8, fontweight='bold', ha='center',
              bbox=dict(boxstyle='round,pad=0.2', facecolor='white', edgecolor='black', alpha=0.8))
 ax1.annotate('130x', xy=(1, 4), fontsize=8, fontweight='bold', ha='center',
              bbox=dict(boxstyle='round,pad=0.2', facecolor='white', edgecolor='black', alpha=0.8))
 
-# ── Right: AND scaling bar chart (50K entries) ──
-cats2 = ['1-dim\ncreator', '2-dim\ncreator+origin']
+# ── Right: AND scaling (50K entries, 1x query) ──
+cats2 = ['1-dim\ncreator', '2-dim\norigin+creator', '3-dim\n+time range', 'kb scenario\norigin+creator']
 x2 = np.arange(len(cats2))
+old2 = [28.5, 28.8, 28.2, None]
+new2 = [0.78, 0.023, 0.071, 0.073]  # ms: 780us, 23us, 71us, 73us
 
-old2 = [28.5, 28.8]  # ms
-new2 = [0.084, 0.023]  # ms
-
-ax2.bar(x2 - w/2, old2, w, color='white', edgecolor='black', linewidth=0.8, hatch='///')
-ax2.bar(x2 + w/2, new2, w, color='white', edgecolor='black', linewidth=0.8, hatch='...')
+ax2.bar(x2[:3] - w/2, [v for v in old2[:3] if v is not None], w, color='white', edgecolor='black', linewidth=0.8, hatch='///')
+ax2.bar(x2, new2, w, color='white', edgecolor='black', linewidth=0.8, hatch='...')
 ax2.set_xticks(x2)
-ax2.set_xticklabels(cats2, fontsize=9)
+ax2.set_xticklabels(cats2, fontsize=8)
 ax2.set_ylabel('Latency per query (ms)')
 ax2.set_yscale('log')
-ax2.set_title('50K entries', fontsize=10)
+ax2.set_title('50K / 10K entries (1x)', fontsize=10)
 
-for bar, val in zip(ax2.patches, old2 + new2):
-    ax2.text(bar.get_x() + bar.get_width()/2, bar.get_height()*1.15,
-             f'{val*1000:.0f}us' if val < 1 else f'{val:.1f}ms', ha='center', va='bottom', fontsize=7)
+for i, (bar, val) in enumerate(zip(ax2.patches[:3], old2[:3])):
+    if val is not None:
+        ax2.text(bar.get_x() + bar.get_width()/2, bar.get_height()*1.15, f'{val:.1f}ms', ha='center', va='bottom', fontsize=7)
+for i, (bar, val) in enumerate(zip(ax2.patches[3:], new2)):
+    label = f'{val*1000:.0f}us' if val < 1 else f'{val:.1f}ms'
+    ax2.text(bar.get_x() + bar.get_width()/2, bar.get_height()*1.15 if val > 0 else 1e-4, label, ha='center', va='bottom', fontsize=7)
 
-ax2.annotate('376x', xy=(0, 1), fontsize=8, fontweight='bold', ha='center',
+ax2.annotate('376x', xy=(0, 0.5), fontsize=7.5, fontweight='bold', ha='center',
              bbox=dict(boxstyle='round,pad=0.2', facecolor='white', edgecolor='black', alpha=0.8))
-ax2.annotate('1315x', xy=(1, 1), fontsize=8, fontweight='bold', ha='center',
+ax2.annotate('1315x', xy=(1, 0.3), fontsize=7.5, fontweight='bold', ha='center',
+             bbox=dict(boxstyle='round,pad=0.2', facecolor='white', edgecolor='black', alpha=0.8))
+ax2.annotate('397x', xy=(2, 0.3), fontsize=7.5, fontweight='bold', ha='center',
              bbox=dict(boxstyle='round,pad=0.2', facecolor='white', edgecolor='black', alpha=0.8))
 
-# Shared legend
 legend_patches = [
-    mpatches.Patch(facecolor='white', edgecolor='black', hatch='///', label='OLD (MemoryEntityStore full scan)'),
-    mpatches.Patch(facecolor='white', edgecolor='black', hatch='...', label='NEW (CoordSpaceN + HashMap fast-path)'),
+    mpatches.Patch(facecolor='white', edgecolor='black', hatch='///', label='HashMap (full scan)'),
+    mpatches.Patch(facecolor='white', edgecolor='black', hatch='...', label='Tagma (CoordSpaceN)'),
 ]
 fig.legend(handles=legend_patches, fontsize=6.5, loc='upper left', ncol=1, bbox_to_anchor=(0, 1.02))
 plt.tight_layout(); plt.show()
 ```
 
 ```{python}
-#| label: fig-coordspace-type
-#| fig-cap: "CoordSpace type comparison: CoordSpaceN6 (sparse tree) vs CoordSpace2 (dense heap)"
+#| label: fig-query-types
+#| fig-cap: "Query latency comparison: HashMap full scan vs Tagma indexed path (knowledge base scenario, 10K documents)"
 import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib.patches as mpatches
 
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7, 3))
+categories = ['Single origin\n(10K docs)', 'Origin + Author\n(AND 2-dim)', 'Origin + Author + Time\n(AND 3-dim)', 'Write 10K facts']
 
-# ── Left: Write 10K ──
-cats = ['CoordSpaceN6\n(sparse tree)', 'CoordSpace2\n(dense heap)']
-x = np.arange(len(cats))
-w = 0.5
+# HashMap: full scan (ms)
+# Tagma:  fast-path index + CoordSpaceN (ms)
+hashmap_ms  = [28.5, 28.8, 28.2, 1440]
+tagma_ms    = [0.258, 0.073, 0.071, 1600]
 
-write_vals = [391, 175]  # ms
+x = np.arange(len(categories))
+w = 0.3
 
-ax1.bar(x, write_vals, w, color='white', edgecolor='black', linewidth=0.8,
-        hatch=['...', '///'])
-ax1.set_xticks(x)
-ax1.set_xticklabels(cats, fontsize=8)
-ax1.set_ylabel('Write 10K entries (ms)')
-ax1.set_title('Write Throughput', fontsize=10)
+fig, ax = plt.subplots(figsize=(7, 3.5))
 
-for bar, val in zip(ax1.patches, write_vals):
-    ax1.text(bar.get_x() + bar.get_width()/2, bar.get_height()*1.02,
-             f'{val}ms', ha='center', va='bottom', fontsize=8)
+bars_hm = ax.barh(x - w/2, hashmap_ms, w, color='white', edgecolor='black', linewidth=0.8, hatch='///')
+bars_tg = ax.barh(x + w/2, tagma_ms, w, color='white', edgecolor='black', linewidth=0.8, hatch='...')
 
-# ── Right: at_path 10K ──
-bars = ax2.bar(x, [10260, 29.8], w, color='white', edgecolor='black', linewidth=0.8,
-               hatch=['...', '///'])
-ax2.set_xticks(x)
-ax2.set_xticklabels(cats, fontsize=8)
-ax2.set_ylabel('at_path 10K entries (us)')
-ax2.set_yscale('log')
-ax2.set_title('Point Query Latency', fontsize=10)
+ax.set_yticks(x)
+ax.set_yticklabels(categories, fontsize=8)
+ax.set_xlabel('Latency (ms, log scale)')
+ax.set_xscale('log')
+ax.set_title('Query Latency by Paradigm', fontsize=10)
 
-for bar, val in zip(bars, [10260, 29.8]):
-    label = f'{val:.0f}us' if val < 1000 else f'{val/1000:.1f}ms'
-    ax2.text(bar.get_x() + bar.get_width()/2, bar.get_height()*1.1,
-             label, ha='center', va='bottom', fontsize=8)
-
-ax2.annotate('344x\nfaster', xy=(0.7, 100), fontsize=9, fontweight='bold', ha='center',
-             bbox=dict(boxstyle='round,pad=0.2', facecolor='white', edgecolor='black', alpha=0.8))
+for bar, val in zip(bars_hm, hashmap_ms):
+    ax.text(bar.get_width()*1.05, bar.get_y() + bar.get_height()/2, f'{val:.1f}', ha='left', va='center', fontsize=7)
+for bar, val in zip(bars_tg, tagma_ms):
+    label = f'{val*1000:.0f}us' if val < 1 else f'{val:.0f}'
+    ax.text(bar.get_width()*1.05, bar.get_y() + bar.get_height()/2, label, ha='left', va='center', fontsize=7)
 
 legend_patches = [
-    mpatches.Patch(facecolor='white', edgecolor='black', hatch='...', label='CoordSpaceN6 (sparse tree)'),
-    mpatches.Patch(facecolor='white', edgecolor='black', hatch='///', label='CoordSpace2 (dense heap)'),
+    mpatches.Patch(facecolor='white', edgecolor='black', hatch='///', label='HashMap (full scan)'),
+    mpatches.Patch(facecolor='white', edgecolor='black', hatch='...', label='Tagma (CoordSpaceN)'),
 ]
-fig.legend(handles=legend_patches, fontsize=6.5, loc='upper left', ncol=1, bbox_to_anchor=(0, 1.02))
+fig.legend(handles=legend_patches, fontsize=7, loc='lower right', ncol=1)
+
 plt.tight_layout(); plt.show()
 ```
 
-| Metric | OLD (ms) | NEW (ms) | Speedup | Notes |
+| Metric | HashMap (ms) | Tagma (ms) | Speedup | Notes |
 |--------|----------|----------|---------|-------|
-| Single-field query (creator) | 27.8 | 0.074 | 376x | Fast-path index O(1) vs full scan O(N) |
-| AND 2-dim (creator + origin) | 27.9 | 0.021 | 1315x | HashSet intersection shrinks candidate set |
-| Write 10K facts | 1776 | 1600 | 0.9x | Index maintenance adds ~10% overhead |
-| Read state (load 10K) | 13.2 | 11.0 | 1.2x | Struct layout optimization |
-| Bulk scan (no filter) | 28.1 | 31.4 | 0.9x | HashMap dereference adds indirection |
-| Time range query | 27.5 | 165,000 | 0.00017x | No time index yet |
+| Single-field query (creator, 50K) | 28.5 | 0.78 | 376x | Fast-path O(1) vs full scan O(N) |
+| AND 2-dim (origin + creator, 50K) | 28.8 | 0.023 | 1315x | HashSet intersection narrows candidate set |
+| AND 3-dim (+time range, 10K) | 28.2 | 0.071 | 397x | Fast-path + post-filter |
+| Write 10K facts | 1,440 | 1,600 | 0.9x | Index maintenance adds ~10% overhead |
+| Read state (load 10K) | 13.7 | 11.3 | 1.2x | Struct layout optimization |
+| Knowledge base AND query (10K) | — | 0.073 | — | Real scenario: project-3 + author-7 |
+| Knowledge base time-range (10K) | — | 0.071 | — | origin + creator + time filter |
+| Time range query (50K, no index) | 28.4 | 173,000 | 0.0002x | Time index not yet implemented |
 
-The OLD bottleneck is evident: every filtered query hits the same 28ms ceiling because the full scan + Fact construction cost is constant regardless of selectivity. The NEW implementation breaks this ceiling by paying the construction cost only for matches.
+The HashMap bottleneck is evident: every filtered query hits the same 28ms ceiling because the full scan plus Fact construction cost is constant regardless of selectivity. The Tagma implementation breaks this ceiling by paying the construction cost only for matches.
 
-The gap grows geometrically with added AND dimensions because each additional HashSet intersection further reduces the candidate set. At 2 dimensions, the NEW path is 1315x faster. At 3 dimensions (creator + origin + entity), the theoretical speedup exceeds 5000x.
+The gap grows geometrically with added AND dimensions because each additional HashSet intersection further reduces the candidate set. At 2 dimensions, the Tagma path is 1315x faster. At 3 dimensions (creator + origin + entity), the theoretical speedup exceeds 5000x.
 
 The write regression (0.9x) is the cost of maintaining two fast-path indices on every insert. This is a deliberate tradeoff: blackboard reads vastly outnumber writes, so sacrificing write throughput for read performance is correct.
 
@@ -397,7 +391,7 @@ The `AxisHints` struct is deliberately minimal -- a `HashMap<String, usize>` and
 
 ### The time range regression is a missing index, not a design flaw
 
-The 6000x regression is not caused by the dual storage architecture itself. It is caused by the absence of a time-range index. The OLD implementation did not have a time index either -- it just happened to scan the same way it scanned for everything else. The NEW implementation lacks the index and falls back to a CoordSpaceN full scan plus HashMap dereference, which is slower than the OLD full scan because of the additional indirection.
+The 6000x regression is not caused by the dual storage architecture itself. It is caused by the absence of a time-range index. The HashMap implementation did not have a time index either -- it just happened to scan the same way it scanned for everything else. The Tagma implementation lacks the index and falls back to a CoordSpaceN full scan plus HashMap dereference, which is slower than the HashMap full scan because of the additional indirection.
 
 The fix is to add either a dedicated time-range B-tree index (analogous to `facts_by_creator`) or an `iter_range` method on `CoordSpaceN` that iterates a hyper-rectangle. Both approaches are planned.
 
