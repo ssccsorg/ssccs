@@ -1,6 +1,6 @@
 ---
 title: "Chton"
-subtitle: "Materialization IO layer for coordinate spaces over physical media"
+subtitle: "Materialization IO fabric for coordinate spaces over physical media"
 date: last-modified
 format:
     html: {}
@@ -30,12 +30,19 @@ title_meta_items = {
 %run ../../_include/_graphviz.py
 ```
 
-Chton is the IO materialization layer of the tagma coordinate space. The
-tagma specification defines the coordinate space as mathematical truth;
-chton lands that specification onto physical media as byte-level bindings,
-per-space-type layout strategies, and materialization protocols. The active
-use of the materialized space is the domain of systems that consume chton
-as infrastructure. The materialization surface is a fabric: any source is
+Chton is a matrix router and transformation implementations for the materialization(e.g. persistent IO) of the tagma coordinate space. The
+name chton comes from the Greek chthōn (earth): the layer every project
+stands on. The tagma specification defines the coordinate space as
+mathematical truth;
+tagma also carries the native infrastructure that embodies it, including
+the in-memory coordinate structures and the native key-value over them.
+chton lands that specification onto media outside memory: file, signal,
+network, and GPU origins, as byte-level bindings, per-space-type layout
+strategies, and materialization protocols. Memory is a projection surface,
+not a materialization target: an external medium projected into the
+address space is the mapped binding of that medium. The active use of the
+materialized space is the domain of systems that consume chton as
+infrastructure. The materialization surface is a fabric: any source is
 also an output, and any output is also a source, so the path matrix binds
 them one to one.
 
@@ -53,12 +60,12 @@ fig = plt.figure(figsize=(11, 8))
 ax = fig.add_subplot(111, projection="3d")
 
 space_types = ["Fixed-depth\ntree", "Recursive\ntree", "Dense\narray"]
-origins = ["Memory", "File", "Signal", "Network", "GPU"]
+origins = ["File", "Signal", "Network", "GPU"]
 
 layer_colors = {"origin": "#a8e6cf", "binding": "#fff9c4", "protocol": "#ffd3b6"}
 layer_names = ["origin", "binding", "protocol"]
 
-current = {(0, 0), (0, 1)}  # fixed tree x memory, fixed tree x file
+current = {(0, 0)}  # fixed tree x file
 
 dx, dy = 0.92, 0.92
 x = np.arange(len(space_types))
@@ -157,7 +164,7 @@ ax.legend(
 
 ```{python}
 #| label: fig-chton-mediamap
-#| fig-cap: "Two parallel worlds, one mapping: the memory matrix of materialized blocks and the media matrix of persistent regions share one layout, bound 1:1 by address. The block address is the region offset, so no serialization step exists between them."
+#| fig-cap: "Two parallel worlds, one mapping: the file origin projected as addressable blocks and the persistent regions that back them share one layout, bound 1:1 by address. The block address is the region offset, so no serialization step exists between them. Memory is the projection surface, not the target."
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -172,7 +179,7 @@ step = cell + 0.1
 ys = np.arange(n_row) * step
 zs = np.arange(n_col) * step
 
-mem_x = 0.0      # memory world plane
+mem_x = 0.0      # projected view plane
 med_x = 3.4      # media world plane
 block_dx = 0.55  # block depth along the mapping axis
 
@@ -186,7 +193,7 @@ ax.plot_surface(np.full((2, 2), mem_x - block_dx / 2 - 0.25), byy, bzz,
 ax.plot_surface(np.full((2, 2), med_x + 0.25), byy, bzz,
                 alpha=0.14, color="#e8e2d8", edgecolor="none")
 
-# memory world: solid 3D blocks in a matrix, one per cell
+# projected view: solid blocks in a matrix, one per cell
 for i in range(n_row):
     for j in range(n_col):
         ax.bar3d(mem_x - block_dx / 2, ys[i] - cell / 2, zs[j] - cell / 2,
@@ -223,7 +230,7 @@ for (i, j) in [(0, 0), (2, 2)]:
 
 # world labels, kept inside the axis limits
 label_y = span_max + 0.35
-ax.text(mem_x, label_y, 0.0, "memory world: materialized blocks",
+ax.text(mem_x, label_y, 0.0, "projected view: file as blocks",
         fontsize=9, ha="center", color="#2c6f8f")
 ax.text(med_x, label_y, 0.0, "media world: persistent regions",
         fontsize=9, ha="center", color="#555555")
@@ -243,7 +250,7 @@ from matplotlib.patches import Patch
 from matplotlib.lines import Line2D
 ax.legend(
     handles=[
-        Patch(facecolor="#9ec9e8", edgecolor="black", label="memory block (materialized)"),
+        Patch(facecolor="#9ec9e8", edgecolor="black", label="projected block (file view)"),
         Patch(facecolor="white", edgecolor="#6b6f76", label="media region (persistent)"),
         Line2D([], [], color="#2c6f8f", linestyle="--", label="1:1 mapping (address = offset)"),
     ],
@@ -256,9 +263,9 @@ ax.legend(
 
 | Layer | Role |
 |:---|:---|
-| origin | byte-level bindings to physical media: memory and file today; signal, network, and GPU media later |
+| origin | byte-level bindings to media outside memory: file today; signal, network, and GPU media later. Memory is a projection surface, not a target |
 | binding | per-space-type materialization strategies: fixed-depth tree today; recursive and dense layouts later |
-| protocol | materialization protocols over origins: key-value first |
+| protocol | materialization protocols over origins: key-value first, sharing the tagma-kv CoordKV contract |
 | io | flat key-space IO surface over materialized regions |
 
 ## Design
@@ -268,7 +275,12 @@ ax.legend(
 - Persistence is a 1:1 mapping of memory: a materialized block maps to a
   media region by address, so the block address is the region offset and
   reading and writing need no serialization step. A memory-mapped binding
-  is the later mechanism for the same layout.
+  is the later mechanism for the same layout: the file projected into the
+  address space is the mapped binding of that medium.
+- The key-value protocol implements the tagma-kv CoordKV surface over
+  origins. The native key-value lives in tagma as the in-memory form of
+  the coordinate space; chton provides the same contract materialized
+  onto file origins.
 - Addressing is per-level array indexing: depth is bounded by file size,
   never by integer width.
 - A protocol is origin-agnostic and an origin is protocol-agnostic. Storage
@@ -282,10 +294,12 @@ ax.legend(
 ## Status
 
 Early implementation. The origin, binding (tree strategy), and key-value
-protocol layers work over memory and file origins. Unit tests and a usage
-scenario run through `./run.sh`. Memory-mapped persistence (mmap-style
-1:1 media mapping), checkpoint and restore, and wave origins are later
-work.
+protocol layers work over file origins, with memory as a projection
+surface. The key-value protocol currently exposes its own surface;
+implementing the tagma-kv CoordKV contract is the next step. Unit tests
+and a usage scenario run through `./run.sh`. Memory-mapped persistence
+(mmap-style 1:1 media mapping), checkpoint and restore, and wave origins
+are later work.
 
 ## Direction
 
