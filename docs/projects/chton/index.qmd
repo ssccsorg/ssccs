@@ -1,0 +1,301 @@
+---
+title: "Chton"
+subtitle: "Materialization IO layer for coordinate spaces over physical media"
+date: last-modified
+format:
+    html: {}
+metadata-files:
+  - ../../_include/author.yml
+  - ../../_include/format.html.yml
+---
+
+```{python}
+#| include: false
+#| context: local
+title_meta_items = {
+    "html": [
+        {"title": "Code", "link": "https://github.com/ssccsorg/chton", "content": "GitHub", "icon": "bi bi-link"},
+        {"title": "References", "link": "https://docs.ssccs.org/projects/syntagma/", "content": "synTagma", "icon": "bi bi-link"},
+        {"title": "References", "link": "/projects/syntagma/tagma/wav/", "content": "Tagma-WAV", "icon": "bi bi-link"},
+        {"title": "References", "link": "https://docs.ssccs.org/projects/nexus/", "content": "neXus", "icon": "bi bi-link"},
+    ]
+}
+```
+
+{{< include ../../_include/_title_meta_items.qmd >}}
+
+```{python}
+#| include: false
+#| context: local
+%run ../../_include/_graphviz.py
+```
+
+Chton is the IO materialization layer of the tagma coordinate space. The
+tagma specification defines the coordinate space as mathematical truth;
+chton lands that specification onto physical media as byte-level bindings,
+per-space-type layout strategies, and materialization protocols. The active
+use of the materialized space is the domain of systems that consume chton
+as infrastructure. The materialization surface is a fabric: any source is
+also an output, and any output is also a source, so the path matrix binds
+them one to one.
+
+:::{ layout-ncol=2 }
+
+```{python}
+#| label: fig-chton-materialization
+#| fig-cap: "The materialization IO fabric: an abstracted source is also an output, and an abstracted output is also a source; the materialization path matrix binds them one to one. Solid columns are implemented today; outlined columns are later strategies and media."
+import matplotlib.pyplot as plt
+import numpy as np
+
+plt.rcParams.update({"font.family": "sans-serif", "font.size": 9, "figure.dpi": 150})
+
+fig = plt.figure(figsize=(11, 8))
+ax = fig.add_subplot(111, projection="3d")
+
+space_types = ["Fixed-depth\ntree", "Recursive\ntree", "Dense\narray"]
+origins = ["Memory", "File", "Signal", "Network", "GPU"]
+
+layer_colors = {"origin": "#a8e6cf", "binding": "#fff9c4", "protocol": "#ffd3b6"}
+layer_names = ["origin", "binding", "protocol"]
+
+current = {(0, 0), (0, 1)}  # fixed tree x memory, fixed tree x file
+
+dx, dy = 0.92, 0.92
+x = np.arange(len(space_types))
+y = np.arange(len(origins))
+
+# Solid HBM-style columns: current cells are filled stacks, later cells are
+# translucent placeholders with a dashed top outline. Each column is
+# centered on its grid cell so ticks, outlines, and stacks align.
+for iy in y:
+    for ix in x:
+        z_base = 0.0
+        is_current = (int(ix), int(iy)) in current
+        alpha = 1.0 if is_current else 0.13
+        edge = "black" if is_current else "#9aa0a6"
+        lw = 0.7 if is_current else 0.4
+        for layer in layer_names:
+            ax.bar3d(
+                ix - dx / 2, iy - dy / 2, z_base, dx, dy, 1.0,
+                color=layer_colors[layer], alpha=alpha,
+                edgecolor=edge, linewidth=lw, shade=True,
+            )
+            z_base += 1.0
+
+# dashed top outline on later columns
+for iy in y:
+    for ix in x:
+        if (int(ix), int(iy)) in current:
+            continue
+        cx, cy = float(ix), float(iy)
+        hx, hy = dx / 2, dy / 2
+        corners = [(cx - hx, cy - hy), (cx + hx, cy - hy),
+                   (cx + hx, cy + hy), (cx - hx, cy + hy)]
+        for a, b in zip(corners, corners[1:] + corners[:1]):
+            ax.plot([a[0], b[0]], [a[1], b[1]], [3.0, 3.0],
+                    color="#7d848c", linestyle="--", linewidth=0.6)
+
+# abstracted source / output walls at the fabric edges: every output can be
+# a source again. The walls share the column envelope so panes, columns,
+# and stacks align.
+wall_l = -dx / 2
+wall_r = (len(space_types) - 1) + dx / 2
+wall_y0 = -dy / 2
+wall_y1 = (len(origins) - 1) + dy / 2
+for wx in (wall_l, wall_r):
+    wxx = np.full((2, 2), wx)
+    wyy = np.array([[wall_y0, wall_y1], [wall_y0, wall_y1]])
+    wzz = np.array([[0.0, 0.0], [3.0, 3.0]])
+    ax.plot_surface(wxx, wyy, wzz, alpha=0.16, color="#bcd7e8", edgecolor="none")
+
+# materialization paths through the matrix: forward (solid) and return
+# (dashed), the fabric hub property that output becomes source again
+for iy in (0.0, 1.0):
+    ax.plot([wall_l, 0.0], [2.0, iy], [1.5, 1.5], color="#2c6f8f", linewidth=1.1)
+    ax.plot([0.0, wall_r], [iy, 2.0], [1.5, 1.5], color="#2c6f8f", linewidth=1.1)
+for iy in (1.0, 2.0):
+    ax.plot([wall_r, 1.0], [2.0, iy], [2.5, 2.5], color="#8aa8bd", linestyle="--", linewidth=0.9)
+    ax.plot([1.0, wall_l], [iy, 2.0], [2.5, 2.5], color="#8aa8bd", linestyle="--", linewidth=0.9)
+
+# tagma: the specification floor beneath the fabric, sharing the wall
+# corners so all panes form one aligned box
+xx, yy = np.meshgrid([wall_l, wall_r], [wall_y0, wall_y1])
+ax.plot_surface(xx, yy, np.zeros_like(xx), alpha=0.22, color="#d4f1f9", edgecolor="none")
+
+# nexus: the semantic consumers above the fabric, same footprint
+ax.plot_surface(xx, yy, np.full_like(xx, 3.0), alpha=0.18, color="#e1bee7", edgecolor="none")
+
+ax.set_xlabel("space type (tagma)", fontsize=9)
+ax.set_ylabel("origin (medium)", fontsize=9)
+ax.set_zlabel("layer", fontsize=9)
+ax.set_xticks(x)
+ax.set_xticklabels(space_types, fontsize=8)
+ax.set_yticks(y)
+ax.set_yticklabels(origins, fontsize=7.5)
+ax.set_xlim(wall_l - 0.3, wall_r + 0.3)
+ax.set_ylim(wall_y0 - 0.3, wall_y1 + 0.3)
+ax.set_zlim(0, 3.0)
+ax.set_box_aspect((wall_r - wall_l, wall_y1 - wall_y0, 3.0))
+ax.view_init(elev=22, azim=-58)
+
+from matplotlib.patches import Patch
+from matplotlib.lines import Line2D
+ax.legend(
+    handles=[
+        Patch(facecolor="#a8e6cf", label="origin layer"),
+        Patch(facecolor="#fff9c4", label="binding layer"),
+        Patch(facecolor="#ffd3b6", label="protocol layer"),
+        Patch(facecolor="white", edgecolor="black", label="materialized today (Chton-Storage)"),
+        Line2D([], [], color="#7d848c", linestyle="--", label="later strategy or origin"),
+        Patch(facecolor="#bcd7e8", label="source / output (abstracted)"),
+        Line2D([], [], color="#2c6f8f", label="materialization path"),
+        Line2D([], [], color="#8aa8bd", linestyle="--", label="output becomes source"),
+    ],
+    loc="upper left", fontsize=8, framealpha=0.9,
+)
+```
+
+```{python}
+#| label: fig-chton-mediamap
+#| fig-cap: "Two parallel worlds, one mapping: the memory matrix of materialized blocks and the media matrix of persistent regions share one layout, bound 1:1 by address. The block address is the region offset, so no serialization step exists between them."
+import matplotlib.pyplot as plt
+import numpy as np
+
+plt.rcParams.update({"font.family": "sans-serif", "font.size": 9, "figure.dpi": 150})
+
+fig = plt.figure(figsize=(11.5, 8))
+ax = fig.add_subplot(111, projection="3d")
+
+n_row, n_col = 3, 3
+cell = 0.72
+step = cell + 0.1
+ys = np.arange(n_row) * step
+zs = np.arange(n_col) * step
+
+mem_x = 0.0      # memory world plane
+med_x = 3.4      # media world plane
+block_dx = 0.55  # block depth along the mapping axis
+
+# backdrops of the two parallel worlds, sharing the block and cell corners
+span_min = -cell / 2
+span_max = (n_row - 1) * step + cell / 2
+byy = np.array([[span_min, span_max], [span_min, span_max]])
+bzz = np.array([[span_min, span_min], [span_max, span_max]])
+ax.plot_surface(np.full((2, 2), mem_x - block_dx / 2 - 0.25), byy, bzz,
+                alpha=0.12, color="#bcd7e8", edgecolor="none")
+ax.plot_surface(np.full((2, 2), med_x + 0.25), byy, bzz,
+                alpha=0.14, color="#e8e2d8", edgecolor="none")
+
+# memory world: solid 3D blocks in a matrix, one per cell
+for i in range(n_row):
+    for j in range(n_col):
+        ax.bar3d(mem_x - block_dx / 2, ys[i] - cell / 2, zs[j] - cell / 2,
+                 block_dx, cell, cell,
+                 color="#9ec9e8", alpha=1.0, edgecolor="black",
+                 linewidth=0.6, shade=True)
+
+# media world: persistent region cells as flat outlines with a light fill
+for i in range(n_row):
+    for j in range(n_col):
+        y0, y1 = ys[i] - cell / 2, ys[i] + cell / 2
+        z0, z1 = zs[j] - cell / 2, zs[j] + cell / 2
+        fxx = np.full((2, 2), med_x)
+        fyy = np.array([[y0, y1], [y0, y1]])
+        fzz = np.array([[z0, z0], [z1, z1]])
+        ax.plot_surface(fxx, fyy, fzz, alpha=0.45, color="#e8e2d8", edgecolor="none")
+        corners = [(med_x, y0, z0), (med_x, y1, z0),
+                   (med_x, y1, z1), (med_x, y0, z1)]
+        for a, b in zip(corners, corners[1:] + corners[:1]):
+            ax.plot([a[0], b[0]], [a[1], b[1]], [a[2], b[2]],
+                    color="#6b6f76", linewidth=0.8)
+
+# 1:1 mapping: each block maps to exactly one region
+for i in range(n_row):
+    for j in range(n_col):
+        ax.plot([mem_x + block_dx / 2, med_x], [ys[i], ys[i]], [zs[j], zs[j]],
+                color="#2c6f8f", linestyle="--", linewidth=0.8)
+
+# direction arrows on two representative mappings
+for (i, j) in [(0, 0), (2, 2)]:
+    ax.quiver(mem_x + block_dx / 2, ys[i], zs[j],
+              med_x - mem_x - block_dx / 2, 0, 0,
+              color="#2c6f8f", arrow_length_ratio=0.04, linewidth=1.2)
+
+# world labels, kept inside the axis limits
+label_y = span_max + 0.35
+ax.text(mem_x, label_y, 0.0, "memory world: materialized blocks",
+        fontsize=9, ha="center", color="#2c6f8f")
+ax.text(med_x, label_y, 0.0, "media world: persistent regions",
+        fontsize=9, ha="center", color="#555555")
+
+ax.set_xlabel("address (memory to media)", fontsize=9)
+ax.set_ylabel("row", fontsize=9)
+ax.set_zlabel("column", fontsize=9)
+ax.set_xticks([])
+ax.set_yticks([])
+ax.set_zticks([])
+ax.set_xlim(-1.0, 4.4)
+ax.set_ylim(span_min - 0.4, span_max + 0.6)
+ax.set_zlim(span_min - 0.4, span_max + 0.4)
+ax.view_init(elev=18, azim=-60)
+
+from matplotlib.patches import Patch
+from matplotlib.lines import Line2D
+ax.legend(
+    handles=[
+        Patch(facecolor="#9ec9e8", edgecolor="black", label="memory block (materialized)"),
+        Patch(facecolor="white", edgecolor="#6b6f76", label="media region (persistent)"),
+        Line2D([], [], color="#2c6f8f", linestyle="--", label="1:1 mapping (address = offset)"),
+    ],
+    loc="upper left", fontsize=8, framealpha=0.9,
+)
+```
+:::
+
+## Layers
+
+| Layer | Role |
+|:---|:---|
+| origin | byte-level bindings to physical media: memory and file today; signal, network, and GPU media later |
+| binding | per-space-type materialization strategies: fixed-depth tree today; recursive and dense layouts later |
+| protocol | materialization protocols over origins: key-value first |
+| io | flat key-space IO surface over materialized regions |
+
+## Design
+
+- The storage format is the memory layout: there is no separate
+  serialization step.
+- Persistence is a 1:1 mapping of memory: a materialized block maps to a
+  media region by address, so the block address is the region offset and
+  reading and writing need no serialization step. A memory-mapped binding
+  is the later mechanism for the same layout.
+- Addressing is per-level array indexing: depth is bounded by file size,
+  never by integer width.
+- A protocol is origin-agnostic and an origin is protocol-agnostic. Storage
+  is an attribute of the destination: a disk origin stores by nature, a
+  signal origin propagates by nature. The same protocol materializes over
+  either.
+- Per-space-type strategies keep the materialization independent of the
+  space type: the fixed-depth tree is the first strategy; recursive and
+  other tagma space types are later strategies on the same surface.
+
+## Status
+
+Early implementation. The origin, binding (tree strategy), and key-value
+protocol layers work over memory and file origins. Unit tests and a usage
+scenario run through `./run.sh`. Memory-mapped persistence (mmap-style
+1:1 media mapping), checkpoint and restore, and wave origins are later
+work.
+
+## Direction
+
+The Chton brand covers the materialization families: Chton-Storage (disk
+and filesystem origins, the current role), Chton-Wave (signal origins, the
+tagma-wave materialization side), and Chton-Memory (time and snapshot
+materialization). The families share one surface: the materialization
+path matrix is the hub, and each family is a source that is also an
+output, so the fabric grows by adding paths, not by adding stacks.
+
+---
+
+*Chton is a project of the SSCCS Foundation.*
