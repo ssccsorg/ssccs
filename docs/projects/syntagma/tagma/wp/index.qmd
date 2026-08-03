@@ -123,6 +123,8 @@ Variable-length encoding has architectural consequences that are independent of 
 | UTF-32 | 4 bytes | unlimited | 75-88% for common use | yes | no |
 | **Tagma** | **2 bytes** | **11,172 of 65,536** | **54,364 structurally invalid (error detection)** | **yes** | **yes (54,364 invalid)** |
 
+Because the coordinate is a fixed 16-bit BMP value, the address role needs no decoder, no parser, and no operating system: `*(base + coord)` is the entire lookup, from a kernel bootloader to an MMU-less microcontroller. Text input still requires one conversion from the carrier encoding to the code point.
+
 ## The Identity Problem
 
 Every system that stores data by content rather than by location must generate identifiers. Current approaches and their hardware cost:
