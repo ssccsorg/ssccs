@@ -124,11 +124,9 @@ SSCCS begins as a definition of what computation is, not as a prescription for h
 
 Concrete implementations, whether on conventional silicon or on future hardware, are derivative: each is an approximate realisation that the model then corrects through Observation, the active act of revealing structure. Because Observation bridges the ideal and the instantiated, the framework remains stable across implementation generations while the realisations themselves evolve.
 
-The primitives have been implemented as executable code—a cross-validated RISC-V simulation confirms deterministic results across independent substrates—and the same structural principle has been applied experimentally to existing open-spec silicon through ustom instruction verification via ExaVerif[@ev2026exaverif].
+The primitives have been implemented as executable code, and deterministic behavior has been confirmed across independent substrates: a cross-validated RISC-V simulation and an inverse-validation exercise on conventional open-spec silicon that instantiates the model within the constraints of an existing architecture (the calibration procedure and results are reported in Phase 1 of the roadmap [*-@sec-appendix-roadmap*]). Because Observation is deterministic by definition, every calibration is auditable and replayable by construction. These results ground the model in today's silicon; the long-term trajectory remains native hardware where Schemes are instantiated directly rather than emulated.
 
-This reverse-validation on commercial silicon is not a target—it is a calibration. It demonstrates that the SSCCS model can be artificially instantiated within the constraints of existing architectures, serving as a proof of concept while the long-term trajectory remains native hardware where Schemes are instantiated directly rather than emulated. These empirical results ground the model in today's silicon, but they are not projections of SSCCS-native compute.
-
-neXus[@nexus2026fih], the state-space engine developed alongside the reference implementation, archives every Observation as an immutable Fact—making the calibration process auditable, replayable, and composable across experiments. neXus is not part of the computational model; it is the archival implementation that preserves the model's empirical footprint.
+An ecosystem of standalone projects instantiates the model in specific domains; each project is introduced in its own documentation and applies the four primitives to its domain without modifying the core model.
 
 ```{python}
 #| label: fig-ontology
@@ -477,7 +475,7 @@ Two recent results in classical parallelism are structurally related to SSCCS. E
 
 Let $\mathcal{S}$ denote the set of all Segments. A Segment $s \in \mathcal{S}$ is a tuple $(c, id)$ where $c \in \mathbb{R}^d$ represents coordinates in a $d$-dimensional possibility space, and $id = H(c)$ is a cryptographic hash providing a unique identifier.
 
-Its properties are: **Immutability** (once created, a Segment cannot be modified), **Statelessness** (contains no values, only coordinates and identity). Because Segments contain no mutable state, they can be observed concurrently by any number of observers without synchronization. The cryptographic identity ensures that every Segment is uniquely identifiable.
+Its properties are: **Immutability** (once created, a Segment cannot be modified), **Statelessness** (contains no values, only coordinates and identity). Because Segments contain no mutable state, they can be observed concurrently by any number of observers without synchronization. The cryptographic identity ensures that every Segment is uniquely identifiable. For example, on the Unicode Basic Multilingual Plane (BMP), every code point is a fixed 16-bit value, and in a specific contiguous address range code points carry a closed-form compositional structure whose axes are recoverable by integer arithmetic alone. That combination of fixed width and structural composition is a general methodology for primitive computing: a coordinate serves directly as an address in OS-less environments, with no variable-length decoding, no parser, and no hash function. The tagma block [@tagma2026wp] is an independent project that realizes this property as a concrete case (Appendix [*-@sec-appendix-tagma*]); the full identity analysis is developed in the Tagma whitepaper.
 
 ### Scheme: Structural Blueprint
 
@@ -504,7 +502,7 @@ Relations are immutable once the Scheme is created; they define the static topol
 
 The mapping $L: \mathbb{R}^d \to \mathcal{L}$ assigns each coordinate a logical address, decoupling the Scheme’s geometric structure from the physical memory hierarchy. The `MemoryLayout` is specified by a `layout_type` and a mapping function. Available layout types include Linear, Row-Major, Column-Major, Space-Filling Curve, Hierarchical, Graph-Based, and Custom layouts, each mapping coordinates to logical addresses in a distinct manner.
 
-The logical address $\ell = L(c)$ consists of a space identifier and an offset within that space. It serves as an intermediate representation that the compiler later translates to physical addresses according to the target hardware’s memory hierarchy. The choice of layout type is a critical optimization: it determines how structurally adjacent Segments are placed in physical memory, thereby minimizing data movement during observation. (See *-@sec-appendix-scheme-enumerations* [*-@sec-appendix-memory-layout*] for more details.)
+The logical address $\ell = L(c)$ consists of a space identifier and an offset within that space. It serves as an intermediate representation that the compiler later translates to physical addresses according to the target hardware’s memory hierarchy. The choice of layout type is a critical optimization: it determines how structurally adjacent Segments are placed in physical memory, thereby minimizing data movement during observation. (See *-@sec-appendix-scheme-enumerations* [*-@sec-appendix-memory-layout*] for more details.) An independent project, the chton layer [@chton2026wp], materializes this mapping onto physical media: it separates the IO flow from the storage vessel and routes a coordinate space to concrete origins; the coordinate space and its measurements are presented in Appendix [*-@sec-appendix-tagma*].
 
 #### Observation Rules
 
@@ -2436,6 +2434,36 @@ This table does not assert that SSCCS outperforms existing paradigms. It identif
 
 Independent work on GPU kernel programming has developed type-level layout abstractions that allow memory layouts to be composed, nested, and transformed at compile time without runtime overhead. These layout algebras—which encode shape, stride, tiling, and swizzling as type parameters—converge with SSCCS's `MemoryLayout` abstraction: both treat data placement as a declarative, compile-time property rather than a runtime decision. While these systems target conventional GPU execution and do not implement observation semantics, their existence demonstrates that layout-first, type-driven approaches to memory are not only theoretically sound but practically deployable on current hardware.
 
+
+## Tagma: Coordinate Identity and Its Measurement {#sec-appendix-tagma}
+
+The tagma block [@tagma2026wp] is an independent project that realizes the fixed-width coordinate property described in the Segment definition and the memory-layout abstraction of the main text. A fixed 16-bit value in block U+AC00-U+D7AF is simultaneously a 1-D address, a 3-D coordinate, and a displayable character. The closed-form composition formula
+
+$$C(i,m,f) = \text{U+AC00} + 588i + 28m + f \quad (0 \le i < 19,\; 0 \le m < 21,\; 0 \le f < 28)$$
+
+packs three independent axes into one 16-bit word, and decomposition recovers the axes with the same arithmetic. Of the 65,536 values in the 16-bit space, 11,172 are valid coordinates and the remaining 54,364 are detectable as invalid by the formula itself. No hash function, lookup table, or variable-length decoding participates in either direction.
+
+{{< include ../projects/syntagma/_include/fig-3d-decode.qmd >}}
+
+### Identity generation latency
+
+The reference implementation measures the consequences of this structure on ARMv8.4-A Firestorm silicon with cargo bench. Identity generation resolves in 0.39 ns for a single coordinate, against 227 ns for SHA-256. At 19 coordinates, the depth that matches the SHA-256 address space, the tree fallback costs 58.6 ns while the native dense path stays flat at 0.39 ns.
+
+{{< include ../projects/syntagma/_include/bench/fig-bench-identity.qmd >}}
+
+### Addressable space and spatial query
+
+The addressable space grows as $11{,}172^N$, and lookup cost does not follow the space. The dense path holds at 0.39 ns at every depth; the tree fallback costs O(N) dereferences bounded by schema depth, independent of data volume. Coordinate queries are spatial computation: a compound axis filter resolves as bitwise AND over the coordinate set at 329 Melem/s, while a hash table scan of the same data sustains 2.4 Melem/s.
+
+:::{ layout-ncol=2 }
+
+{{< include ../projects/syntagma/_include/bench/fig-bench-address-space.qmd >}}
+
+{{< include ../projects/syntagma/_include/bench/fig-bench-spatial.qmd >}}
+
+:::
+
+The figures in this section are single-sourced: the same include files render in the [Tagma whitepaper](https://docs.ssccs.org/projects/syntagma/tagma/wp/), [Tagma-ID](https://docs.ssccs.org/projects/syntagma/tagma/id/), [Tagma-KV](https://docs.ssccs.org/projects/syntagma/tagma/kv/), and the [synTagma project brief](https://docs.ssccs.org/projects/syntagma/brief.html), so this appendix carries the current measurements without duplication. The full benchmark suite (51 microbenchmarks across 12 criterion groups, including bulk, stress, deep-tree, resource-efficiency, and KV groups) and the reference implementation are documented in the [Tagma whitepaper benchmark appendix](https://docs.ssccs.org/projects/syntagma/tagma/wp/#sec-appendix-benches).
 
 ## Classical Parallelism Comparisons {#sec-appendix-classical-parallelism}
 
