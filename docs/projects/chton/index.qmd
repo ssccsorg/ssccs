@@ -45,9 +45,7 @@ materialized space is the domain of systems that consume chton as
 infrastructure. The materialization surface is a fabric: any source is
 also an output, and any output is also a source, so the path matrix binds
 them one to one.
-
-:::{ layout-ncol=2 }
-
+ 
 ```{python}
 #| label: fig-chton-materialization
 #| fig-cap: "The materialization IO fabric: an abstracted source is also an output, and an abstracted output is also a source; the materialization path matrix binds them one to one. Solid columns are implemented today; outlined columns are later strategies and media."
@@ -162,6 +160,18 @@ ax.legend(
 )
 ```
 
+## Layers
+
+| Layer | Role |
+|:---|:---|
+| origin | byte-level bindings to media outside memory: file today; signal, network, and GPU media later. Memory is a projection surface, not a target |
+| binding | per-space-type materialization strategies: fixed-depth tree today; recursive and dense layouts later |
+| protocol | materialization protocols over origins: key-value first, sharing the tagma-kv CoordKV contract |
+| io | flat key-space IO surface over materialized regions |
+
+## Design
+
+
 ```{python}
 #| label: fig-chton-mediamap
 #| fig-cap: "Two parallel worlds, one mapping: the file origin projected as addressable blocks and the persistent regions that back them share one layout, bound 1:1 by address. The block address is the region offset, so no serialization step exists between them. Memory is the projection surface, not the target."
@@ -257,18 +267,6 @@ ax.legend(
     loc="upper left", fontsize=8, framealpha=0.9,
 )
 ```
-:::
-
-## Layers
-
-| Layer | Role |
-|:---|:---|
-| origin | byte-level bindings to media outside memory: file today; signal, network, and GPU media later. Memory is a projection surface, not a target |
-| binding | per-space-type materialization strategies: fixed-depth tree today; recursive and dense layouts later |
-| protocol | materialization protocols over origins: key-value first, sharing the tagma-kv CoordKV contract |
-| io | flat key-space IO surface over materialized regions |
-
-## Design
 
 - The storage format is the memory layout: there is no separate
   serialization step.
