@@ -5,7 +5,7 @@ date: last-modified
 metadata-files:
   - ../_include/author.yml
 abstract: |
-  This draft outlines a proposed collaboration between the SSCCS Foundation and CERN. SSCCS's identity as a supranational, politically neutral, public-good science foundation aligns with CERN's founding principles of open knowledge and service to science itself. The document proposes four concrete collaboration channels: the CERN Open Source Programme Office (OSPO), the Knowledge Transfer (KT) group, the CERN & Society Foundation, and Zenodo, followed by concrete next steps. This draft is the basis for discussion.
+  This draft outlines a proposed collaboration between the SSCCS Foundation and CERN. SSCCS's identity as a supranational, politically neutral, public-good science foundation aligns with CERN's founding principles of open knowledge and service to science itself. The document maps the CERN frameworks available for collaboration: the Open Source Programme Office (OSPO), the Knowledge Transfer (KT) group, and the CERN & Society Foundation, and it proposes a concrete first engagement targeting the ROOT TTree I/O bottleneck in production analysis workflows. This draft is the basis for discussion.
 ---
 
 ```{python}
@@ -24,21 +24,19 @@ title_meta_items = {
 
 ## Institutional Alignment
 
-CERN and SSCCS operate at different scales of inquiry—one explores the fundamental constituents of matter, the other restructures the fundamental addressing layer of computation. Both were founded on the same structural conviction: science is a public good, and it advances fastest when knowledge remains open.
+CERN and SSCCS operate at different scales of inquiry: one explores the smallest constituents of matter, the other restructures the addressing layer of computation. Both were founded on the same principle: science is a public good, and it advances fastest when knowledge remains open.
 
 CERN has held to that conviction since 1953, serving science itself rather than any single member state. SSCCS is built on the same premise: an independent non-profit foundation, accountable to no state, party, or corporation, releasing all work under Apache 2.0.
 
-The collaboration does not require CERN to extend its mission. CERN has already stated its intention to "unleash the potential of open source for scientific and technological progress beyond high-energy physics". SSCCS operates precisely in that extended domain: open hardware on RISC-V, structural computing primitives in the Tagma coordinate space, and exhaustive verification tooling in ExaVerif.
+The collaboration does not require CERN to extend its mission. CERN has already stated its intention to "unleash the potential of open source for scientific and technological progress beyond high-energy physics." SSCCS operates precisely in that extended domain: open hardware on RISC-V, structural computing primitives in the Tagma coordinate space, and exhaustive verification tooling in ExaVerif.
 
 ## Existing Infrastructure: CERN's Open Source Programme Office
 
 CERN established its Open Source Programme Office (OSPO) in November 2023. Unlike most OSPOs, CERN's explicitly includes open-source hardware in its mandate. The office serves as the central contact point for open-source activities across the laboratory and with external partners.
 
-The OSPO is actively seeking new collaborations with external partners—institutes, companies, and startups. Its 2025 roadmap includes publishing new open-source catalogues for hardware and software to improve visibility and reuse. The office has specifically documented a framework for hosting third-party employees on CERN open-source projects through formal agreements or contracts.
+The OSPO is actively seeking new collaborations with external partners: institutes, companies, and startups. Its 2025 roadmap includes publishing new open-source catalogues for hardware and software to improve visibility and reuse. The office has documented a framework for hosting third-party employees on CERN open-source projects through formal agreements or contracts.
 
-**Hardware focus at CERN's OSPO:**
-
-CERN has designated dedicated personnel for hardware support: Hamza Boukabache for hardware support and Josh Davison for open-hardware procurement. The OSPO has already developed internal expertise in radiation-tolerant electronics, as evidenced by James Devine's work on rad-tol lighting for the PS.
+Hardware receives dedicated attention. CERN has designated Hamza Boukabache for hardware support and Josh Davison for open-hardware procurement, and the OSPO has built internal expertise in radiation-tolerant electronics, as evidenced by James Devine's work on rad-tol lighting for the PS.
 
 ## Knowledge Transfer: The Gateway for Hardware
 
@@ -46,17 +44,17 @@ CERN's Knowledge Transfer (KT) group engages with experts inside and outside the
 
 The KT group maintains partnerships with industry and institutes across Europe, actively managing open-source software projects and collaborations. It participates in European Commission co-funded projects and maintains networks across eight European intergovernmental research organizations (EIROforum: CERN, EMBL, ESA, ESO, ESRF, European XFEL, EUROfusion, and ILL).
 
-The KT group's mandate includes developing partnerships that leverage CERN's portfolio of open-source software for applications beyond high-energy physics—precisely the domain SSCCS addresses.
+The KT group's mandate includes developing partnerships that leverage CERN's open-source software portfolio for applications beyond high-energy physics, exactly the domain SSCCS addresses.
 
 ## Philanthropic Arm: CERN & Society Foundation
 
 The CERN & Society Foundation, established in June 2014, serves as CERN's philanthropic arm. It works across three areas: education and outreach, innovation and knowledge exchange, and culture and creativity.
 
-The Foundation already supports open-source infrastructure through its innovation and knowledge exchange programs, including KiCad (open-source electronics design suite) and the Zenodo data repository—both CERN-developed and now widely used beyond high-energy physics.
+The Foundation already supports open-source infrastructure through its innovation and knowledge exchange programs, including KiCad, the open-source electronics design suite, and the Zenodo data repository, both CERN-developed and now widely used beyond high-energy physics.
 
-The Foundation explicitly states it is "actively looking for partners to join us on our mission" and invites inquiries via email. In 2025, the Foundation supported 60 non-Member State summer students from over 100 nations, demonstrating its capacity to fund international participation.
+The Foundation explicitly states it is "actively looking for partners to join us on our mission" and invites inquiries via email. In 2025, it supported 60 non-Member State summer students from over 100 nations, demonstrating its capacity to fund international participation.
 
-The Foundation represents a natural channel for joint programs that connect CERN's open-science ecosystem with SSCCS's structural computing vision—whether in education, innovation, or knowledge exchange.
+The Foundation is a natural channel for joint programs that connect CERN's open-science ecosystem with SSCCS's structural computing vision, whether in education, innovation, or knowledge exchange.
 
 ## SSCCS Assets Aligned with CERN's Open-Source Hardware Trajectory
 
@@ -66,22 +64,58 @@ SSCCS brings measurable assets that map directly to CERN's documented open-hardw
 | :--- | :--- |
 | ExaVerif (exhaustive RISC-V verification, 33.5M encodings/29ms) | CERN's OSPO is developing open-source verification infrastructure for radiation-tolerant ASICs and RISC-V systems |
 | Chton (zero-serialization IO materialization) | CERN's high-energy physics data streams require efficient data handling; Chton's mmap-based approach eliminates serialization overhead |
-| Tagma (hashless coordinate space, 300-gate decoder) | CERN's interest in radiation-tolerant, low-power computing for detector systems |
+| Tagma (hash-less coordinate space, 300-gate decoder) | CERN's interest in radiation-tolerant, low-power computing for detector systems |
 | Open-source release under Apache 2.0 | CERN's OSPO policy requires open licensing for hardware and software |
+
+## Technical Focus: The ROOT I/O Bottleneck
+
+### The Problem
+
+CERN's production analysis still has a documented pain point: [ROOT TTree I/O](https://github.com/root-project/root/tree/master/tree/tree/src). In the CMS Re-miniAOD workflow, 372,000 singular read requests totaling 1.6 GB took 14 hours to serve, an average of 33 KB/s [CCESOP slides](https://indico.fnal.gov/event/69256/contributions/314511/attachments/187369/258396/20250423-CCESOP_SlowIO.pdf). The same AOD files are fully split into 8,190 branches, so reading one data product means traversing a large fraction of them.
+
+The bottleneck is not bandwidth. 1.6 GB over 14 hours is a request-count problem: roughly 4.3 KB per request and 135 ms per request. The per-request cost is dominated by branch lookup, decompression, and deserialization into in-memory objects, not by the medium.
+
+CERN is already responding with faster I/O: RNTuple reduced storage by about 50% in ATLAS evaluations [CDS record 2963379](https://cds.cern.ch/record/2963379), and the HEP-CCE/SOP collaboration is characterizing production I/O patterns with Darshan at CHEP 2026 [Indico contribution](https://indico.cern.ch/event/1471803/contributions/6967390/). These make the pipeline faster. The structural cost remains: every read still deserializes, still walks columns, still reconstructs objects.
+
+### The SSCCS Approach: Removing the I/O Path
+
+SSCCS attacks the same problem from the opposite end. For data that is structurally addressable, the I/O pipeline disappears:
+
+- An event is a coordinate: (run, luminosity block, event number) resolves through a CoordPath to a direct offset, with no branch table, no index scan, and no hash. The measured dense-path lookup is 0.39 ns per coordinate.
+- Chton materializes the coordinate space onto media with the storage format equal to the memory layout: the mapped region is the record itself, so reading is a load rather than a deserialize.
+- Filters become spatial: a trigger-bit or pT-range predicate is a bitwise set operation over coordinate ranges. Structural prefix queries resolve in 1.65 ns where a hash-based scan of ten million entries takes 23.05 ms, a 14,000,000x gap.
+
+For the Re-miniAOD pattern the effect is structural: 372,000 branch-mediated requests collapse into one direct lookup per event coordinate.
+
+### Proposed Pilot: The Re-miniAOD Singular-Read Workload
+
+We propose a pilot that reproduces the documented access pattern on public CMS data:
+
+1. Materialize a fixed-width event record set with Chton, indexed by (run, luminosity block, event number)
+2. Execute the same logical queries against the materialized store and against the ROOT baseline
+3. Report wall-clock time, request count, and bytes moved; the target is the same logical workload in minutes instead of 14 hours, with the request count falling from 372,000 to one per accessed coordinate
+
+The pilot is deliberately bounded. Variable-length collections (jets, tracks) need an indirection layer, and compression remains necessary at the PB scale, so the first materialization covers fixed-width records with selective or block-level compression. SSCCS does not replace ROOT or RNTuple; it offers a complementary materialization for structurally indexed access, where the I/O path itself is the cost. All deliverables are open source: the materialization layer, the benchmark harness, and the measured comparison.
+
+### Boundaries
+
+- The PyROOT memory growth (460 MB to 760 MB on a 42 MB tree, [issue 18524](https://github.com/root-project/root/issues/18524)) is a binding-layer problem. SSCCS does not patch PyROOT; the corresponding fix is a native zero-copy API over the materialized store, which avoids per-access object allocation.
+- The TTreeCache degradation beyond 100,000 clusters ([issue 12649](https://github.com/root-project/root/issues/12649)) is a cache-index problem. Coordinate addressing maintains no cache index.
+- Compression and zero-serialization are orthogonal: RNTuple's storage reduction and Chton's access path can coexist per block.
 
 ## Proposed Engagement Path
 
 The collaboration can proceed through established CERN frameworks without requiring new policy creation:
 
-**Phase 1 — OSPO Engagement**
-Initiate contact through CERN OSPO's open channel. The OSPO explicitly invites forward-thinking organizations to collaborate, stating: "Are you forward-thinking and looking to collaborate with CERN in the realm of Open Source and innovation? We're eager to explore the potential of a partnership".
+**Phase 1: OSPO Engagement**
+Initiate contact through CERN OSPO's open channel, with the ROOT I/O pilot described above as the concrete first engagement. The OSPO explicitly invites forward-thinking organizations to collaborate, stating: "Are you forward-thinking and looking to collaborate with CERN in the realm of Open Source and innovation? We're eager to explore the potential of a partnership."
 
-**Phase 2 — KT Group Consultation for Hardware**
+**Phase 2: KT Group Consultation for Hardware**
 For hardware-related projects (Chton's decoder, ExaVerif's verification IP), engage CERN's KT group per their established protocol: KT first, then OSPO.
 
-**Phase 3 — Foundation Partnership for Broader Impact**
-Engage the CERN & Society Foundation for programs that extend beyond technical collaboration into education and knowledge exchange—aligning with the Foundation's existing support for KiCad and Zenodo.
+**Phase 3: Foundation Partnership for Broader Impact**
+Engage the CERN & Society Foundation for programs that extend beyond technical collaboration into education and knowledge exchange, aligning with the Foundation's existing support for KiCad and Zenodo.
 
 ## Status
 
-This framework document outlines the existing CERN infrastructure available to SSCCS. No new policy or exception is required. Engagement can proceed through the standard channels documented above.
+This is a draft for discussion. Engagement proceeds through the standard channels documented above, and the document will be updated as the discussion develops.
