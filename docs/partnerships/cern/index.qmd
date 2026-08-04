@@ -3,7 +3,7 @@ title: "CERN-SSCCS Collaboration Framework"
 subtitle: "Draft: Collaboration Through Open Science and Open Source Infrastructure"
 date: last-modified
 metadata-files:
-  - ../_include/author.yml
+  - ../../_include/author.yml
 abstract: |
   This draft outlines a proposed collaboration between the SSCCS Foundation and CERN. SSCCS's identity as a supranational, politically neutral, public-good science foundation aligns with CERN's founding principles of open knowledge and service to science itself. The document maps the CERN frameworks available for collaboration: the Open Source Programme Office (OSPO), the Knowledge Transfer (KT) group, and the CERN & Society Foundation, and it proposes a concrete first engagement targeting the ROOT TTree I/O bottleneck in production analysis workflows. This draft is the basis for discussion.
 ---
@@ -16,11 +16,12 @@ title_meta_items = {
         {"title": "Code", "link": "https://github.com/ssccsorg", "content": "GitHub", "icon": "bi bi-link"},
         {"title": "References", "link": "https://docs.ssccs.org/whitepaper/whitepaper.html", "content": "SSCCS Whitepaper", "icon": "bi bi-link"},
         {"title": "References", "link": "https://zenodo.org", "content": "Zenodo", "icon": "bi bi-link"},
+        {"title": "References", "link": "https://github.com/ssccsorg/root", "content": "ROOT fork", "icon": "bi bi-link"},
     ],
 }
 ```
 
-{{< include ../_include/_title_meta_items.qmd >}}
+{{< include ../../_include/_title_meta_items.qmd >}}
 
 ## Institutional Alignment
 
@@ -62,53 +63,35 @@ SSCCS brings measurable assets that map directly to CERN's documented open-hardw
 
 | SSCCS Asset | CERN Alignment |
 | :--- | :--- |
-| ExaVerif (exhaustive RISC-V verification, 33.5M encodings/29ms) | CERN's OSPO is developing open-source verification infrastructure for radiation-tolerant ASICs and RISC-V systems |
+| ExaVerif (exhaustive RISC-V verification, 33.5M encodings evaluated) | CERN's OSPO is developing open-source verification infrastructure for radiation-tolerant ASICs and RISC-V systems |
 | Chton (zero-serialization IO materialization) | CERN's high-energy physics data streams require efficient data handling; Chton's mmap-based approach eliminates serialization overhead |
 | Tagma (hash-less coordinate space, 300-gate decoder) | CERN's interest in radiation-tolerant, low-power computing for detector systems |
 | Open-source release under Apache 2.0 | CERN's OSPO policy requires open licensing for hardware and software |
 
-## Technical Focus: The ROOT I/O Bottleneck
+## First Engagement: The ROOT TTree I/O Bottleneck
 
 ### The Problem
 
-CERN's production analysis still has a documented pain point: [ROOT TTree I/O](https://github.com/root-project/root/tree/master/tree/tree/src). In the CMS Re-miniAOD workflow, 372,000 singular read requests totaling 1.6 GB took 14 hours to serve, an average of 33 KB/s [CCESOP slides](https://indico.fnal.gov/event/69256/contributions/314511/attachments/187369/258396/20250423-CCESOP_SlowIO.pdf). The same AOD files are fully split into 8,190 branches, so reading one data product means traversing a large fraction of them.
+CERN's production analysis still has a documented pain point: [ROOT TTree I/O](https://github.com/root-project/root/tree/master/tree/tree/src). In the CMS Re-miniAOD workflow, 372,000 singular read requests totaling 1.6 GB took 14 hours to serve, an average of 33 KB/s [CCESOP slides](https://indico.fnal.gov/event/69256/contributions/314511/attachments/187369/258396/20250423-CCESOP_SlowIO.pdf), with AOD files fully split into 8,190 branches. CERN is already responding with faster I/O, including RNTuple, but the structural cost remains: every read still walks branches and deserializes.
 
-The bottleneck is not bandwidth. 1.6 GB over 14 hours is a request-count problem: roughly 4.3 KB per request and 135 ms per request. The per-request cost is dominated by branch lookup, decompression, and deserialization into in-memory objects, not by the medium.
+### The SSCCS Approach
 
-CERN is already responding with faster I/O: RNTuple reduced storage by about 50% in ATLAS evaluations [CDS record 2963379](https://cds.cern.ch/record/2963379), and the HEP-CCE/SOP collaboration is characterizing production I/O patterns with Darshan at CHEP 2026 [Indico contribution](https://indico.cern.ch/event/1471803/contributions/6967390/). These make the pipeline faster. The structural cost remains: every read still deserializes, still walks columns, still reconstructs objects.
+For structurally addressable data, SSCCS replaces the read path with coordinate addressing. An event becomes a coordinate: (run, luminosity block, event number) resolves to a direct offset, with no branch table, no index scan, and no hash. Chton materializes the coordinate space onto media with the storage format equal to the memory layout, and filters become spatial operations over coordinate ranges.
 
-### The SSCCS Approach: Removing the I/O Path
+### The Offer to CERN
 
-SSCCS attacks the same problem from the opposite end. For data that is structurally addressable, the I/O pipeline disappears:
+ROOT's I/O interface stays exactly as it is. Researchers keep the TTree API they already know, and their existing analysis scripts run unchanged. Inside, mapped data is no longer read from disk: it is referenced directly from Chton's coordinate space. This is the disruptive innovation SSCCS proposes: the ecosystem is not broken, only the interior is replaced, and researchers benefit immediately without learning anything new.
 
-- An event is a coordinate: (run, luminosity block, event number) resolves through a CoordPath to a direct offset, with no branch table, no index scan, and no hash. The measured dense-path lookup is 0.39 ns per coordinate.
-- Chton materializes the coordinate space onto media with the storage format equal to the memory layout: the mapped region is the record itself, so reading is a load rather than a deserialize.
-- Filters become spatial: a trigger-bit or pT-range predicate is a bitwise set operation over coordinate ranges. Structural prefix queries resolve in 1.65 ns where a hash-based scan of ten million entries takes 23.05 ms, a 14,000,000x gap.
+### Proposed Demonstration
 
-For the Re-miniAOD pattern the effect is structural: 372,000 branch-mediated requests collapse into one direct lookup per event coordinate.
-
-### Proposed Pilot: The Re-miniAOD Singular-Read Workload
-
-We propose a pilot that reproduces the documented access pattern on public CMS data:
-
-1. Materialize a fixed-width event record set with Chton, indexed by (run, luminosity block, event number)
-2. Execute the same logical queries against the materialized store and against the ROOT baseline
-3. Report wall-clock time, request count, and bytes moved; the target is the same logical workload in minutes instead of 14 hours, with the request count falling from 372,000 to one per accessed coordinate
-
-The pilot is deliberately bounded. Variable-length collections (jets, tracks) need an indirection layer, and compression remains necessary at the PB scale, so the first materialization covers fixed-width records with selective or block-level compression. SSCCS does not replace ROOT or RNTuple; it offers a complementary materialization for structurally indexed access, where the I/O path itself is the cost. All deliverables are open source: the materialization layer, the benchmark harness, and the measured comparison.
-
-### Boundaries
-
-- The PyROOT memory growth (460 MB to 760 MB on a 42 MB tree, [issue 18524](https://github.com/root-project/root/issues/18524)) is a binding-layer problem. SSCCS does not patch PyROOT; the corresponding fix is a native zero-copy API over the materialized store, which avoids per-access object allocation.
-- The TTreeCache degradation beyond 100,000 clusters ([issue 12649](https://github.com/root-project/root/issues/12649)) is a cache-index problem. Coordinate addressing maintains no cache index.
-- Compression and zero-serialization are orthogonal: RNTuple's storage reduction and Chton's access path can coexist per block.
+We propose a bounded demonstration on CMS Open Data 2016 (MiniAOD) that reproduces the documented access pattern and reports the comparison against the ROOT baseline. Its purpose is to open the relationship with a working result: the approach shown on CERN's own access pattern, without disturbing its ecosystem. The engineering details, boundaries, and milestones are in the [ROOT-TTree](solutions/root_ttree.html), and the demonstration builds against a maintained [ROOT fork](https://github.com/ssccsorg/root).
 
 ## Proposed Engagement Path
 
 The collaboration can proceed through established CERN frameworks without requiring new policy creation:
 
 **Phase 1: OSPO Engagement**
-Initiate contact through CERN OSPO's open channel, with the ROOT I/O pilot described above as the concrete first engagement. The OSPO explicitly invites forward-thinking organizations to collaborate, stating: "Are you forward-thinking and looking to collaborate with CERN in the realm of Open Source and innovation? We're eager to explore the potential of a partnership."
+Initiate contact through CERN OSPO's open channel, with the ROOT I/O demonstration described above as the concrete first engagement. The OSPO explicitly invites forward-thinking organizations to collaborate, stating: "Are you forward-thinking and looking to collaborate with CERN in the realm of Open Source and innovation? We're eager to explore the potential of a partnership."
 
 **Phase 2: KT Group Consultation for Hardware**
 For hardware-related projects (Chton's decoder, ExaVerif's verification IP), engage CERN's KT group per their established protocol: KT first, then OSPO.

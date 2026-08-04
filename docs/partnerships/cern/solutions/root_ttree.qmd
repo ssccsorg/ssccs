@@ -1,0 +1,142 @@
+---
+title: "ROOT-TTree"
+subtitle: "Replacing ROOT TTree I/O from the Inside"
+date: last-modified
+metadata-files:
+  - ../../../_include/author.yml
+abstract: |
+  Development plan for the CERN pilot: intercept the ROOT I/O path before it reaches the disk, and serve mapped data from the Chton coordinate space instead. ROOT's TFile disk handling is never modified; the interception layer only decides where the bytes come from, so researchers keep the TTree API, their executables, and their build chain. The plan covers the strategy, the interception boundary, the repository layout, the three deliverables, milestones, and the post-pilot transition path.
+---
+
+```{python}
+#| include: false
+#| context: local
+title_meta_items = {
+    "html": [
+        {"title": "Code", "link": "https://github.com/ssccsorg", "content": "GitHub", "icon": "bi bi-link"},
+        {"title": "Framework", "link": "../", "content": "Collaboration Framework", "icon": "bi bi-link"},
+        {"title": "References", "link": "https://github.com/ssccsorg/root", "content": "ROOT fork", "icon": "bi bi-link"},
+        {"title": "References", "link": "https://docs.ssccs.org/whitepaper/whitepaper.html", "content": "SSCCS Whitepaper", "icon": "bi bi-link"},
+    ],
+}
+```
+
+{{< include ../../../_include/_title_meta_items.qmd >}}
+
+**Status:** Draft development plan. The pilot proceeds only after the engagement path in the [CERN-SSCCS Collaboration Framework](../index.html) is accepted.
+
+## Why C++ for the Pilot
+
+ROOT is C++. Intercepting ROOT's I/O path requires an interceptor written as a C++ shared library. A Rust implementation would introduce an FFI boundary, cross-compilation, and ABI compatibility work on top of the problem itself.
+
+The researchers' build chain stays untouched. CERN physicists build with g++ and CMake, and they do not want another toolchain. Requiring Rust at this stage would raise the adoption barrier at the exact moment the pilot needs zero friction.
+
+Tagma's mathematics is language-independent. The core is coordinate arithmetic and the elimination of hashing: composition and decomposition through $C(i,m,f) = \text{U+AC00} + 588i + 28m + f$ and its inverse. C++ implements the same arithmetic directly.
+
+## The Strategy: Catch Before the Disk
+
+ROOT's TFile already implements disk handling well: buffering, compression, and serialization validated over decades of production use. The pilot does not replace that layer. It intercepts the path that leads to it. For byte ranges mapped into the Chton coordinate space, the interception layer returns the data from the store before any disk access happens; for everything else, the call passes through to TFile unchanged.
+
+The ROOT I/O stack, with the interception point:
+
+```text
+researcher code (unchanged)
+    ↓
+TTree::GetEntry(entry)
+    ↓
+TBranch::GetEntry(entry)      ← per-branch request: 153 data products across 8,190 branches
+    ↓
+TTreeCache::GetEntry()        ← cache decision; invalidated by out-of-order access
+    ↓
+TFile::ReadBuffer()           ← ROOT's disk I/O: 372,000 calls, ~4.6 KB each
+    ↓
+[interception boundary]       ← LD_PRELOAD: byte-source decision
+    ├─ range mapped in the Chton store → served from the coordinate space
+    └─ otherwise → pass through to read()/pread()/mmap() on the medium
+```
+
+TFile::ReadBuffer() is the symptom, not the cause. The cause lives in the upper layers: a single event requests 153 data products spread across 8,190 branches; multithreaded runs call GetEntry out of order, which invalidates TTreeCache and collapses vector reads into hundreds of thousands of singular reads; beyond 100,000 clusters, TTreeCache itself degrades from 7 seconds to over an hour. The result is 372,000 requests averaging 4.6 KB, an effective 33 KB/s, and a 14-hour workload.
+
+### The 14 Hours Are Overhead, Not Transfer
+
+At raw bandwidth, 1.6 GB moves in seconds. The 14 hours are per-request overhead: each of the 372,000 reads costs a system call, a page cache lookup, and often a context switch; the 8,190 fully split branches scatter each event's data across memory, so cache locality collapses and L1/L2 misses multiply; and 372,000 distinct small chunks keep the kernel page cache thrashing, evicting pages that would be reused. M1 measures this hypothesis directly: the baseline trace separates system call, page cache, copy, and ROOT-internal costs, so the pilot targets the measured dominant term. A first-order cost model of these terms accounts for roughly an hour of the fourteen; where the remaining time is spent is not yet attributed, and no projection is made until the baseline trace supplies the split.
+
+The coordinate approach removes the cause: for mapped data, the read path never reaches the medium. The magnitude of the effect is a measurement, not a claim; the benchmark milestone reports the comparison against the ROOT baseline.
+
+The removal is structural rather than incremental:
+
+- No per-access system call: a coordinate resolves in register arithmetic, and the store is reached through a mapped region, so no read() is issued per request
+- Cache locality: records are laid out contiguously in the coordinate space, giving the processor sequential, predictable access instead of 4.6 KB fragments
+- Page cache discipline: the store is demand-paged once with sequential locality, instead of 372,000 scattered chunks continuously evicting each other
+- Zero copy: mmap exposes the bytes directly, with no kernel-to-user copy per read
+
+## Interception Boundary
+
+The interception boundary is the byte-source decision point below TFile: the POSIX I/O entry points (`read`, `pread`, `mmap`) that ROOT ultimately uses. These are plain C symbols, fully interposable through LD_PRELOAD, and the same mechanism Darshan uses to trace ROOT I/O in production. ROOT itself, the TTree API, and the researcher's compiled code are untouched. If TFile uses stdio on the target platform, `fread` may also need to be intercepted, or `fileno` can be overridden to recover the raw file descriptor.
+
+A full bypass of ROOT's branch and cache logic (skipping TBranch::GetEntry and TTreeCache entirely) is not reachable through symbol interposition, because those are virtual C++ methods dispatched inside ROOT. That deeper bypass would require a ROOT-side extension such as a TFile subclass, which changes the deployment surface and is deliberately out of the ABI-perfect pilot scope.
+
+The result is the principle stated at the top: perfect ABI, swapped kernel. The researcher's executable, the TTree API, and the build chain remain identical; only the interior implementation changes.
+
+## The Three Deliverables
+
+1. **Interception layer** (C++): the LD_PRELOAD shared library that sits at the byte-source boundary and decides between the coordinate store and the pass-through path
+2. **Chton mapping engine** (C++): mmap-based materialization of the coordinate space, where the storage format is the memory layout and reading is a load rather than a deserialize
+3. **Materialization CLI** (Rust, shipped as a prebuilt binary): builds the coordinate-indexed store from public CMS data offline; researchers never build or install it
+
+## Repository Layout
+
+The pilot lives in a dedicated `sw/cpp` tree in the syntagma repository, next to the existing `sw/rust` infrastructure, which remains the core for Nexus and the wider ecosystem. The pilot builds against a maintained ROOT fork, [github.com/ssccsorg/root](https://github.com/ssccsorg/root), which serves as the reference for the interception surface. The C++ tree is the only code that runs on the researcher's machine; it is scoped to the pilot and can be archived or kept as a lightweight CERN adapter after the pilot concludes:
+
+```text
+sw/
+├── rust/          # existing infrastructure (Nexus, agents) + materialization CLI (prebuilt binary)
+└── cpp/           # CERN pilot only: what runs on the researcher's machine
+    ├── tagma/     # Tagma coordinate engine, C++17, header-only or light library
+    │   ├── coord.h
+    │   └── coord.cpp
+    ├── chton/     # lightweight Chton: mmap and coordinate mapping
+    │   └── io_mapper.cpp
+    └── bridge/    # ROOT interception layer
+        ├── root_intercept.cpp
+        └── CMakeLists.txt
+```
+
+## The Pilot: LD_PRELOAD Interception
+
+The final artifact is a single shared library, `libtagma_cern.so`, loaded through `LD_PRELOAD`.
+
+Researchers run their analysis unchanged:
+
+```bash
+root -b -q analyze.C
+```
+
+With one environment variable added:
+
+```bash
+LD_PRELOAD=./libtagma_cern.so root -b -q analyze.C
+```
+
+The interceptor resolves each original symbol once through `dlsym(RTLD_NEXT, ...)` and caches the pointer; dispatch through the cached pointers is thread-safe, which matters for multithreaded ROOT applications.
+
+## Milestones
+
+1. M1: Reproduce the baseline: confirm the 372,000 x 4.6 KB singular-read signature from the [2025 Fermilab CCESOP analysis](https://indico.fnal.gov/event/69256/contributions/314511/attachments/187369/258396/20250423-CCESOP_SlowIO.pdf) with a Darshan-style trace that separates system call, page cache, copy, and ROOT-internal costs
+2. M2: Tagma coordinate engine in C++17 and the Chton `io_mapper`; the materialization CLI builds a coordinate-indexed store from CMS Open Data 2016 (MiniAOD)
+3. M3: Interception layer: LD_PRELOAD at the byte-source boundary; the ChtonMapper class checks whether a requested offset and size fall within a registered coordinate space and returns a pointer into the mapped store when they do, passing everything else through to ROOT
+4. M4: Benchmark on the Re-miniAOD pattern against the ROOT baseline: wall-clock time, request count, bytes moved, system call count (strace -c), and cache miss rate
+5. M5: Open-source release of the pilot, the benchmark harness, and the measured comparison
+
+## Risks Avoided
+
+- Rust toolchain installation on researcher machines: eliminated by C++17 and CMake for everything that runs on their side
+- Cross-compilation and FFI ABI mismatch: eliminated by native C++ interception
+- Package dependency chains: the pilot depends on ROOT headers and the standard library
+- Breaking the ecosystem: the TTree API and the build chain remain untouched by design
+- Breaking ROOT's disk handling: TFile is never modified; interception only decides where the bytes come from
+- Compiler inlining: the pilot assumes ROOT's I/O calls reach interposable libc symbols; if the target build inlines them, interception is unreachable. This is verified on the target CERN environment before M3.
+
+## After the Pilot
+
+The pilot is the proof point. If the measured comparison holds, it provides a quantified foundation for evaluating a deeper ROOT-side bypass or a potential contribution to the [ROOT fork](https://github.com/ssccsorg/root), but the pilot itself remains a standalone C++ layer. Until then, the C++ tree is the only code that touches CERN infrastructure.
