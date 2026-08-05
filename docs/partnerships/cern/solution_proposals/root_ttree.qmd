@@ -27,33 +27,33 @@ title_meta_items = {
 
 ## The Approach: The Same Stack, a Different Byte Source
 
-ROOT's TFile already implements disk handling well: buffering, compression, and serialization validated over decades of production use. The demonstration does not replace that layer. For byte ranges mapped into the Chton coordinate store, data is served from the store before any disk access happens; for everything else, the call proceeds through TFile unchanged. The existing stack runs as-is: the same executable, the same TTree API, the same build chain.
+The demonstration does not modify ROOT's disk handling: TFile's buffering, compression, and serialization remain exactly as they are. For byte ranges mapped into the Chton coordinate store, data is served from the store before any disk access happens; for everything else, the call proceeds through TFile unchanged. The existing stack runs as-is: the same executable, the same TTree API, the same build chain.
 
-The ROOT I/O stack, with the byte-source boundary:
+The byte-source boundary sits below TFile, at the POSIX I/O entry points:
 
 ```text
 researcher code (unchanged)
     ↓
 TTree::GetEntry(entry)
     ↓
-TBranch::GetEntry(entry)      ← per-branch request: 153 data products across 8,190 branches
+TBranch::GetEntry(entry)
     ↓
-TTreeCache::GetEntry()        ← cache decision; invalidated by out-of-order access
+TTreeCache::GetEntry()
     ↓
-TFile::ReadBuffer()           ← ROOT's disk I/O: 372,000 calls, ~4.6 KB each
+TFile::ReadBuffer()
     ↓
-[byte-source boundary]       ← byte-source decision
-    ├─ range mapped in the Chton store → served from the coordinate space
-    └─ otherwise → pass through to read()/pread()/mmap() on the medium
+[byte-source boundary]       ← standard dynamic-link interposition
+    ├─ range mapped in the coordinate store → served from the store
+    └─ otherwise → passed through to read()/pread()/mmap() unchanged
 ```
 
-TFile::ReadBuffer() is the symptom, not the cause. The cause lives in the upper layers: a single event requests 153 data products spread across 8,190 branches; multithreaded runs call GetEntry out of order, which invalidates TTreeCache and collapses vector reads into hundreds of thousands of singular reads; beyond 100,000 clusters, TTreeCache itself degrades from 7 seconds to over an hour. The result is 372,000 requests averaging 4.6 KB, an effective 33 KB/s, and a 14-hour workload.
+The working analysis treats TFile::ReadBuffer() as the symptom, not the cause, and points to the upper layers: a single event requests 153 data products spread across 8,190 branches; multithreaded runs calling GetEntry out of order can invalidate TTreeCache and collapse vector reads into singular reads; beyond 100,000 clusters, TTreeCache degrades from 7 seconds to over an hour. The documented result is 372,000 requests averaging 4.6 KB, an effective 33 KB/s, and a 14-hour workload. M1 confirms which term dominates.
 
-### The 14 Hours Are Overhead, Not Transfer
+### The 14 Hours Appear to Be Overhead, Not Transfer
 
-At raw bandwidth, 1.6 GB moves in seconds. The 14 hours are per-request overhead: each of the 372,000 reads costs a system call, a page cache lookup, and often a context switch; the 8,190 fully split branches scatter each event's data across memory, so cache locality collapses and L1/L2 misses multiply; and 372,000 distinct small chunks keep the kernel page cache thrashing, evicting pages that would be reused. M1 measures this hypothesis directly: the baseline trace separates system call, page cache, copy, and ROOT-internal costs, so the demonstration targets the measured dominant term. A first-order cost model of these terms accounts for roughly an hour of the fourteen; where the remaining time is spent is not yet attributed, and no projection is made until the baseline trace supplies the split.
+At raw bandwidth, 1.6 GB moves in seconds. The working hypothesis is that the 14 hours are per-request overhead: each of the 372,000 reads carries a system call, a page cache lookup, and often a context switch; the 8,190 fully split branches scatter event data across memory, collapsing cache locality; and 372,000 distinct small chunks keep the kernel page cache thrashing. M1 measures this hypothesis directly: the baseline trace separates system call, page cache, copy, and ROOT-internal costs, so the demonstration targets the measured dominant term. A first-order cost model of these terms accounts for roughly an hour of the fourteen; where the remaining time is spent is not yet attributed, and no projection is made until the baseline trace supplies the split.
 
-The coordinate approach removes the cause: for mapped data, the read path never reaches the medium. The magnitude of the effect is a measurement, not a claim; the benchmark milestone reports the comparison against the ROOT baseline.
+The coordinate approach addresses this structurally: for mapped data, the read path never reaches the medium. The magnitude of the effect is a measurement, not a claim; the benchmark milestone reports the comparison against the ROOT baseline.
 
 The removal is structural rather than incremental:
 
@@ -61,20 +61,6 @@ The removal is structural rather than incremental:
 - Cache locality: records are laid out contiguously in the coordinate space, giving the processor sequential, predictable access instead of 4.6 KB fragments
 - Page cache discipline: the store is demand-paged once with sequential locality, instead of 372,000 scattered chunks continuously evicting each other
 - Zero copy: mmap exposes the bytes directly, with no kernel-to-user copy per read
-
-## The Byte-Source Boundary
-
-The byte-source boundary sits below TFile at the POSIX I/O entry points (`read`, `pread`, `mmap`) that ROOT ultimately uses. These are plain C symbols, resolved through standard dynamic-link interposition, the same mechanism Darshan uses to trace ROOT I/O in production. ROOT itself, the TTree API, and the researcher's compiled code are untouched.
-
-Going beyond the byte-source boundary into ROOT's branch and cache traversal is not reachable through dynamic-link interposition, because those are virtual C++ methods dispatched inside ROOT. It would require a ROOT-side extension such as a TFile subclass, which changes the deployment surface and is deliberately out of scope for this demonstration.
-
-The result is the principle stated at the top: perfect ABI, swapped kernel. The researcher's executable, the TTree API, and the build chain remain identical; only the interior implementation changes.
-
-## The Three Deliverables
-
-1. **The shared library** (C++17): sits at the byte-source boundary and decides between the coordinate store and the pass-through path
-2. **The coordinate store** (C++17): mmap-based materialization of the coordinate space, where the storage format is the memory layout and reading is a load rather than a deserialize
-3. **The preparation tool** (C++17, shipped as a prebuilt binary): builds the coordinate-indexed store from the demo dataset offline; researchers never build or install it
 
 ## What the Demonstration Delivers
 
@@ -98,7 +84,7 @@ The demonstration preserves:
 
 It consists of three parts:
 
-1. A preparation tool that converts the demo dataset (CMS Open Data 2016, MiniAOD) into a coordinate-indexed store, shipped as a prebuilt binary
+1. A preparation tool (C++17, prebuilt binary) that converts the demo dataset (CMS Open Data 2016, MiniAOD) into a coordinate-indexed store
 2. The shared library that serves mapped data from the store and passes everything else through to ROOT
 3. A benchmark harness that runs the same logical workload against the ROOT baseline and reports wall-clock time, request count, and bytes moved
 
@@ -106,9 +92,9 @@ It consists of three parts:
 
 The coordinate engine is closed-form arithmetic: composition and decomposition through $C(i,m,f) = \text{U+AC00} + 588i + 28m + f$ and its inverse, with no hash function involved. An event is addressed as a coordinate, (run, luminosity block, event number), which resolves to a direct offset in the store.
 
-The library operates at the standard I/O boundary below ROOT's file layer: the POSIX entry points (`read`, `pread`, `mmap`) that TFile ultimately uses, resolved through standard dynamic-link interposition, the same mechanism Darshan uses to trace ROOT I/O in production. When a requested byte range falls within the coordinate store, the bytes are served from the store; otherwise the call passes through to ROOT unchanged. ROOT itself and the researcher's compiled code are untouched.
+The library is loaded through the standard dynamic linker (`LD_PRELOAD`) and decides at the POSIX I/O boundary (`read`, `pread`, `mmap`) whether a byte range is served from the coordinate store or passed through to ROOT unchanged, the same mechanism Darshan uses to trace ROOT I/O in production.
 
-Going beyond the byte-source boundary into ROOT's branch and cache traversal is not part of this demonstration: it would require a ROOT-side extension and would change the deployment surface. The demonstration stays at the boundary where the interface is identical and only the byte source changes.
+The demonstration deliberately stays at the byte-source boundary. Reaching into ROOT's branch and cache traversal would require a ROOT-side extension and would change the deployment surface; it is out of scope. The result is the principle stated at the top: the same ABI, a different byte source; the researcher's executable, the TTree API, and the build chain remain identical, and only the interior implementation changes.
 
 ## Milestones
 
