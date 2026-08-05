@@ -1,0 +1,94 @@
+---
+title: "The SSCCS Infrastructure Stack"
+subtitle: "A General Overview of the Materialization Line and Its Silicon Evidence"
+date: last-modified
+date-format: "MMMM, YYYY"
+metadata-files:
+  - ../_include/author.yml
+abstract: |
+  This overview consolidates the SSCCS infrastructure stack, tagma, chton, nexus, ev, and rem, as one line: coordinate spaces defined as mathematical truth, materialized onto physical media, with memory as a projection surface. External silicon projects, esp32-ai first among them, serve as empirical calibrations of the same thesis on existing chips. The stack roles, the materialization thesis, and the evidence line that connects them are discussed here as the general reference for project-level notes.
+---
+
+```{python}
+title_meta_items = {
+    "html": [
+        {"title": "Reference", "link": "../projects/syntagma/", "content": "synTagma", "icon": "bi bi-link"},
+        {"title": "Reference", "link": "../projects/chton/", "content": "Chton", "icon": "bi bi-link"},
+        {"title": "Reference", "link": "../projects/nexus/", "content": "neXus", "icon": "bi bi-link"},
+        {"title": "Reference", "link": "../projects/ev/", "content": "ExaVerif", "icon": "bi bi-link"},
+    ]
+}
+```
+
+{{< include ../_include/_title_meta_items.qmd >}}
+
+```{python}
+#| include: false
+#| context: local
+%run ../_include/_graphviz.py
+```
+
+## Introduction
+
+The SSCCS foundation is a single abstraction over coordinate-constrained domains. Each project applies the same four primitives, Segment, Scheme, Field, and Observation, to one domain: verification, storage, hardware design, and AI context management. This overview treats the stack as one line and places the external silicon cases, esp32-ai, Spatz, and stream-adaptive silicon, as calibrations along it.
+
+The line has three segments and a verification role. tagma defines the coordinate space. chton materializes that space onto physical media. nexus and rem consume the materialized space: nexus as the semantic hub for multi-agent knowledge, rem as the physical device that carries context between hosts. ev verifies the encoding spaces that flow through the model.
+
+## The Stack in One Line
+
+| Project | Role | Domain |
+|:---|:---|:---|
+| tagma (syntagma) | coordinate space specification and native infrastructure | definitions |
+| chton (ct) | materialization onto media, memory as projection surface | storage |
+| nexus | FIH blackboard over the materialized space | AI context management |
+| ev (ExaVerif) | exhaustive verification of encoding spaces | verification |
+| rem | physical USB device, the product form | AI context management, hardware |
+
+The boundary criterion between tagma and chton is native form versus materialized form. RAM is the native habitat of the coordinate space. chton lands the same space onto media outside memory: file, signal, network, and GPU origins.
+
+## The Materialization Thesis
+
+Two sentences anchor the line. The storage format is the memory layout: there is no separate serialization step. Memory is a projection surface, not a materialization target: an external medium projected into the address space is the mapped binding of that medium.
+
+The thesis answers the von Neumann diagnosis in the SSCCS axioms. Data movement between memory and processor dominates energy, so the model keeps data in place and moves only projections. A materialized block maps to a media region by address. The block address is the region offset, so reading and writing need no serialization step. The compiler's role becomes the analysis of the Scheme into an optimal physical memory layout.
+
+## The Evidence Line
+
+External projects calibrate the thesis on existing silicon. Each case exercises one segment of the line.
+
+esp32-ai runs a 28.9M-parameter language model on an ESP32-S3 with no connectivity. The model's 25M-parameter embedding table stays in flash and is sampled at about 450 bytes per token. The core is flash-mapped and executes in place. The design is a three-tier memory hierarchy, SRAM for activations and norm weights, PSRAM for the output head and weight tensors, flash for the embedding table, split by access frequency. This is the materialization thesis at the silicon level: the medium projected into the address space, data staying in place while projections travel.
+
+Spatz demonstrates that data supply and storage balance bound execution more than compute alone. The shared-L1 scratchpad and the tiny vector register file form a physical memory layout optimized for bandwidth. The stream-adaptive silicon synthesis reads content-addressable data as the storage triad of immutable observation, proposed exploration, and injected constraint, and makes the storage-compute boundary a reconfiguration protocol.
+
+## Compute and Memory as Two Materializations
+
+The esp32-ai case and the rem product stand opposite along the compute-memory axis, and the opposition resolves in chton.
+
+esp32-ai materializes the model. The weights live on media, flash, and are projected into the compute path a few rows at a time. The device generates and forgets; there is no persistent context.
+
+rem materializes the context. The FIH facts live on a FAT32 volume and are projected into an AI agent's process through the MCP bridge. The device remembers and does not compute; inference stays on the host.
+
+Both are materialization instances of the same thesis. chton is the common abstraction: any coordinate space materialized onto any medium. The two cases bound the line from both ends, compute at one end, memory at the other.
+
+## What the Stack Gains
+
+The calibration cases convert into concrete stack items. The bare-metal flash backend named in chton's FileIo boundary becomes a real origin column once esp32-ai's access pattern, row-addressable sparse reads over a flat key-space, is abstracted. The access-frequency hierarchy becomes the design rule for physical memory layout. The execute-in-place result becomes the evidence that a mapped binding is viable without an MMU.
+
+rem absorbs the same evidence into its hardware roadmap. The ESP32-S3 class envelope, 512KB SRAM with external PSRAM and flash, is validated as a workable envelope for on-device inference. Rem workloads, the WASM runtime, indexing, and crypto, are lighter than LLM inference, so the same envelope carries them with margin. The product hardware target becomes a measured envelope.
+
+## Conclusion
+
+The stack is one line: tagma defines, chton materializes, nexus and rem consume, ev verifies. The external silicon cases are calibrations along that line. The esp32-ai case is the strongest current evidence that the materialization thesis holds on commodity embedded hardware, and it feeds directly into chton's origin matrix and rem's hardware roadmap.
+
+---
+
+## References
+
+- [SSCCS](../axioms/ssccs.html)
+- [Chton](../projects/chton/index.html)
+- [Chton repository](https://github.com/ssccsorg/chton)
+- [neXus](../projects/nexus/index.html)
+- [Rem documentation](https://rem.ssccs.org)
+- [esp32-ai](https://github.com/slvDev/esp32-ai)
+- [Spatz–SSCCS Structural Insights](../notes/spatz_insight.html)
+- [Stream-Adaptive Silicon](./stream_silicon_insight.html)

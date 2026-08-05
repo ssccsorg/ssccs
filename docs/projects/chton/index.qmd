@@ -38,9 +38,11 @@ tagma also carries the native infrastructure that embodies it, including
 the in-memory coordinate structures and the native key-value over them.
 chton lands that specification onto media outside memory: file, signal,
 network, and GPU origins, as byte-level bindings, per-space-type layout
-strategies, and materialization protocols. Memory is a projection surface,
-not a materialization target: an external medium projected into the
-address space is the mapped binding of that medium. The active use of the
+strategies, and materialization protocols. The storage format is the
+memory layout: there is no separate serialization step. Memory is a
+projection surface, not a materialization target: an external medium
+projected into the address space is the mapped binding of that medium.
+The active use of the
 materialized space is the domain of systems that consume chton as
 infrastructure. The materialization surface is a fabric: any source is
 also an output, and any output is also a source, so the path matrix binds
@@ -267,13 +269,10 @@ ax.legend(
 )
 ```
 
-- The storage format is the memory layout: there is no separate
-  serialization step.
 - Persistence is a 1:1 mapping of memory: a materialized block maps to a
   media region by address, so the block address is the region offset and
   reading and writing need no serialization step. A memory-mapped binding
-  is the later mechanism for the same layout: the file projected into the
-  address space is the mapped binding of that medium.
+  is the later mechanism for the same layout.
 - The key-value protocol implements the tagma-kv CoordKV surface over
   origins. The native key-value lives in tagma as the in-memory form of
   the coordinate space; chton provides the same contract materialized

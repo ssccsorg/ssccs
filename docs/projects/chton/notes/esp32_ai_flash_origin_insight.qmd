@@ -1,0 +1,89 @@
+---
+title: "esp32-ai Flash Origin Insights for Chton"
+subtitle: "Bare-Metal Flash as a Materialized Origin, Calibrated on a 28.9M-Parameter On-Chip Model"
+date: last-modified
+date-format: "MMMM, YYYY"
+metadata-files:
+  - ../../../_include/author.yml
+abstract: |
+  esp32-ai runs a 28.9M-parameter language model on an ESP32-S3 with no connectivity, keeping most parameters in a flash-resident embedding table that is read sparsely per token. This note extracts three patterns, a flash-resident sparse table, an access-frequency memory hierarchy, and execute-in-place as a mapped binding, and maps each to chton's materialization model. The result is a concrete new origin column, FlashOrigin, and a silicon calibration for the chton thesis that the storage format is the memory layout.
+---
+
+{{< include ../../../_include/_title_meta_items.qmd >}}
+
+```{python}
+#| include: false
+#| context: local
+%run ../../../_include/_graphviz.py
+```
+
+## Introduction
+
+esp32-ai is an external project: a 28.9M-parameter language model that generates text on an ESP32-S3 at about 9.88 tokens per second, with no connectivity. Its relevance to chton is the storage arrangement. Most of the model lives on flash, addressed as a flat key-space, and read sparsely per use.
+
+This note reads esp32-ai from chton's side and extracts three patterns. Each pattern is presented as what the case does, how it maps to chton, and what chton should adopt.
+
+## Pattern 1: Flash-Resident Sparse Table
+
+### What esp32-ai Does
+
+The model stores 25M parameters in an embedding table that lives in flash. Each generated token pulls about 450 bytes, roughly six rows, from that table into the compute path. The table is never loaded in full. The reader projects only the rows it needs, and the address of a row is its index, the offset in the partition.
+
+### Mapping to Chton
+
+The flash partition is a materialized coordinate space. The storage format is the memory layout: there is no separate serialization step between the table and its reader. The row index is the coordinate, and the record slot is fixed width. This is the same shape as the TreeStrategy record slot model, with a flat row layout in place of a tree.
+
+The FileIo boundary in chton already names bare-metal flash as a backend. The esp32-ai case is the reference shape for that backend: row-addressable, read-heavy, fixed-width records.
+
+### Actionable Pattern
+
+Add a sparse read primitive to the origin layer: given a key list, return the addressed rows and leave the rest of the region untouched. The capability matrix gains an address mode for row-indexable media and a binding for XIP or explicit read.
+
+## Pattern 2: Access-Frequency Memory Hierarchy
+
+### What esp32-ai Does
+
+The model is split across three memory tiers by access frequency. Activations and norm weights live in SRAM, touched many times per token. The output head and weight tensors live in PSRAM, read once per position. The dense core stays flash-mapped and executes in place. The embedding table lives in flash, read a few bytes per token. The split is what makes the model fit a 512KB SRAM budget.
+
+### Mapping to Chton
+
+The access-frequency hierarchy is a physical memory layout. The SSCCS axioms assign the compiler the role of analyzing the Scheme into an optimal physical memory layout. esp32-ai performs that analysis by hand at the silicon level. Chton's materialization matrix is the software form of the same decision: which medium holds which region, chosen by access pattern.
+
+### Actionable Pattern
+
+Record the access-frequency expectation in the origin capability matrix as a placement hint. The matrix already carries address mode, direction, persistence, and binding. Access frequency becomes the axis that routes a region to its medium.
+
+## Pattern 3: Execute-in-Place as Mapped Binding
+
+### What esp32-ai Does
+
+The polished firmware leaves the dense core flash-mapped and executes in place, which measured fast enough. The flash is projected into the address space, and the CPU reads instructions and data directly from the medium.
+
+### Mapping to Chton
+
+Chton defines the mapped binding as an external medium projected into the address space. MappedFileOrigin implements this on unix with mmap. esp32-ai implements the same idea on an MCU without an MMU, using XIP. The mapped binding is a property of the medium and the bus, independent of virtual memory.
+
+### Actionable Pattern
+
+Extend the mapped binding concept with a non-mmap fallback: XIP where the target supports it, explicit read where it does not. The MappedFileOrigin semantics, address equals offset, map onto both.
+
+## Chton-Specific Implications
+
+The three patterns converge on one matrix cell: the fixed-depth tree or flat row strategy over a flash origin. The new column is FlashOrigin, and it extends the Chton-Storage family without adding a stack.
+
+FlashOrigin differs from FileOrigin in constraints, with the contract unchanged. The medium is byte-addressable, endurance-limited, and asymmetric in read and write cost. The read path is the design center. The write path carries an explicit write-amplification cost.
+
+The development sequence follows the stack rule: implementations move first. A host-simulated flash image exercises the FlashOrigin contract without hardware, matching the directory and disk-image development modes used across the stack. The verification gate is the esp32-ai reference budget: about 450 bytes per token from flash, sustained without moving the whole table.
+
+## Conclusion
+
+esp32-ai is the strongest current silicon calibration of the chton thesis. The storage format is the memory layout, the medium is projected into the address space, and the reader moves only the projections it needs. The three patterns translate directly into origin capabilities, and the FlashOrigin column gives the materialization matrix its first bare-metal cell.
+
+---
+
+## References
+
+- [esp32-ai repository](https://github.com/slvDev/esp32-ai)
+- [Chton](../index.html)
+- [Chton repository](https://github.com/ssccsorg/chton), with the development direction master devlog (2026-08-01)
+- [SSCCS](../../../axioms/ssccs.html)
