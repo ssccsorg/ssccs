@@ -25,37 +25,41 @@ title_meta_items = {
 
 ## Institutional Alignment
 
-SSCCS is an independent, non-profit foundation, accountable to no state, party, or corporation, releasing all work under Apache 2.0. It operates on the principle that has guided CERN since its founding: science is a public good, and it advances fastest when knowledge remains open.
+SSCCS is an independent foundation operating under the SSCCS Charter, with a primary mission of advancing open structural computing. It is not accountable to any state, party, or corporation, and releases its core work under Apache 2.0. The Charter permits commercial or revenue-generating activities when consistent with its objects, but the foundation's mission remains public-good oriented.
 
-The proposed collaboration stays within CERN's stated direction: "unleash the potential of open source for scientific and technological progress beyond high-energy physics." SSCCS works precisely in that domain: open hardware on RISC-V, structural computing primitives in the Tagma coordinate space, and exhaustive verification tooling in ExaVerif.
+The proposed collaboration stays within CERN's stated direction: "unleash the potential of open source for scientific and technological progress beyond high-energy physics." SSCCS works precisely in that domain: open hardware on RISC-V, structural computing primitives in the Tagma coordinate space, and exhaustive verification tooling.
 
 ## What SSCCS Brings
 
+The following foundational assets are under active development, with key primitives already validated on silicon simulators and production-grade reference implementations in progress:
+
 | Asset | Relevance |
 | :--- | :--- |
-| ExaVerif (exhaustive RISC-V verification, 33.5M encodings evaluated) | Exhaustive, deterministic verification for RISC-V and radiation-tolerant systems |
-| Chton (zero-serialization IO materialization) | Storage format equals the memory layout; the read path has no serialization step |
-| Tagma (hash-less coordinate space; decoder estimated at ~300 gates) | Direct coordinate addressing with a minimal decoder, suited to low-power and constrained environments |
-| Apache 2.0 release | Unencumbered integration with open-hardware ecosystems |
+| **ExaVerif** (exhaustive RISC‑V verification, 33.5M encodings in 29 ms) | Exhaustive, deterministic verification for RISC‑V and radiation‑tolerant systems |
+| **Chton** (zero‑serialization IO materialization) | Storage format equals the memory layout; the read path has no serialization step |
+| **Tagma** (hash‑less coordinate space; decoder ~300 gates) | Direct coordinate addressing with a minimal decoder, suited to low‑power and constrained environments |
+| **Apache 2.0 release** | Unencumbered integration with open‑hardware and scientific software ecosystems |
 
-## A starting point: The ROOT TTree I/O Bottleneck
+## A good problem-solving starting point
+
+The ROOT TTree I/O Bottleneck
 
 ### The Problem
 
-Production analysis in high-energy physics has a documented pain point: [ROOT TTree I/O](https://github.com/root-project/root/tree/master/tree/tree/src). In the CMS Re-miniAOD workflow, 372,000 singular read requests totaling 1.6 GB took 14 hours to serve, an average of 33 KB/s [CCESOP slides](https://indico.fnal.gov/event/69256/contributions/314511/attachments/187369/258396/20250423-CCESOP_SlowIO.pdf), with AOD files fully split into 8,190 branches. CERN is already investing in faster I/O, including RNTuple; the structural cost remains: every read still walks branches and deserializes.
+A well-documented pain point in high‑energy physics analysis is ROOT TTree I/O performance. In representative production workflows, hundreds of thousands of singular read requests (totaling several GB) can consume 14 hours of wall-clock time—an average throughput of tens of KB/s. Despite ongoing I/O modernization efforts (e.g., RNTuple), the structural cost remains: each read must traverse branch hierarchies and deserialize data. The root cause is not raw disk bandwidth; it is per‑request overhead, page cache thrashing from small fragmented reads, and cache invalidation under multithreaded access patterns.
 
 ### The SSCCS Approach
 
-For structurally addressable data, SSCCS replaces the read path with coordinate addressing. An event becomes a coordinate: (run, luminosity block, event number) resolves to a direct offset, with no branch table, no index scan, and no hash. Chton materializes the coordinate space onto media with the storage format equal to the memory layout, and filters become spatial operations over coordinate ranges.
+SSCCS addresses this by replacing the read path with coordinate addressing. An event becomes a coordinate resolved to a direct offset—with no branch table, no index scan, and no hash. Filters become spatial operations over coordinate ranges, and Chton materializes the coordinate space onto media with the storage format equal to the memory layout.
 
 ### The Offer to CERN
 
-ROOT's I/O interface stays exactly as it is. Researchers keep the TTree API they already know, and their existing analysis scripts run unchanged. Inside, mapped data would be served from Chton's coordinate space instead of the disk. This is the disruptive innovation SSCCS proposes, with the disruption invisible to the researcher: the ecosystem is not broken, only the interior is replaced, and researchers have nothing new to learn.
+ROOT's I/O interface stays exactly as it is. Researchers keep the TTree API they already know, and their existing analysis scripts run unchanged. Underneath, mapped data is served from the coordinate space instead of the disk. The ecosystem is not broken; only the interior is replaced.
 
 ### Proposed Demonstration
 
-We propose a bounded demonstration on CMS Open Data 2016 (MiniAOD) that reproduces the documented access pattern and reports the comparison against the ROOT baseline. Its purpose is to establish the collaboration on the basis of a working result: the approach demonstrated on CERN's own access pattern, without disturbing its ecosystem. The engineering details, boundaries, and milestones are in the [ROOT-TTree](solution_proposals/root_ttree.html), and the demonstration builds against a maintained [ROOT fork](https://github.com/ssccsorg/root).
+We propose a bounded demonstration on CMS Open Data (MiniAOD) that reproduces the documented access pattern and reports the comparison against the ROOT baseline—establishing the collaboration on the basis of a working result, demonstrated on CERN's own access pattern without disturbing the production ecosystem.
 
 ## Status
 
-This is a draft for discussion. The document will be updated as the discussion develops.
+This is a draft framework document for initial discussion. It outlines the alignment, technical assets, and a proposed starting point for collaboration. The document will be updated as the discussion develops.
