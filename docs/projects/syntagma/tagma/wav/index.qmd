@@ -99,11 +99,11 @@ The container is eliminated entirely. The message is the coordinate; the coordin
 
 ## The Alternative: Structural Coordinate Transmission
 
-Coordinate-based transmission replaces packet-based transmission. A message is encoded as a coordinate path — a sequence of N syllables drawn from the Unicode Hangul block (U+AC00–U+D7A3). Each syllable encodes a 16-bit coordinate through its initial, medial, and final decomposition.
+Coordinate-based transmission replaces packet-based transmission. A message is encoded as a coordinate path — a sequence of N syllables drawn from the Unicode block (U+AC00–U+D7A3). Each syllable encodes a 16-bit coordinate through its initial, medial, and final decomposition.
 
 The transmission process is:
 
-1. **Message → coordinate path**: The message is mapped to a sequence of coordinates using the same deterministic transformation as Tagma-KV. Each syllable carries log₂(11,172) ≈ 13.45 bits of information, so the mapping is injective for messages up to 13.45N bits (⌊1.68N⌋ bytes) — the information-theoretic bound of an N-syllable coordinate path.
+1. **Message → coordinate path**: The message is mapped to a sequence of coordinates using the same deterministic transformation as Tagma-KV. Each coord carries log₂(11,172) ≈ 13.45 bits of information, so the mapping is injective for messages up to 13.45N bits (⌊1.68N⌋ bytes) — the information-theoretic bound of an N-coord coordinate path.
 
 2. **coordinate path → Physical Signal**: Each 16-bit coordinate is transmitted directly over the physical medium. No headers are added. No checksums are computed. The coordinate itself is the unit of transmission.
 
@@ -230,8 +230,8 @@ The transmission pipeline has been validated through software simulation. The fo
 | Operation | Latency | Notes |
 |:---|:---|:---|
 | Single coordinate validation | 0.39 ns | Range check + structural decomposition |
-| 6-syllable coordinate path validation | 2.34 ns | 6 coordinates × 0.39 ns |
-| 19-syllable coordinate path validation | 7.41 ns | 19 coordinates (SHA-256 scale) |
+| 6-coord path validation | 2.34 ns | 6 coordinates × 0.39 ns |
+| 19-coord path validation | 7.41 ns | 19 coordinates (SHA-256 scale) |
 
 The validation cost scales linearly with the number of coordinates but remains below 10 ns even at SHA-256 scale. There is no parsing cost because the coordinates are already the message.
 
@@ -317,7 +317,7 @@ When a coordinate path shares its syllables between address and payload, the cap
 
 $$C_{\text{payload}} = 11172^{N - N_{\text{addr}}}$$
 
-For a 6-syllable coordinate path with one address syllable, the payload space is 11,172⁵ ≈ 1.74 × 10²⁰ combinations — still orders of magnitude beyond any single-agent message corpus.
+For a 6-coord path with one address, the payload space is 11,172⁵ ≈ 1.74 × 10²⁰ combinations — still orders of magnitude beyond any single-agent message corpus.
 
 The reference orchestration runtime for this domain is Actus: its headless agent architecture and planned neXus blackboard integration match the observation model, where the wave channel feeds the shared knowledge space and the runtime interprets and acts.
 
@@ -333,7 +333,7 @@ Consider a simple scenario: a machine emits the sound "명" — a single Hangul 
 
 There is no language translation: the sound "명" is a structural coordinate that machines understand directly. This is the ultimate expression of parserless communication: the message and the medium are one.
 
-#### The command space of one syllable
+#### The command space of one coord
 
 The Hangul block U+AC00–U+D7A3 contains exactly 11,172 valid syllables ($11172 = 19 \times 21 \times 28$). An N-syllable coordinate path therefore encodes:
 
@@ -345,7 +345,7 @@ $$C_N = 11172^N$$
 | 2 | 1.25 × 10⁸ | Command plus operand or parameter: covers every realistic command space |
 | 6 | 1.94 × 10²⁴ | Standard address space (≈ 2⁸¹)[^coordid6] |
 
-One syllable already covers any practical command set; the second syllable supplies the operand or parameter, so two syllables are sufficient for complete command coverage without headers or framing.
+One coord already covers any practical command set; the second coord supplies the operand or parameter, so two syllables are sufficient for complete command coverage without headers or framing.
 
 ### Wave Observation: One Wave, Many Agents
 
@@ -421,7 +421,7 @@ The honest limits follow from the same structure:
 
 - **13.45 bits per symbol** means the information rate is 84% of the symbol rate; raw data streams skip this tax.
 - **Per-symbol detection does not scale to long streams**: at 24.1% single-bit detection, undetected corruption accumulates linearly with stream length, so integrity-critical telemetry needs block-level redundancy or an application checksum regardless of the coordinate check.
-- **Dimensional precision**: 13.45 bits per axis is roughly three decimal digits; a float32 coordinate needs three axes, so raw dimensional streams (4 × float32 = 16 bytes) transmit at a loss versus 12-syllable coordinate paths (24 bytes).
+- **Dimensional precision**: 13.45 bits per axis is roughly three decimal digits; a float32 coordinate needs three axes, so raw dimensional streams (4 × float32 = 16 bytes) transmit at a loss versus 12-coord paths (24 bytes).
 - **Timing cascades remain**: a long burst can still lose physical symbol timing, desynchronizing subsequent symbols until resync; only the packet-level cascade is eliminated.
 
 ## Comparison with Existing Communication Paradigms
@@ -443,7 +443,7 @@ This model does not compete with TCP/IP or UDP on their own terms. It replaces t
 
 The content-addressed property of the coordinate path has a named precedent: Named Data Networking (NDN) routes by content names instead of host addresses[^ndn]. The shared principle is that content identity, not endpoint address, is the network primitive. The difference is the dimension of the addressing structure.
 
-NDN names are hierarchical strings resolved by longest-prefix matching at line speed. A string is a container: it must be parsed, compared, and matched against routing state, and its validity is unbounded by structure. The coordinate path replaces the string layer with a structurally constrained symbol space: every symbol is a member of the 11,172-syllable block, validates by arithmetic decomposition in 0.39 ns, and carries 13.45 bits of information. Where NDN maintains routing state for strings (forwarding table, content store, pending interest table), the coordinate model adds no routing state: receivers self-select by axis membership at hardware speed.
+NDN names are hierarchical strings resolved by longest-prefix matching at line speed. A string is a container: it must be parsed, compared, and matched against routing state, and its validity is unbounded by structure. The coordinate path replaces the string layer with a structurally constrained symbol space: every symbol is a member of the 11,172-coord block, validates by arithmetic decomposition in 0.39 ns, and carries 13.45 bits of information. Where NDN maintains routing state for strings (forwarding table, content store, pending interest table), the coordinate model adds no routing state: receivers self-select by axis membership at hardware speed.
 
 The interaction pattern differs on a separate axis. NDN is content-centric and still request-response: an Interest packet asks, a Data packet answers. The wave model is emission-only: there is no request, no per-pair state, and response diversity is produced entirely on the receiver side. Content addressing and request-response are orthogonal properties, and the coordinate model occupies the emission-only corner of that plane.
 
@@ -457,7 +457,7 @@ On the transmission side, the same 300-gate decoder can be used to encode messag
 
 The coordinate channel is not an authentication mechanism. This section states the design space for layering integrity and replay protection onto coordinate streams without reintroducing a packet layer. The mechanisms below are research directions, not a specified scheme: the exact arithmetic, key lifecycle, and reserved positions are implementation choices not yet made.
 
-**Coordinate Vernam.** Modular addition in the syllable space preserves structural validity: a cipher coordinate $c' = (c + k) \bmod 11{,}172$ maps back to a valid syllable, so every received symbol passes the structural gate (Section Error Detection Comparison) before decryption. If the key stream is used once, this is a Vernam cipher in the syllable space; reuse degrades it to a substitution cipher, so key distribution and re-keying dominate the cost.
+**Coordinate Vernam.** Modular addition in the coord space preserves structural validity: a cipher coordinate $c' = (c + k) \bmod 11{,}172$ maps back to a valid coord, so every received symbol passes the structural gate (Section Error Detection Comparison) before decryption. If the key stream is used once, this is a Vernam cipher in the coord space; reuse degrades it to a substitution cipher, so key distribution and re-keying dominate the cost.
 
 **Nonce coordinates.** A reserved position in the coordinate path carries a counter or random nonce, making each emission unique and replay detectable. The nonce consumes capacity: N syllables with one nonce position leaves $11172^{N-1}$ effective combinations.
 
