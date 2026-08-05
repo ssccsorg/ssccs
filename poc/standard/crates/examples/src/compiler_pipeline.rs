@@ -16,6 +16,7 @@
 //! The pipeline is deterministic: given the same Scheme and hardware profile,
 //! it always produces the same output.
 
+use crate::asm_emitter::emit_scheme_data;
 use ssccs_core::SegmentId;
 use ssccs_primitive::scheme::abstract_scheme::{LogicalAddress, Scheme};
 use std::collections::HashMap;
@@ -128,11 +129,12 @@ impl CompilerPipeline {
         placement
     }
 
-    /// Stage 5: Observation‑Code Generation.
-    /// Generates placeholder code (in reality this would produce machine code,
-    /// FPGA bitstream, or PIM micro‑code).
+    /// Stage 5: Observation-Code Generation.
+    /// Emits the Scheme structure as an assembly `.rodata` data section:
+    /// segment coordinate tables, logical address tables, and golden anchor
+    /// comments. The observation routines of the reference simulation
+    /// consume this baked structure directly.
     fn stage_code_generation(&self) -> Vec<u8> {
-        // Placeholder: empty byte vector.
-        vec![]
+        emit_scheme_data(&self.scheme).text.into_bytes()
     }
 }
