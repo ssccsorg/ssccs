@@ -4,7 +4,7 @@
 //! These tests verify determinism, coordinate ordering, address agreement
 //! with the Scheme layout mapping, and golden anchor emission.
 
-use ssccs_core::{Coordinates, Segment};
+use ssccs_core::Segment;
 use ssccs_examples::asm_emitter::emit_scheme_data;
 use ssccs_primitive::scheme::abstract_scheme::{Axis, AxisType, Scheme, SchemeBuilder};
 

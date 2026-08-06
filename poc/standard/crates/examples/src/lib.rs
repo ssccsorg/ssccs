@@ -9,12 +9,14 @@
 
 pub mod asm_emitter;
 pub mod compiler_pipeline;
+pub mod constraint_emitter;
 pub mod constraints;
 pub mod projectors;
 pub mod ss_parser;
 
 pub use asm_emitter::*;
 pub use compiler_pipeline::*;
+pub use constraint_emitter::*;
 pub use constraints::*;
 pub use projectors::*;
 pub use ss_parser::*;
