@@ -7,22 +7,24 @@ This directory contains proof-of-concept implementations of the Schema-Segment C
 ```text
 poc/
 ├── standard/               Main Rust workspace (host CPU simulation)
-│   ├── Cargo.toml          Workspace manifest with 18 member crates
+│   ├── Cargo.toml          Workspace manifest with 19 member crates
 │   ├── crates/
 │   │   ├── core/           Absolute primitives (Segment, Field, Projector trait)
 │   │   ├── primitive/      Scheme abstraction layer
 │   │   ├── schemes/        Concrete Scheme implementations
-│   │   ├── examples/       Shared utilities (projectors, parser, compiler pipeline)
+│   │   ├── examples/       Shared utilities (projectors, parser, compiler pipeline, emitters)
+│   │   ├── benchmarks/     Validation-only kernels: Rust baseline vs SSCCS formulation
 │   │   ├── concepts/    11 independent constitutional concept test crates
 │   │   ├── field-synthesis/   Research placeholder
 │   │   ├── hardware-mapping/  Research placeholder
 │   │   └── compiler-opt/      Research placeholder
 │   └── README.md           Full crate-level documentation
 │
-├── baremetal_riscv/        Standalone no_std crate for RISC-V hardware
-│   ├── Cargo.toml          Target: riscv32imac-unknown-none-elf
-│   ├── src/                Custom instructions, XIF coprocessor stubs
-│   └── README.md           API reference and build instructions
+├── baremetal_riscv/        RISC-V assembly integration crate
+│   ├── Cargo.toml          Host build; RV64 assembly path under Spike
+│   ├── asm/                Five hand-written .S modules (observation pipeline)
+│   ├── src/                Custom instructions, fallback, golden anchor tests
+│   └── README.md           API reference and target reality
 │
 ├── _llms/                  Auto-generated AI agent documentation
 │   ├── llms.txt            LLM-friendly index (llmstxt.org format)
@@ -45,7 +47,8 @@ Rust workspace targeting x86_64 / aarch64. Implements the complete SSCCS ontolog
 | Primitives | `ssccs-core` | Segment, Coordinates, Constraint, Field, TransitionMatrix, Projector trait, observe() |
 | Scheme | `ssccs-primitive` | Scheme, SchemeBuilder, SchemeTrait, Axis, StructuralRelation, MemoryLayout, ObservationRules |
 | Scheme | `ssccs-schemes` | Grid2DTemplate, IntegerLineTemplate, GraphTemplate, Tensor3DTemplate, CompositeScheme, TransformedScheme, BooleanSpace, IntegerSpace |
-| Utilities | `ssccs-examples` | IntegerProjector, ArithmeticProjector, ParityProjector, CoordinateSumProjector, CompilerPipeline, .ss parser |
+| Utilities | `ssccs-examples` | IntegerProjector, ArithmeticProjector, ParityProjector, CoordinateSumProjector, CompilerPipeline, .ss parser, assembly data emitter, branchless constraint gate emitter |
+| Benchmarks | `ssccs-benchmarks` | Vector addition, 2D convolution, graph BFS: Rust baseline vs SSCCS formulation (validation-only) |
 | Experiments | `concept-segment` through `concept-integrated` plus `experiment-data-processing` | Each crate tests one constitutional concept independently |
 | Research | `ssccs-field-synthesis` | Field composition algebra (placeholder) |
 | Research | `ssccs-hardware-mapping` | Scheme-to-hardware mapping (placeholder) |
@@ -77,9 +80,12 @@ Build:
 
 ```bash
 cd baremetal_riscv
-rustup target add riscv32imac-unknown-none-elf
-cargo build --target riscv32imac-unknown-none-elf --release
+cargo build --release        # host build: Rust fallback + golden anchors
+cargo test                   # host tests
+./run.sh                     # assembly syntax gate + Spike + SystemVerilog
 ```
+
+Bare-metal cargo target builds (`riscv32imac-unknown-none-elf`) are blocked by std-only dependencies in the standard workspace crates; see the crate README's Target Reality section and issue #107.
 
 ## Quick Start
 
@@ -115,6 +121,38 @@ Triggered by `.github/workflows/run-deploy-poc.yml` on push to paths matching `p
 3. rsync `*.md` + `llms.txt` (excluding README.md) to `_agent/poc/`
 4. `aws s3 sync` to R2 (`s3://ssccs-nexus-af/ssccs/poc/`)
 5. Dispatch `ssccs-poc-agent-af` event to ssccs-nexus repository
+
+## Reference Simulation Handoff
+
+This directory is the pure plane layer of the ecosystem. The reference simulation delivers the following contracts for the practical plane to consume; sub-projects materialize them on their substrates, and the poc remains independent of every project it enables.
+
+### Assembly data contract
+
+The standard workspace emits a Scheme as an assembly `.rodata` section (deterministic, sorted by coordinates):
+
+| Symbol | Meaning |
+|--------|---------|
+| `SCHEME_SEG_COUNT` | Segment count |
+| `SEG_i` | Segment coordinates as `.8byte` values |
+| `SCHEME_COORDS` | Pointer table over the segment labels |
+| `SCHEME_ADDRESSES` | Logical addresses (unmapped emits 0 with a note) |
+| `GOLDEN_*` | Anchors pinning the structure for CI agreement |
+
+Emit via `ssccs_examples::asm_emitter::emit_scheme_data(&scheme)`, or through `CompilerPipeline::new(scheme, profile).with_constraints(specs).compile()` which appends the branchless constraint gates.
+
+### Constraint gate ABI
+
+Generated gates follow `fn(*const i64) -> u32`: coordinate pointer in `a0`, gate result in `a0`, zero conditional branches, constants baked in. `ssccs_examples::constraint_emitter` supports Even, Range, Eq, and Gt specs with a host-side reference evaluator and golden anchors.
+
+### Observation consumer
+
+`baremetal_riscv/asm/observe_full.S` provides `observe_scheme(field_fn, proj_fn, out)`, a batch observation over the emitted `SCHEME_SEG_COUNT`/`SCHEME_COORDS` tables; a null `out` writes to `SCHEME_RESULTS`. The same projections are pinned on the host by `ssccs_core::observe` and the golden anchors.
+
+### Validation evidence
+
+- Determinism and race-free concurrent observation tests in `ssccs-examples/tests/`.
+- Assembly syntax gate over all `asm/*.S`, Spike execution, and SystemVerilog cross-validation in `baremetal_riscv/`.
+- Benchmark kernels in `ssccs-benchmarks` (run `cargo bench -p ssccs-benchmarks`): the measured emulation overhead on existing hardware informs the practical plane; it never shapes the model.
 
 ## License
 
