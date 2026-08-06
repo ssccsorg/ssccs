@@ -7,7 +7,7 @@ This directory contains proof-of-concept implementations of the Schema-Segment C
 ```text
 poc/
 ├── standard/               Main Rust workspace (host CPU simulation)
-│   ├── Cargo.toml          Workspace manifest with 19 member crates
+│   ├── Cargo.toml          Workspace manifest with 18 member crates
 │   ├── crates/
 │   │   ├── core/           Absolute primitives (Segment, Field, Projector trait)
 │   │   ├── primitive/      Scheme abstraction layer

@@ -81,7 +81,9 @@ pub fn conv2d_baseline(input: &[i64], width: usize, height: usize, kernel: &[i64
 
 /// Projector for the convolution scheme: a segment carries `[x, y, p00,
 /// p01, p02, p10, p11, p12, p20, p21, p22]`, the 3x3 patch around the
-/// output position. The kernel weights are baked in.
+/// output position. The kernel weights are baked in. Arithmetic wraps on
+/// overflow, matching the release-mode baseline; the correctness tests
+/// use inputs without overflow so both paths agree in all modes.
 #[derive(Debug)]
 pub struct PatchConvProjector {
     /// 3x3 kernel weights.
@@ -95,15 +97,20 @@ impl Projector for PatchConvProjector {
         let coords = segment.coordinates();
         let mut acc = 0i64;
         for (k, weight) in self.kernel.iter().enumerate() {
-            acc = acc.checked_add(coords.get_axis(2 + k)? * weight)?;
+            acc = acc.wrapping_add(coords.get_axis(2 + k)?.wrapping_mul(*weight));
         }
         Some(acc)
     }
 }
 
 /// Builds the convolution scheme: one segment per output pixel, whose
-/// coordinates are the position followed by the 3x3 input patch.
+/// coordinates are the position followed by the 3x3 input patch. The
+/// grid must be at least 3x3 so interior pixels exist.
 pub fn build_conv_scheme(input: &[i64], width: usize, height: usize) -> Vec<Segment> {
+    assert!(
+        width >= 3 && height >= 3,
+        "convolution grid must be at least 3x3"
+    );
     assert_eq!(input.len(), width * height);
     let mut segments = Vec::with_capacity((width - 2) * (height - 2));
     for y in 1..height - 1 {
@@ -138,7 +145,9 @@ pub fn conv2d_ssccs(
 // ═══════════════════════════════════════════════════════════════════════
 
 /// Deterministic undirected graph: a ring plus chords of stride 5, so
-/// every node is reachable from node 0.
+/// every node is reachable from node 0. For n below 6 the stride-5 chord
+/// collapses into self-loops and duplicate edges; dedup and the visited
+/// check keep BFS correct, but the generator is intended for n >= 6.
 pub fn build_ring_chord_graph(n: usize) -> Vec<Vec<usize>> {
     let mut adj = vec![Vec::new(); n];
     for i in 0..n {

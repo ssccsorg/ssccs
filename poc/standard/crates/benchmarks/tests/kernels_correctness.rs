@@ -76,3 +76,14 @@ fn bfs_paths_reach_the_same_nodes() {
         assert!(ssccs_set.contains(&(node as i64)), "node {node} missing");
     }
 }
+
+#[test]
+fn conv_scheme_rejects_grids_smaller_than_3x3() {
+    // The capacity computation (width - 2) * (height - 2) underflows for
+    // grids below 3x3; the builder must reject them up front.
+    assert!(std::panic::catch_unwind(|| build_conv_scheme(&[0i64], 1, 1)).is_err());
+    assert!(std::panic::catch_unwind(|| build_conv_scheme(&[0i64; 4], 2, 2)).is_err());
+    // A 3x3 grid with a single interior pixel builds fine.
+    let segments = build_conv_scheme(&[0i64; 9], 3, 3);
+    assert_eq!(segments.len(), 1);
+}
