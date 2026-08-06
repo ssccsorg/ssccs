@@ -17,7 +17,8 @@
 //! it always produces the same output.
 
 use crate::asm_emitter::emit_scheme_data;
-use ssccs_core::SegmentId;
+use crate::constraint_emitter::{ConstraintSpec, emit_constraint_gates};
+use ssccs_core::{Segment, SegmentId};
 use ssccs_primitive::scheme::abstract_scheme::{LogicalAddress, Scheme};
 use std::collections::HashMap;
 
@@ -59,12 +60,30 @@ pub enum HardwareResource {
 pub struct CompilerPipeline {
     scheme: Scheme,
     profile: HardwareProfile,
+    /// Declared Field constraint gates, emitted alongside the scheme data.
+    field_specs: Vec<(String, ConstraintSpec)>,
 }
 
 impl CompilerPipeline {
     /// Creates a new pipeline for the given Scheme and hardware profile.
     pub fn new(scheme: Scheme, profile: HardwareProfile) -> Self {
-        Self { scheme, profile }
+        Self {
+            scheme,
+            profile,
+            field_specs: Vec::new(),
+        }
+    }
+
+    /// Declares the Field constraint gates to emit alongside the scheme
+    /// data. Each entry pairs an assembly label with a constraint spec;
+    /// labels must be valid assembly symbols and unique. The emitted gates
+    /// are drop-in `field_fn` values for the observation routines.
+    pub fn with_constraints(mut self, specs: Vec<(&str, ConstraintSpec)>) -> Self {
+        self.field_specs = specs
+            .into_iter()
+            .map(|(label, spec)| (label.to_string(), spec))
+            .collect();
+        self
     }
 
     /// Runs the complete pipeline, returning a `CompiledScheme`.
@@ -132,9 +151,29 @@ impl CompilerPipeline {
     /// Stage 5: Observation-Code Generation.
     /// Emits the Scheme structure as an assembly `.rodata` data section:
     /// segment coordinate tables, logical address tables, and golden anchor
-    /// comments. The observation routines of the reference simulation
+    /// comments, followed by the declared branchless constraint gates in
+    /// `.text`. The observation routines of the reference simulation
     /// consume this baked structure directly.
     fn stage_code_generation(&self) -> Vec<u8> {
-        emit_scheme_data(&self.scheme).text.into_bytes()
+        let mut out = emit_scheme_data(&self.scheme).text;
+        if !self.field_specs.is_empty() {
+            out.push('\n');
+            out.push_str(&emit_constraint_gates(
+                &self.field_specs,
+                &self.gate_fixture(),
+            ));
+        }
+        out.into_bytes()
+    }
+
+    /// The fixture for gate golden anchors: the sorted axis-0 values of
+    /// the scheme's segments, matching the emitted structure tables.
+    fn gate_fixture(&self) -> Vec<i64> {
+        let mut segments: Vec<&Segment> = self.scheme.segments().collect();
+        segments.sort_by(|a, b| a.coordinates().raw.cmp(&b.coordinates().raw));
+        segments
+            .iter()
+            .map(|s| s.coordinates().raw.first().copied().unwrap_or(0))
+            .collect()
     }
 }
