@@ -488,16 +488,30 @@ mod tests {
     // ── Generated-table observe golden anchors ──
     // The assembly consumes SCHEME_SEG_COUNT / SCHEME_COORDS emitted by the
     // standard workspace emitter. The host fallback must reproduce the same
-    // projections over the same generated structure.
+    // projections over the same generated structure, and the .S table data
+    // (exposed by build.rs as asm_data) must agree with the anchors.
     #[cfg(not(target_arch = "riscv64"))]
     #[test]
     fn test_scheme_observe_golden_anchors() {
+        use super::asm_data::observe_full as data;
         use super::fallback;
 
         let segs = parse_golden(ASM_OBSERVE_FULL, "GOLDEN_SCHEME_SEGMENTS");
         assert_eq!(segs, [2, 3, 5, 10, 12]);
         let narrow = parse_golden(ASM_OBSERVE_FULL, "GOLDEN_SCHEME_NARROW");
         let broad = parse_golden(ASM_OBSERVE_FULL, "GOLDEN_SCHEME_BROAD");
+
+        // Cross-check the .S tables against the anchors: the generated
+        // structure itself must carry the anchor values.
+        assert_eq!(data::SCHEME_SEG_COUNT, 5);
+        let table = [
+            data::SEG_0,
+            data::SEG_1,
+            data::SEG_2,
+            data::SEG_3,
+            data::SEG_4,
+        ];
+        assert_eq!(table.as_slice(), segs.as_slice());
 
         let and_field = |v| fallback::compose_and(fallback::ck_even, fallback::ck_range_0_10, v);
         let or_field = |v| fallback::compose_or(fallback::ck_even, fallback::ck_range_0_10, v);

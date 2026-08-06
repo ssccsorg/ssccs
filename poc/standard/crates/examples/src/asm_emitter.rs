@@ -37,7 +37,9 @@ pub struct EmittedDataSection {
 ///
 /// The coordinate table and the address table share one ordering: the
 /// segment order determined by lexicographic coordinate sort. A segment
-/// without a logical address emits `0` with an `unmapped` comment.
+/// without a logical address emits `0`, and the table is preceded by a
+/// note when any segment is unmapped. An empty scheme emits zero
+/// placeholders so the table labels stay well-defined.
 pub fn emit_scheme_data(scheme: &Scheme) -> EmittedDataSection {
     let mut segments: Vec<&Segment> = scheme.segments().collect();
     segments.sort_by(|a, b| a.coordinates().raw.cmp(&b.coordinates().raw));
@@ -73,21 +75,42 @@ pub fn emit_scheme_data(scheme: &Scheme) -> EmittedDataSection {
         .map(|idx| format!("SEG_{idx}"))
         .collect::<Vec<_>>()
         .join(", ");
-    out.push_str(&format!(
-        ".globl SCHEME_COORDS\nSCHEME_COORDS: .8byte {labels}\n\n"
-    ));
+    if segments.is_empty() {
+        // An empty scheme must still produce well-defined labels. A zero
+        // placeholder keeps the tables addressable, and consumers are
+        // guarded by SCHEME_SEG_COUNT.
+        out.push_str(
+            ".globl SCHEME_COORDS\nSCHEME_COORDS: .8byte 0   # empty scheme placeholder\n\n",
+        );
+        out.push_str(
+            ".globl SCHEME_ADDRESSES\nSCHEME_ADDRESSES: .8byte 0   # empty scheme placeholder\n\n",
+        );
+    } else {
+        out.push_str(&format!(
+            ".globl SCHEME_COORDS\nSCHEME_COORDS: .8byte {labels}\n\n"
+        ));
+    }
 
     let mut addresses = Vec::with_capacity(segments.len());
+    let mut unmapped = false;
     for segment in &segments {
         match scheme.map_to_logical_address(segment.coordinates()) {
             Some(addr) => addresses.push(addr.offset.to_string()),
-            None => addresses.push("0".to_string()),
+            None => {
+                unmapped = true;
+                addresses.push("0".to_string());
+            }
         }
     }
     let addr_line = addresses.join(", ");
-    out.push_str(&format!(
-        ".globl SCHEME_ADDRESSES\nSCHEME_ADDRESSES: .8byte {addr_line}\n\n"
-    ));
+    if unmapped {
+        out.push_str("# NOTE: unmapped segments emit address 0\n");
+    }
+    if !segments.is_empty() {
+        out.push_str(&format!(
+            ".globl SCHEME_ADDRESSES\nSCHEME_ADDRESSES: .8byte {addr_line}\n\n"
+        ));
+    }
 
     emit_golden_anchors(&mut out, &segments, &addresses);
 

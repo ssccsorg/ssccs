@@ -521,12 +521,16 @@ SCHEME_RESULTS: .8byte 0, 0, 0, 0, 0
 
 # observe_scheme(field_fn, proj_fn, out): batch observation over the
 # generated SCHEME tables. Count and coords come from the emitted
-# structure, not from call arguments.
+# structure, not from call arguments. When out is null, results are
+# written to SCHEME_RESULTS.
 .globl observe_scheme
 observe_scheme:
     la      t0, SCHEME_SEG_COUNT
     ld      a2, 0(t0)           # count = SCHEME_SEG_COUNT
     la      a1, SCHEME_COORDS   # coords = SCHEME_COORDS
+    bnez    a4, .Lscheme_out    # caller-provided out?
+    la      a4, SCHEME_RESULTS  # default results target
+.Lscheme_out:
     j       observe_batch
 
 # GOLDEN_SCHEME_SEGMENTS: 2,3,5,10,12

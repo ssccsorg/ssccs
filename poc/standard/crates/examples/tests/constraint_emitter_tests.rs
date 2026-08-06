@@ -8,7 +8,7 @@
 
 use ssccs_core::{Field, Segment};
 use ssccs_examples::constraint_emitter::{
-    eval_constraint, emit_constraint_gate, emit_constraint_gates, ConstraintSpec,
+    ConstraintSpec, emit_constraint_gate, emit_constraint_gates, eval_constraint,
 };
 use ssccs_examples::constraints::{EvenConstraint, RangeConstraint};
 
@@ -28,14 +28,9 @@ fn parse_golden(text: &str, key: &str) -> Vec<i64> {
 
 /// Returns true when the gate text contains a conditional branch.
 fn has_conditional_branch(text: &str) -> bool {
-    text.lines().any(|l| {
-        let t = l.trim();
-        t.starts_with("beq ")
-            || t.starts_with("bne ")
-            || t.starts_with("blt ")
-            || t.starts_with("bge ")
-            || t.starts_with("bltu ")
-            || t.starts_with("bgeu ")
+    text.lines().any(|l| match l.split_whitespace().next() {
+        Some("beq") | Some("bne") | Some("blt") | Some("bge") | Some("bltu") | Some("bgeu") => true,
+        _ => false,
     })
 }
 
@@ -85,7 +80,10 @@ fn generated_gates_golden_agree_with_handwritten_semantics() {
     // eq 3                   -> 0,1,0,0,0
     // gt 4                   -> 0,0,1,1,1
     assert_eq!(parse_golden(&text, "GOLDEN_GATE_gen_even"), [1, 0, 0, 1, 1]);
-    assert_eq!(parse_golden(&text, "GOLDEN_GATE_gen_range"), [1, 1, 1, 1, 0]);
+    assert_eq!(
+        parse_golden(&text, "GOLDEN_GATE_gen_range"),
+        [1, 1, 1, 1, 0]
+    );
     assert_eq!(parse_golden(&text, "GOLDEN_GATE_gen_eq"), [0, 1, 0, 0, 0]);
     assert_eq!(parse_golden(&text, "GOLDEN_GATE_gen_gt"), [0, 0, 1, 1, 1]);
 }
@@ -114,11 +112,7 @@ fn generated_gates_drive_narrow_observation() {
         .map(|&v| {
             let even = eval_constraint(&ConstraintSpec::Even, v);
             let range = eval_constraint(&ConstraintSpec::Range { min: 0, max: 10 }, v);
-            if even && range {
-                v
-            } else {
-                reject
-            }
+            if even && range { v } else { reject }
         })
         .collect();
     assert_eq!(narrow, [2, reject, reject, 10, reject]);
