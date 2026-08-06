@@ -24,7 +24,10 @@ The PoC is organized as a **Rust workspace** with multiple crates, enabling inde
 | **`ssccs-primitive`** | Scheme abstraction layer: `Scheme`, `SchemeBuilder`, `SchemeTrait`, structural relations, constraints, observation rules, and memory layout abstractions. |
 | **`ssccs-schemes`** | Concrete Scheme implementations and developer input types: `Grid2DTemplate`, `IntegerLineTemplate`, `GraphTemplate`, `Tensor3DTemplate`, `CompositeScheme`, `TransformedScheme`, `BooleanSpace`, `IntegerSpace`. |
 | **`ssccs-examples`** | Shared utilities for experiments: projector implementations (`IntegerProjector`, `ArithmeticProjector`, `ParityProjector`, `CoordinateSumProjector`), compiler pipeline, `.ss` binary parser, assembly data emitter, branchless constraint gate emitter, and test constraints. |
-| **`ssccs-benchmarks`** | Validation-only benchmarking kernels: vector addition, 2D convolution, and graph BFS, each as a pure Rust baseline and an SSCCS Scheme + Field + Projector formulation (criterion). |
+
+### Standalone Benchmark Crate
+
+The validation-only benchmark suite lives outside this workspace at [`/poc/benches/`](../benches/): a standalone criterion crate (`ssccs-benchmarks`) with a single `bench.rs` expressing the three kernels (vector addition, 2D convolution, graph BFS) as both a pure Rust baseline and an SSCCS Scheme + Field + Projector formulation. Run it with `benches/run.sh`; the `poc/run.sh` validation executes it in quick mode.
 
 ### Experiment Crates (Constitutional Concept Tests)
 
