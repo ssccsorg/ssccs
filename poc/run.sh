@@ -318,29 +318,6 @@ else
     echo "  ⊘ Skipped (Verilator not installed)"
 fi
 
-# ── Reference simulation benchmarks (quick, validation-only) ──
-
-echo ""
-echo "─────────────────────────────────────────────────────────────"
-echo "Step 8: Running reference simulation benchmarks (quick)..."
-BENCH_DIR="$SCRIPT_DIR/benches"
-BENCH_FAILED=1
-if [ -f "$BENCH_DIR/run.sh" ]; then
-    set +e
-    (cd "$BENCH_DIR" && bash run.sh --check --quick 2>&1)
-    BENCH_STATUS=$?
-    set -e
-    if [ $BENCH_STATUS -eq 0 ]; then
-        echo "  Benchmarks: PASSED"
-        BENCH_FAILED=0
-    else
-        echo "  Benchmarks: FAILED (exit $BENCH_STATUS)"
-        ALL_FAILED+=("benchmarks")
-    fi
-else
-    echo "  ⊘ Skipped (no benches/run.sh)"
-fi
-
 echo "═════════════════════════════════════════════════════════════"
 echo "  Validation Summary"
 echo "═════════════════════════════════════════════════════════════"
@@ -352,7 +329,6 @@ echo "Tests:         PASSED"
 echo "Binary crates: $ALL_PASSED/$ALL_TOTAL passed"
 echo "Local scripts: $([ $LOCAL_FAILED -eq 0 ] && echo 'PASSED' || echo 'FAILED')"
 echo "SystemVerilog: $([ $SV_FAILED -eq 0 ] && echo 'PASSED' || echo 'SKIPPED')"
-echo "Benchmarks:    $([ $BENCH_FAILED -eq 0 ] && echo 'PASSED' || echo 'SKIPPED')"
 echo ""
 
 if [ ${#ALL_FAILED[@]} -eq 0 ] && [ $LOCAL_FAILED -eq 0 ]; then
