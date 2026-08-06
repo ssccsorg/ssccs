@@ -43,13 +43,24 @@ bash scripts/demo-ssccs-poc.sh
 #   parity:   {2,3}              →  0,1
 ```
 
+## Target Reality
+
+This crate has two distinct paths with different target requirements:
+
+| Path | Target | Status |
+|------|--------|--------|
+| Rust fallback | Host (x86_64 / aarch64) | Default `cargo test` / `cargo build`, golden anchors verified |
+| RISC-V assembly | RV64 (`riscv64-unknown-elf-*` toolchain) | Assembled and executed under Spike + pk (`simulation/run.sh`), plus a syntax gate over all `asm/*.S` |
+| Bare-metal cargo build | `riscv32imac-unknown-none-elf` | Blocked: the standard workspace crates (`ssccs-core`, `ssccs-primitive`) depend on std-only crates (`hex`, `serde` default, `thiserror`, `blake3` default). Tracked as a follow-up no_std refactor |
+
+The assembly modules use RV64 instructions (`ld`/`sd`/`.8byte`). The reference simulation executes the assembly path at the ISA level via Spike, and the host path validates the same golden anchors through the Rust fallback.
+
 ## Target Platform
 
 | Property | Value |
 |----------|-------|
-| **Architecture** | RISC-V 32-bit (RV32IMAC) |
-| **Target Triple** | `riscv32imac-unknown-none-elf` |
-| **ABI** | `none` (bare-metal, no OS) |
+| **Architecture** | RISC-V 64-bit (RV64I + D, assembly path) / host for fallback |
+| **Toolchain** | `riscv64-unknown-elf-*` (assembler, gcc, spike) |
 | **Panic Strategy** | `abort` |
 
 ## Relationship to Standard Workspace
@@ -58,10 +69,10 @@ This crate is **separate** from the `standard/` workspace but shares its core ty
 
 | Aspect | `standard/` Workspace | `baremetal_riscv/` Crate |
 |--------|----------------------|-------------------------|
-| **Target** | Host (x86_64/aarch64) | RISC-V RV32IMAC |
-| **Standard Library** | `std` available | `no_std` (core + alloc only) |
+| **Path** | Host (x86_64/aarch64) reference simulation | Host fallback + RV64 assembly under Spike |
+| **Standard Library** | `std` | `std` on host; `no_std` intent for bare-metal targets (blocked, see Target Reality) |
 | **Panic Handler** | Default (unwind) | `panic-halt` (abort) |
-| **Use Case** | Simulation, testing, benchmarking | Embedded hardware deployment |
+| **Use Case** | Simulation, testing, benchmarking | ISA-level assembly validation, hardware integration |
 
 ## Assembly Modules
 
@@ -69,7 +80,7 @@ Five hand-written RISC-V assembly files implement the SSCCS observation pipeline
 
 | Module | File | Functions |
 |--------|------|-----------|
-| **Observe** | `asm/observe_full.S` | Constraints (`ck_even`, `ck_range`, `ck_eq_val`, `ck_gt`), composition (`compose_and`, `compose_or`, `compose_intersect`, `compose_union`, `compose_product_2d`), projectors (`proj_id`, `proj_sum2d`, `proj_sum3d`, `proj_parity`, `proj_negate`), `observe()` hot path, batch mode, narrow/broad scenario |
+| **Observe** | `asm/observe_full.S` | Constraints (`ck_even`, `ck_range`, `ck_eq_val`, `ck_gt`), composition (`compose_and`, `compose_or`, `compose_intersect`, `compose_union`, `compose_product_2d`), projectors (`proj_id`, `proj_sum2d`, `proj_sum3d`, `proj_parity`, `proj_negate`), `observe()` hot path, batch mode, narrow/broad scenario, generated-table observation (`observe_scheme` over `SCHEME_SEG_COUNT`/`SCHEME_COORDS`, consumed with the standard workspace `asm_emitter` output) |
 | **Collapse** | `asm/collapse.S` | `collapse_sum`, `collapse_min`, `collapse_max`, `collapse_product`, `collapse_count`, `collapse_weighted_sum`, `collapse_weighted_avg` |
 | **Field Update** | `asm/field_update.S` | `field_add_constraint`, `field_remove_constraint`, `field_clear`, `field_add_transition`, `field_update_weight`, `field_get_transitions` |
 | **Scheme Layout** | `asm/scheme_layout.S` | `layout_linear_1d`, `layout_linear_nd`, `layout_row_major_2d`, `layout_row_major_3d`, `layout_col_major_2d`, `morton_encode_2d`, `layout_zorder_2d` |

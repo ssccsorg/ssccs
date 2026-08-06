@@ -22,6 +22,7 @@ SV_DIR="$SCRIPT_DIR/sv"
 MODE="run"
 SKIP_SPIKE=""
 SKIP_SV=""
+ASM_ONLY=""
 
 for arg in "$@"; do
     case "$arg" in
@@ -29,7 +30,8 @@ for arg in "$@"; do
         --verbose)    MODE="verbose" ;;
         --spike-only) SKIP_SV="1" ;;
         --sv-only)    SKIP_SPIKE="1" ;;
-        *)            echo "Usage: $0 [--check|--verbose|--spike-only|--sv-only]"; exit 1 ;;
+        --asm-only)   ASM_ONLY="1" ;;
+        *)            echo "Usage: $0 [--check|--verbose|--spike-only|--sv-only|--asm-only]"; exit 1 ;;
     esac
 done
 
@@ -40,8 +42,53 @@ echo ""
 
 PASSED=0
 FAILED=0
+STATUS_ASM=0
 STATUS_SPIKE=0
 STATUS_SV=0
+
+# ═══════════════════════════════════════════════════════════════════════
+# Layer 0: Assembly syntax gate (all .S files)
+# Every assembly module must assemble cleanly; Spike covers observe_full.S
+# at runtime, the gate covers the remaining modules at build time.
+# ═══════════════════════════════════════════════════════════════════════
+echo "── Layer 0: Assembly syntax gate ──"
+
+ASMDIR="$SCRIPT_DIR/asm"
+if command -v riscv64-unknown-elf-as &>/dev/null; then
+    for asm_file in "$ASMDIR"/*.S; do
+        [ -e "$asm_file" ] || continue
+        obj=$(mktemp)
+        set +e
+        riscv64-unknown-elf-as -o "$obj" "$asm_file" >/dev/null 2>&1
+        status=$?
+        set -e
+        rm -f "$obj"
+        if [ $status -eq 0 ]; then
+            echo "  $(basename "$asm_file"): OK"
+        else
+            echo "  $(basename "$asm_file"): FAILED"
+            STATUS_ASM=1
+        fi
+    done
+    if [ $STATUS_ASM -eq 0 ]; then
+        echo "  Assembly syntax: PASSED"
+        PASSED=$((PASSED + 1))
+    else
+        echo "  Assembly syntax: FAILED"
+        FAILED=$((FAILED + 1))
+    fi
+else
+    echo "  riscv64-unknown-elf-as not found — assembly gate SKIPPED"
+fi
+echo ""
+
+# ── asm-only mode: exit after the syntax gate ──
+if [ "$ASM_ONLY" = "1" ]; then
+    if [ "$MODE" = "check" ] && [ $FAILED -gt 0 ]; then
+        exit 1
+    fi
+    exit 0
+fi
 
 # ═══════════════════════════════════════════════════════════════════════
 # Layer 1: RISC-V asm + Spike
