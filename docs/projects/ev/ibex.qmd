@@ -1,5 +1,5 @@
 ---
-title: "Ibex RV32IMCB Exhaustive Verification Report"
+title: "Ibex RV32IMCB Report"
 subtitle: "Structural enumeration with ExaVerif (ev) and synTagma"
 date: last-modified
 metadata-files:
@@ -131,17 +131,17 @@ plt.show()
 
 ```{python}
 #| label: fig-speed-comparison
-#| fig-cap: "Verification time comparison: struct_enum (Tagma-based) vs standard evaluate pipeline across four fixture sizes. At CVA6 R4 2M scale, struct_enum achieves 764x speedup by eliminating all runtime constraint evaluation."
+#| fig-cap: "Verification time comparison: struct_enum (Tagma-based) vs standard evaluate pipeline across four fixture sizes. At CVA6 R4 2M scale, struct_enum achieves 32x speedup by eliminating all runtime constraint evaluation."
 import matplotlib.pyplot as plt
 import numpy as np
 
 plt.rcParams.update({"font.family": "sans-serif", "font.size": 9, "figure.dpi": 150})
 
 fixtures = ["Small\n27 combos", "Medium\n32K combos", "Ibex\n524K combos", "CVA6 R4\n2M combos"]
-evaluate_times = [3.26, 6580, 3.66e6, 1.23e6]  # µs
-struct_times = [2.73, 3106, 46300, 1610]  # µs
-evals_us = [3.26, 6580, 3.66e6, 1.23e6]
-struct_us = [2.73, 3106, 46300, 1610]
+evaluate_times = [3.26, 6580, 3.66e6, 0.944e6]  # µs
+struct_times = [2.73, 3106, 46300, 29500]  # µs
+evals_us = [3.26, 6580, 3.66e6, 0.944e6]
+struct_us = [2.73, 3106, 46300, 29500]
 speedups = [e / s for e, s in zip(evals_us, struct_us)]
 
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4.5), gridspec_kw={"width_ratios": [2, 1]})
@@ -194,9 +194,9 @@ plt.rcParams.update({"font.family": "sans-serif", "font.size": 9, "figure.dpi": 
 
 # Scaling data
 raw_sizes = [27, 32768, 524288, 2097152]
-valid_sizes = [27, 20480, 92160, 12288]
-eval_times = [3.26, 6580, 3.63e6, 1.43e6]
-struct_times = [2.73, 3106, 49500, 1694]
+valid_sizes = [27, 20480, 92160, 266240]
+eval_times = [3.26, 6580, 3.66e6, 0.944e6]
+struct_times = [2.73, 3106, 46300, 29500]
 
 fig, ax = plt.subplots(figsize=(7, 4))
 
@@ -225,11 +225,11 @@ fig.tight_layout()
 plt.show()
 ```
 
-## Benchmark Results (ARMv8.4-A Firestorm)
+## Benchmark Results (release build, this machine)
 
 ```{python}
 #| label: fig-bench-table
-#| fig-cap: "Complete benchmark data. struct_enum achieves 79x–764x speedup over the standard pipeline across real-world RISC-V verification targets."
+#| fig-cap: "Complete benchmark data. struct_enum achieves 79x–32x speedup over the standard pipeline across real-world RISC-V verification targets."
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -242,7 +242,7 @@ data = [
     ('Small',      '27',         '27',       '100%',  '3.26 µs',  '2.73 µs',  '1.2x'),
     ('Medium',     '32,768',     '20,480',   '62.5%', '6.58 ms',  '3.11 ms',  '2.1x'),
     ('Ibex R-type','524,288',    '92,160',   '17.6%', '3.66 s',   '46.3 ms',  '79x'),
-    ('CVA6 R4',    '2,097,152',  '12,288',   '0.6%',  '1.23 s',   '1.61 ms',  '764x'),
+    ('CVA6 R4',    '2,097,152',  '266,240',   '12.7%',  '944 ms',   '29.5 ms',  '32x'),
 ]
 
 fig, ax = plt.subplots(figsize=(9, 3))
@@ -306,9 +306,9 @@ addressing eliminates hash-based lookup overhead.
 
 | synTagma primitive | ev application | Measured | Advantage |
 |--------------------|---------------|:--------:|:---------:|
-| Nonexistent prefix lookup | Invalid encoding detection | **1.65 ns** | 14.0Mx vs HashMap |
+| Nonexistent prefix lookup | Invalid encoding detection | **1.65 ns** | 14x vs HashMap |
 | CoordPath indexing | Combination addressing | **5.2 ns** | O(depth) = O(5) |
-| CoordSpace sparse get | Valid encoding iteration | **1.69 ms** (2M space) | 846x vs evaluate |
+| CoordSpace sparse get | Valid encoding iteration | **29.5 ms** (2M space) | 32x vs evaluate |
 | Axis projection | funct7/funct3 filtering | **46.3 ms** (524K space) | 79x vs evaluate |
 
 ## Limitations

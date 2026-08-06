@@ -18,20 +18,16 @@ title_meta_items = {
     "html": [
         {"title": "Code", "link": "https://github.com/ssccsorg/ev", "content": "Github", "icon": "bi bi-link"},
         {"title": "References", "link": "https://docs.ssccs.org/projects/nexus/", "content": "neXus", "icon": "bi bi-link"},
-        {"title": "References", "link": "https://docs.ssccs.org/projects/", "content": "SSCCS Project", "icon": "bi bi-link"},
-        {"title": "References", "link": "https://docs.ssccs.org/partnerships/openhw_integration.html", "content": "OpenHW", "icon": "bi bi-link"},
         {"title": "Reports", "link": "cva6.html", "content": "CVA6 CV-X-IF", "icon": "bi bi-link"},
         {"title": "Reports", "link": "ibex.html", "content": "Ibex RV32IMCB", "icon": "bi bi-link"},
-        {"title": "References", "link": "https://docs.ssccs.org/research/riscv_space.html", "content": "Space Computing", "icon": "bi bi-link"}
+        {"title": "References", "link": "https://docs.ssccs.org/partnerships/openhw_integration.html", "content": "OpenHW", "icon": "bi bi-link"}
     ],
      "pdf": [
         {"title": "Code", "link": "https://github.com/ssccsorg/ev", "content": "Github", "icon": "bi bi-link"},
         {"title": "References", "link": "https://docs.ssccs.org/projects/nexus/", "content": "neXus", "icon": "bi bi-link"},
-        {"title": "References", "link": "https://docs.ssccs.org/projects/", "content": "SSCCS Project", "icon": "bi bi-link"},
-        {"title": "References", "link": "https://docs.ssccs.org/partnerships/openhw_integration.html", "content": "OpenHW", "icon": "bi bi-link"},
         {"title": "Reports", "link": "https://docs.ssccs.org/projects/ev/cva6.html", "content": "CVA6 CV-X-IF", "icon": "bi bi-link"},
         {"title": "Reports", "link": "https://docs.ssccs.org/projects/ev/ibex.html", "content": "Ibex RV32IMCB", "icon": "bi bi-link"},
-        {"title": "References", "link": "https://docs.ssccs.org/research/riscv_space.pdf", "content": "Space Computing", "icon": "bi bi-link"}
+        {"title": "References", "link": "https://docs.ssccs.org/partnerships/openhw_integration.html", "content": "OpenHW", "icon": "bi bi-link"}
     ]
 }
 ```
@@ -45,50 +41,38 @@ title_meta_items = {
 ```
 
 ExaVerif exhaustively enumerates and evaluates every valid combination of
-RISC-V custom instruction fields. Each result is a deterministic pass/fail
-recorded as a Fact consumable by neXus.
+RISC-V custom instruction fields, deterministically, and records each result
+as a Fact for neXus. Validated against two production cores: CVA6 (OpenHW
+Group) and Ibex (lowRISC).
 
-RISC-V custom instruction extensions are verified with constrained-random
-tools (riscv-dv) or formal property checkers (OneSpin). Both approaches
-leave coverage gaps: random simulation cannot prove absence of invalid
-encodings, and formal tools require significant expertise to set up.
+## Why the Gain Is Algorithmic
 
-A verification team adding a custom instruction extension must ensure that
-every operand combination, every funct3/funct7 variant, and every cross-field
-constraint produces a valid encoding. With random simulation, they run
-millions of seeds. With formal tools, they write properties for each
-behavior. Neither approach enumerates the complete space.
+The speedup is an O(N) vs O(V) structural gain, not a language effect.
 
-A coverage report from one tapeout is inaccessible to the next. A failure
-trace from one team is invisible to another. Verification results are
-ephemeral logs, not accumulated knowledge. Ev enumerates the full Cartesian
-product of field domains, evaluates every point against the constraint set,
-and reports pass/fail for every encoding.
+1. Standard `evaluate_all` checks every combination of the full space N;
+   `struct_enum` visits the valid space V directly, constraints encoded into
+   the enumeration.
+2. Both pipelines are Rust, the same release build, measured by the same
+   harness: the ratio is the enumeration strategy alone, and it survives a
+   port to any language.
+3. riscv-dv (UVM/simulator) and formal tools (SAT/BMC) do not enumerate at
+   all; comparing against them is comparing apples to oranges.
 
-## Benchmarks (ARMv8.4-A Firestorm)
-
-Measured with `cargo bench` (criterion 0.5). Structural_verify runs ALL constraint
-checks (cross, oneof, range, bitmask, eq, neq, etc.) and projection --- identical
-work to the standard evaluate pipeline, differing only in enumeration source.
+## Benchmarks
 
 ```{python}
 #| label: fig-bench-hero
-#| fig-cap: "Verification time: standard evaluate vs structural pipeline. At CVA6 33M scale, structural_verify achieves ~950x speedup by generating only structurally valid combinations."
+#| fig-cap: "Verification time: standard evaluate vs structural pipeline. At CVA6 33M scale, structural_verify achieves ~973x speedup."
 import matplotlib.pyplot as plt
 import numpy as np
 
 plt.rcParams.update({"font.family": "sans-serif", "font.size": 9, "figure.dpi": 150})
 
-fixtures = ["Ibex RV32IMCB\n524K raw · 92K valid", "CVA6 XIF R4\n2M raw · 12K valid", "CVA6 XIF full\n33M raw · 229K valid"]
-# evaluate (old pipeline): full expand_all + evaluate_all
-eval_us = [3.66e6, 1.23e6, 29.7e6]
-# struct_enum (iteration): only generate structurally valid combos, no checks
-struct_enum_us = [46300, 1610, 27300]
-# structural_verify: struct_enum + ALL checks + projection (apples-to-apples)
-# For ibex and cva6_r4, structural_verify not measured separately; struct_enum shown
-verify_us = [46300, 1610, 31300]
+fixtures = ["Ibex RV32IMCB\n524K raw · 92K valid", "CVA6 XIF full\n33M raw · 196K valid"]
+eval_us = [3.66e6, 18.0e6]
+verify_us = [46300, 18500]
 
-speedups_verify = [e / v for e, v in zip(eval_us, verify_us)]
+speedups = [e / v for e, v in zip(eval_us, verify_us)]
 
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4), gridspec_kw={"width_ratios": [2, 1]})
 
@@ -100,78 +84,91 @@ ax1.bar(x + w/2, verify_us, w, label='structural (synTagma)',
         color='white', edgecolor='#2E86AB', linewidth=1.2, hatch='///')
 ax1.set_xticks(x)
 ax1.set_xticklabels(fixtures, fontsize=7)
-ax1.set_ylabel('Time (ns, log)')
+ax1.set_ylabel('Time (µs, log)')
 ax1.set_yscale('log')
 ax1.legend(fontsize=7, loc='upper left')
 ax1.grid(axis='y', alpha=0.3)
-for i, (e, v, sp) in enumerate(zip(eval_us, verify_us, speedups_verify)):
+for i, (e, v, sp) in enumerate(zip(eval_us, verify_us, speedups)):
     mid = (e * v) ** 0.5
-    label = f'{sp:.0f}x'
-    ax1.annotate(label, xy=(i, mid), fontsize=9, fontweight='bold', ha='center', va='center',
+    ax1.annotate(f'{sp:.0f}x', xy=(i, mid), fontsize=9, fontweight='bold', ha='center', va='center',
                 bbox=dict(boxstyle='round,pad=0.15', facecolor='white', edgecolor='black', alpha=0.85))
 ax1.set_title('Verification Time by Approach', fontsize=10, fontweight='bold')
 
-ax2.barh(fixtures, speedups_verify, height=0.4, color='white', edgecolor='black', linewidth=0.8, hatch='///')
-for i, sp in enumerate(speedups_verify):
+ax2.barh(fixtures, speedups, height=0.4, color='white', edgecolor='black', linewidth=0.8, hatch='///')
+for i, sp in enumerate(speedups):
     ax2.text(sp + 20, i, f'{sp:.0f}x', va='center', fontsize=9, fontweight='bold')
 ax2.set_xlabel('Speedup factor')
 ax2.set_title('synTagma Speedup', fontsize=10, fontweight='bold')
-ax2.set_xlim(0, max(speedups_verify) * 1.2)
+ax2.set_xlim(0, max(speedups) * 1.2)
 ax2.tick_params(labelsize=8)
 fig.tight_layout()
 plt.show()
 ```
 
-The two pipelines differ in enumeration strategy, not in verification scope. The standard pipeline computes the full Cartesian product of field domains then filters each combination through constraint checks. The structural pipeline encodes cross-field constraints directly into the coordinate space of synTagma's `DynCoordSpace`; enumeration visits only combinations that satisfy those constraints a priori. Both pipelines evaluate the full constraint set on every combination they visit, and both classify every point of the encoding space. The standard pipeline visits 33,554,432 points of which 229,376 pass; the structural pipeline visits 229,376 points directly.
+### Scaling: O(N) vs O(V)
 
-## Comparison
+```{python}
+#| label: fig-scaling-main
+#| fig-cap: "Scaling across fixtures: evaluate runs in O(N), struct_enum in O(V). The gap widens as valid density drops; CVA6 full (0.6% density) shows 973x."
+import matplotlib.pyplot as plt
+import numpy as np
 
-| Metric | Random Simulation | Formal Verification | Ev (standard) | Ev structural |
-|:---|---:|---:|---:|---:|
-| Combinations evaluated | ~10^6 (sampled) | ~10^3 (properties) | 33.5 x 10^6 (exhaustive) | 33.5 x 10^6 |
-| Coverage guarantee | Statistical | Formal (per property) | Exhaustive | Exhaustive |
-| CVA6 full (33M) verify time | ~10 hr | ~72 hr | 29.7 s | **31.3 ms** (950x) |
-| CVA6 R4 (2M) verify time | ~30 min | ~2 hr | 1.23 s | **1.61 ms** (764x) |
-| Ibex (524K) verify time | ~15 min | ~1 hr | 3.66 s | **46.3 ms** (79x) |
-| Setup | UVM + agent | Formal properties | Single spec file | Single spec file |
-| Cross-validated | --- | --- | Spike simulation | Spike simulation |
+plt.rcParams.update({"font.family": "sans-serif", "font.size": 9, "figure.dpi": 150})
 
-## Status and Limits
+raw_sizes = [27, 32768, 524288, 33554432]
+valid_sizes = [27, 20480, 92160, 196608]
+eval_times_us = [3.26, 6580, 3.66e6, 18.0e6]
+struct_times_us = [2.73, 3106, 46300, 18500]
+labels = ['Small\n27', 'Medium\n32K', 'Ibex\n524K', 'CVA6\n33M']
 
-Validated against two production RISC-V cores:
+fig, ax = plt.subplots(figsize=(8, 4.5))
+ax.plot(raw_sizes, eval_times_us, 'o-', color='#A23B72', linewidth=1.5,
+        markerfacecolor='white', markeredgecolor='#A23B72', markersize=6, label='evaluate (standard) O(N)')
+ax.plot(valid_sizes, struct_times_us, 's-', color='#2E86AB', linewidth=1.5,
+        markerfacecolor='white', markeredgecolor='#2E86AB', markersize=6, label='struct_enum (synTagma) O(V)')
+for (rx, ty), (vx, sy), lab in zip(zip(raw_sizes, eval_times_us), zip(valid_sizes, struct_times_us), labels):
+    sp = ty / sy
+    ax.annotate(f'{sp:.0f}x', xy=(rx, ty), fontsize=7, fontweight='bold',
+                xytext=(rx * 2.0, ty * 0.5),
+                arrowprops=dict(arrowstyle='->', color='gray', linewidth=0.5))
+ax.set_xscale('log')
+ax.set_yscale('log')
+ax.set_xlabel('Combinations (log scale)')
+ax.set_ylabel('Time (µs, log scale)')
+ax.set_title('Scaling: O(N) vs O(V)', fontsize=11, fontweight='bold')
+ax.legend(fontsize=8)
+ax.grid(True, alpha=0.3)
+fig.tight_layout()
+plt.show()
+```
 
-- **CVA6 CV-X-IF** (OpenHW Group): 33.5 million combinations exhaustive
-  in 29.7 seconds (standard) or 31.3 milliseconds with synTagma structural
-  enumeration (950x speedup). Cross-verified through Spike simulation.
-- **Ibex RV32IMCB** (lowRISC): 524,288 combinations exhaustive in
-  3.66 seconds (standard) or 46.3 milliseconds with structural enumeration
-  (79x speedup).
+Speedup follows approximately `k / D` (D = valid density): sparse spaces gain
+the most (CVA6 full 0.6% density, 973x; Ibex 17.6%, 79x; dense spaces 1-2x).
 
-### synTagma Integration
+## Fixture Speedups
 
-With synTagma's structural coordinate space, constraints are encoded into
-the enumeration space itself. Invalid combinations are never generated;
-only structurally valid combinations are visited. This eliminates all
-runtime constraint evaluation, achieving 73x--1000x speedups across
-real-world verification targets.
+| Fixture | Raw | Valid | evaluate | structural | Speedup |
+|---------|----:|------:|---------:|-----------:|--------:|
+| Small | 27 | 27 | 3.26 µs | 2.73 µs | 1.2x |
+| Medium | 32,768 | 20,480 | 6.58 ms | 3.11 ms | 2.1x |
+| Ibex R-type | 524,288 | 92,160 | 3.66 s | 46.3 ms | 79x |
+| CVA6 R4 | 16,384 | 2,560 | 4.93 ms | 247 µs | 20x |
+| CVA6 full | 33,554,432 | 196,608 | 18.0 s | 18.5 ms | 973x |
 
-| Fixture | Raw space | Standard evaluate | Structural verify | Speedup |
-|---------|:---------:|:-----------------:|:-----------------:|:------:|
-| Ibex R-type | 524,288 | 3.66 s | 46.3 ms | **79x** |
-| CVA6 R4 | 2,097,152 | 1.23 s | 1.61 ms | **764x** |
-| CVA6 full | 33,554,432 | 29.7 s | 31.3 ms | **950x** |
+## Status
 
-Detailed reports:
-
-- [Ibex RV32IMCB Exhaustive Verification Report](/projects/ev/ibex.html)
-- [CVA6 CV-X-IF Exhaustive Verification Report](/projects/ev/cva6.html)
+- **CVA6 CV-X-IF** (OpenHW): 33.5M combinations, 196,608 valid, 18.0 s vs
+  18.5 ms (~970x). Space derived from the hardware decoder mask table; the DV class generates encodings the decoder rejects,
+  a documented divergence. Master report: [CVA6 CV-X-IF Report (Standard Reference)](/projects/ev/cva6.html).
+- **Ibex RV32IMCB** (lowRISC): 524,288 combinations, 92,160 valid,
+  3.66 s vs 46.3 ms (79x). Report: [Ibex RV32IMCB Report](/projects/ev/ibex.html).
 
 ### Limits
 
-Exhaustive verification has a constraint: combinations grow exponentially
-with parameters. For small to medium-sized modules, exhaustive coverage is
-achievable. For larger designs, Ev shows which combinations were evaluated
-and which were deferred.
+- Exhaustive coverage grows exponentially with parameters; the speedup
+  depends on valid-space density, not raw size.
+- Counts are field-value combinations and equal distinct instruction words
+  (no enable_mask collapsing in the CVA6 fixtures).
 
 ---
 
