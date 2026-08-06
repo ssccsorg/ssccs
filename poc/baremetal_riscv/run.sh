@@ -78,6 +78,9 @@ if command -v riscv64-unknown-elf-as &>/dev/null; then
         FAILED=$((FAILED + 1))
     fi
 else
+    # The gate is skipped, not failed, when the cross-toolchain is absent,
+    # consistent with the SystemVerilog layer's Verilator handling. CI
+    # environments with the RISC-V toolchain get the full gate.
     echo "  riscv64-unknown-elf-as not found — assembly gate SKIPPED"
 fi
 echo ""
