@@ -40,11 +40,47 @@ title_meta_items = {
 %run ../../_include/_graphviz.py
 ```
 
-ExaVerif exhaustively enumerates and evaluates every valid combination of
-RISC-V custom instruction fields, deterministically, and records each result
-as a Fact for neXus. Validated against two production cores: CVA6 (OpenHW
-Group) and Ibex (lowRISC). Expansion to a broad range of additional industry
-silicon specifications is planned.
+## The Project
+
+ExaVerif is an open-core (Apache 2.0) CLI engine for exhaustive verification
+of RISC-V custom instruction extensions. A single command consumes a YAML
+specification of a custom instruction extension, enumerates every valid
+combination of its fields, and evaluates each one deterministically:
+
+```shell
+ev verify --target spec.xif.yaml
+```
+
+The specification declares every instruction field, its range, alignment,
+and constraints (oneof, range, bitmask, cross, eq, neq, and others). The CLI
+provides three subcommands: `verify` for constraint evaluation, `simulate`
+for instruction execution, and `synth` for RTL generation and synthesis.
+Each result is recorded as a structured Fact, consumable by the neXus
+pipeline and by autonomous agents. No result is discarded; every run raises
+the baseline, so verification output accumulates across projects, teams, and
+design phases instead of resetting with each tapeout decision.
+
+The engine is validated against two production RISC-V cores, CVA6 (OpenHW
+Group) and Ibex (lowRISC), with exact agreement against their hardware
+decoders. Expansion to a broad range of additional industry silicon
+specifications is planned.
+
+## The Spec Space
+
+The unit of verification is the Spec Space, a tripartite model:
+
+- Axes: field domains, each an instruction field with its admissible values.
+- Constraints: admissible subspaces over the axes, including oneof, range,
+  bitmask, cross, eq, and neq.
+- Projector: a mapping from each point of the space to a result value.
+
+The engine compiles constraints into the enumeration itself. The iterator
+visits the valid space directly instead of the full cross product, so a
+specification completes in milliseconds regardless of constraint complexity.
+This structural enumeration is the source of the speedups measured in the
+benchmarks below, and it is independent of the target: any deterministic
+system that maps onto axes, constraints, and a projector benefits from the
+same pipeline.
 
 ## Why the Gain Is Algorithmic
 
