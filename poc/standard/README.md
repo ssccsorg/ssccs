@@ -27,7 +27,7 @@ The PoC is organized as a **Rust workspace** with multiple crates, enabling inde
 
 ### Standalone Benchmark Crate
 
-The validation-only benchmark suite lives outside this workspace at [`/poc/benches/`](../benches/): a standalone criterion crate (`ssccs-benchmarks`) with a single `bench.rs` expressing the three kernels (vector addition, 2D convolution, graph BFS) as both a pure Rust baseline and an SSCCS Scheme + Field + Projector formulation. Run it with `benches/run.sh`; the `poc/run.sh` validation executes it in quick mode.
+The validation-only benchmark suite lives outside this workspace at [`/poc/benches/`](../benches/): a standalone criterion crate (`ssccs-benchmarks`) with a single `bench.rs` expressing the three kernels (vector addition, 2D convolution, graph BFS) as both a pure Rust baseline and an SSCCS Scheme + Field + Projector formulation. Run it manually with `benches/run.sh`; it is not part of the default `poc/run.sh` validation or CI.
 
 ### Experiment Crates (Constitutional Concept Tests)
 
