@@ -492,3 +492,43 @@ proj_div:
 proj_div_zero:
     li      a0, 0
     ret
+
+# ═══════════════════════════════════════════════════════════════════
+# Section 8: Generated-Table Observation (data-driven)
+#
+# Consumes the SCHEME_SEG_COUNT / SCHEME_COORDS tables emitted by the
+# standard workspace emitter (asm_emitter.rs). The observation routine
+# reads count and coords from the generated structure, runs the batch
+# observation, and stores results to SCHEME_RESULTS. The golden anchors
+# below are the agreement contract with the host fallback.
+# ═══════════════════════════════════════════════════════════════════
+
+.section .rodata
+.align 3
+
+.globl SCHEME_SEG_COUNT
+SCHEME_SEG_COUNT: .8byte 5
+
+.globl SCHEME_COORDS
+SCHEME_COORDS: .8byte SEG_0, SEG_1, SEG_2, SEG_3, SEG_4
+
+.section .data
+.align 3
+.globl SCHEME_RESULTS
+SCHEME_RESULTS: .8byte 0, 0, 0, 0, 0
+
+.section .text
+
+# observe_scheme(field_fn, proj_fn, out): batch observation over the
+# generated SCHEME tables. Count and coords come from the emitted
+# structure, not from call arguments.
+.globl observe_scheme
+observe_scheme:
+    la      t0, SCHEME_SEG_COUNT
+    ld      a2, 0(t0)           # count = SCHEME_SEG_COUNT
+    la      a1, SCHEME_COORDS   # coords = SCHEME_COORDS
+    j       observe_batch
+
+# GOLDEN_SCHEME_SEGMENTS: 2,3,5,10,12
+# GOLDEN_SCHEME_NARROW: 2,REJECT,REJECT,10,REJECT
+# GOLDEN_SCHEME_BROAD: 2,3,5,10,12

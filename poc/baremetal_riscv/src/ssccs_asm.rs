@@ -485,6 +485,36 @@ mod tests {
         );
     }
 
+    // ── Generated-table observe golden anchors ──
+    // The assembly consumes SCHEME_SEG_COUNT / SCHEME_COORDS emitted by the
+    // standard workspace emitter. The host fallback must reproduce the same
+    // projections over the same generated structure.
+    #[cfg(not(target_arch = "riscv64"))]
+    #[test]
+    fn test_scheme_observe_golden_anchors() {
+        use super::fallback;
+
+        let segs = parse_golden(ASM_OBSERVE_FULL, "GOLDEN_SCHEME_SEGMENTS");
+        assert_eq!(segs, [2, 3, 5, 10, 12]);
+        let narrow = parse_golden(ASM_OBSERVE_FULL, "GOLDEN_SCHEME_NARROW");
+        let broad = parse_golden(ASM_OBSERVE_FULL, "GOLDEN_SCHEME_BROAD");
+
+        let and_field = |v| fallback::compose_and(fallback::ck_even, fallback::ck_range_0_10, v);
+        let or_field = |v| fallback::compose_or(fallback::ck_even, fallback::ck_range_0_10, v);
+
+        let got_narrow: Vec<i64> = segs
+            .iter()
+            .map(|&v| fallback::observe(and_field, v, fallback::proj_id))
+            .collect();
+        let got_broad: Vec<i64> = segs
+            .iter()
+            .map(|&v| fallback::observe(or_field, v, fallback::proj_id))
+            .collect();
+
+        assert_eq!(got_narrow, narrow);
+        assert_eq!(got_broad, broad);
+    }
+
     // ── Collapse golden anchors ──
     #[test]
     fn test_collapse_golden_anchors() {

@@ -120,3 +120,66 @@ fn pipeline_stage_emits_assembly_text() {
     assert!(text.contains(".section .rodata"));
     assert!(text.contains("SCHEME_COORDS"));
 }
+
+/// Parses a `GOLDEN_*` anchor line from the emitted text.
+fn parse_golden(text: &str, key: &str) -> Vec<i64> {
+    for line in text.lines() {
+        let t = line.trim();
+        if let Some(val) = t.strip_prefix(&format!("# {key}: ")) {
+            return val.split(',').map(|s| s.trim().parse().unwrap()).collect();
+        }
+    }
+    panic!("golden anchor {key} not found");
+}
+
+/// Parses the segment coordinate values from the emitted golden anchors.
+fn emitted_segments(text: &str) -> Vec<i64> {
+    let count = parse_golden(text, "GOLDEN_COUNT")[0] as usize;
+    (0..count)
+        .map(|i| parse_golden(text, &format!("GOLDEN_SEG_{i}"))[0])
+        .collect()
+}
+
+/// The assembly contract: the emitted generated tables must reproduce the
+/// same structure and the same observation projections as the golden anchors
+/// in `baremetal_riscv/asm/observe_full.S` (GOLDEN_SCHEME_*).
+#[test]
+fn generated_tables_drive_observation_matching_assembly_golden() {
+    use ssccs_core::{Coordinates, Field, Segment, observe};
+    use ssccs_examples::constraints::{EvenConstraint, RangeConstraint};
+    use ssccs_examples::projectors::IntegerProjector;
+
+    let scheme = integer_line_scheme();
+    let out = emit_scheme_data(&scheme).text;
+
+    // The emitted structure must carry the assembly contract values.
+    let segs = emitted_segments(&out);
+    assert_eq!(segs, [2, 3, 5, 10, 12]);
+
+    // Narrow observation: even AND range [0,10], via the real model
+    // machinery over the generated data.
+    let mut narrow_field = Field::new();
+    narrow_field.add_constraint(EvenConstraint::new(0));
+    narrow_field.add_constraint(RangeConstraint::new(0, 0, 10));
+    let projector = IntegerProjector::new(0);
+    let reject = i64::MIN;
+    let got_narrow: Vec<i64> = segs
+        .iter()
+        .map(|&v| {
+            let segment = Segment::from_values(vec![v]);
+            observe(&narrow_field, &segment, &projector).unwrap_or(reject)
+        })
+        .collect();
+    assert_eq!(got_narrow, [2, reject, reject, 10, reject]);
+
+    // Broad observation: even OR range [0,10], union semantics.
+    let got_broad: Vec<i64> = segs
+        .iter()
+        .map(|&v| {
+            let even = v % 2 == 0;
+            let in_range = (0..=10).contains(&v);
+            if even || in_range { v } else { reject }
+        })
+        .collect();
+    assert_eq!(got_broad, [2, 3, 5, 10, 12]);
+}
