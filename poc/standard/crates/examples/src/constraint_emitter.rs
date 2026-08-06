@@ -11,6 +11,13 @@
 //! specs. Golden anchors emitted with each gate record the reference
 //! results over a caller-provided fixture, so the generated assembly and
 //! the host path are pinned to the same semantics.
+//!
+//! Connection contract: a generated gate is a drop-in `field_fn` for the
+//! observation routines (`observe_scheme` / `observe_batch`), with the
+//! same ABI. Wiring the gate emission into the compiler pipeline is the
+//! next milestone; until then the host path consumes the specs directly
+//! through `eval_constraint`, and the tests pin both sides to the same
+//! golden results.
 
 /// Declarative constraint spec on the pure plane.
 #[derive(Debug, Clone, PartialEq, Eq)]

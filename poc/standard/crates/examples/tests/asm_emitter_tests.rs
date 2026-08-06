@@ -4,7 +4,7 @@
 //! These tests verify determinism, coordinate ordering, address agreement
 //! with the Scheme layout mapping, and golden anchor emission.
 
-use ssccs_core::Segment;
+use ssccs_core::{Coordinates, Segment};
 use ssccs_examples::asm_emitter::emit_scheme_data;
 use ssccs_primitive::scheme::abstract_scheme::{Axis, AxisType, Scheme, SchemeBuilder};
 
@@ -27,6 +27,27 @@ fn emission_is_deterministic() {
     let a = emit_scheme_data(&scheme);
     let b = emit_scheme_data(&scheme);
     assert_eq!(a.text, b.text);
+}
+
+#[test]
+fn emission_is_deterministic_across_construction_order() {
+    // The same scheme built with reversed insertion order must emit the
+    // identical text: ordering comes from the sorted coordinates and the
+    // sorted-id SchemeId, never from hash map iteration.
+    let forward = integer_line_scheme();
+    let mut builder = SchemeBuilder::new().add_axis(Axis {
+        name: "x".to_string(),
+        axis_type: AxisType::Discrete,
+        metadata: Default::default(),
+    });
+    for v in [12i64, 10, 5, 3, 2] {
+        builder = builder.add_segment(&Segment::from_values(vec![v]));
+    }
+    let reversed = builder.build();
+    assert_eq!(
+        emit_scheme_data(&forward).text,
+        emit_scheme_data(&reversed).text
+    );
 }
 
 #[test]
@@ -104,10 +125,12 @@ fn multi_dim_emission_flattens_coordinates() {
 }
 
 #[test]
-fn empty_scheme_emits_zero_count() {
+fn empty_scheme_emits_zero_count_and_placeholders() {
     let scheme = SchemeBuilder::new().build();
     let out = emit_scheme_data(&scheme).text;
     assert!(out.contains("SCHEME_SEG_COUNT: .8byte 0"));
+    assert!(out.contains("SCHEME_COORDS: .8byte 0   # empty scheme placeholder"));
+    assert!(out.contains("SCHEME_ADDRESSES: .8byte 0   # empty scheme placeholder"));
     assert!(out.contains("# GOLDEN_COUNT: 0"));
 }
 
@@ -145,7 +168,7 @@ fn emitted_segments(text: &str) -> Vec<i64> {
 /// in `baremetal_riscv/asm/observe_full.S` (GOLDEN_SCHEME_*).
 #[test]
 fn generated_tables_drive_observation_matching_assembly_golden() {
-    use ssccs_core::{Coordinates, Field, Segment, observe};
+    use ssccs_core::{Field, Segment, observe};
     use ssccs_examples::constraints::{EvenConstraint, RangeConstraint};
     use ssccs_examples::projectors::IntegerProjector;
 
