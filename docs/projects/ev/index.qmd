@@ -43,7 +43,8 @@ title_meta_items = {
 ExaVerif exhaustively enumerates and evaluates every valid combination of
 RISC-V custom instruction fields, deterministically, and records each result
 as a Fact for neXus. Validated against two production cores: CVA6 (OpenHW
-Group) and Ibex (lowRISC).
+Group) and Ibex (lowRISC). Expansion to a broad range of additional industry
+silicon specifications is planned.
 
 ## Why the Gain Is Algorithmic
 
@@ -57,6 +58,11 @@ The speedup is an O(N) vs O(V) structural gain, not a language effect.
    port to any language.
 3. riscv-dv (UVM/simulator) and formal tools (SAT/BMC) do not enumerate at
    all; comparing against them is comparing apples to oranges.
+4. Interpreted verification software (e.g., Python-based) dominates the
+   industry landscape. The baseline here is a release-build Rust standard
+   implementation, which in the combined assessment of memory safety-efficiency and
+   performance already holds an overwhelming lead over C/C++; the structural
+   gain therefore stands against an already high-performance baseline.
 
 ## Benchmarks
 
