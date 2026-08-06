@@ -80,14 +80,17 @@ pub fn emit_constraint_gate(spec: &ConstraintSpec, label: &str) -> String {
 /// Each gate gets a `# GOLDEN_GATE_<label>: <results>` comment recording
 /// `eval_constraint` over the provided fixture, so tests can pin the
 /// generated assembly to the host reference.
-pub fn emit_constraint_gates(specs: &[(&str, ConstraintSpec)], fixture: &[i64]) -> String {
+pub fn emit_constraint_gates<S: AsRef<str>>(
+    specs: &[(S, ConstraintSpec)],
+    fixture: &[i64],
+) -> String {
     let mut out = String::new();
     out.push_str("# Generated branchless constraint gates, reference simulation\n");
     out.push_str("# ABI: fn(*const i64) -> u32, coordinate pointer in a0, result in a0\n\n");
     out.push_str(".section .text\n");
     for (label, spec) in specs {
         out.push_str(&format!("# Constraint: {spec:?}\n"));
-        out.push_str(&emit_constraint_gate(spec, label));
+        out.push_str(&emit_constraint_gate(spec, label.as_ref()));
         out.push('\n');
     }
     for (label, spec) in specs {
@@ -96,7 +99,7 @@ pub fn emit_constraint_gates(specs: &[(&str, ConstraintSpec)], fixture: &[i64]) 
             .map(|v| u8::from(eval_constraint(spec, *v)).to_string())
             .collect::<Vec<_>>()
             .join(",");
-        out.push_str(&format!("# GOLDEN_GATE_{label}: {results}\n"));
+        out.push_str(&format!("# GOLDEN_GATE_{}: {results}\n", label.as_ref()));
     }
     out
 }

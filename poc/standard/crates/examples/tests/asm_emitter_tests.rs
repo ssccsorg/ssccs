@@ -144,6 +144,43 @@ fn pipeline_stage_emits_assembly_text() {
     assert!(text.contains("SCHEME_COORDS"));
 }
 
+#[test]
+fn pipeline_emits_scheme_data_and_constraint_gates() {
+    use ssccs_examples::compiler_pipeline::{CompilerPipeline, HardwareProfile};
+    use ssccs_examples::constraint_emitter::ConstraintSpec;
+
+    let scheme = integer_line_scheme();
+    let compiled = CompilerPipeline::new(scheme, HardwareProfile::Cpu { cores: 1 })
+        .with_constraints(vec![
+            ("gen_even", ConstraintSpec::Even),
+            ("gen_range", ConstraintSpec::Range { min: 0, max: 10 }),
+        ])
+        .compile();
+    let text = String::from_utf8(compiled.observation_code).expect("assembly text");
+
+    // Structure tables and gates coexist in one emitted section.
+    assert!(text.contains("SCHEME_SEG_COUNT: .8byte 5"));
+    assert!(text.contains(".globl gen_even"));
+    assert!(text.contains(".globl gen_range"));
+    // Gate golden anchors over the emitted fixture, pinned to the
+    // hand-written semantics: even -> 1,0,0,1,1; range [0,10] -> 1,1,1,1,0.
+    assert_eq!(parse_golden(&text, "GOLDEN_GATE_gen_even"), [1, 0, 0, 1, 1]);
+    assert_eq!(
+        parse_golden(&text, "GOLDEN_GATE_gen_range"),
+        [1, 1, 1, 1, 0]
+    );
+}
+
+#[test]
+fn pipeline_without_constraints_emits_scheme_data_only() {
+    use ssccs_examples::compiler_pipeline::{CompilerPipeline, HardwareProfile};
+    let scheme = integer_line_scheme();
+    let compiled = CompilerPipeline::new(scheme, HardwareProfile::Cpu { cores: 1 }).compile();
+    let text = String::from_utf8(compiled.observation_code).expect("assembly text");
+    assert!(text.contains("SCHEME_COORDS"));
+    assert!(!text.contains("GOLDEN_GATE_"));
+}
+
 /// Parses a `GOLDEN_*` anchor line from the emitted text.
 fn parse_golden(text: &str, key: &str) -> Vec<i64> {
     for line in text.lines() {
