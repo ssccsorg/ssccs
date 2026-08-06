@@ -81,8 +81,8 @@ field_remove_constraint:
     lw      t3, 0(t2)
     li      t6, 64
     add     t6, a0, t6
-    slli    t7, t4, 2
-    add     t6, t6, t7
+    slli    t1, t4, 2
+    add     t6, t6, t1
     sw      t3, 0(t6)           # move id
     addi    t4, t4, 1
     addi    t5, t5, 1

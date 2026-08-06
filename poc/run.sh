@@ -271,6 +271,22 @@ while IFS= read -r -d '' local_run; do
     echo ""
 done < <(find "$SCRIPT_DIR" -name "run.sh" -not -path "*/baremetal_riscv/run.sh" -type f -print0 2>/dev/null)
 
+# The baremetal crate-level run.sh is excluded from discovery because its
+# spike and SystemVerilog layers run separately. Run its assembly syntax
+# gate only, covering every asm/*.S module at build time.
+echo ""
+echo "~~~~~~~~~~~~ baremetal_riscv/run.sh (assembly syntax gate) ~~~~~~~~~~~~"
+set +e
+(cd "$SCRIPT_DIR/baremetal_riscv" && bash run.sh --asm-only --check 2>&1)
+STATUS=$?
+set -e
+if [ $STATUS -eq 0 ]; then
+    echo "~~~~~~~~~~~~ baremetal_riscv assembly gate PASSED ~~~~~~~~~~~~"
+else
+    echo "~~~~~~~~~~~~ baremetal_riscv assembly gate FAILED (exit code $STATUS) ~~~~~~~~~~~~"
+    LOCAL_FAILED=1
+fi
+
 [ $LOCAL_FAILED -eq 1 ] && ALL_FAILED+=("local run.sh scripts")
 
 # ── SystemVerilog verification (Verilator) ──
