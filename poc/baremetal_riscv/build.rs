@@ -4,7 +4,7 @@ use std::path::Path;
 
 /// Parse a single assembly file and return its module name and a list of constant declarations.
 fn parse_asm_file(path: &Path) -> (String, Vec<String>) {
-    let content = fs::read_to_string(path).expect(&format!("can't read {:?}", path));
+    let content = fs::read_to_string(path).unwrap_or_else(|_| panic!("can't read {:?}", path));
     let stem = path.file_stem().unwrap().to_str().unwrap().to_string();
     let mut consts = Vec::new();
 
@@ -20,7 +20,6 @@ fn parse_asm_file(path: &Path) -> (String, Vec<String>) {
             .strip_prefix(".globl ")
             .map(|g| g.split(';').next().unwrap_or(g))
             .unwrap_or(bef)
-            .trim()
             .split_whitespace()
             .last()
             .unwrap_or("");
