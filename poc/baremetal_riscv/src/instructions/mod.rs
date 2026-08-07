@@ -87,57 +87,14 @@ pub fn decode_custom(inst: u32) -> (u8, u8, u8, u8, u8) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// Inline assembly wrappers (riscv32 only)
-// ═══════════════════════════════════════════════════════════════════════
-
-/// OBSERVE: single observation (custom1, funct3=000).
-#[cfg(target_arch = "riscv32")]
-pub unsafe fn observe(scheme_id: u32, field_id: u32, rule_id: u32) -> u32 {
-    let result: u32;
-    core::arch::asm!(
-        "custom1 {res}, {s}, {f}, {r}, 0",
-        s = in(reg) scheme_id,
-        f = in(reg) field_id,
-        r = in(reg) rule_id,
-        res = out(reg) result,
-        options(nostack, preserves_flags)
-    );
-    result
-}
-
-/// COLLAPSE: multi-segment reduction (custom2, funct3=001).
-#[cfg(target_arch = "riscv32")]
-pub unsafe fn collapse(coords_ptr: u32, count: u32, reducer_fn: u32) -> u32 {
-    let result: u32;
-    core::arch::asm!(
-        "custom2 {res}, {c}, {n}, {r}, 1",
-        c = in(reg) coords_ptr,
-        n = in(reg) count,
-        r = in(reg) reducer_fn,
-        res = out(reg) result,
-        options(nostack)
-    );
-    result
-}
-
-/// FIELD_UPDATE: modify field state (custom2, funct3=010).
-#[cfg(target_arch = "riscv32")]
-pub unsafe fn field_update(field_ptr: u32, op: u32, arg: u32) -> u32 {
-    let result: u32;
-    core::arch::asm!(
-        "custom2 {res}, {f}, {o}, {a}, 2",
-        f = in(reg) field_ptr,
-        o = in(reg) op,
-        a = in(reg) arg,
-        res = out(reg) result,
-        options(nostack)
-    );
-    result
-}
-
-// ═══════════════════════════════════════════════════════════════════════
 // Software emulation (all platforms)
 // ═══════════════════════════════════════════════════════════════════════
+
+// The canonical assembly implementation lives in the raw `asm/*.S` modules
+// (RV64, executed under Spike and pinned by golden anchors). This module
+// intentionally carries no inline assembly: the Rust side only defines the
+// custom instruction encodings above and the host-verifiable software
+// emulation below, so RTL conversion has a single assembly substrate to read.
 
 /// Software emulation of OBSERVE.
 pub fn observe_emulate(scheme_id: u32, field_id: u32, rule_id: u32) -> u32 {
