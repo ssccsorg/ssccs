@@ -124,7 +124,7 @@ SSCCS begins as a definition of what computation is, not as a prescription for h
 
 Concrete implementations, whether on conventional silicon or on future hardware, are derivative: each is an approximate realisation that the model then corrects through Observation, the active act of revealing structure. Because Observation bridges the ideal and the instantiated, the framework remains stable across implementation generations while the realisations themselves evolve.
 
-The primitives have been implemented as executable code, and deterministic behavior has been confirmed across independent substrates: a cross-validated RISC-V simulation and an inverse-validation exercise on conventional open-spec silicon that instantiates the model within the constraints of an existing architecture (the calibration procedure and results are reported in Phase 1 of the roadmap [*-@sec-appendix-roadmap*]). Because Observation is deterministic by definition, every calibration is auditable and replayable by construction. These results ground the model in today's silicon; the long-term trajectory remains native hardware where Schemes are instantiated directly rather than emulated.
+The primitives have been implemented as executable code, and deterministic behavior has been confirmed across four independent implementations of the same pipeline: the Rust fallback, hand-written RISC-V assembly under Spike, SystemVerilog, and the open-source ev (ExaVerif) verification CLI, pinned by golden anchors that are auto-verified on every validation run. An inverse-validation exercise on conventional open-spec silicon further instantiates the model within the constraints of an existing architecture (the calibration procedure and results are reported in Phase 1 of the roadmap [*-@sec-appendix-roadmap*]). Because Observation is deterministic by definition, every calibration is auditable and replayable by construction. These results ground the model in today's silicon; the long-term trajectory remains native hardware where Schemes are instantiated directly rather than emulated.
 
 An ecosystem of standalone projects instantiates the model in specific domains; each project is introduced in its own documentation and applies the four primitives to its domain without modifying the core model.
 
@@ -141,19 +141,19 @@ digraph SSCCS_Ontology {
         label="Static Infrastructure";
 
         node [shape=point, width=0.15, height=0.15];
-        s2 [xlabel="Segment (S₂)"];
-        s3 [xlabel="Segment (S₃)"];
-        s1 [xlabel="Segment (S₁)\n(unbound)", fontcolor="#AAAAAA"];
+        s2 [xlabel="Segment S₂\n(c, id)"];
+        s3 [xlabel="Segment S₃\n(c, id)"];
+        s1 [xlabel="Segment S₁\n(unbound)", fontcolor="#AAAAAA"];
 
         node [shape=cds];
-        Scheme [label="Scheme (Σ₁)"];
+        Scheme [label="Scheme Σ₁\n(A, R, L, O)"];
     }
 
     subgraph cluster_dynamic {
         label="Dynamic Substrate";
 
         node [shape=note];
-        Field [label="Field (F₁)\nconstraints + triggers"];
+        Field [label="Field F₁ = (C, T)\nconstraints + transitions"];
     }
 
     subgraph cluster_active {
@@ -163,10 +163,10 @@ digraph SSCCS_Ontology {
         Observation [label="Observation (Ω₁)"];
 
         node [shape=box];
-        Projection [label="Projection\nP₁ = Ω₁(F(Σ, S₂, S₃))"];
+        Projection [label="Projection\nP₁ = Ω₁(Σ₁, F₁)"];
 
         node [shape=box, style=rounded];
-        Data [label="State\nD₁ = I(P₁)"];
+        Data [label="Data\nD₁ = I(P₁)"];
     }
 
     edge [arrowhead=none];
@@ -179,7 +179,7 @@ digraph SSCCS_Ontology {
     s3 -> Field;
 
     edge [arrowhead=normal, style=dashed];
-    Observation -> Field [label="triggers"];
+    Observation -> Field [label="applies"];
 
     edge [arrowhead=normal];
     Field -> Projection [label="collapses"];
@@ -1294,10 +1294,9 @@ digraph Implementation_Roadmap {
 
 #### Phase 1: Software Emulation (Proof of Concept)
 
-- Rust reference implementation reading the SS format specifications.
-- Core concepts validated on RISC-V simulation (Spike) with 271 test cases passing across all concept types. Deterministic reproducibility confirmed across independent implementations (Rust and C). The inverse-validation exercise described in the Introduction further demonstrates the model's applicability to conventional RISC-V silicon [@ev2026exaverif].
-- SystemVerilog composition model provides additional cross-validation at the HDL level.
-- Ongoing: measure determinism, implicit parallelism, data movement reduction on larger benchmarks.
+- Rust reference implementation organized as three paths: the host simulation workspace (17 crates, including 11 constitutional concept crates), the bare-metal RISC-V integration crate, and a standalone criterion benchmark suite.
+- Deterministic reproducibility is confirmed across four independent implementations of the same pipeline: the Rust fallback, hand-written RISC-V assembly under Spike, SystemVerilog, and the ev (ExaVerif) verification CLI, pinned by 19 golden anchors that are auto-verified on every validation run. The inverse-validation exercise described in the Introduction further demonstrates the model's applicability to conventional RISC-V silicon [@ev2026exaverif].
+- The benchmark suite covers three kernels (vector addition, 2D convolution, graph BFS), each expressed as a Rust baseline and an SSCCS formulation; it records emulation overhead on existing hardware as validation evidence. Ongoing work measures determinism, implicit parallelism, and data movement reduction on larger benchmarks.
 
 #### Phase 2: Hardware Acceleration (Transitional)
 
@@ -1338,7 +1337,7 @@ SSCCS is intended for validation across multiple domains.
 
 ## PoC Implementation Notes {#sec-appendix-poc-notes}
 
-The SSCCS Proof of Concept (PoC) is a Rust-based reference implementation of the core ontological layers defined in this specification. It corresponds to Phase 1 (software emulation) of the development roadmap. This appendix documents implementation details that complement the open-format specification [*-@sec-appendix-openformat*].
+The SSCCS Proof of Concept (PoC) is the Rust-based reference implementation of the core ontological layers defined in this specification. It corresponds to Phase 1 (software emulation) of the development roadmap and is organized as three paths: the standard host simulation workspace, the bare-metal RISC-V integration crate, and a standalone benchmark suite. This appendix documents implementation details that complement the open-format specification [*-@sec-appendix-openformat*].
 
 ### Why Rust
 
@@ -1392,6 +1391,18 @@ Three example projectors are:
 - **`IntegerProjector`** – extracts a coordinate along a given axis.
 - **`ArithmeticProjector`** – defines adjacency through arithmetic operations (`+1`, `-1`, `*2`, `/2`).
 - **`ParityProjector`** – classifies coordinates as `"even"` or `"odd"` strings.
+
+### Validation Substrates
+
+The same constraint pipeline is implemented independently on three substrates and cross-verified automatically:
+
+- **Rust fallback** – the reference path on the host (x86_64/aarch64), exercised by the workspace tests.
+- **RISC-V assembly** – five hand-written modules covering observation, collapse, field update, scheme layout, and adjacency, executed at the ISA level under Spike.
+- **SystemVerilog** – 18 modules implementing constraints, projectors, composition, and the CORE-V XIF coprocessor stub.
+
+Nineteen golden anchors pin the assembly outputs; a Python checker forces the SystemVerilog constants and the Rust fallback to agree with them on every validation run. The open-source ev (ExaVerif) CLI reproduces the anchor results through its own constraint engine, forming a fourth independent channel [@ev2026exaverif].
+
+The workspace also emits the Scheme as an assembly `.rodata` section (`SCHEME_SEG_COUNT`, `SCHEME_COORDS`, `SCHEME_ADDRESSES`, `GOLDEN_*`) and generates branchless constraint gates with zero conditional branches. The bare-metal crate consumes both through `observe_scheme`, a batch observation over the emitted tables, completing the handoff from the reference simulation to the practical plane.
 
 ### Compiler Pipeline
 
