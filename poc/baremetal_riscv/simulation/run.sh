@@ -114,7 +114,24 @@ done
 echo "Building legacy test..."
 $CC -static -Wall -Wextra -O0 -g -o "$TARGET" "$TEST_C" "$STUBS_C" "$ASM_S"
 echo "  -> $TARGET"
-echo ""
+
+# ── Build asm module test (collapse/field/layout/adjacency under Spike) ──
+# The remaining .S modules are executed here, not just syntax-gated, so every
+# assembly module runs on the ISA as well as assembling cleanly.
+ASM_MOD_TEST_C="$SCRIPT_DIR/asm_modules_test.c"
+ASM_MOD_BIN="$SCRIPT_DIR/asm_modules_test"
+if [ -f "$ASM_MOD_TEST_C" ]; then
+    echo "Building asm module test..."
+    if $CC -static -Wall -Wextra -O0 -g -o "$ASM_MOD_BIN" "$ASM_MOD_TEST_C" "$STUBS_C" \
+        "$ASMDIR/collapse.S" "$ASMDIR/field_update.S" \
+        "$ASMDIR/scheme_layout.S" "$ASMDIR/scheme_adjacency.S"; then
+        echo "  -> $ASM_MOD_BIN"
+    else
+        echo "  !! asm module test build failed"
+        ASM_MOD_BIN=""
+    fi
+    echo ""
+fi
 
 # ── Run all binaries under Spike ─────────────────────────────
 run_all() {
@@ -138,6 +155,7 @@ run_all() {
 }
 
 TARGETS="$EXP_TARGETS $TARGET"
+[ -n "$ASM_MOD_BIN" ] && TARGETS="$TARGETS $ASM_MOD_BIN"
 case "$MODE" in
     run)
         echo "Running under Spike..."

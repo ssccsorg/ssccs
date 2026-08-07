@@ -50,7 +50,7 @@ This crate has two distinct paths with different target requirements:
 | Path | Target | Status |
 |------|--------|--------|
 | Rust fallback | Host (x86_64 / aarch64) | Default `cargo test` / `cargo build`, golden anchors verified |
-| RISC-V assembly | RV64 (`riscv64-unknown-elf-*` toolchain) | Assembled and executed under Spike + pk (`simulation/run.sh`), plus a syntax gate over all `asm/*.S` |
+| RISC-V assembly | RV64 (`riscv64-unknown-elf-*` toolchain) | All five `asm/*.S` modules assembled and executed under Spike + pk (`simulation/run.sh`): `observe_full.S` via `spike_test.c` and the concept harnesses, the other four via `asm_modules_test.c`; plus a syntax gate over all `asm/*.S` |
 | Bare-metal cargo build | `riscv32imac-unknown-none-elf` | Blocked: the standard workspace crates (`ssccs-core`, `ssccs-primitive`) depend on std-only crates (`hex`, `serde` default, `thiserror`, `blake3` default). Tracked as a follow-up no_std refactor |
 
 The assembly modules use RV64 instructions (`ld`/`sd`/`.8byte`). The reference simulation executes the assembly path at the ISA level via Spike, and the host path validates the same golden anchors through the Rust fallback.

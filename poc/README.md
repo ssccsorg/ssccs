@@ -171,7 +171,7 @@ Generated gates follow `fn(*const i64) -> u32`: coordinate pointer in `a0`, gate
 
 - 19 golden anchors cross-verified across RISC-V assembly, SystemVerilog, and the Rust fallback, with `ev` (ExaVerif) as an independent fourth channel.
 - Determinism and race-free concurrent observation tests in `ssccs-examples/tests/`.
-- Assembly syntax gate over all `asm/*.S`, C concept programs 01-11 executed under Spike + pk in `simulation/`, and Verilator SystemVerilog checks in `sv/`.
+- Assembly syntax gate over all `asm/*.S`; every module also executes under Spike + pk in `simulation/` (`observe_full.S` via `spike_test.c` and the concept harnesses, the remaining four via `asm_modules_test.c`); Verilator SystemVerilog checks in `sv/`.
 - Benchmark kernels in `benches/` (run `benches/run.sh` manually; not part of the default validation or CI): the measured emulation overhead on existing hardware informs the practical plane; it never shapes the model.
 
 ## License
