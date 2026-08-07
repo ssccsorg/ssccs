@@ -24,7 +24,7 @@ poc/
 │   └── run.sh              Benchmark runner: verify + kernels, results in result/
 │
 ├── baremetal_riscv/        RISC-V integration crate
-│   ├── Cargo.toml          Host build; riscv32 inline asm, RV64 assembly under Spike
+│   ├── Cargo.toml          Host build; custom instruction encodings, RV64 assembly under Spike
 │   ├── asm/                Five hand-written .S modules (observation pipeline)
 │   ├── src/                Custom instruction encodings, emulation, golden anchor tests
 │   ├── simulation/         C concept programs 01-11 plus Spike + riscv-pk harness
