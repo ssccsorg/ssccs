@@ -295,7 +295,7 @@ fig = go.Figure(data=edge_traces + [core_trace, note_trace])
 azim_deg, elev_deg = 45, -20
 azim_rad = azim_deg * math.pi / 180
 elev_rad = elev_deg * math.pi / 180
-r_cam = 1.2
+r_cam = 1.5
 eye_x = r_cam * math.cos(elev_rad) * math.sin(azim_rad)
 eye_y = r_cam * math.cos(elev_rad) * math.cos(azim_rad)
 eye_z = r_cam * math.sin(elev_rad)
@@ -309,16 +309,11 @@ fig.update_layout(
         aspectratio=dict(x=1, y=1, z=1),
         camera=dict(eye=dict(x=eye_x, y=eye_y, z=eye_z), center=dict(x=0, y=0, z=0))
     ),
-    legend=dict(
-        x=0.02, y=0.98, xanchor='left', yanchor='top',
-        bordercolor='black', borderwidth=1,
-        traceorder='normal'
-    ),
     margin=dict(l=0, r=0, t=0, b=0),
-    showlegend=True
+    showlegend=False
 )
 
-fig.show()
+fig.show(config={'displayModeBar': False})
 ```
 
 Welcome to the SSCCS Documentation Hub. This platform operates as the unified knowledge pipeline for the project, integrating research documentation and external technical specifications into a single queryable graph. Every whitepaper, technical note, governance record, and code artifact is version-controlled, cryptographically traceable, and structured for continuous discovery.
