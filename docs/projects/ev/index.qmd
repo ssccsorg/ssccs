@@ -45,16 +45,11 @@ title_meta_items = {
 ExaVerif is an open-core (Apache 2.0) CLI engine for exhaustive verification
 of RISC-V custom instruction extensions. A single command consumes a YAML
 specification of a custom instruction extension, enumerates every valid
-combination of its fields, and evaluates each one deterministically:
-
-```shell
-ev verify --target spec.xif.yaml
-```
-
+combination of its fields, and evaluates each one deterministically.
 The specification declares every instruction field, its range, alignment,
-and constraints (oneof, range, bitmask, cross, eq, neq, and others). The CLI
-provides three subcommands: `verify` for constraint evaluation, `simulate`
-for instruction execution, and `synth` for RTL generation and synthesis.
+and constraints. The CLI provides three subcommands: `verify` for
+constraint evaluation, `simulate` for instruction execution, and `synth`
+for RTL generation and synthesis.
 Each result is recorded as a structured Fact, consumable by the neXus
 pipeline and by autonomous agents. No result is discarded; every run raises
 the baseline, so verification output accumulates across projects, teams, and
@@ -74,13 +69,31 @@ The unit of verification is the Spec Space, a tripartite model:
   bitmask, cross, eq, and neq.
 - Projector: a mapping from each point of the space to a result value.
 
+The model is itself a complete decoder specification: axes define the
+inputs, constraints define the legal encodings, and the projector defines
+the result mapping. The same YAML compiles to synthesizable SystemVerilog
+through `synth`, so exhaustive verification doubles as design generation.
+
 The engine compiles constraints into the enumeration itself. The iterator
 visits the valid space directly instead of the full cross product, so a
-specification completes in milliseconds regardless of constraint complexity.
-This structural enumeration is the source of the speedups measured in the
-benchmarks below, and it is independent of the target: any deterministic
-system that maps onto axes, constraints, and a projector benefits from the
-same pipeline.
+single complete spec space verifies in milliseconds, hundreds of times
+faster than the standard pipeline. Because a single space is that cheap,
+N spec spaces run in parallel, each an observation perspective with its
+own constraint set, projection target, and interpretation layer. Their
+cross-insights compose into a multi-dimensional design map that no single
+pass can produce:
+
+```shell
+ev verify --target spec_space_N.xif.yaml
+```
+
+Identical runs produce identical records, so results stay comparable
+across runs and become a queryable design record that agents and design
+teams consult without re-executing verification. This structural
+enumeration is the source of the speedups measured in the benchmarks
+below, and it is independent of the target: any deterministic system that
+maps onto axes, constraints, and a projector benefits from the same
+pipeline.
 
 ## Why the Gain Is Algorithmic
 
