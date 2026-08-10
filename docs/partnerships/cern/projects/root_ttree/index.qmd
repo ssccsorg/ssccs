@@ -1,11 +1,13 @@
 ---
-title: "ROOT-TTree bottleneck"
-subtitle: "Demonstrating the Coordinate Approach on ROOT TTree I/O"
+title: "CERN's ROOT TTree bottleneck"
+subtitle: "Demonstrating the Coordinate Approach on CERN's ROOT TTree I/O"
 date: last-modified
 metadata-files:
   - ../../../../_include/author.yml
 abstract: |
-  This development plan describes how SSCCS will demonstrate the coordinate approach on the ROOT TTree I/O bottleneck: the same analysis, the same TTree API, and the same build chain, with the read path served from a coordinate-indexed store instead of the medium. ROOT's TFile disk handling is never modified. The plan covers the approach, what the demonstration delivers, how it works, milestones, and boundaries.
+  ROOT is the data analysis framework of the CERN community, and its TTree columnar format stores the events of nearly every physics analysis. A documented production bottleneck limits the read path: an analysis issues 372,000 singular reads averaging 4.6 KB, sustains an effective 33 KB/s, and runs for roughly 14 hours, with the measured cause being per-request I/O overhead rather than data transfer.
+
+  This development plan describes how SSCCS will replace the read path with a coordinate-indexed store: the same analysis, the same TTree API, and the same build chain, with byte ranges resolved by closed-form coordinate arithmetic and served from the store instead of the medium. ROOT's TFile disk handling is never modified. The plan covers the approach, what the demonstration delivers, how it works, the milestones, and the boundaries; the measured results are reported separately.
 ---
 
 ```{python}
@@ -24,7 +26,7 @@ title_meta_items = {
 
 {{< include ../../../../_include/_title_meta_items.qmd >}}
 
-**Status:** Draft development plan. The demonstration proceeds only after the engagement path in the [ROOT-TTree bottleneck](../index.html) is accepted.
+**Status:** Draft development plan. The demonstration proceeds only after the engagement path in the [CERN's ROOT TTree bottleneck](../index.html) is accepted.
 
 ## The Approach: The Same Stack, a Different Byte Source
 
