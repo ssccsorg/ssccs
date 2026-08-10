@@ -1,0 +1,192 @@
+---
+title: "Tagma-Sec"
+subtitle: "Integrity, Authorization, Audit, and Non-Repudiation on a Structural Coordinate Space"
+date: 2026-08
+date-format: "MMMM, YYYY"
+version-prefix: tagma-sec-draft
+version-mark: true
+bibliography: ../_include/reference.bib
+csl: ../../../../_include/ieee.csl
+date-modified: last-modified
+generate-title-meta: false
+metadata-files:
+    - ../../../../_include/author.yml
+    - ../../../../_include/format.pdf.yml
+    - ../../../../_include/format.html.yml
+colorlinks: true
+format:
+  html:
+    number-sections: true
+    code-font: "Source Code Pro"
+    appendix-style: plain
+  pdf:
+    geometry:
+        - margin=16mm
+        - bottom=1.6cm
+        - footskip=1cm
+    keep-tex: true
+    number-sections: true
+    execute:
+        echo: false
+    colorlinks: true
+    linkcolor: darkgray
+    citecolor: gray
+    urlcolor: gray
+    code-block-bg: false
+    code-block-border-left: true
+    include-in-header:
+      text: |
+        \usepackage{xcolor}
+        \usepackage{microtype}
+        \setkeys{Gin}{width=\linewidth,height=\textheight,keepaspectratio}
+        \addtokomafont{disposition}{\rmfamily}
+        \input{./_files/sec_metadata.tex}
+        \DeclareTOCStyleEntry[beforeskip=6pt]{default}{section}
+        \DeclareTOCStyleEntry[beforeskip=0pt]{default}{subsection}
+        \makeatletter
+        \def\@maketitle{
+          \begin{center}
+            {\LARGE \bfseries \@title \par}
+            \vspace{1em}
+            {\large \@subtitle \par}
+            \vspace{4em}
+                {\large \@author \thanks{\authorrole; Corresponding author: \texttt{\href{mailto:\authoremail}{\authoremail}}} \par}
+                \vspace{0.3em}
+                {\normalsize \texttt{\href{\affiliationurl}{\affiliationdomain}} \par}
+            \vspace{2em}
+                {\normalsize \@date \par}
+          \end{center}
+          \vspace{4em}
+        }
+        \makeatother
+---
+
+```{python}
+#| include: false
+#| context: local
+%run ../../../../_include/_graphviz.py
+```
+
+## Abstract {.unnumbered .unlisted}
+
+Coordination traffic in synTagma moves over structural paths: routing updates name target paths, resolvers exchange evidence, and the audit trail records what happened. tagma-sec is the security primitive layer that answers the accompanying questions: which principal may act on which path, whether the record is intact, whether the origin of an update can be denied, and what evidence remains. The layer provides integrity, authorization, audit, and non-repudiation over Tagma coordinate objects and coordination traffic. It claims no confidentiality from coordinate structure; confidentiality is delegated to the hybrid interface. The initial implementation covers specification milestones 1 to 4 with a legacy pattern as a reverse-verification mirror and the route-update workflow as the scenario contract.
+
+[^tagma]: Tagma Whitepaper: <https://docs.ssccs.org/projects/syntagma/tagma/wp/>
+[^syntagma]: synTagma repository: [Github (Pre-release, Apache 2.0)](https://github.com/ssccsorg/syntagma)
+[^spec]: Tagma Security Layer Specification: `docs/spec/tagma-sec.md` in the synTagma repository
+
+## Introduction {#sec-introduction}
+
+The initial framing of Tagma security proposed the coordinate space itself as a substitute for encryption[^tagma]. Analysis identified four engineering weaknesses in that framing, each recorded as a rejected claim in the specification[^spec]:
+
+- Published interpretation rules collapse confidentiality. The mapping from application semantics to Coord slots is public, so a captured CoordPath recovers its meaning without breaking any key.
+- A captured CoordPath can be replayed. Nothing in the coordinate binds it to a time, a principal, or a session.
+- The valid subspace is enumerable by construction. The 16-bit space holds 11,172 valid values out of 65,536, so structural validity alone cannot serve as a secret.
+- Composition, decomposition, and linearization lack any keyed transformation, so those operations cannot satisfy a confidentiality requirement on their own.
+
+The rejection follows from the Kerckhoffs principle: the composition formula, the linearization rule, and the validity bounds are public specifications, and a hardware decoder must remain verifiable against public rules. tagma-sec therefore builds security on keyed primitives over public arithmetic, and Tagma contributes collision-free addressing rather than structural secrecy.
+
+## Security Model
+
+### Properties
+
+| Property | Module | Guarantee |
+|----------|--------|-----------|
+| Integrity | integrity | Tamper-evident binding of records to paths, principals, and epochs |
+| Authorization | authority | Decisions over which principal may act on which scope |
+| Audit | audit | Append-only, chained, externally verifiable evidence log |
+| Non-repudiation | channel | Signed evidence exchange; origin and receipt provable to third parties |
+| Confidentiality | hybrid (external) | Hybrid encryption composed with the envelope, not coordinate structure |
+
+### Adversary Assumptions
+
+The adversary can observe, capture, and replay any CoordPath and any envelope in transit. The adversary knows the composition formula, the linearization rule, and the validity bounds; these are public by design. The adversary does not hold the keys issued by the authority and cannot forge signatures under the active verification keys. The audit log storage layer is append-only; a log node may be compromised, but chaining makes silent retroactive modification detectable.
+
+### Trust Boundaries
+
+The authority module is the trust root for principal identity and scope authorization. Epoch sources are shared between the integrity and channel modules; the concrete realization is an open question. The audit log and the channel module assume an authenticated time or epoch source for ordering.
+
+## Module Architecture
+
+The layer is decomposed into four modules, each exposing a small interface. Scope matching follows the milestone 1 contract: Exact and Prefix rules over path sequences, with no dependence on path secrecy.
+
+### Authority
+
+Registration, attestation issuance, scope authorization, and revocation. An attestation carries an issued epoch and a validity window; authorization checks the window and the epoch-scoped revocation record. Revocation records a revoked (principal, scope) pair effective from the recorded epoch.
+
+### Integrity
+
+Seal, verify, and refresh. The seal is a keyed commitment that makes modification evident without hiding the record. The tagma-sec seal binds record, path, principal, and epoch, so replay across epochs is detected. Refresh re-binds an existing seal to a newer epoch.
+
+### Audit
+
+Append, verify_chain, prove, and export. Every entry chains to its predecessor. Inclusion proofs and evidence bundles pair events with payloads so an external party can verify commitments without access to the log.
+
+### Channel
+
+Sign, verify, exchange, and verify_receipt. Exchanged evidence binds the local payload, the remote principal, and the epoch, so replay of signed messages is prevented. Receipts prove delivery and origin.
+
+## Composition and Workflow
+
+The proxy composes the four modules behind trait objects and switches between two implementations: the legacy pattern and the tagma-sec pattern. The route-update workflow exercises all four modules in sequence: authorization of the path and action at the current epoch, seal and verify of the record, audit commit of the record, channel receipt exchange binding the record to its path, epoch, and origin, and audit commit of the signed evidence.
+
+```{python}
+#| label: fig-sec-workflow
+#| fig-cap: "Route update workflow across the four tagma-sec modules."
+dot("""
+digraph DOTGraph {
+    compound=true;
+    fontname="Arial";
+    node [shape=box, fontname="Arial", fontcolor=black, color=black];
+    graph [fontcolor=black, fontname="Arial", bgcolor=white, splines=ortho];
+    edge [color=black];
+    rankdir=LR;
+
+    subgraph cluster_authority {
+        label="authority\nCoordPath scope, action, epoch";
+        style=dashed; color=black; pencolor=black; fontcolor=black;
+        fontsize=11;
+        authorize [label="authorize\nAllow / Deny"];
+    }
+    subgraph cluster_integrity {
+        label="integrity\nseal binds record, path, principal, epoch";
+        style=dashed; color=black; pencolor=black; fontcolor=black;
+        fontsize=11;
+        seal [label="seal + verify"];
+    }
+    subgraph cluster_audit {
+        label="audit\nappend-only chained log";
+        style=dashed; color=black; pencolor=black; fontcolor=black;
+        fontsize=11;
+        append_record [label="append(record)"];
+        append_receipt [label="append(signed evidence)"];
+    }
+    subgraph cluster_channel {
+        label="channel\nreceipt binds evidence, remote, epoch";
+        style=dashed; color=black; pencolor=black; fontcolor=black;
+        fontsize=11;
+        exchange [label="exchange(receipt)"];
+    }
+
+    update [label="route update\nattestation, path, record, epoch", shape=ellipse];
+    outcome [label="RouteUpdate\nevent, receipt", shape=ellipse];
+
+    update -> authorize;
+    authorize -> seal [label="Allow"];
+    seal -> append_record;
+    append_record -> exchange [label="evidence"];
+    exchange -> append_receipt;
+    append_receipt -> outcome;
+}
+""")
+```
+
+## Reverse Verification
+
+The legacy pattern serves as the reverse-verification mirror: the same workflow suite runs identically against both stacks, so a security property holds for the tagma-sec pattern only if the same contract passes on the legacy implementation. Distinguishing tests pin the deltas: epoch and principal bound seals, refresh epoch binding, prefix scope coverage, revocation effective from the recorded epoch, scope-specific revocation keys, and the attestation lifetime boundary.
+
+## Implementation Status
+
+Milestones 1 to 4 (authority, integrity, audit, channel) are implemented in the synTagma repository[^syntagma] under `sw/rust/sec`, with 24 integration tests and a compiled README example. Milestone 5, the Delos composite engine that wires these primitives with the neXus envelope and hybrid confidentiality, is a separate project in planning stage. The initial implementation is a proof of concept: the channel is MAC-based and authenticates origin between holders of the shared key, PoC keys are hardcoded, paths are heap-backed vectors, and the concrete epoch source remains an open question.
+
+## References {.unnumbered .unlisted}
