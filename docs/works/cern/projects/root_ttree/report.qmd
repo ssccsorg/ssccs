@@ -231,33 +231,6 @@ plt.tight_layout(); plt.show()
 
 :::
 
-### Conversion cost
-
-The one-time conversion of the full dataset into the store costs 226.3 s wall, 220.5 s CPU, producing 5,926,970,880 bytes across 2,315,223 records. The conversion is comparable to one baseline read pass (195.2 s) and amortizes: after conversion, every read pass costs 1.45 s (mapped) instead of 195.2 s, so the break-even point is about two analysis passes.
-
-```{python}
-#| label: fig-adoption-economics
-#| fig-cap: "Cumulative wall time over repeated read passes. The one-time conversion (226.3 s) amortizes against the per-pass baseline cost (195.2 s); the mapped coordinate path breaks even by the second pass and then accrues the gap per pass."
-import matplotlib.pyplot as plt
-import numpy as np
-
-passes = np.arange(0, 6)
-baseline = 195.2 * passes
-coord = 226.3 + 1.45 * passes
-breakeven = 226.3 / (195.2 - 1.45)
-
-fig, ax = plt.subplots(figsize=(5.5, 3.5))
-ax.plot(passes, baseline, marker='o', color='black', label='baseline (per pass 195.2 s)')
-ax.plot(passes, coord, marker='s', color='black', linestyle='--', label='conversion + coordinate+map (per pass 1.45 s)')
-ax.axvline(breakeven, color='gray', linestyle=':', alpha=0.6)
-ax.text(breakeven + 0.05, 420, 'break-even', fontsize=8, color='gray')
-ax.set_xlabel('read passes', fontsize=10)
-ax.set_ylabel('cumulative wall time (s)', fontsize=10)
-ax.legend(fontsize=7.5)
-ax.grid(linestyle=':', alpha=0.3)
-plt.tight_layout(); plt.show()
-```
-
 ### Analysis workload
 
 The analysis workload applies the same selection, MET_pt above 100 GeV and at least one muon, and fills the same MET_pt histogram on both paths, over the full dataset.
@@ -347,6 +320,8 @@ plt.tight_layout(); plt.show()
 
 The measured results separate two bottleneck regimes. On the remote EOS baseline, the bottleneck is per-request I/O wait (about 98.5 percent of wall time); the coordinate path removes requests and, when mapped, system calls. On the local full-file baseline, the bottleneck is decompression CPU (cpu 182.7 s of wall 195.2 s, 93.6 percent); the coordinate store holds raw fixed-width records and removes decompression from the read path. Both removals are structural rather than incremental: the request and system call counts are deterministic properties of the addressing scheme, and the raw record layout removes the decompression step by construction.
 
+:::{ layout-ncol=2 }
+
 ```{python}
 #| label: fig-wall-composition
 #| fig-cap: "Wall-time composition across the measured paths. The remote baseline is I/O-wait bound; the local baseline and the coordinate paths are CPU bound, with decompression dominating the local baseline and the mapped path running entirely in CPU."
@@ -371,11 +346,40 @@ ax.grid(axis='y', linestyle=':', alpha=0.3)
 plt.tight_layout(); plt.show()
 ```
 
+```{python}
+#| label: fig-adoption-economics
+#| fig-cap: "Cumulative wall time over repeated read passes. The one-time conversion (226.3 s) amortizes against the per-pass baseline cost (195.2 s); the mapped coordinate path breaks even by the second pass and then accrues the gap per pass."
+import matplotlib.pyplot as plt
+import numpy as np
+
+passes = np.arange(0, 6)
+baseline = 195.2 * passes
+coord = 226.3 + 1.45 * passes
+breakeven = 226.3 / (195.2 - 1.45)
+
+fig, ax = plt.subplots(figsize=(5.5, 3.5))
+ax.plot(passes, baseline, marker='o', color='black', label='baseline (per pass 195.2 s)')
+ax.plot(passes, coord, marker='s', color='black', linestyle='--', label='conversion + coordinate+map (per pass 1.45 s)')
+ax.axvline(breakeven, color='gray', linestyle=':', alpha=0.6)
+ax.text(breakeven + 0.05, 420, 'break-even', fontsize=8, color='gray')
+ax.set_xlabel('read passes', fontsize=10)
+ax.set_ylabel('cumulative wall time (s)', fontsize=10)
+ax.legend(fontsize=7.5)
+ax.grid(linestyle=':', alpha=0.3)
+plt.tight_layout(); plt.show()
+```
+
+:::
+
 At full scale the baseline request count drops to 0.20 per event because basket buffers stay resident in memory after the first cluster[^basket-note]; the full-file speedup is therefore dominated by decompression removal and aligned sequential access, while the request-count reduction from 1.37 to 1.00 per event is the M1 signature slice and the remote case.
 
 The bytes-per-read asymmetry is intentional. The baseline reads 2,149,961,076 compressed bytes in 470,131 requests; the coordinate paths read 5,926,970,880 raw bytes in 2,315,223 requests. The coordinate paths move 2.76x more bytes and still finish 58.5x and 134.6x faster on the full file, where decompression removal and aligned sequential access dominate, and the mapped path removes the system call entirely. Compression semantics remain a later-phase item, specified in the Status section.
 
 The speedup ratios vary with the condition, from 6.5x on the synthetic microbenchmark to 1,512x on the same-media slice, because the baseline cost composition changes with the access pattern and cache state. The stable claims are the request count (1.37 to 1.00 per event) and the system call count (1.37 to 0.00 per event), which are media-independent.
+
+### Conversion
+
+The one-time conversion of the full dataset into the store costs 226.3 s wall, 220.5 s CPU, producing 5,926,970,880 bytes across 2,315,223 records. The conversion is comparable to one baseline read pass (195.2 s) and amortizes: after conversion, every read pass costs 1.45 s (mapped) instead of 195.2 s, so the break-even point is about two analysis passes.
 
 ## Correctness Verification
 
