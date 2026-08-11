@@ -10,11 +10,6 @@ abstract: |
 
 {{< include ../_include/_title_meta_items.qmd >}}
 
-```{python}
-#| include: false
-#| context: local
-%run ../_include/_graphviz.py
-```
 
 ## The Two Planes
 
@@ -29,105 +24,120 @@ The ecosystem is not a hierarchy. It is a coordinated force: every node reads fr
 ```{python}
 #| label: fig-substrate
 #| fig-cap: "Every functional domain reads from and writes to the shared surface. What flows in one direction is never the same as what returns — each domain deposits facts and patterns, and receives back strengthened primitives shaped by every other domain’s contributions. The cycle compounds: the surface is the only invariant."
-dot("""
-digraph Substrate {
-    layout=neato
-    overlap=false
-    sep=0.3
-    splines=curved
-    node [shape=circle, style=filled, fontname="sans-serif", fontsize=16]
-    edge [fontsize=16]
-    bgcolor="transparent"
+%matplotlib inline
+import numpy as np
+import matplotlib
+import matplotlib.pyplot as plt
+from matplotlib.patches import Circle
 
-    // --- Surface cluster ---
-    Surface  [pos="0.0,0.0!", label="Shared Surface", fillcolor="#E8F4F8"]
-    S_Formal [pos="0.3,-0.23!", label="Formal Model
-& Primitives", fillcolor="#E8F4F8"]
-    S_Const  [pos="-0.3,0.23!", label="Published
-Constraints", fillcolor="#E8F4F8"]
+SURF = "#E8F4F8"; PROT = "#D4E6F1"
+E1 = "#F4E8F8"; E2 = "#F8F4E8"; E3 = "#E8F8E8"; E4 = "#FFF4E6"; GRAY = "#F4F4F4"
 
-    // --- Protocol cluster ---
-    Protocol [pos="0.53,0.38!", label="Observation &
-Coordination", fillcolor="#D4E6F1"]
-    P_FIH    [pos="0.68,0.3!", label="FIH
-Lifecycle", fillcolor="#D4E6F1"]
-    P_Trait  [pos="0.38,0.68!", label="Trait
-Abstractions", fillcolor="#D4E6F1"]
+nodes = [
+    ("Shared Surface",             (0.0, 0.0),   0.62, SURF, 11,   "above"),
+    ("Formal Model\n& Primitives", ( 1.55, 0.0), 0.40, SURF, 7.5,  "right"),
+    ("Published\nConstraints",    (-1.55, 0.0), 0.40, SURF, 7.5,  "left"),
+    ("Protocol",                   (0.0, 2.75), 0.50, PROT, 11,   "right"),
+    ("FIH Lifecycle",              ( 1.05, 3.55),0.36, PROT, 7.5, "right"),
+    ("Trait Abstractions",        (-1.05, 3.55),0.36, PROT, 7.5, "left"),
+    ("Verification",               (-2.45, 1.5), 0.46, E1, 11,   "left"),
+    ("Exhaustive\nEnumeration",    (-3.65, 2.25),0.36, E1, 7.5,  "left"),
+    ("Addressing",                 (-2.45,-1.5), 0.46, E2, 11,   "left"),
+    ("Coord on\nPhysical Media",   (-3.65,-2.25),0.36, E2, 7.5,  "left"),
+    ("Memory",                     ( 2.45,-1.5), 0.46, E3, 11,   "right"),
+    ("Persistent\nSubstrate",      ( 3.65,-2.25),0.36, E3, 7.5,  "right"),
+    ("Orchestration",              ( 2.45, 1.5), 0.46, E4, 11,   "right"),
+    ("Agent Runtime\n& Scheduling",( 3.65, 2.25),0.36, E4, 7.5,  "right"),
+    ("Future",                     (0.0,-2.75),  0.46, GRAY, 11,  "below"),
+]
+pos = {n[0]: np.array(n[1]) for n in nodes}
 
-    // --- Verification domain ---
-    E1main [pos="-0.68,0.53!", label="Verification
-Domain", fillcolor="#F4E8F8"]
-    E1sub  [pos="-0.82,0.68!", label="Exhaustive
-Enumeration", fillcolor="#F4E8F8"]
+mains = ["Verification", "Addressing", "Memory", "Orchestration", "Future"]
+edges = []
+for m in mains:
+    edges += [("Shared Surface", m, "deposit"), (m, "Shared Surface", "return")]
+for m in mains:
+    edges += [("Protocol", m, "scaffold"), (m, "Protocol", "feedback")]
+edges += [("Shared Surface", "Protocol", "deposit"), ("Protocol", "Shared Surface", "return")]
+edges += [("Shared Surface", "Formal Model\n& Primitives", "inner"),
+          ("Shared Surface", "Published\nConstraints", "inner"),
+          ("Protocol", "FIH Lifecycle", "inner"),
+          ("Protocol", "Trait Abstractions", "inner"),
+          ("Verification", "Exhaustive\nEnumeration", "inner"),
+          ("Addressing", "Coord on\nPhysical Media", "inner"),
+          ("Memory", "Persistent\nSubstrate", "inner"),
+          ("Orchestration", "Agent Runtime\n& Scheduling", "inner")]
 
-    // --- Addressing domain ---
-    E2main [pos="-0.68,-0.38!", label="Addressing /
-Persistent IO", fillcolor="#F8F4E8"]
-    E2sub  [pos="-0.9,-0.53!", label="Coord on
-Physical Media", fillcolor="#F8F4E8"]
-
-    // --- Memory domain ---
-    E3main [pos="0.68,-0.38!", label="Memory
-Domain", fillcolor="#E8F8E8"]
-    E3sub  [pos="0.9,-0.53!", label="Persistent
-Substrate", fillcolor="#E8F8E8"]
-
-    // --- Orchestration domain ---
-    E4main [pos="0.6,0.6!", label="Orchestration
-Domain", fillcolor="#FFF4E6"]
-    E4sub  [pos="0.82,0.75!", label="Agent Runtime
-& Scheduling", fillcolor="#FFF4E6"]
-
-    // --- Future ---
-    E5 [pos="0.0,-0.82!", label="...", fillcolor="#F4F4F4"]
-
-    // --- Internal edges (Surface cluster) ---
-    Surface -> S_Formal [style=dotted, arrowhead=normal, arrowtail=none, color="#4A8BAA"]
-    Surface -> S_Const  [style=dotted, arrowhead=normal, arrowtail=none, color="#4A8BAA"]
-    S_Formal -> Surface [style=dashed, arrowhead=none, arrowtail=normal, color="#C8A84C"]
-    S_Const  -> Surface [style=dashed, arrowhead=none, arrowtail=normal, color="#C8A84C"]
-
-    // --- Internal edges (Protocol cluster) ---
-    Protocol -> P_FIH   [style=dotted, arrowhead=normal, arrowtail=none, color="#6BA368"]
-    Protocol -> P_Trait [style=dotted, arrowhead=normal, arrowtail=none, color="#6BA368"]
-    P_FIH   -> Protocol [style=dashed, arrowhead=none, arrowtail=normal, color="#A06B8A"]
-    P_Trait -> Protocol [style=dashed, arrowhead=none, arrowtail=normal, color="#A06B8A"]
-
-    // --- Internal edges (sub-domain) ---
-    E1main -> E1sub [style=dotted, arrowhead=normal, arrowtail=none, color="#A06B8A"]
-    E2main -> E2sub [style=dotted, arrowhead=normal, arrowtail=none, color="#A06B8A"]
-    E3main -> E3sub [style=dotted, arrowhead=normal, arrowtail=none, color="#A06B8A"]
-    E4main -> E4sub [style=dotted, arrowhead=normal, arrowtail=none, color="#A06B8A"]
-
-    // --- Surface ↔ Protocol ---
-    Protocol -> Surface [label="validated contract,\nagent traces", style=dashed, arrowhead=none, arrowtail=normal, color="#C8A84C", fontcolor="#C8A84C"]
-    Surface -> Protocol [label="primitives,\nconstraints", style=dotted, arrowhead=normal, arrowtail=none, color="#4A8BAA", fontcolor="#4A8BAA"]
-
-    // --- Protocol ↔ Domain mains ---
-    Protocol -> E1main [label="scaffolding,\ntemplates", style=dashed, arrowhead=none, arrowtail=normal, color="#6BA368", fontcolor="#6BA368"]
-    E1main -> Protocol [label="domain fact,\nfield feedback", style=dashed, arrowhead=none, arrowtail=normal, color="#A06B8A", fontcolor="#A06B8A"]
-    Protocol -> E2main [label="scaffolding,\ntemplates", style=dashed, arrowhead=none, arrowtail=normal, color="#6BA368", fontcolor="#6BA368"]
-    E2main -> Protocol [label="domain fact,\nfield feedback", style=dashed, arrowhead=none, arrowtail=normal, color="#A06B8A", fontcolor="#A06B8A"]
-    Protocol -> E3main [label="scaffolding,\ntemplates", style=dashed, arrowhead=none, arrowtail=normal, color="#6BA368", fontcolor="#6BA368"]
-    E3main -> Protocol [label="domain fact,\nfield feedback", style=dashed, arrowhead=none, arrowtail=normal, color="#A06B8A", fontcolor="#A06B8A"]
-    Protocol -> E4main [label="scaffolding,\ntemplates", style=dashed, arrowhead=none, arrowtail=normal, color="#6BA368", fontcolor="#6BA368"]
-    E4main -> Protocol [label="domain fact,\nfield feedback", style=dashed, arrowhead=none, arrowtail=normal, color="#A06B8A", fontcolor="#A06B8A"]
-    Protocol -> E5     [label="scaffolding,\ntemplates", style=dashed, arrowhead=none, arrowtail=normal, color="#6BA368", fontcolor="#6BA368"]
-    E5     -> Protocol [label="domain fact,\nfield feedback", style=dashed, arrowhead=none, arrowtail=normal, color="#A06B8A", fontcolor="#A06B8A"]
-
-    // --- Surface ↔ Domain mains ---
-    Surface -> E1main [label="deposit\n(fact, pattern)", style=dashed, arrowhead=none, arrowtail=normal, color="#C8A84C", fontcolor="#C8A84C"]
-    E1main -> Surface [label="return\n(strengthened)", style=dotted, arrowhead=normal, arrowtail=none, color="#4A8BAA", fontcolor="#4A8BAA"]
-    Surface -> E2main [label="deposit\n(fact, pattern)", style=dashed, arrowhead=none, arrowtail=normal, color="#C8A84C", fontcolor="#C8A84C"]
-    E2main -> Surface [label="return\n(strengthened)", style=dotted, arrowhead=normal, arrowtail=none, color="#4A8BAA", fontcolor="#4A8BAA"]
-    Surface -> E3main [label="deposit\n(fact, pattern)", style=dashed, arrowhead=none, arrowtail=normal, color="#C8A84C", fontcolor="#C8A84C"]
-    E3main -> Surface [label="return\n(strengthened)", style=dotted, arrowhead=normal, arrowtail=none, color="#4A8BAA", fontcolor="#4A8BAA"]
-    Surface -> E4main [label="deposit\n(fact, pattern)", style=dashed, arrowhead=none, arrowtail=normal, color="#C8A84C", fontcolor="#C8A84C"]
-    E4main -> Surface [label="return\n(strengthened)", style=dotted, arrowhead=normal, arrowtail=none, color="#4A8BAA", fontcolor="#4A8BAA"]
-    Surface -> E5     [label="deposit\n(fact, pattern)", style=dashed, arrowhead=none, arrowtail=normal, color="#C8A84C", fontcolor="#C8A84C"]
-    E5     -> Surface [label="return\n(strengthened)", style=dotted, arrowhead=normal, arrowtail=none, color="#4A8BAA", fontcolor="#4A8BAA"]
+edge_style = {
+    "deposit":  ("#C8A84C", 2.2, 0.95),
+    "return":   ("#4A8BAA", 2.2, 0.95),
+    "scaffold": ("#6BA368", 1.8, 0.85),
+    "feedback": ("#A06B8A", 1.8, 0.85),
+    "inner":    ("#A8A8A8", 1.2, 0.55),
 }
-""")
+
+def _perp(a, b):
+    d = b - a
+    n = np.linalg.norm(d)
+    if n < 1e-9:
+        return np.array([1.0, 0.0])
+    u = d / n
+    return np.array([-u[1], u[0]])
+
+fig, ax = plt.subplots(figsize=(10.0, 8.0))
+
+for a, b, kind in edges:
+    pa, pb = pos[a], pos[b]
+    color, lw, alpha = edge_style[kind]
+    if kind in ("deposit", "return", "scaffold", "feedback"):
+        off = 0.09 * _perp(pa, pb)
+        seg_a, seg_b = pa + off, pb + off
+    else:
+        seg_a, seg_b = pa, pb
+    ax.plot([seg_a[0], seg_b[0]], [seg_a[1], seg_b[1]], color=color,
+            linewidth=lw, alpha=alpha, zorder=1, solid_capstyle="round")
+    ax.add_patch(Circle(seg_a, 0.045, facecolor=color, edgecolor="none",
+                        alpha=alpha, zorder=2))
+
+for label, c, r, color, fs, side in nodes:
+    ax.add_patch(Circle(c, r, facecolor=color, edgecolor="#666666",
+                        linewidth=1.2, zorder=3))
+
+# limits first
+xs = [n[1][0] for n in nodes]; ys = [n[1][1] for n in nodes]
+pad = 1.9
+ax.set_xlim(min(xs) - pad, max(xs) + pad)
+ax.set_ylim(min(ys) - pad, max(ys) + pad)
+ax.set_aspect("equal")
+ax.axis("off")
+fig.canvas.draw()
+
+axw = ax.get_window_extent().width
+axh = ax.get_window_extent().height
+XR = ax.get_xlim()[1] - ax.get_xlim()[0]
+YR = ax.get_ylim()[1] - ax.get_ylim()[0]
+
+ANCH = {"right": (1, 0), "left": (-1, 0), "above": (0, 1), "below": (0, -1)}
+
+def half_dims(label, fs):
+    lines = label.split("\n")
+    w_px = max(len(l) for l in lines) * fs * 0.60 + 10
+    h_px = len(lines) * fs * 1.30 + 10
+    return w_px / 2, h_px / 2
+
+def place2(c, r, fs, label, anchor):
+    dx, dy = ANCH[anchor]
+    hw_px, hh_px = half_dims(label, fs)
+    r_px = r * (axw / XR)
+    off_px = r_px + (hw_px if dx != 0 else hh_px) + 8
+    return np.array(c) + np.array([dx * off_px * (XR / axw), dy * off_px * (YR / axh)])
+
+texts = {}
+for label, c, r, color, fs, side in nodes:
+    t = ax.text(*place2(c, r, fs, label, side), label, fontsize=fs,
+                ha="center", va="center", color="#111111", zorder=4)
+    texts[label] = t
+plt.show()
 ```
 
 The diagram above describes what is already in motion. Each functional domain is an independent operator that shares a lineage with the others. What one deposits flows back to all via the shared surface: validated results strengthen the shared primitives, discovered failure patterns propagate as reusable constraints, and each contribution raises the baseline for every domain that follows.

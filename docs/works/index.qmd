@@ -1,0 +1,80 @@
+---
+title: "Works"
+subtitle: "Collaborations with Research Institutions and Industry"
+date: last-modified
+metadata-files:
+  - ../_include/author.yml
+abstract: |
+  SSCCS is an independent, non-profit foundation that applies its computing technology to concrete problems at external institutions. A work is an engagement with a research institution, an open-hardware community, or an industry partner: a collaboration framework, a bounded demonstration, or a measured report delivered on the institution's own data and access pattern. This page lists the engagements currently in motion, the artifact each one delivers, and how a collaboration proceeds. Every engagement is judged by a demonstrable artifact, and the underlying technology is released under Apache 2.0.
+---
+
+{{< include ../_include/_title_meta_items.qmd >}}
+
+```{python}
+#| include: false
+#| context: local
+%run ../_include/_graphviz.py
+```
+
+## Current Engagements
+
+SSCCS works with academia, industry, and open-hardware communities on problems where data movement, verification, or I/O dominates the cost. **Every engagement is judged by a demonstrable artifact: a fork, a benchmark, a measured report.** The table below lists the engagements in motion, the artifact each one delivers, and its status.
+
+| Work | Institution | Artifact | Status |
+| :--- | :--- | :--- | :--- |
+| [CERN Collaboration Framework](cern/) | CERN | Framework draft for open-science engagement | Discussion |
+| [ROOT TTree Bottleneck](cern/projects/root_ttree/) | CERN | Development plan and measured report | Plan draft, report published |
+| [SSCCS Validation with OpenHW CORE-V Ecosystem](openhw_integration.html) | OpenHW Group | Phased integration roadmap | Proposal |
+| [SSCCS × AWS Strategic Collaboration Roadmap](aws.html) | AWS | Phased collaboration proposal | Discussion |
+| [A Foundation for Energy-Efficient and Trustworthy Computing](proposal.html) | Public | Funding and collaboration proposal | Published |
+| [Presentation Deck](pt.pdf) | Public | Slide deck for outreach | Published |
+
+The CERN engagement is the flagship work, and the reason is the mission. SSCCS is an independent, non-profit, public-good foundation that directs its technology toward the projects most aligned with the common good of humanity. CERN is the archetype of that alignment: a public-good science organization founded on the principle that science is a public good and knowledge remains open. The ROOT TTree bottleneck sits in the analysis framework of the entire high-energy physics community, and relieving it strengthens the open scientific infrastructure that researchers worldwide depend on. The collaboration framework establishes institutional alignment through CERN's open-source channels. The development plan specifies a bounded demonstration on CMS Open Data that reproduces the documented access pattern: 372,000 singular reads averaging 4.6 KB, an effective 33 KB/s, and a 14-hour workload. The report carries the measured comparison against the ROOT baseline. The ecosystem stays intact: researchers keep the TTree API they already know, and only the byte source changes.
+
+## How a Collaboration Proceeds
+
+Each engagement follows a bounded sequence, sized so the institution's production ecosystem is never disturbed.
+
+- Alignment: a framework or proposal establishes the problem and the boundary.
+- Bounded demonstration: a development plan specifies the artifact, the milestones, and the boundaries; the institution's stack runs unchanged.
+- Measured result: a report compares against the institution's own baseline, on its own access pattern and data.
+- Integration decision: the institution decides whether to adopt the result; the foundation's role ends at the boundary it defined.
+
+```{python}
+#| label: fig-path
+#| fig-cap: "Each engagement proceeds from alignment to a bounded demonstration, a measured result, and an integration decision."
+dot("""
+digraph EngagementPath {
+    rankdir=LR
+    nodesep=0.5
+    node [shape=box, style=filled, fillcolor="#E8F4F8", fontname="sans-serif", fontsize=18, margin="0.15,0.1"]
+    edge [fontsize=15]
+    bgcolor="transparent"
+
+    Alignment [label="Alignment\nframework or proposal"]
+    Demo [label="Bounded demonstration\ndevelopment plan"]
+    Report [label="Measured result\nbenchmark or report"]
+    Decision [label="Integration decision\ninstitution decides"]
+
+    Alignment -> Demo -> Report -> Decision
+}
+""", h="180px")
+```
+
+## What SSCCS Brings
+
+Every engagement is backed by a small set of validated primitives, all released under Apache 2.0:
+
+- ExaVerif: exhaustive RISC-V verification, 33.5 million encodings in 29 ms.
+- synTagma: hash-less coordinate addressing with a decoder of roughly 300 gates.
+- Chton: zero-serialization storage; the storage format equals the memory layout, so the read path has no serialization step.
+
+The codebases behind these primitives live under [Projects](/projects/).
+
+## Engage with SSCCS
+
+Engagements begin with a concrete problem. If your institution has a workload where data movement, verification, or I/O dominates the cost, the starting point is the [open proposal](proposal.html) or the [presentation deck](pt.pdf), and the direct route is a message to [proposal@ssccs.org](mailto:proposal@ssccs.org).
+
+The foundation is independent and non-profit. Funding is a catalyst; engagements proceed on technical merit and reciprocal contribution, and all outputs remain open under Apache 2.0. The preference is research-first: institutions that fund research and development, provide demonstration environments, and value a measured artifact over a declared intention.
+
+{{< include ../_include/_license.md >}}
