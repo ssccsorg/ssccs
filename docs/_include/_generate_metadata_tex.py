@@ -8,12 +8,32 @@ If --input is omitted, uses QUARTO_PROJECT_INPUT_FILE or the first valid .qmd fi
 import argparse
 import hashlib
 import os
+import re
 import sys
 import textwrap
 from datetime import datetime
 from pathlib import Path
 
 import yaml
+
+
+_TEX_SPECIALS = {
+    "\\": r"\textbackslash{}",
+    "{": r"\{",
+    "}": r"\}",
+    "_": r"\_",
+    "%": r"\%",
+    "#": r"\#",
+    "&": r"\&",
+    "$": r"\$",
+    "^": r"\textasciicircum{}",
+    "~": r"\textasciitilde{}",
+}
+
+
+def _tex_escape(s: str) -> str:
+    """Escape LaTeX-special characters for a text-mode macro value."""
+    return re.sub(r"[\\{}_%#&$^~]", lambda m: _TEX_SPECIALS[m.group(0)], s)
 
 
 def extract_front_matter(qmd_path):
@@ -186,7 +206,7 @@ def main():
 
     # ----- Write LaTeX macros -----
     with open(args.output, "w", encoding="utf-8") as f:
-        f.write(f"\\newcommand{{\\version}}{{{version_str}}}\n")
+        f.write(f"\\newcommand{{\\version}}{{{_tex_escape(version_str)}}}\n")
         f.write(f"\\newcommand{{\\timestamp}}{{{datetime.now()}}}\n")
         f.write(f"\\newcommand{{\\affiliationname}}{{{affiliation_name}}}\n")
         f.write(f"\\newcommand{{\\affiliationurl}}{{{affiliation_url}}}\n")
