@@ -65,7 +65,7 @@ The production case documented in the 2025 Fermilab CCESOP analysis is an analys
 
 The structural origin is the TTree columnar layout. A NanoAOD event is split across thousands of branches, about 153 data products over 8,190 branches in the documented configuration[^scatter-note], so one logical event scatters across many basket buffers. Reading one event issues many small reads; each carries a system call, a page cache lookup, and often a context switch. Multithreaded runs calling `GetEntry` out of order invalidate the TTreeCache and collapse vector reads into singular reads; beyond 100,000 clusters the cache degrades from 7 seconds to over an hour.
 
-The M1 measurement in this project reproduces the singular-read signature on the real dataset. With the TTreeCache disabled, the first 2,000 events read at 1.37 reads per event, 2,635 bytes per read, and the remote EOS run spends about 98.5 percent of wall time in I/O wait (CPU 2.3 percent). Decompression is not the bottleneck: its capacity headroom was measured at 18 to 44x across access patterns[^decomp-note]. The bottleneck is per-request I/O wait.
+The baseline measurement, milestone M1 of the development plan[^m1-note], reproduces the singular-read signature on the real dataset. With the TTreeCache disabled, the first 2,000 events read at 1.37 reads per event, 2,635 bytes per read, and the remote EOS run spends about 98.5 percent of wall time in I/O wait (CPU 2.3 percent). Decompression is not the bottleneck: its capacity headroom was measured at 18 to 44x across access patterns[^decomp-note]. The bottleneck is per-request I/O wait.
 
 A first-order cost model separates the terms per read request:
 
@@ -124,7 +124,8 @@ digraph ReadPath {
   Store      [label="TTagmaStore (attached)", fillcolor="#F4E8F8"]
   Covered    [label="covered by layout?", shape=diamond, fillcolor="#FFF4E6"]
   Record     [label="GetTagmaRecord: n = (rL + l)E + e, offset = n * s", fillcolor="#F4E8F8"]
-  Mapped     [label="mapped? memcpy from the map, 0 syscalls", shape=diamond, fillcolor="#FFF4E6"]
+  Mapped     [label="mapped? copy from the mapping, 0 syscalls", shape=diamond, fillcolor="#FFF4E6"]
+  Copy       [label="copy record bytes from the mapping", fillcolor="#F4E8F8"]
   Disk       [label="one aligned SysRead", fillcolor="#F4E8F8"]
   Ordinary   [label="branch / basket / cache path (unchanged)", fillcolor="#E8F4F8"]
 
@@ -134,9 +135,8 @@ digraph ReadPath {
   Covered -> Record [label="yes"]
   Covered -> Ordinary [label="no"]
   Record -> Mapped
-  Mapped -> Mapped2 [label="yes"]
+  Mapped -> Copy [label="yes"]
   Mapped -> Disk [label="no"]
-  Mapped2 [label="copy record bytes", fillcolor="#F4E8F8"]
 }
 """)
 ```
@@ -220,6 +220,29 @@ plt.tight_layout(); plt.show()
 
 The one-time conversion of the full dataset into the store costs 226.3 s wall, 220.5 s CPU, producing 5,926,970,880 bytes across 2,315,223 records. The conversion is comparable to one baseline read pass (195.2 s) and amortizes: after conversion, every read pass costs 1.45 s (mapped) instead of 195.2 s, so the break-even point is about two analysis passes.
 
+```{python}
+#| label: fig-adoption-economics
+#| fig-cap: "Cumulative wall time over repeated read passes. The one-time conversion (226.3 s) amortizes against the per-pass baseline cost (195.2 s); the mapped coordinate path breaks even by the second pass and then accrues the gap per pass."
+import matplotlib.pyplot as plt
+import numpy as np
+
+passes = np.arange(0, 6)
+baseline = 195.2 * passes
+coord = 226.3 + 1.45 * passes
+breakeven = 226.3 / (195.2 - 1.45)
+
+fig, ax = plt.subplots(figsize=(5.5, 3.5))
+ax.plot(passes, baseline, marker='o', color='black', label='baseline (per pass 195.2 s)')
+ax.plot(passes, coord, marker='s', color='black', linestyle='--', label='conversion + coordinate+map (per pass 1.45 s)')
+ax.axvline(breakeven, color='gray', linestyle=':', alpha=0.6)
+ax.text(breakeven + 0.05, 420, 'break-even', fontsize=8, color='gray')
+ax.set_xlabel('read passes', fontsize=10)
+ax.set_ylabel('cumulative wall time (s)', fontsize=10)
+ax.legend(fontsize=7.5)
+ax.grid(linestyle=':', alpha=0.3)
+plt.tight_layout(); plt.show()
+```
+
 ### Analysis workload
 
 The analysis workload applies the same selection, MET_pt above 100 GeV and at least one muon, and fills the same MET_pt histogram on both paths, over the full dataset.
@@ -281,6 +304,30 @@ plt.tight_layout(); plt.show()
 
 The measured results separate two bottleneck regimes. On the remote EOS baseline, the bottleneck is per-request I/O wait (about 98.5 percent of wall time); the coordinate path removes requests and, when mapped, system calls. On the local full-file baseline, the bottleneck is decompression CPU (cpu 182.7 s of wall 195.2 s, 93.6 percent); the coordinate store holds raw fixed-width records and removes decompression from the read path. Both removals are structural rather than incremental: the request and system call counts are deterministic properties of the addressing scheme, and the raw record layout removes the decompression step by construction.
 
+```{python}
+#| label: fig-wall-composition
+#| fig-cap: "Wall-time composition across the measured paths. The remote baseline is I/O-wait bound; the local baseline and the coordinate paths are CPU bound, with decompression dominating the local baseline and the mapped path running entirely in CPU."
+import matplotlib.pyplot as plt
+
+conditions = ['remote\nbaseline', 'local\nbaseline', 'coordinate', 'coordinate+map']
+io_wait = [98.5, 6.4, 2.4, 0.0]
+cpu = [1.5, 93.6, 97.6, 100.0]
+
+fig, ax = plt.subplots(figsize=(5.5, 3.5))
+ax.bar(conditions, io_wait, color='white', edgecolor='black', linewidth=0.8, label='I/O wait')
+ax.bar(conditions, cpu, bottom=io_wait, color='white', edgecolor='black', linewidth=0.8, hatch='///', label='CPU')
+ax.set_ylabel('share of wall time (%)', fontsize=10)
+ax.set_ylim(0, 100)
+ax.legend(fontsize=7.5, loc='lower right')
+for xi, (a, b) in enumerate(zip(io_wait, cpu)):
+    if a > 25:
+        ax.text(xi, a / 2, f'{a:.1f}', ha='center', fontsize=8)
+    if b > 25:
+        ax.text(xi, a + b / 2, f'{b:.1f}', ha='center', fontsize=8)
+ax.grid(axis='y', linestyle=':', alpha=0.3)
+plt.tight_layout(); plt.show()
+```
+
 At full scale the baseline request count drops to 0.20 per event because basket buffers stay resident in memory after the first cluster[^basket-note]; the full-file speedup is therefore dominated by decompression removal and aligned sequential access, while the request-count reduction from 1.37 to 1.00 per event is the M1 signature slice and the remote case.
 
 The bytes-per-read asymmetry is intentional. The baseline reads 2,149,961,076 compressed bytes in 470,131 requests; the coordinate paths read 5,926,970,880 raw bytes in 2,315,223 requests. The coordinate paths move 2.76x more bytes and still finish 58.5x and 134.6x faster on the full file, where decompression removal and aligned sequential access dominate, and the mapped path removes the system call entirely. Compression semantics remain a later-phase item, specified in the Status section.
@@ -329,6 +376,8 @@ The next-phase work is specified in the Status section. It is a set of measured 
 
 - 2025 Fermilab CCESOP analysis, singular-read TTree I/O signature: [indico.fnal.gov](https://indico.fnal.gov/event/69256/contributions/314511/attachments/187369/258396/20250423-CCESOP_SlowIO.pdf)
 - ROOT fork with the coordinate read path: [ssccsorg/root master](https://github.com/ssccsorg/root/tree/master/tree/tree)
+
+[^m1-note]: The project tracks the work in milestones M1 to M5 in the [development plan](index.html): M1 instruments and measures the baseline read path, M2 to M4 build and integrate the coordinate-indexed store, and M5 releases the demonstration. This report covers the measured outcome; later references to the M1 signature and the M1 slice mean the cache-disabled baseline access pattern measured in M1.
 
 [^footprint_note]: The fork's footprint on the baseline path is two dormant null checks and one read-system-call counter increment per operation. Over the full run this is bounded below one millisecond against a 195.2 s wall time, about five orders of magnitude below measurement noise, so the baseline matches the upstream ROOT read path. The measured read pattern, 1.37 reads per event at 2,635 bytes per read on the M1 slice, is produced by the unchanged branch, basket, and cache logic, and matches the documented 372,000 by 4.6 KB singular-read scale. A cross-check against a build without the coordinate changes is expected to confirm identical numbers.
 
