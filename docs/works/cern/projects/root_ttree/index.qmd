@@ -1,119 +1,499 @@
 ---
-title: "CERN's ROOT TTree bottleneck"
-subtitle: "Demonstrating the Coordinate Approach on CERN's ROOT TTree I/O"
-date: last-modified
+title: "Solving CERN's ROOT TTree I/O bottleneck"
+subtitle: "synTagma coordinate addressing removes the per-request TTree I/O overhead: the development plan and the measured results"
+date: 2026-08
+date-format: "MMMM, YYYY"
+date-modified: last-modified
+version-prefix: cern-root-ttree
+version-mark: true
+generate-title-meta: true
 metadata-files:
+  - ../../../../_include/format.html.yml
+  - ../../../../_include/format.pdf.yml
   - ../../../../_include/author.yml
-abstract: |
-  ROOT is the data analysis framework of the CERN community, and its TTree columnar format stores the events of nearly every physics analysis. A documented production bottleneck limits the read path: an analysis issues 372,000 singular reads averaging 4.6 KB, sustains an effective 33 KB/s, and runs for roughly 14 hours, with the measured cause being per-request I/O overhead rather than data transfer.
-
-  This development plan describes how SSCCS will replace the read path with a coordinate-indexed store: the same analysis, the same TTree API, and the same build chain, with byte ranges resolved by closed-form coordinate arithmetic and served from the store instead of the medium. ROOT's TFile disk handling is never modified. The plan covers the approach, what the demonstration delivers, how it works, the milestones, and the boundaries; the measured results are reported separately.
+colorlinks: true
+format:
+  html: {}
+  pdf:
+    pdf-engine: xelatex
+    geometry:
+        - margin=16mm
+        - bottom=1.6cm
+        - footskip=1cm
+    keep-tex: true
+    number-sections: true
+    execute:
+        echo: false
+    colorlinks: true
+    linkcolor: darkgray
+    citecolor: gray
+    urlcolor: gray
+    code-block-bg: false
+    code-block-border-left: true
+    include-in-header:
+        text: |
+          \usepackage{xcolor}
+          \usepackage{microtype}
+          \setkeys{Gin}{width=\linewidth,height=\textheight,keepaspectratio}
+          \addtokomafont{disposition}{\rmfamily}
+          \input{./_files/report_metadata.tex}
+          \DeclareTOCStyleEntry[beforeskip=6pt]{default}{section}
+          \DeclareTOCStyleEntry[beforeskip=0pt]{default}{subsection}
+          \makeatletter
+          \def\@maketitle{
+            \begin{center}
+              {\LARGE \bfseries \@title \par}
+              \vspace{1em}
+              {\large \@subtitle \par}
+              \vspace{2em}
+                  {\large \@author \thanks{\authorrole; Corresponding author: \texttt{\href{mailto:\authoremail}{\authoremail}}} \par}
+                  \vspace{0.3em}
+                  {\normalsize \texttt{\href{\affiliationurl}{\affiliationdomain}} \par}
+              \vspace{2em}
+                  {\normalsize \@date \par}
+            \end{center}
+            \vspace{2em}
+          }
+          \makeatother
 ---
 
 ```{python}
 #| include: false
 #| context: local
+%run ../../../../_include/_graphviz.py
+```
+
+```{python}
+#| include: false
+#| context: local
 title_meta_items = {
+    "pdf": [
+        {"title": "Code", "link": "https://github.com/ssccsorg/root", "content": "ROOT fork", "icon": "bi bi-link"},
+        {"title": "Code", "link": "https://github.com/ssccsorg/root/blob/master/benchmarks/tagma/tagma_bench.C", "content": "Benchmark", "icon": "bi bi-link"},
+
+        {"title": "Whitepapers", "link": "https://docs.ssccs.org/projects/syntagma/tagma/wp/index.pdf", "content": "Tagma", "icon": "bi bi-link"},
+    ],
     "html": [
-        {"title": "Report", "link": "report.html", "content": "Measured results", "icon": "bi bi-link"},
-        {"title": "Code", "link": "https://github.com/ssccsorg", "content": "SSCCS org", "icon": "bi bi-link"},
-        {"title": "Code", "link": "https://github.com/ssccsorg/root", "content": "CERN ROOT fork", "icon": "bi bi-link"},
+        {"title": "Code", "link": "https://github.com/ssccsorg/root/tree/master/tree/tree", "content": "ROOT fork", "icon": "bi bi-link"},
+        {"title": "Code", "link": "https://github.com/ssccsorg/root/blob/master/benchmarks/tagma/tagma_bench.C", "content": "Benchmark", "icon": "bi bi-link"},
+
+        {"title": "Code", "link": "https://github.com/ssccsorg/syntagma/tree/main/sw/cpp", "content": "synTagma C++", "icon": "bi bi-link"},
         {"title": "Framework", "link": "/works/cern", "content": "Collaboration Framework", "icon": "bi bi-link"},
-        {"title": "References", "link": "https://docs.ssccs.org/whitepaper/whitepaper.html", "content": "SSCCS Whitepaper", "icon": "bi bi-link"},
+
+        {"title": "Whitepapers", "link": "https://docs.ssccs.org/whitepaper/whitepaper.pdf", "content": "SSCCS", "icon": "bi bi-link"},
+        {"title": "Whitepapers", "link": "https://docs.ssccs.org/projects/syntagma/tagma/wp/index.pdf", "content": "Tagma", "icon": "bi bi-link"},
     ],
 }
 ```
 
 {{< include ../../../../_include/_title_meta_items.qmd >}}
 
-**Status:** Draft development plan. The demonstration proceeds only after the engagement path in the [CERN's ROOT TTree bottleneck](../index.html) is accepted.
+## Abstract {.unnumbered .unlisted}
 
-## The Approach: The Same Stack, a Different Byte Source
+ROOT is the data analysis framework of the CERN community, and its TTree columnar format stores the events of nearly every physics analysis. A documented production bottleneck limits the read path: an analysis issues 372,000 singular reads averaging 4.6 KB, sustains an effective 33 KB/s, and runs for roughly 14 hours. The measured cause is per-request I/O overhead, not data transfer: each small read carries a system call, a cache lookup, and a context switch, while CPU and decompression stay idle in the remote production pattern.
 
-The demonstration does not modify ROOT's disk handling: TFile's buffering, compression, and serialization remain exactly as they are. For byte ranges mapped into the Chton coordinate store, data is served from the store before any disk access happens; for everything else, the call proceeds through TFile unchanged. The existing stack runs as-is: the same executable, the same TTree API, the same build chain.
+This report measures a coordinate-indexed read path, built on the synTagma[^synTagma] coordinate engine, inside a fork of CERN's ROOT. The path replaces branch, basket, and cache traversal with closed-form coordinate arithmetic: an event addressed as (run, luminosity block, event number) resolves to a direct byte offset with no hash and no index scan. It is a working implementation, not a prototype: a self-contained store class plus byte-source and entry hooks, with existing analysis code, the TTree API, and the build chain unchanged.
 
-The byte-source boundary sits below TFile, at the POSIX I/O entry points:
+On the full CMS Run2016G DoubleMuon NanoAOD first file (2,315,223 events), the same medium, the coordinate path completes the read in 3.34 s against 195.2 s, a 58.5x gain, serving every event with one aligned request. The memory-mapped variant issues zero read system calls and completes in 1.45 s, a 134.6x gain, after a one-time conversion of 226.3 s. An analysis workload reproduces identical results on both paths, 20,861 selected events with histogram mean 132.696, at 60.9x. Served bytes are verified by a checksum, and analysis results by exact histogram equality.
 
-```text
-researcher code (unchanged)
-    ↓
-TTree::GetEntry(entry)
-    ↓
-TBranch::GetEntry(entry)
-    ↓
-TTreeCache::GetEntry()
-    ↓
-TFile::ReadBuffer()
-    ↓
-[byte-source boundary]       ← standard dynamic-link interposition
-    ├─ range mapped in the coordinate store → served from the store
-    └─ otherwise → passed through to read()/pread()/mmap() unchanged
+## The TTree I/O Bottleneck
+
+The production case documented in the 2025 Fermilab CCESOP analysis is an analysis over a CMS NanoAOD dataset that performs 372,000 singular reads averaging 4.6 KB, at an effective 33 KB/s, over roughly 14 hours[^ccesop-note]. The scale in bytes is small: 1.6 GB moves in seconds at raw bandwidth. The cost is per request, not per byte.
+
+The structural origin is the TTree columnar layout. A NanoAOD event is split across thousands of branches, about 153 data products over 8,190 branches in the documented configuration[^scatter-note], so one logical event scatters across many basket buffers. Reading one event issues many small reads; each carries a system call, a page cache lookup, and often a context switch. Multithreaded runs calling `GetEntry` out of order invalidate the TTreeCache and collapse vector reads into singular reads; beyond 100,000 clusters the cache degrades from 7 seconds to over an hour.
+
+The baseline measurement, milestone M1 of the development plan[^m1-note], reproduces the singular-read signature on the real dataset. With the TTreeCache disabled, the first 2,000 events read at 1.37 reads per event, 2,635 bytes per read, and the remote EOS run spends about 98.5 percent of wall time in I/O wait, with CPU below 2.5 percent. Decompression is not the bottleneck: its capacity headroom was measured at 18 to 44x across access patterns[^decomp-note]. The bottleneck is per-request I/O wait.
+
+A first-order cost model separates the terms per read request:
+
+$$T_{\text{req}} = t_{\text{syscall}} + t_{\text{cache-lookup}} + t_{\text{copy}} + t_{\text{context}}$$
+
+and the per-event cost of the baseline is
+
+$$T_{\text{base}} = N \cdot R_{ev} \cdot T_{\text{req}}$$
+
+where $N$ is the event count and $R_{ev}$ the measured reads per event. Any structural fix must reduce $R_{ev}$ and $T_{\text{req}}$; the coordinate approach reduces $R_{ev}$ to 1 and, when mapped, $T_{\text{req}}$ to a memory copy.
+
+## The Innovation: Addressing Replaces Traversal
+
+The coordinate store is not an optimization of the existing read path; it is a change of addressing model. ROOT traverses: an entry walks branches, baskets, and the cache to find its bytes, and each step can reach the medium. Tagma computes: the entry number is a coordinate, the coordinate resolves to a byte offset in closed form, and the record is served directly. The difference is structural. A cache reduces the number of medium accesses, but every miss still carries a system call; the mapped coordinate store removes the system call by construction, because the byte source is the mapping. No cache-size tuning can reach that point.
+
+For CERN the relevance is direct. The measured workload is a real CMS Open Data analysis file, the same access pattern the community documents as the 14-hour case. The researcher's interface is untouched: the same TTree API, the same analysis scripts, the same build chain, with the read path replaced behind the existing interfaces. The demonstration complements ROOT and RNTuple rather than competing with them: the coordinate store serves the existing TTree files in production, so analyses do not migrate, while RNTuple remains the forward path and this is the backward-compatible one. The measured evidence is open and reproducible from the fork and the runbook.
+
+## The Coordinate Approach
+
+An event is a coordinate (run, luminosity block, event number). The canonical Tagma composition is the closed form
+
+$$C(i,m,f) = \mathrm{U+AC00} + 588i + 28m + f, \quad 0 \le i < 19,\; 0 \le m < 21,\; 0 \le f < 28$$
+
+over a fixed 16-bit block with 11,172 valid states[^composition-note]. The coordinate-indexed store generalizes this to per-axis maxima. Let the layout be $(R, L, E)$ for the exclusive bounds of the run, luminosity block, and event axes, and let $s$ be the fixed record size in bytes. The linear index of a coordinate is the mixed-radix composition[^radix-note]
+
+$$n(r, \ell, e) = (r L + \ell) E + e, \quad 0 \le r < R,\; 0 \le \ell < L,\; 0 \le e < E$$
+
+which is a bijection onto $[0, RLE)$, and the byte offset of the record is the product
+
+$$\omega(r, \ell, e) = n(r, \ell, e) \cdot s$$
+
+No hash function and no index scan are involved. The inverse, decomposing a linear entry number back into axes, is
+
+$$e = n \bmod E, \quad \ell = \lfloor n / E \rfloor \bmod L, \quad r = \lfloor n / (L E) \rfloor$$
+
+The read path cost becomes
+
+$$T_{\text{coord}} = N \cdot (t_{\text{address}} + t_{\text{read}}), \quad t_{\text{address}} = O(1)$$
+
+with $t_{\text{read}}$ equal to one aligned record transfer, or a memory copy when the store is mapped.
+
+## The Direction
+
+The work follows a direction set before the measurements: the same stack, a different low-level implementation. The seam sits between the high-level interface and the file I/O layer; only the thin event-lookup layer is replaced, with the Tagma read path serving covered byte ranges by closed-form arithmetic before any disk access. The TTree API, the build system, the workflow, and ROOT's disk handling stay as they are. The goal is zero impact with the interior changed.
+
+```{python}
+#| label: fig-direction
+#| fig-cap: "The implementation direction: the stack stays as it is, and only the thin event-lookup layer between the TTree API and the file I/O is replaced by Tagma coordinate addressing."
+dot("""
+digraph Direction {
+  rankdir=TB
+  node [shape=box, style=filled, fontname="Arial"]
+
+  Analysis  [label="analysis code · TTree API (unchanged)", fillcolor="#E8F4F8"]
+  Traversal [label="branch → basket → cache traversal (replaced)", fillcolor="#FDF0EF"]
+  Tagma     [label="Tagma coordinate addressing (no hash, no index scan)", fillcolor="#E8F8E8"]
+  IO        [label="file I/O · TFile · disk · POSIX (unchanged)", fillcolor="#E8F4F8"]
+
+  Analysis -> Traversal [style=dashed]
+  Analysis -> Tagma
+  Traversal -> IO [style=dashed]
+  Tagma -> IO
+}
+""", h="240px")
 ```
 
-The working analysis treats TFile::ReadBuffer() as the symptom, not the cause, and points to the upper layers: a single event requests 153 data products spread across 8,190 branches; multithreaded runs calling GetEntry out of order can invalidate TTreeCache and collapse vector reads into singular reads; beyond 100,000 clusters, TTreeCache degrades from 7 seconds to over an hour. The documented result is 372,000 requests averaging 4.6 KB, an effective 33 KB/s, and a 14-hour workload. M1 confirms which term dominates.
+The implementation is delivered as three parts: the preparation tool that converts the dataset into the store, the thin byte-source layer that serves mapped data and passes everything else through, and the benchmark harness that runs the same workload against the ROOT baseline. Five milestones track the work: M1 measures the baseline read path, M2 converts the dataset, M3 builds and validates the byte-source layer, M4 benchmarks the analysis pattern, and M5 releases the demonstration and the measured comparison as open source.
 
-### The 14 Hours Appear to Be Overhead, Not Transfer
+If the measured comparison holds, the results provide the basis for discussing wider adoption and a potential contribution to the ROOT ecosystem.
 
-At raw bandwidth, 1.6 GB moves in seconds. The working hypothesis is that the 14 hours are per-request overhead: each of the 372,000 reads carries a system call, a page cache lookup, and often a context switch; the 8,190 fully split branches scatter event data across memory, collapsing cache locality; and 372,000 distinct small chunks keep the kernel page cache thrashing. M1 measures this hypothesis directly: the baseline trace separates system call, page cache, copy, and ROOT-internal costs, so the demonstration targets the measured dominant term. A first-order cost model of these terms accounts for roughly an hour of the fourteen; where the remaining time is spent is not yet attributed, and no projection is made until the baseline trace supplies the split.
+## The Fork Implementation
 
-The coordinate approach addresses this structurally: for mapped data, the read path never reaches the medium. The magnitude of the effect is a measurement, not a claim; the benchmark milestone reports the comparison against the ROOT baseline.
+The implementation lives in the [ssccsorg/root](https://github.com/ssccsorg/root/tree/master/tree/tree) fork. The byte-source layer and the entry layer are replaced behind the existing interfaces; everything else falls through unchanged.
 
-The removal is structural rather than incremental:
+```{python}
+#| label: fig-read-path
+#| fig-cap: "The coordinate seam in the TTree read path. Covered entries are served through the store by closed-form arithmetic; everything else falls through to the ordinary path unchanged."
+dot("""
+digraph ReadPath {
+  rankdir=TB
+  node [shape=box, style=filled, fontname="Arial"]
 
-- No per-access system call: a coordinate resolves in register arithmetic, and the store is reached through a mapped region, so no read() is issued per request
-- Cache locality: records are laid out contiguously in the coordinate space, giving the processor sequential, predictable access instead of 4.6 KB fragments
-- Page cache discipline: the store is demand-paged once with sequential locality, instead of 372,000 scattered chunks continuously evicting each other
-- Zero copy: mmap exposes the bytes directly, with no kernel-to-user copy per read
+  Researcher [label="researcher code (unchanged)", fillcolor="#E8F4F8"]
+  GetEntry   [label="TTree::GetEntry(entry)", fillcolor="#E8F4F8"]
+  Store      [label="TTagmaStore (attached)", fillcolor="#F4E8F8"]
+  Covered    [label="covered by layout?", shape=diamond, fillcolor="#FFF4E6"]
+  Record     [label="GetTagmaRecord: n = (rL + l)E + e, offset = n * s", fillcolor="#F4E8F8"]
+  Mapped     [label="mapped? copy from the mapping, 0 syscalls", shape=diamond, fillcolor="#FFF4E6"]
+  Copy       [label="copy record bytes from the mapping", fillcolor="#F4E8F8"]
+  Disk       [label="one aligned SysRead", fillcolor="#F4E8F8"]
+  Ordinary   [label="branch / basket / cache path (unchanged)", fillcolor="#E8F4F8"]
 
-## What the Demonstration Delivers
-
-The demonstration is a single shared library, `libtagma_cern.so`, built with standard C++17 and CMake. Researchers run their analysis unchanged:
-
-```bash
-root -b -q analyze.C
+  Researcher -> GetEntry
+  GetEntry -> Store
+  Store -> Covered
+  Covered -> Record [label="yes"]
+  Covered -> Ordinary [label="no"]
+  Record -> Mapped
+  Mapped -> Copy [label="yes"]
+  Mapped -> Disk [label="no"]
+}
+""")
 ```
 
-With one environment variable added:
+The store class `TTagmaStore` is self-contained C++17 and carries the layout validation: the axis maxima and the record size must be nonzero, the record count must fit in a 64-bit word, and the store extent must not overflow[^validation-note]. `MapFile` attaches a read-only `mmap` of the store file following the canonical `CoordSpaceM` discipline from the vendored syntagma reference: the region is demand-paged once with sequential locality, and covered reads copy from the map without a read system call[^mmap-note].
 
-```bash
-LD_PRELOAD=./libtagma_cern.so root -b -q analyze.C
+The `TFile::ReadBuffer` hook serves a request when it resolves to exactly one fixed-width record: the position is record-aligned, the length equals the record size, and the decomposed axes fall inside the layout bounds. The `TTree::GetEntry` short circuit serves covered entries through the same store, keeping the record in the tree and exposing it through `GetTagmaRecordBuffer` and `GetTagmaRecordSize`.
+
+A preparation tool converts a real dataset into the store: each event becomes one fixed-width record holding the first 320 scalar leaf values serialized as doubles, with a sidecar checksum and a layout sidecar that maps field names to record offsets.
+
+## Benchmark Methodology
+
+The workload is the M1 pattern: read every event of the CMS Run2016G DoubleMuon NanoAOD first file, tree `Events`, 2,315,223 events, 2,155,974,646 bytes, with the TTreeCache disabled in the baseline. The baseline is the current ROOT read path, branch to basket to cache to file, with no store attached; the coordinate hooks are dormant null checks when no store is present, and the branch, basket, cache, and file layers are unchanged from upstream[^footprint_note]. The coordinate rows read the fixed-width store converted from the same events, 2,560-byte records, 320 scalar leaves. Both paths call the same API, `GetEntry`, so the comparison isolates the interior read path.
+
+The environment is a single Arm Firestorm 3.2 GHz core[^firestorm-note], macOS, out-of-source Release build with treeplayer and testing enabled. Absolute times are machine-specific; the request and system call counts are media-independent.
+
+The reported metrics are wall and CPU time, request count, coordinate-served count, bytes moved, read system call count, and cache efficiency. Correctness is verified two ways: the benchmark checks that the store holds exactly the converted records and that the bytes the coordinate paths serve match the conversion-time checksum; the analysis workload checks that the same selection and histogram over both paths produce identical results.
+
+## Measured Results
+
+### Full dataset, same medium
+
+:::{ layout-ncol=2 }
+
+```{python}
+#| label: fig-wall-full
+#| fig-cap: "Full-dataset wall time, same medium, log scale. The baseline reads the compressed file through the ordinary path; the coordinate rows read the raw fixed-width store."
+import matplotlib.pyplot as plt
+
+labels = ['baseline', 'coordinate', 'coordinate+map']
+wall = [195.2, 3.34, 1.45]
+fig, ax = plt.subplots(figsize=(5, 3.5))
+bars = ax.bar(labels, wall, color='white', edgecolor='black', linewidth=0.8,
+              hatch=['', '///', '...'])
+ax.set_yscale('log')
+ax.set_ylabel('wall time (s, log)', fontsize=10)
+for bar, v in zip(bars, wall):
+    ax.text(bar.get_x() + bar.get_width()/2, v * 1.15, f'{v}', ha='center', fontsize=9)
+ax.grid(axis='y', linestyle=':', alpha=0.3)
+plt.tight_layout(); plt.show()
 ```
 
-The demonstration preserves:
+```{python}
+#| label: fig-req-per-event
+#| fig-cap: "Requests and read system calls per event, full dataset. The mapped path serves every event with one aligned request and zero system calls."
+import matplotlib.pyplot as plt
+import numpy as np
 
-- The TTree API and existing analysis scripts, unchanged
-- ROOT's disk handling: TFile's buffering, compression, and serialization remain exactly as they are
-- The researcher's build chain: g++ and CMake, with no new toolchain
+metrics = ['reads/event', 'syscalls/event']
+x = np.arange(len(metrics))
+w = 0.25
+base = [0.20, 0.20]
+coord = [1.00, 1.00]
+mapped = [1.00, 0.00]
 
-It consists of three parts:
+fig, ax = plt.subplots(figsize=(5, 3.5))
+ax.bar(x - w, base, w, label='baseline', color='white', edgecolor='black', linewidth=0.8)
+ax.bar(x, coord, w, label='coordinate', color='white', edgecolor='black', linewidth=0.8, hatch='///')
+ax.bar(x + w, mapped, w, label='coordinate+map', color='white', edgecolor='black', linewidth=0.8, hatch='...')
+ax.set_xticks(x)
+ax.set_xticklabels(metrics, fontsize=10)
+ax.set_ylabel('count per event', fontsize=10)
+ax.legend(fontsize=7.5)
+ax.grid(axis='y', linestyle=':', alpha=0.3)
+plt.tight_layout(); plt.show()
+```
 
-1. A preparation tool (C++17, prebuilt binary) that converts the demo dataset (CMS Open Data 2016, MiniAOD) into a coordinate-indexed store
-2. The shared library that serves mapped data from the store and passes everything else through to ROOT
-3. A benchmark harness that runs the same logical workload against the ROOT baseline and reports wall-clock time, request count, and bytes moved
+:::
 
-## How It Works
+The full comparison runs on local disk for both paths. The served checksum matches the conversion checksum (233,262,869,086), so the coordinate paths read the real converted event bytes[^checksum-note].
 
-The coordinate engine is closed-form arithmetic: composition and decomposition through $C(i,m,f) = \text{U+AC00} + 588i + 28m + f$ and its inverse, with no hash function involved. An event is addressed as a coordinate, (run, luminosity block, event number), which resolves to a direct offset in the store.
+| Path | wall (s) | cpu (s) | reads | reads/event | syscalls/event | bytes/read | MB/s | vs baseline |
+|------|---------:|--------:|------:|------------:|---------------:|-----------:|-----:|------------:|
+| baseline | 195.2 | 182.7 | 470,131 | 0.20 | 0.20 | 4,573 | 11.0 | 1x |
+| coordinate | 3.34 | 3.26 | 2,315,223 | 1.00 | 1.00 | 2,560 | 1,776 | 58.5x |
+| coordinate+map | 1.45 | 1.45 | 2,315,223 | 1.00 | 0.00 | 2,560 | 4,087 | 134.6x |
 
-The library is loaded through the standard dynamic linker (`LD_PRELOAD`) and decides at the POSIX I/O boundary (`read`, `pread`, `mmap`) whether a byte range is served from the coordinate store or passed through to ROOT unchanged, the same mechanism Darshan uses to trace ROOT I/O in production.
+### Cache behavior, signature slice and remote access
 
-The demonstration deliberately stays at the byte-source boundary. Reaching into ROOT's branch and cache traversal would require a ROOT-side extension and would change the deployment surface; it is out of scope. The result is the principle stated at the top: the same ABI, a different byte source; the researcher's executable, the TTree API, and the build chain remain identical, and only the interior implementation changes.
+With the TTreeCache enabled on a fresh file open, the first 10,000 events read in 8 read calls at 1,943 KB per read, cache efficiency 0.917, miss rate 0.083[^cacheeff-note]. This is the ideal sequential case; the documented cache degradation under out-of-order multithreaded reads is a Phase 5 item in the Status section.
 
-## Milestones
+The 2,000-event slice on the same medium measures the signature established above: baseline 1.37 reads per event at 2,635 bytes per read in 0.461 s wall. The remote EOS baseline over the same slice runs 100.1 s, I/O-wait bound[^remote-note], versus 0.002 s (coordinate) and about 0.0003 s (mapped) on the local store.
 
-1. M1: Reproduce the baseline: confirm the 372,000 x 4.6 KB singular-read signature from the [2025 Fermilab CCESOP analysis](https://indico.fnal.gov/event/69256/contributions/314511/attachments/187369/258396/20250423-CCESOP_SlowIO.pdf) with a Darshan-style trace
-2. M2: Build the coordinate-indexed store from CMS Open Data 2016 (MiniAOD)
-3. M3: Build the shared library and validate the pass-through path against ROOT
-4. M4: Benchmark the Re-miniAOD pattern against the ROOT baseline: wall-clock time, request count, bytes moved, system call count, and cache miss rate
-5. M5: Release the demonstration, the benchmark harness, and the measured comparison as open source
+### Analysis workload
+
+The analysis workload applies the same selection, MET_pt above 100 GeV and at least one muon, and fills the same MET_pt histogram on both paths, over the full dataset.
+
+| Path | wall (s) | selected events | histogram mean | vs baseline |
+|------|---------:|----------------:|---------------:|------------:|
+| analysis baseline | 188.9 | 20,861 | 132.696 | 1x |
+| analysis coordinate | 3.10 | 20,861 | 132.696 | 60.9x |
+
+The selection counts and the histogram means are identical, which verifies that the coordinate path reproduces the baseline analysis exactly.
+
+### Synthetic workload
+
+The synthetic workload, 20,000 events of 2,560-byte records with a 3-branch scattered tree, isolates the mechanism without the dataset:
+
+:::{ layout-ncol=2 }
+
+```{python}
+#| label: fig-speedup-conditions
+#| fig-cap: "Speedup over the baseline across measured conditions, log scale. The mapped row is the coordinate+map path; the analysis row is the analysis workload."
+import matplotlib.pyplot as plt
+import numpy as np
+
+conditions = ['synthetic', 'M1 slice', 'full dataset', 'analysis']
+coord = [6.5, 230.5, 58.5, 60.9]
+mapped = [31.0, 1512.0, 134.6, float('nan')]
+
+x = np.arange(len(conditions))
+w = 0.3
+fig, ax = plt.subplots(figsize=(5.5, 3.5))
+ax.bar(x - w/2, coord, w, label='coordinate', color='white', edgecolor='black', linewidth=0.8, hatch='///')
+ax.bar(x + w/2, mapped, w, label='coordinate+map', color='white', edgecolor='black', linewidth=0.8, hatch='...')
+ax.set_yscale('log')
+ax.set_xticks(x)
+ax.set_xticklabels(conditions, fontsize=9)
+ax.set_ylabel('speedup (x, log)', fontsize=10)
+ax.legend(fontsize=7.5)
+for xi, (a, b) in enumerate(zip(coord, mapped)):
+    ax.text(xi - w/2, a * 1.15, f'{a:.0f}', ha='center', fontsize=8)
+    if not (b != b):
+        ax.text(xi + w/2, b * 1.15, f'{b:.0f}', ha='center', fontsize=8)
+ax.grid(axis='y', linestyle=':', alpha=0.3)
+plt.tight_layout(); plt.show()
+```
+
+```{python}
+#| label: fig-synthetic-tradeoff
+#| fig-cap: "The synthetic mechanism: the baseline scatters one event into three reads of about 362 bytes (compressed baskets); the coordinate paths serve one aligned read of the full 2,560-byte record."
+import matplotlib.pyplot as plt
+
+paths = ['baseline', 'coordinate', 'coordinate+map']
+reads_per_event = [3.00, 1.00, 1.00]
+bytes_per_read = [362, 2560, 2560]
+
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(6.5, 3.2))
+bars1 = ax1.bar(paths, reads_per_event, color='white', edgecolor='black', linewidth=0.8, hatch='///')
+ax1.set_ylabel('reads per event', fontsize=10)
+for bar, v in zip(bars1, reads_per_event):
+    ax1.text(bar.get_x() + bar.get_width()/2, v + 0.05, f'{v:.2f}', ha='center', fontsize=8)
+bars2 = ax2.bar(paths, bytes_per_read, color='white', edgecolor='black', linewidth=0.8, hatch='...')
+ax2.set_ylabel('bytes per read', fontsize=10)
+for bar, v in zip(bars2, bytes_per_read):
+    ax2.text(bar.get_x() + bar.get_width()/2, v + 60, f'{v}', ha='center', fontsize=8)
+for ax in (ax1, ax2):
+    ax.tick_params(axis='x', labelsize=8)
+    ax.grid(axis='y', linestyle=':', alpha=0.3)
+plt.tight_layout(); plt.show()
+```
+
+:::
+
+| Path | wall (s) | reads/event | syscalls/event | vs baseline |
+|------|---------:|------------:|---------------:|------------:|
+| baseline | 0.124 | 3.00 | 3.00 | 1x |
+| coordinate | 0.019 | 1.00 | 1.00 | 6.5x |
+| coordinate+map | 0.004 | 1.00 | 0.00 | 31.0x |
+
+## Cost Analysis
+
+The measured results separate two bottleneck regimes. On the remote EOS baseline, the bottleneck is per-request I/O wait (about 98.5 percent of wall time); the coordinate path removes requests and, when mapped, system calls. On the local full-file baseline, the bottleneck is decompression CPU (cpu 182.7 s of wall 195.2 s, 93.6 percent); the coordinate store holds raw fixed-width records and removes decompression from the read path. Both removals are structural rather than incremental: the request and system call counts are deterministic properties of the addressing scheme, and the raw record layout removes the decompression step by construction.
+
+:::{ layout-ncol=2 }
+
+```{python}
+#| label: fig-wall-composition
+#| fig-cap: "Wall-time composition across the measured paths. The remote baseline is I/O-wait bound; the local baseline and the coordinate paths are CPU bound, with decompression dominating the local baseline and the mapped path running entirely in CPU."
+import matplotlib.pyplot as plt
+
+conditions = ['remote\nbaseline', 'local\nbaseline', 'coordinate', 'coordinate+map']
+io_wait = [98.5, 6.4, 2.4, 0.0]
+cpu = [1.5, 93.6, 97.6, 100.0]
+
+fig, ax = plt.subplots(figsize=(5.5, 3.5))
+ax.bar(conditions, io_wait, color='white', edgecolor='black', linewidth=0.8, label='I/O wait')
+ax.bar(conditions, cpu, bottom=io_wait, color='white', edgecolor='black', linewidth=0.8, hatch='///', label='CPU')
+ax.set_ylabel('share of wall time (%)', fontsize=10)
+ax.set_ylim(0, 100)
+ax.legend(fontsize=7.5, loc='lower right')
+for xi, (a, b) in enumerate(zip(io_wait, cpu)):
+    if a > 25:
+        ax.text(xi, a / 2, f'{a:.1f}', ha='center', fontsize=8)
+    if b > 25:
+        ax.text(xi, a + b / 2, f'{b:.1f}', ha='center', fontsize=8)
+ax.grid(axis='y', linestyle=':', alpha=0.3)
+plt.tight_layout(); plt.show()
+```
+
+```{python}
+#| label: fig-adoption-economics
+#| fig-cap: "Cumulative wall time over repeated read passes. The one-time conversion (226.3 s) amortizes against the per-pass baseline cost (195.2 s); the mapped coordinate path breaks even by the second pass and then accrues the gap per pass."
+import matplotlib.pyplot as plt
+import numpy as np
+
+passes = np.arange(0, 6)
+baseline = 195.2 * passes
+coord = 226.3 + 1.45 * passes
+breakeven = 226.3 / (195.2 - 1.45)
+
+fig, ax = plt.subplots(figsize=(5.5, 3.5))
+ax.plot(passes, baseline, marker='o', color='black', label='baseline (per pass 195.2 s)')
+ax.plot(passes, coord, marker='s', color='black', linestyle='--', label='conversion + coordinate+map (per pass 1.45 s)')
+ax.axvline(breakeven, color='gray', linestyle=':', alpha=0.6)
+ax.text(breakeven + 0.05, 420, 'break-even', fontsize=8, color='gray')
+ax.set_xlabel('read passes', fontsize=10)
+ax.set_ylabel('cumulative wall time (s)', fontsize=10)
+ax.legend(fontsize=7.5)
+ax.grid(linestyle=':', alpha=0.3)
+plt.tight_layout(); plt.show()
+```
+
+:::
+
+At full scale the baseline request count drops to 0.20 per event because basket buffers stay resident in memory after the first cluster[^basket-note]; the full-file speedup is therefore dominated by decompression removal and aligned sequential access, while the request-count reduction from 1.37 to 1.00 per event is the M1 signature slice and the remote case.
+
+The bytes-per-read asymmetry is intentional. The baseline reads 2,149,961,076 compressed bytes in 470,131 requests; the coordinate paths read 5,926,970,880 raw bytes in 2,315,223 requests. The coordinate paths move 2.76x more bytes and still finish 58.5x and 134.6x faster on the full file, where decompression removal and aligned sequential access dominate, and the mapped path removes the system call entirely. Compression semantics remain a later-phase item, specified in the Status section.
+
+The speedup ratios vary with the condition, from 6.5x on the synthetic microbenchmark to 1,512x on the same-media slice, because the baseline cost composition changes with the access pattern and cache state. The stable claims are the request count (1.37 to 1.00 per event) and the system call count (1.37 to 0.00 per event), which are media-independent.
+
+### Conversion
+
+The one-time conversion of the full dataset into the store costs 226.3 s wall, 220.5 s CPU, producing 5,926,970,880 bytes across 2,315,223 records. The conversion is comparable to one baseline read pass (195.2 s) and amortizes: after conversion, every read pass costs 1.45 s (mapped) instead of 195.2 s, so the break-even point is about two analysis passes.
+
+## Correctness Verification
+
+The checksum verification closes the loop between the converted store and the served bytes: the sum over every record byte at conversion time equals the sum over the bytes the coordinate paths serve, the value reported in the measured results. The analysis workload verifies semantic equivalence: the same selection and histogram over both paths produce identical selected counts and identical histogram means. The unit tests additionally verify the store arithmetic over the full 19 by 21 by 28 lattice[^lattice-note] against the canonical engine, the memory-backed read path (payload correctness with zero system calls), and the layout rejection paths.
+
+## Status
+
+### Phase 1: complete
+
+The fixed-width coordinate read path is implemented, built into the fork, and verified end to end. Phase 1 scope:
+
+- Fixed-width event records addressed as (run, luminosity block, event number), resolved by closed-form arithmetic
+- The read path replaced behind the existing TTree and TFile interfaces; the researcher API, analysis code, and build chain are unchanged
+- Measured on the full CMS Run2016G DoubleMuon NanoAOD first file against the cache-disabled baseline: 58.5x (coordinate) and 134.6x (mapped, zero read system calls), with a one-time conversion of 226.3 s
+- Correctness verified by a checksum over the served bytes and exact analysis-result equality, plus unit tests against the reference engine over the full lattice
+- Released as open source in the [ssccsorg/root](https://github.com/ssccsorg/root/tree/master/tree/tree) fork, with the benchmark harness and the runbook
+
+### Phase 2 and later: planned
+
+- P2: variable-length collections (jets, tracks). The store must support per-event record lengths; the fixed-width record is the addressing foundation
+- P3: compression semantics. The raw phase-1 store moves 2.76x more bytes than the compressed baseline; block-level or selective compression must preserve direct record addressing at the PB scale
+- P4: production-scale end-to-end measurement. The documented 14-hour workload, including the remote access pattern, is not reproduced; the full local file is the current measured scale
+- P5: cache-degradation scenario. Out-of-order multithreaded reads and the beyond-100,000-cluster cache collapse are not reproduced; the measured 0.917 cache efficiency is the ideal sequential case
+- P6: portability and independent verification. The mapped path requires a Unix-like platform; a Linux build cross-check is planned
 
 ## Boundaries
 
-- The first demonstration covers fixed-width event records; variable-length collections (jets, tracks) are a later phase
-- Compression remains necessary at the PB scale; the demonstration uses selective or block-level compression
-- The demonstration complements ROOT and RNTuple; it does not replace them
+- The mapped path requires a Unix-like platform (mmap)
 - All results are measured and reported as they are, with no projection ahead of measurement
+- The demonstration complements ROOT and RNTuple; it does not replace them
 
-## After the Demonstration
+## Conclusion
 
-If the measured comparison holds, the results provide the basis for discussing wider adoption and a potential contribution to the ROOT ecosystem. Everything in the demonstration is released as open source.
+The coordinate-indexed read path replaces the branch, basket, and cache traversal of the TTree read path with closed-form arithmetic. On the full CMS dataset, the same medium, it reduces the read cost from 195.2 s to 3.34 s (58.5x), or 1.45 s with zero read system calls when the store is mapped (134.6x), after a one-time conversion of 226.3 s. The analysis workload reproduces identical physics results at 60.9x. The measured mechanism addresses the documented bottleneck, per-request I/O overhead, at the request and system call level, and removes decompression from the read path in the raw phase-1 store.
+
+The measured evidence is a proposal, not a claim. The innovation is that the address replaces the traversal: for mapped data the byte source is the mapping, a point no cache tuning reaches, while the researcher keeps the same TTree API, the same scripts, and the same build chain. For CERN, whose analyses live with the documented 372,000-read signature and the 14-hour workload, this is a structural removal at the layer that matters, measured on a real CMS Open Data file and released as open source.
+
+The next-phase work is specified in the Status section. It is a set of measured questions, not open bets: the harness, the runbook, and the fork are the starting point for that conversation.
+
+[^synTagma]: synTagma, Spatial coordinate space computing system <https://docs.ssccs.org/projects/syntagma>, Pre-release, Apache 2.0.
+
+[^m1-note]: The project tracks the work in milestones M1 to M5, stated in the [Direction](#the-direction): M1 instruments and measures the baseline read path, M2 to M4 build and integrate the coordinate-indexed store, and M5 releases the demonstration. This report covers the measured outcome; later references to the M1 signature and the M1 slice mean the cache-disabled baseline access pattern measured in M1.
+
+[^footprint_note]: The fork's footprint on the baseline path is two dormant null checks and one read-system-call counter increment per operation. Over the full run this is bounded below one millisecond against a 195.2 s wall time, about five orders of magnitude below measurement noise, so the baseline matches the upstream ROOT read path. The measured read pattern, 1.37 reads per event at 2,635 bytes per read on the M1 slice, is produced by the unchanged branch, basket, and cache logic, and matches the documented 372,000 by 4.6 KB singular-read scale. A cross-check against a build without the coordinate changes is expected to confirm identical numbers.
+
+[^ccesop-note]: The documented case is the 2025 Fermilab CCESOP analysis: 372,000 singular reads averaging 4.6 KB at an effective 33 KB/s over roughly 14 hours. The M1 measurement reproduced the signature on the CMS Run2016G DoubleMuon NanoAOD first file: 1.37 to 2.76 reads per event at 2.6 to 0.8 KB per read across cache-disabled slices.
+
+[^scatter-note]: The branch count is the documented NanoAOD configuration from the CCESOP analysis. The file used in this project has 1,380 leaves; its smaller scatter lowers the full-file reads per event to 0.20 once baskets are resident, see the basket footnote.
+
+[^decomp-note]: The headroom is the ratio of the decompression capacity (TTreePerfStats ReadUZCP) to the effective throughput, measured at 27x, 44x, and 18x on the cache-on, 2,000-entry cache-off, and 500-entry cache-off runs of M1.
+
+[^composition-note]: The 11,172 valid states are the product 19 by 21 by 28; the remaining 54,364 of the 65,536 representable 16-bit states are structurally invalid and detectable in constant time. See the Tagma white paper. <https://docs.ssccs.org/projects/syntagma/tagma/wp/index.pdf>
+
+[^radix-note]: The mixed-radix composition generalizes the canonical form: setting (R, L, E) equal to (19, 21, 28) and s equal to 1 recovers the canonical index. The bijection onto the range 0 to RLE minus 1 holds for any positive axis maxima; the constructor validates that the record count and extent fit a 64-bit word.
+
+[^validation-note]: The constructor rejects layouts with a zero axis or record size, a record count that overflows, or an extent that overflows, so Compose and Offset can never overflow for in-bounds coordinates. The entry layer additionally bounds the record size to 1 GiB so the length fits the Int_t argument of TFile::ReadBuffer.
+
+[^mmap-note]: The mapping is read-only and private. The kernel demand-pages each page once on first touch; zero read system calls means zero application-level read calls, while the page faults are kernel-internal.
+
+[^firestorm-note]: The core is an Arm Firestorm implementation at 3.2 GHz, Armv8.5-A. Absolute times are specific to this core; the request and system call counts are core and media independent.
+
+[^checksum-note]: The checksum is the 64-bit sum of every record byte, accumulated with wrap-around. The conversion tool writes it to a sidecar; the benchmark recomputes it from the bytes the coordinate paths serve, and any mismatch fails the run.
+
+[^cacheeff-note]: The efficiency is TTreeCache::GetEfficiency, the fraction of requested blocks found in the cache; the miss rate is its complement. The pass measures the ideal sequential case on a fresh file open.
+
+[^remote-note]: Remote reads go through the XRootD network plugin, which does not call TFile::SysRead, so the system call counter reads zero for the remote baseline; the request count and bytes moved still apply.
+
+[^basket-note]: TBranch keeps the current basket buffer in memory; sequential entries within a cluster reuse it, so the cache-disabled baseline reads 0.20 times per event at full scale. The 1.37 to 2.76 reads per event signature is the cold-cache and cluster-boundary regime.
+
+[^lattice-note]: The lattice has 19 by 21 by 28 cells, equal to 11,172, the canonical scale. The test compares TTagmaStore::Compose against the vendored reference engine over every cell.
