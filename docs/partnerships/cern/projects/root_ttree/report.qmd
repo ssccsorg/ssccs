@@ -41,10 +41,14 @@ format:
 title_meta_items = {
     "html": [
         {"title": "Code", "link": "https://github.com/ssccsorg/root/tree/master/tree/tree", "content": "ROOT fork", "icon": "bi bi-link"},
+        {"title": "Code", "link": "https://github.com/ssccsorg/root/blob/master/benchmarks/tagma/tagma_bench.C", "content": "Benchmark", "icon": "bi bi-link"},
+
         {"title": "Reference", "link": "https://github.com/ssccsorg/syntagma/tree/main/sw/cpp", "content": "synTagma C++ core", "icon": "bi bi-link"},
         {"title": "Plan", "link": "index.html", "content": "Development plan", "icon": "bi bi-link"},
         {"title": "Framework", "link": "/partnerships/cern", "content": "Collaboration Framework", "icon": "bi bi-link"},
-        {"title": "References", "link": "https://docs.ssccs.org/whitepaper/whitepaper.html", "content": "SSCCS Whitepaper", "icon": "bi bi-link"},
+        {"title": "References", "link": "https://docs.ssccs.org/whitepaper/whitepaper.pdf", "content": "SSCCS Whitepaper", "icon": "bi bi-link"},
+
+        {"title": "References", "link": "https://docs.ssccs.org/projects/syntagma/tagma/wp/index.pdf", "content": "Tagma Whitepaper", "icon": "bi bi-link"},
     ],
 }
 ```
@@ -294,11 +298,39 @@ ax.grid(axis='y', linestyle=':', alpha=0.3)
 plt.tight_layout(); plt.show()
 ```
 
+:::{ layout-ncol=2 }
+
 | Path | wall (s) | reads/event | syscalls/event | vs baseline |
 |------|---------:|------------:|---------------:|------------:|
 | baseline | 0.124 | 3.00 | 3.00 | 1x |
 | coordinate | 0.019 | 1.00 | 1.00 | 6.5x |
 | coordinate+map | 0.004 | 1.00 | 0.00 | 31.0x |
+
+```{python}
+#| label: fig-synthetic-tradeoff
+#| fig-cap: "The synthetic mechanism: the baseline scatters one event into three reads of about 362 bytes (compressed baskets); the coordinate paths serve one aligned read of the full 2,560-byte record."
+import matplotlib.pyplot as plt
+
+paths = ['baseline', 'coordinate', 'coordinate+map']
+reads_per_event = [3.00, 1.00, 1.00]
+bytes_per_read = [362, 2560, 2560]
+
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(6.5, 3.2))
+bars1 = ax1.bar(paths, reads_per_event, color='white', edgecolor='black', linewidth=0.8, hatch='///')
+ax1.set_ylabel('reads per event', fontsize=10)
+for bar, v in zip(bars1, reads_per_event):
+    ax1.text(bar.get_x() + bar.get_width()/2, v + 0.05, f'{v:.2f}', ha='center', fontsize=8)
+bars2 = ax2.bar(paths, bytes_per_read, color='white', edgecolor='black', linewidth=0.8, hatch='...')
+ax2.set_ylabel('bytes per read', fontsize=10)
+for bar, v in zip(bars2, bytes_per_read):
+    ax2.text(bar.get_x() + bar.get_width()/2, v + 60, f'{v}', ha='center', fontsize=8)
+for ax in (ax1, ax2):
+    ax.tick_params(axis='x', labelsize=8)
+    ax.grid(axis='y', linestyle=':', alpha=0.3)
+plt.tight_layout(); plt.show()
+```
+
+:::
 
 ## Cost Analysis
 
@@ -377,7 +409,7 @@ The next-phase work is specified in the Status section. It is a set of measured 
 - 2025 Fermilab CCESOP analysis, singular-read TTree I/O signature: [indico.fnal.gov](https://indico.fnal.gov/event/69256/contributions/314511/attachments/187369/258396/20250423-CCESOP_SlowIO.pdf)
 - ROOT fork with the coordinate read path: [ssccsorg/root master](https://github.com/ssccsorg/root/tree/master/tree/tree)
 
-[^m1-note]: The project tracks the work in milestones M1 to M5 in the [development plan](index.html): M1 instruments and measures the baseline read path, M2 to M4 build and integrate the coordinate-indexed store, and M5 releases the demonstration. This report covers the measured outcome; later references to the M1 signature and the M1 slice mean the cache-disabled baseline access pattern measured in M1.
+[^m1-note]: The project tracks the work in milestones M1 to M5 in the [CERN's ROOT TTree bottleneck](index.html): M1 instruments and measures the baseline read path, M2 to M4 build and integrate the coordinate-indexed store, and M5 releases the demonstration. This report covers the measured outcome; later references to the M1 signature and the M1 slice mean the cache-disabled baseline access pattern measured in M1.
 
 [^footprint_note]: The fork's footprint on the baseline path is two dormant null checks and one read-system-call counter increment per operation. Over the full run this is bounded below one millisecond against a 195.2 s wall time, about five orders of magnitude below measurement noise, so the baseline matches the upstream ROOT read path. The measured read pattern, 1.37 reads per event at 2,635 bytes per read on the M1 slice, is produced by the unchanged branch, basket, and cache logic, and matches the documented 372,000 by 4.6 KB singular-read scale. A cross-check against a build without the coordinate changes is expected to confirm identical numbers.
 
