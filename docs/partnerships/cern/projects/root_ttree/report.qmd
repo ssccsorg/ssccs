@@ -44,11 +44,12 @@ title_meta_items = {
         {"title": "Code", "link": "https://github.com/ssccsorg/root/blob/master/benchmarks/tagma/tagma_bench.C", "content": "Benchmark", "icon": "bi bi-link"},
 
         {"title": "Reference", "link": "https://github.com/ssccsorg/syntagma/tree/main/sw/cpp", "content": "synTagma C++ core", "icon": "bi bi-link"},
-        {"title": "Plan", "link": "index.html", "content": "Development plan", "icon": "bi bi-link"},
-        {"title": "Framework", "link": "/partnerships/cern", "content": "Collaboration Framework", "icon": "bi bi-link"},
-        {"title": "References", "link": "https://docs.ssccs.org/whitepaper/whitepaper.pdf", "content": "SSCCS Whitepaper", "icon": "bi bi-link"},
+        {"title": "Reference", "link": "index.html", "content": "Development", "icon": "bi bi-link"},
 
-        {"title": "References", "link": "https://docs.ssccs.org/projects/syntagma/tagma/wp/index.pdf", "content": "Tagma Whitepaper", "icon": "bi bi-link"},
+        {"title": "Framework", "link": "/partnerships/cern", "content": "Collaboration Framework", "icon": "bi bi-link"},
+
+        {"title": "Whitepapers", "link": "https://docs.ssccs.org/whitepaper/whitepaper.pdf", "content": "SSCCS", "icon": "bi bi-link"},
+        {"title": "Whitepapers", "link": "https://docs.ssccs.org/projects/syntagma/tagma/wp/index.pdf", "content": "Tagma", "icon": "bi bi-link"},
     ],
 }
 ```
@@ -57,11 +58,11 @@ title_meta_items = {
 
 ## Abstract
 
-ROOT is the data analysis framework of the CERN community, and its TTree columnar format stores the events of nearly every physics analysis. A documented production bottleneck limits the read path: an analysis issues 372,000 singular reads averaging 4.6 KB, sustains an effective 33 KB/s, and runs for roughly 14 hours. The measured cause is per-request I/O overhead, not data transfer: each small read carries a system call, a cache lookup, and a context switch, while CPU and decompression stay idle.
+ROOT is the data analysis framework of the CERN community, and its TTree columnar format stores the events of nearly every physics analysis. A documented production bottleneck limits the read path: an analysis issues 372,000 singular reads averaging 4.6 KB, sustains an effective 33 KB/s, and runs for roughly 14 hours. The measured cause is per-request I/O overhead, not data transfer: each small read carries a system call, a cache lookup, and a context switch, while CPU and decompression stay idle in the remote production pattern.
 
 This report measures a coordinate-indexed read path, built on the synTagma coordinate engine, inside a fork of CERN's ROOT. The path replaces branch, basket, and cache traversal with closed-form coordinate arithmetic: an event addressed as (run, luminosity block, event number) resolves to a direct byte offset with no hash and no index scan. It is a working implementation, not a prototype: a self-contained store class plus byte-source and entry hooks, with existing analysis code, the TTree API, and the build chain unchanged.
 
-On the full CMS Run2016G DoubleMuon NanoAOD first file (2,315,223 events), the same medium, the coordinate path completes the read in 3.34 s against 195.2 s (58.5x), serving every event with one aligned request; the memory-mapped variant issues zero read system calls and completes in 1.45 s (134.6x), after a one-time conversion of 226.3 s. An analysis workload reproduces identical results on both paths (20,861 selected events, histogram mean 132.696) at 60.9x. Served bytes are verified by a checksum, and analysis results by exact histogram equality.
+On the full CMS Run2016G DoubleMuon NanoAOD first file (2,315,223 events), the same medium, the coordinate path completes the read in 3.34 s against 195.2 s, a 58.5x gain, serving every event with one aligned request. The memory-mapped variant issues zero read system calls and completes in 1.45 s, a 134.6x gain, after a one-time conversion of 226.3 s. An analysis workload reproduces identical results on both paths, 20,861 selected events with histogram mean 132.696, at 60.9x. Served bytes are verified by a checksum, and analysis results by exact histogram equality.
 
 ## The TTree I/O Bottleneck
 
@@ -69,7 +70,7 @@ The production case documented in the 2025 Fermilab CCESOP analysis is an analys
 
 The structural origin is the TTree columnar layout. A NanoAOD event is split across thousands of branches, about 153 data products over 8,190 branches in the documented configuration[^scatter-note], so one logical event scatters across many basket buffers. Reading one event issues many small reads; each carries a system call, a page cache lookup, and often a context switch. Multithreaded runs calling `GetEntry` out of order invalidate the TTreeCache and collapse vector reads into singular reads; beyond 100,000 clusters the cache degrades from 7 seconds to over an hour.
 
-The baseline measurement, milestone M1 of the development plan[^m1-note], reproduces the singular-read signature on the real dataset. With the TTreeCache disabled, the first 2,000 events read at 1.37 reads per event, 2,635 bytes per read, and the remote EOS run spends about 98.5 percent of wall time in I/O wait (CPU 2.3 percent). Decompression is not the bottleneck: its capacity headroom was measured at 18 to 44x across access patterns[^decomp-note]. The bottleneck is per-request I/O wait.
+The baseline measurement, milestone M1 of the development plan[^m1-note], reproduces the singular-read signature on the real dataset. With the TTreeCache disabled, the first 2,000 events read at 1.37 reads per event, 2,635 bytes per read, and the remote EOS run spends about 98.5 percent of wall time in I/O wait, with CPU below 2.5 percent. Decompression is not the bottleneck: its capacity headroom was measured at 18 to 44x across access patterns[^decomp-note]. The bottleneck is per-request I/O wait.
 
 A first-order cost model separates the terms per read request:
 
@@ -85,7 +86,7 @@ where $N$ is the event count and $R_{ev}$ the measured reads per event. Any stru
 
 The coordinate store is not an optimization of the existing read path; it is a change of addressing model. ROOT traverses: an entry walks branches, baskets, and the cache to find its bytes, and each step can reach the medium. Tagma computes: the entry number is a coordinate, the coordinate resolves to a byte offset in closed form, and the record is served directly. The difference is structural. A cache reduces the number of medium accesses, but every miss still carries a system call; the mapped coordinate store removes the system call by construction, because the byte source is the mapping. No cache-size tuning can reach that point.
 
-For CERN the relevance is direct. The measured workload is a real CMS Open Data analysis file, the same access pattern the community documents as the 14-hour case. The researcher's interface is untouched: the same TTree API, the same analysis scripts, the same build chain, with the read path replaced behind the existing interfaces. The demonstration complements ROOT and RNTuple rather than competing with them, and the measured evidence is open and reproducible from the fork and the runbook.
+For CERN the relevance is direct. The measured workload is a real CMS Open Data analysis file, the same access pattern the community documents as the 14-hour case. The researcher's interface is untouched: the same TTree API, the same analysis scripts, the same build chain, with the read path replaced behind the existing interfaces. The demonstration complements ROOT and RNTuple rather than competing with them: the coordinate store serves the existing TTree files in production, so analyses do not migrate, while RNTuple remains the forward path and this is the backward-compatible one. The measured evidence is open and reproducible from the fork and the runbook.
 
 ## The Coordinate Approach
 
@@ -270,6 +271,8 @@ The 2,000-event slice on the same medium measures the signature established abov
 
 The synthetic workload, 20,000 events of 2,560-byte records with a 3-branch scattered tree, isolates the mechanism without the dataset:
 
+:::{ layout-ncol=2 }
+
 ```{python}
 #| label: fig-speedup-conditions
 #| fig-cap: "Speedup over the baseline across measured conditions, log scale. The mapped row is the coordinate+map path; the analysis row is the analysis workload."
@@ -298,14 +301,6 @@ ax.grid(axis='y', linestyle=':', alpha=0.3)
 plt.tight_layout(); plt.show()
 ```
 
-:::{ layout-ncol=2 }
-
-| Path | wall (s) | reads/event | syscalls/event | vs baseline |
-|------|---------:|------------:|---------------:|------------:|
-| baseline | 0.124 | 3.00 | 3.00 | 1x |
-| coordinate | 0.019 | 1.00 | 1.00 | 6.5x |
-| coordinate+map | 0.004 | 1.00 | 0.00 | 31.0x |
-
 ```{python}
 #| label: fig-synthetic-tradeoff
 #| fig-cap: "The synthetic mechanism: the baseline scatters one event into three reads of about 362 bytes (compressed baskets); the coordinate paths serve one aligned read of the full 2,560-byte record."
@@ -331,6 +326,12 @@ plt.tight_layout(); plt.show()
 ```
 
 :::
+
+| Path | wall (s) | reads/event | syscalls/event | vs baseline |
+|------|---------:|------------:|---------------:|------------:|
+| baseline | 0.124 | 3.00 | 3.00 | 1x |
+| coordinate | 0.019 | 1.00 | 1.00 | 6.5x |
+| coordinate+map | 0.004 | 1.00 | 0.00 | 31.0x |
 
 ## Cost Analysis
 
