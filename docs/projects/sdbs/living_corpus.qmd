@@ -1,0 +1,220 @@
+---
+title: "The Living Corpus"
+subtitle: "SDBS as the knowledge-ization engine"
+date: last-modified
+metadata-files:
+  - ../../_include/author.yml
+abstract: |
+  This document is a topic of the SDBS project. SDBS builds the
+  documentation corpus and, with it, serves as the knowledge-ization engine
+  of the SSCCS ecosystem: the published corpus becomes a living knowledge
+  base. The document records SDBS at the center of the knowledge-base
+  domain, the substrate it feeds into, the conceptual pipeline, the current
+  state, the milestones, and the open decisions. Code-level details are
+  intentionally omitted.
+---
+
+{{< include ../../_include/_title_meta_items.qmd >}}
+
+```{python}
+#| include: false
+#| context: local
+%run ../../_include/_graphviz.py
+```
+
+## Purpose
+
+This document is a topic of the SDBS project, recorded alongside the SDBS
+index and the single-path artifact pipeline observation. The index describes
+SDBS as a build system. The artifact pipeline observation describes the
+production side: emulation, verification, robotics, and documentation
+converge into one artifact pipeline. This document describes the consumption
+side of the same system: what happens after SDBS publishes documents, and
+how the corpus SDBS produces becomes knowledge that users, agents, and
+machines can query.
+
+The document records the domain boundary, the substrate stack, the
+conceptual pipeline, the current state, the milestones, and the open
+decisions. It intentionally omits code-level detail. A separate
+specification will follow when development begins.
+
+## The Domain
+
+SDBS produces a corpus that is already structured for machine consumption: a
+global index and per-document machine-readable pages, extracted as part of
+every build. Today the corpus is a static artifact. **The vision is
+knowledge-base-ization: the corpus SDBS publishes becomes a living knowledge
+base that users, agents, and machines can query.**
+
+SDBS is the entry point of the domain. The domain has SDBS and four
+ecosystem roles.
+
+| Role | Responsibility |
+|------|----------------|
+| SDBS, the corpus producer | Builds, validates, heals, and extracts the machine-readable corpus from source documents |
+| Structural addressing | Gives every document and fact a structural coordinate, replacing hash-based identity |
+| Materialization | Lands the coordinate space on media: file today, signal, network, and GPU later |
+| Runtime | Holds the fact blackboard, accumulates verified facts, and enables graph traversal and gap detection |
+| Client and edge | Runs the spatial state engine anywhere, desktop, mobile, or a pocket stick, with offline self-custody |
+
+The two SDBS documents meet at the corpus. The artifact pipeline observation
+describes how the corpus is produced; this document describes how it is
+consumed as knowledge.
+
+## The Substrate Stack
+
+SDBS sits at the top of the stack as the knowledge-ization engine that turns
+source documents into the corpus. Beneath it, the stack is layered, and each
+layer has a single responsibility. Structural addressing (tagma) provides the
+coordinate space in which every document and fact resides. Materialization
+(chton) lands that space onto physical media, so the knowledge base persists
+without a separate serialization step. The runtime (neXus) keeps facts
+immutable and accumulating, carries the lifecycle of exploration, and
+constrains admissible actions. The client sits at the edge and carries the
+same spatial state engine to any device.
+
+```{python}
+#| label: fig-kb-domain
+#| fig-cap: "SDBS and the knowledge-base domain: from corpus to queryable knowledge"
+dot("""
+digraph KB_Domain {
+    rankdir=LR;
+    splines=ortho;
+    node [shape=box, style=rounded, fontsize=9];
+    edge [fontsize=8];
+
+    Corpus [label="Document corpus\n(source documents)", fillcolor="#E8F4F8", style=filled];
+    Engine [label="SDBS\nbuild, validate, heal,\nmachine-readable extraction", fillcolor="#FFF4E6", style=filled];
+    Artifacts [label="Structured corpus\n(global index, per-document pages)", fillcolor="#E6F0E6", style=filled];
+    Addressing [label="Structural addressing\ncoordinates", fillcolor="#F3E8F4", style=filled];
+    Runtime [label="Runtime\nfact blackboard", fillcolor="#F3E8F4", style=filled];
+    Storage [label="Materialization\nIO", fillcolor="#E8F4F8", style=filled];
+    Client [label="Client and edge\nspatial state engine", fillcolor="#FFF4E6", style=filled];
+    Users [label="Users, agents, machines\n(search, time-travel, gap queries)", fillcolor="#E6F0E6", style=filled];
+
+    Corpus -> Engine;
+    Engine -> Artifacts;
+    Artifacts -> Runtime [label="ingestion"];
+    Runtime -> Storage [label="persistence"];
+    Addressing -> Storage [label="layout"];
+    Addressing -> Runtime [label="indexing"];
+    Runtime -> Client [label="sync"];
+    Client -> Users;
+    Runtime -> Users [label="graph queries"];
+}
+""")
+```
+
+## The Conceptual Pipeline
+
+Source documents follow a single conceptual path. The first three stages are
+SDBS's own build stages; the last three carry the corpus into the knowledge
+base.
+
+| Stage | Role |
+|-------|------|
+| Validation and healing | Structural defects resolved before rendering |
+| Rendering | Corpus built into published formats |
+| Machine-readable extraction | Global index and per-document pages produced |
+| Ingestion | Pages become facts with origins and coordinates |
+| Indexing | Coordinate index and semantic index rebuilt |
+| Query | Search, time-travel, and graph access over accumulated facts |
+
+Beyond the full pipeline, SDBS supports a fast authoring loop: individual
+documents can be previewed directly, and their published artifacts collected
+for distribution. This loop keeps the corpus current between full builds and
+connects to the artifact pipeline described in the sibling observation.
+
+The pipeline is exercised end to end in minimal form today: the corpus SDBS
+publishes is fetched, each page is stored as a fact, and coordinate and
+semantic indexes are rebuilt. What exists today is the ingestion half. The
+service surface and the refresh cadence form the remaining half.
+
+## Why Now
+
+SDBS already produces the corpus format that corresponds to a young standard
+for LLM-readable documentation, and agent tooling increasingly consumes such
+corpora directly. The reference deployment is live and already feeds the
+ingestion path. The first production instantiation of the knowledge domain
+is therefore not a plan; it is an operating capability with a known gap.
+
+The timing is favorable for three reasons. The corpus standard is young
+enough that early capability defines the conventions. The reference
+deployment provides a continuous test corpus that grows with every SDBS
+build. The client and edge layer already runs on the same engine, so
+capability gained in this domain propagates to the edge by design of the
+shared substrate.
+
+## Current State
+
+The boundary between verified facts and projections is explicit.
+
+- SDBS produces the machine-readable corpus as part of every build of the
+  reference documentation suite. Verified.
+- A fast authoring loop previews individual documents and collects published
+  artifacts as part of the command surface. Verified.
+- The corpus is published and publicly fetchable. Verified.
+- An ingestion path fetches the corpus and stores each page as a fact with
+  coordinate and semantic indexing. Verified as existing capability.
+- The service surface for normal users is a known gap. Verified as absent.
+- Refresh is manual today; scheduled and diff-based refresh is absent.
+  Verified as absent.
+- Storage routing through the materialization layer is not yet adopted.
+  Projected.
+- The client and edge integration with the knowledge base is designed but
+  not built. Projected.
+
+## Milestones
+
+Phase 1: Corpus service. The corpus SDBS publishes becomes queryable through
+a persistent service with scheduled refresh and diff-based incremental
+updates. The deliverable is a searchable knowledge base over the published
+corpus. The evidence criterion is a running service that reflects corpus
+changes without manual intervention.
+
+Phase 2: Storage routing. The knowledge store adopts the materialization
+layer as its persistence surface. Real workload then drives the
+materialization layer's development: the file-origin layer, binding
+strategies, and the key-value protocol are exercised by the corpus at scale.
+The evidence criterion is a knowledge base that persists and restores
+through the materialization surface.
+
+Phase 3: Client integration. The client app surfaces the knowledge base as a
+workspace with offline self-custody. The same spatial state engine that fits
+in a pocket scales to the service. The evidence criterion is a multi-device
+session that queries the knowledge base offline and synchronizes through the
+shared substrate.
+
+Phase 4: Scale and governance. Multiple corpora, teams, and agents join the
+same knowledge base. Provenance and audit follow the runtime's governance
+layer, and each deposit strengthens the shared primitives. The evidence
+criterion is a corpus larger than the reference suite managed with the same
+guarantees.
+
+Development starts at Phase 1.
+
+## Open Decisions
+
+Four decisions are recorded for the development kickoff. Each is a decision
+point, and this document does not settle them.
+
+- Service surface: desktop application first, hosted endpoint first, or both.
+- Refresh strategy: scheduled full sync versus diff-based incremental
+  ingestion.
+- Storage routing: adoption of the materialization layer at Phase 2 or
+  earlier.
+- Distribution and commercial boundary: package identity, open-core
+  boundary, and the relationship to the client and edge product.
+
+## Scope
+
+This document is a topic of the SDBS project, not a specification. It does
+not describe interfaces, formats, or implementation details. It does not
+claim universal applicability. SDBS is one functional region of the shared
+substrate, and its growth follows the ecosystem pattern: each deposit
+strengthens the primitives for every other domain.
+
+## References
+
+- SDBS: <https://docs.ssccs.org/projects/sdbs>
+- Single-path artifact pipeline observation: <https://docs.ssccs.org/projects/sdbs/ci_observations.html>
