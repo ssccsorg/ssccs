@@ -40,7 +40,7 @@ format:
 #| context: local
 title_meta_items = {
     "html": [
-        {"title": "Code", "link": "https://github.com/ssccsorg/root/tree/103-tagma-ttree-io", "content": "ROOT fork", "icon": "bi bi-link"},
+        {"title": "Code", "link": "https://github.com/ssccsorg/root/tree/master/tree/tree", "content": "ROOT fork", "icon": "bi bi-link"},
         {"title": "Reference", "link": "https://github.com/ssccsorg/syntagma/tree/main/sw/cpp", "content": "synTagma C++ core", "icon": "bi bi-link"},
         {"title": "Plan", "link": "index.html", "content": "Development plan", "icon": "bi bi-link"},
         {"title": "Framework", "link": "/partnerships/cern", "content": "Collaboration Framework", "icon": "bi bi-link"},
@@ -109,7 +109,7 @@ with $t_{\text{read}}$ equal to one aligned record transfer, or a memory copy wh
 
 ## The Fork Implementation
 
-The implementation lives in the [ssccsorg/root](https://github.com/ssccsorg/root) fork on branch [103-tagma-ttree-io](https://github.com/ssccsorg/root/tree/103-tagma-ttree-io). The byte-source layer and the entry layer are replaced behind the existing interfaces; everything else falls through unchanged.
+The implementation lives in the [ssccsorg/root](https://github.com/ssccsorg/root/tree/master/tree/tree) fork. The byte-source layer and the entry layer are replaced behind the existing interfaces; everything else falls through unchanged.
 
 ```{python}
 #| label: fig-read-path
@@ -169,6 +169,8 @@ The full comparison runs on local disk for both paths.
 
 The served checksum matches the conversion checksum (233,262,869,086), so the coordinate paths read the real converted event bytes[^checksum-note].
 
+:::{ layout-ncol=2 }
+
 ```{python}
 #| label: fig-wall-full
 #| fig-cap: "Full-dataset wall time, same medium, log scale. The baseline reads the compressed file through the ordinary path; the coordinate rows read the raw fixed-width store."
@@ -212,6 +214,8 @@ ax.grid(axis='y', linestyle=':', alpha=0.3)
 plt.tight_layout(); plt.show()
 ```
 
+:::
+
 ### Conversion cost
 
 The one-time conversion of the full dataset into the store costs 226.3 s wall, 220.5 s CPU, producing 5,926,970,880 bytes across 2,315,223 records. The conversion is comparable to one baseline read pass (195.2 s) and amortizes: after conversion, every read pass costs 1.45 s (mapped) instead of 195.2 s, so the break-even point is about two analysis passes.
@@ -238,12 +242,6 @@ The 2,000-event slice on the same medium measures the signature established abov
 ### Synthetic workload
 
 The synthetic workload, 20,000 events of 2,560-byte records with a 3-branch scattered tree, isolates the mechanism without the dataset:
-
-| Path | wall (s) | reads/event | syscalls/event | vs baseline |
-|------|---------:|------------:|---------------:|------------:|
-| baseline | 0.124 | 3.00 | 3.00 | 1x |
-| coordinate | 0.019 | 1.00 | 1.00 | 6.5x |
-| coordinate+map | 0.004 | 1.00 | 0.00 | 31.0x |
 
 ```{python}
 #| label: fig-speedup-conditions
@@ -273,6 +271,12 @@ ax.grid(axis='y', linestyle=':', alpha=0.3)
 plt.tight_layout(); plt.show()
 ```
 
+| Path | wall (s) | reads/event | syscalls/event | vs baseline |
+|------|---------:|------------:|---------------:|------------:|
+| baseline | 0.124 | 3.00 | 3.00 | 1x |
+| coordinate | 0.019 | 1.00 | 1.00 | 6.5x |
+| coordinate+map | 0.004 | 1.00 | 0.00 | 31.0x |
+
 ## Cost Analysis
 
 The measured results separate two bottleneck regimes. On the remote EOS baseline, the bottleneck is per-request I/O wait (about 98.5 percent of wall time); the coordinate path removes requests and, when mapped, system calls. On the local full-file baseline, the bottleneck is decompression CPU (cpu 182.7 s of wall 195.2 s, 93.6 percent); the coordinate store holds raw fixed-width records and removes decompression from the read path. Both removals are structural rather than incremental: the request and system call counts are deterministic properties of the addressing scheme, and the raw record layout removes the decompression step by construction.
@@ -297,7 +301,7 @@ The fixed-width coordinate read path is implemented, built into the fork, and ve
 - The read path replaced behind the existing TTree and TFile interfaces; the researcher API, analysis code, and build chain are unchanged
 - Measured on the full CMS Run2016G DoubleMuon NanoAOD first file against the cache-disabled baseline: 58.5x (coordinate) and 134.6x (mapped, zero read system calls), with a one-time conversion of 226.3 s
 - Correctness verified by a checksum over the served bytes and exact analysis-result equality, plus unit tests against the reference engine over the full lattice
-- Released as open source in the ssccsorg/root fork, branch 103-tagma-ttree-io, with the benchmark harness and the runbook
+- Released as open source in the [ssccsorg/root](https://github.com/ssccsorg/root/tree/master/tree/tree) fork, with the benchmark harness and the runbook
 
 ### Phase 2 and later: planned
 
@@ -324,7 +328,7 @@ The next-phase work is specified in the Status section. It is a set of measured 
 ## References
 
 - 2025 Fermilab CCESOP analysis, singular-read TTree I/O signature: [indico.fnal.gov](https://indico.fnal.gov/event/69256/contributions/314511/attachments/187369/258396/20250423-CCESOP_SlowIO.pdf)
-- ROOT fork with the coordinate read path: [ssccsorg/root 103-tagma-ttree-io](https://github.com/ssccsorg/root/tree/103-tagma-ttree-io)
+- ROOT fork with the coordinate read path: [ssccsorg/root master](https://github.com/ssccsorg/root/tree/master/tree/tree)
 
 [^footprint_note]: The fork's footprint on the baseline path is two dormant null checks and one read-system-call counter increment per operation. Over the full run this is bounded below one millisecond against a 195.2 s wall time, about five orders of magnitude below measurement noise, so the baseline matches the upstream ROOT read path. The measured read pattern, 1.37 reads per event at 2,635 bytes per read on the M1 slice, is produced by the unchanged branch, basket, and cache logic, and matches the documented 372,000 by 4.6 KB singular-read scale. A cross-check against a build without the coordinate changes is expected to confirm identical numbers.
 
