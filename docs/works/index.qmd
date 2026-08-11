@@ -1,80 +1,163 @@
 ---
 title: "Works"
-subtitle: "Collaborations with Research Institutions and Industry"
+subtitle: "Foundation Activities for External Cooperation and Joint Value Creation"
 date: last-modified
 metadata-files:
   - ../_include/author.yml
 abstract: |
-  SSCCS is an independent, non-profit foundation that applies its computing technology to concrete problems at external institutions. A work is an engagement with a research institution, an open-hardware community, or an industry partner: a collaboration framework, a bounded demonstration, or a measured report delivered on the institution's own data and access pattern. This page lists the engagements currently in motion, the artifact each one delivers, and how a collaboration proceeds. Every engagement is judged by a demonstrable artifact, and the underlying technology is released under Apache 2.0.
+  Works are the foundation's technical and non-technical activities conducted with external institutions, open-hardware communities, and independent researchers, aligned with the direction, philosophy, and charter. Every work is judged by a demonstrable artifact delivered in cooperation with a partner. This page is the comprehensive overview: the basic direction, the ecosystem strategy, the fields of works, and the engagements currently in motion.
 ---
 
 {{< include ../_include/_title_meta_items.qmd >}}
 
+## Works and the Foundation
+
+A work is an activity of the SSCCS Foundation conducted with an external party: a research institution, an open-hardware community, an industry partner, or an independent researcher. Works span technical and non-technical fields, and every work is aligned with the foundation's direction, philosophy, and charter. The foundation is independent, non-profit, and public-good oriented; its core technology is released under Apache 2.0. Works are the mission expressed in cooperation with external parties. The governing references are the [Direction](/direction/), the [Philosophy](/philosophy/), the [Axioms](/axioms/), and the [Foundational Charter](/legal/).
+
 ```{python}
-#| include: false
-#| context: local
-%run ../_include/_graphviz.py
+#| label: fig-concept
+#| fig-cap: "A work joins the foundation and a partner on a concrete problem and returns a demonstrable artifact; verified results feed the shared surface and strengthen the foundation."
+%matplotlib inline
+import numpy as np
+import matplotlib
+import matplotlib.pyplot as plt
+from matplotlib.patches import Circle
+
+# (label, sub, (x, y), radius, color, fontsize, label side)
+nodes = [
+    ("SSCCS Foundation",   "independent · non-profit\npublic-good mission", (-4.5, 0.0), 0.72, "#D4E6F1", 10, "left"),
+    ("Partners",           "research · open hardware\nindustry · researchers",(0.0, 2.2), 0.62, "#F8F4E8", 10, "left"),
+    ("Demonstrable artifact", "fork · benchmark · report", (0.0, -2.2), 0.62, "#FFF4E6", 10, "below"),
+    ("Shared surface",     "verified results", (4.5, 0.0), 0.62, "#E8F8E8", 10, "below"),
+]
+pos = {n[0]: np.array(n[2]) for n in nodes}
+
+# edges: (from, to, label, start-side)  label None => chain arrow
+edges = [
+    ("SSCCS Foundation", "Partners", "reciprocal contribution · joint value"),
+    ("SSCCS Foundation", "Demonstrable artifact", "verified technology"),
+    ("Partners", "Demonstrable artifact", "problem · data"),
+    ("Demonstrable artifact", "Shared surface", "deposits results"),
+    ("Shared surface", "SSCCS Foundation", "strengthened primitives"),
+]
+
+fig, ax = plt.subplots(figsize=(10.0, 7.0))
+
+def perp(a, b):
+    d = b - a
+    n = np.linalg.norm(d)
+    return np.array([-d[1], d[0]]) / n if n > 1e-9 else np.array([1.0, 0.0])
+
+edge_texts = []
+for a, b, label in edges:
+    pa, pb = pos[a], pos[b]
+    ax.plot([pa[0], pb[0]], [pa[1], pb[1]], color="#4A8BAA", linewidth=2.0,
+            alpha=0.9, zorder=1, solid_capstyle="round")
+    mid = (pa + pb) / 2
+    p = perp(pa, pb)
+    # choose the perpendicular side away from the figure center line where needed
+    t = ax.text(mid[0] + p[0] * 0.22, mid[1] + p[1] * 0.22, label,
+                fontsize=9, ha="center", va="center", color="#2A5B7A", zorder=2)
+    edge_texts.append(t)
+
+for label, sub, c, r, color, fs, side in nodes:
+    ax.add_patch(Circle(c, r, facecolor=color, edgecolor="#666666",
+                        linewidth=1.2, zorder=3))
+
+xs = [n[2][0] for n in nodes]; ys = [n[2][1] for n in nodes]
+pad = 1.8
+ax.set_xlim(min(xs) - pad, max(xs) + pad)
+ax.set_ylim(min(ys) - pad, max(ys) + pad)
+ax.set_aspect("equal")
+ax.axis("off")
+fig.canvas.draw()
+
+axw = ax.get_window_extent().width
+axh = ax.get_window_extent().height
+XR = ax.get_xlim()[1] - ax.get_xlim()[0]
+YR = ax.get_ylim()[1] - ax.get_ylim()[0]
+
+ANCH = {"right": (1, 0), "left": (-1, 0), "above": (0, 1), "below": (0, -1)}
+def half_dims(label, sub, fs):
+    lines = [label] + sub.split("\n")
+    w_px = max(len(l) for l in lines) * fs * 0.60 + 10
+    h_px = len(lines) * fs * 1.30 + 10
+    return w_px / 2, h_px / 2
+
+def place2(c, r, fs, label, sub, anchor):
+    dx, dy = ANCH[anchor]
+    hw_px, hh_px = half_dims(label, sub, fs)
+    r_px = r * (axw / XR)
+    off_px = r_px + (hw_px if dx != 0 else hh_px) + 8
+    return np.array(c) + np.array([dx * off_px * (XR / axw), dy * off_px * (YR / axh)])
+
+texts = {}
+for label, sub, c, r, color, fs, side in nodes:
+    t = ax.text(*place2(c, r, fs, label, sub, side), f"{label}\n{sub}",
+                fontsize=fs, ha="center", va="center", color="#111111", zorder=4)
+    texts[label] = t
+plt.show()
 ```
+
+## Direction of Engagement
+
+The direction document defines the foundation's basic posture for partnership, collaboration, and support. SSCCS partners with academia, industry, open-hardware communities, and independent researchers, selected by technical merit and reciprocal contribution. The computing industry is mid-restructuring, so the foundation is deliberate about whom it works with. In the agentic era, declaring a feature costs nothing and the value of declaration converges to zero; what retains value is the structure that actually runs, compiles, and compounds across domains without human intermediation. Engagements follow three principles:
+
+- Reciprocal value: the engagement benefits all sides.
+- Foundational over immediate: redefining computation matters more than market fit.
+- Substance over ceremony: rigorous scrutiny is welcome from those committed to paradigm-shifting work.
+
+Funding is a catalyst, and the preference is research-first. Research-first institutions fund research and development, provide demonstration environments and regulatory sandboxes, and offer the bridge from a proven result to the market. A work begins with a proven primitive and ends with a measured result on the partner's own ground. The full statement lives in [Direction: Partnership, Collaboration, and Support](/direction#partnership-collaboration-and-support).
+
+## Ecosystem Strategy
+
+The ecosystem skeleton gives works their strategic shape: from verification to economy. Computation is structural observation; physical reality is captured through synthesis; verified results become economic assets that carry contribution obligations. The ecosystem operates on four axes:
+
+- Structural source of truth: designs expressed in a structural format, enumerated exhaustively.
+- Verification and reverse extraction: synthesis engines verify correctness and extract rules from synthesis results.
+- Economic layer: verified designs become registered assets in a staking pool that funds new work.
+- Orchestration loop: observation boards, gap detectors, and strategy cycles feed new designs back into the cycle.
+
+Every verified result is committed immutably to the shared surface; that commitment turns the result into an asset and its creator into a contributor with a long-term obligation. The economic primitive is a verification result, a single bit anchored to reproducible physical ground truth. Staking externalises funding, downstream reuse creates royalties, and the metabolic contract ensures that no participant draws from the shared surface indefinitely without feeding it back. Works conducted under this strategy are operations of a single self-replicating structure. The full model is described in [Ecosystem Skeleton](/direction/ecosys.html).
+
+## Fields of Works
+
+Works are conducted in technical and non-technical fields. **Every work is judged by a demonstrable artifact: a fork, a benchmark, a measured report.**
+
+Technical fields:
+
+- Verification: exhaustive, deterministic verification of RISC-V and custom instruction extensions. ExaVerif enumerates every valid encoding of a specification.
+- Structural computing: coordinate addressing and observation-driven execution. synTagma provides hash-less coordinate addressing with a minimal decoder.
+- Storage and IO: zero-serialization materialization. Chton makes the storage format equal to the memory layout, so the read path has no serialization step.
+- Open hardware: validation on open platforms, including CORE-V and FPGA ecosystems.
+
+Non-technical fields:
+
+- Open science: collaboration with public-good science organizations, such as the CERN engagement.
+- Funding and support: partnerships with research-first institutions that provide R&D funding, demonstration environments, and regulatory sandboxes.
+- Standards and community: contributions to open formats and specification channels, joint publications, and outreach.
+
+The codebases behind the technical fields live under [Projects](/projects/).
 
 ## Current Engagements
 
-SSCCS works with academia, industry, and open-hardware communities on problems where data movement, verification, or I/O dominates the cost. **Every engagement is judged by a demonstrable artifact: a fork, a benchmark, a measured report.** The table below lists the engagements in motion, the artifact each one delivers, and its status.
+The engagements below are the works currently in motion. This section is supplementary and changes as works progress.
 
 | Work | Institution | Artifact | Status |
 | :--- | :--- | :--- | :--- |
-| [CERN Collaboration Framework](cern/) | CERN | Framework draft for open-science engagement | Discussion |
-| [ROOT TTree Bottleneck](cern/projects/root_ttree/) | CERN | Development plan and measured report | Plan draft, report published |
+| [CERN Collaboration Framework](cern/) | CERN | Framework draft for open-science engagement | Proposal |
+| [ROOT TTree Bottleneck](cern/projects/root_ttree/) | CERN | Development plan and measured report | Report published |
 | [SSCCS Validation with OpenHW CORE-V Ecosystem](openhw_integration.html) | OpenHW Group | Phased integration roadmap | Proposal |
 | [SSCCS × AWS Strategic Collaboration Roadmap](aws.html) | AWS | Phased collaboration proposal | Discussion |
 | [A Foundation for Energy-Efficient and Trustworthy Computing](proposal.html) | Public | Funding and collaboration proposal | Published |
 | [Presentation Deck](pt.pdf) | Public | Slide deck for outreach | Published |
 
-The CERN engagement is the flagship work, and the reason is the mission. SSCCS is an independent, non-profit, public-good foundation that directs its technology toward the projects most aligned with the common good of humanity. CERN is the archetype of that alignment: a public-good science organization founded on the principle that science is a public good and knowledge remains open. The ROOT TTree bottleneck sits in the analysis framework of the entire high-energy physics community, and relieving it strengthens the open scientific infrastructure that researchers worldwide depend on. The collaboration framework establishes institutional alignment through CERN's open-source channels. The development plan specifies a bounded demonstration on CMS Open Data that reproduces the documented access pattern: 372,000 singular reads averaging 4.6 KB, an effective 33 KB/s, and a 14-hour workload. The report carries the measured comparison against the ROOT baseline. The ecosystem stays intact: researchers keep the TTree API they already know, and only the byte source changes.
+Flagship works are chosen by mission alignment. The archetype is an engagement with a public-good science institution: the partner's ecosystem stays intact, and the work is delivered as a measured artifact on the partner's own data and access pattern.
 
-## How a Collaboration Proceeds
-
-Each engagement follows a bounded sequence, sized so the institution's production ecosystem is never disturbed.
-
-- Alignment: a framework or proposal establishes the problem and the boundary.
-- Bounded demonstration: a development plan specifies the artifact, the milestones, and the boundaries; the institution's stack runs unchanged.
-- Measured result: a report compares against the institution's own baseline, on its own access pattern and data.
-- Integration decision: the institution decides whether to adopt the result; the foundation's role ends at the boundary it defined.
-
-```{python}
-#| label: fig-path
-#| fig-cap: "Each engagement proceeds from alignment to a bounded demonstration, a measured result, and an integration decision."
-dot("""
-digraph EngagementPath {
-    rankdir=LR
-    nodesep=0.5
-    node [shape=box, style=filled, fillcolor="#E8F4F8", fontname="sans-serif", fontsize=18, margin="0.15,0.1"]
-    edge [fontsize=15]
-    bgcolor="transparent"
-
-    Alignment [label="Alignment\nframework or proposal"]
-    Demo [label="Bounded demonstration\ndevelopment plan"]
-    Report [label="Measured result\nbenchmark or report"]
-    Decision [label="Integration decision\ninstitution decides"]
-
-    Alignment -> Demo -> Report -> Decision
-}
-""", h="180px")
-```
-
-## What SSCCS Brings
-
-Every engagement is backed by a small set of validated primitives, all released under Apache 2.0:
-
-- ExaVerif: exhaustive RISC-V verification, 33.5 million encodings in 29 ms.
-- synTagma: hash-less coordinate addressing with a decoder of roughly 300 gates.
-- Chton: zero-serialization storage; the storage format equals the memory layout, so the read path has no serialization step.
-
-The codebases behind these primitives live under [Projects](/projects/).
+Each engagement follows a bounded sequence: alignment through a framework or proposal, a bounded demonstration through a development plan, a measured result against the partner's own baseline, and an integration decision that belongs to the partner. The foundation's role ends at the boundary it defined.
 
 ## Engage with SSCCS
 
-Engagements begin with a concrete problem. If your institution has a workload where data movement, verification, or I/O dominates the cost, the starting point is the [open proposal](proposal.html) or the [presentation deck](pt.pdf), and the direct route is a message to [proposal@ssccs.org](mailto:proposal@ssccs.org).
+Engagements begin with a concrete problem. If your institution has a workload where data movement, verification, or I/O dominates the cost, the starting point is the [open proposal](proposal.html) or the [presentation deck](pt.pdf), and the direct route is a message to [co@ssccs.org](mailto:co@ssccs.org).
 
-The foundation is independent and non-profit. Funding is a catalyst; engagements proceed on technical merit and reciprocal contribution, and all outputs remain open under Apache 2.0. The preference is research-first: institutions that fund research and development, provide demonstration environments, and value a measured artifact over a declared intention.
-
-{{< include ../_include/_license.md >}}
+All outputs remain open under Apache 2.0.
