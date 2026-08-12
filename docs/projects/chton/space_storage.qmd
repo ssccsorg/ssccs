@@ -32,25 +32,25 @@ title_meta_items = {
 
 ## Abstract
 
-Chton is a materialization layer that projects coordinate spaces directly onto physical media—memory, disk, or signal—without indexing or hashing. This document examines Chton's applicability to space-grade computing environments, where power, radiation tolerance, and deterministic performance are not optional but structural requirements. The analysis is grounded in 2026 space computing research and existing validation from high-energy physics data workflows.
+Chton is a materialization layer that projects coordinate spaces directly onto physical media, memory, disk, or signal, without indexing or hashing. This document examines Chton's applicability to space-grade computing environments, where power, radiation tolerance, and deterministic performance are not optional but structural requirements. The analysis is grounded in 2026 space computing research.
 
-## 1. The Space Storage Problem: Three Structural Constraints
+## The Space Storage Problem: Three Structural Constraints
 
 Spaceborne computing systems face three interrelated constraints that conventional storage architectures cannot resolve through incremental optimization.
 
-**Power and Mass (SWaP).** Orbital data centers and satellite constellations operate under extreme power budgets. Low Earth orbit satellites typically require radiation tolerance of 5–30 kilorads, geostationary orbits need 100–300 kilorads, and deep space missions must withstand up to 1 million rads. Every watt saved on storage is a watt available for computation or thermal management. The challenge is amplified by the increasing data volumes: "The amount of data going to and from space is increasing at unprecedented rates", yet "a litany of technical challenges, from power to mass-to-orbit to the vulnerability of high-performance chips to radiation" continues to limit orbital computing capacity.
+Power and Mass (SWaP). Orbital data centers and satellite constellations operate under extreme power budgets. Low Earth orbit satellites typically require radiation tolerance of 5–30 kilorads, geostationary orbits need 100–300 kilorads, and deep space missions must withstand up to 1 million rads. Every watt saved on storage is a watt available for computation or thermal management. The challenge is amplified by the increasing data volumes: "The amount of data going to and from space is increasing at unprecedented rates", yet "a litany of technical challenges, from power to mass-to-orbit to the vulnerability of high-performance chips to radiation" continues to limit orbital computing capacity.
 
-**Radiation-Induced Memory Corruption.** Radiation in space-integrated circuits causes node upsets in memory, leading to data corruption and system failures. Conventional mitigation—error correction codes, redundancy, shielding—adds overhead that compounds the SWaP problem. A 2026 Georgia Tech breakthrough demonstrated ferroelectric NAND memory can withstand radiation levels up to 30 times higher than conventional flash, yet even this advancement does not address the *addressing* overhead that consumes power and silicon area.
+Radiation-Induced Memory Corruption. Radiation in space-integrated circuits causes node upsets in memory, leading to data corruption and system failures. Conventional mitigation, such as error correction codes, redundancy, and shielding, adds overhead that compounds the SWaP problem. A 2026 Georgia Tech breakthrough demonstrated ferroelectric NAND memory can withstand radiation levels up to 30 times higher than conventional flash, yet even this advancement does not address the *addressing* overhead that consumes power and silicon area.
 
-**Deterministic Performance Under Constraint.** In orbital environments, worst-case latency matters more than average throughput. Conventional storage with index structures (B-trees, hash tables) exhibits unpredictable access patterns: a cache miss can cascade into milliseconds of delay while the index is traversed. For autonomous systems requiring bounded response times, this unpredictability is a structural liability.
+Deterministic Performance Under Constraint. In orbital environments, worst-case latency matters more than average throughput. Conventional storage with index structures (B-trees, hash tables) exhibits unpredictable access patterns: a cache miss can cascade into milliseconds of delay while the index is traversed. For autonomous systems requiring bounded response times, this unpredictability is a structural liability.
 
-## 2. Chton's Structural Alternative
+## Chton's Structural Alternative
 
-Chton replaces index-based addressing with coordinate arithmetic. Rather than storing data and separately maintaining an index to locate it, Chton treats the coordinate as the address itself. This yields three structural advantages for space environments.
+Chton replaces index-based addressing with coordinate arithmetic. Rather than storing data and separately maintaining an index to locate it, Chton treats the coordinate as the address itself. The coordinate space is closed-form: 11,172 structurally valid 16-bit values, each simultaneously a 1-D address and a 3-D coordinate, with the remaining 54,364 values structurally invalid and hardware-detectable. This yields three structural advantages for space environments.
 
-## 2.1 Elimination of Index Structures
+## Elimination of Index Structures
 
-Conventional storage requires index maintenance: writes update the index, reads traverse it, and the index itself consumes storage capacity and power. Chton eliminates this layer entirely. The coordinate space is materialized directly onto the medium—storage format equals memory layout, with no serialization step.
+Conventional storage requires index maintenance: writes update the index, reads traverse it, and the index itself consumes storage capacity and power. Chton eliminates this layer entirely. The coordinate space is materialized directly onto the medium; storage format equals memory layout, with no serialization step.
 
 For orbital systems, this means:
 
@@ -59,65 +59,62 @@ For orbital systems, this means:
 - No index storage capacity consumed
 - No index corruption from radiation-induced bit flips
 
-## 2.2 Deterministic O(1) Access
+## Bounded Deterministic Access
 
-In Chton, a coordinate resolves to a physical address through arithmetic, not lookup. Access time is bounded and predictable—independent of dataset size, independent of access history, independent of cache state. For autonomous orbital systems where worst-case latency bounds mission outcomes, this determinism is a structural requirement, not a performance optimization.
+In Chton, a coordinate resolves to a physical address through arithmetic, not lookup. Access time is bounded and predictable, independent of dataset size, access history, and cache state. For dense layouts the access is O(1); for the sparse tree form it is bounded-linear in coordinate depth. For autonomous orbital systems where worst-case latency bounds mission outcomes, this determinism is a structural requirement, not a performance optimization.
 
-## 2.3 Minimal Silicon Footprint
+## Minimal Silicon Footprint
 
-Chton's decoder is estimated at ~300 gates—a combinational circuit that validates a 16-bit coordinate and extracts its structural components. This replaces hash units and index controllers that consume significantly more silicon area and power. For radiation-hardened implementations, smaller silicon area means lower probability of radiation-induced faults and simpler fault-tolerance strategies.
+Chton's decoder is estimated at ~300 gates, a combinational circuit that validates a 16-bit coordinate and extracts its structural components; the figure is design space until HDL synthesis. This replaces hash units and index controllers that consume significantly more silicon area and power. For radiation-hardened implementations, smaller silicon area means lower probability of radiation-induced faults and simpler fault-tolerance strategies.
 
-## 3. Alignment with 2026 Space Computing Research
+## Alignment with 2026 Space Computing Research
 
 Recent space computing research validates the direction Chton represents.
 
-**Orbital Edge Intelligence.** A 2026 paper proposes Collaborative Orbital Edge Intelligence (COEI), leveraging decentralized collaboration among LEO satellites for energy-efficient on-orbit data processing. Chton's coordinate-based addressing is naturally suited to decentralized environments: each satellite can independently resolve coordinates without consulting a central index, eliminating the coordination overhead that plagues distributed index structures.
+Orbital Edge Intelligence. A 2026 paper proposes Collaborative Orbital Edge Intelligence (COEI), leveraging decentralized collaboration among LEO satellites for energy-efficient on-orbit data processing. Chton's coordinate-based addressing is naturally suited to decentralized environments: each satellite can independently resolve coordinates without consulting a central index, eliminating the coordination overhead that plagues distributed index structures.
 
-**Memory-Centric Architectures.** University of Michigan research emphasizes that "future space missions don't just need more computing power; they need the right kind of computing power". The same study demonstrates that optimized memory architectures can reduce mass from 100 kg to 193 kg, saving an estimated $430 million over a 25-year mission. Chton's elimination of index structures and serialization directly addresses this "right kind" of computing—removing unnecessary layers rather than accelerating them.
+Memory-Centric Architectures. University of Michigan research emphasizes that "future space missions don't just need more computing power; they need the right kind of computing power". The same study demonstrates that optimized memory architectures can reduce mass from 193 kg to 100 kg, saving an estimated $430 million over a 25-year mission. Chton's elimination of index structures and serialization directly addresses this "right kind" of computing, removing unnecessary layers rather than accelerating them.
 
-**Radiation-Tolerant Memory.** While ferroelectric NAND advances address the *storage medium*, Chton addresses the *access method*. The two are complementary: radiation-hardened media provide the physical substrate; Chton provides the structural access layer that minimizes the control logic exposed to radiation. Together, they enable storage systems where both the medium and the method are optimized for space.
+Radiation-Tolerant Memory. While ferroelectric NAND advances address the *storage medium*, Chton addresses the *access method*. The two are complementary: radiation-hardened media provide the physical substrate; Chton provides the structural access layer that minimizes the control logic exposed to radiation. Together, they enable storage systems where both the medium and the method are optimized for space.
 
-**Space-Based Computing Networks.** A 2026 survey of space-based computing networks proposes hierarchical architectures comprising "space-based cloud constellation systems, remote sensing constellation systems, network operation control centers, orchestration data centers, and user access portals". Chton's coordinate space provides a unifying addressing layer across this hierarchy—coordinates are invariant regardless of whether the data resides in a satellite, a ground station, or an orbital data center.
+Space-Based Computing Networks. A 2026 survey of space-based computing networks proposes hierarchical architectures comprising "space-based cloud constellation systems, remote sensing constellation systems, network operation control centers, orchestration data centers, and user access portals". Chton's coordinate space provides a unifying addressing layer across this hierarchy; coordinates are invariant regardless of whether the data resides in a satellite, a ground station, or an orbital data center.
 
-## 4. Technical Implementation Path
+## Technical Implementation Path
 
-Chton's space-grade implementation would follow a phased approach grounded in existing validation.
+Chton's space-grade implementation would follow a phased approach grounded in the in-repo implementation and benchmarks.
 
-**Phase 0: Terrestrial Validation (Complete).** Chton's core principles have been validated through the CERN ROOT-Bypass pilot: replacing ROOT TTree indexing with coordinate addressing eliminates the 372,000-read request bottleneck, reducing 1.6 GB load times from 14 hours to seconds. While the domain differs, the structural mechanism is identical—replacing index traversal with coordinate arithmetic.
+Phase 0: Radiation-Hardened Core. The 300-gate decoder can be implemented in radiation-hardened CMOS or FPGA fabric. Existing space-grade MRAM solutions already demonstrate "inherent radiation immunity, permanent data retention, unlimited endurance, deterministic nanosecond writes". Chton's addressing layer would sit above these media, providing the structural access method.
 
-**Phase 1: Radiation-Hardened Core.** The 300-gate decoder can be implemented in radiation-hardened CMOS or FPGA fabric. Existing space-grade MRAM solutions already demonstrate "inherent radiation immunity, permanent data retention, unlimited endurance, deterministic nanosecond writes". Chton's addressing layer would sit above these media, providing the structural access method.
+Phase 1: Orbital Demonstration. A CubeSat or small satellite payload could demonstrate Chton's storage layer in LEO, measuring power consumption, access latency, and error rates against conventional index-based storage under actual radiation conditions.
 
-**Phase 2: Orbital Demonstration.** A CubeSat or small satellite payload could demonstrate Chton's storage layer in LEO, measuring power consumption, access latency, and error rates against conventional index-based storage under actual radiation conditions.
+Phase 2: Integration with Orbital AI Workloads. As orbital AI inference becomes operational, Chton could serve as the storage substrate for model parameters and inference results, where deterministic access and minimal power overhead are critical.
 
-**Phase 3: Integration with Orbital AI Workloads.** As orbital AI inference becomes operational, Chton could serve as the storage substrate for model parameters and inference results—where deterministic access and minimal power overhead are critical.
-
-## 5. Comparative Positioning
+## Comparative Positioning
 
 | Characteristic | Conventional Space Storage | Chton |
 | :--- | :--- | :--- |
-| **Addressing** | Index traversal (B-tree, hash) | Coordinate arithmetic |
-| **Access Complexity** | O(log n) to O(n) | O(1), deterministic |
-| **Index Maintenance** | Required on every write | None |
-| **Serialization** | Required | None (memory layout = storage format) |
-| **Decoder Complexity** | Significant (hash unit, index controller) | ~300 gates |
-| **Radiation Vulnerability** | Index structures are corruption-prone | Minimal control logic |
-| **Power Profile** | Index operations add overhead | Arithmetic only on access |
+| Addressing | Index traversal (B-tree, hash) | Coordinate arithmetic |
+| Access Complexity | O(log n) to O(n) | O(1) dense, bounded-linear tree |
+| Index Maintenance | Required on every write | None |
+| Serialization | Required | None (memory layout = storage format) |
+| Decoder Complexity | Significant (hash unit, index controller) | ~300 gates |
+| Radiation Vulnerability | Index structures are corruption-prone | Minimal control logic |
+| Power Profile | Index operations add overhead | Arithmetic only on access |
 
-## 6. Conclusion
+## Conclusion
 
-Chton was not designed for space. It was designed to eliminate the structural overhead of indexing and serialization in any domain where those costs matter. Space computing—with its extreme SWaP constraints, radiation vulnerability, and requirement for deterministic behavior—is precisely such a domain.
+Chton was not designed for space. It was designed to eliminate the structural overhead of indexing and serialization in any domain where those costs matter. Space computing, with its extreme SWaP constraints, radiation vulnerability, and requirement for deterministic behavior, is precisely such a domain.
 
-The 2026 space computing literature confirms the direction: orbital edge intelligence requires energy-efficient, decentralized architectures; memory-centric designs can save hundreds of millions of dollars over mission lifetimes; and radiation-tolerant media are advancing. Chton provides the structural access layer that connects these advances into a coherent storage architecture—one where the coordinate is the address, and the address requires no index.
+The 2026 space computing literature confirms the direction: orbital edge intelligence requires energy-efficient, decentralized architectures; memory-centric designs can save hundreds of millions of dollars over mission lifetimes; and radiation-tolerant media are advancing. Chton provides the structural access layer that connects these advances into a coherent storage architecture, one where the coordinate is the address and the address requires no index. Chton is the open-core materialization layer; the commercial space-grade layer above it is Aether.
 
 ## Sources
 
-- **Avalanche Technology Space Grade MRAM** (2026-02-09): radiation immunity, permanent data retention, unlimited endurance, deterministic nanosecond writes
-- **Georgia Tech Ferroelectric NAND** (2026-05-18): 30× radiation tolerance vs. conventional flash
-- **Space radiation tolerance thresholds**: LEO 5–30 kilorads, GEO 100–300 kilorads, deep space 1M rads
-- **Memory-centric space computing** (2026-08-04): "future space missions don't just need more computing power; they need the right kind"; mass savings of 93 kg → $430M mission savings
-- **Orbital data growth**: "amount of data going to and from space is increasing at unprecedented rates"
-- **Space computing challenges**: "power to mass-to-orbit to vulnerability of high-performance chips to radiation"
-- **Collaborative Orbital Edge Intelligence (COEI)** (2026-08-01): decentralized LEO satellite collaboration for energy-efficient on-orbit processing
-- **Space-based computing networks** (2026-03-29): hierarchical architecture survey
-- **ROOT RNTuple**: overcoming TTree I/O bottlenecks for HPC
-- **Chton**: materialization layer projecting coordinate layouts directly onto media
+- Avalanche Technology Space Grade MRAM (2026-02-09): radiation immunity, permanent data retention, unlimited endurance, deterministic nanosecond writes
+- Georgia Tech Ferroelectric NAND (2026-05-18): 30× radiation tolerance vs. conventional flash
+- Space radiation tolerance thresholds: LEO 5–30 kilorads, GEO 100–300 kilorads, deep space 1M rads
+- Memory-centric space computing (2026-08-04): "future space missions don't just need more computing power; they need the right kind"; mass savings of 93 kg → $430M mission savings
+- Orbital data growth: "amount of data going to and from space is increasing at unprecedented rates"
+- Space computing challenges: "power to mass-to-orbit to vulnerability of high-performance chips to radiation"
+- Collaborative Orbital Edge Intelligence (COEI) (2026-08-01): decentralized LEO satellite collaboration for energy-efficient on-orbit processing
+- Space-based computing networks (2026-03-29): hierarchical architecture survey
+- Chton: materialization layer projecting coordinate layouts directly onto media

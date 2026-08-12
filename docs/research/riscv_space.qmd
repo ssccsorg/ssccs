@@ -1,13 +1,13 @@
 ---
 title: "Space Computing: Radiation-Tolerant RISC‑V and SSCCS"
-subtitle: "SSCCS Field Composition Protocols for Adaptive, Semantic Fault Tolerance"
+subtitle: "Software-defined fault tolerance and coordinate-addressed storage for orbital environments"
 document-type: research-report
 maturity-level: conceptual-exploration
 disclaimer: "This report explores hypothetical synergies and does not constitute a development specification."
-date: 2026-04
+date: 2026-08
 date-format: "MMMM, YYYY"
 version-mark: true
-version-prefix: 0.2
+version-prefix: 0.3
 bibliography: ./_include/riscv_space_references.bib
 link-citations: true
 colorlinks: true
@@ -32,7 +32,7 @@ format:
         }
         \makeatother
 abstract: |
-  This report explores a conceptual framework for a synergistic architecture combining SSCCS with radiation‑tolerant RISC‑V platforms for next‑generation space computing. While hardware‑level radiation hardening (e.g., StarRISC [@elash2025efficacy] [@starlab2026], HARV‑SoC [@santos2023harvsoc]) provides essential protection against single‑event effects, it suffers from static overhead and limited adaptability to evolving mission requirements. SSCCS introduces a software‑defined fault‑tolerance layer where Fields—executable, cryptographically signed binaries encoding constraint predicates and transition matrices—can be composed, sandboxed, and updated post‑deployment. By treating fault‑tolerance policies as dynamic Field binaries, this approach could enable: (1) adaptive redundancy via temporal/spatial voting strategies reconfigured via software, (2) semantic error detection through application‑level constraint validation beyond bit‑wise ECC, and (3) reduced SWaP through intelligent resource reuse. The report outlines a conceptual approach to architectural integration via OpenHW's XIF interface and positions this synergy as a strategic response to ESA TRISTAN's call for "deterministic, safe, and mixed‑criticality aware" space processors [@tristan2025].
+  This document projects the SSCCS computation vision onto RISC-V platforms whose designs are public, with space computing as the applied vision layer. The core is computation as structural observation: radiation-tolerant RISC-V platforms extended by SSCCS Fields for software-defined fault tolerance. The same coordinate discipline extends to storage and transmission, which are developed in their own documents and referenced here only where the computation layer depends on them. Hardware-level radiation hardening on current RISC-V platforms provides essential protection against single-event effects, but it is static: once fabricated, the protection mechanism cannot adapt, and it incurs area and power overhead. SSCCS adds a software-defined layer in which Fields, executable and cryptographically signed binaries encoding constraint predicates and transition matrices, are composed, sandboxed, and updated post-deployment, enabling adaptive temporal and spatial redundancy, semantic error detection beyond bit-wise ECC, and reduced SWaP. Chton extends the same structural principle to storage: the coordinate is the address, so there is no index to update, traverse, or corrupt. The RISC-V verification path is exercised by ExaVerif on the OpenHW CVA6 and Ibex cores [@ssccs2026evcva6] [@ssccs2026evibex]. The report outlines architectural integration via OpenHW's XIF interface and positions the synergy as a strategic response to ESA TRISTAN's call for "deterministic, safe, and mixed-criticality aware" space processors [@tristan2025].
 ---
 
 ```{python}
@@ -56,11 +56,11 @@ title_meta_items = {
 
 ## Introduction
 
-Spaceborne and safety‑critical computing systems require high reliability under ionizing radiation. Recent years have seen the emergence of several radiation‑tolerant RISC‑V implementations, including StarRISC (StarRISC) [@elash2025efficacy], HARV‑SoC [@santos2023harvsoc], and TMR‑protected RISC‑V processors [@walsemann2023radiation]. These platforms employ techniques such as hardened flip‑flops, SECDED ECC, and Triple Modular Redundancy (TMR) to mitigate Single Event Upsets (SEUs). However, hardware hardening is static: once fabricated, the protection mechanism cannot adapt to new error patterns or mission phases, and it incurs significant area and power costs.
+Spaceborne and safety‑critical computing systems require high reliability under ionizing radiation. Recent years have seen the emergence of several radiation‑tolerant RISC‑V implementations employing hardened flip-flops, SECDED ECC, and Triple Modular Redundancy (TMR) to mitigate Single Event Upsets (SEUs); the current platforms are surveyed below. However, hardware hardening is static: once fabricated, the protection mechanism cannot adapt to new error patterns or mission phases, and it incurs significant area and power costs.
 
 Concurrently, the SSCCS paradigm redefines computation not as instruction sequencing, but as the observation of stationary structures under dynamic constraints [@lee2026]. Central to this model is the Field, a mutable substrate that governs which states are admissible. Crucially, the SSCCS Whitepaper establishes that Fields are not merely abstract logic; they are first-class executable binaries that can be encrypted, signed, and sandboxed [@lee2026].
 
-This report explores how the binary nature of SSCCS Fields could offer a unique solution to the rigidity of traditional Radiation Hardening by Design (RHBD). By loading "Fault Tolerance Fields" onto a StarRISC-like platform, adaptive, software-defined resilience could be achieved—evolving with the mission environment while reducing hardware overhead and enhancing resilience against complex failure modes like Multi-Bit Upsets (MBUs) and semantic corruption.
+This report explores how the binary nature of SSCCS Fields could offer a unique solution to the rigidity of traditional Radiation Hardening by Design (RHBD). By loading "Fault Tolerance Fields" onto a radiation-tolerant RISC-V platform, adaptive, software-defined resilience could be achieved, evolving with the mission environment while reducing hardware overhead and enhancing resilience against complex failure modes like Multi-Bit Upsets (MBUs) and semantic corruption.
 
 ::: {.callout-note}
 Terminology Clarification: This report distinguishes between:
@@ -68,51 +68,37 @@ Terminology Clarification: This report distinguishes between:
 - Radiation-Hardened (RH): Full tolerance to extreme environments (deep space, >100 krad, LET > 80 MeV·cm²/mg)
 - Radiation-Tolerant (RT): Mitigation for Low Earth Orbit (LEO) and cubesat environments (<50 krad, LET < 40 MeV·cm²/mg)
 
-StarRISC targets the RT regime; SSCCS Fields provide complementary semantic protection applicable to both regimes.
+Current radiation-tolerant platforms target the RT regime; SSCCS Fields provide complementary semantic protection applicable to both regimes.
 :::
 
-## Radiation‑Tolerant RISC‑V Platforms: Capabilities and Limitations
+## Scope: The Computation Vision, with Space as the Vision Layer
 
-### StarRISC
+This document is a projection: the SSCCS computation vision, laid on RISC-V platforms whose designs are public (the RISC-V ISA, OpenHW CORE-V cores), with space computing as the vision layer on top. The core is computation as structural observation, software-defined fault tolerance through SSCCS Fields, and exhaustive verification by ExaVerif. The space context supplies the requirements that make the vision concrete: radiation tolerance, deterministic worst-case latency, and SWaP.
 
-StarRISC is based on the OpenHW CV32E40P core, fabricated in 22‑nm FD‑SOI technology. Key features include:
+| Focus | Component | Role |
+| :--- | :--- | :--- |
+| Computation | Radiation-tolerant RISC-V + SSCCS Fields | Software-defined fault tolerance: adaptive redundancy, semantic error detection (this document) |
+| Identity and addressing | synTagma / Tagma | Coordinate substrate: 11,172 structurally valid 16-bit coordinates, ~300-gate decoder (design space until synthesized) |
+| Verification | ExaVerif | Exhaustive verification of the RISC-V custom-instruction encoding space on OpenHW cores |
 
-| Feature | Description |
-|---------|-------------|
-| Hardened Sequential Elements | Stacked‑transistor flip‑flops resistant to SEUs up to LET ≈ 96 MeV·cm²/mg |
-| ECC Protected Memory | SECDED (Single Error Correction, Double Error Detection) on 512 KB SRAM |
-| Performance | Functional after 100 kRad (proton) TID; no SEFI observed in testing [@elash2025efficacy] |
-| Power/Area | ~15% area overhead vs. baseline CV32E40P; 2.1 mW/MHz typical |
+The same coordinate discipline extends beyond computation to storage and transmission. Those surfaces are developed in [Space-Grade Storage](/projects/chton/space_storage.html) and Tagma-WAV [@ssccs2026tagmawav], with neXus coordinating the runtime [@ssccs2026nexus]; this document references them only where the computation layer depends on them.
 
-Residual Vulnerabilities:
+Realization subject. SSCCS is the paradigm and the foundation identity; it is not itself an executable. The computation vision is realized by the open-core stack, synTagma for the coordinate substrate, ExaVerif for verification, and the OpenHW CORE-V engagement as the route to silicon [@ssccs2026openhw]. The full realization of the SSCCS concept is specific hardware: the Tagma hardware contract already specifies the combinational decoder and pipeline attachment [@ssccs2026tagmahw].
 
-1. Multi-Bit Upsets (MBUs): SECDED ECC corrects single‑bit errors but fails against correlated MBUs in a single word or accumulated errors over time.
-2. Semantic Blindness: Hardware-level error detection operates on bits, not application semantics. A multi‑bit upset that results in a physically impossible state (e.g., velocity exceeding escape velocity) may go undetected.
-3. Static Protection: The hardening strategy is fixed at design time and cannot be adapted to changing mission requirements without pre‑designed overhead.
+## Radiation‑Tolerant RISC‑V Platforms
 
-### HARV‑SoC and TMR‑Protected RISC‑V
+Hardware hardening is the current baseline for radiation tolerance [@elash2025efficacy] [@starlab2026] [@santos2023harvsoc] [@walsemann2023radiation]. Recent RISC‑V platforms combine hardened sequential elements, SECDED ECC, and Triple Modular Redundancy (TMR) to mitigate single‑event effects at the cost of area, power, and design‑time fixation. Two limitations are common across the field:
 
-| Platform | Approach | Strengths | Limitations |
-|----------|----------|-----------|-------------|
-| HARV‑SoC [@santos2023harvsoc] | Fault‑aware SoC with integrated error detection/correction | Proton irradiation characterization; on‑chip fault reporting | Relies on hardware‑based reporting; no dynamic reconfiguration |
-| TMR‑Protected RISC‑V [@walsemann2023radiation] | Triple Modular Redundancy + SRAM scrubbing | Effective against SEUs/MBUs; validated in high‑energy physics | 3× area/power overhead; protection level fixed at fabrication |
+1. Hard‑coded redundancy: protection mechanisms are fixed in hardware, preventing adaptation to varying radiation environments or mission phases.
+2. Semantic blindness: hardware‑level error detection (ECC, voters) operates on bits, not on application‑level semantics. A multi‑bit upset that results in a physically impossible state (e.g., velocity exceeding escape velocity) may go undetected.
 
-### Common Limitations
-
-All three platforms share two fundamental constraints:
-
-1. Hard‑coded Redundancy: Protection mechanisms are fixed in hardware, preventing adaptation to varying radiation environments or mission phases.
-2. Semantic Blindness: Hardware‑level error detection (ECC, voters) operates on bits, not on application‑level semantics. A multi‑bit upset that results in a physically impossible state may go undetected.
-
-## Landscape of Radiation‑Tolerant RISC‑V Research
-
-Beyond the three platforms detailed above, the RISC‑V ecosystem has seen a surge of research targeting radiation tolerance. Below table summarizes key recent contributions with explicit SSCCS synergy opportunities.
+The landscape below consolidates the current platforms and research contributions together with the SSCCS synergy opportunities that this document develops.
 
 ::: {#tbl:research-landscape tbl-colwidths="[30, 20, 20, 30]"}
 
 | Study | Approach | Key Contribution | Synergy |
 |-------|----------|------------------|------------------------------|
-| StarRISC [@elash2025efficacy] | RHBD with hardened flip‑flops + SECDED ECC | Demonstrated functional operation after 100 kRad TID | Ideal target for Field sandboxing via PMP; minimal area overhead for Field accelerator |
+| StarRISC [@elash2025efficacy] [@starlab2026] | RHBD with hardened flip‑flops + SECDED ECC | Demonstrated functional operation after 100 kRad TID | Ideal target for Field sandboxing via PMP; minimal area overhead for Field accelerator |
 | PIC64‑HPSC (Microchip/NASA) [[@microchip2025pic64]] | High‑performance RISC‑V with vector extensions | 8× SiFive X280 cores, Vector Extension, up to 2 TOPS AI/ML | SSCCS Fields for semantic validation of AI inference outputs in autonomous navigation |
 | CORE‑V MCU (OpenHW) [[@openhw2025cvmcu]] | Ultra‑low‑power RT RISC‑V for cubesats | RV32IMC, PMP, SECDED ECC, 512KB SRAM | Reference platform for Field binary loading and XIF integration |
 | On‑Demand Lockstep (Simões et al., 2024) [@simoes2024] | Dynamic redundancy: cores operate in lockstep only when error rate exceeds threshold | Reduces power overhead by activating redundancy only during high‑radiation periods | SSCCS Fields can implement policy logic for mode switching decisions |
@@ -129,9 +115,11 @@ Before detailing the SSCCS integration, this section defines the adversarial and
 
 | Parameter | LEO/CubeSat Regime | Deep‑Space Regime |
 |-----------|-------------------|-------------------|
-| Total Ionizing Dose (TID) | 10–50 krad(Si) | 100–1000 krad(Si) |
+| Total Ionizing Dose (TID) | 5–30 krad(Si) | 100–1000 krad(Si) |
 | Linear Energy Transfer (LET) | < 40 MeV·cm²/mg | > 80 MeV·cm²/mg |
 | Dominant Faults | SEU, occasional MBU | MBU, SEL, cumulative degradation |
+
+Dose and LET figures are cited from the space radiation literature and are not independently verified in this document.
 
 ### Adversarial Capabilities
 
@@ -147,7 +135,7 @@ Before detailing the SSCCS integration, this section defines the adversarial and
 
 ## The Core Enabler: SSCCS Fields as Executable Binaries
 
-The synergy with StarRISC relies entirely on the properties of SSCCS Fields described in Section 2.3.3 of the SSCCS Whitepaper [@lee2026].
+The synergy with a radiation-tolerant RISC-V platform relies entirely on the properties of SSCCS Fields described in Section 2.3.3 of the SSCCS Whitepaper [@lee2026].
 
 ### Dual Nature of Fields
 
@@ -224,7 +212,7 @@ digraph FieldComposition {
 
 ## Synergy: Software-Defined Radiation Hardening (SDRH)
 
-As a hypothetical integration scenario, a hybrid architecture is conceivable in which StarRISC provides the physical baseline resilience, while SSCCS Fields could provide the adaptive, semantic resilience layer.
+As a hypothetical integration scenario, a hybrid architecture is conceivable in which a radiation-tolerant RISC-V core provides the physical baseline resilience, while SSCCS Fields provide the adaptive, semantic resilience layer.
 
 ### Temporal Redundancy via Observation Fields
 
@@ -239,7 +227,7 @@ digraph Temporal_Redundancy {
     node [shape=box, style=filled, fontname="Helvetica"]
 
     subgraph cluster_core {
-        label="StarRISC Core"
+        label="RT RISC-V Core"
         color="#333333"
         style=solid
         CPU [label="RISC-V Pipeline", fillcolor="#D4E7F4"]
@@ -285,7 +273,7 @@ let stability_field = Field::new()
 
 #### Quantitative Analysis of Temporal Redundancy Overhead
 
-The area overhead for SSCCS temporal redundancy is estimated at **8–12%** relative to a baseline CV32E40P core, broken down as follows:
+The area overhead for SSCCS temporal redundancy is estimated at 8–12% relative to a baseline CV32E40P core, broken down as follows:
 
 | Component | Resource Estimate | Area Contribution |
 |-----------|------------------|-------------------|
@@ -293,17 +281,17 @@ The area overhead for SSCCS temporal redundancy is estimated at **8–12%** rela
 | Transition Matrix Unit (TMU) | ~800 LUTs (4 multipliers + accumulator) | ~4.9% |
 | Field Descriptor Table (FDT) | 1 KB SRAM | ~2.0% |
 | Segment Cache | 2 KB SRAM | ~1.0% |
-| **Total** | | **~11%** |
+| Total | | ~11% |
 
 This is dramatically lower than the ~200% area penalty of full TMR.
 
-**SEU Detection Probability:** With a single observation, the probability of an undetected SEU is $p$ (the raw upset rate). With a Stability Field requiring two agreeing observations, the probability of an undetected SEU becomes $p^2$ (assuming independent upsets). For example, if $p = 10^{-6}$ per cycle, temporal redundancy reduces undetected upset probability to $10^{-12}$ per dual‑observation window.
+SEU Detection Probability: With a single observation, the probability of an undetected SEU is $p$ (the raw upset rate). With a Stability Field requiring two agreeing observations, the probability of an undetected SEU becomes $p^2$ (assuming independent upsets). For example, if $p = 10^{-6}$ per cycle, temporal redundancy reduces undetected upset probability to $10^{-12}$ per dual‑observation window.
 
-**Latency Model:**
+Latency Model:
 
-- **Best case (cache hit, simple constraint):** 3–5 cycles
-- **Typical case (cache hit, moderate constraint):** 8–12 cycles
-- **Worst case (memory fetch + semantic validation):** 15–30 cycles
+- Best case (cache hit, simple constraint): 3–5 cycles
+- Typical case (cache hit, moderate constraint): 8–12 cycles
+- Worst case (memory fetch + semantic validation): 15–30 cycles
 
 A configurable `timeout_cycles` field in the Field header prevents indefinite stalls.
 
@@ -339,7 +327,7 @@ This approach directly addresses ESA's concern about "non‑deterministic latenc
 
 ### Distributed Voting with Signed Fields
 
-In a multi-core or swarm configuration, SSCCS Fields enable Software-Defined Consensus. A "Voting Field" can be broadcast to multiple StarRISC nodes. Each node observes its local Segment and projects a value. The Field's transition matrix $T$ aggregates these projections using a majority vote or weighted average [@lee2026].
+In a multi-core or swarm configuration, SSCCS Fields enable Software-Defined Consensus. A "Voting Field" can be broadcast to multiple radiation-tolerant RISC-V nodes. Each node observes its local Segment and projects a value. The Field's transition matrix $T$ aggregates these projections using a majority vote or weighted average [@lee2026].
 
 | Advantage | Description |
 |-----------|-------------|
@@ -380,7 +368,7 @@ Both instructions use the R‑type format within the RISC‑V custom‑0 opcode 
 `define FUNCT7_COLLAPSE  7'b0000010
 ```
 
-These instructions could allow the StarRISC core to offload the complex constraint evaluation of the Field to a tightly coupled coprocessor or accelerator, potentially minimizing performance overhead.
+These instructions could allow the radiation-tolerant core to offload the complex constraint evaluation of the Field to a tightly coupled coprocessor or accelerator, potentially minimizing performance overhead.
 
 ```{python}
 #| label: fig-xif-integration
@@ -390,7 +378,7 @@ digraph XIF_Integration {
     rankdir=LR
     node [shape=box, style=filled, fontname="Helvetica"]
 
-    CPU [label="CV32E40P Core\\n(StarRISC)", fillcolor="#E8E8E8"]
+    CPU [label="CV32E40P Core\\n(OpenHW)", fillcolor="#E8E8E8"]
     XIF [label="XIF Interface", shape=parallelogram, fillcolor="#F8D4A8"]
 
     subgraph cluster_coprocessor {
@@ -449,7 +437,7 @@ digraph XIF_Integration {
 
 Leveraging the Binary-Level Composition Protocols [@lee2026]:
 
-1. Upload: New Field binaries (e.g., updated fault tolerance policies) are uploaded to StarRISC's secure memory.
+1. Upload: New Field binaries (e.g., updated fault tolerance policies) are uploaded to the platform's secure memory.
 2. Verification: The SSCCS Runtime verifies the Ed25519/ECDSA signature of the Field binary against a root of trust stored in OTP.
 3. Sandboxing: The Field is loaded into a protected memory region (using PMP - Physical Memory Protection). It can only access Segments explicitly granted permission, preventing side-channel attacks or fault propagation [@lee2026].
 
@@ -457,13 +445,13 @@ Leveraging the Binary-Level Composition Protocols [@lee2026]:
 
 Space missions lasting years require the ability to update cryptographic keys post‑launch. The following key rolling mechanism is adopted:
 
-1. **Initial Provisioning**: OTP stores a single **Master Public Key** (immutable) programmed during fabrication.
-2. **Key Update Procedure**:
+1. Initial Provisioning: OTP stores a single Master Public Key (immutable) programmed during fabrication.
+2. Key Update Procedure:
    - Ground station generates a new key pair (PubKey₁, PrivKey₁).
-   - A special **Key Update Field** is created, containing the hash of PubKey₁ and signed by the Master Private Key (held securely on ground).
+   - A special Key Update Field is created, containing the hash of PubKey₁ and signed by the Master Private Key (held securely on ground).
    - The spacecraft receives and verifies the Key Update Field using the Master Public Key.
-   - Upon successful verification, the hash of PubKey₁ is written to a designated **Key Segment** in ECC‑protected SRAM.
-3. **Field Verification with Updated Key**:
+   - Upon successful verification, the hash of PubKey₁ is written to a designated Key Segment in ECC‑protected SRAM.
+3. Field Verification with Updated Key:
    - Subsequent Field binaries may be signed with PrivKey₁.
    - The runtime verifies the Field signature using PubKey₁, validating the chain: Master → PubKey₁ → Field.
 
@@ -509,7 +497,7 @@ digraph Secure_Loading {
 
 #### PMP-Based Memory Isolation Layout
 
-Memory Map (StarRISC 512KB ECC SRAM):
+Memory Map (example: 512 KB ECC SRAM on a radiation-tolerant RISC-V platform):
 
  | Address      | Region                | PMP Configuration       |
 |--------------|-----------------------|-------------------------|
@@ -519,9 +507,13 @@ Memory Map (StarRISC 512KB ECC SRAM):
 | 0x0003_0000  | Segment Storage       | R (Field only)          |
 | 0x0004_0000  | Application Memory    | RWX                     |
 
+## Coordinate-Addressed Storage
+
+The computation layer rests on a coordinate-addressed substrate. Chton materializes coordinate spaces directly onto physical media without indexing or hashing, so a coordinate resolves to a physical address by arithmetic, with bounded access independent of dataset size [@ssccs2026spacestorage]. The space-grade analysis, including radiation-tolerant media and the SWaP argument, lives in [Space-Grade Storage](/projects/chton/space_storage.html) and is referenced here only as the substrate the computation layer assumes.
+
 ## Conclusion
 
-The conceptual integration of StarRISC and SSCCS suggests the potential for more than incremental improvement—it points toward a possible new design paradigm for resilient space computing. By exploiting the executable, composable nature of SSCCS Fields [@lee2026], this synergy transcends the limitations of static hardware hardening:
+The conceptual integration of a radiation-tolerant RISC-V core and SSCCS suggests the potential for more than incremental improvement: it points toward a possible new design paradigm for resilient space computing. By exploiting the executable, composable nature of SSCCS Fields [@lee2026], this synergy transcends the limitations of static hardware hardening:
 
 | Dimension | Traditional RHBD | SSCCS‑Enhanced Architecture |
 |-----------|-----------------|----------------------------|
@@ -533,7 +525,24 @@ The conceptual integration of StarRISC and SSCCS suggests the potential for more
 
 This synergy directly addresses the strategic imperatives identified by ESA TRISTAN: supply chain resilience through open standards, and deterministic execution for mixed‑criticality autonomy [@tristan2025]. Furthermore, the cryptographic signing of Fields aligns with emerging space cybersecurity frameworks, providing a verifiable chain of trust from ground station to orbit.
 
-A joint proof‑of‑concept with the OpenHW ecosystem could validate the XIF‑based SSCCS accelerator, potentially positioning this architecture as a reference implementation for next‑generation European and global space computing initiatives. The open‑source nature of both StarRISC and SSCCS would enable transparent verification—a critical differentiator for safety‑critical space missions.
+A joint proof‑of‑concept with the OpenHW ecosystem could validate the XIF‑based SSCCS accelerator, potentially positioning this architecture as a reference implementation for next‑generation European and global space computing initiatives. The open-source nature of both the RISC-V core and SSCCS would enable transparent verification, a critical differentiator for safety‑critical space missions.
+
+The computation vision rests on one coordinate substrate that also carries storage and transmission; those surfaces are developed in their own documents and referenced here only where the computation layer depends on them.
+
+The grounds in this document (radiation-tolerant computation, coordinate-addressed storage, semantic fault tolerance) and the implementation interact in both directions: the grounds set the constraints the implementation must meet, and implementation measurements, once field-validated, will upgrade the cited and modeled claims in these grounds into measured ones.
+
+### Status
+
+| Component | Status (2026-08) | Class | Evidence |
+| :--- | :--- | :--- | :--- |
+| Tagma coordinate identity | Specified, benchmarked, exhaustively enumerable | measured | [synTagma](/projects/syntagma/) |
+| ExaVerif verification of OpenHW cores | Reports published | measured | [CVA6 CV-X-IF Report (Standard Reference)](/projects/ev/cva6.html), [Ibex RV32IMCB Report](/projects/ev/ibex.html) |
+| neXus swarm runtime | Runtime implemented and benchmarked | measured | [neXus](/projects/nexus/) |
+| Chton space-grade storage analysis | Published | cited, modeled | [Space-Grade Storage](/projects/chton/space_storage.html) |
+| Tagma-WAV signal layer | Digital path measured; physical layer modeled | measured, modeled | [Tagma-WAV](/projects/syntagma/tagma/wav/) |
+| OpenHW CORE-V integration | Engagement in discussion | cited | [SSCCS Validation with OpenHW CORE-V Ecosystem](/works/openhw_integration.html) |
+| XIF Field accelerator (OBSERVE/COLLAPSE) | Conceptual, this document | modeled | Architectural implementation section |
+| On-orbit demonstration | Not started | modeled | Phased roadmap |
 
 ## Technical Appendix {.unnumbered .appendix}
 
@@ -588,7 +597,7 @@ Key Hardware Blocks:
 
 | Block | Estimated Overhead (RV32IMC) | Description |
 |-------|------------------------------|-------------|
-| Segment Cache | ~2 KB; <1% area | Small SRAM storing coordinate vectors of frequently accessed Segments; coupled with StarRISC ECC |
+| Segment Cache | ~2 KB; <1% area | Small SRAM storing coordinate vectors of frequently accessed Segments; coupled with the platform's ECC |
 | Constraint Evaluation Unit (CEU) | ~500 LUTs; ~3% area | Combinational logic evaluating Field's constraint predicate $C(s)$. Supports three classes [@lee2026]: (1) dimensional (range checks), (2) algebraic (linear inequalities), (3) semantic (finite-state validation) |
 | Transition Matrix Unit (TMU) | ~800 LUTs; ~4% area | Computes Field's transition matrix $T(s, s')$. Accelerates max/min and multiplication operations [@lee2026] |
 
@@ -626,9 +635,9 @@ Algorithm (fixed-point arithmetic in Q16.16 format):
    or majority_vote(proj_0..proj_N-1)          // majority vote with tie → previous
 ```
 
-**Fixed-Point Arithmetic**: All weights and intermediate sums are maintained in Q16.16 format to avoid floating-point unit overhead, suitable for resource‑constrained space processors.
+Fixed-Point Arithmetic: All weights and intermediate sums are maintained in Q16.16 format to avoid floating-point unit overhead, suitable for resource‑constrained space processors.
 
-**Tie-Breaking Policy**: In majority voting, if no candidate receives >50% of weighted votes, the system retains the previous projection value (conservative fallback).
+Tie-Breaking Policy: In majority voting, if no candidate receives >50% of weighted votes, the system retains the previous projection value (conservative fallback).
 
 This aggregation is implemented by reading observations from memory via XIF's Memory Request/Response interface, computing weights in the TMU, and returning the result via the Result interface.
 
@@ -652,9 +661,9 @@ This aggregation is implemented by reading observations from memory via XIF's Me
 | CEU/TMU Hardware Units | Functionality specified in Whitepaper [@lee2026] | Medium | Detailed microarchitecture design per constraint type required |
 | PMP-Based Sandboxing | Leverages standard RISC‑V feature | High | Optimization of Field-specific PMP context caching |
 | Temporal Redundancy Mechanism | Defined at algorithmic level with quantitative estimates | High | Validation via SEU injection simulation |
-| Cryptographic Signature Verification | Ed25519/ECDSA with key rolling | High | OTP public key storage required (exists on StarRISC) |
+| Cryptographic Signature Verification | Ed25519/ECDSA with key rolling | High | OTP public key storage required |
 
-A three-phase validation roadmap (Simulation → FPGA Emulation → Radiation Testing) could provide an appropriate approach for systematically verifying these compatibility elements. In particular, the CV‑X‑IF compatible coprocessor example (`xif_copro`) [@xifcopro2025] offers a reference template that could be adapted for SSCCS instruction implementation, potentially enabling use in Phase 2 FPGA emulation.
+A three-phase validation roadmap (Simulation → FPGA Emulation → Radiation Testing) could provide an appropriate approach for systematically verifying these compatibility elements. In particular, the CV‑X‑IF compatible coprocessor example (`xif_copro`) [@xifcopro2025] offers a reference template that could be adapted for SSCCS instruction implementation, potentially enabling use in Phase 2 FPGA emulation. The OpenHW CORE-V integration engagement [@ssccs2026openhw] is the current route toward Phase 1 FPGA emulation, and the CVA6 CV-X-IF report [@ssccs2026evcva6] already exercises the XIF encoding space that the accelerator would consume.
 
 ## Glossary
 
@@ -665,6 +674,8 @@ A three-phase validation roadmap (Simulation → FPGA Emulation → Radiation Te
 | Field | Mutable constraint substrate that governs what can be observed; executable binary in SSCCS |
 | Observation (Ω) | Active computation event that reveals Projection from Structure + Field |
 | Projection | Ephemeral, deterministic output of an Observation at the logical model level |
+| Chton | Materialization layer that projects coordinate spaces onto physical media without indexing or hashing |
+| Tagma | 16-bit structural coordinate; the identity and addressing primitive of synTagma |
 | XIF | CORE-V eXtension Interface for tightly coupled coprocessors |
 | RHBD | Radiation Hardening by Design |
 | RT | Radiation-Tolerant (mitigation for LEO/cubesat environments) |
