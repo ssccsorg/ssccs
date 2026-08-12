@@ -1,0 +1,26 @@
+```{python}
+#| label: fig-bench-kb
+#| fig-cap: "Knowledge-base scenario (10K documents, 10 projects, 20 authors): selective queries are sub-millisecond; the reverse lookup is a known O(fan-out) scan."
+import matplotlib.pyplot as plt
+
+cats = ['Project + author\n(AND)', 'Project only', 'Project + author\n+ time range', 'Intents by fact\n(reverse lookup)']
+vals = [70.2, 260, 70.4, 60400]  # microseconds
+
+fig, ax = plt.subplots(figsize=(5.6, 3.2))
+bars = ax.bar(cats, vals, width=0.5, color='white', edgecolor='black',
+              linewidth=0.8, hatch=['///', '...', 'xxx', ''])
+ax.set_ylabel('Query time (µs)')
+ax.set_yscale('log')
+ax.set_ylim(10, 200_000)
+
+labels = ['70.2 µs', '260 µs', '70.4 µs', '60.4 ms']
+for bar, label in zip(bars, labels):
+    ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() * 1.15,
+            label, ha='center', va='bottom', fontsize=7.5)
+
+ax.annotate('O(fan-out) scan,\nknown and documented', xy=(3.0, 3000), fontsize=7.5,
+            ha='center', bbox=dict(boxstyle='round,pad=0.2',
+                                   facecolor='white', edgecolor='black', alpha=0.85))
+plt.tight_layout()
+plt.show()
+```

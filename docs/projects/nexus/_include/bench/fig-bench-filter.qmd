@@ -1,0 +1,27 @@
+```{python}
+#| label: fig-bench-filter
+#| fig-cap: "Filter queries: previous full-scan model (10K facts) versus current selective queries (50K facts). The previous model scanned the entire store regardless of selectivity, so the gap is conservative."
+import matplotlib.pyplot as plt
+
+cats = ['Previous model\nfull scan (10K facts)', 'Creator only\n(50K facts)', 'Origin + creator\n(50K facts)', 'Three-axis\n(50K facts)']
+vals = [27800, 745, 296, 83.8]  # microseconds
+
+fig, ax = plt.subplots(figsize=(6.0, 3.2))
+bars = ax.bar(cats, vals, width=0.55, color='white', edgecolor='black',
+              linewidth=0.8, hatch=['///', '...', 'xxx', ''])
+ax.set_ylabel('Query time (µs)')
+ax.set_yscale('log')
+ax.set_ylim(10, 100_000)
+
+labels = ['27.8 ms', '745 µs', '296 µs', '83.8 µs']
+for bar, label in zip(bars, labels):
+    ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() * 1.12,
+            label, ha='center', va='bottom', fontsize=8)
+
+ax.annotate('each added axis shrinks the candidate set',
+            xy=(2.0, 400), fontsize=7.5, ha='center',
+            bbox=dict(boxstyle='round,pad=0.2',
+                      facecolor='white', edgecolor='black', alpha=0.85))
+plt.tight_layout()
+plt.show()
+```

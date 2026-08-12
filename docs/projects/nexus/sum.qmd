@@ -1,0 +1,108 @@
+---
+title: "Executive Summary"
+subtitle: "A knowledge infrastructure & swarm execution runtime for problem-solving"
+version-prefix: nexus-es-1
+version-mark: true
+generate-title-meta: false
+format:
+  pdf:
+    classoption:
+      - twocolumn
+    fontsize: 10pt
+    geometry:
+      - margin=16mm
+    pdf-engine: xelatex
+    include-in-header:
+      text: |
+        \usepackage{microtype}
+        \addtokomafont{disposition}{\rmfamily}
+  html: {}
+metadata-files:
+  - ../../_include/author.yml
+  - ../../_include/format.pdf.yml
+  - ../../_include/format.html.yml
+---
+
+## The problem: knowledge systems tax every query twice
+
+Every knowledge system today carries two recurring costs that have become invisible. Record identity is hash-based: a UUID or a SHA-256 digest names a record without saying anything about what the record is. Retrieval leans on LLM inference: text is embedded into vectors, scanned through an index, and a model is invoked for every question. The industry response has been larger indexes and more model calls, compensating for a structural inefficiency rather than eliminating it.
+
+A conventional knowledge graph stores static entity-relationship triplets. It captures what is known, but not how it was established. A conclusion cannot be audited back to the hypothesis that generated it or the experiment that confirmed it. The graph is a static snapshot that cannot be replayed, and every query pays for the snapshot without recovering the reasoning.
+
+## A structural identity with a replayable trace
+
+neXus replaces hash-based identity with the Tagma coordinate space [^tagma]. A CoordId is a structural identifier: a path of six coordinates by default, each drawn from 11,172 valid values, giving a $2\times10^{24}$ address space, and CoordId<20> reaches SHA-256 scale. The six axes are application-defined: time_hi, time_lo, entity kind (Fact, Intent, or Hint), origin, creator, and serial. Identity is a coordinate, so identity is queryable: a filter on origin or creator is an axis projection over a coordinate tree.
+
+The data model is FIH. Fact is an immutable, validated observation and the output of a concluded Intent. Intent is a proposed exploration with a strict lifecycle: submit, claim, heartbeat, conclude. Hint is an injected, read-only constraint bounding admissible actions. **A Fact is a unit of verified progress: the Intent that proposed it, the Hint that bounded it, and the evidence that validated it travel with the Fact.** The blackboard is a queryable, replayable computational trace, and each conclusion can be audited to the experiment that confirmed it.
+
+FihStorage realizes this model as one unified 19-axis coordinate tree. The leading axes place records in chronological order, so a time-range query is a contiguous subtree. The entity axis keeps Fact, Intent, and Hint in a single store. The identity axes round-trip the CoordId, and the content-hash axes carry a 94-bit content fingerprint. Any backend that stores an append-only record, a stateful record, and a read-only record becomes a Blackboard: SQLite, blockchain, cloud database, embedded filesystem, or object storage. No graph database and no specialized index layer are required. The same binary runs on Wasm, edge nodes, portable devices, blockchain runtimes, and bare-metal containers.
+
+The platform around this substrate is organized in five layers: a hybrid knowledge graph engine, an artifact ingestion pipeline, an agentic research loop coordinated by stigmergy, an on-policy learning loop, and contract governance. Every layer reads and writes the same FIH store.
+
+## Measured performance
+
+All measurements come from the nexus benchmark suite (`cargo bench -p nexus-bench`), Criterion, release profile, median of 10 samples, Apple M1 (ARMv8.4-A Firestorm, 3.2 GHz), 2026-07-31 [^bench].
+
+### Query and identity
+
+Structural prefix queries. A full walk of a 50,000-entry tree costs 540 ms. Five hundred prefix queries over the same tree cost 1.12 ms in total, 2.24 µs per query. The coordinate tree turns an O(N) scan into an O(subtree) navigation, a 241,000x gap per query, because a prefix names a branch of the tree. A scan-based paradigm pays the full cost on every query; the coordinate tree pays only the subtree.
+
+Identity lookup. The same six-axis identity space resolves 10,000 lookups through a hash-based index, the existing identity paradigm, in 120.9 µs, 12.1 ns per lookup. The Tagma dense packed array resolves them in 60.8 µs, 6.08 ns per lookup, 2.0x faster than the hash index. The Tagma tree form resolves them in 533 µs, 53.3 ns per lookup; it is slower on single-record lookups because it carries prefix navigation, the O(subtree) path measured above. Both Tagma costs scale with coordinate depth, independent of data volume: $10^4$ and $10^{24}$ records cost the same number of dereferences.
+
+:::{ layout-ncol=2 }
+{{< include _include/bench/fig-bench-prefix.qmd >}}
+{{< include _include/bench/fig-bench-lookup.qmd >}}
+:::
+
+### Filtering
+
+Filter selectivity. Over 50,000 facts, a single-axis creator filter matching 2,500 records costs 745 µs. An origin and creator AND query matching 500 records costs 296 µs. A three-axis query, origin, creator, and time range, resolves in 83.8 µs and materializes no records. Each added dimension shrinks the candidate set before any record is loaded, and the most selective query is the cheapest. The previous model scanned the full store on every filter, with a measured ceiling of 27.8 ms at 10,000 facts [^old]; the current filters run at 50,000 facts and stay below that ceiling.
+
+Axis hints. The benchmark pair labeled without and with axis hints measures 127 µs and 42.1 µs on 10,000 facts. The label follows the benchmark suite; the FihStorage filter path currently traverses the unified store with record-field predicates, and wiring the prefix-query path is a documented pending optimization with the design preserved [^hints]. The fast path it will consume is the same iter_prefix measured above. At the same 10,000-fact size, the previous full-scan model took 27.8 ms [^old], so the current path is already 219x below that ceiling before the fast path is wired.
+
+:::{ layout-ncol=2 }
+{{< include _include/bench/fig-bench-filter.qmd >}}
+{{< include _include/bench/fig-bench-hints.qmd >}}
+:::
+
+### Knowledge base and write
+
+Knowledge-base scenario. Ten thousand documents across ten projects and twenty authors: a project and author AND query resolves in 70.2 µs, a project-only query in 260 µs, and a project, author, and time-range query in 70.4 µs. Reverse lookup of intents referencing a fact costs 60.4 ms per call, an O(fan-out) scan whose cost is known and documented.
+
+Batch write. Ten thousand facts submit and flush in 51.9 ms, 5.19 µs per fact, with a single flush boundary rather than per-record IO. The pre-Tagma implementation took 1,776 ms for the same volume, a 34x gap [^old].
+
+:::{ layout-ncol=2 }
+{{< include _include/bench/fig-bench-kb.qmd >}}
+{{< include _include/bench/fig-bench-write.qmd >}}
+:::
+
+## Resource profile
+
+The 19-axis tree allocates one leaf node per written prefix, and each leaf covers 11,172 slots regardless of occupancy. Memory scales with prefix count, not record count. Dense packing removes allocation entirely at a fixed memory floor and holds a flat 6 ns lookup. Graph traversal, gap detection, and reporting operate on accumulated facts at zero marginal inference cost; AI use is confined to knowledge-branch generation.
+
+## Verification by exhaustive enumeration
+
+The coordinate space is exhaustively enumerable: 65,536 possible 16-bit values, of which exactly 11,172 are structurally valid under a closed-form composition formula. A verification harness validates every input against the decoder specification in milliseconds on any commodity system, and every FIH layout on these axes inherits the guarantee. No hash-based index can be exhaustively verified across its input space.
+
+## Boundaries
+
+neXus does not replace cryptographic primitives. FihHash remains for evidence chains and content integrity; the coordinate axes provide ordering, not preimage resistance. The two compose: a SHA-256 digest encoded as coordinates stays verifiable and becomes queryable by axis. The benchmark suite reports the current predicate path and the structural fast path side by side, so the reader sees the measured ceiling and the measured headroom.
+
+## Application domains
+
+Research documentation. The research process is recorded as FIH: hypotheses as Intents, validated results as Facts, scope as Hints. Conclusions are auditable to the experiments that confirmed them.
+
+Agent coordination. Peers interact only through the blackboard, leaving and reading traces. There is no privileged orchestrator; roles are defined by what a peer reads and writes.
+
+Serverless and edge. Any append-only backend is sufficient, so the same binary deploys on Wasm, edge nodes, portable devices, blockchain runtimes, and bare-metal containers.
+
+Knowledge accumulation. Each producer solving a problem contributes verified knowledge back to the shared store, and the store compounds recursively across agents, experiments, projects, and ecosystems.
+
+## Status
+
+neXus is an open-source project (Apache 2.0) under the SSCCS Foundation. The Rust workspace is available on GitHub (ssccsorg/nexus) with the unified benchmark suite and an end-to-end verification harness. The FIH contract layer, governance gates, and evidence chains are implemented; gap and contradiction detectors record findings as idempotent Facts. For inquiries, demos, or partnership discussions: <contact@ssccs.org>
+
+[^tagma]: synTagma is the coordinate-space primitive behind neXus identity. Repository: <https://github.com/ssccsorg/syntagma>
+[^bench]: Benchmark code: <https://github.com/ssccsorg/nexus/blob/main/benches/bench.rs>
+[^hints]: AxisHints is part of the spatial query surface of `StateFilter`. FihStorage preserves the design; the prefix-query path is a pending wiring optimization.
+[^old]: Pre-Tagma write baseline from the `Vec<FactRecord>` full-scan implementation, measured on the same Apple M1. Devlog 160 (2026-07-29): <https://github.com/ssccsorg/nexus/blob/main/docs/report/devlogs/20260729.md>

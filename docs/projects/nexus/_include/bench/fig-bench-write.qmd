@@ -1,0 +1,25 @@
+```{python}
+#| label: fig-bench-write
+#| fig-cap: "Batch write of 10K facts: pre-Tagma full-scan model versus current single-flush batch (34x)."
+import matplotlib.pyplot as plt
+
+cats = ['Previous model\n(per-record IO)', 'Current\n(single flush boundary)']
+vals = [1776, 51.9]  # milliseconds
+
+fig, ax = plt.subplots(figsize=(5.4, 3.2))
+bars = ax.bar(cats, vals, width=0.45, color='white', edgecolor='black',
+              linewidth=0.8, hatch=['///', ''])
+ax.set_ylabel('Total write time (ms)')
+ax.set_yscale('log')
+ax.set_ylim(10, 10_000)
+
+for bar, label in zip(bars, ['1776 ms', '51.9 ms']):
+    ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() * 1.12,
+            label, ha='center', va='bottom', fontsize=9)
+
+ax.annotate('34x', xy=(0.5, 600), fontsize=12, fontweight='bold', ha='center',
+            bbox=dict(boxstyle='round,pad=0.2', facecolor='white',
+                      edgecolor='black', alpha=0.85))
+plt.tight_layout()
+plt.show()
+```

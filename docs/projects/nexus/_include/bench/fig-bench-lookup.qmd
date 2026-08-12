@@ -1,0 +1,27 @@
+```{python}
+#| label: fig-bench-lookup
+#| fig-cap: "Identity lookup in the 6-axis space (10K lookups): hash-based index versus Tagma layouts. The dense layout is 2.0x faster than the hash index; the tree layout is 4.4x slower on single-record lookups because it carries prefix navigation."
+import matplotlib.pyplot as plt
+
+cats = ['Hash index\n(32-byte key)', 'Tagma tree\n(CoordSpaceN6)', 'Tagma dense\n(CoordSpace2)']
+vals = [12.1, 53.3, 6.08]  # ns per lookup
+
+fig, ax = plt.subplots(figsize=(5.8, 3.2))
+bars = ax.bar(cats, vals, width=0.5, color='white', edgecolor='black',
+              linewidth=0.8, hatch=['///', '...', 'xxx'])
+ax.set_ylabel('Latency per lookup (ns)')
+ax.set_yscale('log')
+ax.set_ylim(1, 300)
+
+for bar, val in zip(bars, vals):
+    ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() * 1.12,
+            f'{val:.1f} ns', ha='center', va='bottom', fontsize=8)
+
+ax.text(0.03, 0.96,
+        'dense 2.0x vs hash\ntree 4.4x vs hash\n(tree carries prefix navigation)',
+        transform=ax.transAxes, ha='left', va='top', fontsize=7.5,
+        bbox=dict(boxstyle='round,pad=0.3', facecolor='white',
+                  edgecolor='black', alpha=0.85))
+plt.tight_layout()
+plt.show()
+```
