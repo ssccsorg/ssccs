@@ -60,6 +60,22 @@ format:
         \makeatother
 ---
 
+```{python}
+#| include: false
+#| context: local
+title_meta_items = {
+    "html": [
+        {"title": "Whitepapers", "link": "https://doi.org/10.5281/zenodo.21302508", "content": "Tagma", "icon": "bi bi-link"},
+
+        {"title": "References", "link": "/projects/syntagma/tagma/", "content": "Primitive", "icon": "bi bi-link"},
+        {"title": "References", "link": "https://github.com/ssccsorg/syntagma/tree/main/sw/rust/devlog", "content": "Devlog", "icon": "bi bi-link"},
+        {"title": "Code", "link": "https://github.com/ssccsorg/syntagma", "content": "GitHub", "icon": "bi bi-link"},
+
+        {"title": "Code", "link": "https://github.com/ssccsorg/syntagma/blob/main/sw/rust/benches/bench.rs", "content": "Benchmarks", "icon": "bi bi-link"},
+    ],
+}
+```
+
 {{< include ../../../../_include/_title_meta_items.qmd >}}
 
 ```{python}
@@ -113,7 +129,7 @@ The layer is decomposed into four modules, each exposing a small interface. Scop
 
 ### Authority
 
-Registration, attestation issuance, scope authorization, and revocation. An attestation carries an issued epoch and a validity window; authorization checks the window and the epoch-scoped revocation record. Revocation records a revoked (principal, scope) pair effective from the recorded epoch.
+Registration, attestation issuance, scope authorization, and revocation. An attestation carries an issued epoch and a validity window; authorization checks the window and the epoch-scoped revocation record. Authorization reads the window, the scope, and the revocation record from the stored attestation, so a presented copy cannot extend or reshape the grant. Revocation records a revoked (principal, scope) pair effective from the recorded epoch.
 
 ### Integrity
 
@@ -186,8 +202,54 @@ digraph DOTGraph {
 
 The legacy pattern serves as the reverse-verification mirror: the same workflow suite runs identically against both stacks, so a security property holds for the tagma-sec pattern only if the same contract passes on the legacy implementation. Distinguishing tests pin the deltas: epoch and principal bound seals, refresh epoch binding, prefix scope coverage, revocation effective from the recorded epoch, scope-specific revocation keys, and the attestation lifetime boundary.
 
+## Benchmark Insights
+
+Every security scenario in this document is pinned by a unit test and quantified by a benchmark. The measured values come from the `sec` criterion group in `sw/rust/benches/bench.rs` (ARMv8.4-A Firestorm 3.2 GHz). The benchmarks answer the scenario questions in cost terms: replay detection costs 33 ns per seal, fail-closed rejection costs 3.1 ns, silent log tampering is detectable by a ~1 ns per entry chain walk, and denial of origin is settled by a receipt that verifies in ~87 ns.
+
+::: {tbl-colwidths="[20, 15, 15, 50]"}
+
+| Scenario (guarantee) | Benchmark | Measured | Insight |
+|----------------------|-----------|----------|---------|
+| Path authorization | `authorize/allow` | 36.8 ns | Decision cost is O(scope depth), independent of store size |
+| Fail-closed rejection | `authorize/deny` | 3.1 ns | Scope miss short-circuits at the first coord, ~12x cheaper than Allow |
+| Revoked scope enforcement | `authorize/revoked` | 40.5 ns | Revocation is one map lookup on top of the scope match |
+| Epoch replay detection | `seal/pattern` | 171.4 ns | Epoch and principal binding costs ~33 ns over the 2-way seal (138.8 ns) |
+| Seal verification | `verify/pattern` | 129.2 ns | Recompute and compare; refresh (296 ns) is verify plus seal |
+| Audit chaining | `audit/verify_chain` (10k) | 9.9 µs | ~1 ns per entry prev-link walk, no hashing |
+| Offline investigation | `audit/prove`, `export` (10k) | ~200 µs | Memory-bound clones, ~20 ns per entry, scales with evidence size |
+| Non-repudiation signing | `channel/sign`, `exchange` | 118 / 133 ns | Evidence composition adds ~15 ns over plain signing |
+| Receipt verification | `channel/verify_receipt` | 86.8 ns | Parsing plus recompute, same order as verify |
+| Route update workflow | `route_update/pattern` | 696.1 ns | Exact sum of module costs (691 ns), cost-transparent composition |
+| Baseline contrast | `route_update/legacy` | 609.5 ns | The tagma-sec pattern adds ~87 ns per update, the price of replay detection |
+
+:::
+
+### Workflow Cost Transparency
+
+The route-update workflow is a cost-transparent composition of the four modules. The measured total, 696.1 ns, equals the sum of its module calls: authorize 36.8, seal 171.4, verify 129.2, append 110.3, append 110.3, and exchange 132.7, totaling 690.7 ns. The proxy and the trait-object dispatch add no measurable overhead; the four-module composition costs exactly what its parts cost.
+
+{{< include ../../_include/bench/fig-bench-sec-route-update.qmd >}}
+
+### Authorization Decision Cost
+
+Authorization is a structural predicate: a scope match compares coordinate sequences, so the decision cost is bounded by scope depth, not by store size. A 19-coord scope costs 62.7 ns against 36.0 ns for a 1-coord scope. The deny path short-circuits at the first mismatching coord and costs 3.1 ns, about 12x cheaper than acceptance, so fail-closed rejection is cheap. A revocation hit adds one map lookup on top of the scope match, 40.5 ns.
+
+{{< include ../../_include/bench/fig-bench-sec-authorize.qmd >}}
+
+### Verification Primitives
+
+Coordinate arithmetic is negligible; the dominant cost everywhere is keyed hashing. Seal, append, sign, and exchange all sit in the 110 to 175 ns band, matching the specification's expectation that keyed hashing dominates end-to-end cost. The tagma-sec seal binds record, path, principal, and epoch, which costs 171.4 ns against 138.8 ns for the record-and-path legacy seal; the 33 ns difference is the price of epoch replay detection. Verification recomputes the seal at 129.2 ns, and refresh is verify plus seal at 296.0 ns. Channel operations stay in the same band: sign 117.6, exchange 132.7, verify and verify_receipt about 86 ns.
+
+{{< include ../../_include/bench/fig-bench-sec-primitives.qmd >}}
+
+### Audit Scaling
+
+The audit log separates chaining from evidence. Appending one event costs 110.3 ns, a keyed payload hash plus two amortized pushes. Chain verification over 10,000 entries costs 9.9 µs, about 1 ns per entry, because it is a prev-link pointer walk with no hashing. Offline investigation inverts the cost: prove and export clone the evidence range at about 20 ns per entry and are memory-bound, so investigation scales with evidence size rather than log size.
+
+{{< include ../../_include/bench/fig-bench-sec-audit.qmd >}}
+
 ## Implementation Status
 
-Milestones 1 to 4 (authority, integrity, audit, channel) are implemented in the synTagma repository[^syntagma] under `sw/rust/sec`, with 24 integration tests and a compiled README example. Milestone 5, the Delos composite engine that wires these primitives with the neXus envelope and hybrid confidentiality, is a separate project in planning stage. The initial implementation is a proof of concept: the channel is MAC-based and authenticates origin between holders of the shared key, PoC keys are hardcoded, paths are heap-backed vectors, and the concrete epoch source remains an open question.
+Milestones 1 to 4 (authority, integrity, audit, channel) are implemented in the synTagma repository[^syntagma] under `sw/rust/sec`, with 32 integration tests (17 common workflow, 10 tagma-sec-specific, 5 real scenario) and a compiled README example. The `sec` criterion group in `sw/rust/benches/bench.rs` carries 21 security-layer benchmarks. Delos, the security-layer implementation at the same layer as the Chton IO layer, is in planning stage; it will compose these primitives with the neXus envelope and hybrid confidentiality. The initial implementation is a proof of concept: the channel is MAC-based and authenticates origin between holders of the shared key, PoC keys are hardcoded, paths are heap-backed vectors, and the concrete epoch source remains an open question.
 
 ## References {.unnumbered .unlisted}

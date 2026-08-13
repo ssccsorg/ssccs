@@ -1,0 +1,44 @@
+```{python}
+#| label: fig-bench-sec-route-update
+#| fig-cap: "Route update cost: the tagma-sec pattern workflow equals the sum of its module costs"
+import matplotlib.pyplot as plt
+
+# Measured module costs (ns), pattern stack, ARMv8.4-A Firestorm 3.2 GHz
+authorize = 36.8
+seal      = 171.4
+verify    = 129.2
+append_r  = 110.3
+append_s  = 110.3
+exchange  = 132.7
+sum_modules = authorize + seal + verify + append_r + append_s + exchange  # 690.7
+measured_pattern = 696.1
+measured_legacy = 609.5
+
+fig, ax = plt.subplots(figsize=(6.2, 3.2))
+
+segments = [
+    ('authorize', authorize, '#555555'),
+    ('seal', seal, '#888888'),
+    ('verify', verify, '#aaaaaa'),
+    ('append(record)', append_r, '#cccccc'),
+    ('append(receipt)', append_s, '#dddddd'),
+    ('exchange', exchange, '#eeeeee'),
+]
+left = 0.0
+for name, cost, color in segments:
+    ax.barh(1, cost, left=left, color=color, edgecolor='black', linewidth=0.6, height=0.6)
+    ax.text(left + cost / 2, 1, f'{cost:.0f}', ha='center', va='center', fontsize=7)
+    left += cost
+
+ax.barh(0, measured_legacy, color='white', edgecolor='black', hatch='///', linewidth=0.8, height=0.6)
+ax.text(measured_legacy / 2, 0, f'{measured_legacy:.0f}', ha='center', va='center', fontsize=7)
+
+ax.axvline(measured_pattern, color='black', linestyle='--', linewidth=1.2)
+ax.text(measured_pattern + 3, 0.5, f'measured pattern {measured_pattern:.0f} ns', fontsize=7, va='center')
+
+ax.set_xlabel('Cost per route update (ns)', fontsize=9)
+ax.set_xlim(0, 780)
+ax.set_yticks([0, 1])
+ax.set_yticklabels(['legacy workflow', 'tagma-sec pattern workflow'], fontsize=8)
+ax.grid(axis='x', linestyle=':', alpha=0.4)
+```

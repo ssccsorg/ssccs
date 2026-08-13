@@ -1,0 +1,28 @@
+```{python}
+#| label: fig-bench-sec-audit
+#| fig-cap: "Audit operations: append cost and 10k-entry verification scale"
+import matplotlib.pyplot as plt
+
+names = ['append\n(per event)', 'verify_chain\n(10k entries)', 'prove\n(10k entries)', 'export\n(10k entries)']
+costs_ns = [110.3, 9.94e3, 201.3e3, 206.6e3]
+
+fig, ax = plt.subplots(figsize=(6.4, 3.0))
+ax.bar(range(len(names)), costs_ns, color=['white', '#cccccc', '#999999', '#888888'],
+       edgecolor='black', linewidth=0.8)
+ax.set_yscale('log')
+for i, c in enumerate(costs_ns):
+    label = f'{c/1e3:.1f} µs' if c > 1e3 else f'{c:.0f} ns'
+    ax.text(i, c * 1.2, label, ha='center', fontsize=7)
+ax.set_xticks(range(len(names)))
+ax.set_xticklabels(names, fontsize=8)
+ax.set_ylabel('Cost (ns, log scale)', fontsize=8)
+ax.set_ylim(60, 1e6)
+ax.grid(axis='y', linestyle=':', alpha=0.4)
+
+ax.annotate('~1 ns/entry\nprev-link walk, no hashing', xy=(1, 9.94e3), xytext=(1.42, 3.5e3), fontsize=7,
+            arrowprops=dict(arrowstyle='->', color='black', lw=0.8))
+ax.annotate('~20 ns/entry\nmemory-bound clones', xy=(2, 201.3e3), xytext=(3.35, 30e3), fontsize=7,
+            arrowprops=dict(arrowstyle='->', color='black', lw=0.8))
+
+fig.tight_layout()
+```

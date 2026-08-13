@@ -1,0 +1,41 @@
+```{python}
+#| label: fig-bench-sec-authorize
+#| fig-cap: "Authorization decision cost and scope-depth scaling"
+import matplotlib.pyplot as plt
+
+fig, axes = plt.subplots(1, 2, figsize=(7, 3.0))
+
+# Decision costs
+decisions = ['Allow\n(prefix d2)', 'Deny\n(scope miss)', 'Deny\n(revoked)']
+costs = [36.8, 3.1, 40.5]
+ax = axes[0]
+ax.bar(decisions, costs, color='white', edgecolor='black', linewidth=1.0)
+ax.bar(decisions[1], costs[1], color='#dddddd', edgecolor='black', linewidth=1.0)
+for d, c in zip(decisions, costs):
+    ax.text(d, c + 1.5, f'{c:.1f}', ha='center', fontsize=7)
+ax.set_ylabel('Cost per decision (ns)', fontsize=8)
+ax.set_title('Decision cost', fontsize=9)
+ax.set_ylim(0, 52)
+ax.grid(axis='y', linestyle=':', alpha=0.4)
+ax.annotate('fail-closed\n~12x cheaper', xy=(1, 3.1), xytext=(1.28, 24), fontsize=7,
+            arrowprops=dict(arrowstyle='->', color='black', lw=0.8))
+
+# Scope-depth scaling
+depths = [1, 2, 3, 19]
+depth_costs = [36.0, 38.7, 38.4, 62.7]
+ax = axes[1]
+ax.plot(depths, depth_costs, 'o-', color='black', markerfacecolor='white',
+        markeredgecolor='black', markersize=6, linewidth=1.4)
+for d, c in zip(depths, depth_costs):
+    ax.text(d, c + 2, f'{c:.0f}', ha='center', fontsize=7)
+ax.set_xlabel('Scope depth (coords)', fontsize=8)
+ax.set_ylabel('Cost per decision (ns)', fontsize=8)
+ax.set_title('Scope-depth scaling', fontsize=9)
+ax.set_xticks(depths)
+ax.set_ylim(30, 80)
+ax.grid(axis='y', linestyle=':', alpha=0.4)
+ax.annotate('O(scope depth),\nnot store size', xy=(19, 62.7), xytext=(9.5, 72), fontsize=7,
+            arrowprops=dict(arrowstyle='->', color='black', lw=0.8))
+
+fig.tight_layout()
+```

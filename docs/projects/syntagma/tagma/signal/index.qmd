@@ -1,9 +1,9 @@
 ---
-title: "Tagma-WAV"
+title: "Tagma-Signal"
 subtitle: "The Coordinate Is the Message"
 date: 2026-07
 date-format: "MMMM, YYYY"
-version-prefix: tagma-wav-draft
+version-prefix: tagma-signal-draft
 version-mark: true
 # bibliography: ../_include/reference.bib
 csl: ../../../../_include/ieee.csl
@@ -60,6 +60,22 @@ format:
         \makeatother
 ---
 
+```{python}
+#| include: false
+#| context: local
+title_meta_items = {
+    "html": [
+        {"title": "Whitepapers", "link": "https://doi.org/10.5281/zenodo.21302508", "content": "Tagma", "icon": "bi bi-link"},
+
+        {"title": "References", "link": "/projects/syntagma/tagma/", "content": "Primitive", "icon": "bi bi-link"},
+        {"title": "References", "link": "https://github.com/ssccsorg/syntagma/tree/main/sw/rust/devlog", "content": "Devlog", "icon": "bi bi-link"},
+        {"title": "Code", "link": "https://github.com/ssccsorg/syntagma", "content": "GitHub", "icon": "bi bi-link"},
+
+        {"title": "Code", "link": "https://github.com/ssccsorg/syntagma/blob/main/sw/rust/benches/bench.rs", "content": "Benchmarks", "icon": "bi bi-link"},
+    ],
+}
+```
+
 {{< include ../../../../_include/_title_meta_items.qmd >}}
 
 ```{python}
@@ -70,7 +86,7 @@ format:
 
 ## Abstract {.unnumbered .unlisted}
 
-Tagma-WAV defines the signal-domain utilization[^tagma-wav] of the Tagma coordinate primitive: how coordinates are encoded, validated, and interpreted as signals over existing physical channels. It is a signal-delivery protocol, not a transmission system: the transmitter, antenna, modulation waveform, and medium are delegated to the underlying channel (BLE, LoRa, UHF, optical, acoustic). The central claim is that packet-based communication can be replaced by coordinate-based signaling. Every message is a coordinate path[^coordpath], a sequence of N syllables that carries both the address and the payload in a single structural unit, so there is no packet header, no checksum, no protocol stack, and no parser on the receiving end. The coordinate itself is the message.
+Tagma-Signal defines the signal-domain utilization[^tagma-signal] of the Tagma coordinate primitive: how coordinates are encoded, validated, and interpreted as signals over existing physical channels. It is a signal-delivery protocol, not a transmission system: the transmitter, antenna, modulation waveform, and medium are delegated to the underlying channel (BLE, LoRa, UHF, optical, acoustic). The central claim is that packet-based communication can be replaced by coordinate-based signaling. Every message is a coordinate path[^coordpath], a sequence of N syllables that carries both the address and the payload in a single structural unit, so there is no packet header, no checksum, no protocol stack, and no parser on the receiving end. The coordinate itself is the message.
 
 The transmission-concept part of the persistent IO layer for spatial computing specifies the wave-observation pattern, in which a broadcast coordinate is observed by unspecified receivers, each acting according to its own local state, so response diversity is produced entirely on the receiver side. The framework covers emission and observation only; interpretation and action are application-level and deliberately out of scope. The coordinate space is one: the same coordinate path that keys a Tagma-KV entry is transmitted as a wave sequence and, once observed, becomes a fact in the neXus FIH blackboard, where the Actus orchestration runtime[^actus] owns interpretation and action.
 
@@ -123,7 +139,7 @@ Two framing conventions follow from the variable-length property. Either N is fi
 
 ## Transmission Implementations
 
-Tagma-WAV is the protocol family over wave carriers: a coordinate is transmitted as a 16-bit symbol over any physical wave that can carry it. Tagma-RF, Tagma-Light, and Tagma-Sound are instances of the same protocol for specific carriers; sound is the most accessible instance, radio the defining one.
+Tagma-Signal is the protocol family over wave carriers: a coordinate is transmitted as a 16-bit symbol over any physical wave that can carry it. Tagma-RF, Tagma-Light, and Tagma-Sound are instances of the same protocol for specific carriers; sound is the most accessible instance, radio the defining one.
 
 ### RF: Radio Frequency Transmission
 
@@ -244,7 +260,7 @@ The validation cost scales linearly with the number of coordinates but remains b
 | UDP over Ethernet | ~500 ns | Header parsing |
 | BLE | ~10–100 µs | Packet parsing + CRC |
 | LoRa | ~100 µs–10 ms | Packet parsing + CRC |
-| **Tagma-WAV** | **0 ns** | **0.39 ns per coordinate (digital)** |
+| **Tagma-Signal** | **0 ns** | **0.39 ns per coordinate (digital)** |
 
 Protocol overhead is zero because there is no protocol.
 
@@ -256,7 +272,7 @@ The validation column reports the digital path only: range check and structural 
 |:---|:---|:---|
 | CRC32 | 4 bytes per packet | ~99.9999% (arbitrary multi-bit errors) |
 | Checksum | 2 bytes per packet | ~99.99% (arbitrary multi-bit errors) |
-| **Tagma-WAV coordinate validity** | **0 bytes** | **24.1% of single-bit flips** |
+| **Tagma-Signal coordinate validity** | **0 bytes** | **24.1% of single-bit flips** |
 
 The structural validity check provides inherent error detection at zero additional cost. The rates are not directly comparable: CRC and checksum detection is defined over arbitrary error patterns, while the coordinate check is a single-bit analysis. The complement is a design consideration: the remaining 75.9% of single-bit flips map to another valid coordinate and are silently accepted as a different command. For command channels this argues for a small command table with semantic validation at the application layer, or for FEC at the physical layer; for data channels, it argues for redundant syllables or an application-layer checksum. The 24.1% figure follows from the structure of the valid range: flips of bit 15 or bit 14 always leave the U+AC00–U+D7A3 interval, and boundary values contribute the remainder.
 
@@ -266,7 +282,7 @@ Let a message M of length L bytes be transmitted.
 
 **Structural transmission:**
 
-$$T_{\text{tagma-wav}}(M) = T_{\text{convert}}(M) + T_{\text{validate}}(M) + T_{\text{physical}}(M)$$
+$$T_{\text{tagma-signal}}(M) = T_{\text{convert}}(M) + T_{\text{validate}}(M) + T_{\text{physical}}(M)$$
 
 where:
 
@@ -376,7 +392,7 @@ A conforming implementation must provide stages 1 and 2; stages 3 and 4 are the 
 
 ### Observation Record and Evaluation Order
 
-The observation stage hands its result to the interpretation stage through a single record. This record is the boundary interface of the framework: the only output of observation and the only input to interpretation. In the SSCCS portfolio the consuming runtime is Actus; any other runtime that accepts Tagma-WAV observations follows the same interface.
+The observation stage hands its result to the interpretation stage through a single record. This record is the boundary interface of the framework: the only output of observation and the only input to interpretation. In the SSCCS portfolio the consuming runtime is Actus; any other runtime that accepts Tagma-Signal observations follows the same interface.
 
 | Field | Type | Description |
 |:---|:---|:---|
@@ -427,7 +443,7 @@ The honest limits follow from the same structure:
 
 ## Comparison with Existing Communication Paradigms
 
-| Feature | TCP/IP | UDP | BLE | LoRa | **Tagma-WAV** |
+| Feature | TCP/IP | UDP | BLE | LoRa | **Tagma-Signal** |
 |:---|:---|:---|:---|:---|:---|
 | Protocol overhead | High | Medium | Medium | Medium | **Zero** |
 | Checksum | Yes | Yes | Yes | Yes | **Partial (24.1% single-bit)** |
@@ -450,9 +466,9 @@ The interaction pattern differs on a separate axis. NDN is content-centric and s
 
 ## Hardware Acceleration
 
-The Tagma-WAV decoder is a combinational circuit of approximately 300 gates that validates a 16-bit coordinate and extracts its structural components (initial, medial, final) in a single cycle. For transmission, the same decoder can be placed at the receiving side of any physical medium. It validates the incoming 16-bit values and reconstructs the coordinate path without any software involvement. The result is a hardware-accelerated signal layer where the cost of receiving a message is the cost of a single combinational gate delay.
+The Tagma-Signal decoder is a combinational circuit of approximately 300 gates that validates a 16-bit coordinate and extracts its structural components (initial, medial, final) in a single cycle. For transmission, the same decoder can be placed at the receiving side of any physical medium. It validates the incoming 16-bit values and reconstructs the coordinate path without any software involvement. The result is a hardware-accelerated signal layer where the cost of receiving a message is the cost of a single combinational gate delay.
 
-On the transmission side, the same 300-gate decoder can be used to encode messages into coordinate paths directly from the application. The encoding cost is the same as the validation cost: 0.39 ns per coordinate. This makes Tagma-WAV a fully symmetric, hardware-accelerated signal primitive.
+On the transmission side, the same 300-gate decoder can be used to encode messages into coordinate paths directly from the application. The encoding cost is the same as the validation cost: 0.39 ns per coordinate. This makes Tagma-Signal a fully symmetric, hardware-accelerated signal primitive.
 
 ## Cryptographic Boundaries
 
@@ -481,7 +497,7 @@ The core transmission primitives are implemented in Rust and can be simulated on
 We spent decades building increasingly complex protocol stacks to compensate for the fact that packets are containers, not structures. The container itself is unnecessary. What else becomes possible when the message is the coordinate, and the coordinate is the message?
 
 [^coordpath]: "Coordinate path" is the abstract term used in this document. The reference implementation names the type `CoordPath` (tagma-core); the abstract term is used because the concept — a sequence of N structural coordinates — is independent of any implementation type.
-[^tagma-wav]: **Tagma-WAV** is part of the synTagma project under the SSCCS Foundation. <https://docs.ssccs.org/projects/syntagma/>
+[^tagma-signal]: **Tagma-Signal** is part of the synTagma project under the SSCCS Foundation. <https://docs.ssccs.org/projects/syntagma/>
 [^ndn]: Named Data Networking: Jacobson, Smetters, Thornton, Plass, Briggs, and Braynard, "Networking Named Content", ACM CoNEXT 2009: <https://dl.acm.org/doi/10.1145/1658939.1658941>
 [^coordid6]: The reference implementation names this the default identity space, `CoordId<6>` (nex-fih), following the abstraction convention stated in the coordinate path footnote.
 [^fih]: The blackboard pattern — shared state observed and acted on by independent agents — is the organizing principle of the neXus FIH store (Fact-Intent-Hint): <https://github.com/ssccsorg/nexus>. The wave makes the same pattern physical.
