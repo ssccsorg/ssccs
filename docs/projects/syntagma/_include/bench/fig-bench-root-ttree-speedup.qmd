@@ -1,0 +1,27 @@
+```{python}
+#| label: fig-bench-root-ttree-speedup
+#| fig-cap: "Speedup over the ROOT baseline across measured conditions, log scale. The mapped row is the coordinate+map path; the analysis row is the analysis workload."
+import matplotlib.pyplot as plt
+import numpy as np
+
+conditions = ['synthetic', 'M1 slice', 'full dataset', 'analysis']
+coord = [6.5, 230.5, 69.0, 60.9]
+mapped = [31.0, 1512.0, 181.7, float('nan')]
+
+x = np.arange(len(conditions))
+w = 0.3
+fig, ax = plt.subplots(figsize=(5.5, 3.5))
+ax.bar(x - w/2, coord, w, label='coordinate', color='white', edgecolor='black', linewidth=0.8, hatch='///')
+ax.bar(x + w/2, mapped, w, label='coordinate+map', color='white', edgecolor='black', linewidth=0.8, hatch='...')
+ax.set_yscale('log')
+ax.set_xticks(x)
+ax.set_xticklabels(conditions, fontsize=9)
+ax.set_ylabel('speedup (x, log)', fontsize=10)
+ax.legend(fontsize=7.5)
+for xi, (a, b) in enumerate(zip(coord, mapped)):
+    ax.text(xi - w/2, a * 1.15, f'{a:.0f}', ha='center', fontsize=8)
+    if not (b != b):
+        ax.text(xi + w/2, b * 1.15, f'{b:.0f}', ha='center', fontsize=8)
+ax.grid(axis='y', linestyle=':', alpha=0.3)
+plt.tight_layout(); plt.show()
+```

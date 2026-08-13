@@ -1,0 +1,24 @@
+```{python}
+#| label: fig-bench-root-ttree-requests
+#| fig-cap: "Requests and read system calls per event on the full dataset. The mapped path serves every event with one aligned request and zero application-level read system calls."
+import matplotlib.pyplot as plt
+import numpy as np
+
+metrics = ['reads/event', 'syscalls/event']
+x = np.arange(len(metrics))
+w = 0.25
+base = [0.20, 0.20]
+coord = [1.00, 1.00]
+mapped = [1.00, 0.00]
+
+fig, ax = plt.subplots(figsize=(5, 3.5))
+ax.bar(x - w, base, w, label='baseline', color='white', edgecolor='black', linewidth=0.8)
+ax.bar(x, coord, w, label='coordinate', color='white', edgecolor='black', linewidth=0.8, hatch='///')
+ax.bar(x + w, mapped, w, label='coordinate+map', color='white', edgecolor='black', linewidth=0.8, hatch='...')
+ax.set_xticks(x)
+ax.set_xticklabels(metrics, fontsize=10)
+ax.set_ylabel('count per event', fontsize=10)
+ax.legend(fontsize=7.5)
+ax.grid(axis='y', linestyle=':', alpha=0.3)
+plt.tight_layout(); plt.show()
+```

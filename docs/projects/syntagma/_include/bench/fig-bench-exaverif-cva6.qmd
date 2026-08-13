@@ -1,0 +1,42 @@
+```{python}
+#| label: fig-bench-exaverif-cva6
+#| fig-cap: "CVA6 CV-X-IF encoding space: standard evaluate (29.7s for 33M) vs structural_verify with all constraint checks (31.3ms), a 950x speedup."
+import matplotlib.pyplot as plt
+import numpy as np
+
+plt.rcParams.update({"font.family": "sans-serif", "font.size": 9, "figure.dpi": 150})
+
+fixtures = ["CVA6 R4\n2M combos", "CVA6 full\n33M combos"]
+eval_times = [1.23e6, 29.7e6]
+verify_times = [1600, 31300]
+speedups = [e / v for e, v in zip(eval_times, verify_times)]
+
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(9, 3.5), gridspec_kw={"width_ratios": [2, 1]})
+
+x = np.arange(len(fixtures))
+w = 0.3
+ax1.bar(x - w/2, eval_times, w, label='evaluate (standard)',
+        color='white', edgecolor='black', linewidth=0.8)
+ax1.bar(x + w/2, verify_times, w, label='structural (synTagma)',
+        color='white', edgecolor='black', linewidth=1.2, hatch='///')
+ax1.set_xticks(x)
+ax1.set_xticklabels(fixtures, fontsize=8)
+ax1.set_ylabel('Time (us, log)')
+ax1.set_yscale('log')
+ax1.legend(fontsize=7)
+ax1.grid(axis='y', alpha=0.3)
+for i, (e, v, sp) in enumerate(zip(eval_times, verify_times, speedups)):
+    mid = (e * v) ** 0.5
+    ax1.annotate(f'{sp:.0f}x', xy=(i, mid), fontsize=9, fontweight='bold', ha='center', va='center',
+                bbox=dict(boxstyle='round,pad=0.15', facecolor='white', edgecolor='black', alpha=0.85))
+ax1.set_title('CVA6 Verification Time', fontsize=10, fontweight='bold')
+
+ax2.barh(fixtures, speedups, height=0.4, color='white', edgecolor='black', linewidth=0.8, hatch='///')
+for i, sp in enumerate(speedups):
+    ax2.text(sp + 20, i, f'{sp:.0f}x', va='center', fontsize=9, fontweight='bold')
+ax2.set_xlabel('Speedup factor')
+ax2.set_title('synTagma Speedup', fontsize=10, fontweight='bold')
+ax2.set_xlim(0, max(speedups) * 1.25)
+fig.tight_layout()
+plt.show()
+```

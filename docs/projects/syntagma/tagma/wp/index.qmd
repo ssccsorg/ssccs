@@ -74,7 +74,7 @@ format:
 
 ## Abstract {.unnumbered .unlisted}
 
-Tagma[^tagma-etym] is a computing primitive where the address *is* the coordinate — not a flat pointer, but a point in an N-dimensional geometric space. This is made possible by a fixed 16-bit contiguous Unicode closed-form composition block *(U+AC00-U+D7AF)*, which provides a collision-free, hash-less, structurally addressable coordinate space. Every valid 16-bit value in this space is simultaneously a 1-D address, a 3-D coordinate (Axis 0, Axis 1, Axis 2). This triple interpretation enables hash-less content addressing [*-@sec-paradigm-shift*] with zero collision probability and single-cycle combinational decoding (~300 gates). The coordinate arithmetic admits unbounded N-Coord composition — the address space grows as $11,172^N$ while lookup cost remains O(N) per Coord. We present a gate-level decoder specification, a processor pipeline attachment reference (e.g., RISC-V XIF)[^tagma-repo], a software reference implementation [*-@sec-appendix-rust*], and a full benchmark suite [*-@sec-appendix-benches*]. Measured lookup latency: 0.38 ns vs 227 ns for SHA-256 (597x) at single-Coord; 54.9 ns vs 227 ns (4.1x) at SHA-256 scale (19 Coords). Structural prefix queries show the decisive advantage: a direct-address table answers nonexistent prefix in 1.65 ns while a general-purpose hash table scans 10M entries in 23.05 ms (14.0Mx). Bit-set axis filters resolve compound queries at 329 Melem/s vs hash table scan at 2.4 Melem/s (137x, bitwise AND vs full scan). The same table completes 10M sparse get operations in 44.9 ms vs hash table 1.05 s (23.4x). The coordinate space is an open international standard (Unicode) and a public good — unencumbered by proprietary licensing.
+Tagma[^tagma-etym] is a computing primitive where the address *is* the coordinate — not a flat pointer, but a point in an N-dimensional geometric space. This is made possible by a fixed 16-bit contiguous Unicode closed-form composition block *(U+AC00-U+D7AF)*, which provides a collision-free, hash-less, structurally addressable coordinate space. Every valid 16-bit value in this space is simultaneously a 1-D address, a 3-D coordinate (Axis 0, Axis 1, Axis 2). This triple interpretation enables hash-less content addressing [*-@sec-paradigm-shift*] with zero collision probability and single-cycle combinational decoding (~300 gates). The coordinate arithmetic admits unbounded N-Coord composition — the address space grows as $11,172^N$ while lookup cost remains O(N) per Coord. We present a gate-level decoder specification, a processor pipeline attachment reference (e.g., RISC-V XIF)[^tagma-repo], a software reference implementation [*-@sec-appendix-rust*], and a full benchmark suite [*-@sec-appendix-benches*]. Measured lookup latency: 0.38 ns vs 227 ns for SHA-256 (597x) at single-Coord; 54.9 ns vs 227 ns (4.1x) at SHA-256 scale (19 Coords). Structural prefix queries show the decisive advantage: a direct-address table answers nonexistent prefix in 1.65 ns while a general-purpose hash table scans 10M entries in 23.05 ms (14.0Mx). Bit-set axis filters resolve compound queries at 329 Melem/s vs hash table scan at 2.4 Melem/s (137x, bitwise AND vs full scan). The same table completes 10M sparse get operations in 44.9 ms vs hash table 1.05 s (23.4x). The coordinate space is an open international standard (Unicode) and a public good — unencumbered by proprietary licensing. A production-scale validation in CERN's ROOT TTree read path confirms the model in petabyte-scale high-energy physics software [*-@sec-appendix-root-ttree*].
 
 ## Introduction {#sec-introduction}
 
@@ -559,6 +559,8 @@ What Tagma replaces, partially replaces, and does not replace:
 | Key derivation | HKDF for key expansion | No | Retain HKDF |
 | Password hashing | bcrypt/Argon2 for work-factor | No | Retain bcrypt or Argon2 |
 
+The rows marked No retain cryptographic functions. The tagma-sec layer (Appendix [*-@sec-appendix-tagma-sec*]) composes them with the coordinate primitives for coordination traffic, providing integrity, authorization, audit, and non-repudiation.
+
 ## Memory Hierarchy Penetration
 
 *(Future direction, no current implementation timeline.)*
@@ -636,11 +638,13 @@ An exact enumeration of all 11,172 valid coordinates confirms the detection rate
 
 **Graph adjacency and multi-dimensional query.** Graph engines check adjacency via hash lookups or index intersections ($O(\deg(v))$) and query multi-dimensional attributes via composite indexes or join operations. Tagma represents each node as a Coord and each edge type as a CoordSet; adjacency reduces to a single bitwise AND over 175 machine words. Multi-dimensional queries (e.g., "nodes with Axis 0=a, Axis 1=b") project directly to axis ranges without index intersection, with cost independent of graph size.
 
+**Secure coordination traffic.** Routing updates, resolver evidence, and audit trails name target paths as CoordPaths. The tagma-sec layer turns the structural path into a security object: authorization over scopes, integrity seals over records and epochs, chained audit evidence, and non-repudiation receipts. Keyed primitives provide the cryptographic guarantees over public coordinate arithmetic. Design and benchmark details are in Appendix [*-@sec-appendix-tagma-sec*].
+
 ## Boundaries
 
 The 11,172-identifier bound per Coord is a consequence of the 19 x 21 x 28 composition formula, not a configurable parameter. It defines the single-Coord direct-address range. Applications requiring larger identifier spaces compose multiple Coords via CoordPath (Section N-Coord Composition). The decoder's structural validity check does not eliminate the need for full error-correcting codes: single-bit errors that map one valid coordinate to another are not detected.
 
-Tagma does not replace cryptographic primitives. SHA-256 remains for signatures, Merkle proofs, and preimage resistance. Encryption, authentication, and key derivation are outside its scope. Tagma replaces the use of hashes as structural identifiers and addresses.
+Tagma does not replace cryptographic primitives. SHA-256 remains for signatures, Merkle proofs, and preimage resistance. Encryption, authentication, and key derivation are outside its scope. Tagma replaces the use of hashes as structural identifiers and addresses. Coordination traffic obtains these guarantees from the tagma-sec layer (Appendix [*-@sec-appendix-tagma-sec*]), which composes keyed primitives with the coordinate primitives to provide integrity, authorization, audit, and non-repudiation.
 
 For applications requiring content determinism, where the same data must always produce the same identifier, SHA-256 provides content fingerprinting while Tagma provides human-readable encoding of that fingerprint:
 
@@ -797,7 +801,7 @@ All figures are software measurements on ARMv8.4-A Firestorm (2020), compiled wi
 
 ## CoordCube: Spatial Interpretation Layer {#sec-appendix-coordcube}
 
-The CoordCube layer reinterprets existing CoordPath storage keys as D-dimensional coordinates without modifying the underlying key, enabling proximity queries, bounding box enumeration, and distance metrics that fall outside the core CoordPath scope. The full design, benchmarks, and comparison with existing systems are described in the Tagma-Geo whitepaper[^tagma-geo].
+The CoordCube layer reinterprets existing CoordPath storage keys as D-dimensional coordinates without modifying the underlying key, enabling proximity queries, bounding box enumeration, and distance metrics that fall outside the core CoordPath scope. The full design, benchmarks, and comparison with existing systems are described in the Tagma-Geo whitepaper[^tagma-geo]; the reference implementation lives in `sw/rust/geo`[^tagma-geo-src].
 
 :::{ layout-ncol=2 }
 
@@ -851,7 +855,8 @@ range partitioning. Tagma-KV supplies what the coordinate model intentionally
 abstracts away: durable storage, wire protocols, and cluster management.
 
 The full design and benchmark results are described in the Tagma-KV
-whitepaper. Selected CoordCube benchmarks that measure KV-relevant
+whitepaper; the reference implementation lives in `sw/rust/kv`[^tagma-kv-src].
+Selected CoordCube benchmarks that measure KV-relevant
 metrics are reproduced below.
 
 ### Throughput: Store Density and Proximity
@@ -881,6 +886,30 @@ metrics are reproduced below.
 - Stress test: under 500,000 interleaved insert, get, remove, and update operations, CoordSpace completes in 3.64 ms vs HashMap 12.2 ms.
 - Deep tree: CoordSpaceN19 at 100 entries shows the 19-dereference tree traversal cost (7.04 us vs 3.53 us for HashMap). Nonexistent key lookup remains depth-independent: CoordSpace2 0.39 ns, CoordSpaceN19 2.30 ns, HashMap 20.1 ns.
 
+## Tagma-Sec[^tagma-sec]: Security Layer on Coordinate Primitives {#sec-appendix-tagma-sec}
+
+Tagma-Sec builds the security primitive layer for coordination traffic on top of the coordinate primitives described in this document. Routing updates name target paths, resolvers exchange evidence, and the audit trail records what happened; Tagma-Sec answers the accompanying questions: which principal may act on which path, whether a record is intact, whether the origin of an update can be denied, and what evidence remains. The layer provides integrity, authorization, audit, and non-repudiation over Tagma coordinate objects and coordination traffic.
+
+The security model rests on keyed primitives over public coordinate arithmetic. The composition formula, the linearization rule, and the validity bounds are public specifications, so coordinate structure contributes collision-free addressing while the security guarantees come from keyed hashing (blake3 in the reference implementation). Four modules expose small interfaces: authority (CoordPath Exact/Prefix scope authorization, epoch-scoped revocation), integrity (epoch-bound seals), audit (chained evidence log with inclusion proofs), and channel (non-repudiation receipts). The implementation covers specification milestones 1 to 4 with a legacy pattern as a reverse-verification mirror: the same workflow suite must pass identically on both stacks.
+
+:::{ layout-ncol=2 }
+
+{{< include ../../_include/bench/fig-bench-sec-route-update.qmd >}}
+
+{{< include ../../_include/bench/fig-bench-sec-authorize.qmd >}}
+
+:::
+
+- Route update workflow: 696.1 ns, the exact sum of its module costs (authorize 36.8, seal 171.4, verify 129.2, append 110.3, append 110.3, exchange 132.7). The proxy and trait-object dispatch add no measurable overhead.
+- Epoch replay detection: the four-way seal (record, path, principal, epoch) costs 171.4 ns against 138.8 ns for the record-and-path legacy seal, a 33 ns price for binding the epoch.
+- The tagma-sec pattern adds ~87 ns per update over the legacy baseline (696.1 vs 609.5 ns), the price of replay detection.
+- Authorization is O(scope depth): 36.8 ns for a 2-coord prefix scope, 62.7 ns at 19-coord depth, independent of store size. Deny short-circuits at the first mismatching coord (3.1 ns, ~12x cheaper than Allow); a revoked scope adds one map lookup (40.5 ns).
+- Audit chaining: append costs 110.3 ns (keyed payload hash); chain verification over 10,000 entries costs 9.9 µs, about 1 ns per entry prev-link walk with no hashing. Prove and export are about 20 ns per entry and memory-bound, so offline investigation scales with evidence size rather than log size.
+
+{{< include ../../_include/bench/fig-bench-sec-audit.qmd >}}
+
+The full design, benchmark charts, and implementation status are described in the Tagma-Sec whitepaper[^tagma-sec] and in the Tagma security layer specification[^tagma-spec] in the synTagma repository.
+
 ## Structural Enumeration in Practice: RISC-V Verification {#sec-appendix-exaverif}
 
 ExaVerif[^exaverif] exhaustively verifies RISC-V custom instruction encodings.
@@ -904,94 +933,9 @@ a 950x reduction in verification time.
 
 :::{ layout-ncol=2 }
 
-```{python}
-#| label: fig-exaverif-ibex
-#| fig-cap: "Verification time: standard evaluate vs structural enumeration across four fixture sizes. At CVA6 R4 2M scale, structural enumeration achieves 766x speedup."
-import matplotlib.pyplot as plt
-import numpy as np
+{{< include ../../_include/bench/fig-bench-exaverif-ibex.qmd >}}
 
-plt.rcParams.update({"font.family": "sans-serif", "font.size": 9, "figure.dpi": 150})
-
-fixtures = ["Small\n27 combos", "Medium\n32K combos", "Ibex\n524K combos", "CVA6 R4\n2M combos"]
-evaluate_times = [3.26, 6580, 3.66e6, 1.23e6]
-struct_times = [2.73, 3106, 46100, 1600]
-speedups = [e / s for e, s in zip(evaluate_times, struct_times)]
-
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4.5), gridspec_kw={"width_ratios": [2, 1]})
-
-x = np.arange(len(fixtures))
-w = 0.3
-ax1.bar(x - w/2, evaluate_times, w, label='evaluate (standard)',
-        color='white', edgecolor='black', linewidth=0.8)
-ax1.bar(x + w/2, struct_times, w, label='struct_enum (synTagma)',
-        color='white', edgecolor='black', linewidth=1.2, hatch='///')
-ax1.set_xticks(x)
-ax1.set_xticklabels(fixtures, fontsize=7.5)
-ax1.set_ylabel('Time (us, log scale)')
-ax1.set_yscale('log')
-ax1.legend(fontsize=7, loc='upper left')
-ax1.grid(axis='y', alpha=0.3)
-for i, (e, s, sp) in enumerate(zip(evaluate_times, struct_times, speedups)):
-    mid = (e * s) ** 0.5
-    label = f'{sp:.0f}x' if sp > 1 else f'{sp:.1f}x'
-    ax1.annotate(label, xy=(i, mid), fontsize=8, fontweight='bold', ha='center', va='center',
-                bbox=dict(boxstyle='round,pad=0.15', facecolor='white', edgecolor='black', alpha=0.85))
-ax1.set_title('Verification Time by Approach', fontsize=10, fontweight='bold')
-
-ax2.barh(fixtures, speedups, height=0.4, color='white', edgecolor='black', linewidth=0.8, hatch='///')
-for i, sp in enumerate(speedups):
-    label = f'{sp:.0f}x' if sp > 10 else f'{sp:.1f}x'
-    ax2.text(sp + 5, i, label, va='center', fontsize=8, fontweight='bold')
-ax2.set_xlabel('Speedup factor')
-ax2.set_title('synTagma Speedup', fontsize=10, fontweight='bold')
-ax2.set_xlim(0, max(speedups) * 1.3)
-ax2.tick_params(labelsize=8)
-fig.tight_layout()
-plt.show()
-```
-
-```{python}
-#| label: fig-exaverif-cva6
-#| fig-cap: "CVA6 CV-X-IF encoding space: standard evaluate (29.7s for 33M) vs structural_verify with all constraint checks (31.3ms), a 950x speedup."
-import matplotlib.pyplot as plt
-import numpy as np
-
-plt.rcParams.update({"font.family": "sans-serif", "font.size": 9, "figure.dpi": 150})
-
-fixtures = ["CVA6 R4\n2M combos", "CVA6 full\n33M combos"]
-eval_times = [1.23e6, 29.7e6]
-verify_times = [1600, 31300]
-speedups = [e / v for e, v in zip(eval_times, verify_times)]
-
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(9, 3.5), gridspec_kw={"width_ratios": [2, 1]})
-
-x = np.arange(len(fixtures))
-w = 0.3
-ax1.bar(x - w/2, eval_times, w, label='evaluate (standard)',
-        color='white', edgecolor='black', linewidth=0.8)
-ax1.bar(x + w/2, verify_times, w, label='structural (synTagma)',
-        color='white', edgecolor='black', linewidth=1.2, hatch='///')
-ax1.set_xticks(x)
-ax1.set_xticklabels(fixtures, fontsize=8)
-ax1.set_ylabel('Time (us, log)')
-ax1.set_yscale('log')
-ax1.legend(fontsize=7)
-ax1.grid(axis='y', alpha=0.3)
-for i, (e, v, sp) in enumerate(zip(eval_times, verify_times, speedups)):
-    mid = (e * v) ** 0.5
-    ax1.annotate(f'{sp:.0f}x', xy=(i, mid), fontsize=9, fontweight='bold', ha='center', va='center',
-                bbox=dict(boxstyle='round,pad=0.15', facecolor='white', edgecolor='black', alpha=0.85))
-ax1.set_title('CVA6 Verification Time', fontsize=10, fontweight='bold')
-
-ax2.barh(fixtures, speedups, height=0.4, color='white', edgecolor='black', linewidth=0.8, hatch='///')
-for i, sp in enumerate(speedups):
-    ax2.text(sp + 20, i, f'{sp:.0f}x', va='center', fontsize=9, fontweight='bold')
-ax2.set_xlabel('Speedup factor')
-ax2.set_title('synTagma Speedup', fontsize=10, fontweight='bold')
-ax2.set_xlim(0, max(speedups) * 1.25)
-fig.tight_layout()
-plt.show()
-```
+{{< include ../../_include/bench/fig-bench-exaverif-cva6.qmd >}}
 
 :::
 
@@ -1010,9 +954,35 @@ pipeline. The 99.3% of the space that is invalid is never allocated, never
 iterated, and never tested --- this is not faster filtering; it is the
 absence of filtering.
 
+## Petabyte-Scale Science Software: CERN ROOT TTree {#sec-appendix-root-ttree}
+
+ROOT is the data analysis framework of the CERN community, and its TTree columnar format stores the events of nearly every physics analysis. A documented production bottleneck limits the read path: a Fermilab CCESOP analysis over CMS NanoAOD issues 372,000 singular reads averaging 4.6 KB, sustains an effective 33 KB/s, and runs for roughly 14 hours. The measured cause is per-request I/O overhead (system call, cache lookup, context switch), so the cost is per request, not per byte.
+
+A fork of CERN's ROOT replaces branch, basket, and cache traversal with closed-form coordinate arithmetic: an event addressed as (run, luminosity block, event number) resolves to a direct byte offset with no hash and no index scan, while the TTree API and existing analysis code stay unchanged. The table below compares the read paths on the full CMS Run2016G DoubleMuon NanoAOD first file (2,315,223 events, 2,155,974,646 bytes).
+
+| Metric | ROOT TTree baseline | Tagma coordinate | Tagma mapped |
+|--------|--------------------:|-----------------:|-------------:|
+| Full-file read | 192.8 s | 2.79 s (69.0x) | 1.06 s (181.7x) |
+| Read throughput | 11.2 MB/s | 2,122 MB/s | 5,584 MB/s |
+| Reads per event | 0.20 | 1.00 | 1.00 |
+| Syscalls per event | 0.20 | 1.00 | 0.00 |
+| Analysis workload (20,861 events) | 188.9 s | 3.10 s (60.9x) | n/a |
+
+An analysis workload reproduces the baseline results exactly (20,861 selected events, histogram mean 132.696, checksum-verified bytes). The full report is the ROOT TTree I/O report[^tagma-root-ttree].
+
+The two charts below capture the result. The first shows the speedup across all measured conditions; the second shows the mechanism on the full dataset: the baseline scatters one event across many small requests, while the coordinate path serves every event with one aligned request and the mapped path adds zero application-level read system calls.
+
+:::{ layout-ncol=2 }
+
+{{< include ../../_include/bench/fig-bench-root-ttree-speedup.qmd >}}
+
+{{< include ../../_include/bench/fig-bench-root-ttree-requests.qmd >}}
+
+:::
+
 ## CoordSpace20
 
-This is a single atom's address in a coordinate space larger than the observable universe:
+This is a single unique atom's address in our observable universe:
 
 ```text
 맨가억빈힣쐭롮직랯픟첹겨뇨됴듸뤼뮈븨싀쨔 
@@ -1028,47 +998,15 @@ string. It is not a hash of a larger datum, but the address itself
 rendered in human-readable Hangul, decodable by anyone who reads
 Korean without a hex dump.
 
-::: {layout-ncol=2}
-
-### Syllable to Coordinate Mapping
-
-| # | Syllable | Initial | Medial | Final | Linear Index |
-|---|----------|---------|--------|-------|-------------|
-| 1 | 맨 | 6 (ㅁ) | 1 (ㅏ) | 4 (ㄴ) | 3,560 |
-| 2 | 가 | 0 (ㄱ) | 0 (ㅏ) | 0 | 0 |
-| 3 | 억 | 11 (ㅇ) | 3 (ㅓ) | 13 (ㄱ) | 6,565 |
-| 4 | 빈 | 7 (ㅂ) | 20 (ㅣ) | 8 (ㄴ) | 4,684 |
-| 5 | 힣 | 18 (ㅎ) | 20 (ㅣ) | 27 (ㅎ) | 11,171 |
-| 6 | 쐭 | 10 (ㅆ) | 11 (ㅗ) | 1 (ㄱ) | 6,189 |
-| 7 | 롮 | 5 (ㄹ) | 8 (ㅗ) | 18 (ㅍ) | 3,182 |
-| 8 | 직 | 12 (ㅈ) | 20 (ㅣ) | 1 (ㄱ) | 7,617 |
-| 9 | 랯 | 5 (ㄹ) | 1 (ㅏ) | 23 (ㅌ) | 2,991 |
-| 10 | 픟 | 17 (ㅍ) | 18 (ㅡ) | 27 (ㅎ) | 10,527 |
-| 11 | 첹 | 14 (ㅊ) | 5 (ㅕ) | 5 (ㄴ) | 8,377 |
-| 12 | 겨 | 0 (ㄱ) | 5 (ㅕ) | 20 | 160 |
-| 13 | 뇨 | 2 (ㄴ) | 6 (ㅛ) | 24 (ㅎ) | 1,368 |
-| 14 | 됴 | 3 (ㄷ) | 9 (ㅛ) | 20 | 2,036 |
-| 15 | 듸 | 3 (ㄷ) | 19 (ㅟ) | 0 | 2,296 |
-| 16 | 뤼 | 5 (ㄹ) | 16 (ㅟ) | 0 | 3,388 |
-| 17 | 뮈 | 6 (ㅁ) | 6 (ㅛ) | 24 (ㅎ) | 3,720 |
-| 18 | 븨 | 7 (ㅂ) | 0 (ㅡ) | 20 | 4,136 |
-| 19 | 싀 | 9 (ㅅ) | 19 (ㅟ) | 0 | 5,824 |
-| 20 | 쨔 | 11 (ㅉ) | 1 (ㅏ) | 0 | 6,868 |
-
-### Hexadecimal View
-
-```text
-0x0DE8 0x0000 0x19A5 0x124C 0x2BA3
-0x182D 0x0C6E 0x1DC1 0x0BAF 0x291F
-0x20B9 0x00A0 0x0558 0x07F4 0x08F8
-0x0D3C 0x0E88 0x1028 0x16C0 0x1AD4
-```
-
-:::
 
 [^tagma-etym]: Greek *τάγμα* from *σύνταγμα* (syn-tagma, *co-ordinate* in English), "a well-ordered arrangement of constituent elements". *Tagma* is the system name; *Coord* is the concrete implementation type.
 [^tagma-repo]: Repository: [Github (Pre-release, Apache 2.0)](https://github.com/ssccsorg/syntagma), Benchmark suite [code](https://github.com/ssccsorg/syntagma/blob/main/sw/rust/benches/bench.rs)
 [^tagma-kv]: Tagma-KV whitepaper (DOI: [10.5281/zenodo.21550431](https://doi.org/10.5281/zenodo.21550431)): <https://docs.ssccs.org/projects/syntagma/tagma/kv>
 [^tagma-geo]: Tagma-Geo whitepaper (draft): <https://docs.ssccs.org/projects/syntagma/tagma/geo>
+[^tagma-geo-src]: Tagma-Geo reference implementation: <https://github.com/ssccsorg/syntagma/tree/main/sw/rust/geo>
+[^tagma-kv-src]: Tagma-KV reference implementation: <https://github.com/ssccsorg/syntagma/tree/main/sw/rust/kv>
+[^tagma-sec]: Tagma-Sec whitepaper: <https://docs.ssccs.org/projects/syntagma/tagma/sec>
+[^tagma-spec]: Tagma Security Layer Specification: <https://github.com/ssccsorg/syntagma/blob/main/docs/spec/tagma-sec.md>
 [^tagma-swref]: Tagma Software Reference Implementation in Rust: <https://docs.ssccs.org/projects/syntagma/tagma/wp/impl.html>
 [^exaverif]: Project ExaVerif, Exhaustive Verification for RISC-V Custom Instructions <https://docs.ssccs.org/projects/ev>
+[^tagma-root-ttree]: Solving CERN's ROOT TTree I/O bottleneck: <https://docs.ssccs.org/works/cern/root-ttree/>; measured evidence reproducible from the [ROOT fork](https://github.com/ssccsorg/root) and its [benchmark](https://github.com/ssccsorg/root/blob/master/benchmarks/tagma/tagma_bench.C)

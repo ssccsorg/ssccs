@@ -22,9 +22,9 @@ format:
 
 ## Reference Implementation
 
-The Tagma coordinate space is implemented as a five-crate Rust workspace
-(`tagma-core`, `tagma-base11172`, `tagma-geo`, `tagma-kv`, `tagma-benches`)
-under the Apache 2.0 license. The core crate is `#![no_std]` with optional
+The Tagma coordinate space is implemented as a six-crate Rust workspace
+(`tagma-core`, `tagma-base11172`, `tagma-geo`, `tagma-kv`, `tagma-sec`,
+`tagma-benches`) under the Apache 2.0 license. The core crate is `#![no_std]` with optional
 `alloc` and `mmap` features, enabling deployment from bare-metal MCUs to
 server-class machines without changing the public API.
 
@@ -530,9 +530,10 @@ from serialized data is structurally valid.
 
 ## Quality Metrics
 
-The implementation is verified through 166+ unit and integration tests
-across all crates, zero clippy warnings, and a `no_std` + `no-alloc` build
-for the core crate. All unsafe blocks are documented with safety invariants.
+The implementation is verified through 360+ unit and integration tests
+across all crates (the `tagma-sec` crate contributes 32) and 26 doc-tests,
+zero clippy warnings, and a `no_std` + `no-alloc` build for the core
+crate. All unsafe blocks are documented with safety invariants.
 
 Benchmark measurements on a single ARMv8.4-A Firestorm core (Apple M1,
 3.2 GHz), averaged over 11,172 operations, compare `CoordSpace` against
@@ -549,6 +550,85 @@ Benchmark measurements on a single ARMv8.4-A Firestorm core (Apple M1,
 The speedup is largest for the Entry API because `CoordSpace.entry()` does
 not compute a hash or probe for collisions; the `Vacant`/`Occupied` branch
 is a single `is_some()` check.
+
+## tagma-sec: Security Primitive Layer
+
+The security layer is implemented as the `tagma-sec` workspace crate under
+`sw/rust/sec`, covering specification milestones 1 to 4 (authority,
+integrity, audit, channel). Security rests on keyed primitives (blake3)
+over public coordinate arithmetic: the composition formula, the
+linearization rule, and the validity bounds are public specifications, so
+coordinate structure contributes collision-free addressing, and the
+security guarantees come from the keyed primitives. Confidentiality is
+delegated to the hybrid interface.
+
+| Module | Interface | Guarantee |
+|--------|-----------|-----------|
+| `authority` | register, issue, authorize, revoke | Decisions over which principal may act on which scope (Exact and Prefix) |
+| `integrity` | seal, verify, refresh | Tamper-evident binding of records to paths, principals, and epochs |
+| `audit` | append, verify_chain, prove, export | Append-only, chained, externally verifiable evidence log |
+| `channel` | sign, verify, exchange, verify_receipt | Signed evidence exchange; origin and receipt provable to third parties |
+
+The proxy composes the four modules behind trait objects and switches
+between two implementations: the legacy pattern, which serves exclusively
+as a reverse-verification mirror, and the tagma-sec pattern (`delos()`).
+The same 17-test workflow suite must pass identically on both stacks;
+distinguishing tests pin where the patterns differ. A self-contained C++
+port (`sw/cpp/tagma_sec`) mirrors all 32 Rust tests with SHA-256 and
+HMAC-SHA-256 as the keyed primitive (a documented porting difference from
+blake3).
+
+### Key Engineering Decisions
+
+| Decision | Rationale | Consequence |
+|----------|-----------|-------------|
+| Stored-attestation authorization | A presented copy cannot extend or reshape the grant | Window, scope, and revocation are read from the stored attestation |
+| Epoch-bound seal | Replay across epochs is detected | ~33 ns over the record-and-path legacy seal |
+| Epoch-scoped revocation | Effective from the recorded epoch | A revoked scope stays revoked across re-issuance |
+| Chained audit log | Silent retroactive modification is detectable | ~1 ns per entry chain verification |
+| Keyed MAC channel | Origin authenticated between key holders | True non-repudiation requires asymmetric signatures |
+| Self-contained C++ hash | No external crypto dependency | Same interface and semantics as the Rust stack |
+
+### Benchmarks
+
+All values are measured on a single ARMv8.4-A Firestorm core (3.2 GHz)
+with the `sec` criterion group in `sw/rust/benches/bench.rs`.
+
+| Scenario | Benchmark | Measured | Insight |
+|----------|-----------|----------|---------|
+| Path authorization | `authorize/allow` | 36.8 ns | Decision cost is O(scope depth), independent of store size |
+| Fail-closed rejection | `authorize/deny` | 3.1 ns | Scope miss short-circuits at the first coord, ~12x cheaper than Allow |
+| Revoked scope enforcement | `authorize/revoked` | 40.5 ns | One map lookup on top of the scope match |
+| Epoch replay detection | `seal/pattern` | 171.4 ns | Epoch and principal binding costs ~33 ns over the 2-way seal (138.8 ns) |
+| Seal verification | `verify/pattern` | 129.2 ns | Recompute and compare; refresh is verify plus seal (296.0 ns) |
+| Audit chaining | `audit/verify_chain` (10k) | 9.9 µs | ~1 ns per entry prev-link walk, no hashing |
+| Offline investigation | `audit/prove`, `audit/export` (10k) | ~200 µs | Memory-bound clones, ~20 ns per entry |
+| Receipt verification | `channel/verify_receipt` | 86.8 ns | Parsing plus recompute, same order as verify |
+| Route update workflow | `route_update/pattern` | 696.1 ns | Exact sum of the module costs (691 ns), cost-transparent composition |
+| Baseline contrast | `route_update/legacy` | 609.5 ns | The tagma-sec pattern adds ~87 ns per update, the price of replay detection |
+
+The route-update workflow is cost-transparent: the measured total equals
+the sum of its module calls (authorize 36.8, seal 171.4, verify 129.2,
+append 110.3, append 110.3, exchange 132.7), so the proxy adds no
+measurable dispatch overhead. A 19-coord scope costs 62.7 ns against 36.0
+ns for a 1-coord scope, so authorization scales with scope depth, not
+store size. Chain verification is ~1 ns per entry, while prove and export
+are ~20 ns per entry and memory-bound, so offline investigation scales
+with evidence size rather than log size.
+
+### Validation and Status
+
+The crate carries 32 integration tests (17 common workflow, 10
+tagma-sec-specific, 5 real scenario) and a compiled README example, all
+mirrored by the C++ port (13/13 ctest executables across the C++ tree).
+The `sec` criterion group carries 21 security-layer benchmarks. The
+initial implementation is a proof of concept: the channel is MAC-based
+and authenticates origin between holders of the shared key, PoC keys are
+hardcoded, paths are heap-backed vectors, and the concrete epoch source
+remains an open question in the specification. Delos, the security-layer
+implementation at the same layer as the Chton IO layer, is in planning
+stage; it will compose these primitives with the neXus envelope and hybrid
+confidentiality.
 
 ## References
 
