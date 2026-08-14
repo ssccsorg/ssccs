@@ -475,7 +475,7 @@ Two recent results in classical parallelism are structurally related to SSCCS. E
 
 Let $\mathcal{S}$ denote the set of all Segments. A Segment $s \in \mathcal{S}$ is a tuple $(c, id)$ where $c \in \mathbb{R}^d$ represents coordinates in a $d$-dimensional possibility space, and $id = H(c)$ is a cryptographic hash providing a unique identifier.
 
-Its properties are: **Immutability** (once created, a Segment cannot be modified), **Statelessness** (contains no values, only coordinates and identity). Because Segments contain no mutable state, they can be observed concurrently by any number of observers without synchronization. The cryptographic identity ensures that every Segment is uniquely identifiable. For example, on the Unicode Basic Multilingual Plane (BMP), every code point is a fixed 16-bit value, and in a specific contiguous address range code points carry a closed-form compositional structure whose axes are recoverable by integer arithmetic alone. That combination of fixed width and structural composition is a general methodology for primitive computing: a coordinate serves directly as an address in OS-less environments, with no variable-length decoding, no parser, and no hash function. The tagma block [@tagma2026wp] is an independent project that realizes this property as a concrete case (Appendix [*-@sec-appendix-tagma*]); the full identity analysis is developed in the Tagma whitepaper.
+Its properties are: **Immutability** (once created, a Segment cannot be modified), **Statelessness** (contains no values, only coordinates and identity). Because Segments contain no mutable state, they can be observed concurrently by any number of observers without synchronization. The cryptographic identity ensures that every Segment is uniquely identifiable. For example, on the Unicode Basic Multilingual Plane (BMP), every code point is a fixed 16-bit value, and in a specific contiguous address range code points carry a closed-form compositional structure whose axes are recoverable by integer arithmetic alone. That combination of fixed width and structural composition is a general methodology for primitive computing: a coordinate serves directly as an address in OS-less environments, with no variable-length decoding, no parser, and no hash function. The boundary between the two identities is explicit: the hash identity applies wherever cryptographic integrity or content-derived identity is required, and the closed-form coordinate serves directly as identity where the coordinate structure is self-validating. The tagma block [@tagma2026wp] is an independent project that realizes this property as a concrete case (Appendix [*-@sec-appendix-tagma*]); the full identity analysis is developed in the Tagma whitepaper.
 
 ### Scheme: Structural Blueprint
 
@@ -506,7 +506,7 @@ The logical address $\ell = L(c)$ consists of a space identifier and an offset w
 
 #### Observation Rules
 
-The observation rules $O = (\text{resolution}, \text{triggers}, \text{priority}, \text{context})$ govern how the observation operator $\Omega$ is applied to the Scheme. Resolution strategies (deterministic, probabilistic, energy minimization, entropy maximization, external), triggers (on-demand, periodic, threshold, structural change, dependency satisfied, external event), priority levels, and context meta-constraints together enable fine-grained control over the observation process. For deterministic reproducibility—a core principle of SSCCS—a deterministic resolution strategy must be used; non-deterministic strategies are permitted only when strict reproducibility is not required.
+The observation rules $O = (\text{resolution}, \text{triggers}, \text{priority}, \text{context})$ govern how the observation operator $\Omega$ is applied to the Scheme. Resolution strategies (deterministic, probabilistic, energy minimization, entropy maximization, external), triggers (on-demand, periodic, threshold, structural change, dependency satisfied, external event), priority levels, and context meta-constraints together enable fine-grained control over the observation process. For deterministic reproducibility—a core principle of SSCCS—a deterministic resolution strategy must be used; non-deterministic strategies are permitted only when strict reproducibility is not required. Formally, deterministic resolution is a function $\Omega(s) = \pi(s, F)$; probabilistic resolution samples from the transition weights, $P(s) \propto T(s, \cdot)$, or from a Boltzmann distribution, $P(s) \propto \exp(-\beta E(s))$; energy minimization selects $\Omega(s) = \arg\min_{s' \in \mathcal{A}} E(s')$; entropy maximization selects $\Omega(s) = \arg\max_{s' \in \mathcal{A}} H(s')$.
 
 Observation rules are part of the Scheme’s immutable specification; they enable fine-grained control over the observation process, allowing the designer to trade off determinism against other desiderata. (See *-@sec-appendix-scheme-enumerations* [*-@sec-appendix-observation-rules*] for more details.)
 
@@ -543,6 +543,15 @@ The constraint predicate $C(s)$ of a Field can express a wide variety of admissi
 4. **Logical constraints** are Boolean combinations of other constraints, realized through Field composition. The union ($\cup$), intersection ($\cap$), and product ($\times$) operations allow arbitrary logical connectives (AND, OR, NOT) to be applied across multiple Fields. Logical constraints provide the compositional power needed to build complex admissibility conditions from simpler ones.
 
 5. **Physical constraints** encode real‑world limitations such as energy budgets, timing deadlines, or thermal thresholds. These quantities can be represented as additional coordinate axes (e.g., an energy axis $e$, a latency axis $\tau$) within the Segment's possibility space, or as auxiliary dimensions defined in the Scheme's axis set. Physical constraints are then expressed as inequalities on those axes, e.g., $e \leq E_{\text{max}}$, and can influence the transition matrix $T$ to reflect preferences among admissible Segments.
+
+Formally, the five types contribute conjuncts to the Field predicate:
+$$
+c_{\text{dim}}(s) \equiv \bigwedge_{a} s.a \in I_a, \quad c_{\text{top}}(s) \equiv \text{dist}_R(s, s') \leq k, \quad c_{\text{alg}}(s) \equiv f(s.c) = 0,
+$$
+$$
+c_{\text{phys}}(s) \equiv s.e \leq E_{\max} \land s.\tau \leq T_{\max}, \quad C(s) = \bigwedge_i c_i(s),
+$$
+where $\text{dist}_R$ is the shortest path length in the Scheme's relation graph, and logical constraints are realized through Field composition.
 
 This taxonomy is not mutually exclusive; a single Field may contain constraints of several types. The classification serves as a conceptual tool for designers, helping them choose the appropriate constraint representation and composition strategy for a given problem. In practice, the compiler may exploit the structural properties of each type to optimize observation code—for instance, dimensional constraints can be evaluated via range‑check circuits, while algebraic constraints may require dedicated arithmetic units. (See [*-@sec-appendix-axis-types*] for a detailed listing of axis types and [*-@sec-appendix-structural-relations*] for relation categories.)
 
@@ -611,7 +620,7 @@ Beyond binary operations, Fields can also be composed in three higher-level ways
 
 - **Sequential composition (Extension)**: Fields can be applied in a temporal order: first $F_A$, then $F_B$. Because SSCCS treats time as one coordinate among many, sequential composition can be understood as applying Fields over adjacent time intervals. One interpretation models functional composition of constraint predicates: $C(s) = C_B(C_A(s))$ (where each predicate is viewed as a selector of admissible states) and convolution of transition matrices: $T(s_1, s_2) = \sum_{s'} T_A(s_1, s') \cdot T_B(s', s_2)$. This models processes where constraints evolve over time, such as multi-stage pipelines or state machines. Sequential composition requires ordering guarantees that can be enforced through hardware scheduling or explicit synchronization primitives. It can be presented **as an optional extension;** the core model does not depend on global sequentiality.
 
-The immutability of Segments eliminates data-race hazards, making parallel composition naturally scalable across many cores. However, coordinating the distribution of Fields and collecting projections may introduce overhead. Hardware support for atomic broadcast of Segment addresses and gather-scatter of projection results can mitigate this overhead, enabling efficient many-observer systems.
+The immutability of Segments eliminates data-race hazards, making parallel composition naturally scalable across many cores. However, coordinating the distribution of Fields and collecting projections may introduce overhead. Hardware support for atomic broadcast of Segment addresses and gather-scatter of projection results can mitigate this overhead, enabling efficient many-observer systems. Declarative determinacy: the projection set at quiescence is a function of the final Field configuration, independent of the update schedule that reached it: $P_{\text{quiescent}} = \Phi(F_{\text{final}})$. This holds for updates driven by temporal and dependency triggers, whose outcomes do not depend on observation results; observed triggers create feedback whose convergence is a separate safety condition.
 
 #### Logical and Binary‑Level Composition Protocols
 
@@ -802,7 +811,7 @@ $$
 \end{cases}
 $$
 
-The observation operator is therefore a partial function over $\mathcal{S}$: it is defined only for segments in $\mathcal{A}(\Sigma, F)$. Outside the admissible set, no projection exists.
+The observation operator is therefore a partial function over $\mathcal{S}$: it is defined only for segments in $\mathcal{A}(\Sigma, F)$. Outside the admissible set, no projection exists. Two segment sets are observationally equivalent under a Field when every observer yields the same projection for both: $S_1 \simeq_F S_2 \iff \forall \Omega.\, \Omega(S_1, F) = \Omega(S_2, F)$. The Field predicate reads a subset of the axes, so equivalence reduces to agreement on the axes it reads.
 
 If the resolution strategy is deterministic, $\Omega$ is a function of its arguments: for a fixed scheme, field, and time bound, $\Omega$ always produces the same projection. If the strategy is probabilistic, $\Omega$ samples from a distribution defined by the transition weights $T$. No data is moved during observation; segments remain in place.
 
@@ -822,9 +831,10 @@ $$
 F' = \text{update}(F, \text{trigger}, \text{context}).
 $$
 
-When a Field updates, any previously computed projection becomes stale; a subsequent observation reflects the new Field state.
+When a Field updates, any previously computed projection becomes stale; a subsequent observation reflects the new Field state. A failed update applies no partial change: the update is the identity on the Field, $\text{update}(F, t, c) = F$ on failure, the previous state is retained, and the failure is recorded on the Field. Partial application would break the determinism and auditability guarantees.
 
-The determinism of an update depends on its trigger type. A temporal trigger is deterministic if its time source is monotonic and reproducible (a fixed-step clock or logical epoch counter); it is non-deterministic if derived from wall-clock time. A dependency trigger is deterministic if the update order is fixed. An event trigger is deterministic only if the event source itself is deterministic. Observed and composite triggers inherit determinism from their constituents.
+The determinism of an update depends on its trigger type. A temporal trigger is deterministic if its time source is monotonic and reproducible (a fixed-step clock or logical epoch counter); it is non-deterministic if derived from wall-clock time. A dependency trigger is deterministic if the update order is fixed, where the order is a topological order of the dependency graph and dependents observe against their committed versions during the cascade, and a provider updates a binding only after every dependent Field has re-observed the new version, so that $\forall F_d \in \text{Dep}(F_p): v_{\text{commit}}(F_d) \geq v(F_p)$ before the next provider update.
+ An event trigger is deterministic only if the event source itself is deterministic. Observed and composite triggers inherit determinism from their constituents.
 
 The trigger types are summarised below; formal semantics and determinism properties are provided in [*-@sec-appendix-dynamic-field-evolution*].
 
@@ -838,7 +848,8 @@ The trigger types are summarised below; formal semantics and determinism propert
 
 When a Field that participates in a composition (union, intersection, product) is updated, the composite Field is implicitly updated according to the composition rule (e.g., $F_A \cap F_B$ becomes $F_A' \cap F_B$). The runtime tracks versions of constituent Fields and recomposes lazily.
 
-Observation results are ephemeral (see §3.4). Caching with versioning is an implementation optimisation—it does not change semantics. The runtime ensures that each observation returns a result consistent with the current Field state; stale projections are transparently recomputed. The diagram below illustrates the dynamic observation cycle.
+Observation results are ephemeral (see §3.4). Caching with versioning is an implementation optimisation—it does not change semantics. Each observation commits to the Field version it resolved against, so the returned result is consistent with that version: $\text{stale}(P) \iff v_{\text{commit}}(P) \neq v_{\text{current}}(F)$. Stale projections are transparently recomputed.
+ The diagram below illustrates the dynamic observation cycle.
 
 ```{python}
 #| label: fig-dynamic-observation
@@ -882,7 +893,7 @@ $$
 \Omega(S_1 \cup S_2, F) = \Omega(S_1, F) \times \Omega(S_2, F),
 $$
 
-where $\times$ denotes independent composition of projections. Every Segment and Scheme has a unique cryptographic hash, enabling identity-based boundaries where computations can only access Segments for which they hold valid references. This provides inherent structural isolation against interference without requiring additional security mechanisms.
+where $\times$ denotes independent composition of projections. The combined projection is therefore independent of the order of evaluation, up to observational equivalence, so the isolation equation extends to schedules. Every Segment and Scheme has a unique cryptographic hash, enabling identity-based boundaries where computations can only access Segments for which they hold valid references. This provides inherent structural isolation against interference without requiring additional security mechanisms.
 
 ### Relationship with Traditional Concepts
 
@@ -934,7 +945,9 @@ where $\text{evolve}$ is a function of the time increment only. When $\text{evol
 
 #### Determinism and Auditability
 
-Observation is deterministic: for identical $\Sigma$, $F$, and $t$, $\Omega$ always yields the same $P$. This follows from the definition of $\Omega$ as a function of $\Sigma$, $F$, and $t$; any non-determinism must be explicitly introduced through the resolution strategy in $O$. When the observation log is append-only, replaying the log from its initial state exactly reconstructs any prior projection without requiring snapshots or checkpoints.
+Observation is deterministic: for identical $\Sigma$, $F$, and $t$, $\Omega$ always yields the same $P$. This follows from the definition of $\Omega$ as a function of $\Sigma$, $F$, and $t$; any non-determinism must be explicitly introduced through the resolution strategy in $O$. When the observation log is append-only, replaying the log from its initial state exactly reconstructs any prior projection without requiring snapshots or checkpoints. The log guarantee has a completeness half: whatever reaches an observer is reconstructable from the log, $\text{obs} \subseteq \text{replay}(L)$, because every input that determined a projection is in it.
+ Field updates that are explicit transformations are likewise reversible through the log, which records every Field state; recovery restores the prior version by replay, $F_{t-1} = \text{replay}(L_{<t})$, and a failed update leaves the Field unchanged.
+ The claim is conditional on a fixed Field: observed triggers are the one evolution path whose outcome depends on projection results, so a Field driven by observed triggers evolves along a feedback loop whose convergence is a separate safety condition (see [*-@sec-appendix-dynamic-field-evolution*]).
 
 ## System Architecture and Compilation
 
@@ -993,7 +1006,8 @@ The entire pipeline is deterministic and reproducible: given the same specificat
 
 The second pipeline stage, **Structural Analysis**, extracts adjacency and dependency relations from the Scheme’s relation set $R$. The compiler performs a graph-theoretic analysis to identify **independent sub-graphs** that can be observed concurrently.
 
-Concretely, the compiler constructs a directed graph where vertices are Segments and edges are relations of type *Dependency*. **Strongly connected components (SCCs)** of this dependency graph are identified; each SCC forms a candidate for sequential observation because dependencies within a component create cyclic constraints. Sub-graphs with no edges between them are marked as **independent** and can be scheduled in parallel. For relations of type *Adjacency* and *Hierarchy*, the compiler uses them to guide locality optimization in later stages, but they do not impose observation ordering.
+Concretely, the compiler constructs a directed graph where vertices are Segments and edges are relations of type *Dependency*. **Strongly connected components (SCCs)** of this dependency graph are identified; each SCC forms a candidate for sequential observation because dependencies within a component create cyclic constraints. Sub-graphs with no edges between them are marked as **independent** and can be scheduled in parallel. Formally, the dependency graph is $G = (V, E_D)$ with $E_D \subseteq R_{\text{dep}}$; independent subgraphs satisfy $E_D(G_1, G_2) = \emptyset$, and the observation order is a topological order of the SCC condensation $G/\text{SCC}$. For relations
+ of type *Adjacency* and *Hierarchy*, the compiler uses them to guide locality optimization in later stages, but they do not impose observation ordering.
 
 This analysis is purely structural and does not depend on runtime values, ensuring deterministic parallelism. The output of this stage is a partition of the Scheme into observation units, each with its own logical-address map and observation code.
 
@@ -1057,7 +1071,9 @@ digraph SystemStack {
         LayoutCache [label="Layout Cache\n(pre-computed)", style=dashed];
         FieldVersion [label="Field Version\n& Staleness"];
         TriggerMonitor [label="Trigger\nMonitor"];
+        ConstraintGate [label="Constraint Gate\n(C(s) evaluation)"];
         Projector [label="Projector\n(Ω)"];
+        ObservationLog [label="Observation Log\n(append-only, replayable)", style=dashed];
     }
 
     // Hardware Abstraction Layer
@@ -1087,8 +1103,11 @@ digraph SystemStack {
     Runtime -> TriggerMonitor [label="monitor", style=dashed];
     TriggerMonitor -> FieldVersion [label="update", style=dashed];
     FieldVersion -> LayoutCache [label="invalidate", style=dashed];
-    Runtime -> Projector [label="execute Ω"];
+    Runtime -> ConstraintGate [label="evaluate C(s)"];
+    ConstraintGate -> Projector [label="admissible set"];
     FieldVersion -> Projector [label="version check", style=dashed];
+    Runtime -> ObservationLog [label="record observation", style=dashed];
+    Projector -> ObservationLog [label="record projection", style=dashed];
 
     // Runtime to HAL
     Projector -> HAL [label="observation\nmicro-ops"];
@@ -1103,16 +1122,17 @@ digraph SystemStack {
 
     // Compiler output
     Compiler -> LayoutCache [label="emit layout", style=dashed];
+    Compiler -> ConstraintGate [label="emit gates", style=dashed];
     Compiler -> Projector [label="emit observation code", style=dashed];
 
     // Compiler reads hardware profiles
     Compiler -> HAL [label="target profile", style=dashed];
 }
-"""
-)
+""")
+
 ```
 
-Upon receiving an `observe(scheme, field)` call, the runtime loads the pre-computed memory layout from the layout cache, invokes the projector, and returns the resulting projection. The projector translates the logical addresses produced by the compiler into hardware-specific memory accesses, using dedicated observation instructions when available. This decouples the structural mapping (done at compile time) from the dynamic observation (done at runtime), enabling portable performance across heterogeneous hardware.
+Upon receiving an `observe(scheme, field)` call, the runtime loads the pre-computed memory layout from the layout cache, evaluates the constraint gates of the Field, invokes the projector, records the observation in the append-only log, and returns the resulting projection. The projector translates the logical addresses produced by the compiler into hardware-specific memory accesses, using dedicated observation instructions when available. This decouples the structural mapping (done at compile time) from the dynamic observation (done at runtime), enabling portable performance across heterogeneous hardware.
 
 #### Future Hardware Considerations
 
@@ -1194,7 +1214,8 @@ The primary energy sink in modern computing is the movement of operands from mem
 | Data Movement | $O(N)$ | $O(N)$ | $O(\text{Output Only})$ |
 | Scalability Limit | Amdahl's Law | Memory Bandwidth | Physical Propagation Delay |
 
-An observation, however structured, must execute on a physical substrate. The compiler's layout decisions carry a bandwidth-compute balance constraint: for any observation unit, the product of its compute footprint and the required data rate must not exceed what the target substrate can supply per cycle. When this condition is unmet, the observation stalls regardless of structural independence. The `MemoryLayout` abstraction is therefore not merely an optimisation—it is a constraint-satisfaction problem whose solution determines whether an observation is executable on a given hardware profile. Empirical analyses of this balance condition in conventional vector architectures are referenced in [*-@sec-appendix-empirical-validation*].
+An observation, however structured, must execute on a physical substrate. The compiler's layout decisions carry a bandwidth-compute balance constraint: for any observation unit, the product of its compute footprint and the required data rate must not exceed what the target substrate can supply per cycle. Formally, for every observation unit $u$: $\kappa(u) \cdot \rho(u) \leq \beta$, where $\kappa(u)$ is the compute footprint, $\rho(u)$ the required data rate, and $\beta$ the substrate's per-cycle bandwidth-compute product.
+ When this condition is unmet, the observation stalls regardless of structural independence. The `MemoryLayout` abstraction is therefore not merely an optimisation—it is a constraint-satisfaction problem whose solution determines whether an observation is executable on a given hardware profile. Empirical analyses of this balance condition in conventional vector architectures are referenced in [*-@sec-appendix-empirical-validation*].
 
 ### Scalability in High-Dimensional AI Workloads
 
@@ -1222,6 +1243,8 @@ execution-based optimization to the deterministic observation of stationary topo
 a universal, structure-defined architecture.
 
 These references contextualize SSCCS within the broader intellectual landscape. In each domain, the shift from execution to observation is expected to offer advantages that incremental optimization cannot provide.
+
+A concurrent implementation case. The DeepSeek paper on spatiotemporal composability [@shi2026spatiotemporal] (August 2026) formalizes dynamic software composition through revertible effects and reactive coeffects, six months after the SSCCS model of February 2026. The case is examined in the appendix [*-@sec-appendix-deepseek-comparison*].
 
 Recent ecosystem developments in open-hardware space computing further contextualize SSCCS’s relevance. Initiatives such as ESA’s TRISTAN roadmap and radiation-tolerant RISC-V implementations (e.g., StarRISC, HARV-SoC) highlight the industry’s shift toward deterministic, mixed-criticality aware processors. SSCCS aligns with this trajectory by providing a software-defined resilience layer that complements physical hardening, enabling semantic fault detection, adaptive redundancy, and cryptographic policy enforcement on open silicon.
 
@@ -1360,10 +1383,10 @@ pub struct Segment {
 
 The Scheme abstraction captures the static topological blueprint of a computation. It consists of:
 
-- **Axes** – dimensional definitions (`Discrete`, `Continuous`, `Cyclic`, `Categorical`, `Relational`, `WithUnit`).
-- **Structural Relations** – adjacency, hierarchy, dependency, equivalence, and custom predicates.
-- **Memory‑Layout** – mapping from coordinate space to logical addresses (`Linear`, `RowMajor`, `ColumnMajor`, `SpaceFillingCurve`, `Hierarchical`, `Graph‑Based`, `Custom`).
-- **Observation Rules** – resolution strategies, triggers, priority, and context.
+- **Axes:** dimensional definitions (`Discrete`, `Continuous`, `Cyclic`, `Categorical`, `Relational`, `WithUnit`).
+- **Structural Relations:** adjacency, hierarchy, dependency, equivalence, and custom predicates.
+- **Memory‑Layout:** mapping from coordinate space to logical addresses (`Linear`, `RowMajor`, `ColumnMajor`, `SpaceFillingCurve`, `Hierarchical`, `Graph‑Based`, `Custom`).
+- **Observation Rules:** resolution strategies, triggers, priority, and context.
 
 The layer provides ready‑to‑use templates (`Grid2DTemplate`, `IntegerLineTemplate`, `GraphTemplate`) that combine these elements into common topological patterns.
 
@@ -1388,17 +1411,17 @@ pub trait Projector {
 
 Three example projectors are:
 
-- **`IntegerProjector`** – extracts a coordinate along a given axis.
-- **`ArithmeticProjector`** – defines adjacency through arithmetic operations (`+1`, `-1`, `*2`, `/2`).
-- **`ParityProjector`** – classifies coordinates as `"even"` or `"odd"` strings.
+- **`IntegerProjector`:** extracts a coordinate along a given axis.
+- **`ArithmeticProjector`:** defines adjacency through arithmetic operations (`+1`, `-1`, `*2`, `/2`).
+- **`ParityProjector`:** classifies coordinates as `"even"` or `"odd"` strings.
 
 ### Validation Substrates
 
 The same constraint pipeline is implemented independently on three substrates and cross-verified automatically:
 
-- **Rust fallback** – the reference path on the host (x86_64/aarch64), exercised by the workspace tests.
-- **RISC-V assembly** – five hand-written modules covering observation, collapse, field update, scheme layout, and adjacency, executed at the ISA level under Spike.
-- **SystemVerilog** – 18 modules implementing constraints, projectors, composition, and the CORE-V XIF coprocessor stub.
+- **Rust fallback:** the reference path on the host (x86_64/aarch64), exercised by the workspace tests.
+- **RISC-V assembly:** five hand-written modules covering observation, collapse, field update, scheme layout, and adjacency, executed at the ISA level under Spike.
+- **SystemVerilog:** 18 modules implementing constraints, projectors, composition, and the CORE-V XIF coprocessor stub.
 
 Nineteen golden anchors pin the assembly outputs; a Python checker forces the SystemVerilog constants and the Rust fallback to agree with them on every validation run. The open-source ev (ExaVerif) CLI reproduces the anchor results through its own constraint engine, forming a fourth independent channel [@ev2026exaverif].
 
@@ -1408,10 +1431,10 @@ The workspace also emits the Scheme as an assembly `.rodata` section (`SCHEME_SE
 
 A four‑stage compiler pipeline translates a high‑level Scheme into hardware‑specific layouts:
 
-1. **Parsing and Validation** – reads the `.ss` binary and builds an intermediate representation.
-2. **Structural Analysis** – extracts adjacency and dependency relations, identifies independent sub‑graphs for parallel observation.
-3. **Memory‑Layout Resolution** – applies the Scheme’s `MemoryLayout` to map coordinates to logical addresses.
-4. **Hardware Mapping** – projects logical addresses onto the target hardware’s physical memory hierarchy (CPU caches, FPGA Block‑RAM, PIM banks).
+1. **Parsing and Validation:** reads the `.ss` binary and builds an intermediate representation.
+2. **Structural Analysis:** extracts adjacency and dependency relations, identifies independent sub‑graphs for parallel observation.
+3. **Memory‑Layout Resolution:** applies the Scheme’s `MemoryLayout` to map coordinates to logical addresses.
+4. **Hardware Mapping:** projects logical addresses onto the target hardware’s physical memory hierarchy (CPU caches, FPGA Block‑RAM, PIM banks).
 
 The pipeline is generic over a `HardwareProfile` (`GenericCPU`, `FPGA`, `PIM`, `Custom`), allowing the same Scheme to be optimized for different substrates.
 
@@ -1755,10 +1778,10 @@ Defines how a Field’s dynamic constraints interact with the static Scheme to p
 
 ### Key characteristics
 
-1. **Non‑linear addressing** – Segments are identified by coordinate tuples, not memory offsets.
-2. **Relation‑defined computation** – What traditional code expresses as loops and conditionals is encoded in the connectivity and metric of the `Relations` block.
-3. **Observation as collapse** – The `Observation` block specifies how a Field's constraints resolve the Scheme's potential into a deterministic Projection.
-4. **Deferred physical mapping** – No memory layout or instruction sequence is included; the compiler backend maps the topology to concrete hardware (SRAM, DRAM, HBM, etc.) based solely on the declared relations.
+1. **Non‑linear addressing:** Segments are identified by coordinate tuples, not memory offsets.
+2. **Relation‑defined computation:** What traditional code expresses as loops and conditionals is encoded in the connectivity and metric of the `Relations` block.
+3. **Observation as collapse:** The `Observation` block specifies how a Field's constraints resolve the Scheme's potential into a deterministic Projection.
+4. **Deferred physical mapping:** No memory layout or instruction sequence is included; the compiler backend maps the topology to concrete hardware (SRAM, DRAM, HBM, etc.) based solely on the declared relations.
 5. **Deferred physical mapping** — No memory layout or instruction sequence is included; the compiler backend maps the topology to concrete hardware (SRAM, DRAM, HBM, etc.) based solely on the declared relations.
 6. **Irreversibility of execution** — Execution moves forward only. A Scheme compiled and observed produces a Fact that cannot be retroactively altered. Legal instruments can be contested; execution traces cannot. An entity that copies the entire open specification and begins from the same primitives has gained nothing but yesterday's state. It still faces its own execution path alone, without the accumulated trajectory of those who have already run theirs. The barrier is not access to knowledge but the direction of time itself.
 
@@ -2010,6 +2033,9 @@ Space missions require post-launch cryptographic agility. The deployment pipelin
 
 4. **Key Rolling**: Ground station signs a `Key Update Field` with the Master Private Key. Upon verification, the new public key hash is written to a designated ECC-protected Key Segment, maintaining a verifiable chain: `Master → PubKey₁ → Field`.
 
+A signed Field binary replaces an active Field in place through a defined lifecycle, $\text{replace}(F_{\text{old}}, F_{\text{new}}) = \text{verify}(F_{\text{new}}) \to \text{swap} \to \text{rollback}(F_{\text{old}})$, where rollback uses the log-based recovery of the previous version.
+
+
 ### Ecosystem Alignment & Validation Pathway
 
 - **OpenHW CORE-V**: XIF integration targets CV32E40P baseline. Phase 1 uses `riscvOVPsimCOREV` for custom instruction emulation; Phase 2 targets FPGA prototyping via QuickLogic eFPGA on the CORE-V MCU DevKit [@openhw2025xif].
@@ -2196,34 +2222,43 @@ The mapping $L: \mathbb{R}^d \to \mathcal{L}$ assigns each coordinate a logical 
 
 The logical address $\ell = L(c)$ consists of a space identifier and an offset within that space. It serves as an intermediate representation that the compiler later translates to physical addresses according to the target hardware’s memory hierarchy. The choice of layout type is a critical optimization: it determines how structurally adjacent Segments are placed in physical memory, thereby minimizing data movement during observation.
 
-### Observation Rules {#sec-appendix-observation-rules}
+### Observation Rules (Draft) {#sec-appendix-observation-rules}
 
 The observation rules $O = (\text{resolution}, \text{triggers}, \text{priority}, \text{context})$ govern how the observation operator $\Omega$ is applied to the Scheme.
 
 - **Resolution strategies** determine how a single projection is selected when multiple configurations are admissible:
-  - Deterministic: A fixed algorithm (e.g., first‑admissible, lexicographic) picks a unique projection.
-  - Probabilistic: A weighted distribution (uniform, Boltzmann, etc.) samples a projection.
-  - Energy minimization: The projection that minimizes a specified energy function is chosen.
-  - Entropy maximization: The projection that maximizes Shannon entropy is selected.
-  - External: An external resolver (e.g., a runtime module) decides the projection.
+
+| Resolution strategy | Description |
+|---|---|
+| Deterministic | A fixed algorithm (e.g., first-admissible, lexicographic) picks a unique projection. |
+| Probabilistic | A weighted distribution (uniform, Boltzmann, etc.) samples a projection. |
+| Energy minimization | The projection that minimizes a specified energy function is chosen. |
+| Entropy maximization | The projection that maximizes Shannon entropy is selected. |
+| External | An external resolver (e.g., a runtime module) decides the projection. |
+
 
   For deterministic reproducibility—a core principle of SSCCS—a deterministic resolution strategy (e.g., first‑admissible, lexicographic, energy minimization with a unique minimum) must be used. Non‑deterministic strategies (probabilistic, external) are permitted only when strict reproducibility is not required.
 
 - **Triggers** define when observation occurs:
-  - On‑demand: Observation is initiated by an explicit request.
-  - Periodic: Observation repeats at a fixed time interval.
-  - Threshold: Observation triggers when a monitored value crosses a threshold.
-  - Structural change: Observation follows a modification of the Field.
-  - Dependency satisfied: All required dependencies are met.
-  - External event: A named external event signals observation.
 
-- **Priority** indicates the urgency of the observation:
-  - *Critical*, *High*, *Normal*, *Low*, *Background*.
+| Trigger | Description |
+|---|---|
+| On-demand | Observation is initiated by an explicit request. |
+| Periodic | Observation repeats at a fixed time interval. |
+| Threshold | Observation triggers when a monitored value crosses a threshold. |
+| Structural change | Observation follows a modification of the Field. |
+| Dependency satisfied | All required dependencies are met. |
+| External event | A named external event signals observation. |
+
 
 - **Context** provides additional meta‑constraints:
-  - Allowed observers: A set of identities that may perform the observation.
-  - Constraints: A list of extra logical conditions that must hold.
-  - Metadata: Key‑value pairs for arbitrary annotation.
+
+| Meta-constraint | Description |
+|---|---|
+| Allowed observers | A set of identities that may perform the observation. |
+| Constraints | A list of extra logical conditions that must hold. |
+| Metadata | Key-value pairs for arbitrary annotation. |
+
 
 Observation rules are part of the Scheme’s immutable specification; they enable fine‑grained control over the observation process, allowing the designer to trade off determinism against other desiderata.
 
@@ -2285,7 +2320,15 @@ Composite triggers combine two or more triggers via logical operators:
 - **OR** (`t1 OR t2`): fires when any constituent trigger has fired.
 - **Sequence** (`t1 ; t2`): fires first when `t1` fires, then when `t2` fires after that.
 
-Determinism of a composite trigger is the logical combination of determinism of its parts (AND/OR preserve determinism if all parts are deterministic; sequencing preserves determinism if the sequence is prescribed).
+Determinism of a composite trigger is the logical combination of determinism of its parts (AND/OR preserve determinism if all parts are deterministic; sequencing preserves determinism if the sequence is prescribed). Formally, each trigger type is an update rule:
+$$
+F' = \text{evolve}(F, \Delta t) \quad \text{(temporal)}, \quad F' = \text{update}(F, e, \text{ctx}) \quad \text{(event)},
+$$
+$$
+F' = \text{update}(F, P \models \psi) \quad \text{(observed)}, \quad F' = \text{update}(F, v(F_{\text{other}})) \quad \text{(dependency)},
+$$
+with composite triggers combining the guards, $t = t_1 \land t_2 \lor t_3$.
+
 
 ### Versioning and Staleness (Implementation Notes)
 
@@ -2293,7 +2336,8 @@ The whitepaper defines projections as ephemeral. Caching is an **optimisation**;
 
 #### Version Counter
 
-Each Field maintains a monotonically increasing version number. Initially `version = 0`. On every update (triggered evolution), `version += 1`.
+Each Field maintains a monotonically increasing version number. Initially `version = 0`. On every update (triggered evolution), `version += 1`. Formally, $v(F) \in \mathbb{N}$ with $v_0(F) = 0$ and $v \mapsto v + 1$ on every update; a cached projection is valid iff $v_{\text{cache}} = v_{\text{current}}(F)$.
+
 
 Cached projections are stored as a tuple `(value, field_version, scheme_hash)`. When an observation is requested:
 
@@ -2320,9 +2364,9 @@ Lazy recomposition is recommended: the composite Field’s internal structure is
 
 The compiler can analyse update rules to:
 
-- **Determine determinism** – flag non‑deterministic triggers when the user requests a reproducible build.
-- **Detect impossible triggers** – e.g., temporal trigger on a Scheme without a time axis → error.
-- **Identify independent updates** – updates that do not affect each other can be executed in parallel.
+- **Determine determinism:** flag non‑deterministic triggers when the user requests a reproducible build.
+- **Detect impossible triggers:** e.g., temporal trigger on a Scheme without a time axis → error.
+- **Identify independent updates:** updates that do not affect each other can be executed in parallel.
 
 #### Code Generation for Versioned Observations
 
@@ -2336,7 +2380,9 @@ fn observe(scheme: &Scheme, field: &Field, field_version: u64) -> Projection {
         }
     }
     let value = compute_observation(scheme, field);
-    CACHE.insert((scheme.id(), field.id()), CachedEntry { value, version: field_version });
+    CACHE.insert(
+        (scheme.id(), field.id()), CachedEntry { value, version: field_version }
+    );
     value
 }
 ```
@@ -2351,18 +2397,18 @@ The compiler extracts the dependency graph from `on_update(F_other)` triggers. I
 
 A lightweight event loop or discrete‑event simulator (depending on deployment) monitors:
 
-- **Temporal triggers** – using a timer queue keyed by `(scheme, field, absolute_time)`.
-- **Event triggers** – subscribing to external event channels.
-- **Observed triggers** – evaluated after each observation, with updates queued for the next observation cycle.
-- **Dependency triggers** – propagated deterministically in topological order.
+- **Temporal triggers:** using a timer queue keyed by `(scheme, field, absolute_time)`.
+- **Event triggers:** subscribing to external event channels.
+- **Observed triggers:** evaluated after each observation, with updates queued for the next observation cycle.
+- **Dependency triggers:** propagated deterministically in topological order.
 
 #### Caching Policies
 
 Implementations may choose different caching strategies:
 
-- **No cache** – always recompute (simplest, but may be inefficient).
-- **Per‑Field LRU cache** – keep a bounded number of projections per Field.
-- **Global cache with epoch invalidation** – all projections are invalidated when any Field version changes (simple but may waste work).
+- **No cache:** always recompute (simplest, but may be inefficient).
+- **Per‑Field LRU cache:** keep a bounded number of projections per Field.
+- **Global cache with epoch invalidation:** all projections are invalidated when any Field version changes (simple but may waste work).
 
 The choice does not affect correctness, only performance.
 
@@ -2448,13 +2494,7 @@ Independent work on GPU kernel programming has developed type-level layout abstr
 
 ## Tagma: Coordinate Identity and Its Measurement {#sec-appendix-tagma}
 
-The tagma block [@tagma2026wp] is an independent project that realizes the fixed-width coordinate property described in the Segment definition and the memory-layout abstraction of the main text. A fixed 16-bit value in block U+AC00-U+D7AF is simultaneously a 1-D address, a 3-D coordinate, and a displayable character. The closed-form composition formula
-
-$$C(i,m,f) = \text{U+AC00} + 588i + 28m + f \quad (0 \le i < 19,\; 0 \le m < 21,\; 0 \le f < 28)$$
-
-packs three independent axes into one 16-bit word, and decomposition recovers the axes with the same arithmetic. Of the 65,536 values in the 16-bit space, 11,172 are valid coordinates and the remaining 54,364 are detectable as invalid by the formula itself. No hash function, lookup table, or variable-length decoding participates in either direction.
-
-{{< include ../projects/syntagma/_include/fig-3d-decode.qmd >}}
+The tagma block [@tagma2026wp] is an independent project that realizes the fixed-width coordinate property described in the Segment definition and the memory-layout abstraction of the main text. A fixed 16-bit value in block U+AC00-U+D7AF is simultaneously a 1-D address, a 3-D coordinate, and a displayable character. The closed-form composition formula packs three independent axes into one 16-bit word, and decomposition recovers the axes with the same arithmetic. Of the 65,536 values in the 16-bit space, 11,172 are valid coordinates and the remaining 54,364 are detectable as invalid by the formula itself. No hash function, lookup table, or variable-length decoding participates in either direction.
 
 ### Identity generation latency
 
@@ -2464,7 +2504,7 @@ The reference implementation measures the consequences of this structure on ARMv
 
 ### Addressable space and spatial query
 
-The addressable space grows as $11{,}172^N$, and lookup cost does not follow the space. The dense path holds at 0.39 ns at every depth; the tree fallback costs O(N) dereferences bounded by schema depth, independent of data volume. Coordinate queries are spatial computation: a compound axis filter resolves as bitwise AND over the coordinate set at 329 Melem/s, while a hash table scan of the same data sustains 2.4 Melem/s.
+The addressable space grows as $11{,}172^N$, and lookup cost does not follow the space. The dense path holds at 0.39 ns at every depth; the tree fallback costs O(N) dereferences bounded by schema depth, independent of data volume. Coordinate queries are spatial computation: a compound axis filter resolves as bitwise AND over the coordinate set at 329 Melem/s, while a hash table scan of the same data sustains 2.4 Melem/s.[^tagma-bench]
 
 :::{ layout-ncol=2 }
 
@@ -2474,7 +2514,8 @@ The addressable space grows as $11{,}172^N$, and lookup cost does not follow the
 
 :::
 
-The figures in this section are single-sourced: the same include files render in the [Tagma whitepaper](https://docs.ssccs.org/projects/syntagma/tagma/wp/), [Tagma-ID](https://docs.ssccs.org/projects/syntagma/tagma/id/), [Tagma-KV](https://docs.ssccs.org/projects/syntagma/tagma/kv/), and the [synTagma project brief](https://docs.ssccs.org/projects/syntagma/brief.html), so this appendix carries the current measurements without duplication. The full benchmark suite (51 microbenchmarks across 12 criterion groups, including bulk, stress, deep-tree, resource-efficiency, and KV groups) and the reference implementation are documented in the [Tagma whitepaper benchmark appendix](https://docs.ssccs.org/projects/syntagma/tagma/wp/#sec-appendix-benches).
+[^tagma-bench]: The figures in this section are single-sourced: the same include files render in the [Tagma whitepaper](https://docs.ssccs.org/projects/syntagma/tagma/wp/), [Tagma-ID](https://docs.ssccs.org/projects/syntagma/tagma/id/), [Tagma-KV](https://docs.ssccs.org/projects/syntagma/tagma/kv/), and the [synTagma project brief](https://docs.ssccs.org/projects/syntagma/brief.html), so this appendix carries the current measurements without duplication. The full benchmark suite (51 microbenchmarks across 12 criterion groups, including bulk, stress, deep-tree, resource-efficiency, and KV groups) and the reference implementation are documented in the [Tagma whitepaper benchmark appendix](https://docs.ssccs.org/projects/syntagma/tagma/wp/#sec-appendix-benches).
+
 
 ## Classical Parallelism Comparisons {#sec-appendix-classical-parallelism}
 
@@ -2505,6 +2546,25 @@ Instantaneous Noise-based Logic (INBL) exploits the product space of classical n
 For certain problem classes, INBL achieves speedups exceeding quantum algorithms: O(log n) for phonebook lookup versus Grover's O(sqrt(n)). INBL hardware is considerably simpler than quantum hardware, requiring only modest modifications to conventional PC architectures, and inherently avoids decoherence and error correction challenges.
 
 **Relationship with SSCCS:** INBL and SSCCS occupy distinct positions on the classical parallelism spectrum. INBL utilizes stochastic noise processes to achieve probabilistic parallelism; SSCCS achieves deterministic parallelism through structural constraint composition. The two approaches are complementary: INBL demonstrates that classical systems can match or exceed quantum performance for specific tasks, while SSCCS provides a framework for verifiable, deterministic computation through structural observation rather than statistical sampling.
+
+## A Recent Implementation Case: DeepSeek Spatiotemporal Composability {#sec-appendix-deepseek-comparison}
+
+The DeepSeek paradigm [@shi2026spatiotemporal] (August 2026) is one recent concrete implementation case of dynamic composition on von Neumann hardware, comparable to the ecosystem projects rather than to the model itself. It was developed independently: its reference list contains no SSCCS work, and the parallel is convergent evolution from shared ancestors. Five structural patterns coincide with the model: explicit admissibility predicates, change classification, version-based staleness, algebraic composition, and commutation as the concurrency condition. The surface vocabulary (observation, projection, constraint, composition) carries different meanings, and the underlying definitions of computation differ: SSCCS defines computation as revelation, while the case defines it as the mutation of a shared context with rollback machinery.
+
+The case sharpened nine model-level definitions, each audited against the five foundational principles and the structural isolation requirement. Three are genuinely new definitions (observational equivalence, withdrawal ordering, failure semantics); the remaining six (committed version, observation transposition, reversible updates, the session-log invariant, binary Field replacement, declarative determinacy) are precisions of content the whitepaper already carried. Elements that import a globally mutable context, a realm-based resolution layer, or an orchestrator were excluded. The detailed audit and the engineering program are documented in the project notes.
+
+| Definition | Canonical location |
+|---|---|
+| Observational equivalence | Observation and Projection |
+| Committed version | Field Evolution and Observation Transition |
+| Observation transposition | Structural Isolation |
+| Withdrawal ordering | Field Evolution and Observation Transition |
+| Reversible updates | Determinism and Auditability |
+| Session-log invariant | Determinism and Auditability |
+| Binary Field replacement | Fault Tolerance Computing in Extreme Environments |
+| Failure semantics | Field Evolution and Observation Transition |
+| Declarative determinacy | Field Composition |
+
 
 :::
 

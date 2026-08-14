@@ -1,0 +1,140 @@
+---
+title: "Analysis: A Programming Paradigm for Spatiotemporal Composability from DeepSeek"
+subtitle: "Comparison of the DeepSeek paper and Harness with the SSCCS, synTagma, neXus, and Actus ecosystem"
+date: 2026-08
+date-format: "MMMM, YYYY"
+version-prefix: ssccs-note-spatiotemporal-1
+version-mark: true
+csl: ../../_include/ieee.csl
+date-modified: last-modified
+metadata-files:
+    - ../../_include/author.founder.yml
+    - ../../_include/format.pdf.yml
+    - ../../_include/format.html.yml
+colorlinks: true
+latex-clean: false
+format:
+  html:
+    number-sections: true
+    code-font: "Source Code Pro"
+    appendix-style: plain
+  pdf:
+    keep-tex: true
+    number-sections: true
+    execute:
+        echo: false
+    colorlinks: true
+    linkcolor: darkgray
+    citecolor: gray
+    urlcolor: gray
+    code-block-bg: false
+    code-block-border-left: true
+---
+
+```{python}
+title_meta_items = {
+    "html": [
+        {"title": "SSCCS", "link": "https://doi.org/10.5281/zenodo.18759106", "content": "DOI", "icon": "bi bi-file-text"},
+        {"title": "Tagma", "link": "https://doi.org/10.5281/zenodo.21302508", "content": "DOI", "icon": "bi bi-file-text"},
+    ],
+    "pdf": [
+        {"title": "SSCCS", "link": "https://doi.org/10.5281/zenodo.18759106", "content": "10.5281/zenodo.18759106", "icon": "bi bi-file-text"},
+        {"title": "Tagma", "link": "https://doi.org/10.5281/zenodo.21302508", "content": "10.5281/zenodo.21302508", "icon": "bi bi-file-text"},
+    ],
+}
+```
+
+{{< include ../../_include/_title_meta_items.qmd >}}
+
+## Abstract {.unnumbered .unlisted}
+
+This note analyzes "A Programming Paradigm for Spatiotemporal Composability" (Shi, Zhang, and Cui, August 2026) and its open-source realization, the DeepSeek Harness repository, in relation to the SSCCS whitepaper (February 2026) and the SSCCS ecosystem (Tagma and synTagma, neXus, Actus, Chton, ev). The DeepSeek paradigm is treated as an independent infrastructure-layer proposal. The analysis covers the reference relationship between the two works, the surface and structural parallels, the product-level parallels, and the fundamental differences.
+
+## Context
+
+The DeepSeek paper formalizes dynamic composition along two orthogonal dimensions. Temporal composability is the ability to revert a component's side effects completely upon removal, realized as revertible effects in which every context transformation carries a tracked inverse. Spatial composability is the ability to declare and reactively manage inter-component dependencies, realized as reactive coeffects in which each context change notifies a component against its coeffect specification. The two contexts are unified into a single context type, a calculus of dynamic composition carries the guarantees from one component to a whole system, and the ideas are implemented in Cordis, a meta-framework with effect tracking, coeffect resolution, a declarative component loader, and hot module replacement. The case study is Koishi, a chatbot framework with over 4000 community plugins. The paper's empirical data point is the Visual Studio Code extension marketplace as of June 9, 2026.
+
+The DeepSeek Harness repository (developer preview, MIT license) implements the paper's target application: an agent harness where everything is a plugin, powered by vendored Cordis. The monorepo contains over 40 packages across groups for the agent loop, sessions, prompts, tools, LLM providers, subprocess, shell, terminal, filesystem, LSP, skills, web, subagents, workflow, plan, self-modification, hook bridges, durable session storage, SDK, the Agent Client Protocol server, and a web GUI. Cordis and its foundation libraries are vendored into the repository at pinned commits, renamed into the DeepSeek scope, and locally modified, including hardening of the fiber lifecycle against reentrant disposal gaps. The repository enforces capability seams (Service Definition, Service Provider, Consumer roles), a session log invariant that model-visible input must be reconstructable from the log, and a per-file test coverage gate.
+
+The SSCCS whitepaper defines computation as the deterministic projection of immutable structural primitives under dynamic constraints. Its four primitives are Segments (immutable coordinate points), Schemes (immutable structural blueprints), Fields (mutable constraint predicates), and Observation (the event that evaluates a Field against a Scheme and produces a Projection). The model differs from the von Neumann approach in three ways: time is a coordinate axis, data movement is a compile-time property, and determinism follows from the observation operator being a function of its inputs. The model has been validated across four independent implementations: a Rust fallback, hand-written RISC-V assembly under Spike, SystemVerilog, and the ev verification CLI.
+
+The Tagma whitepaper and the synTagma project add the identity layer. A fixed 16-bit Unicode block with a closed-form composition formula embeds three structural axes into every code point, providing a collision-free, hash-less, structurally addressable coordinate space. A combinational decoder of approximately 300 gates extracts the axes in one cycle, N-Coord composition extends the space to SHA-256 scale, and the SynTagma protocol distributes the coordinate arithmetic across physical topologies without consensus.
+
+The neXus runtime provides the knowledge and coordination layer. Its Fact, Intent, and Hint primitives form the FIH blackboard: Facts are immutable validated observations, Intents are state machines with a submit-claim-heartbeat-conclude lifecycle, and Hints are volatile read-only constraints on admissible agent actions. Coordination is stigmergic, through environmental traces rather than direct messaging, and is framed as token economics: externalized state replaces LLM context-window coordination at near-zero marginal cost. The runtime defines a five-layer architecture covering a knowledge graph engine, artifact ingestion, an agentic research loop, an on-policy learning loop, and contract governance with staking and slashing. Every Fact carries a provenance hash to its originating Intent, forming a deterministic, replayable audit trail of the research process itself.
+
+The Actus project provides the orchestration layer: a headless AI agent server that pairs a stateless language model with persistent conversation state, filesystem awareness, and tool execution through a lightweight HTTP interface. Its design separates a stateless client from a stateful server, keeps the agent headless by default, and isolates the protocol behind the server. Current work targets integration with the neXus blackboard for long-term conversation archival and cross-session knowledge accumulation.
+
+## Reference Assessment
+
+The question of whether the DeepSeek team referenced SSCCS deserves an evidence-based answer. The provided reference list of 124 entries contains no SSCCS work. The related work sections cover effect and coeffect systems, programming paradigms, temporal composability, and spatial composability. None of these sections mention a segment-scheme-field-observation model or a coordinate identity system.
+
+Three facts support convergent evolution over reference. First, the motivations differ: the DeepSeek work starts from the VSCode extension host restart problem and self-evolving agent harnesses, while SSCCS starts from the data movement energy bottleneck and determinism requirements. Second, the shared vocabulary is established in each field independently: observational equivalence dates to Plotkin 1977, projection comes from relational algebra, constraint comes from constraint programming, and composition is a foundational concept of software engineering. Third, the deepest structural parallels appear in both works in forms specific to their domains, which is the signature of independent rediscovery rather than adaptation. The product-level convergence on agent harnesses (Actus on the SSCCS side, the DeepSeek Harness on the other) reflects the same 2026 zeitgeist that the paper itself documents in its references on harness engineering.
+
+The analytic conclusion is that the DeepSeek work is independent.
+
+## Similarity Analysis
+
+The similarities divide into surface parallels, where the same word carries different meanings, structural parallels, where the underlying pattern is the same, and product-level parallels, where the two ecosystems built the same kind of system.
+
+### Surface Parallels
+
+| Term | SSCCS meaning | DeepSeek meaning |
+|------|---------------|------------------|
+| Spatial and temporal | Segment relations are spatial; time is a coordinate axis; spatial cost is data movement | Temporal composability is side-effect rollback; spatial composability is the dependency topology |
+| Observation | The active event that produces a projection | The relation that defines observational equivalence |
+| Projection | The transient output of an observation | The resolution a component activated against (committed view) |
+| Constraint | The Field predicate that decides admissibility | The coeffect specification that decides satisfaction |
+| Isolation | Structural isolation from immutability | Coeffect isolation through realms and interception |
+
+The spatial and temporal vocabulary deserves attention. SSCCS uses temporal and spatial for physical data placement, coordinate axes, and complexity metrics. The DeepSeek paper uses the same words for the two dimensions of dynamic composition. The meanings do not collide directly. The phrase "spatiotemporal composability" is associated with the DeepSeek paper, while SSCCS uses spatial and temporal in the senses above.
+
+### Structural Parallels
+
+Five patterns are structurally the same in both works.
+
+First, dynamic constraint admissibility. SSCCS decides which Segments are admissible through the Field predicate C(s) and projects only admissible segments. The DeepSeek paper decides which components may activate through the coeffect satisfaction predicate σ ⊨ d. Both make "what is allowed" an explicit predicate and re-evaluate it on change.
+
+Second, trigger and notification classification. SSCCS defines five trigger types (temporal, event, observed, dependency, composite) that drive Field updates. The DeepSeek paper classifies every context transition as activating, deactivating, or neutral against a specification and notifies the affected component. The dependency trigger with a fixed update order corresponds to the target view recomputation, and the observed trigger corresponds to dependency change detection.
+
+Third, version and digest based staleness. SSCCS tracks Field versions and recomputes stale projections lazily. The DeepSeek paper compares a digest of provider uids against the committed view. Both compare provenance or version rather than value.
+
+Fourth, algebraic composition. SSCCS composes Fields through union, intersection, and product with monotonic constraint shrinking. The DeepSeek paper composes effects through a twisted composition monoid with accumulated inverses. Both formalize composition as an algebra, though the objects differ: predicate sets versus function-inverse pairs.
+
+Fifth, commutation as the concurrency condition. SSCCS states that observations on disjoint segment sets compose independently. The DeepSeek paper defines independence of effect functions and proves that independent effects can be reverted in any order. The SSCCS compiler's SCC-based extraction of independent subgraphs is a graph-theoretic implementation of the same commutation structure.
+
+### Product-Level Parallels
+
+The neXus and Actus projects on the SSCCS side and the DeepSeek paper and Harness on the other side converged on the same application domain and several of the same mechanisms.
+
+| Overlap | neXus or Actus | DeepSeek paper or Harness |
+|---------|----------------|---------------------------|
+| Lifecycle state machines | Intent lifecycle: submit, claim, heartbeat, conclude; stale intent eviction | Fiber lifecycle: INACTIVE, RELOADING, ACTIVE, UNLOADING; L-Raise, L-Divert, unload guard |
+| External constraints on behavior | Hint: injected read-only constraint on admissible actions | Coeffect specification and interception metadata constraining component behavior |
+| Environment-mediated reaction | Stigmergy: traces left and read; zero LLM coordination calls | Reactive notification: classify context changes as activating, deactivating, neutral |
+| Recursive structure | Recursive blackboard; an observation at dimension N becomes a Hint at dimension N-1 | Γ∞ recursive context; hierarchical composition; effect iterator as reified delimited continuation |
+| Auditability | Fact provenance hash; replayable audit trail of the research process | Committed view and confluence; session log invariant that model-visible input is logged |
+| Agent harness domain | Actus: headless agent server with session state, filesystem awareness, tool execution | DeepSeek Harness: sessions, tools, filesystem, shell, subagents, web GUI, SDK |
+
+Two observations follow from this table. The first is that the DeepSeek paper's stated future direction, applying the paradigm to self-evolving agent harnesses, is already realized in the Harness's self-modification package, which lets the model inspect and mount its own plugins. The second is that the Harness's session log invariant, that anything reaching a model request must be reconstructable from the session log, is a product-level counterpart of the neXus replayable audit trail, with one difference: the Harness logs what the agent did, while neXus records why it was done, by linking every Fact back to the Intent that proposed it.
+
+## Fundamental Differences
+
+The two works sit on opposite axes of computation itself.
+
+Definition of computation. SSCCS defines computation as revelation rather than change: structure is static, projections are transient, and state is a residue. The DeepSeek paper defines computation as the mutation of a shared context together with the machinery to roll that mutation back. One eliminates change by design; the other manages change by tracking.
+
+Location of mutability. SSCCS concentrates mutability in the Field layer alone; Segments and Schemes are immutable, so observation needs no synchronization. The DeepSeek paper makes the whole context mutable and derives safety from tracking and ordering. SSCCS achieves concurrency by removing mutation, the DeepSeek paper by accounting for it.
+
+Status of time. SSCCS demotes time to one coordinate axis and removes the program counter and global sequencing. The DeepSeek paper promotes time to the ordering structure: LIFO rollback order, causal withdrawal order, and transition intervals.
+
+Formal foundation. SSCCS rests on topology and geometry: coordinate spaces, adjacency relations, graph partitioning, and constraint algebra. The DeepSeek paper rests on programming language theory: monads and comonads, effect and coeffect systems, operational semantics, and a theorem-proof metatheory with preservation, progress, and confluence.
+
+Validation strategy. SSCCS cross-validates one pipeline across four independent substrates and a hardware roadmap. The DeepSeek stack validates within one control sphere: the paper's calculus, the vendored Cordis framework, and the Harness implementation are one release train, and the paper itself acknowledges that its case study is observational rather than quantitative.
+
+## References {.unnumbered .unlisted}
+
+Shi, Y., Zhang, W., and Cui, T. "A Programming Paradigm for Spatiotemporal Composability." Peking University and DeepSeek-AI, August 2026. https://github.com/cordiverse/paper/blob/main/paper.pdf
+
+DeepSeek-AI. "DeepSeek Harness." Open-source agent harness, developer preview, MIT license. https://github.com/deepseek-ai/deepseek-harness
+
+SSCCS Foundation. "Schema-Segment Composition Computing System." Whitepaper, February 2026. Zenodo: 10.5281/zenodo.18759106.
