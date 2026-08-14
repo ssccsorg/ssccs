@@ -1,0 +1,81 @@
+---
+title: "Tagma-HW: FPGA"
+subtitle: "Upduino 3.1 demo, place and route, timing report"
+date: 2026-08
+date-format: "MMMM, YYYY"
+bibliography: ../tagma/_include/reference.bib
+csl: ../../../_include/ieee.csl
+generate-title-meta: false
+metadata-files:
+    - ../../../_include/author.founder.yml
+    - ../../../_include/format.pdf.yml
+    - ../../../_include/format.html.yml
+colorlinks: true
+format:
+  html:
+    number-sections: true
+    code-font: "Source Code Pro"
+    appendix-style: plain
+  pdf:
+    geometry:
+        - margin=15mm
+        - bottom=1.6cm
+        - footskip=1cm
+    keep-tex: true
+    number-sections: true
+    execute:
+        echo: false
+    colorlinks: true
+    linkcolor: darkgray
+    citecolor: gray
+    urlcolor: gray
+    code-block-bg: false
+    code-block-border-left: true
+---
+
+```{python}
+#| include: false
+#| context: local
+%run ../../../_include/_graphviz.py
+```
+
+## Demo target
+
+The demo target is the Upduino 3.1 (iCE40UP5K-SG48), a low-cost board with an onboard 12 MHz oscillator and 8 MB PSRAM. The whole toolchain is open source: Yosys for synthesis, nextpnr-ice40 for place and route, icepack for the bitstream, and icetime for timing analysis.
+
+The demo top module registers the decode on the board clock, so the one-cycle latency and the timing closure are measurable with a real clock:
+
+| Signal | Source | Destination |
+|--------|--------|-------------|
+| `clk` | pin 20, onboard 12 MHz oscillator | global clock |
+| `code[15:0]` | GPIO switch module | decoder input |
+| `i[4:0]`, `m[4:0]`, `f[4:0]` | decoder output | LED groups |
+| `valid` | range check | onboard green LED |
+
+Pin constraints are verified against the Upduino v3.1 reference PCF from the icestudio project.
+
+## Place and route flow
+
+```text
+synth_demo.ys   -> out/tagma_demo_top.json     (Yosys, iCE40)
+nextpnr-ice40   -> out/tagma_demo_top.asc      (place and route, --freq 12)
+icepack         -> out/tagma_demo_top.bin      (bitstream)
+icetime         -> reports/icetime.txt         (timing report)
+```
+
+## Timing results
+
+| Metric | shift-subtract (naive) | multiply-shift (current) |
+|--------|------------------------|--------------------------|
+| ICESTORM_LC | 177 / 5280 (3%) | 254 / 5280 (4%) |
+| SB_IO | 33 / 39 | 33 / 39 |
+| SB_GB | 1 / 8 | 1 / 8 |
+| Logic levels | 72 | 29 |
+| Critical path | 115.90 ns | 61.17 ns |
+| Fmax | 8.63 MHz | 16.35 MHz |
+
+The multiply-shift version closes the 12 MHz board clock with margin. The bitstream is generated and the design is ready for board bring-up.
+
+## Board bring-up
+
+The remaining step is physical: program the bitstream, wire a DIP switch module and LED modules to the GPIO pins in the constraint file, and capture the demo. The onboard 8 MB PSRAM also covers the RAM-attached test device question: a chton segment store can be exercised on the same board.

@@ -1,0 +1,23 @@
+```{python}
+#| label: fig-hw-verify
+#| fig-cap: "Hardware verification pipeline. The Rust reference is the single source of truth; every simulation and the formal equivalence check re-validate against it."
+dot("""
+digraph HWverify {
+  rankdir=LR;
+  node [shape=box, fontname="Helvetica", fontsize=10];
+  core [label="tagma_core (Rust)\\nCoord::to_axes", style="filled", fillcolor="#e8f0fe"];
+  exp [label="golden_export.rs", style="filled", fillcolor="#e8f0fe"];
+  gfile [label="golden_anchors.hex\\n11,172 vectors", style="filled", fillcolor="#f2f2f2"];
+  rtl [label="RTL simulation\\nmake sim-golden", style="filled", fillcolor="#fde8e8"];
+  net [label="gate netlist simulation\\nmake gatesim", style="filled", fillcolor="#fde8e8"];
+  eq [label="formal equivalence\\nmake equiv", style="filled", fillcolor="#fde8e8"];
+  {rank=same; rtl; net;}
+  core -> exp;
+  exp -> gfile;
+  gfile -> rtl [label="PASS 11,172"];
+  gfile -> net [label="PASS 11,172"];
+  rtl -> eq [label="RTL"];
+  net -> eq [label="netlist"];
+}
+""")
+```

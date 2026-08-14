@@ -1,0 +1,34 @@
+```{python}
+#| label: fig-hw-fmax
+#| fig-cap: "FPGA clock frequency before and after the multiply-shift optimization. The shaded region is above the 12 MHz board clock; the margin is the headroom of the optimized version."
+import matplotlib.pyplot as plt
+import numpy as np
+
+variants = ['shift-subtract', 'multiply-shift']
+fmax = [8.63, 16.35]
+x = np.arange(len(variants))
+
+fig, ax = plt.subplots(figsize=(5, 3.5))
+
+# closure region: above the 12 MHz board clock
+ax.axhspan(12, 20, color='lightgray', alpha=0.25, zorder=0)
+
+ax.bar(x, fmax, 0.4, color='white', edgecolor='black', linewidth=0.8, hatch='///')
+
+ax.axhline(12, color='red', linestyle='--', linewidth=1.0, label='12 MHz board clock')
+
+ax.set_xticks(x)
+ax.set_xticklabels(variants, fontsize=10)
+ax.set_ylabel('Fmax (MHz)', fontsize=10)
+ax.legend(fontsize=8, loc='upper left')
+ax.grid(axis='y', linestyle=':', alpha=0.3)
+
+for xi, v in enumerate(fmax):
+    ax.text(xi, v + 0.3, f'{v} MHz', fontsize=9, ha='center')
+
+ax.text(0, 10.6, 'misses', fontsize=8, ha='center', color='dimgray')
+ax.text(1, 12.6, f'margin {(16.35 / 12 - 1) * 100:.0f}%', fontsize=8, ha='center', color='dimgray')
+
+ax.set_ylim(0, 20)
+plt.tight_layout(); plt.show()
+```

@@ -1,0 +1,15 @@
+```{python}
+#| label: fig-hw-layers
+#| fig-cap: "Tagma scope: one primitive definition, two realization substrates."
+dot("""
+digraph HWlayers {
+  rankdir=TB;
+  node [shape=box, fontname="Helvetica", fontsize=10];
+  prim [label="Tagma Primitive\\nC(i,m,f) = U+AC00 + 588i + 28m + f\\n11,172 valid states", style="filled", fillcolor="#f2f2f2"];
+  sw [label="Software realization\\nCoord, CoordSpace, geo, kv, sec\\n(Rust, C++)", style="filled", fillcolor="#e8f0fe"];
+  hw [label="Hardware realization\\ndecoder RTL, chton SRAM, FPGA demo\\n(Verilog, Yosys, nextpnr)", style="filled", fillcolor="#fde8e8"];
+  prim -> sw [label="same definition"];
+  prim -> hw [label="same definition"];
+}
+""")
+```

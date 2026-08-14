@@ -1,0 +1,32 @@
+```{python}
+#| label: fig-hw-decode
+#| fig-cap: "Per-decode latency, log scale: software reference vs hardware worst case on the UP5K. The arrow marks the software-to-hardware gap of the same decomposition."
+import matplotlib.pyplot as plt
+import numpy as np
+
+labels = ['CoordSpace get\n(software)', 'to_axes decode\n(software)', 'HW decoder\n(UP5K PnR)']
+ns = [0.38, 1.44, 61.17]
+x = np.arange(len(labels))
+
+fig, ax = plt.subplots(figsize=(5, 3.5))
+
+ax.bar(x, ns, 0.5, color='white', edgecolor='black', linewidth=0.8, hatch='///')
+
+ax.set_yscale('log')
+ax.set_yticks([0.1, 1, 10, 100])
+ax.set_yticklabels(['0.1', '1', '10', '100'])
+ax.set_xticks(x)
+ax.set_xticklabels(labels, fontsize=8.5)
+ax.set_ylabel('Latency (ns, log)', fontsize=10)
+ax.grid(axis='y', linestyle=':', alpha=0.3, which='both')
+
+for xi, v in enumerate(ns):
+    ax.text(xi, v * 1.35, f'{v} ns', fontsize=8.5, ha='center')
+
+# software-to-hardware gap on the same decode
+ax.annotate('', xy=(2, 61.17), xytext=(1, 1.44),
+            arrowprops=dict(arrowstyle='->', color='dimgray', lw=1.0))
+ax.text(1.5, 10, f'{61.17 / 1.44:.0f}x', fontsize=8, ha='center', color='dimgray')
+
+plt.tight_layout(); plt.show()
+```

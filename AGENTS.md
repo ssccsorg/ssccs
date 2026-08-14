@@ -30,7 +30,6 @@ All code, text content, output, and comments must be written in English.
 ---
 title: text
 subtitle: text
-date: last-modified
 metadata-files:
   - path/to/_include/author.yml
 abstract: |

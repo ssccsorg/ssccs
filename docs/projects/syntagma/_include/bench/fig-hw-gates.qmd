@@ -1,0 +1,36 @@
+```{python}
+#| label: fig-hw-gates
+#| fig-cap: "Gate count by synthesis flow: shift-subtract (naive) vs multiply-shift. The shaded region is below the ~300 gate claim; the ratios mark the cost of timing closure."
+import matplotlib.pyplot as plt
+import numpy as np
+
+flows = ['Generic (ev schema)', 'Gate-level (2-input)']
+naive = [206, 232]
+ms    = [478, 588]
+x = np.arange(len(flows))
+w = 0.32
+
+fig, ax = plt.subplots(figsize=(5, 3.5))
+
+# claim region: below ~300 gates
+ax.axhspan(0, 300, color='lightgray', alpha=0.25, zorder=0)
+
+ax.bar(x - w/2, naive, w, label='shift-subtract (naive)', color='white', edgecolor='black', linewidth=0.8, hatch='///')
+ax.bar(x + w/2, ms, w, label='multiply-shift', color='white', edgecolor='black', linewidth=0.8, hatch='...')
+
+ax.axhline(300, color='red', linestyle='--', linewidth=1.0, label='~300 gates claim')
+
+ax.set_xticks(x)
+ax.set_xticklabels(flows, fontsize=9)
+ax.set_ylabel('Cells', fontsize=10)
+ax.legend(fontsize=7.5, loc='upper left')
+ax.grid(axis='y', linestyle=':', alpha=0.3)
+
+for xi, (a, b) in enumerate(zip(naive, ms)):
+    ax.text(xi - w/2, a + 10, f'{a}', fontsize=8, ha='center')
+    ax.text(xi + w/2, b + 10, f'{b}', fontsize=8, ha='center')
+    ax.text(xi + w/2, b + 45, f'{b / a:.1f}x', fontsize=7.5, ha='center', color='dimgray')
+
+ax.set_ylim(0, 700)
+plt.tight_layout(); plt.show()
+```

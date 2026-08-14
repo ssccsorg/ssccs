@@ -1,0 +1,95 @@
+---
+title: "Synthesis"
+subtitle: "Gate counts, cell mixes, and the naive vs multiply-shift trade-off"
+date: 2026-08
+date-format: "MMMM, YYYY"
+bibliography: ../tagma/_include/reference.bib
+csl: ../../../_include/ieee.csl
+generate-title-meta: false
+metadata-files:
+    - ../../../_include/author.founder.yml
+    - ../../../_include/format.pdf.yml
+    - ../../../_include/format.html.yml
+colorlinks: true
+format:
+  html:
+    number-sections: true
+    code-font: "Source Code Pro"
+    appendix-style: plain
+  pdf:
+    geometry:
+        - margin=15mm
+        - bottom=1.6cm
+        - footskip=1cm
+    keep-tex: true
+    number-sections: true
+    execute:
+        echo: false
+    colorlinks: true
+    linkcolor: darkgray
+    citecolor: gray
+    urlcolor: gray
+    code-block-bg: false
+    code-block-border-left: true
+---
+
+```{python}
+#| include: false
+#| context: local
+%run ../../../_include/_graphviz.py
+```
+
+## Synthesis flows
+
+Three flows are measured, all with Yosys 0.65:
+
+| Flow | Command | Meaning |
+|------|---------|---------|
+| Generic | `proc; synth; stat -json` | ev-compatible schema, `num_cells` maps to `SynthesisMetrics.gate_count` |
+| Gate-level | `abc -g AND,NAND,OR,NOR,XOR,XNOR; stat` | 2-input gate library estimate |
+| FPGA | `synth_ice40; stat` | iCE40 LUT4 and carry cells |
+
+The generic flow mirrors the canonical invocation in the ev verification CLI (`ev/src/synth/backends/yosys.rs`), so the numbers are directly comparable to other synthesis results in the SSCCS stack.
+
+## Gate counts
+
+The gate counts by flow are shown in Figure @fig-hw-gates, with the ~300 gate claim region shaded.
+
+:::{ layout-ncol=1 }
+
+{{< include ../_include/bench/fig-hw-gates.qmd >}}
+
+:::
+
+| Metric | shift-subtract (naive) | multiply-shift (current) |
+|--------|------------------------|--------------------------|
+| Generic cells (ev schema) | 206 | 478 |
+| Gate-level estimate (2-input) | 232 | 588 |
+| iCE40 LUT4 + SB_CARRY | 95 + 66 | 201 + 41 |
+| Registers | 0 | 0 |
+
+Cell mix for the multiply-shift version:
+
+| Flow | Mix |
+|------|-----|
+| Generic (478) | ANDNOT 25, AND 82, MUX 15, NAND 135, NOR 9, NOT 6, ORNOT 15, OR 44, XNOR 76, XOR 71 |
+| Gate-level (588) | AND 113, NAND 192, NOR 29, NOT 23, OR 44, XNOR 84, XOR 103 |
+
+## The trade-off
+
+The ~300 gate claim in the Tagma whitepaper holds for the naive shift-subtract decoder (206 to 232 cells, below 300). It does not hold for the version that closes timing on a 12 MHz board: the multiply-shift structure costs 478 to 588 cells. The optimization is a deliberate exchange of about 2.5x gates for timing closure. The clock closure is shown in Figure @fig-hw-fmax.
+
+:::{ layout-ncol=1 }
+
+{{< include ../_include/bench/fig-hw-fmax.qmd >}}
+
+:::
+
+| Metric | shift-subtract (naive) | multiply-shift (current) |
+|--------|------------------------|--------------------------|
+| Logic levels | 72 | 29 |
+| Critical path (UP5K) | 115.90 ns | 61.17 ns |
+| Fmax | 8.63 MHz | 16.35 MHz |
+| Meets 12 MHz board clock | no | yes |
+
+The one-cycle latency holds for both structures; what differs is the achievable clock rate. These are generic-library and FPGA numbers, not PDK standard cell numbers. The OpenROAD flow is the next step for a Sky130 report with real timing, area, and power.
