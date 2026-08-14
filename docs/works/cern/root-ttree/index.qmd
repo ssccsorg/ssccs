@@ -1,6 +1,6 @@
 ---
-title: "Solving CERN's ROOT TTree I/O bottleneck"
-subtitle: "synTagma coordinate addressing removes the per-request TTree I/O overhead: the development plan and the measured results"
+title: "Coordinate-indexed addressing for ROOT TTree I/O overhead"
+subtitle: "A practical, minimal-layer fix: the first step toward a new High-Energy Physics (HEP) data workflow with synTagma arithmetic addressing"
 date: 2026-08
 date-format: "MMMM, YYYY"
 date-modified: last-modified
@@ -94,7 +94,7 @@ title_meta_items = {
 
 ## Abstract {.unnumbered .unlisted}
 
-ROOT is the data analysis framework of the CERN community, and its TTree columnar format stores the events of nearly every physics analysis. A documented production bottleneck limits the read path: an analysis issues 372,000 singular reads averaging 4.6 KB, sustains an effective 33 KB/s, and runs for roughly 14 hours. The measured cause is per-request I/O overhead, not data transfer: each small read carries a system call, a cache lookup, and a context switch, while CPU and decompression stay idle in the remote production pattern.
+ROOT is the petabyte-scale data analysis framework of the CERN community, and its TTree columnar format stores the events of nearly every physics analysis. A documented production bottleneck limits the read path: an analysis issues 372,000 singular reads averaging 4.6 KB, sustains an effective 33 KB/s, and runs for roughly 14 hours. The measured cause is per-request I/O overhead, not data transfer: each small read carries a system call, a cache lookup, and a context switch, while CPU and decompression stay idle in the remote production pattern.
 
 This report measures a coordinate-indexed read path, built on the synTagma[^synTagma] coordinate engine, inside a fork of CERN's ROOT. The path replaces branch, basket, and cache traversal with closed-form coordinate arithmetic: an event addressed as (run, luminosity block, event number) resolves to a direct byte offset with no hash and no index scan. It is a working implementation, not a prototype: a self-contained store class plus byte-source and entry hooks, with existing analysis code, the TTree API, and the build chain unchanged.
 
