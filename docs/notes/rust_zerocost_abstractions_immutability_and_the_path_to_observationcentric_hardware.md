@@ -44,4 +44,4 @@ Both paths are viable, and the choice will shape the implementation. Whichever d
 
 ---
 
-© 2026 SSCCS Foundation (in formation). This human-conceived and AI-refined documentation is licensed under CC BY-NC-ND 4.0; authenticity and integrity are verifiable via [registered](https://keys.openpgp.org/search?q=BCCB196BADF50C99) GPG-signed commits.
+© 2026 SSCCS Foundation (in formation). This human-conceived and AI-refined documentation is licensed under CC BY-NC 4.0; authenticity and integrity are verifiable via [registered](https://keys.openpgp.org/search?q=BCCB196BADF50C99) GPG-signed commits.

@@ -112,7 +112,7 @@ initiative financially or in kind, please contact <contact@ssccs.org>.
 - Whitepaper: [PDF](https://ssccs.org/wp) /
   [HTML](https://ssccs.org/wpw) DOI:
   [10.5281/zenodo.18759106](https://doi.org/10.5281/zenodo.18759106) via
-  CERN/Zenodo, indexed by OpenAIRE. Licensed under *CC BY-NC-ND 4.0*.
+  CERN/Zenodo, indexed by OpenAIRE. Licensed under *CC BY-NC 4.0*.
 - Official repository: [GitHub](https://github.com/ssccsorg).
   Authenticated via GPG:
   [BCCB196BADF50C99](https://keys.openpgp.org/search?q=BCCB196BADF50C99).
