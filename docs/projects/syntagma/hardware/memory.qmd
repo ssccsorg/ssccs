@@ -69,7 +69,7 @@ The per-operation latency comparison is the central finding of this document:
 |------|---------|------|
 | `CoordSpace.get` (software) | 0.38 ns | whole space in L1 cache |
 | `Coord::to_axes` (software) | 1.44 ns | reference decode |
-| HW decoder (UP5K PnR) | 61.17 ns | worst-case critical path at 16.35 MHz |
+| HW decoder (UP5K PnR) | 59.55 ns | worst-case critical path at 16.79 MHz |
 
 For the N=1 dense case, hardware is not a speedup. The entire working set fits in L1 cache, and the software already runs at memory speed. A hardware SRAM at FPGA clock rates cannot beat that, and GHz-class SRAM would require a leading-edge ASIC whose mask cost starts in the millions of dollars. Chasing L1 speed in hardware is solving a problem the software already solved.
 
