@@ -6,11 +6,11 @@ date-format: "MMMM, YYYY"
 version-prefix: tagma_sec_draft
 version-mark: true
 bibliography: ../_include/reference.bib
-csl: ../../../../_include/ieee.csl
+csl: ../../../_include/ieee.csl
 metadata-files:
-    - ../../../../_include/author.yml
-    - ../../../../_include/format.pdf.yml
-    - ../../../../_include/format.html.yml
+    - ../../../_include/author.yml
+    - ../../../_include/format.pdf.yml
+    - ../../../_include/format.html.yml
 colorlinks: true
 format:
   html:
@@ -75,19 +75,19 @@ title_meta_items = {
 }
 ```
 
-{{< include ../../../../_include/_title_meta_items.qmd >}}
+{{< include ../../../_include/_title_meta_items.qmd >}}
 
 ```{python}
 #| include: false
 #| context: local
-%run ../../../../_include/_graphviz.py
+%run ../../../_include/_graphviz.py
 ```
 
 ## Abstract {.unnumbered .unlisted}
 
 Coordination traffic in synTagma moves over structural paths: routing updates name target paths, resolvers exchange evidence, and the audit trail records what happened. tagma-sec is the security primitive layer that answers the accompanying questions: which principal may act on which path, whether the record is intact, whether the origin of an update can be denied, and what evidence remains. The layer provides integrity, authorization, audit, and non-repudiation over Tagma coordinate objects and coordination traffic. It claims no confidentiality from coordinate structure; confidentiality is delegated to the hybrid interface. The initial implementation covers specification milestones 1 to 4 with a legacy pattern as a reverse-verification mirror and the route-update workflow as the scenario contract.
 
-[^tagma]: Tagma Whitepaper: <https://docs.ssccs.org/projects/syntagma/tagma/wp/>
+[^tagma]: Tagma Whitepaper: <https://docs.ssccs.org/projects/syntagma/tagma/>
 [^syntagma]: synTagma repository: [Github (Pre-release, Apache 2.0)](https://github.com/ssccsorg/syntagma)
 [^spec]: Tagma Security Layer Specification: <https://github.com/ssccsorg/syntagma/blob/main/docs/spec/tagma-sec.md>
 
@@ -227,25 +227,25 @@ Every security scenario in this document is pinned by a unit test and quantified
 
 The route-update workflow is a cost-transparent composition of the four modules. The measured total, 696.1 ns, equals the sum of its module calls: authorize 36.8, seal 171.4, verify 129.2, append 110.3, append 110.3, and exchange 132.7, totaling 690.7 ns. The proxy and the trait-object dispatch add no measurable overhead; the four-module composition costs exactly what its parts cost.
 
-{{< include ../../_include/bench/fig-bench-sec-route-update.qmd >}}
+{{< include ../_include/bench/fig-bench-sec-route-update.qmd >}}
 
 ### Authorization Decision Cost
 
 Authorization is a structural predicate: a scope match compares coordinate sequences, so the decision cost is bounded by scope depth, not by store size. A 19-coord scope costs 62.7 ns against 36.0 ns for a 1-coord scope. The deny path short-circuits at the first mismatching coord and costs 3.1 ns, about 12x cheaper than acceptance, so fail-closed rejection is cheap. A revocation hit adds one map lookup on top of the scope match, 40.5 ns.
 
-{{< include ../../_include/bench/fig-bench-sec-authorize.qmd >}}
+{{< include ../_include/bench/fig-bench-sec-authorize.qmd >}}
 
 ### Verification Primitives
 
 Coordinate arithmetic is negligible; the dominant cost everywhere is keyed hashing. Seal, append, sign, and exchange all sit in the 110 to 175 ns band, matching the specification's expectation that keyed hashing dominates end-to-end cost. The tagma-sec seal binds record, path, principal, and epoch, which costs 171.4 ns against 138.8 ns for the record-and-path legacy seal; the 33 ns difference is the price of epoch replay detection. Verification recomputes the seal at 129.2 ns, and refresh is verify plus seal at 296.0 ns. Channel operations stay in the same band: sign 117.6, exchange 132.7, verify and verify_receipt about 86 ns.
 
-{{< include ../../_include/bench/fig-bench-sec-primitives.qmd >}}
+{{< include ../_include/bench/fig-bench-sec-primitives.qmd >}}
 
 ### Audit Scaling
 
 The audit log separates chaining from evidence. Appending one event costs 110.3 ns, a keyed payload hash plus two amortized pushes. Chain verification over 10,000 entries costs 9.9 µs, about 1 ns per entry, because it is a prev-link pointer walk with no hashing. Offline investigation inverts the cost: prove and export clone the evidence range at about 20 ns per entry and are memory-bound, so investigation scales with evidence size rather than log size.
 
-{{< include ../../_include/bench/fig-bench-sec-audit.qmd >}}
+{{< include ../_include/bench/fig-bench-sec-audit.qmd >}}
 
 ## Implementation Status
 
