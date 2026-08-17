@@ -4,7 +4,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-backends = ['CoordKV2 (dense)\nr=1', 'CoordKVN (tree)\nr=1', 'CoordKV2 (dense)\nr=2', 'CoordKVN (tree)\nr=2', 'DynCoordKV\nr=1', 'DynCoordKV\nr=2']
+backends = ['CoordMap2 (dense)\nr=1', 'CoordMapN (tree)\nr=1', 'CoordMap2 (dense)\nr=2', 'CoordMapN (tree)\nr=2', 'DynCoordMap\nr=1', 'DynCoordMap\nr=2']
 latency = [282, 285, 666, 626, 161, 290]
 
 fig, ax = plt.subplots(figsize=(5, 3.5))
@@ -16,7 +16,7 @@ for bar, val in zip(bars, latency):
     ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 8, f'{val}', ha='center', fontsize=7)
 ax.annotate('Dense vs tree:\nidentical\n(Vec push dominates)', xy=(0.5, 500), fontsize=8, ha='center',
             bbox=dict(boxstyle='round,pad=0.15', facecolor='white', edgecolor='black', alpha=0.85))
-ax.annotate('DynCoordKV\n1.6x faster\nthan sequential', xy=(4.5, 200), fontsize=8, ha='center',
+ax.annotate('DynCoordMap\n1.6x faster\nthan sequential', xy=(4.5, 200), fontsize=8, ha='center',
             bbox=dict(boxstyle='round,pad=0.15', facecolor='white', edgecolor='black', alpha=0.85))
 plt.tight_layout(); plt.show()
 ```

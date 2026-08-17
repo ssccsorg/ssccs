@@ -21,7 +21,7 @@ format:
 ## Reference Implementation
 
 The Tagma coordinate space is implemented as a six-crate Rust workspace
-(`tagma-core`, `tagma-base11172`, `tagma-geo`, `tagma-kv`, `tagma-sec`,
+(`tagma-core`, `tagma-base11172`, `tagma-geo`, `tagma-map`, `tagma-sec`,
 `tagma-benches`) under the Apache 2.0 license. The core crate is `#![no_std]` with optional
 `alloc` and `mmap` features, enabling deployment from bare-metal MCUs to
 server-class machines without changing the public API.
@@ -449,9 +449,9 @@ occupancy the per-entry amortized cost approaches $22N / k$ bytes.
 | 3+ (any) | `CoordSpaceN<N>` | Lazy tree, $N \times 0.9$ ns |
 | Any (dynamic) | `DynCoordSpace` | Runtime-variable depth |
 
-## Vec::with_capacity Optimization in CoordCubeKV
+## Vec::with_capacity Optimization in CoordCubeMap
 
-The proximity query implementation in `tagma-kv` uses a `Vec` to hold
+The proximity query implementation in `tagma-map` uses a `Vec` to hold
 results. Previously, the Vec grew dynamically as each matching path was
 pushed, incurring amortized reallocation overhead for every proximity
 region that exceeded the default capacity.
