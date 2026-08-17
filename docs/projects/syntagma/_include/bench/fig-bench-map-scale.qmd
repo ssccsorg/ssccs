@@ -1,6 +1,6 @@
 ```{python}
-#| label: fig-bench-kv-scale
-#| fig-cap: "Get latency across three scales: CoordKV2 (flat) vs HashMap (rising with memory pressure)"
+#| label: fig-bench-map-scale
+#| fig-cap: "Get latency across three scales: CoordMap2 (flat) vs HashMap (rising with memory pressure)"
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -14,7 +14,7 @@ rat = [0.91, 1.13, 1.11]  # hm/kv2
 fig, ax1 = plt.subplots(figsize=(5.5, 3.5))
 
 ax1.plot(x, kv2, '-o', color='black', markerfacecolor='white', markeredgecolor='black',
-         markersize=8, linewidth=1.8, label='CoordKV2 (dense array)')
+         markersize=8, linewidth=1.8, label='CoordMap2 (dense array)')
 ax1.plot(x, hm, '-s', color='black', markerfacecolor='black', markeredgecolor='black',
          markersize=8, linewidth=1.8, label='HashMap (SipHash + bucket)')
 
@@ -37,7 +37,7 @@ for xi, r in zip(x, rat):
                 bbox=dict(boxstyle='round,pad=0.15', facecolor='white', edgecolor='black', alpha=0.8))
 
 # Insight annotation
-ax1.annotate('CoordKV2: scale-invariant\n21.5 ns across 10k→10M',
+ax1.annotate('CoordMap2: scale-invariant\n21.5 ns across 10k→10M',
              xy=(1.5, 21.5), xytext=(1.5, 18.5), fontsize=8,
              arrowprops=dict(arrowstyle='->', color='black', lw=0.8),
              bbox=dict(boxstyle='round,pad=0.2', facecolor='white', edgecolor='black', alpha=0.8),

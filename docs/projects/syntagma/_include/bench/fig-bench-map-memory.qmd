@@ -1,14 +1,14 @@
 ```{python}
-#| label: fig-bench-kv-memory
-#| fig-cap: "Memory efficiency across three scales: CoordKV2 fixed-cost amortization vs proportional scaling of CoordKVN and HashMap."
+#| label: fig-bench-map-memory
+#| fig-cap: "Memory efficiency across three scales: CoordMap2 fixed-cost amortization vs proportional scaling of CoordMapN and HashMap."
 import matplotlib.pyplot as plt
 import numpy as np
 
 scales = ['10k entries', '1M entries', '10M entries']
 x = np.arange(len(scales))
 
-# CoordKV2: 119 MB fixed regardless of entries
-# CoordKVN<2>: ~45 B/entry tree overhead
+# CoordMap2: 119 MB fixed regardless of entries
+# CoordMapN<2>: ~45 B/entry tree overhead
 # HashMap: ~51 B/entry + resize overhead
 
 # Per-entry memory (B)
@@ -25,9 +25,9 @@ fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 3.5))
 
 # Left: Per-entry cost (linear)
 ax1.plot(x, kv2_b, '-o', color='black', markerfacecolor='white', markeredgecolor='black',
-         markersize=7, linewidth=1.5, label='CoordKV2 (dense)')
+         markersize=7, linewidth=1.5, label='CoordMap2 (dense)')
 ax1.plot(x, kvn_b, '-^', color='black', markerfacecolor='white', markeredgecolor='black',
-         markersize=7, linewidth=1.5, label='CoordKVN<2> (tree)')
+         markersize=7, linewidth=1.5, label='CoordMapN<2> (tree)')
 ax1.plot(x, hm_b, '-s', color='black', markerfacecolor='black', markeredgecolor='black',
          markersize=7, linewidth=1.5, label='HashMap')
 ax1.set_xticks(x)
@@ -39,14 +39,14 @@ ax1.grid(axis='y', linestyle=':', alpha=0.3)
 
 # Annotation: crossover point
 ax1.axvline(x=1.5, color='black', linestyle='--', linewidth=0.5, alpha=0.5)
-ax1.text(1.5, 250, 'CoordKV2 becomes\nmore efficient\nthan HashMap here',
+ax1.text(1.5, 250, 'CoordMap2 becomes\nmore efficient\nthan HashMap here',
          fontsize=6.5, color='black', ha='center')
 
 # Right: Total memory (log)
 ax2.plot(x, kv2_mb, '-o', color='black', markerfacecolor='white', markeredgecolor='black',
-         markersize=7, linewidth=1.5, label='CoordKV2 (dense)')
+         markersize=7, linewidth=1.5, label='CoordMap2 (dense)')
 ax2.plot(x, kvn_mb, '-^', color='black', markerfacecolor='white', markeredgecolor='black',
-         markersize=7, linewidth=1.5, label='CoordKVN<2> (tree)')
+         markersize=7, linewidth=1.5, label='CoordMapN<2> (tree)')
 ax2.plot(x, hm_mb, '-s', color='black', markerfacecolor='black', markeredgecolor='black',
          markersize=7, linewidth=1.5, label='HashMap')
 ax2.set_xticks(x)

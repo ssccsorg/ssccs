@@ -1,15 +1,15 @@
 ```{python}
-#| label: fig-bench-kv-cost-breakdown
-#| fig-cap: "Latency breakdown: CoordKV2 get vs HashMap get. CoordKV2 pays str-to-CoordKey conversion once at the API boundary; the slot load itself is 0.39 ns. HashMap pays SipHash on every access with no structural benefit."
+#| label: fig-bench-map-cost-breakdown
+#| fig-cap: "Latency breakdown: CoordMap2 get vs HashMap get. CoordMap2 pays str-to-CoordKey conversion once at the API boundary; the slot load itself is 0.39 ns. HashMap pays SipHash on every access with no structural benefit."
 import matplotlib.pyplot as plt
 import numpy as np
 
-categories = ('CoordKV2 get', 'HashMap get')
+categories = ('CoordMap2 get', 'HashMap get')
 x = np.arange(len(categories))
 bar_width = 0.6
 
 # ---- Segment data (ns) ----
-# CoordKV2: 5.0 + 16.67 + 0.39 = 22.06
+# CoordMap2: 5.0 + 16.67 + 0.39 = 22.06
 kv2_bottom = [
     ('str → CoordKey\nconversion',        5.00),
     ('Vec<u8> clone\n(Box → Vec)',       16.67),
