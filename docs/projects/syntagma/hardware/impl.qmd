@@ -226,7 +226,7 @@ primitive:
 | Track | Step | Dependency |
 |-------|------|------------|
 | Phase 3 | Physical Upduino 3.1 bring-up: program the bitstream, wire DIP switch and LED modules per the PCF, capture the demo video | board and modules |
-| Phase 4 | OpenROAD standard cell flow on Sky130: timing, area, power report. The flow is set up, derisked through placement locally, and runs in the syntagma hw CI job (x86 runner, see the devlog entry for the abc mapping gap and the floorplan variable requirements) | x86 runner for the CTS onward stages (Rosetta crashes) |
+| Phase 4 | OpenROAD standard cell flow on Sky130: timing, area, power report. The flow is set up and runs end to end (synth, floorplan, place, cts, route, finish), measured locally and re-run in the syntagma hw CI job. Two flow bugs were fixed during derisking (virtual clock, kepler-formal LEC crash), see the devlog entry | none |
 | chton propagation | Generate the segment store SRAM from `chton_sram.py` (OpenRAM) and attach it to the decoder | OpenRAM and PDK |
 | Power model | Run the OpenROAD power analysis on the VCD trace from `make sim-trace` | Phase 4 |
 | Multi-target | Port the demo flow to ECP5 or Artix-7 | board choice |
@@ -240,11 +240,12 @@ netlist are formally equivalent over all 2^16 inputs, and the demo closes
 the 12 MHz board clock with margin (16.79 MHz measured). The bitstream is
 generated and ready for board bring-up.
 
-Pending: physical board demonstration and video, the first full OpenROAD
-standard cell report from the hw CI job (the pure decoder already reports
-388 Sky130 cells, 2826 um^2 via `yosys stat -liberty`), the OpenRAM SRAM
-macro, and the power model. These are follow-up tracks, not blockers for
-the current reference.
+Pending: physical board demonstration and video, the CI confirmation of
+the OpenROAD standard cell report (measured locally: 4631 um^2, 11.19 ns
+critical path, 0.897 mW for the demo top; 388 Sky130 cells, 2826 um^2 for
+the pure decoder), the OpenRAM SRAM macro, and the power model on the VCD
+activity trace. These are follow-up tracks, not blockers for the current
+reference.
 
 ## References
 
