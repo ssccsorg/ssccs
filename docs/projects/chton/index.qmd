@@ -167,7 +167,7 @@ ax.legend(
 |:---|:---|
 | origin | byte-level bindings to media outside memory: file today; signal, network, and GPU media later. Memory is a projection surface, not a target |
 | binding | per-space-type materialization strategies: fixed-depth tree today; recursive and dense layouts later |
-| protocol | materialization protocols over origins: key-value first, sharing the tagma-kv CoordKV contract |
+| protocol | materialization protocols over origins: key-value first, sharing the tagma-map CoordMap contract |
 | io | flat key-space IO surface over materialized regions |
 
 ## Design
@@ -272,7 +272,7 @@ ax.legend(
   media region by address, so the block address is the region offset and
   reading and writing need no serialization step. A memory-mapped binding
   is the later mechanism for the same layout.
-- The key-value protocol implements the tagma-kv CoordKV surface over
+- The key-value protocol implements the tagma-map CoordMap surface over
   origins. The native key-value lives in tagma as the in-memory form of
   the coordinate space; chton provides the same contract materialized
   onto file origins.
@@ -291,7 +291,7 @@ ax.legend(
 Early implementation. The origin, binding (tree strategy), and key-value
 protocol layers work over file origins, with memory as a projection
 surface. The key-value protocol currently exposes its own surface;
-implementing the tagma-kv CoordKV contract is the next step. Unit tests
+implementing the tagma-map CoordMap contract is the next step. Unit tests
 and a usage scenario run through `./run.sh`. Memory-mapped persistence
 (mmap-style 1:1 media mapping), checkpoint and restore, and wave origins
 are later work.

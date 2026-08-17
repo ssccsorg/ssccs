@@ -105,7 +105,7 @@ The reinterpretation is zero-cost: no re-encoding, no duplication, no index rebu
 
 ## Spatial Interpretation Model
 
-A CoordCube reinterprets a CoordPath as a D-dimensional coordinate grid by partitioning its N coords into D groups of R coords each. It does not reference any storage -- CoordCube is a pure geometric interpretation of the path itself. Spatial queries (proximity, bounding box, distance) are generated from this interpretation independently of any storage backend. When used with a KV store, the CoordCubeKV trait (from `tagma-kv`) combines path generation with store lookup.
+A CoordCube reinterprets a CoordPath as a D-dimensional coordinate grid by partitioning its N coords into D groups of R coords each. It does not reference any storage -- CoordCube is a pure geometric interpretation of the path itself. Spatial queries (proximity, bounding box, distance) are generated from this interpretation independently of any storage backend. When used with a KV store, the CoordCubeMap trait (from `tagma-map`) combines path generation with store lookup.
 
 The dimensional decomposition is the only configuration: given N bytes per path and D dimensions, each dimension receives R = N / D bytes. This decomposition is declared at CoordCube construction and can be changed per query without storage overhead.
 
