@@ -5,7 +5,7 @@ date: 2026-07
 date-format: "MMMM, YYYY"
 version-prefix: tagma_geo_draft
 version-mark: true
-bibliography: ../_include/reference.bib
+bibliography: ../../_include/reference.bib
 csl: ../../../../_include/ieee.csl
 metadata-files:
     - ../../../../_include/author.founder.yml
@@ -87,7 +87,7 @@ title_meta_items = {
 
 CoordPath[^tagma] treats coordinate space as a tree: each path is a sequence of Coords through N levels of 11,172-slot arrays. This provides collision-free O(k) point lookup and pointwise mutation, but spatial queries -- proximity, bounding box enumeration, distance metrics, compound axis filters -- fall outside its direct expression. CoordCube (from `tagma-geo`) reinterprets the same CoordPath keys as D-dimensional coordinates. Spatial operations -- proximity, bounding box, distance metrics -- are provided by `tagma-geo` via the `SpatialOps` and `DistanceMetrics` traits. Construction costs 0.96 ns; axis extraction costs the same as raw path access (319 ps). The design targets workloads where point lookup is necessary but insufficient: geometric queries over coordinate-indexed data where the coordinate itself carries spatial meaning. This document is a draft work-in-progress as the CoordCube layer continues to mature.
 
-[^tagma]: Tagma Whitepaper: <https://docs.ssccs.org/projects/syntagma/tagma/wp/>
+[^tagma]: Tagma Whitepaper: <https://docs.ssccs.org/projects/syntagma/tagma/>
 [^syntagma]: synTagma repository: [Github (Pre-release, Apache 2.0)](https://github.com/ssccsorg/syntagma)
 [^benchmarks]: ARMv8.4-A Firestorm 3.2GHz. Benchmark suite <https://github.com/ssccsorg/syntagma/blob/main/sw/rust/benches/bench.rs>
 
