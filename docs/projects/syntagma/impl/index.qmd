@@ -1,0 +1,185 @@
+---
+title: "Reference Implementations"
+date-format: "MMMM, YYYY"
+version-prefix: tagma_impl
+version-mark: true
+bibliography: ../_include/reference.bib
+csl: ../../../_include/ieee.csl
+generate-title-meta: false
+metadata-files:
+    - ../../../_include/author.yml
+    - ../../../_include/format.html.yml
+colorlinks: true
+format:
+  html:
+    number-sections: true
+    code-font: "Source Code Pro"
+    appendix-style: plain
+---
+
+## Overview
+
+The Tagma primitive is implemented twice, on two substrates, against one
+contract. The software reference is a six-crate Rust workspace under
+`sw/rust` (`tagma-core`, `tagma-base11172`, `tagma-geo`, `tagma-map`,
+`tagma-sec`, `tagma-benches`); the hardware reference is Verilog RTL under
+`hw/` with a full FPGA and standard cell flow. The two implementations
+are checked against each other on every input through golden anchors
+exported from `tagma_core`, so neither is assumed correct in isolation.
+
+The full accounts live in the companion documents: [Software](./sw.html) and [Hardware](./hw.html). This page
+summarizes the shared contract, the two realizations, and the evidence
+that ties them together.
+
+## The shared contract
+
+Both substrates implement the same composition formula (ISO/IEC 10646)
+for the Unicode block U+AC00..U+D7AF:
+
+$$C(i,m,f) = \text{U+AC00} + 588i + 28m + f, \quad 0 \leq i < 19,\; 0 \leq m < 21,\; 0 \leq f < 28$$
+
+The contract has four properties that make the whole space fit one 16-bit
+value: BMP membership (one syllable is one code unit), the closed-form
+composition algorithm, contiguity of the valid range, and the Unicode
+stability policy. Of 65,536 representable states, 11,172 are valid; the
+remaining 54,364 are structurally invalid and detectable on both
+substrates without any checksum.
+
+| Property | Software (`Coord`) | Hardware (`tagma_decoder`) |
+|----------|--------------------|----------------------------|
+| Representation | `u16` newtype, validity invariant | 16-bit input port, combinational |
+| Decode | `Coord::to_axes`, constant-time, branch-free | 3-axis multiply-shift network, 1 cycle |
+| Invalid states | `Coord::new` rejects at construction | range detection in the valid check |
+| Axis recovery | division by 588 and 28 | division by 588 and 28 via multiply-shift |
+
+## Software reference
+
+The Rust workspace is `#![no_std]` at the core with optional `alloc` and
+`mmap` features, covering bare-metal to server deployments. Five primary
+types form the public surface: `Coord`, `CoordPath<N>`, `CoordSet`,
+`CoordSpace<V>`, and `CoordCube<N, D, R>`, with a space family
+(`CoordSpace2` dense heap, `CoordSpaceM3` mmap-backed, `CoordSpaceN`
+sparse tree) behind the `alloc` feature.
+
+Key decisions, detailed in `sw.qmd`:
+
+| Decision | Rationale |
+|----------|-----------|
+| 16-bit `Coord` newtype | fits a register, single-cycle decode, 54K invalid states as error detection |
+| `[Coord; N]` instead of `Vec<Coord>` | stack allocation, inline, zero overhead |
+| 175-word bit array for `CoordSet` | exact L1-cache fit (1.4 KB), set operations as one cache-line burst |
+| `core::mem::zeroed()` initialization | 3 cycles against a 50x naive alternative, requires a valid niche |
+| `get_unchecked` slot access | branch-free hot path, unsafe confined to two functions |
+| Const generics on `CoordCube` | compile-time N = D * R enforcement, zero-cost wrapper |
+
+Measured on a single ARMv8.4-A Firestorm core (3.2 GHz), averaged over
+11,172 operations:
+
+| Operation | CoordSpace | HashMap | Speedup |
+|-----------|------------|---------|---------|
+| Insert all 11,172 | 26.5 us | 377 us | 14x |
+| Get all 11,172 | 6.49 us | 101 us | 16x |
+| Remove all 11,172 | 15.0 us | 268 us | 18x |
+| Entry (all) | 8.51 us | 315 us | 37x |
+
+The security layer `tagma-sec` adds authority, integrity, audit, and
+channel modules over keyed primitives (blake3) on public coordinate
+arithmetic, with a self-contained C++ port mirroring all 32 Rust tests.
+
+## Hardware reference
+
+The hardware realization under `hw/` implements the same decomposition as
+a pure combinational decoder. The multiply-shift constant division is
+exact over the valid domain and closes the 12 MHz board clock, where the
+naive shift-subtract divider (the ~300 gate claim of the whitepaper) does
+not:
+
+| Structure | Depth | Critical path | Fmax | Gates (generic) |
+|-----------|-------|---------------|------|-----------------|
+| shift-subtract (naive) | 72 levels | 115.90 ns | 8.63 MHz | 206 |
+| multiply-shift (current) | 33 levels | 59.55 ns | 16.79 MHz | 478 |
+
+The verification pipeline has a single source of truth, `tagma_core` in
+Rust, and four independent channels: formula simulation, golden-anchor
+simulation, gate-level netlist simulation (all over 11,172 code points),
+and formal equivalence of RTL against the netlist over all 2^16 inputs.
+The demo closes the 12 MHz board clock at 16.79 MHz with 255 ICESTORM_LC
+(4% of the UP5K).
+
+The Sky130 standard cell flow runs end to end (synth, floorplan, place,
+cts, route, finish) for the registered demo top: 4631 um^2 at 35%
+utilization, 11.19 ns critical path, +72.33 ns slack at the 83.33 ns
+clock, and 0.897 mW total power. The pure decoder reports 388 Sky130
+cells, 2826 um^2. The chton segment store is configured as a single-port
+SkyWater 130nm SRAM, 11,172 x 16-bit, pending the OpenRAM PDK install.
+
+## Cross-verification
+
+The software and hardware references are tied together by the golden
+anchor file: `golden_export.rs` writes the full coordinate decomposition
+from `tagma_core` into `golden_anchors.hex`, and the hardware testbench
+reads the same file in golden mode. A Python consistency gate validates
+the file against the decomposition contract before any simulation runs.
+The RTL and the synthesized netlist are additionally proven identical by
+formal equivalence over all 2^16 inputs.
+
+A fifth channel is planned in the ev (ExaVerif) issue tracker: the
+decoder contract expressed as an ev `VerificationSpec` (range constraint
+plus axis projectors), exhaustively evaluated by ev's constraint engine,
+with raw RTL design input for `ev synth` as an optional follow-up.
+
+## Key engineering decisions
+
+| Decision | Substrate | Rationale |
+|----------|-----------|-----------|
+| 16-bit contract | both | one register, one code unit, one SRAM word; 54K invalid states as detection |
+| Constant-time axis recovery | both | software branch-free `to_axes`; hardware multiply-shift network |
+| Golden anchors from `tagma_core` | hardware | single source of truth, regenerated, no drift |
+| Four verification channels | hardware | formula, reference, netlist, equivalence on 2^16 inputs |
+| Dense space family with lazy allocation | software | 0.39 ns access, no heap floor for N >= 4 |
+| ev-compatible `stat -json` flow | hardware | numbers comparable across the SSCCS stack |
+
+## Quality metrics
+
+| Metric | Software | Hardware |
+|--------|----------|----------|
+| Test evidence | 360+ unit/integration tests, 26 doc-tests, zero clippy warnings | 11,172 vectors in three channels, formal equivalence over 2^16 inputs |
+| Decode cost | 1.44 ns per decode (bench baseline) | 1 cycle, combinational |
+| Area or cells | n/a | 478 generic, 588 gate-level, 388 Sky130 cells |
+| Speed | 0.38 to 0.40 ns dense lookup | 16.79 MHz Fmax, 11.19 ns critical path |
+| Power | n/a | 0.897 mW (Sky130, 83.33 ns clock) |
+
+The software gate runs with `run.sh --check`; the hardware gate runs with
+`make -C hw check` and is packaged as a Docker image whose build executes
+the full verification as smoke tests.
+
+## Status
+
+Verified: the decoder matches the Rust reference on all 11,172 valid
+syllables in three independent channels, RTL and netlist are formally
+equivalent over all 2^16 inputs, and the demo closes the 12 MHz board
+clock. The software workspace passes 360+ tests across all crates with a
+no-alloc core build.
+
+Pending: physical board bring-up and demo video, the OpenRAM SRAM macro,
+the power model on the VCD activity trace, and the ev verification
+channel. These are follow-up tracks, not blockers for the current
+references.
+
+## Documents
+
+| Document | Content |
+|----------|---------|
+| [Software](./sw.html) | Rust workspace: types, engineering decisions, benchmarks, tagma-sec |
+| [Hardware](./hw.html) | RTL decoder, verification pipeline, FPGA demo, Sky130 report |
+| [Hardware index](/projects/syntagma/hardware/) | Measured results summary, memory and synthesis series |
+| [Tagma primitive](/projects/syntagma/tagma/) | Primitive whitepaper: coordinate space, decoder, benchmarks |
+
+---
+
+## References
+
+Tagma whitepaper: <https://doi.org/10.5281/zenodo.21302508>. SSCCS
+whitepaper: <https://doi.org/10.5281/zenodo.18759106>. The source
+repositories are `ssccsorg/syntagma` (references) and `ssccsorg/ev`
+(verification CLI).
