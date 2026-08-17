@@ -70,7 +70,7 @@ format:
 
 ## Abstract {.unnumbered .unlisted}
 
-Tagma[^tagma] is a spatial coordinate computing system. It is not a hash map. Its address space is a geometric coordinate system where every valid coordinate is deterministic, collision-free, and structurally decomposable into independent axes. Tagma and hash-based systems (HashMap, hash tables, DHTs) solve different problems: hash functions distribute arbitrary inputs uniformly across buckets under probabilistic collision; Tagma assigns every key a fixed position in a geometric space with zero collision probability. They are complements, not substitutes. Tagma-KV [^syntagma] [^refimpl] provides a HashMap-compatible API (insert, get, remove, contains_key) backed by Tagma's coordinate space. It exists so that existing KV-oriented code can access Tagma's spatial capabilities without architectural rewrites. The cost is the conversion from legacy key types (&str, Vec<u8>) to Tagma coordinates.
+Tagma[^tagma] is a spatial coordinate computing system. It is not a hash map. Its address space is a geometric coordinate system where every valid coordinate is deterministic, collision-free, and structurally decomposable into independent axes. Tagma and hash-based systems (HashMap, hash tables, DHTs) solve different problems: hash functions distribute arbitrary inputs uniformly across buckets under probabilistic collision; Tagma assigns every key a fixed position in a geometric space with zero collision probability. They are complements, not substitutes. Tagma KV [^syntagma] [^refimpl] provides a HashMap-compatible API (insert, get, remove, contains_key) backed by Tagma's coordinate space. It exists so that existing KV-oriented code can access Tagma's spatial capabilities without architectural rewrites. The cost is the conversion from legacy key types (&str, Vec<u8>) to Tagma coordinates.
 
 Benchmarks[^benchmarks] show that this conversion cost is 5 ns (str-to-CoordKey byte copy) — approximately 3x faster than SipHash-2-4. The remaining 16.67 ns of the 21.67 ns total get latency is the Vec clone for the owned return value, an API artifact that reference-returning variants can eliminate. The critical finding is that CoordKV2 latency is scale-invariant: 22.0 ns at 10k, 21.4 ns at 1M, and 22.1 ns at 10M operations, because the CoordSpace2 dense array provides uniform access latency regardless of dataset size. HashMap per-op cost rises 21% from 10k to 10M as the working set exceeds cache capacity, and this trend continues with scale. The conversion is a one-time cost: once paid at the entry boundary, subsequent accesses via CoordKey skip it entirely, and CoordKey is a 128-bit Copy type that can be cached at zero marginal cost. HashMap has no equivalent amortization — it pays SipHash on every operation with no bypass. For systems that use native coordinates directly, the access cost drops to the physical limit of array load (0.39 ns, 60x below HashMap).
 
@@ -263,9 +263,9 @@ The CoordCube interpretation layer adds spatial query capability to any KV store
 
 :::
 
-The full design, all benchmarks, and comparison with existing systems are described in the Tagma-Geo whitepaper.
+The full design, all benchmarks, and comparison with existing systems are described in the Tagma Geo whitepaper.
 
-[^tagma-geo]: Tagma-Geo whitepaper: Spatial Query Layer on Structural Coordinate Spaces. <https://docs.ssccs.org/projects/syntagma/tagma/geo>
+[^tagma-geo]: Tagma Geo whitepaper: Spatial Query Layer on Structural Coordinate Spaces. <https://docs.ssccs.org/projects/syntagma/tagma/geo>
 
 The benchmark data reveals a structural insight: the conversion cost (21.67 ns) is below the SipHash cost (implicit in HashMap's 23.79 ns total). This inverts the expected relationship: the conversion from legacy types into Coord space costs less than the hash function it replaces. The conversion is a one-time payment at the boundary. After payment, the key exists permanently in Tagma coordinate space.
 
@@ -309,13 +309,13 @@ The two entry paths (native coordinate and string-key), the write-read symmetry 
 
 ## Comparison with Existing Systems
 
-The most significant implication of Tagma-KV is that the coordinate is the address. This property distinguishes it from every hash-based or tree-based system in production today.
+The most significant implication of Tagma KV is that the coordinate is the address. This property distinguishes it from every hash-based or tree-based system in production today.
 
 {{< include ../../_include/bench/fig-resource-efficiency.qmd >}}
 
 {{< include ../../_include/bench/fig-bench-kv-memory.qmd >}}
 
-| Feature | HashMap | RocksDB | Redis | **Tagma-KV** |
+| Feature | HashMap | RocksDB | Redis | **Tagma KV** |
 |---------|---------|---------|-------|--------------|
 | Index structure | Hash table | LSM tree | Hash table | **Coordinate space** |
 | Lookup cost | O(1) avg | O(log N) | O(1) avg | **O(1)** |
@@ -325,7 +325,7 @@ The most significant implication of Tagma-KV is that the coordinate is the addre
 | Write amplification | None | High | None | **None (in-memory)** |
 | Hardware acceleration | No | No | No | **300 gates, 1 cycle** |
 
-**No separate index needed.** The address is the location. No B-tree lookup to translate key to offset. RocksDB requires a multi-level LSM index; Redis requires hash table buckets; HashMap requires bucket probing. Tagma-KV computes the address directly from the key.
+**No separate index needed.** The address is the location. No B-tree lookup to translate key to offset. RocksDB requires a multi-level LSM index; Redis requires hash table buckets; HashMap requires bucket probing. Tagma KV computes the address directly from the key.
 
 **Spatial locality preserved.** Nearby CoordPaths are physically adjacent in storage. Range scans are sequential reads, the fastest possible access pattern. LSM-trees scatter writes across levels; hash tables scatter entries across buckets. Neither preserves spatial locality.
 
@@ -335,7 +335,7 @@ The most significant implication of Tagma-KV is that the coordinate is the addre
 
 ## Conclusion
 
-Tagma-KV demonstrates that the hash function in the critical path of KV storage can be replaced by a structural coordinate transformation. The replacement is:
+Tagma KV demonstrates that the hash function in the critical path of KV storage can be replaced by a structural coordinate transformation. The replacement is:
 
 1. **Faster than SipHash** for common key sizes (21.67 ns conversion vs 23.79 ns HashMap total)
 2. **Collision-free by construction** (no hash collisions, no resolution logic)
@@ -388,7 +388,7 @@ The table exposes the hierarchy directly: Native mode is 60x faster than HashMap
 
 ## Write-Read Symmetry
 
-Tagma-KV preserves full KV read/write semantics. `insert("key", value)` and `get("key")` continue to work exactly as in any HashMap. The difference is that every key is also stored as a native CoordPath, which enables an additional read path through the Tagma spatial layer without changing the existing KV interface:
+Tagma KV preserves full KV read/write semantics. `insert("key", value)` and `get("key")` continue to work exactly as in any HashMap. The difference is that every key is also stored as a native CoordPath, which enables an additional read path through the Tagma spatial layer without changing the existing KV interface:
 
 ```rust
 // KV interface: works for both read and write, unchanged

@@ -800,7 +800,7 @@ All figures are software measurements on ARMv8.4-A Firestorm (2020), compiled wi
 
 ## CoordCube: Spatial Interpretation Layer {#sec-appendix-coordcube}
 
-The CoordCube layer reinterprets existing CoordPath storage keys as D-dimensional coordinates without modifying the underlying key, enabling proximity queries, bounding box enumeration, and distance metrics that fall outside the core CoordPath scope. The full design, benchmarks, and comparison with existing systems are described in the Tagma-Geo whitepaper[^tagma-geo]; the reference implementation lives in `sw/rust/geo`[^tagma-geo-src].
+The CoordCube layer reinterprets existing CoordPath storage keys as D-dimensional coordinates without modifying the underlying key, enabling proximity queries, bounding box enumeration, and distance metrics that fall outside the core CoordPath scope. The full design, benchmarks, and comparison with existing systems are described in the Tagma Geo whitepaper[^tagma-geo]; the reference implementation lives in `sw/rust/geo`[^tagma-geo-src].
 
 :::{ layout-ncol=2 }
 
@@ -838,22 +838,22 @@ Conventional hardware searches. Tagma hardware interprets. This shifts the hardw
 
 SHA-256 output is uniformly distributed, so the modulo-11172 mapping to each Coord value is statistically unbiased. The overall collision probability of the 19-Coord output remains $2^{-256}$, preserved from the underlying hash.
 
-## Tagma-KV[^tagma-kv]: Key-Value Store on Coordinate Primitives {#sec-appendix-tagma-kv}
+## Tagma KV[^tagma-kv]: Key-Value Store on Coordinate Primitives {#sec-appendix-tagma-kv}
 
-Tagma-KV builds a practical key-value storage engine on top of
+Tagma KV builds a practical key-value storage engine on top of
 the coordinate primitives described in this document. Where the core Tagma
 library provides collision-free O(1) addressing within a single address space,
-Tagma-KV extends the model to handle legacy infrastructure requirements that
+Tagma KV extends the model to handle legacy infrastructure requirements that
 fall outside the core library scope: multi-node coordinated sharding,
 persistence to backing stores, protocol adaptation (Redis RESP, S3 REST),
 and operational tooling.
 
 The structural addressing model handles what legacy systems delegate to hash
 functions and index structures: key placement, collision resolution, and
-range partitioning. Tagma-KV supplies what the coordinate model intentionally
+range partitioning. Tagma KV supplies what the coordinate model intentionally
 abstracts away: durable storage, wire protocols, and cluster management.
 
-The full design and benchmark results are described in the Tagma-KV
+The full design and benchmark results are described in the Tagma KV
 whitepaper; the reference implementation lives in `sw/rust/kv`[^tagma-kv-src].
 Selected CoordCube benchmarks that measure KV-relevant
 metrics are reproduced below.
@@ -885,9 +885,9 @@ metrics are reproduced below.
 - Stress test: under 500,000 interleaved insert, get, remove, and update operations, CoordSpace completes in 3.64 ms vs HashMap 12.2 ms.
 - Deep tree: CoordSpaceN19 at 100 entries shows the 19-dereference tree traversal cost (7.04 us vs 3.53 us for HashMap). Nonexistent key lookup remains depth-independent: CoordSpace2 0.39 ns, CoordSpaceN19 2.30 ns, HashMap 20.1 ns.
 
-## Tagma-Sec[^tagma-sec]: Security Layer on Coordinate Primitives {#sec-appendix-tagma-sec}
+## Tagma Security[^tagma-sec]: Security Layer on Coordinate Primitives {#sec-appendix-tagma-sec}
 
-Tagma-Sec builds the security primitive layer for coordination traffic on top of the coordinate primitives described in this document. Routing updates name target paths, resolvers exchange evidence, and the audit trail records what happened; Tagma-Sec answers the accompanying questions: which principal may act on which path, whether a record is intact, whether the origin of an update can be denied, and what evidence remains. The layer provides integrity, authorization, audit, and non-repudiation over Tagma coordinate objects and coordination traffic.
+Tagma Security builds the security primitive layer for coordination traffic on top of the coordinate primitives described in this document. Routing updates name target paths, resolvers exchange evidence, and the audit trail records what happened; Tagma Security answers the accompanying questions: which principal may act on which path, whether a record is intact, whether the origin of an update can be denied, and what evidence remains. The layer provides integrity, authorization, audit, and non-repudiation over Tagma coordinate objects and coordination traffic.
 
 The security model rests on keyed primitives over public coordinate arithmetic. The composition formula, the linearization rule, and the validity bounds are public specifications, so coordinate structure contributes collision-free addressing while the security guarantees come from keyed hashing (blake3 in the reference implementation). Four modules expose small interfaces: authority (CoordPath Exact/Prefix scope authorization, epoch-scoped revocation), integrity (epoch-bound seals), audit (chained evidence log with inclusion proofs), and channel (non-repudiation receipts). The implementation covers specification milestones 1 to 4 with a legacy pattern as a reverse-verification mirror: the same workflow suite must pass identically on both stacks.
 
@@ -907,7 +907,7 @@ The security model rests on keyed primitives over public coordinate arithmetic. 
 
 {{< include ../_include/bench/fig-bench-sec-audit.qmd >}}
 
-The full design, benchmark charts, and implementation status are described in the Tagma-Sec whitepaper[^tagma-sec] and in the Tagma security layer specification[^tagma-spec] in the synTagma repository.
+The full design, benchmark charts, and implementation status are described in the Tagma Security whitepaper[^tagma-sec] and in the Tagma security layer specification[^tagma-spec] in the synTagma repository.
 
 ## Structural Enumeration in Practice: RISC-V Verification {#sec-appendix-exaverif}
 
@@ -999,11 +999,11 @@ Korean without a hex dump.
 
 [^tagma-etym]: Greek *τάγμα* from *σύνταγμα* (syn-tagma, *co-ordinate* in English), "a well-ordered arrangement of constituent elements". *Tagma* is the system name; *Coord* is the concrete implementation type.
 [^tagma-repo]: Repository: [Github (Pre-release, Apache 2.0)](https://github.com/ssccsorg/syntagma), Benchmark suite [code](https://github.com/ssccsorg/syntagma/blob/main/sw/rust/benches/bench.rs)
-[^tagma-kv]: Tagma-KV whitepaper (DOI: [10.5281/zenodo.21550431](https://doi.org/10.5281/zenodo.21550431)): <https://docs.ssccs.org/projects/syntagma/tagma/kv>
-[^tagma-geo]: Tagma-Geo whitepaper (draft): <https://docs.ssccs.org/projects/syntagma/tagma/geo>
-[^tagma-geo-src]: Tagma-Geo reference implementation: <https://github.com/ssccsorg/syntagma/tree/main/sw/rust/geo>
-[^tagma-kv-src]: Tagma-KV reference implementation: <https://github.com/ssccsorg/syntagma/tree/main/sw/rust/kv>
-[^tagma-sec]: Tagma-Sec whitepaper: <https://docs.ssccs.org/projects/syntagma/security>
+[^tagma-kv]: Tagma KV whitepaper (DOI: [10.5281/zenodo.21550431](https://doi.org/10.5281/zenodo.21550431)): <https://docs.ssccs.org/projects/syntagma/tagma/kv>
+[^tagma-geo]: Tagma Geo whitepaper (draft): <https://docs.ssccs.org/projects/syntagma/tagma/geo>
+[^tagma-geo-src]: Tagma Geo reference implementation: <https://github.com/ssccsorg/syntagma/tree/main/sw/rust/geo>
+[^tagma-kv-src]: Tagma KV reference implementation: <https://github.com/ssccsorg/syntagma/tree/main/sw/rust/kv>
+[^tagma-sec]: Tagma Security whitepaper: <https://docs.ssccs.org/projects/syntagma/security>
 [^tagma-spec]: Tagma Security Layer Specification: <https://github.com/ssccsorg/syntagma/blob/main/docs/spec/tagma-sec.md>
 [^tagma-swref]: Tagma Software Reference Implementation in Rust: <https://docs.ssccs.org/projects/syntagma/tagma/impl.html>
 [^exaverif]: Project ExaVerif, Exhaustive Verification for RISC-V Custom Instructions <https://docs.ssccs.org/projects/ev>
