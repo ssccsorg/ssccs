@@ -1,6 +1,6 @@
 ```{python}
-#| label: fig-bench-kv-onetime-cost
-#| fig-cap: "Cumulative cost model: CoordKV2 with by_coordkey API pays the conversion cost once and then accesses at slot-load cost. HashMap pays SipHash on every operation."
+#| label: fig-bench-map-onetime-cost
+#| fig-cap: "Cumulative cost model: CoordMap2 with by_coordkey API pays the conversion cost once and then accesses at slot-load cost. HashMap pays SipHash on every operation."
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -8,8 +8,8 @@ import numpy as np
 ops = np.array([1, 10, 100, 1000, 10000, 100000])
 
 # Cumulative latency formulas (ns):
-#   CoordKV2 (str API):     22 * x          — each get pays conversion + slot
-#   CoordKV2 (by_coordkey): 22 + 1 * (x-1)  — first pays conversion, rest slot load only
+#   CoordMap2 (str API):     22 * x          — each get pays conversion + slot
+#   CoordMap2 (by_coordkey): 22 + 1 * (x-1)  — first pays conversion, rest slot load only
 #   HashMap:                23.8 * x        — every get pays SipHash + probe
 kv2_str        = 22.0 * ops
 kv2_by_coord   = 22.0 + 1.0 * (ops - 1)
@@ -19,11 +19,11 @@ fig, ax = plt.subplots(figsize=(5.5, 4.0))
 
 ax.plot(ops, kv2_str, '--o', color='black', markerfacecolor='white',
         markeredgecolor='black', markersize=8, linewidth=1.5,
-        label='CoordKV2 (str API) — conversion every op')
+        label='CoordMap2 (str API) — conversion every op')
 
 ax.plot(ops, kv2_by_coord, '-o', color='black', markerfacecolor='white',
         markeredgecolor='black', markersize=8, linewidth=2.0,
-        label='CoordKV2 (by_coordkey) — one-time conversion')
+        label='CoordMap2 (by_coordkey) — one-time conversion')
 
 ax.plot(ops, hm, '-s', color='black', markerfacecolor='black',
         markeredgecolor='black', markersize=8, linewidth=1.8,

@@ -1,5 +1,5 @@
 ```{python}
-#| label: fig-bench-kv-micro
+#| label: fig-bench-map-micro
 #| fig-cap: "Single insert and get latency — all four variants"
 import matplotlib.pyplot as plt
 import numpy as np
@@ -16,9 +16,9 @@ hm   = [44.87, 23.79]
 
 fig, ax = plt.subplots(figsize=(5, 3.5))
 
-ax.bar(x - 1.5*w, kv2, w, label='CoordKV2', color='white', edgecolor='black', linewidth=0.8, hatch='///')
-ax.bar(x - 0.5*w, kvn, w, label='CoordKVN<2>', color='white', edgecolor='black', linewidth=0.8, hatch='...')
-ax.bar(x + 0.5*w, dyn, w, label='DynCoordKV', color='white', edgecolor='black', linewidth=0.8, hatch='oo')
+ax.bar(x - 1.5*w, kv2, w, label='CoordMap2', color='white', edgecolor='black', linewidth=0.8, hatch='///')
+ax.bar(x - 0.5*w, kvn, w, label='CoordMapN<2>', color='white', edgecolor='black', linewidth=0.8, hatch='...')
+ax.bar(x + 0.5*w, dyn, w, label='DynCoordMap', color='white', edgecolor='black', linewidth=0.8, hatch='oo')
 ax.bar(x + 1.5*w, hm,  w, label='HashMap', color='white', edgecolor='black', linewidth=0.8)
 
 ax.set_xticks(x)
