@@ -50,7 +50,7 @@ The demo top module registers the decode on the board clock, so the one-cycle la
 | `clk` | pin 20, onboard 12 MHz oscillator | global clock |
 | `code[15:0]` | GPIO switch module | decoder input |
 | `i[4:0]`, `m[4:0]`, `f[4:0]` | decoder output | LED groups |
-| `valid` | range check | onboard green LED |
+| `led_valid` | `~valid`, range check | onboard green LED (negative logic, lights on valid code points) |
 
 Pin constraints are verified against the Upduino v3.1 reference PCF from the icestudio project.
 
@@ -67,12 +67,12 @@ icetime         -> reports/icetime.txt         (timing report)
 
 | Metric | shift-subtract (naive) | multiply-shift (current) |
 |--------|------------------------|--------------------------|
-| ICESTORM_LC | 177 / 5280 (3%) | 254 / 5280 (4%) |
+| ICESTORM_LC | 177 / 5280 (3%) | 255 / 5280 (4%) |
 | SB_IO | 33 / 39 | 33 / 39 |
 | SB_GB | 1 / 8 | 1 / 8 |
-| Logic levels | 72 | 29 |
-| Critical path | 115.90 ns | 61.17 ns |
-| Fmax | 8.63 MHz | 16.35 MHz |
+| Logic levels | 72 | 33 |
+| Critical path | 115.90 ns | 59.55 ns |
+| Fmax | 8.63 MHz | 16.79 MHz |
 
 The multiply-shift version closes the 12 MHz board clock with margin. The bitstream is generated and the design is ready for board bring-up.
 

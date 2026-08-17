@@ -54,7 +54,7 @@ The constant divisions dominate the critical path. Two implementations of the sa
 | Structure | Implementation | Depth |
 |-----------|----------------|-------|
 | Shift-subtract (naive) | Yosys techmap long division | 72 logic levels |
-| Multiply-shift (current) | `(q4 * 9363) >> 16` for /28, `(j * 781) >> 14` for /21 | 29 logic levels |
+| Multiply-shift (current) | `(q4 * 9363) >> 16` for /28, `(j * 781) >> 14` for /21 | 33 logic levels |
 
 The multiply-shift constants are exact over the valid domain: division by 28 becomes division by 7 on `q4 = offset >> 2` (28 = 4 x 7, `q4` at most 2792), and division by 21 applies to `j` at most 398. Both structures are functionally identical, which the verification pipeline proves rather than assumes.
 

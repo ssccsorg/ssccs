@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 labels = ['CoordSpace get\n(software)', 'to_axes decode\n(software)', 'HW decoder\n(UP5K PnR)']
-ns = [0.38, 1.44, 61.17]
+ns = [0.38, 1.44, 59.55]
 x = np.arange(len(labels))
 
 fig, ax = plt.subplots(figsize=(5, 3.5))
@@ -24,9 +24,9 @@ for xi, v in enumerate(ns):
     ax.text(xi, v * 1.35, f'{v} ns', fontsize=8.5, ha='center')
 
 # software-to-hardware gap on the same decode
-ax.annotate('', xy=(2, 61.17), xytext=(1, 1.44),
+ax.annotate('', xy=(2, 59.55), xytext=(1, 1.44),
             arrowprops=dict(arrowstyle='->', color='dimgray', lw=1.0))
-ax.text(1.5, 10, f'{61.17 / 1.44:.0f}x', fontsize=8, ha='center', color='dimgray')
+ax.text(1.5, 10, f'{59.55 / 1.44:.0f}x', fontsize=8, ha='center', color='dimgray')
 
 plt.tight_layout(); plt.show()
 ```

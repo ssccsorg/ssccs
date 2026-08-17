@@ -42,7 +42,7 @@ title_meta_items = {
 
 Tagma[^tagma] is a 16-bit coordinate primitive: a fixed Unicode block (U+AC00--U+D7A3) with a closed-form composition formula, three independent axes, and zero collision probability. The primitive is substrate-independent. Its definition is one formula, and its realizations differ only in the material that evaluates it. The software realization is the reference implementation in Rust and C++ [^syntagma] [^refimpl]; the hardware realization is the subject of this whitepaper series: a combinational decoder, a gate-level synthesis flow, an FPGA demo on the Upduino 3.1, and a chton SRAM segment store.
 
-Everything in this series is measured, not claimed. The decoder is verified exhaustively over all 11,172 valid syllables in three independent channels (formula, Rust reference, gate netlist), and formal equivalence proves the RTL and the synthesized netlist identical over all 2^16 inputs. The measured gate count is 478 cells in the ev-compatible generic schema and 588 cells in a 2-input gate-level estimate, with 201 LUT4 plus 41 carry cells on iCE40. The demo closes the 12 MHz board clock at 16.35 MHz Fmax (61.17 ns critical path after place and route).
+Everything in this series is measured, not claimed. The decoder is verified exhaustively over all 11,172 valid syllables in three independent channels (formula, Rust reference, gate netlist), and formal equivalence proves the RTL and the synthesized netlist identical over all 2^16 inputs. The measured gate count is 478 cells in the ev-compatible generic schema and 588 cells in a 2-input gate-level estimate, with 201 LUT4 plus 41 carry cells on iCE40. The demo closes the 12 MHz board clock at 16.79 MHz Fmax (59.55 ns critical path after place and route).
 
 Two findings frame the series. First, the ~300 gate claim of the Tagma whitepaper holds for the naive shift-subtract decoder (206 to 232 cells), but timing closure on a 12 MHz board requires a multiply-shift structure that costs roughly 2.5x more gates. Second, the hardware is not a speedup for the N=1 dense case: the entire 11,172-entry space fits in L1 cache, which the software already exploits at 0.38 ns per access. The hardware value is energy, determinism, and physical embedding, not per-operation speed.
 
@@ -71,10 +71,10 @@ The numbers below are the authoritative hardware figures for the Tagma primitive
 | Generic cells (ev schema) | 206 | 478 |
 | Gate-level estimate (2-input) | 232 | 588 |
 | iCE40 LUT4 + SB_CARRY | 95 + 66 | 201 + 41 |
-| PnR ICESTORM_LC (UP5K) | 177 | 254 |
-| Logic levels | 72 | 29 |
-| Critical path | 115.90 ns | 61.17 ns |
-| Fmax | 8.63 MHz | 16.35 MHz |
+| PnR ICESTORM_LC (UP5K) | 177 | 255 |
+| Logic levels | 72 | 33 |
+| Critical path | 115.90 ns | 59.55 ns |
+| Fmax | 8.63 MHz | 16.79 MHz |
 | Meets 12 MHz board clock | no | yes |
 
 :::{ layout-ncol=2 }
