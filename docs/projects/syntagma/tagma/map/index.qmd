@@ -469,10 +469,10 @@ Since $11172^N \gg 2^{8N}$ for all N, each distinct byte array maps to a distinc
 #### Map Storage Types
 
 ```rust
-use tagma_kv::{CoordMap, CoordMap2, CoordMapKey};
-use tagma_kv::coord_kv::CoordMap;
-use tagma_kv::dyn_coord_kv::DynCoordMap;
-use tagma_kv::coord_kv_n::CoordMapN;
+use tagma_map::{CoordMap, CoordMap2, CoordMapKey};
+use tagma_map::coord_kv::CoordMap;
+use tagma_map::dyn_coord_kv::DynCoordMap;
+use tagma_map::coord_kv_n::CoordMapN;
 
 // CoordMap2: dense CoordSpace2 (119 MB), O(1), exactly 2-byte keys
 let mut kv = CoordMap2::new();
@@ -488,7 +488,7 @@ let mut kv = DynCoordMap::new();
 kv.insert("hello", b"world".to_vec());
 
 // CoordKey access via CoordMapKey trait (fixed-key variants only)
-use tagma_kv::CoordMapKey;
+use tagma_map::CoordMapKey;
 let key = CoordKey::new(*b"hi");
 kv.insert_by_coordkey(&key, b"value".to_vec());
 ```
