@@ -20,7 +20,7 @@ All code, text content, output, and comments must be written in English.
 - Don't put emojis.
 - When a sentence would contain `.ss`, rewrite to use the full technical term appropriate to the context.
 - Avoid sequential enumerations like “Week 1, Week 2”. Use numbered experiments, phases, or milestones instead.
-- Avoid negated‑affirmation pairs (“not…, but…”). Express logic directly through affirmative, sequential, or conditional structures.
+- Avoid negated‑affirmation pairs (“not A, B..”). Express logic directly through affirmative, sequential, or conditional structures.
 
 ### Quarto
 

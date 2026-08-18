@@ -5,12 +5,12 @@ dot("""
 digraph HWverify {
   rankdir=LR;
   node [shape=box, fontname="Helvetica", fontsize=10];
-  core [label="tagma_core (Rust)\\nCoord::to_axes", style="filled", fillcolor="#e8f0fe"];
-  exp [label="golden_export.rs", style="filled", fillcolor="#e8f0fe"];
-  gfile [label="golden_anchors.hex\\n11,172 vectors", style="filled", fillcolor="#f2f2f2"];
-  rtl [label="RTL simulation\\nmake sim-golden", style="filled", fillcolor="#fde8e8"];
-  net [label="gate netlist simulation\\nmake gatesim", style="filled", fillcolor="#fde8e8"];
-  eq [label="formal equivalence\\nmake equiv", style="filled", fillcolor="#fde8e8"];
+  core [label="tagma_core (Rust)\nCoord::to_axes", style="filled", fillcolor="white", penwidth=2];
+  exp [label="golden_export.rs", style="filled", fillcolor="white", penwidth=2];
+  gfile [label="golden_anchors.hex\n11,172 vectors", style="filled", fillcolor="#e6e6e6"];
+  rtl [label="RTL simulation\nmake sim-golden", style="filled,dashed", fillcolor="white"];
+  net [label="gate netlist simulation\nmake gatesim", style="filled,dashed", fillcolor="white"];
+  eq [label="formal equivalence\nmake equiv", style="filled,dashed", fillcolor="white"];
   {rank=same; rtl; net;}
   core -> exp;
   exp -> gfile;
