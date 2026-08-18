@@ -85,6 +85,14 @@ The composition formula [@iso10646-hangul] [@karlsson2003arithmetic] is:
 
 $$C(i,m,f) = \text{U+AC00} + 588i + 28m + f, \quad 0 \leq i < 19,\; 0 \leq m < 21,\; 0 \leq f < 28$$
 
+## The Structural Conjunction
+
+Tagma rests on three structural properties and one durability guarantee. The absence of any of the three structural properties makes a Tagma-compatible coordinate space impossible:
+
+**Exception-free three-axis composition.** Every valid character decomposes through the closed-form formula entries and no irregular exceptions. This is the definitional property: decoding is arithmetic, not a lookup, and the hardware validity check is a formula check. \
+**Contiguity.** The 11,172 valid values form a single contiguous run starting at U+AC00, so offset = code - U+AC00 is one subtraction and the space is a flat array: `*(base + coord)` is the entire lookup. Address is coordinate. \
+**BMP membership.** The block lies on Unicode's Basic Multilingual Plane Zero, the foundational layer that every implementation must support, so one character is one UTF-16 code unit: one u16, one register, one SRAM word.  
+
 Every valid 16-bit value carries **three simultaneous interpretations**: a 1-D Unicode address, a 3-D coordinate. Internally, the 16 bits are organized as a 3-axis coordinate packed into a 16-bit word:
 
 ::: {.cell layout="[[50, 50]]"}
@@ -95,19 +103,22 @@ Every valid 16-bit value carries **three simultaneous interpretations**: a 1-D U
 
 :::
 
-## The Structural Conjunction
+The durability guarantee is the open international standard itself: Unicode's stability policy fixes the block, keeping the constants (U+AC00, U+D7A3, 11,172, 588, 28) permanent, and Hangul is the only writing system in existence that satisfies all three structural properties. The full comparison, including near-miss combinatorial, syllabic, and supplementary-plane cases, is in Appendix: Script Comparison [*-@sec-appendix-scripts*].
 
-Tagma requires the simultaneous satisfaction of four properties: **a contiguous fixed-width 16-bit address range, a closed-form composition formula, a complete three-axis decomposition, and an open international standard.** The absence of any single property makes a Tagma-compatible coordinate space impossible.
+::: {tbl-colwidths="[22, 18, 25, 25, 10]"}
 
-This block satisfies all four. It resides on Unicode's Basic Multilingual Plane (Plane 0) --- the foundational layer that every implementation must support --- making Tagma universally compatible without requiring supplementary planes or special handling. Every other encoding on the BMP uses atomic assignments inherited from ASCII. None embeds three structural axes into each code point.
-
-| Script | Contiguous Address | Combinatorial Structure | Three-Axis Decomposition | Tagma-compatible? |
+| Script | Contiguous Address | Combinatorial Structure | 3-Axis Decomposition | Compatible? |
 |--------|-------------------|----------------------|--------------------------|-------------------|
-| Hangul | Y U+AC00-U+D7AF | Y 19x21x28, no exceptions | Y Onset-Nucleus-Coda | Yes |
-| ASCII | Y U+0000-U+007F | N | N | No |
-| Japanese | Y U+3040-U+30FF | N | N | No |
-| CJK Unified Ideographs | Y U+4E00-U+9FFF | N (infinite, irregular) | N | No |
-| Arabic | Y U+0600-U+06FF | N | N | No |
+| Hangul | Y AC00-D7A3 | Y 19x21x28 (invariably) | Y Onset-Nucleus-Coda | Y |
+| Braille | Y 2800-28FF | Y (2^6 dot bit pattern) | N (bit pattern, no axis) | N |
+| Ethiopic | Y 1200-137F | N (1D syllabary) | N | N |
+| Hangul Jamo | Y 1100-11FF | N (conjoining sequences) | N (multi-code-point) | N |
+| CJK Unified | Y 4E00-9FFF | N (infinite, irregular) | N | N |
+| ASCII | Y 0000-007F | N | N | N |
+| Greek | Y 0370-03FF | N | N | N |
+| Egyptian Hieroglyph | Y 10000-(SMP) | N | N | N |
+
+:::
 
 ## The Encoding Problem
 
@@ -732,6 +743,8 @@ The **CoordPath** types above treat coordinate space as a tree: index paths thro
 
 The `CoordSpace` series provides hash-free, collision-free coordinate-indexed spaces backed by direct array addressing.
 
+::: {tbl-colwidths="[20, 10, 20, 15, 10, 25]"}
+
 | Type | Depth | Address space | Allocation | Latency | Exploration pattern |
 |------|-------|---------------|------------|---------|-------------|
 | CoordSpace | 1 | $11{,}172$ | None (inline array) | 0.39 ns | General single-Coord, no_std, MCU |
@@ -740,13 +753,15 @@ The `CoordSpace` series provides hash-free, collision-free coordinate-indexed sp
 | CoordSpaceN2 | 2 | $1.25 \times 10^8$ | Heap (lazy) | 0.90 ns | Two-axis space |
 | CoordSpaceN6 | 6 | $1.94 \times 10^{24}$ | Heap (lazy) | 5.96 ns | UUID-scale identity |
 | CoordSpaceN19 | 19 | $\approx 2^{256}$ | Heap (lazy) | 47.8 ns | SHA-256-scale |
-| DynCoordSpace | Runtime | Unlimited ($\texttt{\&[Coord]}$) | Heap (lazy) | N/A | Variable-depth paths |
+| DynCoordSpace | Runtime | Unlimited | Heap (lazy) | N/A | Variable-depth paths |
 
-### Serialization: `base11172`
+:::
+
+### Serialization: base11172
 
 A `no_std` + `alloc` crate providing Tagma's native serialization format. Every coordinate index 0..11171 maps to exactly one Unicode character (U+AC00 + index). A pair of Coords encodes a 16-bit value. The encoding is self-validating: characters outside U+AC00..U+D7AF are immediately detectable as invalid. No special characters, padding, escaping.
 
-Code-level analysis of all types -- including `Coord` bit layout, `CoordSpace` inline array with niche optimization, `CoordSet` bit iteration with `trailing_zeros`, and `CoordSpaceN` sparse tree with lazy node allocation -- is in the reference implementation report [Reference Implementation](/projects/syntagma/tagma/impl.html).
+Code-level analysis of all types -- including `Coord` bit layout, `CoordSpace` inline array with niche optimization, `CoordSet` bit iteration with `trailing_zeros`, and `CoordSpaceN` sparse tree with lazy node allocation -- is in the software reference implementation [Reference Implementation](/projects/syntagma/projects/syntagma/impl/sw).
 
 ## Benchmarks {#sec-appendix-benches}
 
@@ -786,15 +801,19 @@ Tagma assigns every point in a geometric space a structural address that is simu
 
 > Rust's `std::collections::HashMap` compiles to C-grade machine code within 5-10% of theoretical CPU throughput. Whether Tagma matches or exceeds this baseline is incidental: HashMap degrades linearly with collision rate and entry count while Tagma does not. A coordinate-slice query costs the same at $10^4$ entries as at $10^{77}$ entries: one array dereference per Coord.
 
+::: {tbl-colwidths="[25, ]"}
+
 | Metric | SHA-256 | CoordSpace (N=1) | CoordSpace2 (N=2) | CoordSpaceM3 (N=3) | CoordSpaceN6 (tree) | CoordSpaceN19 (tree) |
 |--------|---------|-----------------|-------------------|--------------------|--------------------|---------------------|
-| Latency (ARMv8.4-A Firestorm) | 227 ns | 0.39 ns | 0.39 ns | 0.40 ns | 5.44 ns | 53.2 ns |
+| Latency | 227 ns | 0.39 ns | 0.39 ns | 0.40 ns | 5.44 ns | 53.2 ns |
 | Backing | hash | inline array | heap alloc_zeroed | mmap MAP_NORESERVE | sparse tree | sparse tree |
 | Allocation | per-entry heap | 22 KB | 119 MB | 1.27 TB (virtual) | per-node | per-node |
 | Identity size | 32 bytes | 2 bytes | 4 bytes | 6 bytes | 12 bytes | 38 bytes |
 | Addressable space | $2^{256}$ | $1.12 \times 10^4$ | $1.25 \times 10^8$ | $1.39 \times 10^{12}$ | $1.94 \times 10^{24}$ | $1.94 \times 10^{77}$ |
 | Collision | probabilistic ($2^{-128}$) | zero | zero | zero | zero | zero |
 | Native | — | Yes (dense) | Yes (dense) | Yes (dense) | No (fallback) | No (fallback) |
+
+:::
 
 All figures are software measurements on ARMv8.4-A Firestorm (2020), compiled with `rustc` stable in release mode. Full benchmark source is included in the repository [@bench-source].
 
@@ -979,6 +998,33 @@ The two charts below capture the result. The first shows the speedup across all 
 
 :::
 
+## Script Comparison {#sec-appendix-scripts}
+
+The full comparison across all examined writing systems. Main-stream computing alphabets (ASCII/Latin, Cyrillic, Greek, Hebrew) are atomic assignments with no combinatorial structure. Devanagari, Thai, and Tibetan combine consonants and vowels with irregular joining rules; not every combination maps to a predefined code point, so no closed-form three-axis decomposition exists. Braille is genuinely combinatorial, but as a 2^6 dot bit pattern rather than a three-axis algebra. Hangul Jamo composes syllables as conjoining code-point sequences, so the composition exists but spans multiple code points instead of one closed-form block. Ethiopic and Cherokee are syllabaries: each syllable is an individually assigned code point, a one-dimensional enumeration. Egyptian Hieroglyphs are contiguous but reside in the supplementary plane, outside the BMP, so they cannot satisfy the 16-bit code-unit contract. Hangul is the only script that combines a fully contiguous BMP valid range with a complete three-axis decomposition.
+
+::: {tbl-colwidths="[20, 20, 25, 25, 10]"}
+
+| Script | Contiguous Address | Combinatorial Structure | 3-Axis Decomposition | Compatible? |
+|--------|-------------------|----------------------|--------------------------|-------------------|
+| Hangul | Y U+AC00-U+D7A3 | Y 19x21x28, no exceptions | Y Onset-Nucleus-Coda | Y |
+| ASCII | Y U+0000-U+007F | N | N | N |
+| Cyrillic | Y U+0400-U+04FF | N | N | N |
+| Greek | Y U+0370-U+03FF | N | N | N |
+| CJK Unified Ideographs | Y U+4E00-U+9FFF | N (infinite, irregular) | N | N |
+| Japanese(Kana) | Y U+3040-U+30FF | N | N | N |
+| Arabic | Y U+0600-U+06FF | N | N | N |
+| Hebrew | Y U+0590-U+05FF | N | N | N |
+| Devanagari | N | N (2D consonant+vowel) | N | N |
+| Thai | N | N (2D consonant+vowel) | N | N |
+| Tibetan | N | N (2D consonant+vowel) | N | N |
+| Braille | Y U+2800-U+28FF | Y (2^6 dot bit pattern) | N (bit pattern, no axis algebra) | N |
+| Hangul Jamo | Y U+1100-U+11FF | N (conjoining sequences) | N (multi-code-point composition) | N |
+| Ethiopic | Y U+1200-U+137F | N (1D syllabary) | N | N |
+| Cherokee | Y U+13A0-U+13FF | N (1D syllabary) | N | N |
+| Egyptian Hieroglyphs | Y U+13000-U+1342F (supplementary plane) | N | N | N |
+
+:::
+
 ## CoordSpace20
 
 This is a single unique atom's address in our observable universe:
@@ -998,13 +1044,13 @@ rendered in human-readable Hangul, decodable by anyone who reads
 Korean without a hex dump.
 
 [^tagma-etym]: Greek *τάγμα* from *σύνταγμα* (syn-tagma, *co-ordinate* in English), "a well-ordered arrangement of constituent elements". *Tagma* is the system name; *Coord* is the concrete implementation type.
-[^tagma-repo]: Repository: [Github (Pre-release, Apache 2.0)](https://github.com/ssccsorg/syntagma), Benchmark suite [code](https://github.com/ssccsorg/syntagma/blob/main/sw/rust/benches/bench.rs)
+[^tagma-repo]: Repository: [Github (Pre-release, Apache 2.0)](https://github.com/ssccsorg/syntagma), Benchmark <https://github.com/ssccsorg/syntagma/blob/main/sw/rust/benches/bench.rs>
 [^tagma-map]: Tagma Map whitepaper (DOI: [10.5281/zenodo.21550431](https://doi.org/10.5281/zenodo.21550431)): <https://docs.ssccs.org/projects/syntagma/tagma/map>
 [^tagma-geo]: Tagma Geo whitepaper (draft): <https://docs.ssccs.org/projects/syntagma/tagma/geo>
 [^tagma-geo-src]: Tagma Geo reference implementation: <https://github.com/ssccsorg/syntagma/tree/main/sw/rust/geo>
 [^tagma-map-src]: Tagma Map reference implementation: <https://github.com/ssccsorg/syntagma/tree/main/sw/rust/map>
 [^tagma-sec]: Tagma Security whitepaper: <https://docs.ssccs.org/projects/syntagma/security>
 [^tagma-spec]: Tagma Security Layer Specification: <https://github.com/ssccsorg/syntagma/blob/main/docs/spec/tagma-sec.md>
-[^tagma-swref]: Tagma Software Reference Implementation in Rust: <https://docs.ssccs.org/projects/syntagma/tagma/impl.html>
+[^tagma-swref]: Tagma Reference Implementations: <https://docs.ssccs.org/projects/syntagma/impl>
 [^exaverif]: Project ExaVerif, Exhaustive Verification for RISC-V Custom Instructions <https://docs.ssccs.org/projects/ev>
 [^tagma-root-ttree]: Solving CERN's ROOT TTree I/O bottleneck: <https://docs.ssccs.org/works/cern/root-ttree/>; measured evidence reproducible from the [ROOT fork](https://github.com/ssccsorg/root) and its [benchmark](https://github.com/ssccsorg/root/blob/master/benchmarks/tagma/tagma_bench.C)

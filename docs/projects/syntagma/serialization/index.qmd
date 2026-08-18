@@ -1,0 +1,172 @@
+---
+title: "Serialization"
+subtitle: "Base11172: Self-Validating Compositional Encoding on the Tagma Coordinate Space"
+date-format: "MMMM, YYYY"
+version-prefix: tagma_serialization
+version-mark: true
+bibliography: ../_include/reference.bib
+csl: ../../../_include/ieee.csl
+generate-title-meta: false
+metadata-files:
+    - ../../../_include/author.yml
+    - ../../../_include/format.html.yml
+colorlinks: true
+format:
+  html:
+    number-sections: true
+    code-font: "Source Code Pro"
+    appendix-style: plain
+---
+
+## Overview
+
+Base11172 is the native serialization format of the Tagma coordinate
+space. It encodes arbitrary byte sequences into strings of compositional
+characters, using the 11,172 valid Tagma coordinates (the Hangul syllable
+block U+AC00..U+D7A3) as its alphabet. The reference implementation is the
+`base11172` crate in the syntagma workspace.
+
+The format has four properties:
+
+| Property | Meaning |
+|----------|---------|
+| Self-validating | a corrupted character falls outside the alphabet and is immediately detectable |
+| No special characters | URL-safe, no escaping or quoting required |
+| Deterministic | encoding is a pure function of the input |
+| `no_std` compatible | the core requires only `alloc` |
+
+## The alphabet
+
+Every character of the encoding is a valid Tagma coordinate: one of the
+11,172 values satisfying the composition formula
+
+$$C(i,m,f) = \text{U+AC00} + 588i + 28m + f, \quad 0 \leq i < 19,\; 0 \leq m < 21,\; 0 \leq f < 28$$
+
+Each character therefore carries $\log_2(11172) \approx 13.45$ bits of
+information. Two characters cover 26.9 bits, sufficient for a full 16-bit
+value. The remaining 54,364 of 65,536 possible code points are outside the
+alphabet by construction, which is what makes the format self-validating.
+
+## Encoding
+
+A 16-bit value is split into a high part and a low part against the
+alphabet size, and each part becomes a `Coord` and then a character:
+
+```rust
+// base11172/src/lib.rs
+pub const N_CHARS: u32 = Coord::N_VALID as u32;
+
+pub fn encode_u16(v: u16) -> [char; 2] {
+    let hi = (v as u32) / N_CHARS;
+    let lo = (v as u32) % N_CHARS;
+    let c0 = Coord::new(hi as u16).unwrap_or_else(|| Coord::new(0).unwrap());
+    let c1 = Coord::new(lo as u16).unwrap_or_else(|| Coord::new(0).unwrap());
+    [c0.to_char(), c1.to_char()]
+}
+```
+
+Byte sequences are encoded two bytes per character pair, little-endian:
+
+```rust
+pub fn encode_bytes(bytes: &[u8]) -> String {
+    let n_pairs = bytes.len().div_ceil(2);
+    let mut out = String::with_capacity(n_pairs * 2 * 3); // UTF-8: <= 3 bytes/char
+    for chunk in bytes.chunks(2) {
+        let v = if chunk.len() == 2 {
+            u16::from_le_bytes([chunk[0], chunk[1]])
+        } else {
+            chunk[0] as u16
+        };
+        let [c0, c1] = encode_u16(v);
+        out.push(c0);
+        out.push(c1);
+    }
+    out
+}
+```
+
+The mapping is positional, not tabular: value zero encodes as the pair of
+first characters (`가` `가`, U+AC00 twice), and the space of all pairs is
+the coordinate space squared, which is dense enough for every 16-bit value.
+
+## Decoding
+
+Decoding reverses the mapping through `Coord::from_char`, which returns
+`None` for any character outside the valid block:
+
+```rust
+pub fn decode_pair(c0: char, c1: char) -> Option<u16> {
+    let coord0 = Coord::from_char(c0)?;
+    let coord1 = Coord::from_char(c1)?;
+    Some((coord0.index() as u32 * N_CHARS + coord1.index() as u32) as u16)
+}
+```
+
+A string decodes only if it has an even number of characters and every
+character is a valid coordinate; an odd count or any invalid character
+yields `None`. Validity is a property of the alphabet, not of a checksum
+appended by the encoder.
+
+## Self-validation
+
+A single-bit error in a transmitted character either produces another
+valid character (undetectable but semantically different) or falls into
+the 54,364 invalid code points and is caught. The probability of an
+undetected single-bit error is $11172 / 65536 \approx 17\%$, compared to
+100% for arbitrary byte streams. No checksum, length prefix, or magic
+bytes are needed: the structural margin of the alphabet is the error
+detector.
+
+## Density
+
+At the character level, Base11172 is denser than Base64:
+
+| Format | Characters per byte | Output for 1 MB input |
+|--------|--------------------|------------------------|
+| Base64 | 1.333 | 1,333,336 |
+| Base11172 | 1.000 | 1,000,000 |
+
+The CLI benchmark (`base11172 bench`, 1 MB input) reports the same ratio:
+1.33x fewer characters than Base64. The trade-off is UTF-8 size: each
+Hangul syllable occupies 3 bytes in UTF-8, so the serialized byte size is
+about 3x the input, against 1.33x for Base64. The value of the format is
+therefore not byte compactness but character compactness, readability, and
+self-validation.
+
+The format is pair-oriented: an odd-length input encodes as pairs
+anyway, and decoding such a string yields one trailing zero byte. Callers
+that need exact round trips on odd-length data should length-prefix the
+input.
+
+## Applications
+
+- Human-readable identifiers: a 32-byte digest encoded as 32 Base11172
+  characters is shorter than 64 hex characters and preserves the same
+  information density.
+- URL-safe transport: the alphabet contains no characters that need
+  escaping in URLs, JSON strings, or shell arguments.
+- Self-validating channels: a corrupted transmission is detected without
+  a checksum, at the cost of one decode step.
+- Composition with hashing: a SHA-256 digest encoded as Tagma coordinates
+  inherits the collision properties of the digest and the readability of
+  the coordinate space.
+
+## CLI and status
+
+The crate ships a small CLI:
+
+```text
+base11172 encode <text>     Encode text to Base11172
+base11172 decode <string>   Decode Base11172 back to text
+base11172 bench             Compare density vs Base64
+```
+
+The crate is 0.1.0, Apache-2.0, `no_std` with `alloc`, and covered by
+round-trip tests over `u16` extremes, byte strings, all 256 byte values,
+and invalid-character rejection. It is a workspace crate of the syntagma
+Rust workspace (`tagma-base11172`).
+
+## References
+
+Tagma whitepaper: <https://doi.org/10.5281/zenodo.21302508>. The
+`base11172` source lives at <https://github.com/ssccsorg/syntagma/tree/main/sw/rust/base11172>.

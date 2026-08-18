@@ -11,13 +11,11 @@ metadata-files:
 #| context: local
 title_meta_items = {
     "html": [
-        {"title": "DOI", "link": "https://doi.org/10.5281/zenodo.21302508", "content": "10.5281/zenodo.21302508", "icon": "bi bi-file-text"},
         {"title": "Whitepapers", "link": "https://doi.org/10.5281/zenodo.21302508", "content": "Tagma", "icon": "bi bi-link"},
         {"title": "Whitepapers", "link": "https://doi.org/10.5281/zenodo.21499437", "content": "Tagma Map", "icon": "bi bi-link"},
 
         {"title": "References", "link": "/projects/syntagma/tagma/", "content": "Primitive", "icon": "bi bi-link"},
         {"title": "References", "link": "/projects/syntagma/hardware/", "content": "Hardware", "icon": "bi bi-link"},
-        {"title": "References", "link": "https://github.com/ssccsorg/syntagma/tree/main/sw/rust/devlog", "content": "Devlog", "icon": "bi bi-link"},
         {"title": "References", "link": "/projects/syntagma/tagma/#sec-appendix-benches", "content": "Benchmarks", "icon": "bi bi-link"},
 
         {"title": "Standards", "link": "https://www.unicode.org/charts/PDF/UAC00.pdf", "content": "Unicode", "icon": "bi bi-link"},
@@ -27,6 +25,7 @@ title_meta_items = {
         {"title": "Integrations", "link": "/works/cern/root-ttree", "content": "CERN's ROOT", "icon": "bi bi-link"},
 
         {"title": "Code", "link": "https://github.com/ssccsorg/syntagma", "content": "GitHub", "icon": "bi bi-link"},
+        {"title": "Code", "link": "https://github.com/ssccsorg/syntagma/tree/main/docs/devlogs", "content": "Devlog", "icon": "bi bi-link"},
     ],
 }
 ```
@@ -43,25 +42,27 @@ Identity is coordinate, and address is space.
 
 ## Overview
 
-synTagma is a spatial coordinate space computing system. Its core primitive, [Tagma](/projects/syntagma/tagma/), is a 16-bit coordinate embedded in a fixed Unicode block (U+AC00--U+D7AF) that replaces hash-based addressing with direct structural addressing. Every valid 16-bit value is simultaneously a 1-D address (Unicode code point), a 3-D coordinate (Axis 0, Axis 1, Axis 2), and a displayable Unicode character.[^hangul-block]
+synTagma[^syntagma] is a spatial coordinate space computing system. Its core primitive, [Tagma](/projects/syntagma/tagma/), is a 16-bit coordinate embedded in a fixed Unicode block (U+AC00--U+D7AF) that replaces hash-based addressing with direct structural addressing. The block sits in the Unicode Basic Multilingual Plane (BMP), so one character is one UTF-16 code unit: one u16, one register, one SRAM word. Every valid 16-bit value is simultaneously a 1-D address (Unicode code point), a 3-D coordinate (Axis 0, Axis 1, Axis 2), and a displayable Unicode character.[^hangul-block] This triple interpretation enables hash-less content addressing with zero collision probability and single-cycle combinational decoding at an estimated ~300 gates[^spec-status].
 
-The system spans two layers:
-
-**Tagma (core primitive).** The atomic coordinate: a 16-bit value with closed-form composition, three independent axes, zero collision probability, and single-cycle combinational decoding (~300 gates). A variable-length Coord sequence extends the address space from $1.12 \times 10^4$ to $2^{256}$ while keeping lookup cost linear in Coord count.
-
-**synTagma coordination system.** The distributed extension of Tagma arithmetic across physical topologies. Each axis of a multi-Coord coordinate can reside on a different node. No distributed consensus is required because each axis is independently stored and accessed. The full recursive formulation is defined in the [Tagma](/projects/syntagma/tagma/).
+synTagma is a full-stack computing system built on this primitive. At the core, Tagma provides the atomic coordinate: a 16-bit value with closed-form three-axis composition and single-cycle combinational decoding. On top of the core, a family of coordinate-space data structures realizes the addressing model in software: a hashless key-value map that stores and retrieves entries by coordinate, a spatial query layer that turns axis algebra into proximity, bounding-box, and distance operations, and a range of direct-address and tree-backed space types that scale from a 22 KB no-allocator array to terabyte-scale mapped spaces. A security layer binds authority, integrity, audit, and channel guarantees to the coordinate structure, and a self-validating compositional encoding (Base11172) provides serialization for storage and transport. The same primitive is realized in hardware as a combinational RTL decoder, verified exhaustively against the Rust reference and carried through FPGA and standard cell flows. Above all of these, the coordination layer extends the arithmetic across physical topologies: each axis of a multi-Coord coordinate can reside on a different node, and because each axis is independently stored and accessed, no distributed consensus is required.
 
 ## Tagma core primitive
 
-Tagma is the core coordinate primitive of the synTagma: a 16-bit coordinate space embedded in a fixed Unicode block (U+AC00--U+D7AF) that replaces hash-based addressing with direct structural addressing. The Tagma composition formula maps three independent axes (Axis 0, Axis 1, Axis 2) to a unique 16-bit value in a single cycle. The result is collision-free by construction, hash-less by design, and decodable at the gate level.
+Three structural properties make the coordinate an address:
 
-The coordinate space that enables this is an open international standard (Unicode) and a public good.
+- **Exception-free three-axis composition** every valid character decomposes into the 19 x 21 x 28 formula with no irregular entries, so decoding is arithmetic, not a lookup.
+- **Contiguity of the valid range** 11,172 consecutive values from U+AC00, so the offset is a single subtraction and the space is a flat array.
+- **BMP membership** one character is one UTF-16 code unit, so the coordinate is one u16, one register, one SRAM word.
+
+The Unicode stability policy keeps these constants durable; the general Tagma mechanism extends beyond the BMP with the N-dimensional machinery (CoordPath, base11172, CoordSpace2). No other Unicode character range combines the three structural properties: the block U+AC00--U+D7AF is the only one that does. The full account is in the [reference implementations](/projects/syntagma/impl/).
 
 The core Tagma coordinate is defined by the composition formula (ISO/IEC 10646) for block U+AC00--U+D7AF:
 
 $$C(i,m,f) = \text{U+AC00} + 588i + 28m + f, \quad 0 \leq i < 19,\; 0 \leq m < 21,\; 0 \leq f < 28$$
 
 Of 65,536 representable 16-bit states, 11,172 satisfy this formula. The remaining 54,364 are structurally invalid and hardware-detectable. Each valid value carries three interpretations: a Unicode code point for flat addressing, a triple-axis coordinate for structural queries, and a Unicode character for display.
+
+{{< include ./_include/fig-3d-decode.qmd >}}
 
 | Property | Value |
 |----------|-------|
@@ -70,8 +71,6 @@ Of 65,536 representable 16-bit states, 11,172 satisfy this formula. The remainin
 | 1-D interpretation | Unicode code point U+AC00--U+D7AF (character encoding) |
 | 3-D interpretation | (Axis 0, Axis 1, Axis 2) coordinate (structural positioning) |
 | Display interpretation | Unicode character (debugging aid, zero exposure in the process) |
-
-This combination of properties — a contiguous 16-bit block with a closed-form composition formula, complete three-axis decomposition, and a built-in invalidity margin — exists in no other Unicode character range. The block U+AC00–U+D7AF is the only one that satisfies all conditions simultaneously.
 
 CoordPath composition extends the address space linearly with Coord count:
 
@@ -86,9 +85,88 @@ The decoder extracts three axis fields from a 16-bit input in one combinational 
 
 ## What problem Tagma solves
 
-Hash-based identity generation costs approximately 10,000 gates and 64-75 cycles per operation. The Tagma decoder replaces this with approximately 300 gates and one cycle — a 30x reduction in hardware cost and a 64-75x reduction in latency.
+Hash-based identity generation costs approximately 10,000 gates and 64-75 cycles per operation. The Tagma decoder replaces this with approximately 300 gates and one cycle -- a 30x reduction in hardware cost and a 64-75x reduction in latency.
 
 For larger identifier spaces, Coords compose linearly. Each Coord adds a factor of 11,172 to the addressable space (see benchmark table for addressable space per variant).
+
+## The cost of hashing: what Tagma removes
+
+*CoordSpace* is the Rust type family that realizes the Tagma core primitive: a generic direct-address array indexed by coordinate, zero hash and collision. The benchmarks below compare its performance against standard hash maps.[^benchmarks]
+
+SHA-256 requires ~10,000 gates and 64-75 cycles per operation, then needs collision resolution and dynamic resizing. UUID generation requires entropy and delivers probabilistic uniqueness. Tagma replaces all of this with a combinational decoder and a 16-bit register. A single Coord covers 11,172 identifiers; six Coords (18 axes) exceed typical distributed system needs; nineteen match SHA-256's $2^{256}$ space.
+
+Measured lookup latency: 0.39 ns for a single-Coord native CoordSpace (dense array, no allocator) vs 227 ns for SHA-256 (582x). Native CoordSpace is flat across all N: 0.39 ns at every depth, because every Coord resolves to a single array load regardless of Coord count. The tree fallback (CoordSpaceN) scales linearly with N: 2.69 ns at N=3, 58.6 ns at N=19, because each level requires a heap dereference and enum match. Recursive depth is bounded by schema, not by data volume: $10^4$ and $10^{77}$ entries both cost $N$ dereferences in the fallback path, while the native dense path costs a constant 0.39 ns.
+
+Nonexistent prefix lookup: CoordSpace 1.65 ns (structural, navigates to the branch and returns None) vs HashMap 23.05 ms (14.0Mx, full scan of 10M entries; HashMap has no structural prefix index). Sparse get at 10M entries: CoordSpaceN2 completes all 10M operations in 44.9 ms vs HashMap 1.05 s (23.4x).
+
+This is the elimination of hashing itself, not replacing HashMap as a storage, which is one of the fastest general-purpose hash-based storages by C-grade machine code. Tagma matching or exceeding this baseline is incidental: HashMap degrades linearly while Tagma does not.
+
+{{< include _include/bench/fig-bench-identity.qmd >}}
+
+SHA-256 lookup costs 227 ns; the tree fallback (CoordSpaceN) reaches $2^{256}$ at 19 Coords for 58.6 ns (3.9x). The native dense path (CoordSpace / CoordSpace2 / CoordSpaceM3) holds at a flat 0.39 ns.
+
+{{< include _include/bench/fig-bench-address-space.qmd >}}
+
+Address space grows with N; the tree fallback lookup cost scales as O(N), while the native dense path is O(1) flat. Tagma recursion k=1 reaches $10^{231}$ identifiers (SHA-512 space × $10^{77}$) at 171 ns, exceeding every hash system at a fraction of the cost.
+
+| Metric | SHA-256 | CoordSpace (N=1) | CoordSpace2 (N=2) | CoordSpaceM3 (N=3) | CoordSpaceN (any N) |
+|--------|---------|------------------|-------------------|--------------------|--------------------|
+| Latency per lookup (ARMv8.4-A Firestorm) | 227 ns | 0.39 ns | 0.39 ns | 0.40 ns | 0.94-40.8 ns |
+| Allocation | -- | Inline 22 KB | Heap 119 MB | Mmap 1.27 TB | Sparse tree |
+| Identity size | 32 bytes | 2 bytes | 4 bytes | 6 bytes | $2N$ bytes |
+| Addressable space | $2^{256}$ | $1.12 \times 10^4$ | $1.25 \times 10^8$ | $1.39 \times 10^{12}$ | variable |
+| Collision | probabilistic ($2^{-128}$) | deterministic zero | deterministic zero | deterministic zero | deterministic zero |
+| Tagma | -- | Complete | Complete | Complete | Fallback |
+
+:::{ layout-ncol=2 }
+
+{{< include _include/bench/fig-bench-spatial.qmd >}}
+
+{{< include _include/bench/fig-bench-edge.qmd >}}
+
+:::
+
+Spatial query: CoordSet bitwise AND resolves compound axis filters at 329 Melem/s, 137x faster than HashMap scan. Edge: CS2 sparse get sustains 23.4x at 10M entries; CoordSpaceN19 get shows the 19-dereference cost (0.50x); drain is 0.72x on the full space.
+
+:::{ layout-ncol=2 }
+
+{{< include _include/bench/fig-bench-bulk.qmd >}}
+
+{{< include _include/bench/fig-bench-micro.qmd >}}
+
+:::
+
+Bulk operations: CoordSpace outperforms HashMap by 14.6-17.3x across all operations on the full 11,172-entry space. The single-get microbenchmark isolates the per-operation cost: 0.82 ns vs 8.50 ns.
+
+:::{ layout-ncol=2 }
+
+{{< include _include/bench/fig-bench-stress.qmd >}}
+
+{{< include _include/bench/fig-bench-deep.qmd >}}
+
+:::
+
+Stress test: under 500,000 interleaved insert, get, remove, and update operations, CoordSpace completes in 3.64 ms vs HashMap 12.2 ms. Deep tree: CoordSpace2 and CoordSpaceM3 (dense, N=2 and VM N=3) reach 0.05 µs for 100 gets (0.39 ns per access), CoordSpaceN19 incurs tree traversal cost (7.04 µs), and HashMap stays at 3.53 µs. Nonexistent key lookup favors dense encoding (0.39 ns) over tree depth (2.30 ns) and hash miss (20.1 ns).
+
+Tagma assigns every point in a geometric space a structural address that is simultaneously a coordinate, an identifier, and a computation target. HashMap stores values by hashing keys by comparison. Querying this space is spatial computation: axis projection, set membership, proximity, and coordinate slicing are arithmetic operations, not index scans. The figures above measure the consequence: HashMap degrades with data volume; the coordinate space does not.
+
+Cross-validation from hardware verification: ev (ExaVerif) confirms the same structural advantage on real RISC-V instruction encoding spaces. At [CVA6 CV-X-IF](/projects/ev/cva6) scale, structural enumeration verifies the full 33M-combination encoding space in 18.5 ms versus 18.0 s for the standard pipeline, a 973x speedup; the [Ibex RV32IMCB Report](/projects/ev/ibex.html) space shows the same pattern at 524,288 combinations, 79x.
+
+## Resource efficiency at 10M scale
+
+{{< include _include/bench/fig-resource-efficiency.qmd >}}
+
+Three allocation strategies produce distinct resource profiles. CoordSpace2 (dense) preallocates the full 11,172 x 11,172 grid as a flat array: 119 MB, one allocation call, one cache miss per lookup. Cost is fixed regardless of occupancy: at 10K entries the 11900 B/entry overhead is high, but at 10M entries it drops to 11.9 B/entry. CoordSpaceN2 (tree) allocates one 44 KB leaf node per written prefix (11,172-slot). Memory scales with prefix count, not entry count: 10001 allocations for 10K entries across a handful of prefixes, 45 B/entry at this density. HashMap allocates per-entry: 10 million insertions produce 10 million allocation calls, each with malloc overhead, bucket resizing, and rehashing.
+
+The practical consequence: dense eliminates allocation entirely but pays a fixed memory floor. Tree memory is fixed at prefix-creation time and independent of per-prefix density. HashMap's footprint and allocation cost grow with every entry and exceed both coordinate-space strategies at scale.
+
+Secondary benchmarks confirm the same scaling pattern across all depths. CoordSpaceN2 insert/get at 1,000 entries completes in 791 µs (insert) and 4.99 µs (get). At 100,000 entries with 1,000 unique prefixes, CoordSpaceN2 insert allocates nodes in 15.6 ms while HashMap inserts in 6.6 ms without preallocation; get is 48.2 µs vs 32.1 µs. These non-core paths follow the expected tradeoff: tree node allocation overhead at small scale inverts at large scale where HashMap's per-entry cost compounds.
+
+## Verification by exhaustive enumeration
+
+The Tagma coordinate space is exhaustively enumerable: 65,536 possible 16-bit values, of which exactly 11,172 satisfy the composition formula. A verification harness generates all 65,536 inputs, applies the decoder specification, and records every result. The bijection is verified by enumeration: no collisions, no unassigned values within the block. Every implementation, hardware or software, can be verified against the same ground truth in milliseconds on any commodity system.
+
+A SHA-256 engine cannot be exhaustively verified across its full input space. The Tagma coordinate space can, because it is bounded and its formula is closed-form.
 
 ## Comparison
 
@@ -111,9 +189,9 @@ For larger identifier spaces, Coords compose linearly. Each Coord adds a factor 
 | Digital signatures | hash-then-sign for non-repudiation | **No** (retain Ed25519) |
 | Key derivation | HKDF for key expansion | **No** (retain HKDF) |
 
-The entries marked **No** are not limitations; they reflect a deliberate composition strategy. An identifier can be generated by SHA-256 and then encoded as Tagma coordinates at write time with near-zero overhead — a single modulo operation per hash block. From that point forward, every read operation uses Tagma's native O(1) direct access regardless of how the identifier was originally produced. The cryptographic cost is paid exactly once at write time; all subsequent accesses benefit from the structural address space.
+The entries marked **No** are not limitations; they reflect a deliberate composition strategy. An identifier can be generated by SHA-256 and then encoded as Tagma coordinates at write time with near-zero overhead -- a single modulo operation per hash block. From that point forward, every read operation uses Tagma's native O(1) direct access regardless of how the identifier was originally produced. The cryptographic cost is paid exactly once at write time; all subsequent accesses benefit from the structural address space.
 
-This composition pattern extends beyond cryptography to every domain in the table. Each domain can adopt Tagma at its own pace — replacing the hash step where possible, wrapping it where necessary — while always reading at Tagma speed. The result is a universal addressing layer that different applications (cryptographic content addressing, distributed node identification, sensor networks, real-time object tracking) share without compromising their domain-specific requirements.
+This composition pattern extends beyond cryptography to every domain in the table. Each domain can adopt Tagma at its own pace -- replacing the hash step where possible, wrapping it where necessary -- while always reading at Tagma speed. The result is a universal addressing layer that different applications (cryptographic content addressing, distributed node identification, sensor networks, real-time object tracking) share without compromising their domain-specific requirements.
 
 ## Coordination layer
 
@@ -129,8 +207,8 @@ The coordination layer extends Tagma's arithmetic to physical topologies without
 
 The Tagma coordinate space is implemented as a Rust library providing:
 
-- **Coord** — A 16-bit value guaranteed structurally valid. Constructable from raw index, Unicode code point, character, or the three axes.
-- **CoordSet** — A 1.4 KB bit array over the coordinate space. Insert, remove, membership: single-bit operations. Union, intersection, difference: bitwise over 175 machine words.
+- **Coord** -- A 16-bit value guaranteed structurally valid. Constructable from raw index, Unicode code point, character, or the three axes.
+- **CoordSet** -- A 1.4 KB bit array over the coordinate space. Insert, remove, membership: single-bit operations. Union, intersection, difference: bitwise over 175 machine words.
 
 The CoordSpace family follows a three-tier design that scales from embedded to datacenter:
 
@@ -141,27 +219,10 @@ The CoordSpace family follows a three-tier design that scales from embedded to d
 | CoordSpaceM3 (N=3) | Mmap 1.27 TB | Single load | 0.40 ns | Complete |
 | CoordSpaceN\<N\> (any N) | Sparse tree | N dereferences | 0.94-40.8 ns | Fallback |
 
-- **CoordSpace (N=1)** — Dense inline array, 22 KB stack allocation for the full single-Coord space. No heap, no allocator. Single-load O(1) access, zero collisions, zero hashing.
-- **CoordSpace2 (N=2)** — Dense heap allocation, 119 MB covering the full two-Coord space. Same single-load O(1) guarantee as N=1.
-- **CoordSpaceM3 (N=3)** — Dense mmap allocation, 1.27 TB with MAP_NORESERVE for the full three-Coord space. Physical pages fault on demand. Same single-load O(1) latency.
-- **CoordSpaceN\<N, V\>** (any N) — Multi-Coord direct-address tree indexed by CoordPath. Fixed compile-time depth N (2, 6, 12, 19). N dereferences per lookup. Variable-depth DynCoordSpace for `&[Coord]` runtime paths. Used as fallback when the dense variants exceed system memory.
-
-## Performance
-
-Based on a software reference implementation, measured lookup latency: 0.38-0.40 ns for dense CoordSpace variants vs 227 ns for SHA-256 (567-597x) at single-Coord; 54.9 ns vs 227 ns (4.1x) at SHA-256 scale (19 Coords via CoordSpaceN fallback). Structural prefix queries show the decisive advantage: Tagma answers nonexistent prefix in 1.65 ns while a general-purpose hash table scans 10M entries in 23.05 ms (14.0Mx). See benchmarks section in [Tagma](/projects/syntagma/tagma/#sec-appendix-benches) Whitepaper: All measured on ARMv8.4-A Firestorm with [cargo bench code](https://github.com/ssccsorg/syntagma/blob/main/sw/rust/benches/bench.rs).
-
-| Metric | SHA-256 | CoordSpace (N=1) | CoordSpace2 (N=2) | CoordSpaceM3 (N=3) | CoordSpaceN (any N) |
-|--------|---------|------------------|-------------------|--------------------|--------------------|
-| Latency per lookup (ARMv8.4-A Firestorm) | 227 ns | 0.39 ns | 0.39 ns | 0.40 ns | 0.94-40.8 ns |
-| Allocation | — | Inline 22 KB | Heap 119 MB | Mmap 1.27 TB | Sparse tree |
-| Identity size | 32 bytes | 2 bytes | 4 bytes | 6 bytes | $2N$ bytes |
-| Addressable space | $2^{256}$ | $1.12 \times 10^4$ | $1.25 \times 10^8$ | $1.39 \times 10^{12}$ | variable |
-| Collision | probabilistic ($2^{-128}$) | deterministic zero | deterministic zero | deterministic zero | deterministic zero |
-| Tagma | — | Complete | Complete | Complete | Fallback |
-
-Spatial query: CoordSet bitwise AND resolves compound axis filters at 329 Melem/s -- 137x faster than HashMap scan. All operations are scale-invariant: lookup cost depends on Coord Depth, not data volume.
-
-Cross-validation from hardware verification: the [Ibex RV32IMCB Report](/projects/ev/ibex.html) using ev (ExaVerif) confirms the same structural advantage on real RISC-V instruction encoding spaces. Tagma-based structural enumeration verifies 524,288 combinations in 49.5 ms versus 3.63 s for the standard pipeline (73x).
+- **CoordSpace (N=1)** -- Dense inline array, 22 KB stack allocation for the full single-Coord space. No heap, no allocator. Single-load O(1) access, zero collisions, zero hashing.
+- **CoordSpace2 (N=2)** -- Dense heap allocation, 119 MB covering the full two-Coord space. Same single-load O(1) guarantee as N=1.
+- **CoordSpaceM3 (N=3)** -- Dense mmap allocation, 1.27 TB with MAP_NORESERVE for the full three-Coord space. Physical pages fault on demand. Same single-load O(1) latency.
+- **CoordSpaceN\<N, V\>** (any N) -- Multi-Coord direct-address tree indexed by CoordPath. Fixed compile-time depth N (2, 6, 12, 19). N dereferences per lookup. Variable-depth DynCoordSpace for `&[Coord]` runtime paths. Used as fallback when the dense variants exceed system memory.
 
 ## Application domains
 
@@ -177,6 +238,12 @@ Cross-validation from hardware verification: the [Ibex RV32IMCB Report](/project
 
 Tagma replaces hash-based identity generation and addressing. SHA-256 remains for signatures, Merkle proofs, and integrity verification. Encryption, authentication, and key derivation are outside the primitive's scope. The two strategies compose: SHA-256 output encoded as 19 Coords is more readable than 64 hex characters while preserving $2^{-256}$ collision probability.
 
+synTagma is built on open international standards and runs on open ISA (RISC-V), unencumbered by proprietary licensing or regional dependencies. The Tagma primitive is a neutral, sovereign coordinate space for the global computing landscape.
+
+## Design from 1443: a writing system becomes an address space
+
+This block was allocated in Unicode 2.0 (1996).[^hangul-coord-structure] Its encoding formula provides three independent axes, Axis 0, Axis 1, and Axis 2, the coordinate ranges used by Tagma. This structure is analogous to an apartment building numbering system: given "101", you know the floor and room without a central directory. Tagma leverages this pre-existing coordinate space as a universal address space, eliminating the need for hash-based directories.
+
 ## Documents
 
 The primitive family and its application domains are organized as follows:
@@ -184,23 +251,27 @@ The primitive family and its application domains are organized as follows:
 | Document | Description |
 |----------|-------------|
 | [Tagma](/projects/syntagma/tagma/) | Primitive whitepaper: coordinate space, decoder, coprocessor, compliance, benchmarks, SEU analysis |
-| [KV](/projects/syntagma/tagma/map) | Hashless Key-Value Storage (CoordSpace type paper) |
-| [Geo](/projects/syntagma/tagma/geo) | Spatial Query Layer on Structural Coordinate Spaces (CoordCube type paper) |
+| [Tagma Map](/projects/syntagma/tagma/map) | Hashless Key-Value Storage (CoordSpace type paper) |
+| [Tagma Geo](/projects/syntagma/tagma/geo) | Spatial Query Layer on Structural Coordinate Spaces (CoordCube type paper) |
+| [Serialization](/projects/syntagma/serialization) | Base11172: human-readable, self-validating serialization |
 | [Identification](/projects/syntagma/identification) | Content-addressable identity without hash functions (application domain) |
 | [Security](/projects/syntagma/security) | Integrity, authorization, audit, and non-repudiation on a structural coordinate space (application domain) |
 | [Signal](/projects/syntagma/signal) | Structural coordinate transmission: the coordinate is the message (application domain) |
 | [Hardware](/projects/syntagma/hardware) | Hardware implementation of the Tagma primitive: RTL, synthesis, FPGA demo, chton SRAM |
 | [Memory](/projects/syntagma/hardware/memory) | Three-dimensional SRAM decode and the chton SRAM segment store |
 | Vec *(forthcoming)* | Vector processing over structural coordinates |
-| Encoding *(forthcoming)* | Base11172: human-readable, self-validating serialization |
 | [Tagma benchmarks](/projects/syntagma/tagma/#sec-appendix-benches) | 51 microbenchmarks across 12 criterion groups: identity generation, spatial query, edge cases at 10M entries, deep trees, mixed-operation stress tests |
-| [Ibex RV32IMCB Report](/projects/ev/ibex.html) | Exhaustive RISC-V verification using structural enumeration: 73x speedup |
-| [CVA6 CV-X-IF Verification](/projects/ev/cva6) | At 2M scale, structural enumeration achieves 846x speedup |
+| [Ibex RV32IMCB Report](/projects/ev/ibex.html) | Exhaustive RISC-V verification using structural enumeration: 79x speedup |
+| [CVA6 CV-X-IF Verification](/projects/ev/cva6) | At 33M scale, structural enumeration achieves 973x speedup |
 
 ## Contact
 
 For inquiries or research collaboration: [syntagma@ssccs.org](mailto:syntagma@ssccs.org).
 
+[^syntagma]: [synTagma](https://github.com/ssccsorg/syntagma) is an independent open-source project (Pre-release, Apache 2.0) under the SSCCS Foundation.
+[^spec-status]: Pre-silicon estimate based on the gate-level specification; actual gate count and cycle timing will be confirmed through standard-cell synthesis and static timing analysis with the coprocessor (e.g. RISC-V XIF).
 [^hangul-block]: The ranges 19, 21, and 28 derive from the Unicode block U+AC00--U+D7AF, which encodes the compositional writing system. The composition formula is defined in ISO/IEC 10646.
+[^benchmarks]: All benchmarks were run with cargo bench, criterion on ARMv8.4-A Firestorm. Code: [Github](https://github.com/ssccsorg/syntagma/blob/main/sw/rust/benches/bench.rs)
+[^hangul-coord-structure]: The constants 19, 21, and 28 correspond to the number of initial consonants, medial vowels, and final consonants in Hangul (invented 1443), the compositional writing system encoded in block U+AC00--U+D7AF.
 
 {{< include ../../_include/_license.md >}}

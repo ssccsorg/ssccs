@@ -31,7 +31,7 @@ title_meta_items = {
         {"title": "Whitepapers", "link": "https://doi.org/10.5281/zenodo.21302508", "content": "Tagma", "icon": "bi bi-link"},
 
         {"title": "References", "link": "/projects/syntagma/tagma/", "content": "Primitive", "icon": "bi bi-link"},
-        {"title": "References", "link": "https://github.com/ssccsorg/syntagma/tree/main/sw/rust/devlog", "content": "Devlog", "icon": "bi bi-link"},
+        {"title": "References", "link": "https://github.com/ssccsorg/syntagma/tree/main/docs/devlogs", "content": "Devlog", "icon": "bi bi-link"},
         {"title": "References", "link": "/projects/syntagma/tagma/#sec-appendix-benches", "content": "Benchmarks", "icon": "bi bi-link"},
 
         {"title": "Code", "link": "https://github.com/ssccsorg/syntagma", "content": "GitHub", "icon": "bi bi-link"},
@@ -50,6 +50,8 @@ This tax scales with data. A hash table that performs well at 10,000 entries deg
 ## A structural coordinate space
 
 synTagma replaces hashing with a fixed 16-bit, 3-axis composition space: a contiguous address block whose composition formula embeds three independent structural axes. A combinational decoder of approximately 300 gates extracts the three axis fields from any valid 16-bit value in a single cycle, with zero collisions and zero hash computation. Of 65,536 possible values, exactly 11,172 are structurally valid and the remaining 54,364 are detectable as invalid at the hardware level.
+
+Three structural properties make this possible: BMP membership (one syllable is one UTF-16 code unit, one u16, one register, one SRAM word), contiguity of the valid range (11,172 consecutive values, so the offset is a single subtraction over a flat array), and exception-free three-axis composition (every valid character decomposes into the 19 x 21 x 28 formula, so decoding is arithmetic, not a lookup). Unicode's stability policy keeps these constants durable.
 
 Multi-Coord composition extends the address space without modifying the decoder. Six Coords exceed typical distributed system requirements; nineteen match SHA-256's 2^256 space. Each axis position can represent an application-defined dimension -- region, device type, timestamp, shard -- making the address itself a structured coordinate.
 
@@ -79,4 +81,4 @@ Memory efficiency follows a different curve from hash tables. Dense preallocatio
 
 synTagma is an open-source project (Apache 2.0) under the SSCCS Foundation. The Rust reference implementation is available on GitHub with a full benchmark suite and end-to-end verification harness. The coordinate space is exhaustively verifiable -- all 65,536 inputs can be validated against the decoder specification in milliseconds on any commodity system, a guarantee that no hash-based system can offer.
 
-Commercial licensing and hardware implementation partnerships are available. For inquiries, demos, or partnership discussions: **<synTagma@ssccs.org>**
+Commercial licensing and hardware implementation partnerships are available. For inquiries, demos, or partnership discussions: **<syntagma@ssccs.org>**
