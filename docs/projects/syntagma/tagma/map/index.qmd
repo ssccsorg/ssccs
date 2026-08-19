@@ -19,8 +19,9 @@ format:
     code-font: "Source Code Pro"
     appendix-style: plain
   pdf:
+    fontsize: 10pt
     geometry:
-        - margin=15mm
+        - margin=16mm
         - bottom=1.6cm
         - footskip=1cm
     keep-tex: true
@@ -94,7 +95,7 @@ But the hash function solves two distinct problems:
 
 For in-memory KV, problem 1 is essential and problem 2 is an overhead. For disk-based KV, problem 1 is essential and problem 2 is multiplied by the storage hierarchy. For multi-dimensional indexing, both problems are exacerbated because the hash destroys the key's structure.
 
-Tagma solves neither of these problems because it does not hash. Instead, it converts every key into a coordinate in a fixed, finite, enumerable geometric space [^tagma]. The conversion is a bijection for keys up to 2N bytes: no collisions, no bucket probing, no resizing.
+Tagma solves neither of these problems because it does not hash. Instead, it converts every key into a coordinate in a fixed, finite, enumerable geometric space. The conversion is a bijection for keys up to 2N bytes: no collisions, no bucket probing, no resizing.
 
 The critical question is the cost of this conversion relative to the hash function it replaces. Section 4 measures this empirically across three scales (10k, 1M, 10M operations) and decomposes the latency into its structural components. The total wrapped get latency (22 ns) is at parity with HashMap, while the pure conversion (5 ns) is approximately 3x faster than SipHash-2-4.
 
@@ -114,7 +115,7 @@ The critical observation is that **hash functions are universal but not optimal 
 
 ## The Alternative: Structural Coordinate Transformation
 
-The Tagma coordinate system replaces hash functions with a closed-form arithmetic mapping defined on a fixed 16-bit Unicode block (U+AC00–U+D7A3). The full specification, composition formula, and compliance criteria are defined in the Tagma whitepaper [^tagma]. For the purpose of KV storage, the relevant operation is the conversion from a legacy string key to a `CoordKey<N>`, implemented via `From<&str>` (see appendix @sec-appendix-rust).
+The Tagma coordinate system replaces hash functions with a closed-form arithmetic mapping defined on a fixed 16-bit Unicode block (U+AC00–U+D7A3). The full specification, composition formula, and compliance criteria are defined in the Tagma whitepaper. For the purpose of KV storage, the relevant operation is the conversion from a legacy string key to a `CoordKey<N>`, implemented via `From<&str>` (see appendix @sec-appendix-rust).
 
 The transformation is:
 
@@ -142,121 +143,7 @@ The mechanism-level equivalence to the hash map follows directly:
 | **Collision** | zero (injective) | zero (injective) | zero (injective) |
 | **Best for** | fixed-length IDs, dense dataset | sparse dataset, 119 MB excess | general-purpose, variable keys |
 
-## Empirical Performance
-
-Benchmark environment: ARMv8.4-A Firestorm, 10 samples, Rust criterion.
-
-{{< include ../../_include/bench/fig-bench-map-micro.qmd >}}
-
-### Single Insert
-
-The micro benchmark above plots insert latency for all four variants; the table reports the measurements with the ratio against HashMap.
-
-| KV Type | Backend | ns/op | vs HashMap |
-|---------|---------|-------|------------|
-| **CoordMap2** | N=2 dense | **18.69 ns** | **2.4x faster** |
-| CoordMapN<2> | N=2 tree | 18.88 ns | 2.4x faster |
-| DynCoordMap | trie | 49.44 ns | 1.1x slower |
-| **HashMap** | SipHash | 44.87 ns | baseline |
-
-### Single Get
-
-The micro benchmark above plots get latency for all four variants; the table reports the measurements with the ratio against HashMap.
-
-| KV Type | Backend | ns/op | vs HashMap |
-|---------|---------|-------|------------|
-| **CoordMap2** | = | **22.06 ns** | **1.08x faster** |
-| CoordMapN<2> | = | 21.73 ns | 1.09x faster |
-| DynCoordMap | = | 42.40 ns | 1.78x slower |
-| **HashMap\<String\>** | = | 23.79 ns | baseline |
-
-### Batch Get: Three-Scale Workload
-
-#### Get (per-op latency, ns)
-
-{{< include ../../_include/bench/fig-bench-map-all.qmd >}}
-
-{{< include ../../_include/bench/fig-bench-map-scale.qmd >}}
-
-The charts plot get latency across 10k, 1M, and 10M operations: the overview for all four variants and the CoordMap2-versus-HashMap zoom. The table below reports the per-operation numbers with the scale trend and the ratio against HashMap at 10M.
-
-| KV Type | 10k ops | 1M ops | 10M ops | Scale trend | vs HashMap (10M) |
-|---------|---------|--------|---------|-------------|------------------|
-| **CoordMap2** | **22.0 ns** | **21.4 ns** | **22.1 ns** | **flat** | **1.20x faster** |
-| CoordMapN\<2\> | 22.0 ns | 21.9 ns | 22.1 ns | flat | 1.20x faster |
-| DynCoordMap | 56.3 ns | 57.4 ns | 60.6 ns | +7% | 2.5x slower |
-| **HashMap\<String\>** | **20.0 ns** | **24.2 ns** | **26.5 ns** | **+21%** | baseline |
-
-#### Contains key (per-op latency, ns)
-
-{{< include ../../_include/bench/fig-bench-map-contains.qmd >}}
-
-The chart plots contains-key latency across the three scales; the table below reports the per-operation numbers.
-
-| KV Type | 10k ops | 1M ops | 10M ops |
-|---------|---------|--------|---------|
-| CoordMap2 | 21.7 ns | 21.6 ns | 21.3 ns |
-| HashMap\<String\> | 13.0 ns | 17.0 ns | 18.2 ns |
-
-#### Insert (65,536 unique keys)
-
-| KV Type | Time | Per-key | Note |
-|---------|------|---------|------|
-| CoordMap2 | 233 ms | 3.6 µs | one-time 119 MB preallocation dominates; per-key slot write is ~22 ns |
-| HashMap\<String\> | 9.2 ms | 140 ns | — |
-| DynCoordMap | 416 ms | 6.4 µs | 65k trie nodes |
-
-### Latency Breakdown
-
-:::{ layout-ncol=2 }
-
-{{< include ../../_include/bench/fig-bench-map-cost-breakdown.qmd >}}
-
-{{< include ../../_include/bench/fig-bench-map-onetime-cost.qmd >}}
-
-:::
-
-The total CoordMap2 get latency (22.06 ns) decomposes into three layers:
-
-| Layer | Cost | Description | Derivation |
-|-------|------|-------------|------------|
-| `str → CoordKey<2>` conversion | ~5 ns | byte copy + bounds check | 22.06 - 0.39 - 16.67 (estimated remainder) |
-| `Box<[u8]> → Vec<u8>` clone | ~16.67 ns | heap allocation + value copy | isolated via microbenchmark of Box→Vec clone |
-| CoordSpace2 slot load | 0.39 ns | direct array index, physical limit | direct microbenchmark |
-| **CoordMap2 total** | **22.06 ns** | — | measured |
-
-CoordMap2 returns an owned `Vec<u8>` via heap allocation, while `HashMap::get` returns a reference (`Option<&V>`). The 16.67 ns clone cost does not exist in HashMap's return path. If CoordMap2 instead returned a reference, its get latency would drop to approximately 5.39 ns (5 ns conversion + 0.39 ns slot load), placing CoordMap2 4.4x below HashMap. The API contract (owned return) is a design choice for ergonomics, not a structural limitation. A reference-returning variant is a trivial implementation change.
-
-| Layer | Cost | Description | Derivation |
-|-------|------|-------------|------------|
-| SipHash-2-4 | ~15 ns | per-byte compression | estimated from known SipHash throughput |
-| Bucket probe | ~5 ns | index extraction + chain walk | remainder after SipHash subtraction |
-| Hash collision + resize overhead | ~3.79 ns | amortized across hash map lifecycle | remainder after SipHash + bucket |
-| **HashMap total** | **23.79 ns** | — | measured |
-
-The structural difference: CoordMap2's slot load (0.39 ns) is the only mandatory per-operation cost. The 5 ns conversion is a one-time investment at the entry boundary — once the key is a CoordKey, subsequent accesses via `by_coordkey` skip it. `CoordKey<2>` is a `Copy` type (128-bit), so caching hot keys eliminates conversion entirely. The 16.67 ns Vec clone is an API artifact (owned return value) and can be eliminated by a reference-returning variant.
-
-### CoordCube Spatial Layer on Tagma Map
-
-The CoordCube interpretation layer adds spatial query capability to any KV store without changing the storage key[^tagma-geo]. A CoordPath of N bytes is reinterpreted as a D-dimensional grid with R bytes per dimension (N = D * R), enabling proximity queries, bounding box enumeration, and distance metrics that CoordPath alone cannot express. Query cost is bounded by region size (path count), not store size.
-
-:::{ layout-ncol=3 }
-
-{{< include ../../_include/bench/fig-bench-coordcube-store-scale.qmd >}}
-
-{{< include ../../_include/bench/fig-bench-coordcube-hitrate.qmd >}}
-
-{{< include ../../_include/bench/fig-bench-coordcube-scale.qmd >}}
-
-:::
-
-The full design, all benchmarks, and comparison with existing systems are described in the Tagma Geo whitepaper.
-
-[^tagma-geo]: Tagma Geo whitepaper: Spatial Query Layer on Structural Coordinate Spaces. <https://docs.ssccs.org/projects/syntagma/tagma/geo>
-
-The benchmark data reveals a structural insight: the 5 ns conversion is below the SipHash cost (~15 ns), and even the full 21.67 ns string-key entry cost (conversion plus owned-return clone) stays below the 23.79 ns HashMap total. This inverts the expected relationship: the conversion from legacy types into Coord space costs less than the hash function it replaces. The conversion is a one-time payment at the boundary. After payment, the key exists permanently in Tagma coordinate space.
-
-### Comparison Model
+## Comparison Model
 
 Let a key K of length L bytes be stored and retrieved.
 
@@ -299,8 +186,6 @@ The two entry paths (native coordinate and string-key), the write-read symmetry 
 
 The most significant implication of Tagma Map is that the coordinate is the address. This property distinguishes it from every hash-based or tree-based system in production today.
 
-{{< include ../../_include/bench/fig-resource-efficiency.qmd >}}
-
 {{< include ../../_include/bench/fig-bench-map-memory.qmd >}}
 
 | Feature | HashMap | RocksDB | Redis | **Tagma Map** |
@@ -321,15 +206,135 @@ The most significant implication of Tagma Map is that the coordinate is the addr
 
 **Multi-dimensional indexing as a first-class operation.** A query where axis_0 in [a,b] and axis_1 in [c,d] maps to a union of linearized ranges. Sequential reads, no random I/O per dimension. Every existing system requires secondary indexes or full scans.
 
-### Key Observations
+{{< include ../../_include/bench/fig-resource-efficiency.qmd >}}
+
+## Benchmarks
+
+### Latency Breakdown
+
+The total CoordMap2 get latency (22.06 ns) decomposes into three layers:
 
 :::{ layout-ncol=2 }
 
-{{< include ../../_include/bench/fig-bench-edge.qmd >}}
+{{< include ../../_include/bench/fig-bench-map-cost-breakdown.qmd >}}
 
-{{< include ../../_include/bench/fig-bench-spatial.qmd >}}
+{{< include ../../_include/bench/fig-bench-map-onetime-cost.qmd >}}
 
 :::
+
+| Layer | Cost | Description | Derivation |
+|-------|------|-------------|------------|
+| `str → CoordKey<2>` conversion | ~5 ns | byte copy + bounds check | 22.06 - 0.39 - 16.67 (estimated remainder) |
+| `Box<[u8]> → Vec<u8>` clone | ~16.67 ns | heap allocation + value copy | isolated via microbenchmark of Box→Vec clone |
+| CoordSpace2 slot load | 0.39 ns | direct array index, physical limit | direct microbenchmark |
+| **CoordMap2 total** | **22.06 ns** | — | measured |
+
+CoordMap2 returns an owned `Vec<u8>` via heap allocation, while `HashMap::get` returns a reference (`Option<&V>`). The 16.67 ns clone cost does not exist in HashMap's return path. If CoordMap2 instead returned a reference, its get latency would drop to approximately 5.39 ns (5 ns conversion + 0.39 ns slot load), placing CoordMap2 4.4x below HashMap. The API contract (owned return) is a design choice for ergonomics, not a structural limitation. A reference-returning variant is a trivial implementation change.
+
+| Layer | Cost | Description | Derivation |
+|-------|------|-------------|------------|
+| SipHash-2-4 | ~15 ns | per-byte compression | estimated from known SipHash throughput |
+| Bucket probe | ~5 ns | index extraction + chain walk | remainder after SipHash subtraction |
+| Hash collision + resize overhead | ~3.79 ns | amortized across hash map lifecycle | remainder after SipHash + bucket |
+| **HashMap total** | **23.79 ns** | — | measured |
+
+The structural difference: CoordMap2's slot load (0.39 ns) is the only mandatory per-operation cost. The 5 ns conversion is a one-time investment at the entry boundary — once the key is a CoordKey, subsequent accesses via `by_coordkey` skip it. `CoordKey<2>` is a `Copy` type (128-bit), so caching hot keys eliminates conversion entirely. The 16.67 ns Vec clone is an API artifact (owned return value) and can be eliminated by a reference-returning variant.
+
+### Single Operation
+
+:::{ layout-ncol=2 }
+
+{{< include ../../_include/bench/fig-bench-map-micro.qmd >}}
+
+:::{#table-col}
+
+**Insert:**
+
+| KV Type | Backend | ns/op | vs HashMap |
+|---------|---------|-------|------------|
+| **CoordMap2** | N=2 dense | **18.69 ns** | **2.4x faster** |
+| CoordMapN<2> | N=2 tree | 18.88 ns | 2.4x faster |
+| DynCoordMap | trie | 49.44 ns | 1.1x slower |
+| **HashMap** | SipHash | 44.87 ns | baseline |
+
+**Get:**
+
+| KV Type | Backend | ns/op | vs HashMap |
+|---------|---------|-------|------------|
+| **CoordMap2** | = | **22.06 ns** | **1.08x faster** |
+| CoordMapN<2> | = | 21.73 ns | 1.09x faster |
+| DynCoordMap | = | 42.40 ns | 1.78x slower |
+| **HashMap\<String\>** | = | 23.79 ns | baseline |
+
+:::
+:::
+
+#### Insights
+
+Two observations from this table are not covered elsewhere in the document. First, insert and get costs invert between the two designs: CoordMap2 insert (18.69 ns) is faster than its own get (22.06 ns) because get pays the 16.67 ns return clone, while HashMap insert (44.87 ns) is slower than its own get (23.79 ns) because insertion pays bucket growth. Second, the dense-tree equivalence at depth 2 does not extend to deep trees under sparse random keys, where per-prefix node allocation dominates.
+
+### Batch Get: Three-Scale Workload
+
+#### Get (per-op latency, ns)
+
+:::{ layout-ncol=2 }
+
+{{< include ../../_include/bench/fig-bench-map-scale.qmd >}}
+
+:::{#table-col-get}
+
+::: {tbl-colwidths="[35, 15, 10, 10, 10, 20]"}
+
+| KV Type | 10k ops | 1M ops | 10M ops | Scale trend | vs HashMap (10M) |
+|---------|---------|--------|---------|-------------|------------------|
+| **CoordMap2** | **22.0 ns** | **21.4 ns** | **22.1 ns** | **flat** | **1.20x faster** |
+| CoordMapN\<2\> | 22.0 ns | 21.9 ns | 22.1 ns | flat | 1.20x faster |
+| DynCoordMap | 56.3 ns | 57.4 ns | 60.6 ns | +7% | 2.5x slower |
+| **HashMap** | **20.0 ns** | **24.2 ns** | **26.5 ns** | **+21%** | baseline |
+
+:::
+
+DynCoordMap is the only variant that degrades with scale (+7%, 56.3 to 60.6 ns) because trie depth scales with key length; the flat CoordMap2 and CoordMapN curves and the rising HashMap curve are summarized in Key Observation 4 below.
+:::
+:::
+
+#### Contains key (per-op latency, ns)
+
+:::{ layout-ncol=2 }
+
+{{< include ../../_include/bench/fig-bench-map-contains.qmd >}}
+
+:::{#table-col-contains}
+
+| KV Type | 10k ops | 1M ops | 10M ops |
+|---------|---------|--------|---------|
+| CoordMap2 | 21.7 ns | 21.6 ns | 21.3 ns |
+| HashMap\<String\> | 13.0 ns | 17.0 ns | 18.2 ns |
+
+HashMap contains is faster at every scale (13.0 versus 21.7 ns at 10k) because it returns a bool without cloning the value, but the margin shrinks from 8.7 ns to 3.1 ns as HashMap rises from 13.0 to 18.2 ns while CoordMap2 stays flat from 21.7 to 21.3 ns. The bool-return advantage is a cache-resident effect that erodes with the working set, and the CoordMap2 slot check has no dependency on dataset size.
+
+:::
+:::
+
+### CoordCube Spatial Layer on Tagma Map
+
+The CoordCube interpretation layer adds spatial query capability to any KV store without changing the storage key[^tagma-geo]. A CoordPath of N bytes is reinterpreted as a D-dimensional grid with R bytes per dimension (N = D * R), enabling proximity queries, bounding box enumeration, and distance metrics that CoordPath alone cannot express. Query cost is bounded by region size (path count), not store size.
+
+The benchmark data reveals a structural insight: the 5 ns conversion is below the SipHash cost (~15 ns), and even the full 21.67 ns string-key entry cost (conversion plus owned-return clone) stays below the 23.79 ns HashMap total. This inverts the expected relationship: the conversion from legacy types into Coord space costs less than the hash function it replaces. The conversion is a one-time payment at the boundary. After payment, the key exists permanently in Tagma coordinate space.
+
+:::{ layout-ncol=3 }
+
+{{< include ../../_include/bench/fig-bench-coordcube-store-scale.qmd >}}
+
+{{< include ../../_include/bench/fig-bench-coordcube-hitrate.qmd >}}
+
+{{< include ../../_include/bench/fig-bench-coordcube-scale.qmd >}}
+
+:::
+
+[^tagma-geo]: Tagma Geo whitepaper: Spatial Query Layer on Structural Coordinate Spaces. <https://docs.ssccs.org/projects/syntagma/tagma/geo>
+
+### Key Observations
 
 1. **Conversion cost derivation**: Total CoordMap2 get latency is 22.06 ns. Raw CoordSpace2 array access is 0.39 ns (L1 cache load latency on ARMv8.4-A Firestorm core). The remaining 21.67 ns is the difference between these two directly measured benchmarks. This remainder is then split into the str-to-CoordKey conversion (~5 ns, measured by instrumenting the conversion in isolation) and the Vec clone for the owned return value (~16.67 ns, the remainder after subtracting conversion from 21.67 ns). The conversion alone is below SipHash's cost; the 16.67 ns Vec clone is an API artifact that reference-returning variants can eliminate entirely. See the asymmetry note under Latency Breakdown.
 
@@ -340,6 +345,14 @@ The most significant implication of Tagma Map is that the coordinate is the addr
 4. **Scale-invariant latency: CoordMap2 is flat across three orders of magnitude**. At 10k ops (all L2 cache), CoordMap2 get latency is 22.0 ns. At 10M ops (65k keys cycled 153 times, DRAM-bound for HashMap), CoordMap2 remains at 22.1 ns. The CoordSpace2 dense array provides uniform access latency regardless of dataset size or access pattern, because every slot is reached by the same arithmetic index computation and array load — no bucket chaining, no resizing, no probe sequences. HashMap starts at 20.0 ns at 10k (L2 hit) and rises to 26.5 ns at 10M (L3/DRAM), a 21% increase that will continue widening as scale exceeds cache capacity.
 
 5. **Contains key follows the same pattern**: CoordMap2 is flat at 21.6 ns across all scales. HashMap contains is faster at 10k (13.0 ns, returns bool instead of full value) but rises to 18.2 ns at 10M (+38%). The advantage of returning a bool instead of a value is erased by cache pressure.
+
+:::{ layout-ncol=2 }
+
+{{< include ../../_include/bench/fig-bench-edge.qmd >}}
+
+{{< include ../../_include/bench/fig-bench-spatial.qmd >}}
+
+:::
 
 6. **Insert cost is dominated by preallocation, not by coordinate computation**. CoordMap2 insert at 233 ms for 65k keys is almost entirely the 119 MB `alloc_zeroed` for CoordSpace2 construction (one single allocation). The actual slot write is ~22 ns per key. This 119 MB cost is paid once and amortized across all subsequent operations — after construction, every insert is a simple slot write with zero per-key allocation. HashMap insert at 9.2 ms for 65k keys performs 65k separate allocations and multiple bucket resizes, costs that grow with each entry. The 25x disadvantage of CoordMap2 on the first 65k inserts inverts to an advantage on the 66th thousandth insert onward.
 
@@ -363,7 +376,7 @@ The approach is bidirectional in effect: data enters through a standard `insert(
 
 The complete reference implementation is available in the `tagma-map` crate under Apache 2.0.
 
-**Remark.** The structural coordinate space that enables this is derived from a fixed 16-bit Unicode block (U+AC00–U+D7A3). The block encodes the compositional writing system, which provides the 19, 21, and 28 axis ranges. The full specification, including the composition formula and compliance criteria, is defined in the Tagma whitepaper [^tagma].
+**Remark.** The structural coordinate space that enables this is derived from a fixed 16-bit Unicode block (U+AC00–U+D7A3). The block encodes the compositional writing system, which provides the 19, 21, and 28 axis ranges. The full specification, including the composition formula and compliance criteria, is defined in the Tagma whitepaper.
 
 ## References {.unnumbered .unlisted}
 
