@@ -2516,6 +2516,35 @@ The addressable space grows as $11{,}172^N$, and lookup cost does not follow the
 [^tagma-bench]: The figures in this section are single-sourced: the same include files render in the [Tagma whitepaper](https://docs.ssccs.org/projects/syntagma/tagma/), [Tagma Identification](https://docs.ssccs.org/projects/syntagma/identification/), [Tagma Map](https://docs.ssccs.org/projects/syntagma/tagma/map/), and the [synTagma project brief](https://docs.ssccs.org/projects/syntagma), so this appendix carries the current measurements without duplication. The full benchmark suite (51 microbenchmarks across 12 criterion groups, including bulk, stress, deep-tree, resource-efficiency, and Map groups) and the reference implementation are documented in the [Tagma whitepaper benchmark appendix](https://docs.ssccs.org/projects/syntagma/tagma/#sec-appendix-benches).
 
 
+### Coordinate Identity in Key-Value Storage {#sec-appendix-tagma-map}
+
+Tagma Map exposes a HashMap-compatible API (insert, get, remove, contains_key) backed by the coordinate space, replacing the hash layer with a closed-form arithmetic mapping: zero collision probability, no bucket probing, no resizing. On ARMv8.4-A Firestorm silicon, string-key conversion costs 5 ns, roughly three times faster than SipHash-2-4, and CoordMap2 get latency is scale-invariant (22.0 ns at 10k, 21.4 ns at 1M, 22.1 ns at 10M) while HashMap rises with memory pressure; the native dense path reaches 0.39 ns, and spatial queries (prefix scans, axis projections, range queries) resolve as bitwise operations at 94 ns. One prominent case is the transformer KV cache, where lookup dominates memory traffic as context grows. Documentation: [Tagma Map](https://docs.ssccs.org/projects/syntagma/tagma/map/).
+
+Realization insight. Because the coordinate is the address, the index layer disappears and lookup cost stops following data volume; the measured scale invariance is the empirical form of the structural-isolation claim.
+
+:::{ layout-ncol=2 }
+
+{{< include ../projects/syntagma/_include/bench/fig-bench-map-micro.qmd >}}
+
+{{< include ../projects/syntagma/_include/bench/fig-bench-map-scale.qmd >}}
+
+:::
+
+### Hardware Realization of the Primitive {#sec-appendix-tagma-hardware}
+
+Tagma scope: one primitive definition, two realization substrates. The same composition formula evaluates in arithmetic in software and in logic gates in hardware, and the two must agree on every input. The hardware series measures the decoder on an open toolchain (Yosys, nextpnr, icetime): 478 cells in the ev-compatible generic schema and 588 cells at the 2-input gate level, with 201 LUT4 plus 41 carry cells on iCE40, closing the 12 MHz board clock at 16.79 MHz Fmax. The roughly 300-gate claim of the Tagma whitepaper holds for the naive shift-subtract decoder (206-232 cells); timing closure requires a multiply-shift structure at roughly 2.5x the gates. The hardware value is energy, determinism, and physical embedding: the N=1 dense case already fits in L1 cache, which software exploits at 0.38 ns per access. Every artifact is verified exhaustively over all 11,172 valid syllables in three independent channels (formula, Rust reference, gate netlist), with formal equivalence between RTL and the synthesized netlist over all 2^16 inputs. Documentation: [Hardware](https://docs.ssccs.org/projects/syntagma/hardware/).
+
+Realization insight. The scope is itself a realization of the model: the composition formula is the Segment address space made executable, and the substrate split shows that the primitive's identity is definitional, not material. The measured gate count bounds the physical footprint, and the three-channel exhaustive verification carries the cross-validation principle of the main text into silicon.
+
+:::{ layout-ncol=2 }
+
+{{< include ../projects/syntagma/_include/bench/fig-hw-gates.qmd >}}
+
+{{< include ../projects/syntagma/_include/bench/fig-hw-fmax.qmd >}}
+
+:::
+
+
 ## Classical Parallelism Comparisons {#sec-appendix-classical-parallelism}
 
 This appendix provides a detailed structural comparison between SSCCS and two independently developed classical parallelism mechanisms: symmetry-induced parallelism in relaxed spin networks (Erementchouk and Mazumder [@erementchouk2026symmetry]) and exponential parallelism in instantaneous noise-based logic (Kish [@kish2025exponential]). The comparisons are structural, not quantitative.

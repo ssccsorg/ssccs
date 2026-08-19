@@ -47,6 +47,11 @@ information. Two characters cover 26.9 bits, sufficient for a full 16-bit
 value. The remaining 54,364 of 65,536 possible code points are outside the
 alphabet by construction, which is what makes the format self-validating.
 
+The alphabet size is not arbitrary: 11,172 = 19 x 21 x 28, the three axis
+ranges of the Hangul composition formula. The encoding borrows the
+linguistic structure of the block, and the valid/invalid asymmetry of the
+coordinate space doubles as the error-detection margin.
+
 ## Encoding
 
 A 16-bit value is split into a high part and a low part against the
@@ -150,6 +155,26 @@ input.
 - Composition with hashing: a SHA-256 digest encoded as Tagma coordinates
   inherits the collision properties of the digest and the readability of
   the coordinate space.
+
+## Assessment
+
+Base11172 is not a byte-density competitor to Base64; its case rests on
+structural design. The strengths and limitations, side by side:
+
+| Aspect | Strength | Limitation |
+|--------|----------|------------|
+| Self-validation | the coordinate space is the validator; corrupted input is rejected on decode without a checksum | none |
+| Readability | Hangul syllables read as text to Hangul-literate users; no escaping in URLs, JSON, or shell arguments; consistent Unicode ordering | readable only to readers of Hangul |
+| Alphabet structure | 11,172 = 19 x 21 x 28 borrows the linguistic structure of the block; the valid/invalid asymmetry doubles as the error-detection margin | none |
+| Portability | no_std with alloc; usable on bare-metal microcontrollers and radiation-hardened hardware | requires the base11172 library; Base64 ships with every platform |
+| Byte density | character-level denser than Base64 (1.0 versus 1.333 characters per byte) | 3 UTF-8 bytes per syllable, about 3x the input against 1.33x for Base64 |
+
+The format occupies a different class from general-purpose encodings: the
+coordinate space is the validator, corrupted data is rejected on passage,
+and the alphabet carries the linguistic structure of the block (19 x 21 x
+28). Where byte compactness is the requirement, Base64 remains the choice;
+where self-validating, readable, structure-preserving identifiers matter,
+Base11172 is the Tagma-native encoding.
 
 ## CLI and status
 
