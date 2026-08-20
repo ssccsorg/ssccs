@@ -1,0 +1,184 @@
+---
+title: "Blockchain Direction"
+subtitle: "Offline-first multi-channel propagation on nexus, chton, and Tagma"
+metadata-files:
+  - ../../../_include/author.yml
+abstract: |
+  This is a vision draft. Blockchains inherit a fundamental availability
+  problem: when the wired path to the consensus network is cut, state
+  sync, broadcast, and finality all stop, and asset access is blocked
+  even though keys stay local. The nexus record layer after the L2
+  restructure already carries the primitives of a content-addressed,
+  append-only ledger: full-injective `CoordId<20>` ids, deterministic
+  `rebuild_cache` replay, and partition-based channel semantics. This
+  document sketches a staged development direction toward an
+  offline-first, multi-channel propagating blockchain: a deterministic
+  state root first, then DAG reconciliation over content-unique facts,
+  then a propagation layer, and only then optional ordering. The
+  propagation and aether-linked transport parts are conjecture; the
+  state root and reconciliation steps are concrete and useful
+  regardless of the blockchain goal.
+---
+
+```{python}
+#| include: false
+#| context: local
+%run ../../../_include/_graphviz.py
+```
+
+```{python}
+title_meta_items = {
+    "html": [
+        {"title": "Reference", "link": "../", "content": "Development Index", "icon": "bi bi-link"},
+        {"title": "Reference", "link": "https://github.com/ssccsorg/nexus", "content": "Repository", "icon": "bi bi-link"},
+        {"title": "Reference", "link": "../notes/decentralizing_blackboard.html", "content": "Blackboard Decentralization", "icon": "bi bi-link"},
+        {"title": "Reference", "link": "/projects/syntagma/", "content": "synTagma", "icon": "bi bi-link"},
+    ]
+}
+```
+
+{{< include ../../../_include/_title_meta_items.qmd >}}
+
+## The Availability Problem
+
+A blockchain's usable state depends on reaching the consensus network.
+Three operations stop when the wired path is cut: synchronizing state,
+broadcasting transactions, and verifying finality. Keys are local, but
+the ledger is not, so an owner cannot prove or move value without a
+network path.
+
+This is not a ledger problem, it is a propagation and ordering problem.
+Existing partial answers exist: satellite broadcast, mesh relay,
+delay-tolerant networking. They share a common shape: detached nodes
+accumulate records locally and reconcile when a path appears. What they
+lack is a content-addressed, conflict-defined record structure that
+makes reconciliation cheap and deterministic.
+
+## What nexus Already Provides
+
+The nexus record layer, after the L2 restructure, is already shaped like
+a ledger at the data level.
+
+**Facts are append-only and content-unique.** A `FactRecord` id is a
+full-injective `CoordId<20>` encoding of the content hash, so two
+distinct contents never share an id and a record is verifiable by hash
+without any network.
+
+**State is replayable.** `rebuild_cache` reconstructs the in-memory
+record maps and structural index deterministically from IO. A replica
+that receives the same set of records rebuilds the same `BoardState`.
+This is the seed of offline state reconstruction.
+
+**Records are content-addressed by construction.** Blobs are keyed by
+SHA-256, records by the injective id. Deduplication, verification, and
+merge are defined by the content, not by arrival order.
+
+**Channels exist as partitions.** `scan_partition` already gives
+per-channel data flows, the seed of multi-channel semantics.
+
+**The FIH lifecycle maps to ledger patterns.** The Blackboard
+Decentralization note formalizes this: a Fact is a state flag,
+`submit_hint` is an event signal, the `from_facts` grounding rule is a
+threshold trigger, and the intent lifecycle is a commit-reveal overlay.
+The medium is not yet a ledger, but the operations already are.
+
+## The Gap
+
+The record layer has data-level ledger properties but no ledger protocol.
+
+**No consensus or global ordering.** `FihStorage` is a single-owner
+execution unit with no internal concurrency. Instances are independent
+replicas, not participants in an agreement protocol.
+
+**No adversary model.** The current design assumes a trusted single
+boundary. A propagating blockchain requires a Byzantine or at least a
+crash-tolerant threat model.
+
+**Finality, intent expiration, and spam resistance are open.** These are
+listed as open questions in the Blackboard Decentralization note:
+confirmation depth for facts, unbounded accumulation of unclaimed
+intents, and unrestricted `submit_fact`.
+
+## The Vision: Offline-First Multi-Channel Propagation
+
+The direction is a propagation model, not a wired-replacement chain.
+Nodes operate detached, accumulate content-addressed facts, and
+reconcile on reconnect. Because record ids are content-unique,
+reconciliation is conflict-defined: the same record is deduplicated,
+distinct records are merged, and only ordering needs a resolution rule.
+
+Multi-channel propagation means the medium is not a single ordered
+stream. Partitions map to channels, and a future transport layer moves
+records across them. The aether-linked transport is beyond the verified
+scope of this document; the propagation part is conjecture until a
+concrete relay model exists.
+
+```{python}
+#| label: fig-blockchain-direction
+#| fig-cap: "Staged direction: detached accumulation, content-addressed merge, DAG reconciliation, then optional ordering."
+dot("""
+digraph BlockchainDirection {
+  rankdir=LR;
+  node [shape=box];
+  detached [label="Detached nodes\\naccumulate facts"];
+  record [label="Content-unique records\\n(CoordId<20>, SHA-256)"];
+  dag [label="DAG reconciliation\\nmerge is conflict-defined"];
+  ordered [label="Optional ordering\\nfinality where required"];
+  detached -> record -> dag -> ordered;
+}
+""")
+```
+
+## A Staged Direction
+
+**Phase 1: deterministic state root.** Hash-chain record ids and
+content hashes into a state root. `rebuild_cache` becomes
+replay-to-root verification: any replica proves its state by rebuilding
+and comparing roots. This is concrete and useful without any blockchain
+goal.
+
+**Phase 2: DAG reconciliation.** Detached nodes exchange record sets.
+Content addressing makes merge conflict-free. Ordering becomes a DAG
+with an explicit resolution rule for concurrent intents.
+
+**Phase 3: propagation.** A transport layer over channels with relay
+incentives and bandwidth bounds. Partitions define channels; the relay
+economy determines whether propagation is sustainable.
+
+**Phase 4: optional ordering.** A consensus protocol of the BFT class,
+or proof-based ordering, only where finality is required. Offline modes
+degrade to DAG semantics without a total order.
+
+## Key Insights
+
+**Content addressing is the offline enabler.** A record verifies by
+hash without the network; availability of verification does not depend
+on availability of the network.
+
+**Deterministic replay is the state-reconstruction primitive.** A
+partial replica rebuilds the same state from the records it received,
+which makes reconciliation a data problem instead of a protocol
+problem.
+
+**Ordering is the hard problem, not storage.** The nexus record layer
+already stores append-only content-unique state. The chain is one
+answer to ordering; DAG plus resolution rules is another.
+
+**The L2 restructure left the record layer ledger-shaped.** Append-only
+facts, injective ids, replayable state, and channel partitions are the
+data foundation. The missing parts are protocol, not storage.
+
+## Future Work
+
+- Implement the deterministic state root and replay-to-root
+  verification.
+- Define DAG merge semantics over content-addressed facts.
+- Map partitions to channels and prototype a propagation layer.
+- Resolve the decentralization open questions: finality depth, intent
+  expiration, and spam resistance.
+
+## References
+
+- [Blackboard Decentralization: Stigmergy over Distributed State](/projects/nexus/notes/decentralizing_blackboard.html): ledger-state stigmergy and the Storage trait boundary
+- Issue #176 handoff devlog in the nexus repository: the L2 restructure and its measured outcomes
+- Ledger-State Stigmergy paper, cited in the Blackboard Decentralization note
