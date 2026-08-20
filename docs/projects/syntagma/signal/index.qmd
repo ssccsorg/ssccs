@@ -87,7 +87,7 @@ title_meta_items = {
 
 Tagma Signal defines the signal-domain utilization[^tagma-signal] of the Tagma coordinate primitive: how coordinates are encoded, validated, and interpreted as signals over existing physical channels. It is a signal-delivery protocol, not a transmission system: the transmitter, antenna, modulation waveform, and medium are delegated to the underlying channel (BLE, LoRa, UHF, optical, acoustic). The central claim is that packet-based communication can be replaced by coordinate-based signaling. Every message is a coordinate path[^coordpath], a sequence of N syllables that carries both the address and the payload in a single structural unit, so there is no packet header, no checksum, no protocol stack, and no parser on the receiving end. The coordinate itself is the message.
 
-The transmission-concept part of the persistent IO layer for spatial computing specifies the wave-observation pattern, in which a broadcast coordinate is observed by unspecified receivers, each acting according to its own local state, so response diversity is produced entirely on the receiver side. The framework covers emission and observation only; interpretation and action are application-level and deliberately out of scope. The coordinate space is one: the same coordinate path that keys a Tagma Map entry is transmitted as a wave sequence and, once observed, becomes a fact in the neXus FIH blackboard, where the Actus orchestration runtime[^actus] owns interpretation and action.
+The transmission-concept part of the persistent IO layer for spatial computing specifies the wave-observation pattern, in which a broadcast coordinate is observed by unspecified receivers, each acting according to its own local state, so response diversity is produced entirely on the receiver side. The framework covers emission and observation only; interpretation and action are application-level and deliberately out of scope. The coordinate space is one: the same coordinate path that keys a TagmaMap entry is transmitted as a wave sequence and, once observed, becomes a fact in the neXus FIH blackboard, where the Actus orchestration runtime[^actus] owns interpretation and action.
 
 The underlying transmission medium is decoupled from the protocol: any physical carrier that can convey a 16-bit value (radio, light, sound) suffices. The receiving side validates each coordinate structurally (54,364 invalid states are immediately rejected) and reconstructs the coordinate path at the cost of a single lookup, approximately 0.39 ns in native mode, with zero protocol overhead.
 
@@ -119,7 +119,7 @@ Coordinate-based transmission replaces packet-based transmission. A message is e
 
 The transmission process is:
 
-1. **Message → coordinate path**: The message is mapped to a sequence of coordinates using the same deterministic transformation as Tagma Map. Each coord carries log₂(11,172) ≈ 13.45 bits of information, so the mapping is injective for messages up to 13.45N bits (⌊1.68N⌋ bytes) — the information-theoretic bound of an N-coord coordinate path.
+1. **Message → coordinate path**: The message is mapped to a sequence of coordinates using the same deterministic transformation as TagmaMap. Each coord carries log₂(11,172) ≈ 13.45 bits of information, so the mapping is injective for messages up to 13.45N bits (⌊1.68N⌋ bytes) — the information-theoretic bound of an N-coord coordinate path.
 
 2. **coordinate path → Physical Signal**: Each 16-bit coordinate is transmitted directly over the physical medium. No headers are added. No checksums are computed. The coordinate itself is the unit of transmission.
 
@@ -239,7 +239,7 @@ No single mechanism here is new: continuous-phase modulation, chirp-style Dopple
 
 ## Empirical Validation
 
-The transmission pipeline has been validated through software simulation. The following measurements are based on the same ARMv8.4-A Firestorm core used for Tagma Map benchmarks.
+The transmission pipeline has been validated through software simulation. The following measurements are based on the same ARMv8.4-A Firestorm core used for TagmaMap benchmarks.
 
 ### Coordinate Validation Latency
 
@@ -407,7 +407,7 @@ The decision layer evaluates the record in the following fixed order. The order 
 
 - **Structural gate** (framework-specified): the coordinate was validated before the record existed (Section Hardware Acceleration); a record never carries an invalid coordinate.
 - **Constraint gate** (application-level, fixed order): the local system evaluates its physical and operational constraints (battery level, proximity, operational mode, safety interlocks) against the record. A failed constraint discards or defers the observation. This gate takes precedence over every policy.
-- **Policy matching** (application-level): the local context maps (coordinate, local state) to a candidate set of actions, for example through Tagma Map.
+- **Policy matching** (application-level): the local context maps (coordinate, local state) to a candidate set of actions, for example through TagmaMap.
 - **Dispatch** (application-level): the highest-priority candidate executes, or a new coordinate path is re-emitted as feedback.
 
 The boundary between the structural gate and the remaining stages is the boundary of this document: the gate is framework-specified, the remaining stages are application-level, and their order is fixed to preserve safety.
@@ -485,7 +485,7 @@ The structural gate remains the first line of defense regardless of the authenti
 
 The core transmission primitives are implemented in Rust and can be simulated on any platform that supports the Tagma coordinate space. As a preprint, this document precedes the physical-layer phases; the digital path is the validated portion today.
 
-**Phase 1: Software simulation.** The transmission pipeline is simulated in Rust, with the same coordinate validation and conversion logic as Tagma Map. This phase is complete; it covers the digital path only.
+**Phase 1: Software simulation.** The transmission pipeline is simulated in Rust, with the same coordinate validation and conversion logic as TagmaMap. This phase is complete; it covers the digital path only.
 
 **Phase 2: Physical medium integration.** The transmission path is ported to specific physical media: RF modules (LoRa, BLE, 802.15.4), optical transceivers (SFP, Li-Fi), and acoustic transducers. This phase will measure and replace the $T_{\text{physical}}$ model parameter with empirical data.
 

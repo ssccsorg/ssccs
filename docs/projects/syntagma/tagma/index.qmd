@@ -860,7 +860,7 @@ All figures are software measurements on ARMv8.4-A Firestorm (2020), compiled wi
 
 ## CoordCube: Spatial Interpretation Layer {#sec-appendix-coordcube}
 
-The CoordCube layer reinterprets existing CoordPath storage keys as D-dimensional coordinates without modifying the underlying key, enabling proximity queries, bounding box enumeration, and distance metrics that fall outside the core CoordPath scope. The full design, benchmarks, and comparison with existing systems are described in the Tagma Geo whitepaper[^tagma-geo]; the reference implementation lives in `sw/rust/geo`[^tagma-geo-src].
+The CoordCube layer reinterprets existing CoordPath storage keys as D-dimensional coordinates without modifying the underlying key, enabling proximity queries, bounding box enumeration, and distance metrics that fall outside the core CoordPath scope. The full design, benchmarks, and comparison with existing systems are described in the TagmaGeo whitepaper[^tagma-geo]; the reference implementation lives in `sw/rust/geo`[^tagma-geo-src].
 
 :::{ layout-ncol=2 }
 
@@ -898,22 +898,22 @@ Conventional hardware searches. Tagma hardware interprets. This shifts the hardw
 
 SHA-256 output is uniformly distributed, so the modulo-11172 mapping to each Coord value is statistically unbiased. The overall collision probability of the 20-Coord output remains $2^{-256}$, preserved from the underlying hash. The 20-Coord space ($2^{269}$) exceeds the $2^{256}$ domain, so no collision is forced by the encoding.
 
-## Tagma Map[^tagma-map]: Key-Value Store on Coordinate Primitives {#sec-appendix-tagma-map}
+## TagmaMap[^tagma-map]: Key-Value Store on Coordinate Primitives {#sec-appendix-tagma-map}
 
-Tagma Map builds a practical key-value storage engine on top of
+TagmaMap builds a practical key-value storage engine on top of
 the coordinate primitives described in this document. Where the core Tagma
 library provides collision-free O(1) addressing within a single address space,
-Tagma Map extends the model to handle legacy infrastructure requirements that
+TagmaMap extends the model to handle legacy infrastructure requirements that
 fall outside the core library scope: multi-node coordinated sharding,
 persistence to backing stores, protocol adaptation (Redis RESP, S3 REST),
 and operational tooling.
 
 The structural addressing model handles what legacy systems delegate to hash
 functions and index structures: key placement, collision resolution, and
-range partitioning. Tagma Map supplies what the coordinate model intentionally
+range partitioning. TagmaMap supplies what the coordinate model intentionally
 abstracts away: durable storage, wire protocols, and cluster management.
 
-The full design and benchmark results are described in the Tagma Map
+The full design and benchmark results are described in the TagmaMap
 whitepaper; the reference implementation lives in `sw/rust/map`[^tagma-map-src].
 Selected CoordCube benchmarks that measure KV-relevant
 metrics are reproduced below.
@@ -1087,10 +1087,10 @@ Korean without a hex dump.
 [^tagma-etym]: Greek *τάγμα* from *σύνταγμα* (syn-tagma, *co-ordinate* in English), "a well-ordered arrangement of constituent elements". *Tagma* is the system name; *Coord* is the concrete implementation type.
 [^tagma-repo]: Repository: [Github (Pre-release, Apache 2.0)](https://github.com/ssccsorg/syntagma), Benchmark <https://github.com/ssccsorg/syntagma/blob/main/sw/rust/benches/bench.rs>
 [^tagma-hw]: Tagma hardware series: <https://docs.ssccs.org/projects/syntagma/hardware/>
-[^tagma-map]: Tagma Map whitepaper (DOI: [10.5281/zenodo.21550431](https://doi.org/10.5281/zenodo.21550431)): <https://docs.ssccs.org/projects/syntagma/tagma/map>
-[^tagma-geo]: Tagma Geo whitepaper (draft): <https://docs.ssccs.org/projects/syntagma/tagma/geo>
-[^tagma-geo-src]: Tagma Geo reference implementation: <https://github.com/ssccsorg/syntagma/tree/main/sw/rust/geo>
-[^tagma-map-src]: Tagma Map reference implementation: <https://github.com/ssccsorg/syntagma/tree/main/sw/rust/map>
+[^tagma-map]: TagmaMap whitepaper (DOI: [10.5281/zenodo.21550431](https://doi.org/10.5281/zenodo.21550431)): <https://docs.ssccs.org/projects/syntagma/tagma/map>
+[^tagma-geo]: TagmaGeo whitepaper (draft): <https://docs.ssccs.org/projects/syntagma/tagma/geo>
+[^tagma-geo-src]: TagmaGeo reference implementation: <https://github.com/ssccsorg/syntagma/tree/main/sw/rust/geo>
+[^tagma-map-src]: TagmaMap reference implementation: <https://github.com/ssccsorg/syntagma/tree/main/sw/rust/map>
 [^tagma-sec]: Tagma Security whitepaper: <https://docs.ssccs.org/projects/syntagma/security>
 [^tagma-spec]: Tagma Security Layer Specification: <https://github.com/ssccsorg/syntagma/blob/main/docs/spec/tagma-sec.md>
 [^tagma-swref]: Tagma Reference Implementations: <https://docs.ssccs.org/projects/syntagma/impl>
