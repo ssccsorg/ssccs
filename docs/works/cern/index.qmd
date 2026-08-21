@@ -4,7 +4,7 @@ subtitle: "Draft: Collaboration Through Open Science and Open Source Infrastruct
 metadata-files:
   - ../../_include/author.yml
 abstract: |
-  This draft outlines a proposed collaboration between the SSCCS Foundation and CERN. SSCCS is an independent, non-profit, public-good science foundation whose work follows the principle that has guided CERN since its founding: science is a public good, and knowledge should remain open. The document presents what SSCCS brings, proposes a concrete first engagement on the ROOT TTree I/O bottleneck in production analysis workflows, and outlines how the collaboration would proceed through CERN's established open-source channels. This draft is the basis for discussion.
+  This draft outlines a proposed collaboration between the SSCCS Foundation and CERN. SSCCS is an independent, non-profit, public-good science foundation whose work follows the principle that has guided CERN since its founding: science is a public good, and knowledge should remain open. The document presents what SSCCS brings, proposes a concrete first engagement on a ROOT TTree I/O access pattern in production analysis workflows, and outlines how the collaboration would proceed through CERN's established open-source channels. This draft is the basis for discussion.
 ---
 
 ```{python}
@@ -41,25 +41,25 @@ The following foundational assets are under active development, with key primiti
 | **Tagma** (hash‑less coordinate space; decoder ~300 gates) | Direct coordinate addressing with a minimal decoder, suited to low‑power and constrained environments |
 | **Apache 2.0 release** | Unencumbered integration with open‑hardware and scientific software ecosystems |
 
-## A good problem-solving starting point
+## A focused starting point
 
-The ROOT TTree I/O Bottleneck
+A CMS Open Data analysis whose TTree read path is dominated by per-request I/O overhead.
 
-### The Problem
+### The case
 
-A well-documented pain point in high‑energy physics analysis is ROOT TTree I/O performance. In representative production workflows, hundreds of thousands of singular read requests (totaling several GB) can consume 14 hours of wall-clock time—an average throughput of tens of KB/s. Despite ongoing I/O modernization efforts (e.g., RNTuple), the structural cost remains: each read must traverse branch hierarchies and deserialize data. The root cause is not raw disk bandwidth; it is per‑request overhead, page cache thrashing from small fragmented reads, and cache invalidation under multithreaded access patterns.
+A production workflow issues hundreds of thousands of singular read requests (totaling about 1.6 GB) over about 14 hours, at an average throughput of tens of KB/s. ROOT's TTree I/O has been optimized over many years; the measurements in the technical report apply to this specific access pattern and to its cache-disabled baseline. Despite ongoing I/O modernization efforts (e.g., RNTuple), the structural cost remains for this pattern: each read traverses branch hierarchies and deserializes data. Raw disk bandwidth is ample at this scale; the cost is per-request overhead: page cache thrashing from small fragmented reads and cache invalidation under multithreaded access patterns.
 
 ### The SSCCS Approach
 
-SSCCS addresses this by replacing the read path with coordinate addressing. An event becomes a coordinate resolved to a direct offset—with no branch table, no index scan, and no hash. Filters become spatial operations over coordinate ranges, and Chton materializes the coordinate space onto media with the storage format equal to the memory layout.
+SSCCS addresses this by replacing the read path with coordinate addressing. An event becomes a coordinate resolved to a direct offset, with no branch table, no index scan, and no hash. Filters become spatial operations over coordinate ranges, and Chton materializes the coordinate space onto media with the storage format equal to the memory layout.
 
 ### The Offer to CERN
 
-ROOT's I/O interface stays exactly as it is. Researchers keep the TTree API they already know, and their existing analysis scripts run unchanged. Underneath, mapped data is served from the coordinate space instead of the disk. The ecosystem is not broken; only the interior is replaced.
+ROOT's I/O interface stays exactly as it is. Researchers keep the TTree API they already know, and their existing analysis scripts run unchanged. Underneath, mapped data is served from the coordinate space instead of the disk. The ecosystem remains intact; only the interior is replaced.
 
 ### Proposed Demonstration
 
-We propose a bounded demonstration on CMS Open Data (MiniAOD) that reproduces the documented access pattern and reports the comparison against the ROOT baseline—establishing the collaboration on the basis of a working result, demonstrated on CERN's own access pattern without disturbing the production ecosystem.
+We propose a bounded demonstration on CMS Open Data (MiniAOD) that reproduces the access pattern and reports the comparison against the ROOT baseline. The collaboration would start from a working result, demonstrated on CERN's own access pattern without disturbing the production ecosystem.
 
 ## Status
 

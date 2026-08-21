@@ -1,6 +1,6 @@
 ---
-title: "Coordinate-indexed addressing for ROOT TTree I/O overhead"
-subtitle: "A practical, minimal-layer fix: the first step toward a new High-Energy Physics (HEP) data workflow with synTagma arithmetic addressing"
+title: "Coordinate-indexed addressing for per-request ROOT TTree I/O overhead"
+subtitle: "A practical, minimal-layer approach: reducing per-request I/O overhead in a TTree access pattern, measured on CMS Open Data with synTagma arithmetic addressing"
 date: 2026-08
 date-format: "MMMM, YYYY"
 version-prefix: "cern_root_ttree-doi.org/10.5281/zenodo.21888670"
@@ -94,19 +94,19 @@ title_meta_items = {
 
 ## Abstract {.unnumbered .unlisted}
 
-ROOT is the petabyte-scale data analysis framework of the CERN community, and its TTree columnar format stores the events of nearly every physics analysis. A documented production bottleneck limits the read path: an analysis issues 372,000 singular reads averaging 4.6 KB, sustains an effective 33 KB/s, and runs for roughly 14 hours. The measured cause is per-request I/O overhead, not data transfer: each small read carries a system call, a cache lookup, and a context switch, while CPU and decompression stay idle in the remote production pattern.
+ROOT is the petabyte-scale data analysis framework of the CERN community, and its TTree columnar format stores the events of nearly every physics analysis. A production bottleneck limits the read path: an analysis issues 372,000 singular reads averaging 4.6 KB, sustains an effective 33 KB/s, and runs for roughly 14 hours. The measured cause is per-request I/O overhead: each small read carries a system call, a cache lookup, and a context switch, while CPU and decompression stay idle in the remote production pattern.
 
-This report measures a coordinate-indexed read path, built on the synTagma[^synTagma] coordinate engine, inside a fork of CERN's ROOT. The path replaces branch, basket, and cache traversal with closed-form coordinate arithmetic: an event addressed as (run, luminosity block, event number) resolves to a direct byte offset with no hash and no index scan. It is a working implementation, not a prototype: a self-contained store class plus byte-source and entry hooks, with existing analysis code, the TTree API, and the build chain unchanged.
+This report measures a coordinate-indexed read path, built on the synTagma[^synTagma] coordinate engine, inside a fork of CERN's ROOT. The path replaces branch, basket, and cache traversal with closed-form coordinate arithmetic: an event addressed as (run, luminosity block, event number) resolves to a direct byte offset with no hash and no index scan. It is a working implementation: a self-contained store class plus byte-source and entry hooks, with existing analysis code, the TTree API, and the build chain unchanged.
 
-On the full CMS Run2016G DoubleMuon NanoAOD first file (2,315,223 events), the same medium, the coordinate path completes the read in 2.79 s against 192.8 s, a 69.0x gain, serving every event with one aligned request. The memory-mapped variant issues zero application-level read system calls and completes in 1.06 s, a 181.7x gain, after a one-time conversion of 226.3 s. An analysis workload reproduces identical results on both paths, 20,861 selected events with histogram mean 132.696, at 60.9x. Served bytes are verified by a checksum, and analysis results by exact histogram equality.
+On the full CMS Run2016G DoubleMuon NanoAOD first file (2,315,223 events), the same medium, the coordinate path completes the read in 2.79 s against 192.8 s for the cache-disabled baseline, a 69.0x gain, serving every event with one aligned request. The memory-mapped variant issues zero application-level read system calls and completes in 1.06 s, a 181.7x gain, after a one-time conversion of 226.3 s. An analysis workload reproduces identical results on both paths, 20,861 selected events with histogram mean 132.696, at 60.9x. Served bytes are verified by a checksum, and analysis results by exact histogram equality.
 
-## The TTree I/O Bottleneck
+## The TTree access pattern
 
-The production case documented in the 2025 Fermilab CCESOP analysis is an analysis over a CMS NanoAOD dataset that performs 372,000 singular reads averaging 4.6 KB, at an effective 33 KB/s, over roughly 14 hours[^ccesop-note]. The scale in bytes is small: 1.6 GB moves in seconds at raw bandwidth. The cost is per request, not per byte.
+The production case in the 2025 Fermilab CCESOP analysis is an analysis over a CMS NanoAOD dataset that performs 372,000 singular reads averaging 4.6 KB, at an effective 33 KB/s, over roughly 14 hours[^ccesop-note]. The scale in bytes is small: 1.6 GB moves in seconds at raw bandwidth. The cost is per request.
 
-The structural origin is the TTree columnar layout. A NanoAOD event is split across thousands of branches, about 153 data products over 8,190 branches in the documented configuration[^scatter-note], so one logical event scatters across many basket buffers. Reading one event issues many small reads; each carries a system call, a page cache lookup, and often a context switch. Multithreaded runs calling `GetEntry` out of order invalidate the TTreeCache and collapse vector reads into singular reads; beyond 100,000 clusters the cache degrades from 7 seconds to over an hour.
+The structural origin is the TTree columnar layout. A NanoAOD event is split across thousands of branches, about 153 data products over 8,190 branches in the configuration[^scatter-note], so one logical event scatters across many basket buffers. Reading one event issues many small reads; each carries a system call, a page cache lookup, and often a context switch. Multithreaded runs calling `GetEntry` out of order invalidate the TTreeCache and collapse vector reads into singular reads; beyond 100,000 clusters the cache degrades from 7 seconds to over an hour.
 
-The baseline measurement, milestone M1 of the development plan[^m1-note], reproduces the singular-read signature on the real dataset. With the TTreeCache disabled, the first 2,000 events read at 1.37 reads per event, 2,635 bytes per read, and the remote EOS run spends about 98.8 percent of wall time in I/O wait, with CPU below 2.5 percent. Decompression is not the bottleneck: its capacity headroom was measured at 18 to 44x across access patterns[^decomp-note]. The bottleneck is per-request I/O wait.
+The baseline measurement, milestone M1 of the development plan[^m1-note], reproduces the singular-read signature on the real dataset. With the TTreeCache disabled, the first 2,000 events read at 1.37 reads per event, 2,635 bytes per read, and the remote EOS run spends about 98.8 percent of wall time in I/O wait, with CPU below 2.5 percent. Decompression capacity headroom was measured at 18 to 44x across access patterns[^decomp-note]; the bottleneck is per-request I/O wait.
 
 A first-order cost model separates the terms per read request:
 
@@ -120,7 +120,7 @@ where $N$ is the event count and $R_{ev}$ the measured reads per event. Any stru
 
 ## The Innovation: Addressing Replaces Traversal
 
-The coordinate store is not an optimization of the existing read path; it is a change of addressing model. ROOT traverses: an entry walks branches, baskets, and the cache to find its bytes, and each step can reach the medium. Tagma computes: the entry number is a coordinate, the coordinate resolves to a byte offset in closed form, and the record is served directly. The difference is structural. A cache reduces the number of medium accesses, but every miss still carries a system call; the mapped coordinate store removes the system call by construction, because the byte source is the mapping. No cache-size tuning can reach that point.
+The coordinate store is a change of addressing model. ROOT traverses: an entry walks branches, baskets, and the cache to find its bytes, and each step can reach the medium. Tagma computes: the entry number is a coordinate, the coordinate resolves to a byte offset in closed form, and the record is served directly. The difference is structural. A cache reduces the number of medium accesses, but every miss still carries a system call; the mapped coordinate store removes the system call by construction, because the byte source is the mapping. No cache-size tuning can reach that point.
 
 For CERN the relevance is direct. The measured workload is a real CMS Open Data analysis file, the same access pattern the community documents as the 14-hour case. The researcher's interface is untouched: the same TTree API, the same analysis scripts, the same build chain, with the read path replaced behind the existing interfaces. The demonstration complements ROOT and RNTuple rather than competing with them: the coordinate store serves the existing TTree files in production, so analyses do not migrate, while RNTuple remains the forward path and this is the backward-compatible one. The measured evidence is open and reproducible from the fork and the runbook.
 
@@ -286,9 +286,9 @@ The full comparison runs on local disk for both paths. The served checksum match
 
 ### Cache behavior, signature slice and remote access
 
-With the TTreeCache enabled on a fresh file open, the first 10,000 events read in 8 read calls at 1,943 KB per read, cache efficiency 0.917, miss rate 0.083[^cacheeff-note]. This is the ideal sequential case; the documented cache degradation under out-of-order multithreaded reads is a Phase 5 item in the Status section.
+With the TTreeCache enabled on a fresh file open, the first 10,000 events read in 8 read calls at 1,943 KB per read, cache efficiency 0.917, miss rate 0.083[^cacheeff-note]. This is the ideal sequential case; the cache degradation under out-of-order multithreaded reads is a Phase 5 item in the Status section.
 
-The 2,000-event slice on the same medium measures the signature established above: baseline 1.37 reads per event at 2,635 bytes per read in 0.461 s wall. The remote EOS baseline over the same slice runs 100.1 s, I/O-wait bound[^remote-note], versus 0.002 s (coordinate) and about 0.0003 s (mapped) on the local store.
+The 2,000-event slice on the same medium measures the signature established above: baseline 1.37 reads per event at 2,635 bytes per read in 0.461 s wall. The remote EOS baseline over the same slice runs 100.1 s, I/O-wait bound[^remote-note], versus 0.002 s (coordinate) and about 0.0003 s (mapped) on the local store. The slice times on the coordinate paths are sub-millisecond; the derived ratios are indicative microbenchmark-scale values.
 
 ### Analysis workload
 
@@ -426,11 +426,11 @@ At full scale the baseline request count drops to 0.20 per event because basket 
 
 The bytes-per-read asymmetry is intentional. The baseline reads 2,149,961,076 compressed bytes in 470,131 requests; the coordinate paths read 5,926,970,880 raw bytes in 2,315,223 requests. The coordinate paths move 2.76x more bytes and still finish 69.0x and 181.7x faster on the full file, where decompression removal and aligned sequential access dominate, and the mapped path removes the application-level read system call entirely. Compression semantics remain a later-phase item, specified in the Status section.
 
-The speedup ratios vary with the condition, from 6.5x on the synthetic microbenchmark to 1,512x on the same-media slice, because the baseline cost composition changes with the access pattern and cache state. The stable claims are the request count (1.37 to 1.00 per event) and the system call count (1.37 to 0.00 per event), which are media-independent.
+The speedup ratios vary with the condition, from 6.5x on the synthetic microbenchmark to 1,512x on the same-media slice, because the baseline cost composition changes with the access pattern and cache state. The stable claims are the request count (1.37 to 1.00 per event) and the system call count (1.37 to 0.00 per event), which are media-independent. All wall-time ratios are scoped to the access pattern, the cache-disabled baseline, and the same medium.
 
 ### Conversion
 
-The one-time conversion of the full dataset into the store costs 226.3 s wall, 220.5 s CPU, producing 5,926,970,880 bytes across 2,315,223 records. The conversion is comparable to one baseline read pass (192.8 s) and amortizes: after conversion, every read pass costs 1.06 s (mapped) instead of 192.8 s, so the break-even point is about two analysis passes.
+The one-time conversion of the full dataset into the store costs 226.3 s wall, 220.5 s CPU, producing 5,926,970,880 bytes across 2,315,223 records. The conversion is comparable to one baseline read pass (192.8 s) and amortizes: after conversion, every read pass costs 1.06 s (mapped) instead of 192.8 s, so the break-even point falls within the second analysis pass.
 
 ## Correctness Verification
 
@@ -452,7 +452,7 @@ The fixed-width coordinate read path is implemented, built into the fork, and ve
 
 - P2: variable-length collections (jets, tracks). The store must support per-event record lengths; the fixed-width record is the addressing foundation
 - P3: compression semantics. The raw phase-1 store moves 2.76x more bytes than the compressed baseline; block-level or selective compression must preserve direct record addressing at the PB scale
-- P4: production-scale end-to-end measurement. The documented 14-hour workload, including the remote access pattern, is not reproduced; the full local file is the current measured scale
+- P4: production-scale end-to-end measurement. The 14-hour workload, including the remote access pattern, is not reproduced; the full local file is the current measured scale
 - P5: cache-degradation scenario. Out-of-order multithreaded reads and the beyond-100,000-cluster cache collapse are not reproduced; the measured 0.917 cache efficiency is the ideal sequential case
 - P6: portability and independent verification. The mapped path requires a Unix-like platform; a Linux build cross-check is planned
 
@@ -460,25 +460,25 @@ The fixed-width coordinate read path is implemented, built into the fork, and ve
 
 - The mapped path requires a Unix-like platform (mmap)
 - All results are measured and reported as they are, with no projection ahead of measurement
-- The demonstration complements ROOT and RNTuple; it does not replace them
+- The demonstration complements ROOT and RNTuple; the existing read paths remain in place
 
 ## Conclusion
 
-The coordinate-indexed read path replaces the branch, basket, and cache traversal of the TTree read path with closed-form arithmetic. On the full CMS dataset, the same medium, it reduces the read cost from 192.8 s to 2.79 s (69.0x), or 1.06 s with zero application-level read system calls when the store is mapped (181.7x), after a one-time conversion of 226.3 s. The analysis workload reproduces identical physics results at 60.9x. The measured mechanism addresses the documented bottleneck, per-request I/O overhead, at the request and system call level, and removes decompression from the read path in the raw phase-1 store.
+The coordinate-indexed read path replaces the branch, basket, and cache traversal of the TTree read path with closed-form arithmetic. On the full CMS dataset, the same medium, it reduces the read cost from 192.8 s to 2.79 s (69.0x), or 1.06 s with zero application-level read system calls when the store is mapped (181.7x), after a one-time conversion of 226.3 s. The analysis workload reproduces identical physics results at 60.9x. The measured mechanism addresses the bottleneck, per-request I/O overhead, at the request and system call level, and removes decompression from the read path in the raw phase-1 store.
 
-The measured evidence is a proposal, not a claim. The innovation is that the address replaces the traversal: for mapped data the byte source is the mapping, a point no cache tuning reaches, while the researcher keeps the same TTree API, the same scripts, and the same build chain. For CERN, whose analyses live with the documented 372,000-read signature and the 14-hour workload, this is a structural removal at the layer that matters, measured on a real CMS Open Data file and released as open source.
+The measured evidence is a proposal, scoped to the measured conditions and the access pattern. The innovation is that the address replaces the traversal: for mapped data the byte source is the mapping, a point no cache tuning reaches, while the researcher keeps the same TTree API, the same scripts, and the same build chain. For CERN, whose analyses live with the 372,000-read signature and the 14-hour workload, this is a structural removal at the layer that matters, measured on a real CMS Open Data file and released as open source.
 
-The next-phase work is specified in the Status section. It is a set of measured questions, not open bets: the harness, the runbook, and the fork are the starting point for that conversation.
+The next-phase work is specified in the Status section. It is a set of measured questions: the harness, the runbook, and the fork are the starting point for that conversation.
 
 [^synTagma]: synTagma, Spatial coordinate space computing system <https://docs.ssccs.org/projects/syntagma>, Pre-release, Apache 2.0.
 
 [^m1-note]: The project tracks the work in milestones M1 to M5, stated in the [Direction](#the-direction): M1 instruments and measures the baseline read path, M2 to M4 build and integrate the coordinate-indexed store, and M5 releases the demonstration. This report covers the measured outcome; later references to the M1 signature and the M1 slice mean the cache-disabled baseline access pattern measured in M1.
 
-[^footprint_note]: The fork's footprint on the baseline path is two dormant null checks and one read-system-call counter increment per operation. Over the full run this is bounded below one millisecond against a 192.8 s wall time, about five orders of magnitude below measurement noise, so the baseline matches the upstream ROOT read path. The measured read pattern, 1.37 reads per event at 2,635 bytes per read on the M1 slice, is produced by the unchanged branch, basket, and cache logic, and matches the documented 372,000 by 4.6 KB singular-read scale. A cross-check against a build without the coordinate changes is expected to confirm identical numbers.
+[^footprint_note]: The fork's footprint on the baseline path is two dormant null checks and one read-system-call counter increment per operation. Over the full run this is bounded below one millisecond against a 192.8 s wall time, about five orders of magnitude below measurement noise, so the baseline matches the upstream ROOT read path. The measured read pattern, 1.37 reads per event at 2,635 bytes per read on the M1 slice, is produced by the unchanged branch, basket, and cache logic, and matches the 372,000 by 4.6 KB singular-read scale. A cross-check against a build without the coordinate changes is expected to confirm identical numbers.
 
-[^ccesop-note]: The documented case is the 2025 Fermilab CCESOP analysis: 372,000 singular reads averaging 4.6 KB at an effective 33 KB/s over roughly 14 hours. The M1 measurement reproduced the signature on the CMS Run2016G DoubleMuon NanoAOD first file: 1.37 to 2.76 reads per event at 2.6 to 0.8 KB per read across cache-disabled slices.
+[^ccesop-note]: The case is the 2025 Fermilab CCESOP analysis: 372,000 singular reads averaging 4.6 KB at an effective 33 KB/s over roughly 14 hours. The M1 measurement reproduced the signature on the CMS Run2016G DoubleMuon NanoAOD first file: 1.37 to 2.76 reads per event at 2.6 to 0.8 KB per read across cache-disabled slices.
 
-[^scatter-note]: The branch count is the documented NanoAOD configuration from the CCESOP analysis. The file used in this project has 1,380 leaves; its smaller scatter lowers the full-file reads per event to 0.20 once baskets are resident, see the basket footnote.
+[^scatter-note]: The branch count is the NanoAOD configuration from the CCESOP analysis. The file used in this project has 1,380 leaves; its smaller scatter lowers the full-file reads per event to 0.20 once baskets are resident, see the basket footnote.
 
 [^decomp-note]: The headroom is the ratio of the decompression capacity (TTreePerfStats ReadUZCP) to the effective throughput, measured at 27x, 44x, and 18x on the cache-on, 2,000-entry cache-off, and 500-entry cache-off runs of M1.
 
