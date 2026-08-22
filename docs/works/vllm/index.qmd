@@ -86,7 +86,7 @@ title_meta_items = {
         {"title": "Tech report", "link": "kvcache", "content": "KV Cache", "icon": "bi bi-link"},
 
         {"title": "Reference", "link": "/projects/syntagma/tagma/map/", "content": "TagmaMap", "icon": "bi bi-link"},
-        {"title": "Reference", "link": "/works/cern/root-ttree", "content": "CERN ROOT-Bypass", "icon": "bi bi-link"},
+        {"title": "Reference", "link": "/works/cern/root-ttree", "content": "CERN ROOT-Coord", "icon": "bi bi-link"},
 
         {"title": "Whitepapers", "link": "https://docs.ssccs.org/projects/syntagma/tagma/index.pdf", "content": "Tagma", "icon": "bi bi-link"},
 
@@ -101,11 +101,11 @@ title_meta_items = {
 
 vLLM is the de facto LLM serving engine. Its KV cache, managed by PagedAttention, splits into fixed-size blocks and maps logical token positions to physical blocks through a per-sequence block table. Every attention computation gathers K and V through that table, and the write path loads one table entry per token position.
 
-The tagma backend on the SSCCS vLLM fork replaces this indirection with range arithmetic: a request holds its KV blocks as contiguous ranges, so the physical block is a closed form of the logical position, with no per-position block-table load. The same structural pattern was measured end to end in the CERN ROOT-Bypass work (69.0x coordinate, 181.7x mapped); those numbers do not project a vLLM speedup. The software level is implemented, tested, and measured on the host; the GPU serve benchmark is pending. The detailed topic report is the [KV Cache report](kvcache).
+The tagma backend on the SSCCS vLLM fork replaces this indirection with range arithmetic: a request holds its KV blocks as contiguous ranges, so the physical block is a closed form of the logical position, with no per-position block-table load. The same structural pattern was measured end to end in the CERN ROOT-Coord work; those numbers do not project a vLLM speedup. The software level is implemented, tested, and measured on the host; the GPU serve benchmark is pending. The detailed topic report is the [KV Cache report](kvcache).
 
 ## What SSCCS Brings
 
-SSCCS is an independent, non-profit foundation advancing open structural computing. For vLLM it brings the Tagma Map coordinate space (hash-less, O(1) arithmetic addressing), the Chton materialization layer, the base11172 self-validating encoding, and Apache 2.0 releases. The core principle is validated in production scientific workloads (CERN ROOT-Bypass).
+SSCCS is an independent, non-profit foundation advancing open structural computing. For vLLM it brings the Tagma Map coordinate space (hash-less, O(1) arithmetic addressing), the Chton materialization layer, the base11172 self-validating encoding, and Apache 2.0 releases. The core principle is validated in production scientific workloads (CERN ROOT-Coord).
 
 ## The Problem
 
@@ -148,6 +148,6 @@ The implementation is a working first version on the SSCCS vLLM fork (`ssccsorg/
 
 - [vLLM KVCacheManager](https://docs.vllm.ai/en/latest/design/kv_cache_manager.html)
 - [PagedAttention: vLLM's memory management](https://arxiv.org/abs/2309.06180)
-- [CERN ROOT-Bypass report](https://docs.ssccs.org/works/cern/root-ttree/)
+- [CERN ROOT-Coord report](https://docs.ssccs.org/works/cern/root-ttree/)
 - [Tagma Map documentation](https://docs.ssccs.org/projects/syntagma/tagma/map/)
 - [SSCCS vLLM fork](https://github.com/ssccsorg/vllm)

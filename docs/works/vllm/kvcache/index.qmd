@@ -83,7 +83,7 @@ title_meta_items = {
         {"title": "Code", "link": "https://github.com/ssccsorg/vllm", "content": "vLLM fork", "icon": "bi bi-link"},
         {"title": "Code", "link": "https://github.com/ssccsorg/vllm/tree/main/csrc/tagma/bench", "content": "Benchmark", "icon": "bi bi-link"},
         {"title": "Reference", "link": "/projects/syntagma/tagma/map/", "content": "TagmaMap", "icon": "bi bi-link"},
-        {"title": "Reference", "link": "/works/cern/root-ttree/", "content": "CERN ROOT-Bypass", "icon": "bi bi-link"},
+        {"title": "Reference", "link": "/works/cern/root-ttree/", "content": "CERN ROOT-Coord", "icon": "bi bi-link"},
         {"title": "Whitepapers", "link": "https://docs.ssccs.org/projects/syntagma/tagma/index.pdf", "content": "Tagma", "icon": "bi bi-link"},
         {"title": "Whitepapers", "link": "https://docs.ssccs.org/projects/syntagma/tagma/map/index.pdf", "content": "TagmaMap", "icon": "bi bi-link"},
     ],
@@ -136,7 +136,7 @@ physical_block = range_start + (position // block_size - range_cum)
 
 The load leaves the per-position path entirely: the paged kernel issues one table load per position, the tagma kernel issues the descriptor load per position block and arithmetic per position. Positions that fall outside every range are padded with the same pad id the paged kernel uses, so CUDA graph capture sees stable slot-mapping values across runs. This report measures that difference at the software level, and the serve benchmark measures it on-device.
 
-The same structural pattern, an index-table lookup replaced by a closed form, was measured end to end in the CERN ROOT-Bypass work on a production CMS dataset (69.0x coordinate, 181.7x mapped). Those numbers are the measured result of that workload; they do not project a vLLM speedup.
+The same structural pattern, an index-table lookup replaced by a closed form, was measured end to end in the CERN ROOT-Coord work on a production CMS dataset. Those numbers are the measured result of that workload; they do not project a vLLM speedup.
 
 The structural parallel is the same index-table pattern in both workloads:
 
@@ -350,6 +350,8 @@ The allocator and coordinate numbers bound the per-step bookkeeping of the sched
 
 The slot-mapping numbers measure parity on the host: a dense block table is L1-resident, so the gather and the range arithmetic cost the same per position. The host does not reproduce the GPU gather profile: memory divergence, L2 and TLB behavior, and the per-position load instruction in the Triton kernel. The structural claim of the tagma write path is the mechanism, the absence of a per-position table load, not a measured speedup. The GPU serve benchmark measures that profile, and it decides whether the write-path difference matters on-device and whether the read-path kernels should move to range arithmetic.
 
+The GPU serve benchmark may measure parity. If it does, the conclusion is that the write-path block-table indirection is not the dominant cost of vLLM inference: the structural claim stands as a measured mechanism, not an end-to-end speedup, and the write-path integration is not pursued as a performance contribution.
+
 ## Correctness Verification
 
 The software level is verified by tests that run without a GPU: 16 C++ engine tests (ASan and UBSan clean), 4 config tests, 13 manager integration tests, and 6 write-path range-compression tests, all passing. The four write-path kernel and CUDA integration tests are written and skipped without a GPU: kernel equivalence with the paged kernel, multi-range requests, out-of-range padding, and dummy zeroing. The `vllm.tagma` extension builds through the real CMake target and imports.
@@ -366,6 +368,7 @@ The CUDA machine is the remaining measurement and optimization surface:
 
 - Run the four GPU write-path tests on a CUDA machine
 - Run the serve benchmark (`run-vllm-tagma-benchmark.sh`) on an NVIDIA H100 or A100, paged against tagma on the same card, on ShareGPT at 16K and 128K context, and record time to first token, decode latency, throughput, and KV cache footprint
+- If the benchmark measures parity, the write-path integration is recorded as a measured negative result and is not proposed upstream as a performance feature
 - Profile the block-table gather in the attention kernels on the baseline run: the fraction of kernel time loading `block_table` entries, and the L2 and TLB behavior of the gather against sequential range access
 - The read-path optimization, range arithmetic inside the vLLM-owned Triton kernels (`unified_attention`, `context_attention_fwd`), is implemented only if that profile shows the gather is a measurable share; the host model measures parity and does not justify it alone
 - MLA and hybrid cache support remain planned; the backend fails closed on those configurations
@@ -386,7 +389,7 @@ The coordinate-indexed write path replaces the per-position block-table gather w
 
 - [vLLM KVCacheManager](https://docs.vllm.ai/en/latest/design/kv_cache_manager.html)
 - [PagedAttention: vLLM's memory management](https://arxiv.org/abs/2309.06180)
-- [CERN ROOT-Bypass report](https://docs.ssccs.org/works/cern/root-ttree/)
+- [CERN ROOT-Coord report](https://docs.ssccs.org/works/cern/root-ttree/)
 - [Tagma Map documentation](https://docs.ssccs.org/projects/syntagma/tagma/map/)
 - [SSCCS vLLM fork](https://github.com/ssccsorg/vllm)
 - [Host benchmark](https://github.com/ssccsorg/vllm/tree/52-tagma-kv-vllm/csrc/tagma/bench)
