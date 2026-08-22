@@ -78,6 +78,7 @@ digraph DOTGraph {
 
 ## Code
 
+- When exploring the folder structure or searching files, exclude paths ignored by `.gitignore` from the search scope to save tokens.
 - Implement → Review → Apply feedback & fix → Build/Test (clean) → Commit → Propose next direction → Await user signal → Repeat
 - Focus on the accuracy of the goal.
 - Code as pessimistically and critically as possible.
