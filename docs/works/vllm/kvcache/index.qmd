@@ -108,6 +108,10 @@ The indirection carries a structural cost.
 
 The slot-mapping kernel computes the physical position of every token by loading the request's block-table entry. On the write path this is one table load per token position, and the attention kernels repeat the same resolution on the read path. Each resolution is an extra memory access, and the count scales with sequence length, batch size, and the number of blocks each request touches.
 
+### Reported overhead figures
+
+Third-party studies report a block-table preparation share of decode iteration latency and a kernel gap against specialized attention implementations. These figures are cited with their sources where possible and remain unverified in this work until the GPU serve benchmark measures them on the SSCCS fork. The structural cost, an extra lookup per position, does not depend on those figures.
+
 ### Scaling degradation
 
 The per-position lookup cost grows with context length. As context windows move toward 128K tokens and beyond, the cumulative indirection cost becomes a first-order consideration, which the GPU serve benchmark measures rather than assumes.
@@ -133,6 +137,16 @@ physical_block = range_start + (position // block_size - range_cum)
 The load leaves the per-position path entirely: the paged kernel issues one table load per position, the tagma kernel issues the descriptor load per position block and arithmetic per position. Positions that fall outside every range are padded with the same pad id the paged kernel uses, so CUDA graph capture sees stable slot-mapping values across runs. This report measures that difference at the software level, and the serve benchmark measures it on-device.
 
 The same structural pattern, an index-table lookup replaced by a closed form, was measured end to end in the CERN ROOT-Bypass work on a production CMS dataset (69.0x coordinate, 181.7x mapped). Those numbers are the measured result of that workload; they do not project a vLLM speedup.
+
+The structural parallel is the same index-table pattern in both workloads:
+
+| CERN ROOT TTree | vLLM Block Table |
+| :--- | :--- |
+| Branch, basket, and cache index traversal | Logical-to-physical block indirection |
+| 372,000 reads over roughly 14 hours | Per-block lookup in every attention computation |
+| Coordinate arithmetic measured at 69.0x to 181.7x | Range arithmetic on the write path, GPU measurement pending |
+
+The vLLM column is the target of the serve benchmark, not a measured claim.
 
 ## The Coordinate Approach
 
@@ -206,6 +220,15 @@ The slot-mapping model mirrors the two Triton kernels at host scale: the paged r
 ### GPU serve benchmark
 
 The serve benchmark (`run-vllm-tagma-benchmark.sh` in the syntagma devlogs) measures the end-to-end comparison on an NVIDIA H100 or A100, the same card for both runs, on ShareGPT at 16K and 128K context: time to first token, decode latency, throughput, and KV cache footprint. This is milestone M6 and is pending.
+
+The measurement targets, with the baseline condition explicit:
+
+| Metric | Baseline (vLLM) | Tagma Target | Expected Improvement |
+| :--- | :--- | :--- | :--- |
+| Write-path slot mapping | Block-table gather per token position | Range arithmetic, no gather | Measured per-step kernel cost |
+| Read-path block resolution | Materialized table in v0 | Range arithmetic for vLLM-owned kernels | Deferred until the benchmark shows the gather matters |
+| Throughput (128K context) | vLLM baseline on the same hardware | Tagma backend | Target to be measured; no prior claim |
+| Memory footprint | Paged blocks | Contiguous ranges | Measured under concurrent load |
 
 ## Measured Results
 
@@ -329,7 +352,7 @@ The slot-mapping numbers measure parity on the host: a dense block table is L1-r
 
 ## Correctness Verification
 
-The software level is verified by tests that run without a GPU: 16 C++ engine tests (ASan and UBSan clean), 4 config tests, 13 manager integration tests, and 5 write-path range-compression tests, all passing. The four write-path kernel and CUDA integration tests are written and skipped without a GPU: kernel equivalence with the paged kernel, multi-range requests, out-of-range padding, and dummy zeroing. The `vllm.tagma` extension builds through the real CMake target and imports.
+The software level is verified by tests that run without a GPU: 16 C++ engine tests (ASan and UBSan clean), 4 config tests, 13 manager integration tests, and 6 write-path range-compression tests, all passing. The four write-path kernel and CUDA integration tests are written and skipped without a GPU: kernel equivalence with the paged kernel, multi-range requests, out-of-range padding, and dummy zeroing. The `vllm.tagma` extension builds through the real CMake target and imports.
 
 ## Status
 
@@ -357,7 +380,7 @@ The CUDA machine is the remaining measurement and optimization surface:
 
 ## Conclusion
 
-The coordinate-indexed write path replaces the per-position block-table gather with range arithmetic. The software level is implemented on the SSCCS vLLM fork and verified at the unit, integration, and host-measurement level: 16 C++ engine tests, 22 Python tests, 11 host benchmark scenarios, and the real CMake extension target. The host slot-mapping model measures parity, which is the honest pre-GPU state of the write-path claim: the mechanism is in place, the on-device evidence is not yet measured. The GPU serve benchmark is the next measured question, and the runbook, the runner script, and the fork are the starting point for it.
+The coordinate-indexed write path replaces the per-position block-table gather with range arithmetic. The software level is implemented on the SSCCS vLLM fork and verified at the unit, integration, and host-measurement level: 16 C++ engine tests, 23 Python tests, 11 host benchmark scenarios, and the real CMake extension target. The host slot-mapping model measures parity, which is the honest pre-GPU state of the write-path claim: the mechanism is in place, the on-device evidence is not yet measured. The GPU serve benchmark is the next measured question, and the runbook, the runner script, and the fork are the starting point for it.
 
 ## References
 

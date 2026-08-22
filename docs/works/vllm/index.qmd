@@ -67,7 +67,6 @@ format:
         }
 
         \makeatother
-
 ---
 
 ```{python}
@@ -100,148 +99,36 @@ title_meta_items = {
 
 ## Abstract
 
-This document outlines a structural contribution to vLLM, the de facto standard LLM serving engine. vLLM's PagedAttention reduced KV cache memory fragmentation, but introduced an indirection layer: a per-sequence block table maps logical token positions to physical blocks, and every attention computation gathers K and V through that table. Each block lookup is an extra memory access that grows with sequence length and batch size.
+vLLM is the de facto LLM serving engine. Its KV cache, managed by PagedAttention, splits into fixed-size blocks and maps logical token positions to physical blocks through a per-sequence block table. Every attention computation gathers K and V through that table, and the write path loads one table entry per token position.
 
-We propose replacing vLLM's block-table indirection with Tagma Map coordinate addressing, where a coordinate resolves to a byte offset by closed-form arithmetic and no table lookup. The structural pattern is the same as the [CERN ROOT-Bypass work](https://docs.ssccs.org/works/cern/root-ttree/), which replaced branch, basket, and cache traversal with coordinate arithmetic and measured [69.0x (coordinate) and 181.7x (mapped) speedups](https://docs.ssccs.org/works/cern/root-ttree/#measured-results) on a production CMS dataset.
-
-This version of the document reflects a working implementation on the SSCCS vLLM fork (`ssccsorg/vllm`): a C++ Tagma Map engine under `csrc/tagma`, a `vllm.tagma` host extension, and a `TagmaKVCacheManager` that preserves the scheduler-facing `KVCacheManager` contract. The write path derives physical blocks by range arithmetic without a block-table load. The read path keeps the materialized block table in this first version, because attention backends, including external ones with fixed ABIs, consume that tensor. The vLLM API and user experience stay unchanged; unsupported configurations fail closed. The measured software-level results and the pending GPU serve benchmark are reported in the [KV Cache topic report](kvcache). Numbers attributed to vLLM internals are marked as reported or conjectural where they have not been measured in this work.
-
-## Institutional Alignment
-
-SSCCS is an independent foundation operating under the SSCCS Charter, with a primary mission of advancing open structural computing. It is not accountable to any state, party, or corporation, and releases its core work under Apache 2.0. The proposed contribution stays within the open-source ecosystem: vLLM is the de facto standard LLM serving engine, used by organizations worldwide, and improving its core architecture benefits the entire AI community.
-
-SSCCS works precisely in the domain of structural computing: coordinate-space addressing that eliminates hash-based indexing, with primitives already validated on silicon simulators and in production scientific workloads (CERN ROOT-Bypass).
+The tagma backend on the SSCCS vLLM fork replaces this indirection with range arithmetic: a request holds its KV blocks as contiguous ranges, so the physical block is a closed form of the logical position, with no per-position block-table load. The same structural pattern was measured end to end in the CERN ROOT-Bypass work (69.0x coordinate, 181.7x mapped); those numbers do not project a vLLM speedup. The software level is implemented, tested, and measured on the host; the GPU serve benchmark is pending. The detailed topic report is the [KV Cache report](kvcache).
 
 ## What SSCCS Brings
 
-The following foundational assets are under active development, with key primitives already validated:
+SSCCS is an independent, non-profit foundation advancing open structural computing. For vLLM it brings the Tagma Map coordinate space (hash-less, O(1) arithmetic addressing), the Chton materialization layer, the base11172 self-validating encoding, and Apache 2.0 releases. The core principle is validated in production scientific workloads (CERN ROOT-Bypass).
 
-| Asset | Relevance to vLLM |
-| :--- | :--- |
-| Tagma Map (hash-less coordinate space; O(1) arithmetic addressing) | Replaces the `block_table` lookup with coordinate-to-offset computation on the write path, with the same available to vLLM-owned read kernels |
-| Chton (zero-serialization IO materialization) | Storage format equals memory layout; the read path has no serialization step; a candidate direction for KV cache materialization |
-| base11172 (self-validating encoding) | Coordinate-space encoding that rejects invalid states immediately; usable for cache key encoding |
-| Apache 2.0 release | Unencumbered integration with open-source ecosystems |
+## The Problem
 
-The core principle is validated. CERN ROOT-Bypass replaced index traversal with coordinate addressing and measured 69.0x (coordinate) and 181.7x (mapped) speedups on a production scientific workload, with 60.9x on the analysis workload. The structural pattern, index-table indirection causing per-request overhead, is the same as vLLM's `block_table` problem. Those numbers are the measured result of that workload; they do not project a vLLM speedup.
+PagedAttention reduced KV cache fragmentation but introduced an indirection layer: the per-request block table. The attention kernels and the write path resolve every token position through it, one extra memory access that scales with sequence length and batch size. Community optimizations compact the table but stay inside the paradigm. The access pattern detail is in the [KV Cache report](kvcache).
 
-## The Problem: Block-Table Indirection in vLLM
+## The Approach
 
-vLLM's PagedAttention reduced KV cache fragmentation by splitting the cache into fixed-size blocks and mapping logical token positions to physical blocks through a per-sequence block table. The indirection carries a structural cost.
-
-### Block-table lookup per block
-
-The attention kernel resolves every logical block through the table before touching K and V. Each resolution is an extra memory access, and the count scales with sequence length, batch size, and the number of blocks each request touches.
-
-### Reported overhead figures
-
-Third-party studies report a block-table preparation share of decode iteration latency and a kernel gap against specialized attention implementations. These figures are cited with their sources where possible and remain unverified in this work until the benchmark in the demonstration section measures them on the SSCCS fork. The structural cost, an extra lookup per block, does not depend on those figures.
-
-### Scaling degradation
-
-Block-table lookup cost grows with context length. As context windows move toward 128K tokens and beyond, the cumulative indirection cost becomes a first-order consideration, which the demonstration measures rather than assumes.
-
-### Existing optimizations stay inside the paradigm
-
-Community efforts have compacted the table, for example by fusing table operations or flattening its layout. Those are optimizations of the table, and the structural cost of the indirection remains. The SSCCS position is to remove the table on the write path now, and to remove it on the read path for vLLM-owned kernels once the benchmark justifies it.
-
-## The SSCCS Approach: Replacing Indirection with Arithmetic
-
-Tagma Map replaces the `block_table` with coordinate arithmetic. Instead of:
-
-```text
-logical_block → block_table lookup → physical_block → KV data
-```
-
-Tagma computes:
-
-```text
-(layer, block, token) → coordinate → direct byte offset → KV data
-```
-
-### Key Insight
-
-vLLM's `block_table` is structurally similar to CERN ROOT's branch-basket-cache traversal:
-
-| CERN ROOT TTree | vLLM Block Table |
-| :--- | :--- |
-| Branch/basket/cache index traversal | Logical-to-physical block indirection |
-| 372,000 reads → roughly 14 hours | Per-block lookup in every attention computation |
-| Tagma coordinate arithmetic: 69.0x to 181.7x measured | Tagma coordinate arithmetic: lookup replaced by closed form |
-
-The structural pattern, index-table lookup causing per-request overhead, is the same. The solution, coordinate arithmetic replacing index traversal, is the same. The vLLM numbers in the right column are the target of the proposed demonstration, and the CERN numbers on the left are the measured precedent.
-
-### How Tagma Map Works for KV Cache
-
-In Tagma Map, the coordinate space is defined by:
+The tagma backend addresses the KV cache directly:
 
 ```text
 n(layer, block, token) = (layer * B + block) * T + token
 offset = n * bytes_per_token
 ```
 
-Where:
+Requests hold contiguous block ranges from the coordinate allocator, so the physical block is derived by arithmetic with no table lookup. The mechanism, the allocator, and the implementation boundary are in the [KV Cache report](kvcache).
 
-- `layer` = model layer index (0..L-1)
-- `block` = KV cache block index (0..B-1)
-- `token` = token offset within block (0..T-1)
-- `bytes_per_token` = KV cache size per token (for example 584 bytes for a DeepSeek-class MLA layout)
+## The Offer
 
-No hash, no block table, no index scan. The physical address is computed directly. This arithmetic is implemented in `csrc/tagma/kv_coord_map.h` on the SSCCS fork. The remaining piece, assigning requests contiguous block ranges so the block index is a closed form of the logical position, is implemented in `csrc/tagma/kv_allocator.h` with grow-in-place extension.
+- Same API: the scheduler-facing `KVCacheManager` contract is preserved
+- Same user experience: `vllm serve` with a new `--kv-cache-backend tagma` selector
+- Same ecosystem: unsupported configurations fail closed rather than silently degrading
 
-## The Offer to vLLM
-
-### What Stays the Same
-
-- API: vLLM's existing `KVCacheManager` interface remains unchanged
-- User experience: Same `vllm serve` command, same configuration flags, with a new `--kv-cache-backend tagma` selector
-- Ecosystem: Compatible with existing models in the current scope; MLA and hybrid caches are planned, and unsupported configurations fail closed rather than silently degrading
-
-### What Changes
-
-- Write path: the slot-mapping computation derives physical blocks from per-request contiguous ranges, with no block-table load
-- `KVCacheManager`: a `TagmaKVCacheManager` implements the same scheduler contract over the coordinate allocator
-- Read path: the materialized block table stays in this version because attention backends, including external ones with fixed ABIs, consume that tensor; vLLM-owned kernels can switch to coordinate arithmetic once the benchmark justifies it
-
-### Implementation Boundary
-
-The replacement happens below the Python layer, in vLLM's `csrc/` C++ core:
-
-| Layer | Change |
-| :--- | :--- |
-| Python (`KVCacheManager`) | A coordinate-space manager over the allocator, preserving the scheduler contract |
-| C++ (`csrc/tagma`) | Tagma Map engine: coordinate arithmetic and the contiguous-range allocator |
-| Write-path kernels | Coordinate-to-offset slot mapping, no `block_table` load |
-| Read-path kernels | Unchanged in this version; range arithmetic for vLLM-owned kernels is the next step |
-
-The ecosystem is not broken; only the interior is replaced.
-
-## Proposed Demonstration
-
-We propose a bounded demonstration on a standard LLM workload (ShareGPT, 16K to 128K context) that:
-
-1. Measures the baseline: block-table cost in stock vLLM on the same hardware
-2. Runs the Tagma Map backend: coordinate allocation and slot mapping on the same workload
-3. Reports the comparison: latency, throughput, and memory footprint against the baseline
-
-The success criteria below are hypotheses to be confirmed by that measurement, stated as targets with the baseline condition explicit.
-
-### Success Criteria
-
-| Metric | Baseline (vLLM) | Tagma Target | Expected Improvement |
-| :--- | :--- | :--- | :--- |
-| Write-path slot mapping | Block-table gather per token position | Range arithmetic, no gather | Measured per-step kernel cost |
-| Read-path block resolution | Materialized table in v0 | Range arithmetic for vLLM-owned kernels | Deferred until the benchmark shows the gather matters |
-| Throughput (128K context) | vLLM baseline on the same hardware | Tagma backend | Target to be measured; no prior claim |
-| Memory footprint | Paged blocks | Contiguous ranges | Measured under concurrent load |
-
-### Scope
-
-- Completed on the SSCCS fork: Tagma Map C++ engine in `csrc/tagma`, `vllm.tagma` host extension, `TagmaKVCacheManager`, write-path slot mapping, unit and integration tests
-- Measured at the software level: host benchmark and verification, reported in the [KV Cache topic report](kvcache); the GPU serve benchmark and the read-path decision are pending on a CUDA machine
-- The upstream PR is opened only after the measured comparison and a human review of every changed line, per the vLLM contribution policy
-
-The demonstration establishes the collaboration on the basis of a working result: the approach demonstrated on vLLM's own access pattern, without disturbing the production ecosystem.
+The write path changes; the read path keeps the materialized block table in this version because external attention backends with fixed ABIs consume it.
 
 ## Why This Is a Structural Reset, Not an Optimization
 
@@ -251,21 +138,11 @@ The demonstration establishes the collaboration on the basis of a working result
 | Block-table caching | Optimization of table access | Incremental improvement |
 | Tagma Map | Removal of the table on the write path | Structural reset |
 
-vLLM's existing optimizations, such as fused Triton kernels and block-table caching, operate within the block-table paradigm. Tagma Map removes the table from the write path and can remove it from vLLM-owned read kernels. The distinction is the same as in CERN ROOT-Bypass: making the index faster is an optimization, while removing the index is a structural change.
+Making the index faster is an optimization; removing the index is a structural change.
 
 ## Status
 
-This page is the overview of the vLLM KVCache contribution; the detailed topic report with the measured results and the pending GPU work is the [KV Cache report](kvcache). The implementation is a working first version on the SSCCS vLLM fork (`ssccsorg/vllm`, branch `52-tagma-kv-vllm`):
-
-- `csrc/tagma/kv_coord_map.h` and `csrc/tagma/kv_allocator.h`: the coordinate arithmetic and the contiguous-range allocator
-- `csrc/tagma/tagma_bindings.cpp`: the `vllm.tagma` host extension, building through the real CMake target
-- `vllm/v1/core/tagma_kv_cache_manager.py`: the scheduler-facing manager, with fail-closed rejection of unsupported configurations
-- Write-path slot mapping without a block-table load, and a `--kv-cache-backend tagma` selector
-- 16 C++ engine tests, 22 Python tests at the software level, and the host benchmark, all passing; 4 GPU write-path tests written and pending
-
-Software level: complete and measured on the host. GPU level: the serve benchmark (paged against tagma, ShareGPT at 16K and 128K context), the block-table gather profile, the read-path decision, and MLA and hybrid cache support are the remaining surface. The upstream PR is opened only after the measured comparison and a human review of every changed line, per the vLLM contribution policy.
-
-The structural solution exists for the write path and is validated at the unit, integration, and host-measurement level. The CERN ROOT-Bypass precedent shows the same pattern measured end to end on a production workload. The vLLM-specific GPU numbers remain to be measured on the serve benchmark, and this document does not claim them ahead of measurement.
+The implementation is a working first version on the SSCCS vLLM fork (`ssccsorg/vllm`, branch `52-tagma-kv-vllm`): the C++ engine under `csrc/tagma`, the `vllm.tagma` host extension, the scheduler-facing manager, and the write-path slot mapping, with 16 C++ engine tests, 23 Python tests at the software level, and the host benchmark passing. The software level is complete and measured on the host; the GPU serve benchmark (paged against tagma, ShareGPT at 16K and 128K context), the read-path decision, and MLA and hybrid cache support are pending. The upstream PR is opened only after the measured comparison and a human review of every changed line. The detailed measured results are in the [KV Cache report](kvcache).
 
 ## References
 
