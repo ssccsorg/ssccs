@@ -84,6 +84,8 @@ title_meta_items = {
         {"title": "Code", "link": "https://github.com/ssccsorg/vllm", "content": "vLLM fork", "icon": "bi bi-link"},
         {"title": "Code", "link": "https://github.com/ssccsorg/syntagma/tree/main/sw/cpp", "content": "synTagma", "icon": "bi bi-link"},
 
+        {"title": "Tech report", "link": "kvcache", "content": "KV Cache", "icon": "bi bi-link"},
+
         {"title": "Reference", "link": "/projects/syntagma/tagma/map/", "content": "TagmaMap", "icon": "bi bi-link"},
         {"title": "Reference", "link": "/works/cern/root-ttree", "content": "CERN ROOT-Bypass", "icon": "bi bi-link"},
 
@@ -102,7 +104,7 @@ This document outlines a structural contribution to vLLM, the de facto standard 
 
 We propose replacing vLLM's block-table indirection with Tagma Map coordinate addressing, where a coordinate resolves to a byte offset by closed-form arithmetic and no table lookup. The structural pattern is the same as the [CERN ROOT-Bypass work](https://docs.ssccs.org/works/cern/root-ttree/), which replaced branch, basket, and cache traversal with coordinate arithmetic and measured [69.0x (coordinate) and 181.7x (mapped) speedups](https://docs.ssccs.org/works/cern/root-ttree/#measured-results) on a production CMS dataset.
 
-This version of the document reflects a working implementation on the SSCCS vLLM fork (`ssccsorg/vllm`): a C++ Tagma Map engine under `csrc/tagma`, a `vllm.tagma` host extension, and a `TagmaKVCacheManager` that preserves the scheduler-facing `KVCacheManager` contract. The write path derives physical blocks by range arithmetic without a block-table load. The read path keeps the materialized block table in this first version, because attention backends, including external ones with fixed ABIs, consume that tensor. The vLLM API and user experience stay unchanged; unsupported configurations fail closed. Numbers attributed to vLLM internals are marked as reported or conjectural where they have not been measured in this work.
+This version of the document reflects a working implementation on the SSCCS vLLM fork (`ssccsorg/vllm`): a C++ Tagma Map engine under `csrc/tagma`, a `vllm.tagma` host extension, and a `TagmaKVCacheManager` that preserves the scheduler-facing `KVCacheManager` contract. The write path derives physical blocks by range arithmetic without a block-table load. The read path keeps the materialized block table in this first version, because attention backends, including external ones with fixed ABIs, consume that tensor. The vLLM API and user experience stay unchanged; unsupported configurations fail closed. The measured software-level results and the pending GPU serve benchmark are reported in the [KV Cache topic report](kvcache). Numbers attributed to vLLM internals are marked as reported or conjectural where they have not been measured in this work.
 
 ## Institutional Alignment
 
@@ -236,7 +238,7 @@ The success criteria below are hypotheses to be confirmed by that measurement, s
 ### Scope
 
 - Completed on the SSCCS fork: Tagma Map C++ engine in `csrc/tagma`, `vllm.tagma` host extension, `TagmaKVCacheManager`, write-path slot mapping, unit and integration tests
-- Next: benchmark against stock vLLM, then range arithmetic in vLLM-owned read kernels, then MLA and hybrid cache support
+- Measured at the software level: host benchmark and verification, reported in the [KV Cache topic report](kvcache); the GPU serve benchmark and the read-path decision are pending on a CUDA machine
 - The upstream PR is opened only after the measured comparison and a human review of every changed line, per the vLLM contribution policy
 
 The demonstration establishes the collaboration on the basis of a working result: the approach demonstrated on vLLM's own access pattern, without disturbing the production ecosystem.
@@ -253,17 +255,17 @@ vLLM's existing optimizations, such as fused Triton kernels and block-table cach
 
 ## Status
 
-This is a draft framework document for initial discussion. The implementation it describes is a working first version on the SSCCS vLLM fork (`ssccsorg/vllm`, branch `52-tagma-kv-vllm`):
+This page is the overview of the vLLM KVCache contribution; the detailed topic report with the measured results and the pending GPU work is the [KV Cache report](kvcache). The implementation is a working first version on the SSCCS vLLM fork (`ssccsorg/vllm`, branch `52-tagma-kv-vllm`):
 
 - `csrc/tagma/kv_coord_map.h` and `csrc/tagma/kv_allocator.h`: the coordinate arithmetic and the contiguous-range allocator
-- `csrc/tagma/tagma_bindings.cpp`: the `vllm.tagma` host extension
+- `csrc/tagma/tagma_bindings.cpp`: the `vllm.tagma` host extension, building through the real CMake target
 - `vllm/v1/core/tagma_kv_cache_manager.py`: the scheduler-facing manager, with fail-closed rejection of unsupported configurations
 - Write-path slot mapping without a block-table load, and a `--kv-cache-backend tagma` selector
-- C++ unit tests, Python integration tests, and config tests, all passing
+- 16 C++ engine tests, 22 Python tests at the software level, and the host benchmark, all passing; 4 GPU write-path tests written and pending
 
-The next steps are the benchmark against stock vLLM, range arithmetic in vLLM-owned read kernels, and MLA and hybrid cache support. The document will be updated as the discussion develops.
+Software level: complete and measured on the host. GPU level: the serve benchmark (paged against tagma, ShareGPT at 16K and 128K context), the block-table gather profile, the read-path decision, and MLA and hybrid cache support are the remaining surface. The upstream PR is opened only after the measured comparison and a human review of every changed line, per the vLLM contribution policy.
 
-The structural solution exists for the write path and is validated at the unit and integration level. The CERN ROOT-Bypass precedent shows the same pattern measured end to end on a production workload. The vLLM-specific numbers remain to be measured, and this document does not claim them ahead of measurement.
+The structural solution exists for the write path and is validated at the unit, integration, and host-measurement level. The CERN ROOT-Bypass precedent shows the same pattern measured end to end on a production workload. The vLLM-specific GPU numbers remain to be measured on the serve benchmark, and this document does not claim them ahead of measurement.
 
 ## References
 
