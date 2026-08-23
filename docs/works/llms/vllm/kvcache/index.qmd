@@ -6,9 +6,9 @@ date-format: "MMMM, YYYY"
 version-prefix: "vllm_kvcache-doi.org/10.5281/zenodo.21888670"
 version-mark: true
 metadata-files:
-  - ../../../_include/format.html.yml
-  - ../../../_include/format.pdf.yml
-  - ../../../_include/author.founder.yml
+  - ../../../../_include/format.html.yml
+  - ../../../../_include/format.pdf.yml
+  - ../../../../_include/author.founder.yml
 colorlinks: true
 format:
   html: {}
@@ -72,7 +72,7 @@ format:
 ```{python}
 #| include: false
 #| context: local
-%run ../../../_include/_graphviz.py
+%run ../../../../_include/_graphviz.py
 ```
 
 ```{python}
@@ -90,7 +90,7 @@ title_meta_items = {
 }
 ```
 
-{{< include ../../../_include/_title_meta_items.qmd >}}
+{{< include ../../../../_include/_title_meta_items.qmd >}}
 
 ## Abstract {.unnumbered .unlisted}
 
@@ -370,6 +370,7 @@ The CUDA machine is the remaining measurement and optimization surface:
 - Run the serve benchmark (`run-vllm-tagma-benchmark.sh`) on an NVIDIA H100 or A100, paged against tagma on the same card, on ShareGPT at 16K and 128K context, and record time to first token, decode latency, throughput, and KV cache footprint
 - If the benchmark measures parity, the write-path integration is recorded as a measured negative result and is not proposed upstream as a performance feature
 - Profile the block-table gather in the attention kernels on the baseline run: the fraction of kernel time loading `block_table` entries, and the L2 and TLB behavior of the gather against sequential range access
+- Profile the per-step materialization copy `_gather_block_tables_kernel` in tagma mode: the staged `block_tables` tensor is written and then copied to `input_block_tables` every step, and the copy is redundant because the range tables already hold the request layout. If the profile shows the copy is a measurable share, replace it with a range-expansion kernel that fills `input_block_tables` directly from the range tables. The execution plan is the vLLM tagma GPU plan in the syntagma devlogs
 - The read-path optimization, range arithmetic inside the vLLM-owned Triton kernels (`unified_attention`, `context_attention_fwd`), is implemented only if that profile shows the gather is a measurable share; the host model measures parity and does not justify it alone
 - MLA and hybrid cache support remain planned; the backend fails closed on those configurations
 - Open the upstream pull request after the measured comparison and a human review of every changed line, per the vLLM contribution policy
