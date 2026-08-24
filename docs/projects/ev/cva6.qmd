@@ -29,11 +29,19 @@ abstract: |
   industry-standard reference for what the core accepts: NOP at
   funct3=000/funct7=0, and the ADD family at funct3=001 with funct7 in
   {0,1,2,3,4}. The standard pipeline evaluates all 33,554,432 field-value
-  combinations in 18.0 seconds (release build, single Apple silicon core),
-  yielding 196,608 valid combinations. The Tagma-based structural enumeration
-  evaluates the same space in 18.5 milliseconds by enumerating only the
-  combinations that satisfy the cross constraints, a ~970x improvement on
-  this machine. The structural iterator emits exactly the combinations that
+  combinations in 13.1 seconds (release build, single Apple silicon core),
+  yielding 196,608 valid combinations. Because the model is derived from
+  the decoder's own mask table, this verification is a conformance check of
+  the encoding contract rather than a proof of the silicon: its value is the
+  deterministic accept/reject oracle, the boundary and divergence findings,
+  and the exhaustive ground truth for test generation. The Tagma-based
+  structural enumeration
+  evaluates the same space in 18.8 milliseconds by enumerating only the
+  combinations that satisfy the cross constraints, a ~700x improvement on
+  this machine. The ev verify CLI runs this structural pipeline by default:
+  the end-to-end command completes in about 0.2 seconds, and the core
+  pipeline (raw total plus structural subset plus evaluation) benches at
+  36.3 milliseconds. The structural iterator emits exactly the combinations that
   pass the full constraint set. The Spike backend runs a C reimplementation
   of the constraint model and assembler under Spike + pk; all 196,608 rows
   agree between the C and Rust implementations. Spike does not decode the
@@ -310,11 +318,11 @@ part of this report's evidence (see Correctness Guarantees).
 The advantage scales with space density. Measured per-state costs are about
 100-500 ns, and the speedup follows approximately `speedup = k / D`, where
 D = V/N is the valid density and k is a fixture-dependent constant (about
-3-14 here):
+1-5 here):
 
 ```{python}
 #| label: fig-density-speedup
-#| fig-cap: "Speedup as a function of valid-space density. The measured points follow the k/D model: sparser spaces give larger speedups. The CVA6 full space at 0.6% density measures ~970x; hundreds of times appear when the density is a few percent or lower."
+#| fig-cap: "Speedup as a function of valid-space density. The measured points follow the k/D model: sparser spaces give larger speedups. The CVA6 full space at 0.6% density measures ~700x; hundreds of times appear when the density is a few percent or lower."
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -322,16 +330,16 @@ plt.rcParams.update({"font.family": "sans-serif", "font.size": 9, "figure.dpi": 
 
 # Measured (fixture, density, speedup)
 measured = [
-    (1.000, 1.2),   # Small
-    (0.625, 2.1),   # Medium
-    (0.176, 79),    # Ibex
-    (0.156, 20),    # CVA6 R4
-    (0.006, 973),   # CVA6 full
+    (1.000, 1.7),   # Small
+    (0.625, 2.0),   # Medium
+    (0.176, 32),    # Ibex
+    (0.156, 13),    # CVA6 R4
+    (0.006, 697),   # CVA6 full
 ]
 
 fig, ax = plt.subplots(figsize=(7, 4))
 D = np.logspace(-3, 0, 200)
-for k, style, color in [(3, '--', '#A23B72'), (6, ':', '#F18F01'), (14, '-.', '#6BC8B8')]:
+for k, style, color in [(1.5, '--', '#A23B72'), (3, ':', '#F18F01'), (6, '-.', '#6BC8B8')]:
     ax.plot(D, k / D, style, color=color, linewidth=1.2, label=f'k={k}')
 for d, sp in measured:
     ax.plot(d, sp, 'o', color='#2E86AB', markersize=7, markeredgecolor='black')
@@ -404,15 +412,15 @@ pass the full constraint set; a regression fails the benchmark.
 
 ```{python}
 #| label: fig-speed-comparison
-#| fig-cap: "Verification time comparison across three approaches for the CVA6 XIF encoding space. ExaVerif completes in 18 seconds on a single core (release build)."
+#| fig-cap: "Verification time comparison across three approaches for the CVA6 XIF encoding space. ExaVerif completes in 13 seconds on a single core (release build)."
 import matplotlib.pyplot as plt
 import numpy as np
 
 plt.rcParams.update({"font.family": "sans-serif", "font.size": 9, "figure.dpi": 150})
 
 tools = ["riscv-dv\n(random)", "Formal\n(OneSpin)", "ExaVerif\n(exhaustive)"]
-times_min = [10, 120, 0.30]  # 18.0 seconds = 0.30 minutes
-times_max = [600, 4320, 0.30]  # 10 hours in minutes
+times_min = [10, 120, 0.22]  # 13.1 seconds = 0.22 minutes
+times_max = [600, 4320, 0.22]  # 10 hours in minutes
 
 fig, ax = plt.subplots(figsize=(8, 4))
 colors = ["#A23B72", "#F18F01", "#2E86AB"]
@@ -442,15 +450,15 @@ approaches are complementary.
 
 ```{python}
 #| label: fig-struct-speed
-#| fig-cap: "Verification time: standard evaluate (4.93ms for R4, 18.0s for full) vs struct_enum (247us for R4, 18.5ms for full). At CVA6 scale, struct_enum achieves 20x (R4) and 973x (full) speedup on this machine."
+#| fig-cap: "Verification time: standard evaluate (3.14ms for R4, 13.1s for full) vs struct_enum (250us for R4, 18.8ms for full). At CVA6 scale, struct_enum achieves 13x (R4) and ~700x (full) speedup on this machine."
 import matplotlib.pyplot as plt
 import numpy as np
 
 plt.rcParams.update({"font.family": "sans-serif", "font.size": 9, "figure.dpi": 150})
 
 fixtures = ["CVA6 R4\n16K combos", "CVA6 full\n33M combos"]
-eval_times = [4930, 18.0e6]  # 4.93 ms, 18.0 s in µs
-struct_times = [247, 18500]  # 247 µs, 18.5 ms (struct_enum, all checks)
+eval_times = [3140, 13.1e6]  # 3.14 ms, 13.1 s in µs
+struct_times = [250, 18800]  # 250 µs, 18.8 ms (struct_enum, all checks)
 speedups = [e / s for e, s in zip(eval_times, struct_times)]
 
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(9, 3.5), gridspec_kw={"width_ratios": [2, 1]})
@@ -486,11 +494,53 @@ fig.tight_layout()
 plt.show()
 ```
 
+## CLI verify path: the structural gain reaches the user
+
+Issue #42 integrated the structural enumeration into the `ev verify` CLI as
+the default. The CVA6 full space is the case where this matters most: the
+end-to-end command completes in about 0.2 seconds (including YAML parse and
+process startup), and the core pipeline, benched as `evaluate_structural`
+(raw total plus structural subset plus evaluation of the 196,608 valid
+rows), measures 36.3 ms.
+
+```{python}
+#| label: fig-cli-verify
+#| fig-cap: "CVA6 full encoding space, four timings: the naive standard pipeline (13.1 s), the structural count (18.8 ms), the evaluate_structural core pipeline that ev verify runs (36.3 ms), and the end-to-end ev verify command (about 0.2 s including YAML parse and process startup)."
+import matplotlib.pyplot as plt
+import numpy as np
+
+plt.rcParams.update({"font.family": "sans-serif", "font.size": 9, "figure.dpi": 150})
+
+stages = ["evaluate\n(standard)", "struct_enum\n(count)", "evaluate_structural\n(core)", "ev verify\n(end-to-end)"]
+times_ms = [13.1e3, 18.8, 36.3, 210.0]  # ms
+colors = ["#A23B72", "#2E86AB", "#6BC8B8", "#F18F01"]
+
+fig, ax = plt.subplots(figsize=(8, 3.8))
+bars = ax.bar(stages, times_ms, color=colors, alpha=0.85, edgecolor="black", linewidth=0.6)
+for b, t in zip(bars, times_ms):
+    label = f"{t:.1f} ms" if t < 1000 else f"{t/1000:.1f} s"
+    ax.text(b.get_x() + b.get_width()/2, t * 1.15, label, ha="center", fontsize=9, fontweight="bold")
+ax.set_yscale("log")
+ax.set_ylabel("Time (ms, log scale)")
+ax.set_title("CVA6 full: from 13.1 s to 0.2 s at the CLI", fontsize=11, fontweight="bold")
+ax.grid(axis="y", alpha=0.3)
+ax.set_ylim(1, 5e4)
+fig.tight_layout()
+plt.show()
+```
+
+The 36.3 ms core is about 360x faster than the naive 13.1 s pipeline; the
+remaining gap to the 18.8 ms structural count is the cost of building and
+evaluating the 196,608 valid rows (projections included) instead of only
+counting them. The end-to-end 0.2 s is dominated by process startup and
+YAML parse, not by the enumeration. The same CLI path on the Ibex fixture
+benches at 16.2 ms, against 291 ms for the naive evaluate.
+
 ## Scaling: O(N) vs O(V)
 
 ```{python}
 #| label: fig-scaling
-#| fig-cap: "Scaling behavior: evaluate runs in O(N) where N is the full encoding space; struct_enum runs in O(V) where V is the structurally valid subset. The CVA6 full space (0.6% density) shows 973x speedup; denser spaces see smaller gains."
+#| fig-cap: "Scaling behavior: evaluate runs in O(N) where N is the full encoding space; struct_enum runs in O(V) where V is the structurally valid subset. The CVA6 full space (0.6% density) shows ~700x speedup; denser spaces see smaller gains."
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -499,8 +549,8 @@ plt.rcParams.update({"font.family": "sans-serif", "font.size": 9, "figure.dpi": 
 # All four fixtures for scaling comparison
 raw_sizes = [27, 32768, 524288, 33554432]
 valid_sizes = [27, 20480, 92160, 196608]
-eval_times_us = [3.26, 6580, 3.66e6, 18.0e6]
-struct_times_us = [2.73, 3106, 46300, 18500]
+eval_times_us = [4.87, 5990, 291000, 13.1e6]
+struct_times_us = [2.86, 3020, 9100, 18800]
 labels = ['Small\n27', 'Medium\n32K', 'Ibex\n524K', 'CVA6\n33M']
 
 fig, ax = plt.subplots(figsize=(7, 4))
@@ -528,7 +578,7 @@ plt.show()
 
 ```{python}
 #| label: fig-bench-table
-#| fig-cap: "Complete benchmark data including CVA6 fixtures. struct_enum achieves 1.2x-973x speedup over the standard pipeline across all real-world RISC-V verification targets. Absolute times are machine-specific."
+#| fig-cap: "Complete benchmark data including CVA6 fixtures. struct_enum achieves 1.7x-~700x speedup over the standard pipeline across real-world RISC-V verification targets; the Tagma row is a reference measurement excluded from the speedup comparison. Absolute times are machine-specific."
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -537,11 +587,13 @@ plt.rcParams.update({"font.family": "sans-serif", "font.size": 8, "figure.dpi": 
 columns = ('Fixture', 'Raw combos', 'Valid combos', 'Density',
            'evaluate', 'struct_enum', 'Speedup')
 data = [
-    ('Small',      '27',         '27',       '100%',   '3.26 µs',   '2.73 µs',   '1.2x'),
-    ('Medium',     '32,768',     '20,480',   '62.5%',  '6.58 ms',   '3.11 ms',   '2.1x'),
-    ('Ibex R-type','524,288',    '92,160',   '17.6%',  '3.66 s',    '46.3 ms',   '79x'),
-    ('CVA6 R4',    '16,384',     '2,560',    '15.6%',  '4.93 ms',   '247 µs',    '20x'),
-    ('CVA6 full',  '33,554,432', '196,608',  '0.6%',   '18.0 s',    '18.5 ms',   '973x'),
+    ('Small',      '27',         '27',       '100%',   '4.87 µs',   '2.86 µs',   '1.7x'),
+    ('Medium',     '32,768',     '20,480',   '62.5%',  '5.99 ms',   '3.02 ms',   '2.0x'),
+    ('Tagma',      '65,536',     '11,172',   '17.0%',  '9.74 ms',   '5.94 ms',   'N/A (excluded)'),
+    ('Ibex R-type','524,288',    '92,160',   '17.6%',  '291 ms',    '9.10 ms',   '32x'),
+    ('CVA6 R4',    '16,384',     '2,560',    '15.6%',  '3.14 ms',   '250 µs',    '13x'),
+    ('CVA6 full',  '33,554,432', '196,608',  '0.6%',   '13.1 s',    '18.8 ms',   '~700x'),
+    ('CVA6 full (evaluate_structural)', '33,554,432', '196,608', '0.6%', '13.1 s', '36.3 ms', '361x'),
 ]
 
 fig, ax = plt.subplots(figsize=(9, 3.2))
@@ -556,18 +608,23 @@ for j in range(len(columns)):
     cell.set_text_props(color='white', fontweight='bold')
 for i in range(len(data)):
     cell = table[i + 1, 6]
-    sp_str = data[i][6].lstrip('~')
-    sp = float(sp_str.rstrip('x'))
-    if sp >= 100:
-        cell.set_facecolor('#A23B72')
-        cell.set_text_props(color='white', fontweight='bold')
-    elif sp >= 10:
-        cell.set_facecolor('#F18F01')
+    sp_str = data[i][6].replace('~', '').replace('x', '')
+    if sp_str.replace('.', '').isdigit():
+        sp = float(sp_str)
+        if sp >= 100:
+            cell.set_facecolor('#A23B72')
+            cell.set_text_props(color='white', fontweight='bold')
+        elif sp >= 10:
+            cell.set_facecolor('#F18F01')
 plt.show()
 ```
 
 The valid-combination counts in the table are combination counts, and with
 no enable_mask constraints they equal the distinct instruction-word counts.
+The `CVA6 full (evaluate_structural)` row compares the naive evaluate (13.1 s)
+against `evaluate_structural` (36.3 ms), the pipeline `ev verify` runs
+since issue #42; the end-to-end CLI time of about 0.2 s includes YAML
+parse and process startup (see the CLI verify path section).
 
 ### Reproducibility
 
@@ -580,6 +637,9 @@ cargo bench -- cva6_full
 
 # structural enumeration only
 cargo bench -- "struct_enum/cva6"
+
+# evaluate_structural, the pipeline ev verify runs (raw total + structural subset + evaluation)
+cargo bench -- "evaluate_structural/cva6_full_33M"
 
 # validity guard (must stay green)
 cargo bench -- struct_enum_validity
@@ -641,8 +701,8 @@ not an ISA simulation; see the abstract for the boundary.
 | Constraint evaluation | 10 checks × 33.5M | **0** (structurally encoded) |
 | Invalid detection | `check.allows()` → false | Vacant slot → 1.65 ns |
 | Memory | 4 GB peak (Vec) | 0 (lazy iterator) |
-| Time (CVA6 R4) | 4.93 ms | 247 µs |
-| Time (CVA6 full) | 18.0 s | 18.5 ms |
+| Time (CVA6 R4) | 3.14 ms | 250 µs |
+| Time (CVA6 full) | 13.1 s | 18.8 ms |
 
 The structural iterator is verified against the standard pipeline: the
 regression suite asserts that every emitted combination satisfies the full
@@ -651,7 +711,7 @@ paths (see Correctness Guarantees).
 
 ## Why the gain is algorithmic, not linguistic
 
-The 973x is not a language effect. Both pipelines are Rust, compiled in the
+The ~700x is not a language effect. Both pipelines are Rust, compiled in the
 same release profile, and measured by the same criterion harness. The ratio
 is therefore the enumeration-strategy difference alone: O(N) traversal with
 per-combination checks versus O(V) structural access with the checks encoded
@@ -672,8 +732,8 @@ addressing eliminates hash-based lookup overhead. The primitive timings
 |--------------------|---------------|:--------:|:---------:|
 | Nonexistent prefix lookup | Invalid encoding detection | **1.65 ns** | 14x vs HashMap |
 | CoordPath indexing | Combination addressing | **5.2 ns** | O(depth) = O(5) |
-| CoordSpace sparse get | Valid encoding iteration | **247 µs** (16K space) | 20x vs evaluate |
-| Axis projection | funct7/funct3 filtering | **46.3 ms** (524K space) | 79x vs evaluate |
+| CoordSpace sparse get | Valid encoding iteration | **250 µs** (16K space) | 13x vs evaluate |
+| Axis projection | funct7/funct3 filtering | **9.10 ms** (524K space) | 32x vs evaluate |
 
 ## Comparison with Random Verification (riscv-dv)
 

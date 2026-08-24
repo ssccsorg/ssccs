@@ -99,6 +99,43 @@ The host-path microbenchmark lives in the fork at `pocs/tagma-kv-bench` and driv
 
 ## Measured results
 
+### Baseline samples
+
+The `llama-bench` baseline samples on the CPU-only build, `-p <len> -n 256 -ngl 0`:
+
+| Context | Prefill tok/s (pp) | Decode tok/s (tg) |
+| --- | ---: | ---: |
+| 4096 | 648.7 | 157.5 |
+| 32768 | 165.9 | 133.8 |
+
+The 128K sample was dropped: on CPU it exceeds 45 minutes for a single sample, and the prefill drop is dominated by the quadratic attention cost, which is not a tagma signal.
+
+```{python}
+#| label: fig-baseline
+#| fig-cap: "Baseline samples on the CPU-only build: prompt processing and decode throughput by context length. The prefill throughput drops by a factor of four from 4K to 32K, a drop dominated by the quadratic attention cost."
+import matplotlib.pyplot as plt
+
+scenarios = ['4K', '32K']
+pp = [648.7, 165.9]
+tg = [157.5, 133.8]
+
+x = range(len(scenarios))
+w = 0.3
+fig, ax = plt.subplots(figsize=(5, 3.4))
+ax.bar([i - w / 2 for i in x], pp, w, label='prefill (pp)', color='white', edgecolor='black', linewidth=0.8)
+ax.bar([i + w / 2 for i in x], tg, w, label='decode (tg)', color='white', edgecolor='black', linewidth=0.8, hatch='///')
+ax.set_ylabel('tok/s', fontsize=10)
+ax.set_xticks(list(x))
+ax.set_xticklabels(scenarios, fontsize=9)
+ax.legend(fontsize=8)
+for xi, (a, b) in enumerate(zip(pp, tg)):
+    ax.text(xi - w / 2, a + 8, f'{a:.1f}', ha='center', fontsize=8)
+    ax.text(xi + w / 2, b + 8, f'{b:.1f}', ha='center', fontsize=8)
+ax.grid(axis='y', linestyle=':', alpha=0.3)
+plt.tight_layout()
+plt.show()
+```
+
 ### Host KV bookkeeping per decode step
 
 | State | find_slot(false) | find_slot(true) | prepare | apply_ubatch | set_input_k/v | host total | decode share |
@@ -108,6 +145,30 @@ The host-path microbenchmark lives in the fork at `pocs/tagma-kv-bench` and driv
 | Fragmented, eviction with 32 survivors | 0.935 us | 192.7 us | 17.06 us | 2.558 us | 0.061/0.026 us | 19.70 us | 0.26 % |
 
 The decode share references the 32K decode step of 7.47 ms (133.8 tok/s).
+
+```{python}
+#| label: fig-t2
+#| fig-cap: "Host KV bookkeeping per decode step against the decode step itself, log scale. The three states span 2.4 to 19.7 microseconds; the 32K decode step is 7.47 milliseconds, three orders of magnitude above. The labels are the share of the decode step."
+import matplotlib.pyplot as plt
+
+states = ['unified\nclean', 'non-unified\nclean', 'fragmented']
+host = [2.482, 2.448, 19.70]
+share = [0.033, 0.033, 0.26]
+decode_step = 7470.0
+
+fig, ax = plt.subplots(figsize=(5.2, 3.6))
+bars = ax.bar(states, host, color='white', edgecolor='black', linewidth=0.8)
+ax.axhline(decode_step, color='black', linestyle='--', linewidth=0.9)
+ax.text(2.42, decode_step * 1.12, 'decode step 7.47 ms', fontsize=8, ha='right')
+ax.set_yscale('log')
+ax.set_ylabel('us per decode step (log)', fontsize=10)
+for bar, s in zip(bars, share):
+    ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() * 1.45, f'{s:.3f}%',
+            ha='center', fontsize=8)
+ax.grid(axis='y', linestyle=':', alpha=0.3)
+plt.tight_layout()
+plt.show()
+```
 
 ### Contiguity outcomes under eviction
 
@@ -131,6 +192,36 @@ The comparison runs single-op graphs on the CPU backend with the thread count pi
 | V transposed, 1 token (128 rows) | 6.49 us | 6.10 us | 0.005 us |
 | V transposed, 256 tokens (32768 rows) | 80.6 us | 7.95 us | 1.05 us |
 
+```{python}
+#| label: fig-t1
+#| fig-cap: "Write scatter cost at the ggml level, log scale: set_rows against a dense copy and the memcpy floor, per layout. The per-op graph dispatch dominates at about 6 microseconds for both scatter and dense copy at decode scale; only the transposed V layout at 256-token chunks shows a material gap."
+import matplotlib.pyplot as plt
+
+layouts = ['K\n1 token', 'K\n256 tokens', 'V transposed\n1 token', 'V transposed\n256 tokens']
+set_rows = [6.51, 7.93, 6.49, 80.6]
+dense = [6.50, 7.88, 6.10, 7.95]
+memcpy = [0.005, 1.12, 0.005, 1.05]
+
+x = range(len(layouts))
+w = 0.28
+fig, ax = plt.subplots(figsize=(6.4, 3.6))
+ax.bar([i - w for i in x], set_rows, w, label='set_rows', color='white', edgecolor='black', linewidth=0.8)
+ax.bar([i for i in x], dense, w, label='dense copy', color='white', edgecolor='black', linewidth=0.8, hatch='///')
+ax.bar([i + w for i in x], memcpy, w, label='memcpy floor', color='white', edgecolor='black', linewidth=0.8, hatch='...')
+ax.set_yscale('log')
+ax.set_ylabel('us per graph op (log)', fontsize=10)
+ax.set_xticks(list(x))
+ax.set_xticklabels(layouts, fontsize=8)
+ax.legend(fontsize=8)
+for xi, v in enumerate(set_rows):
+    ax.text(xi - w, v * 1.25, f'{v:.2f}', ha='center', fontsize=7)
+for xi, v in enumerate(dense):
+    ax.text(xi, v * 1.25, f'{v:.2f}', ha='center', fontsize=7)
+ax.grid(axis='y', linestyle=':', alpha=0.3)
+plt.tight_layout()
+plt.show()
+```
+
 ### In-graph scatter share of decode
 
 The decode profile (`pocs/tagma-kv-bench/decode-prof.cpp`) runs a real 16K prompt prefill and 512 single-token decode steps, with env-gated timing of `ggml_compute_forward_set_rows` in the CPU backend (`TAGMA_PROF=1`).
@@ -145,6 +236,24 @@ The decode profile (`pocs/tagma-kv-bench/decode-prof.cpp`) runs a real 16K promp
 
 The single-op graph benchmark overestimates the in-graph per-node cost by roughly an order of magnitude: the ~6 us fixed dispatch is amortized inside the real graph, and the node executes at ~0.7 us. The in-graph scatter share of decode is below one percent by either normalization.
 
+```{python}
+#| label: fig-in-graph
+#| fig-cap: "In-graph write scatter share of decode: 0.025 percent measured under load and 0.45 percent against the unloaded baseline decode step, both below one percent."
+import matplotlib.pyplot as plt
+
+labels = ['measured\nunder load', 'vs baseline\ndecode step']
+shares = [0.025, 0.45]
+
+fig, ax = plt.subplots(figsize=(4, 3.2))
+bars = ax.bar(labels, shares, color='white', edgecolor='black', linewidth=0.8)
+ax.set_ylabel('share of decode (%)', fontsize=10)
+for bar, v in zip(bars, shares):
+    ax.text(bar.get_x() + bar.get_width() / 2, v + 0.01, f'{v:.3f}%', ha='center', fontsize=9)
+ax.grid(axis='y', linestyle=':', alpha=0.3)
+plt.tight_layout()
+plt.show()
+```
+
 ## Insights
 
 - The `prepare` snapshot and restore dominates the bookkeeping at 2.2 us of the 2.5 us per decode step and stays flat at ~0.5 us per token for chunked ubatches across fill factors from 25% to 97%.
@@ -158,3 +267,11 @@ The single-op graph benchmark overestimates the in-graph per-node cost by roughl
 The Phase A and Phase B measurements on the CPU-only build are recorded above. The Phase A gate asks whether the KV access path is a measurable share of decode time, and the measurements answer it: the host-side KV bookkeeping is 0.033 % of the decode step on a clean ring and 0.26 % under fragmentation, and the in-graph write scatter is 0.025 % measured and 0.45 % against the baseline step. The tagma range-addressed intervention removes exactly these costs, so within the llama.cpp KV path on the CPU surface it has no measurable performance basis. The read path is already range-based and the KV structures are array-indexed, so the hash-IO replacement that the tagma map work targets has no counterpart in this path.
 
 The investigation continues. The remaining items are the SWA variant on a sliding-window model and the GPU-side behavior, which stays on the vLLM CUDA track; the hash-IO replacement value of the tagma map work is scoped as a separate investigation.
+
+## Conclusion
+
+The Phase A gate measured a negative result on the tested CPU surface: the host-side KV bookkeeping and the write scatter sit at 0.025 to 0.45 percent of decode time, and the read path is already range-based. The tagma range-addressed intervention removes exactly these costs, so within the current llama.cpp KV path it has no measurable performance basis.
+
+The entry point is structural and future. If llama.cpp adopts a vLLM-style paged KV cache, a shared block pool with per-sequence block tables, the block-table indirection that the current design lacks will appear, and the tagma range-arithmetic intervention gains a structural target: contiguous range allocation from the shared pool delivers the same memory efficiency without the block table. The measured lesson bounds the expectation for that scenario: the removable share equals the size of the indirection the paged design introduces, in the same 0.03 to 0.45 percent class measured here. The value framing is therefore paged-class memory efficiency without the block-table indirection, not a large speedup.
+
+The adoption of a paged design is an upstream decision. The track remains parked with the open scope recorded in the fork investigation notes: the SWA variant, unified-mode locality, GPU-side behavior, and the paged-adoption trigger.

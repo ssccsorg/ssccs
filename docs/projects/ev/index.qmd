@@ -116,44 +116,52 @@ The speedup is an O(N) vs O(V) structural gain, not a language effect.
 
 ```{python}
 #| label: fig-bench-hero
-#| fig-cap: "Verification time: standard evaluate vs structural pipeline. At CVA6 33M scale, structural_verify achieves ~973x speedup."
+#| fig-cap: "Verification time: standard evaluate vs structural pipeline. With the structural pipeline integrated into the CLI (issue #42), the CVA6 33M space verifies end-to-end in about 0.2 s; the core pipeline (evaluate_structural) is 36.3 ms, ~360x faster than the naive 13.1 s."
 import matplotlib.pyplot as plt
 import numpy as np
 
 plt.rcParams.update({"font.family": "sans-serif", "font.size": 9, "figure.dpi": 150})
 
 fixtures = ["Ibex RV32IMCB\n524K raw · 92K valid", "CVA6 XIF full\n33M raw · 196K valid"]
-eval_us = [3.66e6, 18.0e6]
-verify_us = [46300, 18500]
+eval_us = [291e3, 13.1e6]    # naive evaluate
+struct_us = [9100, 18800]    # struct_enum (count)
+cli_us = [16200, 36300]      # evaluate_structural (core)
 
-speedups = [e / v for e, v in zip(eval_us, verify_us)]
+struct_sp = [e / s for e, s in zip(eval_us, struct_us)]
+cli_sp = [e / c for e, c in zip(eval_us, cli_us)]
 
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4), gridspec_kw={"width_ratios": [2, 1]})
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10.5, 4.2), gridspec_kw={"width_ratios": [2, 1]})
 
 x = np.arange(len(fixtures))
-w = 0.3
-ax1.bar(x - w/2, eval_us, w, label='evaluate (standard)',
+w = 0.26
+ax1.bar(x - w, eval_us, w, label='evaluate (standard)',
         color='white', edgecolor='#A23B72', linewidth=1.2)
-ax1.bar(x + w/2, verify_us, w, label='structural (synTagma)',
+ax1.bar(x, struct_us, w, label='struct_enum (count)',
         color='white', edgecolor='#2E86AB', linewidth=1.2, hatch='///')
+ax1.bar(x + w, cli_us, w, label='evaluate_structural (core)',
+        color='white', edgecolor='#F18F01', linewidth=1.2, hatch='...')
 ax1.set_xticks(x)
 ax1.set_xticklabels(fixtures, fontsize=7)
 ax1.set_ylabel('Time (µs, log)')
 ax1.set_yscale('log')
 ax1.legend(fontsize=7, loc='upper left')
 ax1.grid(axis='y', alpha=0.3)
-for i, (e, v, sp) in enumerate(zip(eval_us, verify_us, speedups)):
-    mid = (e * v) ** 0.5
-    ax1.annotate(f'{sp:.0f}x', xy=(i, mid), fontsize=9, fontweight='bold', ha='center', va='center',
+for i in range(len(fixtures)):
+    mid = (eval_us[i] * cli_us[i]) ** 0.5
+    ax1.annotate(f'{cli_sp[i]:.0f}x', xy=(i + w, mid), fontsize=8, fontweight='bold', ha='center', va='center',
                 bbox=dict(boxstyle='round,pad=0.15', facecolor='white', edgecolor='black', alpha=0.85))
 ax1.set_title('Verification Time by Approach', fontsize=10, fontweight='bold')
 
-ax2.barh(fixtures, speedups, height=0.4, color='white', edgecolor='black', linewidth=0.8, hatch='///')
-for i, sp in enumerate(speedups):
-    ax2.text(sp + 20, i, f'{sp:.0f}x', va='center', fontsize=9, fontweight='bold')
-ax2.set_xlabel('Speedup factor')
-ax2.set_title('synTagma Speedup', fontsize=10, fontweight='bold')
-ax2.set_xlim(0, max(speedups) * 1.2)
+labels = ['Ibex\nstruct', 'Ibex\ncore', 'CVA6\nstruct', 'CVA6\ncore']
+all_sp = [struct_sp[0], cli_sp[0], struct_sp[1], cli_sp[1]]
+ax2.barh(range(4), all_sp, height=0.5, color='white', edgecolor='black', linewidth=0.8, hatch='///')
+ax2.set_yticks(range(4))
+ax2.set_yticklabels(labels, fontsize=7)
+for i, sp in enumerate(all_sp):
+    ax2.text(sp + 15, i, f'{sp:.0f}x', va='center', fontsize=8, fontweight='bold')
+ax2.set_xlabel('Speedup vs evaluate')
+ax2.set_title('Speedup', fontsize=10, fontweight='bold')
+ax2.set_xlim(0, max(all_sp) * 1.15)
 ax2.tick_params(labelsize=8)
 fig.tight_layout()
 plt.show()
@@ -163,7 +171,7 @@ plt.show()
 
 ```{python}
 #| label: fig-scaling-main
-#| fig-cap: "Scaling across fixtures: evaluate runs in O(N), struct_enum in O(V). The gap widens as valid density drops; CVA6 full (0.6% density) shows 973x."
+#| fig-cap: "Scaling across fixtures: evaluate runs in O(N), struct_enum in O(V). The gap widens as valid density drops; CVA6 full (0.6% density) shows ~700x."
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -171,8 +179,8 @@ plt.rcParams.update({"font.family": "sans-serif", "font.size": 9, "figure.dpi": 
 
 raw_sizes = [27, 32768, 524288, 33554432]
 valid_sizes = [27, 20480, 92160, 196608]
-eval_times_us = [3.26, 6580, 3.66e6, 18.0e6]
-struct_times_us = [2.73, 3106, 46300, 18500]
+eval_times_us = [4.87, 5990, 291000, 13.1e6]
+struct_times_us = [2.86, 3020, 9100, 18800]
 labels = ['Small\n27', 'Medium\n32K', 'Ibex\n524K', 'CVA6\n33M']
 
 fig, ax = plt.subplots(figsize=(8, 4.5))
@@ -197,25 +205,28 @@ plt.show()
 ```
 
 Speedup follows approximately `k / D` (D = valid density): sparse spaces gain
-the most (CVA6 full 0.6% density, 973x; Ibex 17.6%, 79x; dense spaces 1-2x).
+the most (CVA6 full 0.6% density, ~700x; Ibex 17.6%, 32x; dense spaces 1-2x).
 
 ## Fixture Speedups
 
 | Fixture | Raw | Valid | evaluate | structural | Speedup |
 |---------|----:|------:|---------:|-----------:|--------:|
-| Small | 27 | 27 | 3.26 µs | 2.73 µs | 1.2x |
-| Medium | 32,768 | 20,480 | 6.58 ms | 3.11 ms | 2.1x |
-| Ibex R-type | 524,288 | 92,160 | 3.66 s | 46.3 ms | 79x |
-| CVA6 R4 | 16,384 | 2,560 | 4.93 ms | 247 µs | 20x |
-| CVA6 full | 33,554,432 | 196,608 | 18.0 s | 18.5 ms | 973x |
+| Small | 27 | 27 | 4.87 µs | 2.86 µs | 1.7x |
+| Medium | 32,768 | 20,480 | 5.99 ms | 3.02 ms | 2.0x |
+| Tagma | 65,536 | 11,172 | 9.74 ms | 5.94 ms | N/A (reference) |
+| Ibex R-type | 524,288 | 92,160 | 291 ms | 9.10 ms | 32x |
+| CVA6 R4 | 16,384 | 2,560 | 3.14 ms | 250 µs | 13x |
+| CVA6 full | 33,554,432 | 196,608 | 13.1 s | 18.8 ms | ~700x |
+| CVA6 full (evaluate_structural) | 33,554,432 | 196,608 | 13.1 s | 36.3 ms | 361x |
 
 ## Status
 
-- **CVA6 CV-X-IF** (OpenHW): 33.5M combinations, 196,608 valid, 18.0 s vs
-  18.5 ms (~970x). Space derived from the hardware decoder mask table; the DV class generates encodings the decoder rejects,
+- **CVA6 CV-X-IF** (OpenHW): 33.5M combinations, 196,608 valid, 13.1 s vs
+  18.8 ms (~700x); the `ev verify` CLI completes the same space end-to-end
+  in about 0.2 s (core pipeline 36.3 ms). Space derived from the hardware decoder mask table; the DV class generates encodings the decoder rejects,
   a documented divergence. Master report: [CVA6 CV-X-IF Report (Standard Reference)](/projects/ev/cva6.html).
 - **Ibex RV32IMCB** (lowRISC): 524,288 combinations, 92,160 valid,
-  3.66 s vs 46.3 ms (79x). Report: [Ibex RV32IMCB Report](/projects/ev/ibex.html).
+  291 ms vs 9.10 ms (32x); evaluate_structural core 16.2 ms. Report: [Ibex RV32IMCB Report](/projects/ev/ibex.html).
 
 ### Limits
 
