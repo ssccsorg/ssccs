@@ -1,6 +1,6 @@
 ---
 title: "Coordinate Lattice Access for DuckDB"
-subtitle: "Analyzing where the tagma coordinate engine can contribute to the DuckDB fork: the multi-filter index gap, joint zonemap pruning, row-id range materialization, and the syntagma core upgrade scope"
+subtitle: "Final development plan: profile gate, lattice prototype, and verdict for multi-dimensional point and range queries in the DuckDB fork"
 date: 2026-08
 date-format: "MMMM, YYYY"
 version-prefix: "duckdb_lattice-doi.org/10.5281/zenodo.21888670"
@@ -92,21 +92,11 @@ title_meta_items = {
 
 ## Abstract
 
-This report analyzes the DuckDB fork to locate the areas where the tagma coordinate engine, implemented in C++ under `sw/cpp`, can contribute an innovative performance improvement. The analysis follows the two measured precedents that define the pattern. The CERN ROOT-Coord work replaced per-read index traversal with closed-form coordinate arithmetic over a per-axis mixed radix, measuring 69 to 181 times on an index-traversal-dominated I/O path. The ExaVerif CVA6 work enumerated the valid encoding subspace instead of the full space, measuring about 700 times at 0.6 percent density with an O(V) over O(N) scaling. The DuckDB fork documents the exact gap the lattice fills: the table scan path falls back to a full scan for any multi-filter query or compound index, stated as a FIXME in `TableScanInitGlobal`. The analysis ranks four integration areas, specifies the syntagma core upgrade scope that the integration requires, and sets the measurement plan. The immediate next step is the profile gate with the installed DuckDB package, which runs without a C++ build.
+This report is the final development plan for a coordinate lattice access path in the DuckDB fork. The problem is scoped to DuckDB: multi-dimensional point and range queries over bounded integer dimensions run as a full table scan for every multi-filter query, and as an ART index scan only below a fixed selectivity threshold for single-filter queries. The plan is benchmark-driven. Phase 1 runs a profile gate with the installed DuckDB package and no C++ build, measuring the incumbent scan and index costs. Phase 2 prototypes the lattice access path and measures it against the scan and the index, separating scan-avoidance gain from lattice-specific gain. Phase 3 records either a measured win through the extension system or a measured negative result. The syntagma side is scoped as a minimal additive core upgrade, implemented only if the gate supports it. The CERN ROOT-Coord, ExaVerif CVA6, and LLM tracks are reference experiences that set the expectation; every claim in this report is measured on DuckDB.
 
-## The precedents that define the pattern
+## The problem in DuckDB
 
-The CERN ROOT-Coord report measured the read path of the TTree columnar format. The production signature is 372,000 singular reads averaging 4.6 KB at an effective 33 KB/s. The coordinate store replaced branch, basket, and cache traversal with closed-form arithmetic over a per-axis mixed radix $(R, L, E)$: the linear index of a record is $n(r, \ell, e) = (rL + \ell)E + e$, and the byte offset is $\omega = n \cdot s$ with no hash and no index scan. The same medium completed the full file read in 2.79 s against 192.8 s, a 69.0 times gain, and 1.06 s when mapped, a 181.7 times gain, after a one-time conversion of 226.3 s that breaks even within the second pass. The stable claims are the request count and the system call count, which are media-independent.
-
-The ExaVerif CVA6 report measured the structural pipeline of the verification engine. The standard path evaluates the full encoding space in O(N); the structural path enumerates the valid subspace in O(V) with a lazy odometer over topologically ordered fields and O(1) re-fix maps. The measured speedup follows approximately $k/D$ where $D = V/N$ is the valid density: the CVA6 full space at 0.6 percent density measures about 700 times, and the gain is algorithmic, not linguistic. Both reports applied the same discipline: a profile gate before implementation, a measured baseline, a one-time conversion cost, and correctness verification.
-
-The two LLM tracks bound the expectation. The vLLM and llama.cpp KV measurements returned parity because the block-table and cell-index indirection was a negligible share of the compute. The boundary between the compute-dominated LLM domain and the scan-or-index-dominated database domain is the reason the DuckDB track proceeds: the indirection and the scan are the dominant costs in the multi-dimensional point and range query path.
-
-## The DuckDB integration surface
-
-The fork analysis identifies four areas, ranked by expected impact and integration risk.
-
-### Multi-filter index gap
+### The multi-filter scan gap
 
 `TableScanInitGlobal` in `src/function/table/table_scan.cpp` decides between a full table scan and an index scan. It restricts the index scan to exactly one filter and a single-column ART, and documents the multi-filter case as a FIXME:
 
@@ -122,7 +112,7 @@ The fork analysis identifies four areas, ranked by expected impact and integrati
 	}
 ```
 
-The compound ART path is also rejected earlier in `TryScanIndex`:
+The compound ART path is also rejected in `TryScanIndex`:
 
 ```duckdb/src/function/table/table_scan.cpp#L708-718
 bool TryScanIndex(ART &art, IndexEntry &entry, const ColumnList &column_list, TableFunctionInitInput &input,
@@ -134,68 +124,80 @@ bool TryScanIndex(ART &art, IndexEntry &entry, const ColumnList &column_list, Ta
 	}
 ```
 
-A multi-dimensional point query such as `a = 11 AND b = 24` therefore always runs as a full table scan in the current fork. The coordinate lattice fills this gap with an exact access path: the bounded dimensions pack into one scalar through the mixed-radix closed form, a point query resolves in O(1) arithmetic, and a range box enumerates the matching subspace through the box iterator. This is the ExaVerif pattern applied to the query path, and it replaces both solutions the FIXME proposes. The two ART scan plus intersection keeps the sorted-set overhead and the compound ART keeps the tree descent; the lattice has neither.
+A multi-dimensional point query such as `a = 11 AND b = 24` therefore always runs as a full table scan. The index threshold compounds the problem: the settings `index_scan_max_count` (default 2048) and `index_scan_percentage` (default 0.001) restrict the ART path to matches below the maximum of the two, which is 10,000 rows on a ten-million-row table. A single-filter query above that selectivity also scans.
 
-The index use threshold shapes the measurement. The settings `index_scan_max_count` (default 2048) and `index_scan_percentage` (default 0.001) restrict the ART path to matches below the maximum of the two. On a ten-million-row table the ART path activates below 10,000 matching rows; a multi-filter query never activates it regardless of selectivity. The profile gate must therefore separate two regimes: the scan-dominated regime above the threshold, and the index regime below it, where the lattice claim is measured against the ART descent and the sorted-set materialization.
+### The solution surface
 
-### Joint zonemap pruning
+Four integration areas, ranked by expected impact and integration risk:
 
-The scan path prunes row groups and column segments through per-column minimum and maximum statistics. `RowGroup::CheckZonemap` and `RowGroup::CheckZonemapSegments` in `src/storage/table/row_group.cpp` evaluate each filter column independently:
+- Multi-filter access path. The lattice packs the bounded dimensions into one scalar through a mixed-radix closed form; a point query resolves in O(1) arithmetic and a range box enumerates the matching subspace. This is the primary access path and the direct answer to the FIXME.
+- Joint zonemap pruning. The scan path prunes row groups and segments through per-column minimum and maximum statistics evaluated independently (`RowGroup::CheckZonemap` and `RowGroup::CheckZonemapSegments` in `src/storage/table/row_group.cpp`). A segment passes when each column overlaps the filter even when no row satisfies every bound; the joint condition is lost. A per-row-group lattice cell set restores the joint test behind the existing boolean API without changing scan semantics. This is the lowest-risk integration.
+- Row-id range materialization. The ART scan returns a sorted `set<row_t>` that `DuckIndexScanInitGlobal` copies into an arena array before the fetch phase. The lattice matching subspace is a set of contiguous index runs, so row IDs materialize as range-compressed start-and-count pairs with an exact pre-sized output.
+- Virtual lattice columns. Positional encoding makes the dimension values derivable from the row position, removing their storage and per-row evaluation, following the existing `row_id_column_data` and `row_number_column_data` special cases under `src/storage/table`. This changes the storage format and is the long-term track.
 
-```duckdb/src/storage/table/row_group.cpp#L716-730
-bool RowGroup::CheckZonemap(optional_ptr<ClientContext> context, ScanFilterInfo &filters, idx_t row_start) {
-	const auto table_filters = filters.GetTableFilters();
-	const auto column_ids = filters.GetColumnIds();
-	if (table_filters && column_ids) {
-		for (const auto &filter : table_filters->GetMultiColumnFilters()) {
-```
+## Reference experiences
 
-A segment passes when each column's interval overlaps the filter, even when no row jointly satisfies every bound. The joint condition is lost. A per-row-group lattice cell set, kept as sparse metadata, tests the query box against the occupied cells in O(1) arithmetic per segment and restores the joint condition. This area sits behind the existing boolean `CheckZonemap` API, so it does not change the scan semantics. It is the lowest-risk integration and the natural carrier for the lattice metadata build.
+Three measured tracks set the expectation. The CERN ROOT-Coord work replaced per-read index traversal with closed-form coordinate arithmetic on an I/O-dominated path and measured 69 to 181 times. The ExaVerif CVA6 work enumerated the valid encoding subspace instead of the full space and measured the O(V) over O(N) scaling. The vLLM and llama.cpp KV tracks measured parity because the indirection was a negligible share of the compute. The pattern across the tracks is that the gain appears when the scan or the indirection is the dominant cost; DuckDB multi-dimensional point queries are scan-dominated by construction in the current fork. These tracks are reference experiences only, and the DuckDB plan is measured on DuckDB.
 
-### Row-id range materialization
+## The final development plan
 
-The ART scan returns row IDs as a sorted `set<row_t>`, and `DuckIndexScanInitGlobal` copies the set into an arena array before the fetch phase:
+### Phase 1: profile gate
 
-```duckdb/src/function/table/table_scan.cpp#L503-519
-unique_ptr<GlobalTableFunctionState> DuckIndexScanInitGlobal(ClientContext &context, TableFunctionInitInput &input,
-                                                             const TableScanBindData &bind_data, set<row_t> &row_ids,
-                                                             unique_ptr<StorageLockKey> vacuum_lock) {
-	auto g_state = make_uniq<DuckIndexScanState>(context, input.bind_data.get());
-	...
-		idx_t row_id_count = 0;
-		for (const auto row_id : row_ids) {
-			g_state->row_ids[row_id_count++] = row_id;
-		}
-```
+The profile gate uses the installed DuckDB package and no C++ build. It quantifies the incumbent cost that the lattice would remove.
 
-The lattice matching subspace is a small set of contiguous index runs in the row-group offset space. Row IDs materialize as range-compressed start-and-count pairs instead of per-row entries, and the exact path count from the box iterator pre-sizes the output without reallocation. This area complements the access path and carries a smaller but real gain in the fetch phase.
+Workload. One table `lattice_bench(d1 INTEGER, d2 INTEGER, d3 INTEGER, payload DOUBLE)` with 10,000,000 rows, dimensions uniform in `[0, 215)`, one row per cell (215 cubed is 9,938,375 cells), and rows inserted in random order to control the row-order variable. The measurement runs in-memory for the CPU-bound case and once file-backed for the I/O comparison. The DuckDB version is pinned and recorded, and the FIXME is verified in the measured version.
 
-### Virtual lattice columns
+Query matrix. Five classes by five selectivities, each with two projections:
 
-The deepest change is positional encoding of the dimension columns. For a table declared as a regular lattice, the dimension values derive from the row position, so the dimension columns need no storage and no per-row evaluation. DuckDB already special-cases such derived columns in `row_id_column_data` and `row_number_column_data` under `src/storage/table`. The scan then reads only the payload columns and reconstructs the dimensions by closed-form arithmetic. This area changes the storage format and requires a storage extension; it is the long-term track.
+| class | predicate | selectivities |
+| :--- | :--- | :--- |
+| P2 | `d1 = x AND d2 = y` | point, 0.001%, 0.01%, 0.1%, 1%, 10% |
+| P3 | `d1 = x AND d2 = y AND d3 = z` | same |
+| R2 | `d1 BETWEEN a AND b AND d2 BETWEEN c AND d` | same |
+| R3 | three-dimensional box | same |
+| S1 | `d1 = x` (single-dimension control) | same |
+
+Projections: `SELECT count(*)` for the filter-only cost and `SELECT payload` for the materialized cost. The gap between the two is the filter-evaluation share, which bounds the read gain of an access path that removes filter evaluation but not row fetch.
+
+Baselines. B0 is the no-index scan, the incumbent for multi-filter queries. B1 is a single-column ART on each dimension, the incumbent for single-filter queries below the threshold. B2 is the lattice, measured in Phase 2. The comparison separates scan-avoidance gain (B0 versus B2) from lattice-specific gain (B1 versus B2).
+
+Metrics. Median wall time over seven warm runs per class and selectivity, the SEQ_SCAN rows processed against the rows matching (from `EXPLAIN ANALYZE`), the row groups scanned against the total, and the `INDEX_SCAN` row-id count and cost for B1. The joint zonemap loss is the ratio of rows processed to rows matching.
+
+Decision rule. A pilot run at reduced scale calibrates the thresholds, which are then registered in this report before the full run. The gate passes when, at the target selectivities at or below 0.1 percent, the multi-filter point query processes a measured multiple of the matching rows and the filter-evaluation share exceeds the registered threshold. The output is the benchmark script, the results table, and the verdict recorded in this report.
+
+### Phase 2: lattice prototype
+
+The first task is the physical layout decision, which the gate data informs:
+
+- Lattice-sorted storage. A one-time conversion rewrites the table in lattice order, so a cell maps to a byte offset in closed form and the dimension columns become positional. The conversion cost is measured and amortized against the read gain, and this layout enables the virtual lattice columns of the long-term track.
+- Cell-to-row map over unsorted storage. A per-cell row map indexes the existing layout, with an O(N) build and maintenance on append. The build and maintenance cost is measured against the ART `CREATE INDEX` and append costs.
+
+The A/B runs the same query matrix from the gate through B0, B1, and B2. The scan-avoidance gain is B0 versus B2, the lattice-specific gain is B1 versus B2 on the single-dimension control. For multi-filter queries the index comparison is scoped explicitly, because stock DuckDB serves them only by scan: the comparison uses either a hash stand-in or a composite ART in the fork, and the limitation is recorded.
+
+Correctness verification runs random queries through the lattice and the scan and requires identical row sets, counts, and payload sums on the same predicates.
+
+The write side records the index build time against `CREATE INDEX`, the append cost per batch, and the memory footprint of the lattice metadata.
+
+The measured demonstration uses an extension table function. Transparent query routing through the optimizer requires a fork patch and is scoped separately.
+
+### Phase 3: verdict and extension
+
+If the lattice wins on the measurements, the contribution vehicle is the DuckDB extension system: a table function or storage extension exposing the lattice access path, benchmarked against the stock engine, with the transparent fork patch as a separate follow-up. Parity records a measured negative result and closes the track.
 
 ## The syntagma core upgrade scope
 
-The C++ port under `sw/cpp` provides the primitives the integration reuses: the closed-form `Coord` composition, the collision-free `CoordSpace` direct-address table, the `CoordSet` bit array with set operations, the `CoordCube` grid interpretation, and the `BoundingBoxIter` subspace enumeration. The DuckDB integration exposes three gaps in the port.
+The integration is bidirectional: the DuckDB prototype uses the C++ port under `sw/cpp`, and the prototype requirements define a minimal additive upgrade. The existing `Coord` (three axes, 19 by 21 by 28 radices, 11,172 valid states) stays unchanged because `tagma_map`, the Rust core, and the ROOT fork depend on it. The upgrade adds:
 
-The coordinate is fixed at three axes with the 19 by 21 by 28 radices and 11,172 valid states. DuckDB dimensions are arbitrary bounded integer columns with per-dimension extents. The ROOT fork already generalized the closed form to a per-axis mixed radix $(R, L, E)$; the port should adopt that generalization as the core primitive: a mixed-radix multi-dimensional coordinate with per-axis extents and arbitrary dimension count, with closed-form composition, decomposition, and ordering.
+- A mixed-radix multi-dimensional coordinate with per-axis extents and arbitrary dimension count, as a new template beside `Coord`, with closed-form composition, decomposition, and ordering.
+- Parameterized set structures sized per row group (122,880 rows), with a dense bitmap near 15 KB per dimension set and an interval list for the sparse case, replacing the fixed 11,172-slot `CoordSet` in the DuckDB context.
+- Mixed-radix box enumeration over per-dimension strides, generalizing the uniform `BoundingBoxIter`.
 
-The direct-address spaces are fixed at 11,172 slots. The lattice metadata unit for DuckDB is the row group, which holds 122,880 rows, so the occupied-cell set per row group is at most the row-group capacity and independent of the table size. The port needs parameterized or sparse set structures sized per row group, where a dense bitmap stays near 15 KB per dimension set and an interval list covers the sparse case.
+The upgrade spec is drafted in parallel with the gate. The implementation lands in Phase 2 only if the gate supports it, and the tests live in the `/tests` folder.
 
-The box enumeration iterates uniform base-11172 characters. Range queries over per-dimension extents need a mixed-radix odometer over per-dimension strides, following the lazy-odometer pattern the ExaVerif structural pipeline measured. The upgrade happens after the profile gate shows the gain, in the measured discipline of the precedents.
+## Risks and boundaries
 
-## The measurement plan
-
-Phase 1 is the profile gate with the installed DuckDB package, no C++ build: a ten-million-row table with two or three bounded integer dimensions and a payload column, then point and range queries at several selectivities. The measurement records the scan cost per query, the zonemap miss rate of the joint condition, and the selectivity at which the index threshold activates. The gate follows the llama.cpp discipline: quantify the incumbent cost before implementing.
-
-Phase 2 is the lattice prototype against the scan and the ART index. The A/B separates the scan-avoidance gain from the lattice-specific gain, because any index beats a scan on selective queries. The prototype covers the multi-filter gap and the joint zonemap pruning; the syntagma core upgrade lands in this phase if the gate supports it.
-
-Phase 3 is the verdict and the extension. If the lattice wins on the measurements, the contribution vehicle is the DuckDB extension system, a table function or storage extension exposing the lattice access path, benchmarked against the stock engine. Parity records a measured negative result and closes the track.
+The DuckDB core is scan-first by design, so the extension path is the realistic contribution vehicle and the transparent path is a fork patch. The packed key space is the product of the dimension extents, so the lattice metadata must stay sparse per row group to remain smaller than the data. The multi-dimension index comparison is limited by stock DuckDB's single-filter ART, and the stand-in is scoped explicitly. All results are measured and reported as they are, with no projection ahead of measurement.
 
 ## Status
 
-Planning. The immediate next step is the profile gate with the installed DuckDB package. The syntagma issue is #54 in the `ssccsorg/syntagma` repository, and the analysis lives in this report on the ssccs main branch under the docs exception.
-
-## Boundaries
-
-The lattice addresses bounded integer dimensions with controlled extents; the packed key space is the product of the extents, so the metadata must stay sparse per row group to remain smaller than the data. The DuckDB core is scan-first by design, so the extension path is the realistic contribution vehicle. All results are measured and reported as they are, with no projection ahead of measurement.
+Planning. The immediate next steps are pinning and installing the DuckDB package, verifying the FIXME in the measured version, creating the profile gate issue under the track issue `ssccsorg/syntagma` #54, and running the pilot. The development plan in this report is the working reference for the track.
