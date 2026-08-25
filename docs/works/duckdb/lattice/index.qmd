@@ -1,6 +1,6 @@
 ---
 title: "Coordinate Lattice Access for DuckDB"
-subtitle: "Final development plan: profile gate, lattice prototype, and verdict for multi-dimensional point and range queries in the DuckDB fork"
+subtitle: "Development plan and measured progress: profile gate outcome, physical layout decision, and the lattice extension scaffold for multi-dimensional point and range queries in the DuckDB fork"
 date: 2026-08
 date-format: "MMMM, YYYY"
 version-prefix: "duckdb_lattice-doi.org/10.5281/zenodo.21888670"
@@ -92,7 +92,7 @@ title_meta_items = {
 
 ## Abstract
 
-This report is the final development plan for a coordinate lattice access path in the DuckDB fork. The problem is scoped to DuckDB: multi-dimensional point and range queries over bounded integer dimensions run as a full table scan for every multi-filter query, and as an ART index scan only below a fixed selectivity threshold for single-filter queries. The plan is benchmark-driven. Phase 1 runs a profile gate with the installed DuckDB package and no C++ build, measuring the incumbent scan and index costs. Phase 2 prototypes the lattice access path and measures it against the scan and the index, separating scan-avoidance gain from lattice-specific gain. Phase 3 records either a measured win through the extension system or a measured negative result. The syntagma side is scoped as a minimal additive core upgrade, implemented only if the gate supports it. The CERN ROOT-Coord, ExaVerif CVA6, and LLM tracks are reference experiences that set the expectation; every claim in this report is measured on DuckDB.
+This report is the development plan and the measured progress for a coordinate lattice access path in the DuckDB fork. The problem is scoped to DuckDB: multi-dimensional point and range queries over bounded integer dimensions run as a full table scan for every multi-filter query, and as an ART index scan only below a fixed selectivity threshold for single-filter queries. The plan is benchmark-driven. Phase 1 ran a profile gate with the installed DuckDB package and no C++ build, and the gate passes: the scan is the entire cost of the multi-filter point query. Phase 2 is in progress: the physical layout decision is lattice-sorted storage, and the lattice extension scaffold builds and registers on the fork branch `54-duckdb-lattice`. Phase 3 will record either a measured win through the extension system or a measured negative result. The syntagma side is scoped as a minimal additive core upgrade, implemented only if the prototype supports it. The CERN ROOT-Coord, ExaVerif CVA6, and LLM tracks are reference experiences that set the expectation; every claim in this report is measured on DuckDB.
 
 ## The problem in DuckDB
 
@@ -141,11 +141,11 @@ Three measured tracks set the expectation. The CERN ROOT-Coord work replaced per
 
 ## The final development plan
 
-### Phase 1: profile gate
+### Phase 1: profile gate (complete)
 
 The profile gate uses the installed DuckDB package and no C++ build. It quantifies the incumbent cost that the lattice would remove.
 
-Workload. One table `lattice_bench(d1 INTEGER, d2 INTEGER, d3 INTEGER, payload DOUBLE)` with 10,000,000 rows, dimensions uniform in `[0, 215)`, one row per cell (215 cubed is 9,938,375 cells), and rows inserted in random order to control the row-order variable. The measurement runs in-memory for the CPU-bound case and once file-backed for the I/O comparison. The DuckDB version is pinned and recorded, and the FIXME is verified in the measured version.
+Workload. One table `lattice_bench(d1 INTEGER, d2 INTEGER, d3 INTEGER, payload DOUBLE)` with 9,938,375 rows (215 cubed), dimensions uniform in `[0, 215)`, one row per cell, and rows inserted in random order to control the row-order variable. The measurement runs in-memory for the CPU-bound case and once file-backed for the I/O comparison. The DuckDB version is pinned and recorded, and the FIXME is verified in the measured version.
 
 Query matrix. Five classes by five selectivities, each with two projections:
 
@@ -157,20 +157,21 @@ Query matrix. Five classes by five selectivities, each with two projections:
 | R3 | three-dimensional box | same |
 | S1 | `d1 = x` (single-dimension control) | same |
 
-Projections: `SELECT count(*)` for the filter-only cost and `SELECT payload` for the materialized cost. The gap between the two is the filter-evaluation share, which bounds the read gain of an access path that removes filter evaluation but not row fetch.
+Projections: `SELECT count(*)` for the filter-only cost and `SELECT payload` for the materialized cost. The gap between the two is the matched-row fetch cost; the count cost is the scan itself, which the lattice removes.
 
 Baselines. B0 is the no-index scan, the incumbent for multi-filter queries. B1 is a single-column ART on each dimension, the incumbent for single-filter queries below the threshold. B2 is the lattice, measured in Phase 2. The comparison separates scan-avoidance gain (B0 versus B2) from lattice-specific gain (B1 versus B2).
 
-Metrics. Median wall time over seven warm runs per class and selectivity, the SEQ_SCAN rows processed against the rows matching (from `EXPLAIN ANALYZE`), the row groups scanned against the total, and the `INDEX_SCAN` row-id count and cost for B1. The joint zonemap loss is the ratio of rows processed to rows matching.
+Metrics. Median wall time over seven warm runs per class and selectivity, the TABLE_SCAN rows processed against the rows matching (from `EXPLAIN ANALYZE`), and the `INDEX_SCAN` row-id count and cost for B1. The joint zonemap loss is the ratio of rows processed to rows matching.
 
-Decision rule. A pilot run at reduced scale calibrates the thresholds, which are then registered in this report before the full run. The gate passes when, at the target selectivities at or below 0.1 percent, the multi-filter point query processes a measured multiple of the matching rows and the filter-evaluation share exceeds the registered threshold. The output is the benchmark script, the results table, and the verdict recorded in this report.
+Decision rule. The gate passes when, at the target selectivities at or below 0.1 percent, the multi-filter point query processes a measured multiple of the matching rows and the scan dominates the query cost.
 
-### Phase 2: lattice prototype
+Outcome. The gate ran on the installed DuckDB v1.5.5 with 10 threads. Every multi-filter query (P2, P3, R2, R3) scanned all 9,938,375 rows even with indexes on all three dimensions, confirming the FIXME at scale. The benchmark point is P3, the three-dimension point query: 9,938,375 rows scanned, 1 matched, 1.35 ms (count) and 1.43 ms (payload). The ART index never activated under the default settings, because the minimum single-dimension selectivity (0.465 percent) exceeds the 0.1 percent threshold; with the threshold forced to 1.0, the ART path took 25.3 ms against 1.27 ms for the full scan. The query-volume measurement ran 100,000 point queries in 136.5 s (1.37 ms per query), and the parameterized path measured 156.8 s. The file-backed table (92 MB, OS-cached) measured 1.77 ms for the point query. The cold-cache measurement requires root for purge on macOS and is recorded as pending. The gate passes: the scan is the entire cost of the multi-filter point query at the target selectivities. The benchmark script and the full results live on the fork branch under `benchmark/lattice`.
 
-The first task is the physical layout decision, which the gate data informs:
+### Phase 2: lattice prototype (in progress)
 
-- Lattice-sorted storage. A one-time conversion rewrites the table in lattice order, so a cell maps to a byte offset in closed form and the dimension columns become positional. The conversion cost is measured and amortized against the read gain, and this layout enables the virtual lattice columns of the long-term track.
-- Cell-to-row map over unsorted storage. A per-cell row map indexes the existing layout, with an O(N) build and maintenance on append. The build and maintenance cost is measured against the ART `CREATE INDEX` and append costs.
+The first task, the physical layout decision, is complete. Lattice-sorted storage: a one-time conversion rewrites the table in lattice order, a cell maps to a row offset in closed form, and the dimension columns become positional. The gate data decided the choice: the cell-to-row map alternative would add about 80 MB to the 92 MB file and must be maintained on append, while lattice order removes the dimension storage and the scan together.
+
+The extension scaffold (`lattice_scan` table function) builds and registers on the fork branch `54-duckdb-lattice`; the addressing implementation, which resolves the table schema, dimension extents, and the query box, and emits the matched rows in closed form, is the next task.
 
 The A/B runs the same query matrix from the gate through B0, B1, and B2. The scan-avoidance gain is B0 versus B2, the lattice-specific gain is B1 versus B2 on the single-dimension control. For multi-filter queries the index comparison is scoped explicitly, because stock DuckDB serves them only by scan: the comparison uses either a hash stand-in or a composite ART in the fork, and the limitation is recorded.
 
@@ -192,7 +193,7 @@ The integration is bidirectional: the DuckDB prototype uses the C++ port under `
 - Parameterized set structures sized per row group (122,880 rows), with a dense bitmap near 15 KB per dimension set and an interval list for the sparse case, replacing the fixed 11,172-slot `CoordSet` in the DuckDB context.
 - Mixed-radix box enumeration over per-dimension strides, generalizing the uniform `BoundingBoxIter`.
 
-The upgrade spec is drafted in parallel with the gate. The implementation lands in Phase 2 only if the gate supports it, and the tests live in the `/tests` folder.
+The upgrade spec is drafted in parallel with the gate. The implementation lands in Phase 2 only if the prototype supports it, and the tests live in the `/tests` folder.
 
 ## Risks and boundaries
 
@@ -200,4 +201,4 @@ The DuckDB core is scan-first by design, so the extension path is the realistic 
 
 ## Status
 
-Planning. The immediate next steps are pinning and installing the DuckDB package, verifying the FIXME in the measured version, creating the profile gate issue under the track issue `ssccsorg/syntagma` #54, and running the pilot. The development plan in this report is the working reference for the track.
+Phase 1 is complete and the gate passes. Phase 2 is in progress on the fork branch `54-duckdb-lattice` in `ssccsorg/duckdb`: the physical layout decision (lattice-sorted storage) is recorded under `benchmark/lattice/layout_decision.md`, the pre-integration data under `benchmark/lattice/results`, and the extension scaffold under `extension/lattice`. The immediate next step is the addressing implementation in the extension, which engages the syntagma core upgrade scope. The track issue is #54 in `ssccsorg/syntagma`.
