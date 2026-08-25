@@ -197,6 +197,41 @@ The syntagma core upgrade (mixed-radix box enumeration, parameterized sets) was 
 
 The verdict is a measured win at point-query volume. The extension table function is the measured demonstration vehicle on the fork branch, benchmarked against the stock engine in the same build. The transparent query routing through the optimizer remains a fork patch follow-up. The in-memory near-parity at 9.9M rows was the small-scan regime, not a structural loss; the scaling law shows the ratio growing with N.
 
+## Measured results and final insights
+
+### The scaling law
+
+:::{ layout-ncol=2 }
+
+{{< include ./_include/bench/fig-lattice-scaling.qmd >}}
+
+{{< include ./_include/bench/fig-lattice-ratio.qmd >}}
+
+:::
+
+The A/B measured the per-query point cost across four table sizes with the release build. The scan cost grows with N from 0.479 ms at 9.9M rows to 4.106 ms at 600M rows, while the lattice stays flat between 0.311 ms and 0.362 ms. The ratio therefore grows with N: 1.54x at 9.9M, 3.5x at 100M, 6.8x at 300M, and 11.3x at 600M. The projected 1B-row point follows from the linear scan model and is marked as a projection, not a measurement; the 1B run is infeasible on this machine (21 GB free disk against an estimated 40 GB peak).
+
+### The query matrix at 600M rows
+
+:::{ layout-ncol=2 }
+
+{{< include ./_include/bench/fig-lattice-matrix-600m.qmd >}}
+
+{{< include ./_include/bench/fig-lattice-waste.qmd >}}
+
+:::
+
+At 600M rows the point query measures 15 ms for the scan against 1 ms for the lattice (the 1 ms floor is the CLI timer resolution; the volume measurement is the reliable comparison), and the range box measures 13 ms against 3 ms. The wide S1 point, which returns 710,649 rows, measures 508 ms for the lattice against 15 ms for the scan: the table function vehicle bounds wide results, not the addressing. The waste chart shows the gate benchmark point at 9.9M rows, where the scan processes 9,938,375 rows to return 1.
+
+### Final insights
+
+1. The lattice per-query cost is independent of the table size. The 0.311 to 0.362 ms range across 9.9M to 600M rows is the measured verification of the ExaVerif pattern in DuckDB: the access cost scales with the subspace, not the space.
+2. The gate overestimated the scan share. The 1.37 ms per query measured through the python driver at 9.9M rows included a large driver component; the in-process release measurement is 0.479 ms. The A/B numbers are the reliable ones.
+3. The ART index is not a competitor on this table. The default threshold never activates it, the forced path loses to the scan (25.3 ms against 1.27 ms at 9.9M rows), and multi-filter queries have no index path at all. The multi-dimension index baseline is a fork-patch follow-up.
+4. The wide-query limitation is the vehicle, not the addressing. The S1 result at 600M rows is 508 ms for 710,649 rows emitted through the table function; the next optimization is vectorized row emission and a parallel odometer.
+5. The I/O-dominated case is the untested strong claim. The in-memory win grows with N, and the ROOT precedent suggests the structural removal matters most where the scan is I/O-bound; the cold-cache measurement is pending a root purge on macOS.
+6. The syntagma core upgrade was not required by the prototype. The inline odometer sufficed. The upgrade becomes necessary for general dimension count, the join generalization (the perfect hash join extension), and the virtual lattice columns track.
+
 ## The syntagma core upgrade scope
 
 The integration is bidirectional: the DuckDB prototype uses the C++ port under `sw/cpp`, and the prototype requirements define a minimal additive upgrade. The existing `Coord` (three axes, 19 by 21 by 28 radices, 11,172 valid states) stays unchanged because `tagma_map`, the Rust core, and the ROOT fork depend on it. The upgrade adds:

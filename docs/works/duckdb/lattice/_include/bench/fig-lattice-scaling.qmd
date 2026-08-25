@@ -1,0 +1,39 @@
+```{python}
+#| label: fig-lattice-scaling
+#| fig-cap: "Per-query point cost across table sizes: the scan grows with N, the lattice stays flat"
+import matplotlib.pyplot as plt
+import numpy as np
+
+rows = np.array([9.9, 100, 300, 600])  # millions of rows
+b0 = [0.479, 1.091, 2.203, 4.106]      # ms per query, B0 scan
+b2 = [0.311, 0.312, 0.325, 0.362]      # ms per query, B2 lattice
+
+fig, ax = plt.subplots(figsize=(5.5, 3.5))
+ax.plot(rows, b0, '-o', color='black', markerfacecolor='white', markeredgecolor='black',
+        markersize=8, linewidth=1.8, label='B0 scan')
+ax.plot(rows, b2, '-s', color='black', markerfacecolor='black', markeredgecolor='black',
+        markersize=8, linewidth=1.8, label='B2 lattice')
+
+ax.set_xscale('log')
+ax.set_yscale('log')
+ax.set_xticks(rows)
+ax.set_xticklabels([f'{r:.0f}M' for r in rows], fontsize=9)
+ax.set_xlabel('Table rows (log scale)')
+ax.set_ylabel('Per-query time (ms, log scale)')
+ax.set_ylim(0.2, 10)
+ax.legend(fontsize=8, loc='upper left')
+ax.grid(True, linestyle=':', alpha=0.4)
+
+for xi, y1, y2 in zip(rows, b0, b2):
+    ax.annotate(f'{y1:.2f}', xy=(xi, y1), xytext=(xi * 1.18, y1 * 1.25), fontsize=8, ha='center')
+    ax.annotate(f'{y2:.2f}', xy=(xi, y2), xytext=(xi * 0.82, y2 * 1.3), fontsize=8, ha='center')
+
+ax.annotate('scan: linear in N', xy=(300, 2.2), xytext=(18, 1.0), fontsize=8,
+            arrowprops=dict(arrowstyle='->', color='black', lw=0.8),
+            bbox=dict(boxstyle='round,pad=0.2', facecolor='white', edgecolor='black', alpha=0.8))
+ax.annotate('lattice: flat 0.31 to 0.36 ms', xy=(600, 0.36), xytext=(25, 0.26), fontsize=8,
+            arrowprops=dict(arrowstyle='->', color='black', lw=0.8),
+            bbox=dict(boxstyle='round,pad=0.2', facecolor='white', edgecolor='black', alpha=0.8))
+
+plt.tight_layout(); plt.show()
+```

@@ -1,0 +1,35 @@
+```{python}
+#| label: fig-lattice-matrix-600m
+#| fig-cap: "Median wall time per query at 600M rows, B0 scan against B2 lattice (log scale)"
+import matplotlib.pyplot as plt
+import numpy as np
+
+labels = ['P3 point', 'R3 range', 'S1 point']
+b0 = [15.0, 13.0, 15.0]
+b2 = [1.0, 3.0, 508.0]
+
+x = np.arange(len(labels))
+width = 0.35
+
+fig, ax = plt.subplots(figsize=(5.5, 3.5))
+ax.bar(x - width / 2, b0, width, color='white', edgecolor='black', linewidth=1.0, label='B0 scan')
+ax.bar(x + width / 2, b2, width, color='white', edgecolor='black', linewidth=1.0, hatch='///', label='B2 lattice')
+
+ax.set_yscale('log')
+ax.set_xticks(x)
+ax.set_xticklabels(labels, fontsize=9)
+ax.set_ylabel('Median wall time (ms, log scale)')
+ax.legend(fontsize=8)
+ax.grid(axis='y', linestyle=':', alpha=0.4)
+
+for xi, (y0, y2) in enumerate(zip(b0, b2)):
+    ax.text(xi - width / 2, y0 * 1.25, f'{y0:.0f}', ha='center', fontsize=8)
+    ax.text(xi + width / 2, y2 * 1.25, f'{y2:.0f}', ha='center', fontsize=8)
+
+ax.annotate('point and range: lattice wins\nwide result: the table function vehicle bounds it',
+            xy=(2, 508), xytext=(0.35, 60), fontsize=8,
+            arrowprops=dict(arrowstyle='->', color='black', lw=0.8),
+            bbox=dict(boxstyle='round,pad=0.2', facecolor='white', edgecolor='black', alpha=0.8))
+
+plt.tight_layout(); plt.show()
+```

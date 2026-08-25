@@ -1,0 +1,37 @@
+```{python}
+#| label: fig-lattice-ratio
+#| fig-cap: "Point-query ratio B0 over B2 across table sizes, with the projected 1B point"
+import matplotlib.pyplot as plt
+import numpy as np
+
+rows = np.array([9.9, 100, 300, 600])  # millions of rows, measured
+ratio = [1.54, 3.5, 6.8, 11.3]
+rows_proj = np.array([1000])
+ratio_proj = [20.0]  # projection from the linear scan model, not measured
+
+fig, ax = plt.subplots(figsize=(5.5, 3.5))
+ax.plot(rows, ratio, '-o', color='black', markerfacecolor='white', markeredgecolor='black',
+        markersize=8, linewidth=1.8, label='measured')
+ax.plot(rows_proj, ratio_proj, 's', color='black', markerfacecolor='white', markeredgecolor='black',
+        markersize=8, linestyle='none', label='projected 1B')
+
+ax.set_xscale('log')
+ax.set_xticks(np.concatenate([rows, rows_proj]))
+ax.set_xticklabels(['9.9M', '100M', '300M', '600M', '1B'], fontsize=9)
+ax.set_xlabel('Table rows (log scale)')
+ax.set_ylabel('Ratio B0 / B2')
+ax.set_ylim(0, 24)
+ax.legend(fontsize=8, loc='upper left')
+ax.grid(axis='y', linestyle=':', alpha=0.4)
+
+for xi, yi in zip(rows, ratio):
+    ax.annotate(f'{yi:.1f}x', xy=(xi, yi), xytext=(xi * 0.95, yi + 1.0), fontsize=9, ha='center', fontweight='bold')
+ax.annotate('~20x', xy=(1000, 20), xytext=(680, 21.5), fontsize=9, ha='center', fontweight='bold')
+
+ax.annotate('the ratio grows with N\nbecause the lattice cost is flat',
+            xy=(300, 6.8), xytext=(25, 15.5), fontsize=8,
+            arrowprops=dict(arrowstyle='->', color='black', lw=0.8),
+            bbox=dict(boxstyle='round,pad=0.2', facecolor='white', edgecolor='black', alpha=0.8))
+
+plt.tight_layout(); plt.show()
+```
