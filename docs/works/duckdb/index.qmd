@@ -80,7 +80,7 @@ format:
 #| context: local
 title_meta_items = {
     "html": [
-        {"title": "Code", "link": "https://github.com/duckdb/duckdb", "content": "DuckDB", "icon": "bi bi-link"},
+        {"title": "Code", "link": "https://github.com/ssccsorg/duckdb", "content": "DuckDB", "icon": "bi bi-link"},
         {"title": "Plan", "link": "/works/duckdb/lattice/", "content": "Lattice Development Plan", "icon": "bi bi-link"},
         {"title": "Reference", "link": "/works/cern/root-ttree", "content": "CERN ROOT-Coord", "icon": "bi bi-link"},
         {"title": "Reference", "link": "/projects/ev/", "content": "ExaVerif", "icon": "bi bi-link"},
@@ -92,9 +92,9 @@ title_meta_items = {
 
 ## Abstract
 
-DuckDB is a widely adopted open-source analytics engine. Its multi-dimensional point and range queries over large tables are scan-based by design: a query over a ten-million-row table with two or three bounded integer dimensions visits the rows and evaluates the predicates. The tagma coordinate lattice addresses the matching subspace directly: for bounded dimensions the table is a regular lattice, and the physical rows of a point or range query are a closed form of the coordinates.
+DuckDB is a widely adopted open-source analytics engine. Its multi-dimensional point and range queries over large tables are scan-based by design: a query over a large table with two or three bounded integer dimensions visits the rows and evaluates the predicates. The tagma coordinate lattice addresses the matching subspace directly: for bounded dimensions the table is a regular lattice, and the physical rows of a point or range query are a closed form of the coordinates.
 
-The measured precedents define the pattern. The CERN ROOT-Coord work measured 69 to 181 times on an index-traversal-dominated I/O path. The ExaVerif structural pipeline measured about 50 times by enumerating the valid coordinate subspace instead of the full space. The two LLM measurements, vLLM and llama.cpp, measured parity and bound the expectation: the gain appears only when the indirection or the scan is the dominant cost. DuckDB multi-dimensional point queries over bounded integer dimensions fit the subspace-enumeration pattern, and the work follows the same measured discipline: a profile gate before implementation, a prototype against the scan and a standard index, then the verdict. The profile gate is complete and passes; the prototype is in progress on the fork branch `54-duckdb-lattice`.
+The measured precedents define the pattern. The CERN ROOT-Coord work measured 69 to 181 times on an index-traversal-dominated I/O path. The ExaVerif structural pipeline measured about 50 times by enumerating the valid coordinate subspace instead of the full space. The two LLM measurements, vLLM and llama.cpp, measured parity and bound the expectation: the gain appears only when the indirection or the scan is the dominant cost. DuckDB multi-dimensional point queries over bounded integer dimensions fit the subspace-enumeration pattern, and the work followed the same measured discipline: a profile gate before implementation, a prototype against the scan and a standard index, then the verdict. The profile gate and the lattice prototype are complete, and the verdict is recorded.
 
 ## The measured pattern
 
@@ -104,7 +104,7 @@ The measured precedents define the pattern. The CERN ROOT-Coord work measured 69
 | ExaVerif structural | Full-space enumeration replaced by valid subspace enumeration | about 50x | Bounded dimensions address the matching subspace directly |
 | vLLM and llama.cpp KV | Block-table and cell-index indirection removal | parity | The indirection was a negligible share of the compute |
 
-The DuckDB claim is the ExaVerif pattern applied to queries: for a table with bounded integer dimensions, a point or range query addresses the matching rows as a lattice subspace instead of scanning. The tagma-specific claim is that the lattice beats a standard index, so the comparison must include an index, not only the scan.
+The DuckDB claim is the ExaVerif pattern applied to queries: for a table with bounded integer dimensions, a point or range query addresses the matching rows as a lattice subspace instead of scanning. The tagma-specific claim is that the lattice beats a standard index, so the comparison included an index, not only the scan.
 
 ## The plan
 
@@ -112,18 +112,29 @@ The DuckDB claim is the ExaVerif pattern applied to queries: for a table with bo
 
 The profile gate uses the installed DuckDB package, no C++ build: a 9,938,375-row lattice table (215 cubed, one row per cell, random order) with point and range queries at several selectivities. The measurement records the scan cost per query and the selectivity at which an index would pay for itself. This gate follows the llama.cpp discipline: quantify the incumbent cost before implementing.
 
-The gate passes. Every multi-filter query scanned all rows even with indexes on all three dimensions; the three-dimension point query returned 1 row from 9,938,375 scanned in 1.35 ms; the ART index never activated under the default 0.1 percent threshold and took 25.3 ms when forced, against 1.27 ms for the scan; 100,000 point queries took 136.5 s. The full data and the benchmark script live in the fork branch under `benchmark/lattice`.
+The gate passes. Every multi-filter query scanned all rows even with indexes on all three dimensions; the three-dimension point query returned 1 row from 9,938,375 scanned in 1.35 ms; the ART index never activated under the default 0.1 percent threshold and took 25.3 ms when forced, against 1.27 ms for the scan. The full data and the benchmark script live in the fork branch under `benchmark/lattice`.
 
-### Phase 2: lattice prototype (in progress)
+### Phase 2: lattice prototype (complete)
 
-A coordinate-lattice access path over the same table, compared against the DuckDB scan and a standard index (the DuckDB ART index or a hash stand-in). The A/B must separate the scan-avoidance gain from the lattice-specific gain, because any index beats a scan on selective queries.
+A coordinate-lattice access path over the same table, compared against the DuckDB scan and a standard index (the DuckDB ART index or a hash stand-in). The A/B separates the scan-avoidance gain from the lattice-specific gain, because any index beats a scan on selective queries.
 
-The physical layout decision is lattice-sorted storage: the cell-to-row map alternative would add about 80 MB to a 92 MB file and must be maintained on append, while lattice order makes the dimensions positional and removes the scan. The lattice extension scaffold (`lattice_scan` table function) builds and registers on the fork branch `54-duckdb-lattice`; the addressing implementation is next.
+The physical layout decision is lattice-sorted storage: the cell-to-row map alternative would add about 80 MB to a 92 MB file and must be maintained on append, while lattice order makes the dimensions positional and removes the scan. The `lattice_scan` table function is implemented on the fork branch `54-duckdb-lattice`: it resolves the query box, enumerates the matching subspace with a mixed-radix odometer, and fetches the payload rows at the addressed offsets. Correctness is verified against the regular scan on point, range, full-lattice, and partial-dimension queries.
 
-### Phase 3: verdict and extension
+The A/B measured the scaling law with the release build on 9.9M, 100M, 300M, and 600M rows:
 
-If the lattice wins on the measurements, the contribution vehicle is the DuckDB extension system: a table function or storage extension exposing the lattice access path, with the benchmark published against the stock engine. Parity records a measured negative result and closes the track.
+| Table | B0 scan per query | B2 lattice per query | Ratio |
+| :--- | ---: | ---: | ---: |
+| 9.9M | 0.479 ms | 0.311 ms | 1.54x |
+| 100M | 1.091 ms | 0.312 ms | 3.5x |
+| 300M | 2.203 ms | 0.325 ms | 6.8x |
+| 600M | 4.106 ms | 0.362 ms | 11.3x |
+
+The lattice per-query cost is flat in the table size; the scan grows linearly, so the ratio grows with N. Wide queries lose through the table function vehicle (the S1 point at 600M returns 710,649 rows in 508 ms against 15 ms for the scan), so the lattice is a point-lookup access path.
+
+### Phase 3: verdict and extension (verdict recorded)
+
+The verdict is recorded as a measured win at point-query volume. The extension table function is the measured demonstration vehicle on the fork branch. The transparent query routing through the optimizer remains a fork patch follow-up, and the row-emission cost for wide queries is the next optimization target. Parity did not occur; the in-memory near-parity at 9.9M rows was the small-scan regime, not a structural loss.
 
 ## Status
 
-Phase 1 (profile gate) is complete and the gate passes. Phase 2 is in progress on the fork branch `54-duckdb-lattice` in `ssccsorg/duckdb`: the physical layout decision (lattice-sorted storage) is recorded under `benchmark/lattice/layout_decision.md`, the pre-integration data under `benchmark/lattice/results`, and the extension scaffold under `extension/lattice`. Phase 3 (verdict and extension) follows the addressing implementation and the A/B against the scan and the index. The detailed development plan is the companion page `/works/duckdb/lattice/`.
+Phase 1 (profile gate) is complete and the gate passes. Phase 2 (lattice prototype) is complete: the physical layout decision (lattice-sorted storage) is recorded under `benchmark/lattice/layout_decision.md`, the addressing implementation is verified, and the A/B scaling curve is recorded under `benchmark/lattice/results`. Phase 3 records a measured win at point-query volume, with the scaling law confirmed across four table sizes. All work lives on the fork branch `54-duckdb-lattice` in `ssccsorg/duckdb`. The detailed development plan is the companion page `/works/duckdb/lattice/`.
