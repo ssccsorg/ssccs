@@ -173,8 +173,10 @@ The physical layout decision is lattice-sorted storage. A one-time conversion re
 
 The `lattice_scan` extension table function is implemented on the fork branch `54-duckdb-lattice`:
 
-    SELECT * FROM lattice_scan('table', 'd1,d2,d3', 'payload', E1, E2, E3,
-                               lo1, hi1, lo2, hi2, lo3, hi3)
+```text
+SELECT * FROM lattice_scan('table', 'd1,d2,d3', 'payload', E1, E2, E3,
+                           lo1, hi1, lo2, hi2, lo3, hi3)
+```
 
 A cell (d1, d2, d3) with extents (E1, E2, E3) maps to the row offset `((d1 * E2 + d2) * E3 + d3)` in closed form, with no hash and no index scan. Each lo/hi pair is a per-dimension range; NULL means the full range and lo == hi is a point. The scan enumerates the matching subspace with a mixed-radix odometer, one chunk at a time, and fetches the payload rows at the addressed offsets, vectorized.
 

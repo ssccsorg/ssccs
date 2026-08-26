@@ -614,7 +614,7 @@ The software numbers come from the hardware-comparison baseline (`sw/rust/benche
 
 For the N=1 dense case, hardware is not a speedup. The entire working set fits in L1 cache, and the software already runs at memory speed. The hardware value is on other axes: energy per access (22 KB SRAM at 16 MHz; orders of magnitude below a host cache hierarchy, an estimate pending a power model), latency determinism (fixed one cycle), physical embedding (the primitive becomes a device), and streaming throughput (one code point per clock when pipelined). The acceleration case appears at N greater than 1, where software falls back to sparse trees (0.87 to 53 ns per operation), and in embedded or IO paths where energy and determinism dominate over raw speed.
 
-The Sky130 standard cell flow runs in CI (ORFS, `hw` job in the syntagma repository) and produced the first measured PDK numbers: the registered demo top at 4631 $\mu$m$^2$ with 35% utilization, an 11.19 ns critical path with +72.33 ns slack, and 0.897 mW; the pure decoder at 388 Sky130 cells and 2826 $\mu$m$^2$[^tagma-hw]. The FPGA demo on the Upduino 3.1 closes the onboard 12 MHz clock at 16.79 MHz.
+The Sky130 standard cell flow runs in CI (ORFS, `hw` job in the syntagma repository) and produced the first measured PDK numbers: the registered demo top at 4631 $\mu$m$^2$ with 35% utilization, an 11.19 ns critical path with +72.33 ns slack, and 0.897 mW; the pure decoder at 388 Sky130 cells and 2826 $\mu$m$^2$. The FPGA demo on the Upduino 3.1 closes the onboard 12 MHz clock at 16.79 MHz.
 
 The coprocessor path (above) attaches Tagma to a linear memory system: the coordinate is decoded and the result is used as an address in conventional memory. Two extensions remain future directions:
 
@@ -967,7 +967,7 @@ The security model rests on keyed primitives over public coordinate arithmetic. 
 
 {{< include ../_include/bench/fig-bench-sec-audit.qmd >}}
 
-The full design, benchmark charts, and implementation status are described in the Tagma Security whitepaper[^tagma-sec] and in the Tagma security layer specification[^tagma-spec] in the synTagma repository.
+The full design, benchmark charts, and implementation status are described in the Tagma Security whitepaper and in the Tagma security layer specification[^tagma-spec] in the synTagma repository.
 
 ## Structural Enumeration in Practice: RISC-V Verification {#sec-appendix-exaverif}
 
