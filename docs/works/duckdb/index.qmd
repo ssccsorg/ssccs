@@ -116,8 +116,8 @@ The A/B measured the scaling law with the release build:
 - The scan grows linearly with the table size, so the ratio grows with N: 1.54x at 9.9M rows to 11.3x at 600M rows.
 - The verdict is a measured win at point-query volume. Wide queries are bounded by the table function row-emission cost.
 
-The detailed plan, the code anchors, the charts, and the final insights live in the companion development plan page `/works/duckdb/lattice/`. The work lives on the fork branch `54-duckdb-lattice` in `ssccsorg/duckdb`.
+The comparison baseline is the zonemap-pruned scan on the lattice-sorted table (2 of 4,876 row groups for the point query at 600M), and the win mechanism is skipping the row-group metadata traversal. The cold-cache I/O case is measured and refuted for point queries (2.7x cold against 16x warm at 600M). The detailed plan, the code anchors, the charts, and the corrected insights live in the companion development plan page `/works/duckdb/lattice/`. The work lives on the fork branches `54-duckdb-lattice` and `55-join-probe` in `ssccsorg/duckdb`.
 
 ## Status
 
-Phase 1 (profile gate), Phase 2 (lattice prototype), and Phase 3 (verdict) are complete. The measured win at point-query volume is recorded, with the scaling law confirmed across four table sizes. Follow-ups: wide-result row emission, the transparent fork patch, the cold-cache I/O case, and the syntagma core upgrade.
+Phase 1 (profile gate), Phase 2 (lattice prototype), and Phase 3 (verdict) are complete. The measured win at point-query volume is recorded, with the scaling law confirmed across four table sizes against the zonemap-pruned scan baseline, and the cold-cache I/O case is measured and refuted for point queries. Follow-ups: wide-result row emission, the transparent fork patch, and the re-scoped syntagma core upgrade.

@@ -95,7 +95,7 @@ This is the living note for the syntagma-side improvements driven by the DuckDB 
 
 ## Status
 
-Tracked, not started. The DuckDB lattice prototype implemented the mixed-radix enumeration inline in the extension and did not require the syntagma upgrade. The upgrade becomes necessary for the follow-ups: general dimension count, wide-result row emission, the join generalization, and the virtual lattice columns track.
+Tracked, not started. The DuckDB lattice prototype implemented the mixed-radix enumeration inline in the extension and did not require the syntagma upgrade. The DuckDB track is consolidated with a refined outcome: the point-query win is measured against the zonemap-pruned scan baseline (11.3x in-process at 600M), the cold-cache I/O claim is refuted for point queries on the sorted table, and the sparse boundary is measured (the closed form requires density; sparse tables fall back to the stock index path at parity). The join generalization (ssccsorg/syntagma #55) is implemented and measured with a limited advantage (1.33x probe-dominated 3D, 0.8x build-dominated). The syntagma core upgrade itself remains not started; its justification is now the general dimension count, the wide-result row emission, and the virtual lattice columns track.
 
 ## Scope
 
@@ -111,9 +111,10 @@ The DuckDB prototype verified that the closed form `n = ((d1 * E2 + d2) * E3 + d
 
 The DuckDB A/B measurements and the code analysis define the requirements:
 
-- Point-query cost is flat in the table size (0.311 to 0.362 ms across 9.9M to 600M rows). The upgrade must preserve this O(1) property for arbitrary dimensions.
+- Point-query cost is flat in the table size (0.311 to 0.362 ms across 9.9M to 600M rows), measured against the zonemap-pruned scan baseline (2 of 4,876 row groups at 600M); the win mechanism is skipping the row-group metadata traversal. The upgrade must preserve this O(1) property for arbitrary dimensions.
+- The density requirement is the applicability boundary. The closed form addresses a row offset only when every cell is present; a sparse table needs a cell-to-row map, and the measured sparse point query at 10 percent density falls back to the stock single-column index path at parity with the scan (2.0 ms against 2.0 ms at 600M), against the dense 11.3x. The cold-cache I/O claim is refuted for point queries on the sorted table (2.7x cold at 600M): the sorted layout prunes the scan, so the scan is never I/O-dominated.
 - Wide-result row emission is the measured limitation (508 ms for 710,649 rows through the table function). The box enumeration must support vectorized batch emission, not per-cell calls.
-- The join layer contains a DuckDB precedent, the perfect hash join for dense bounded single keys. The syntagma mixed-radix coordinate is the generalization to multi-dimension bounded keys; the join check will confirm the slot.
+- The join layer contains a DuckDB precedent, the perfect hash join for dense bounded single keys. The syntagma mixed-radix coordinate is the generalization to multi-dimension bounded keys. The join check (ssccsorg/syntagma #55) confirmed the slot: `CanDoPerfectHashJoin` in `physical_hash_join.cpp` accepts a single integer equality condition with a dense build range at most 2^20, and the syntagma mixed-radix position function `n = ((d1 * E2 + d2) * E3 + d3)` is the same position table generalized to D equality conditions, subject to the packed-key-space memory bound and the density condition. The generalization is implemented and measured on the fork branch `55-join-probe`: the correctness checks pass, and the A/B shows a 1.33x gain on the probe-dominated 3D workload (1k build by 1M probe) with the build-dominated 3D 90^3 dense self join losing at 0.8x. The measured advantage is limited to small and probe-dominated workloads.
 - The virtual lattice columns track needs positional dimension storage. The parameterized set structures size the per-row-group metadata at 122,880 rows.
 
 ## Update log
@@ -121,6 +122,10 @@ The DuckDB A/B measurements and the code analysis define the requirements:
 | Date | Entry |
 | :--- | :--- |
 | 2026-08 | Note created. Scope recorded from the DuckDB lattice plan; the prototype did not require the upgrade. |
+| 2026-08 | Join check (ssccsorg/syntagma #55) confirmed the slot: the perfect hash join is the single-key dense bounded integer precedent, and the mixed-radix position function generalizes it to D equality conditions. |
+| 2026-08 | Join generalization (#55) implemented and measured on the duckdb fork branch `55-join-probe`: the multi-dimension perfect hash join passes the PHJ suite and `verify_phj.sh`, and the A/B shows a 1.33x probe-dominated 3D gain against a 0.8x build-dominated dense self join loss. The advantage is limited to small and probe-dominated workloads; the syntagma core upgrade remains not started. |
+| 2026-08 | Cold-cache I/O measured and refuted for point queries on the sorted table (purge plus 24 GB memory pressure): 2.7x cold against 16x warm at 600M, because the scan is zonemap-pruned and the lattice pays a fixed cold-start latency of 9 to 10 ms. The A/B scan baseline is the pruned scan (2 of 4,876 row groups), and the win mechanism is the row-group metadata traversal. |
+| 2026-08 | Sparse boundary measured: at 10 percent density the point query falls back to the stock cell index at parity with the scan (2.0 against 2.0 ms at 600M), and the cell ART index costs 1.54 GB. The closed-form advantage requires density; the upgrade justification narrows to general dimensions, wide-result row emission, and virtual lattice columns. |
 
 ## References
 

@@ -195,7 +195,7 @@ The syntagma core upgrade (mixed-radix box enumeration, parameterized sets) was 
 
 ### Phase 3: verdict and extension (verdict recorded)
 
-The verdict is a measured win at point-query volume. The extension table function is the measured demonstration vehicle on the fork branch, benchmarked against the stock engine in the same build. The transparent query routing through the optimizer remains a fork patch follow-up. The in-memory near-parity at 9.9M rows was the small-scan regime, not a structural loss; the scaling law shows the ratio growing with N.
+The verdict is a measured win at point-query volume. The extension table function is the measured demonstration vehicle on the fork branch, benchmarked against the stock engine in the same build. The transparent query routing through the optimizer remains a fork patch follow-up. The in-memory near-parity at 9.9M rows was the small-scan regime, not a structural loss; the scaling law shows the ratio growing with N. The comparison baseline is the zonemap-pruned scan on the lattice-sorted table (2 of 4,876 row groups for the P3 point at 600M), and the cold-cache I/O case is measured and refuted for point queries on the sorted table.
 
 ## Measured results and final insights
 
@@ -211,6 +211,8 @@ The verdict is a measured win at point-query volume. The extension table functio
 
 The A/B measured the per-query point cost across four table sizes with the release build. The scan cost grows with N from 0.479 ms at 9.9M rows to 4.106 ms at 600M rows, while the lattice stays flat between 0.311 ms and 0.362 ms. The ratio therefore grows with N: 1.54x at 9.9M, 3.5x at 100M, 6.8x at 300M, and 11.3x at 600M. The projected 1B-row point follows from the linear scan model and is marked as a projection, not a measurement; the 1B run is infeasible on this machine (21 GB free disk against an estimated 40 GB peak).
 
+The scan baseline is a zonemap-pruned scan, not a full table scan: EXPLAIN ANALYZE on the 600M table reports 2 of 4,876 row groups scanned for the P3 point. The scan cost grows with N because DuckDB checks every row group's zonemap metadata (about 0.76 us per row group, 81 row groups at 9.9M against 4,876 at 600M), and the lattice skips that traversal with the closed form. The full table scan (9,938,375 rows, 1 matched) was measured only on the random-order gate table.
+
 ### The query matrix at 600M rows
 
 :::{ layout-ncol=2 }
@@ -223,14 +225,16 @@ The A/B measured the per-query point cost across four table sizes with the relea
 
 At 600M rows the point query measures 15 ms for the scan against 1 ms for the lattice (the 1 ms floor is the CLI timer resolution; the volume measurement is the reliable comparison), and the range box measures 13 ms against 3 ms. The wide S1 point, which returns 710,649 rows, measures 508 ms for the lattice against 15 ms for the scan: the table function vehicle bounds wide results, not the addressing. The waste chart shows the gate benchmark point at 9.9M rows, where the scan processes 9,938,375 rows to return 1.
 
+The cold-cache I/O measurement (page cache purged with root purge plus 24 GB memory pressure before every query, three samples, 600M table): P3 scan 27 ms against lattice 10 ms (2.7x), R3 27 ms against 15 ms (1.8x), and S1 lattice 873 ms against scan 26 ms. The cold ratio is smaller than the warm ratio because the pruned scan reads only the row-group metadata (about 19 MB) plus the residual row groups, and the lattice pays a fixed cold-start latency of 9 to 10 ms independent of the table size. The full record is `benchmark/lattice/results/cold_io.json` on the fork branch `55-join-probe`.
+
 ### Final insights
 
-1. The lattice per-query cost is independent of the table size. The 0.311 to 0.362 ms range across 9.9M to 600M rows is the measured verification of the ExaVerif pattern in DuckDB: the access cost scales with the subspace, not the space.
+1. The lattice per-query cost is independent of the table size. The 0.311 to 0.362 ms range across 9.9M to 600M rows is the measured verification of the ExaVerif pattern in DuckDB: the access cost scales with the subspace, not the space. The baseline scan is zonemap-pruned (2 of 4,876 row groups for the P3 point at 600M), so the win is skipping the row-group metadata traversal plus the residual row-group reads.
 2. The gate overestimated the scan share. The 1.37 ms per query measured through the python driver at 9.9M rows included a large driver component; the in-process release measurement is 0.479 ms. The A/B numbers are the reliable ones.
 3. The ART index is not a competitor on this table. The default threshold never activates it, the forced path loses to the scan (25.3 ms against 1.27 ms at 9.9M rows), and multi-filter queries have no index path at all. The multi-dimension index baseline is a fork-patch follow-up.
 4. The wide-query limitation is the vehicle, not the addressing. The S1 result at 600M rows is 508 ms for 710,649 rows emitted through the table function; the next optimization is vectorized row emission and a parallel odometer.
-5. The I/O-dominated case is the untested strong claim. The in-memory win grows with N, and the ROOT precedent suggests the structural removal matters most where the scan is I/O-bound; the cold-cache measurement is pending a root purge on macOS.
-6. The syntagma core upgrade was not required by the prototype. The inline odometer sufficed. The upgrade becomes necessary for general dimension count, the join generalization (the perfect hash join extension), and the virtual lattice columns track.
+5. The I/O-dominated case is measured and refuted for point queries on the lattice-sorted table. With the page cache purged (root purge plus 24 GB memory pressure), the cold P3 ratio at 600M is 2.7x against 16x warm, because the scan is pruned to about 20 MB of row-group metadata plus data, and the lattice pays a fixed cold-start latency of about 9 to 10 ms independent of the table size. The ROOT-style I/O win would need a workload where the scan reads the whole file, which the sorted layout prevents. The result lives in `benchmark/lattice/results/cold_io.json`.
+6. The syntagma core upgrade was not required by the prototype. The inline odometer sufficed. The join generalization (the perfect hash join extension) is implemented and measured on the fork branch `55-join-probe` with a limited advantage (1.33x probe-dominated 3D, 0.8x build-dominated), so the upgrade's remaining drivers are general dimension count, wide-result row emission, and the virtual lattice columns track.
 
 ## The syntagma core upgrade scope
 
@@ -244,8 +248,8 @@ The prototype implemented the enumeration inline and did not require the upgrade
 
 ## Risks and boundaries
 
-The DuckDB core is scan-first by design, so the extension path is the realistic contribution vehicle and the transparent path is a fork patch. The packed key space is the product of the dimension extents, so the lattice metadata must stay sparse per row group to remain smaller than the data. The multi-dimension index comparison is limited by stock DuckDB's single-filter ART, and the stand-in is scoped explicitly. Wide queries are bounded by the table function row-emission cost. The cold-cache I/O case is pending a root purge on macOS. All results are measured and reported as they are, with no projection ahead of measurement.
+The DuckDB core is scan-first by design, so the extension path is the realistic contribution vehicle and the transparent path is a fork patch. The packed key space is the product of the dimension extents, so the lattice metadata must stay sparse per row group to remain smaller than the data. The multi-dimension index comparison is limited by stock DuckDB's single-filter ART, and the stand-in is scoped explicitly. Wide queries are bounded by the table function row-emission cost. The cold-cache I/O case is measured and refuted for point queries on the sorted table. All results are measured and reported as they are, with no projection ahead of measurement.
 
 ## Status
 
-Phase 1 is complete and the gate passes. Phase 2 is complete: the physical layout decision (lattice-sorted storage) is recorded under `benchmark/lattice/layout_decision.md`, the addressing implementation is verified under `extension/lattice`, and the A/B scaling curve is recorded under `benchmark/lattice/results`. Phase 3 records a measured win at point-query volume, with the scaling law confirmed across four table sizes (1.54x at 9.9M to 11.3x at 600M). All work lives on the fork branch `54-duckdb-lattice` in `ssccsorg/duckdb`. The track issue is #54 in `ssccsorg/syntagma`. Follow-ups: wide-result row emission, the transparent fork patch, the cold-cache I/O case, and the syntagma core upgrade for general dimensions.
+Phase 1 is complete and the gate passes. Phase 2 is complete: the physical layout decision (lattice-sorted storage) is recorded under `benchmark/lattice/layout_decision.md`, the addressing implementation is verified under `extension/lattice`, and the A/B scaling curve is recorded under `benchmark/lattice/results`. Phase 3 records a measured win at point-query volume, with the scaling law confirmed across four table sizes (1.54x at 9.9M to 11.3x at 600M), against the zonemap-pruned scan baseline. All work lives on the fork branches `54-duckdb-lattice` and `55-join-probe` in `ssccsorg/duckdb`. The track issue is #54 in `ssccsorg/syntagma`. Follow-ups: wide-result row emission, the transparent fork patch, and the re-scoped syntagma core upgrade for general dimensions. The cold-cache I/O case is closed with a refuted hypothesis for point queries on the sorted table.
