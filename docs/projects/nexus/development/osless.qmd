@@ -99,8 +99,8 @@ The flat indexing cost property bounds the memory story [^179]. The structural i
 | Structural index footprint, 1m facts | about 264 MB, identical over a fixed axis-combo space |
 | Record layer marginal | about 901 bytes per fact |
 | Cost per distinct axis value | about 349 KB (268 KB leaf plus 89 KB branch) |
-| Three-axis query, coordinate tree vs record-map scan | 5x to 47x faster at 1m facts |
-| FIH lifecycle accumulation on real documents | 2.4x to 2.9x, phase 1 to 3 |
+| Three-axis query, coordinate tree vs record-map scan | 8x to 81x faster at 1m facts |
+| FIH lifecycle accumulation on real documents | 4.5x to 5.3x, phase 1 to 3 |
 
 That node cost is the single bottleneck that decides the hardware class. With dense nodes, the index needs a memory budget of about 349 KB per distinct axis value, so a constrained target needs a small, carefully bounded axis space. With a densified node encoding, the same index footprint drops with occupancy, and the same axis space fits far smaller memory.
 

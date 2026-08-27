@@ -9,7 +9,7 @@ abstract: |
   to the cloud. neXus measures this property directly. Over a fixed axis-combo
   space, the synTagma `CoordSpaceN<6>` structural filter index holds an identical
   footprint at 100,000 and 1,000,000 facts (about 264 MB), the record layer adds
-  about 901 bytes per fact, and time-bounded multi-axis queries resolve 5x to 47x
+  about 901 bytes per fact, and time-bounded multi-axis queries resolve 8x to 81x
   faster than a record-map scan at 1m facts, with the gap widening as the network
   accumulates. This document develops the property: the CoordSpaceN + HashMap
   dual storage architecture that delivers it, the fast-path indices and
@@ -45,7 +45,7 @@ Indexing cost is the tax every knowledge system pays to stay queryable. In a con
 
 The structural filter index maps each coordinate path to the set of record ids at that path. Memory is bounded by axis cardinality, not record count. Over a fixed axis-combo space (10 days by 10 origins by 10 creators), the index holds an identical footprint at 100,000 and 1,000,000 facts, about 264 MB; the record layer adds about 901 bytes per fact. Total live heap measures 287 MB at 10k facts, 354 MB at 100k, and 1,165 MB at 1m, with the index portion the same across the two larger scales.
 
-The query side shows the same flatness. A time-bounded three-axis filter (origin, creator, time range) resolves 6x to 25x faster through the coordinate tree than through the record-map scan at 100k facts, and 5x to 47x faster at 1m facts. The scan pays the full store on every query; the tree pays only the subtree, so the gap widens as records accumulate. On a real document set with the full FIH lifecycle (add, intent, claim, conclude), the tree advantage grows from 2.4x at phase 1 to 2.9x at phase 3.
+The query side shows the same flatness. A time-bounded three-axis filter (origin, creator, time range) resolves 8x to 38x faster through the coordinate tree than through the record-map scan at 100k facts, and 8x to 81x faster at 1m facts. The scan pays the full store on every query; the tree pays only the subtree, so the gap widens as records accumulate. On a real document set with the full FIH lifecycle (add, intent, claim, conclude), the tree advantage grows from 4.5x at phase 1 to 5.3x at phase 3.
 
 The boundary is axis cardinality. Each distinct axis value costs about 349 KB, one dense leaf plus one branch. The index is constant in record count and linear in distinct axis values, so application axes must stay bounded in practice: high-cardinality origins such as unique conclusion ids inflate the tree linearly. This is the exact trade the 2026-08 restructure made explicit, and the constraint that keeps the property honest.
 
@@ -416,7 +416,7 @@ The 6000x regression is not caused by the dual storage architecture itself. It i
 
 The fix is to add either a dedicated time-range B-tree index (analogous to `facts_by_creator`) or an `iter_range` method on `CoordSpaceN` that iterates a hyper-rectangle. Both approaches are planned.
 
-The 2026-08 multi-dimensional benchmark resolves the time range through the leading time axes instead: an `iter_prefix` day walk over `[time_hi, time_lo, entity, origin, creator]` turns a bounded time window into O(window days) subtree navigations, measured at 5x to 47x over the record-map scan at 1m facts (Flat Indexing Cost section). The wiring of that path into the filtered read path is the recorded decision; the B-tree and `iter_range` options below remain alternatives for unbounded or arbitrary ranges.
+The 2026-08 multi-dimensional benchmark resolves the time range through the leading time axes instead: an `iter_prefix` day walk over `[time_hi, time_lo, entity, origin, creator]` turns a bounded time window into O(window days) subtree navigations, measured at 8x to 81x over the record-map scan at 1m facts (Flat Indexing Cost section). The wiring of that path into the filtered read path is the recorded decision; the B-tree and `iter_range` options below remain alternatives for unbounded or arbitrary ranges.
 
 ## Future Work
 
@@ -436,7 +436,7 @@ Currently, `CoordFihStorage` owns one `CoordSpaceN<6>`. If Chton also uses `Coor
 
 ### time_range optimization
 
-The 2026-08 benchmark shows the leading-axis day walk already resolves bounded time windows at 5x to 47x over the scan (Flat Indexing Cost section), and wiring that path into the filtered read path is the recorded next step. The options below address unbounded or arbitrary ranges. The most immediate priority is adding a time-range index. Two approaches are under consideration:
+The 2026-08 benchmark shows the leading-axis day walk already resolves bounded time windows at 8x to 81x over the scan (Flat Indexing Cost section), and wiring that path into the filtered read path is the recorded next step. The options below address unbounded or arbitrary ranges. The most immediate priority is adding a time-range index. Two approaches are under consideration:
 
 1. **Dedicated B-tree index**: A `BTreeMap<(u64, u64), Vec<String>>` mapping `(time_hi, time_lo)` to fact IDs. Range queries would iterate the B-tree within bounds, collect IDs, and fetch from the HashMap. Estimated speedup vs current fallback: 10000x (restoring query performance to O(log N + M) where M is the number of matches).
 

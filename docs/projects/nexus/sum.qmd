@@ -1,7 +1,7 @@
 ---
 title: "Executive Summary"
 subtitle: "A semantic data infrastructure & swarm execution runtime for problem-knowledge-solution space"
-version-prefix: nexus_es_7
+version-prefix: nexus_es_8
 version-mark: true
 generate-title-meta: false
 format:
@@ -106,7 +106,7 @@ The restructure, measured on the same Apple M1:
 
 The deepest property of the coordinate model is now a measured one: indexing cost does not grow with the record count. Over a fixed axis-combo space, the structural filter index holds an identical footprint at 100,000 and 1,000,000 facts, about 264 MB; the record layer adds about 901 bytes per fact. Total live heap measures 287 MB at 10k facts, 354 MB at 100k, and 1,165 MB at 1m, with the index portion the same across the two larger scales.
 
-The query side shows the same flatness. On a time-bounded three-axis filter (origin, creator, time range), the coordinate tree resolves the query 6x to 25x faster than the record-map scan at 100k facts, and 5x to 47x faster at 1m facts. The gap widens as records accumulate because the scan pays the full store on every query while the tree pays only the subtree. The same behavior appears on a real document set with the full FIH lifecycle (add, intent, claim, conclude): the tree advantage grows from 2.4x at phase 1 to 2.9x at phase 3 as the knowledge network accumulates.
+The query side shows the same flatness. On a time-bounded three-axis filter (origin, creator, time range), the coordinate tree resolves the query 8x to 38x faster than the record-map scan at 100k facts, and 8x to 81x faster at 1m facts. The gap widens as records accumulate because the scan pays the full store on every query while the tree pays only the subtree. The same behavior appears on a real document set with the full FIH lifecycle (add, intent, claim, conclude): the tree advantage grows from 4.5x at phase 1 to 5.3x at phase 3 as the knowledge network accumulates.
 
 The flatness boundary is axis cardinality. Each distinct axis value costs about 349 KB, one dense leaf plus one branch. The index is constant in record count and linear in distinct axis values, so application axes must stay bounded in practice: high-cardinality origins such as unique conclusion ids inflate the tree linearly [^flat].
 
@@ -149,7 +149,7 @@ neXus is a substrate: a shared coordinate space where agents record, retrieve, a
 
 ## Latest developments
 
-- **Flat indexing cost measured**: the structural filter index holds a constant footprint as records grow; multi-axis queries via the coordinate tree run 5-47x faster than the record-map scan at 1m facts, with the gap widening on accumulation.
+- **Flat indexing cost measured**: the structural filter index holds a constant footprint as records grow; multi-axis queries via the coordinate tree run 8-81x faster than the record-map scan at 1m facts, with the gap widening on accumulation.
 - **Restructured record layer**: record identity is now a full-injective 256-bit coordinate; structural queries run over a compact coordinate index; content-hash conflict detection hardens the record layer.
 - **Semantic identity**: record ids are derived from domain meaning (entity kind, origin, creator, content) instead of opaque hashes, so identity is self-describing.
 - **Consolidated storage engine**: all storage paths now run on one shared engine; the last proprietary backend dependency was removed.
