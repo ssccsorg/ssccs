@@ -1,0 +1,27 @@
+```{python}
+#| label: fig-bench-flat-index
+#| fig-cap: "Flat indexing cost: the structural filter index holds a constant footprint as the record count grows. The index portion (hatched) is identical at 10k, 100k, and 1m facts over a fixed axis-combo space; only the record layer grows (~901 bytes per fact)."
+import matplotlib.pyplot as plt
+
+counts = ['10k', '100k', '1m']
+index_mb = [264.2, 264.2, 264.2]          # measured structural intercept (MB)
+total_mb = [287.3, 354.3, 1165.0]         # measured total live heap (MB)
+record_mb = [t - i for t, i in zip(total_mb, index_mb)]
+
+fig, ax = plt.subplots(figsize=(5.2, 3.2))
+ax.bar(counts, index_mb, width=0.45, color='white', edgecolor='black',
+       linewidth=0.8, hatch='///', label='Structural index (constant)')
+ax.bar(counts, record_mb, width=0.45, bottom=index_mb, color='white',
+       edgecolor='black', linewidth=0.8, label='Record layer')
+ax.set_ylabel('Live heap (MB)')
+ax.set_ylim(0, 1300)
+
+for i, t in enumerate(total_mb):
+    ax.text(i, t + 30, f'{t:.0f} MB', ha='center', va='bottom', fontsize=8)
+ax.text(0.5, 150, 'index\n264 MB', ha='center', va='bottom', fontsize=7)
+ax.text(1.0, 1200, '~901 B/fact', ha='center', va='top', fontsize=7)
+
+ax.legend(fontsize=7, loc='upper left')
+plt.tight_layout()
+plt.show()
+```

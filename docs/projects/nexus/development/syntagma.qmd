@@ -1,19 +1,22 @@
 ---
-title: "synTagma Integration"
-subtitle: "CoordSpaceN + HashMap dual storage architecture for FIH"
+title: "Flat Indexing Cost"
+subtitle: "The structural memory of an accumulating FIH knowledge network, delivered by the synTagma coordinate space"
 metadata-files:
   - ../../../_include/author.yml
 abstract: |
-  synTagma's `CoordSpaceN<6>` replaces the linear `Vec<FactRecord>` scan as the
-  primary index space for FIH storage in neXus. The architecture decouples index
-  scanning from payload construction: the coordinate space stores lightweight
-  `String` fact IDs, while a companion `HashMap` holds the full `FactRecord`
-  payloads. Single-field fast-path indices (`facts_by_creator`,
-  `facts_by_origin`) provide O(1) lookups for the most common query patterns.
-  Multi-dimensional AND queries use HashSet intersection, achieving up to 337x
-  speedup over the HashMap full-scan approach. `axis_hints` bridges the gap between
-  typed `CoordId<6>` values and `CoordSpaceN`'s `iter_prefix` API, allowing
-  callers to query by semantic field names without knowledge of axis layout.
+  The indexing cost of a knowledge network must not grow with the records it
+  indexes; otherwise local hardware is priced out and every memory system drifts
+  to the cloud. neXus measures this property directly. Over a fixed axis-combo
+  space, the synTagma `CoordSpaceN<6>` structural filter index holds an identical
+  footprint at 100,000 and 1,000,000 facts (about 264 MB), the record layer adds
+  about 901 bytes per fact, and time-bounded multi-axis queries resolve 5x to 47x
+  faster than a record-map scan at 1m facts, with the gap widening as the network
+  accumulates. This document develops the property: the CoordSpaceN + HashMap
+  dual storage architecture that delivers it, the fast-path indices and
+  `axis_hints` that bridge the coordinate API, the measured evidence at scale,
+  and the post-database trajectory it opens. synTagma is the means, not the
+  subject: the coordinate primitive whose cardinality-bounded nodes make the
+  indexing cost flat.
 ---
 
 ```{python}
@@ -35,6 +38,21 @@ title_meta_items = {
 ```
 
 {{< include ../../../_include/_title_meta_items.qmd >}}
+
+## Flat Indexing Cost
+
+Indexing cost is the tax every knowledge system pays to stay queryable. In a conventional store the tax grows with the data: larger indexes, more model calls, and every query paying the full scan. The measured property of the coordinate model is that this tax is flat in the record count.
+
+The structural filter index maps each coordinate path to the set of record ids at that path. Memory is bounded by axis cardinality, not record count. Over a fixed axis-combo space (10 days by 10 origins by 10 creators), the index holds an identical footprint at 100,000 and 1,000,000 facts, about 264 MB; the record layer adds about 901 bytes per fact. Total live heap measures 287 MB at 10k facts, 354 MB at 100k, and 1,165 MB at 1m, with the index portion the same across the two larger scales.
+
+The query side shows the same flatness. A time-bounded three-axis filter (origin, creator, time range) resolves 6x to 25x faster through the coordinate tree than through the record-map scan at 100k facts, and 5x to 47x faster at 1m facts. The scan pays the full store on every query; the tree pays only the subtree, so the gap widens as records accumulate. On a real document set with the full FIH lifecycle (add, intent, claim, conclude), the tree advantage grows from 2.4x at phase 1 to 2.9x at phase 3.
+
+The boundary is axis cardinality. Each distinct axis value costs about 349 KB, one dense leaf plus one branch. The index is constant in record count and linear in distinct axis values, so application axes must stay bounded in practice: high-cardinality origins such as unique conclusion ids inflate the tree linearly. This is the exact trade the 2026-08 restructure made explicit, and the constraint that keeps the property honest.
+
+:::{ layout-ncol=2 }
+{{< include ../_include/bench/fig-bench-flat-index.qmd >}}
+{{< include ../_include/bench/fig-bench-multidim.qmd >}}
+:::
 
 ## Architecture
 
@@ -192,7 +210,7 @@ for coord_id in space.iter_prefix(&prefix) {
 
 ## Benchmark Results
 
-All benchmarks measured on Apple M1 (ARMv8.4-A Firestorm 3.2GHz) with release profile (median of 10 samples, 2026-07-31). FIH-level numbers come from the unified suite: `cargo bench -p nexus-bench` (top-level `benches/benches/bench.rs`). 50,000 facts pre-loaded with 50 distinct origins and 20 distinct creators for `fih/*`; 10,000 documents with 10 projects and 20 authors for `kb_query/*`. The HashMap baseline is the historical full-scan measurement (28 ms ceiling) from the pre-CoordSpaceN implementation.
+All benchmarks measured on Apple M1 (ARMv8.4-A Firestorm 3.2GHz) with release profile (median of 10 samples, 2026-07-31). The 2026-08 flat indexing cost measurements (issue #179) appear in the Flat Indexing Cost section above; they measure the iter_prefix path directly at 100k and 1m facts, where the earlier read-path numbers in this section came from the 50k fixture. FIH-level numbers come from the unified suite: `cargo bench -p nexus-bench` (top-level `benches/benches/bench.rs`). 50,000 facts pre-loaded with 50 distinct origins and 20 distinct creators for `fih/*`; 10,000 documents with 10 projects and 20 authors for `kb_query/*`. The HashMap baseline is the historical full-scan measurement (28 ms ceiling) from the pre-CoordSpaceN implementation.
 
 ```{python}
 #| label: fig-and-scaling
@@ -353,7 +371,7 @@ Every abstraction layer that made the database complex is removed because the pr
 | **Serializer / Deserializer** | Coord-native binary format: the bytes on disk ARE the in-memory representation. No protobuf, no Avro, no Parquet. |
 | **ORM** | The application already has the CoordId. It does not need a mapping layer between objects and rows. CoordId IS the row pointer. |
 
-The result is a storage system with no database engine inside. It does not parse SQL, optimize queries, manage buffer pools, or serialize records. It stores coordinates and dereferences pointers. The database is not the point -- the coordinate space is.
+The measured payoff of this collapse is the flat indexing cost: the coordinate space keeps indexing and query cost flat in the record count, demonstrated at 100k and 1m facts (Flat Indexing Cost section). The result is a storage system with no database engine inside. It does not parse SQL, optimize queries, manage buffer pools, or serialize records. It stores coordinates and dereferences pointers. The database is not the point -- the coordinate space is.
 
 ### Engineering challenges in a post-DB world
 
@@ -398,6 +416,8 @@ The 6000x regression is not caused by the dual storage architecture itself. It i
 
 The fix is to add either a dedicated time-range B-tree index (analogous to `facts_by_creator`) or an `iter_range` method on `CoordSpaceN` that iterates a hyper-rectangle. Both approaches are planned.
 
+The 2026-08 multi-dimensional benchmark resolves the time range through the leading time axes instead: an `iter_prefix` day walk over `[time_hi, time_lo, entity, origin, creator]` turns a bounded time window into O(window days) subtree navigations, measured at 5x to 47x over the record-map scan at 1m facts (Flat Indexing Cost section). The wiring of that path into the filtered read path is the recorded decision; the B-tree and `iter_range` options below remain alternatives for unbounded or arbitrary ranges.
+
 ## Future Work
 
 ### Chton mmap backend
@@ -416,7 +436,7 @@ Currently, `CoordFihStorage` owns one `CoordSpaceN<6>`. If Chton also uses `Coor
 
 ### time_range optimization
 
-The most immediate priority is adding a time-range index. Two approaches are under consideration:
+The 2026-08 benchmark shows the leading-axis day walk already resolves bounded time windows at 5x to 47x over the scan (Flat Indexing Cost section), and wiring that path into the filtered read path is the recorded next step. The options below address unbounded or arbitrary ranges. The most immediate priority is adding a time-range index. Two approaches are under consideration:
 
 1. **Dedicated B-tree index**: A `BTreeMap<(u64, u64), Vec<String>>` mapping `(time_hi, time_lo)` to fact IDs. Range queries would iterate the B-tree within bounds, collect IDs, and fetch from the HashMap. Estimated speedup vs current fallback: 10000x (restoring query performance to O(log N + M) where M is the number of matches).
 
@@ -444,4 +464,4 @@ Application -> CoordId -> CoordSpaceN<6> (index + data) -> mmap -> Disk
 
 No HashMap. No serialization. No buffer pool. No query optimizer. No ORM. No SQL. Just a coordinate space and an operating system.
 
-> "The database is not the point. The coordinate space is the point."
+> "The database is not the point. The coordinate space is the point. The measured payoff is a flat indexing cost."

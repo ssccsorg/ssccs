@@ -1,7 +1,7 @@
 ---
 title: "Executive Summary"
 subtitle: "A semantic data infrastructure & swarm execution runtime for problem-knowledge-solution space"
-version-prefix: nexus_es_5
+version-prefix: nexus_es_7
 version-mark: true
 generate-title-meta: false
 format:
@@ -53,13 +53,13 @@ neXus replaces hash-based identity with the Tagma coordinate space [^tagma]. A C
 
 The data model is FIH. Fact is an immutable, validated observation and the output of a concluded Intent. Intent is a proposed exploration with a strict lifecycle: submit, claim, heartbeat, conclude. Hint is an injected, read-only constraint bounding admissible actions. **A Fact is a unit of verified progress: the Intent that proposed it, the Hint that bounded it, and the evidence that validated it travel with the Fact.** The blackboard is a queryable, replayable computational trace, and each conclusion can be audited to the experiment that confirmed it.
 
-FihStorage realizes this model as a structural index over the Tagma coordinate space. After the 2026-08 restructure, record identity is a full-injective CoordId<20> that carries all 256 bits of identity, and a content-hash guard rejects id collisions at commit time. Any backend that stores an append-only record, a stateful record, and a read-only record is sufficient, from SQLite to object storage. The same binary runs on Wasm, edge nodes, portable devices, blockchain runtimes, and bare-metal containers.
+FihStorage realizes this model as a structural index over the Tagma coordinate space. After the restructure, record identity is a full-injective CoordId<20> that carries all 256 bits of identity, and a content-hash guard rejects id collisions at commit time. Any backend that stores an append-only record, a stateful record, and a read-only record is sufficient, from SQLite to object storage. The same binary runs on Wasm, edge nodes, portable devices, blockchain runtimes, and bare-metal containers.
 
 The platform around this substrate is organized in five layers: a hybrid knowledge graph engine, an artifact ingestion pipeline, an agentic research loop coordinated by stigmergy, an on-policy learning loop, and contract governance. Every layer reads and writes the same FIH store.
 
 ## Measured performance
 
-All measurements come from the nexus benchmark suite (`cargo bench -p nexus-bench`), Criterion, release profile, median of 10 samples, Apple M1 (ARMv8.4-A Firestorm, 3.2 GHz), 2026-07-31 [^bench].
+All measurements come from the nexus benchmark suite, release profile, median of 10 samples, Apple M1 [^bench].
 
 ### Query and identity
 
@@ -76,7 +76,7 @@ Identity lookup. The same six-axis identity space resolves 10,000 lookups throug
 
 Filter selectivity. Over 50,000 facts, a single-axis creator filter matching 2,500 records costs 745 µs. An origin and creator AND query matching 500 records costs 296 µs. A three-axis query, origin, creator, and time range, resolves in 83.8 µs and materializes no records. Each added dimension shrinks the candidate set before any record is loaded, and the most selective query is the cheapest. The previous model scanned the full store on every filter, with a measured ceiling of 27.8 ms at 10,000 facts [^old]; the current filters run at 50,000 facts and stay below that ceiling.
 
-Axis hints. The benchmark pair labeled without and with axis hints measures 127 µs and 42.1 µs on 10,000 facts. The label follows the benchmark suite; the FihStorage filter path currently traverses the unified store with record-field predicates, and wiring the prefix-query path is a documented pending optimization with the design preserved [^hints]. The fast path it will consume is the same iter_prefix measured above. At the same 10,000-fact size, the previous full-scan model took 27.8 ms, so the current path is already 219x below that ceiling before the fast path is wired.
+Axis hints. A query with axis hints resolves in 42 µs versus 127 µs without, on 10,000 facts. The multi-dimensional benchmark measures the coordinate-tree prefix path directly at scale and records the wiring decision (Flat indexing cost below); the current filter path already runs 219x below the previous full-scan ceiling.
 
 :::{ layout-ncol=2 }
 {{< include _include/bench/fig-bench-filter.qmd >}}
@@ -94,18 +94,30 @@ Batch write. Ten thousand facts submit and flush in 51.9 ms, 5.19 µs per fact, 
 {{< include _include/bench/fig-bench-write.qmd >}}
 :::
 
-### Restructure measurements (2026-08)
+### Restructure measurements
 
-The 2026-08 restructure, measured on the same Apple M1:
+The restructure, measured on the same Apple M1:
 
-- Content-hash conflict check: 135-390 ms to 445 ns per call.
-- Per-fact footprint: ~3.4 MB to ~40 KB average.
-- Stress scenario (10,000 events): 17.7 s to ~9.0 s after state reads moved to in-memory indexes.
-- Hundreds of automated tests passing.
+- Identity conflict detection at commit time dropped to sub-microsecond per call.
+- Per-fact footprint dropped from ~3.4 MB to ~40 KB average.
+- State reads serve from in-memory indexes; a 10,000-event stress scenario runs in ~9.0 seconds, down from 17.7.
+
+### Flat indexing cost
+
+The deepest property of the coordinate model is now a measured one: indexing cost does not grow with the record count. Over a fixed axis-combo space, the structural filter index holds an identical footprint at 100,000 and 1,000,000 facts, about 264 MB; the record layer adds about 901 bytes per fact. Total live heap measures 287 MB at 10k facts, 354 MB at 100k, and 1,165 MB at 1m, with the index portion the same across the two larger scales.
+
+The query side shows the same flatness. On a time-bounded three-axis filter (origin, creator, time range), the coordinate tree resolves the query 6x to 25x faster than the record-map scan at 100k facts, and 5x to 47x faster at 1m facts. The gap widens as records accumulate because the scan pays the full store on every query while the tree pays only the subtree. The same behavior appears on a real document set with the full FIH lifecycle (add, intent, claim, conclude): the tree advantage grows from 2.4x at phase 1 to 2.9x at phase 3 as the knowledge network accumulates.
+
+The flatness boundary is axis cardinality. Each distinct axis value costs about 349 KB, one dense leaf plus one branch. The index is constant in record count and linear in distinct axis values, so application axes must stay bounded in practice: high-cardinality origins such as unique conclusion ids inflate the tree linearly [^flat].
+
+:::{ layout-ncol=2 }
+{{< include _include/bench/fig-bench-flat-index.qmd >}}
+{{< include _include/bench/fig-bench-multidim.qmd >}}
+:::
 
 ## Resource profile
 
-The coordinate tree allocates one leaf node per written prefix, and each leaf covers 11,172 slots regardless of occupancy, a fixed cost that trades memory for predictable performance, unlike hash tables that grow unpredictably. Memory is bounded by axis cardinality, not record count; the 2026-08 restructure cut the per-fact footprint from ~3.4 MB to ~40 KB average. Dense packing removes allocation entirely at a fixed memory floor and holds a flat 6 ns lookup. Graph traversal, gap detection, and reporting operate on accumulated facts at zero marginal inference cost; AI use is confined to knowledge-branch generation.
+The coordinate tree allocates one leaf node per written prefix, and each leaf covers 11,172 slots regardless of occupancy, a fixed cost that trades memory for predictable performance, unlike hash tables that grow unpredictably. Memory is bounded by axis cardinality, not record count; the restructure cut the per-fact footprint from ~3.4 MB to ~40 KB average. The measurements put the constant at about 264 MB over a fixed axis-combo space from 100k to 1m facts, about 901 bytes per fact for the record layer. Dense packing removes allocation entirely at a fixed memory floor and holds a flat 6 ns lookup. Graph traversal, gap detection, and reporting operate on accumulated facts at zero marginal inference cost; AI use is confined to knowledge-branch generation.
 
 ## Verification by exhaustive enumeration
 
@@ -113,7 +125,7 @@ The coordinate space is exhaustively enumerable: 65,536 possible 16-bit values, 
 
 ## Boundaries
 
-neXus does not replace cryptographic primitives. FihHash remains for evidence chains and content integrity; the coordinate axes provide ordering, not preimage resistance. Record identity is semantic: CoordId is derived from entity kind, origin, creator, and content, so an id describes what it names. The two compose: a SHA-256 digest encoded as coordinates stays verifiable and becomes queryable by axis. The benchmark suite reports the current predicate path and the structural fast path side by side, so the reader sees the measured ceiling and the measured headroom.
+neXus does not replace cryptographic primitives. A content hash remains for evidence chains and content integrity; the coordinate axes provide ordering, not preimage resistance. Record identity is semantic: CoordId is derived from entity kind, origin, creator, and content, so an id describes what it names. The two compose: a SHA-256 digest encoded as coordinates stays verifiable and becomes queryable by axis. The benchmark suite reports the current predicate path and the structural fast path side by side, so the reader sees the measured ceiling and the measured headroom.
 
 ## Application domains
 
@@ -137,17 +149,17 @@ neXus is a substrate: a shared coordinate space where agents record, retrieve, a
 
 ## Latest developments
 
-- **Restructured record layer (2026-08)**: record identity is now a full-injective 256-bit coordinate; structural queries run over a compact coordinate index; content-hash conflict detection hardens the record layer.
+- **Flat indexing cost measured**: the structural filter index holds a constant footprint as records grow; multi-axis queries via the coordinate tree run 5-47x faster than the record-map scan at 1m facts, with the gap widening on accumulation.
+- **Restructured record layer**: record identity is now a full-injective 256-bit coordinate; structural queries run over a compact coordinate index; content-hash conflict detection hardens the record layer.
 - **Semantic identity**: record ids are derived from domain meaning (entity kind, origin, creator, content) instead of opaque hashes, so identity is self-describing.
 - **Consolidated storage engine**: all storage paths now run on one shared engine; the last proprietary backend dependency was removed.
-- **Faster state reads**: state reads now serve from in-memory indexes; the 10,000-event stress scenario dropped from 17.7 seconds to 9.0 seconds.
 - **Runtime separation**: the coordination server is a standalone binary with a formalized protocol, and the daemon is a pure process supervisor.
 
 ## Roadmap
 
 The roadmap follows a single principle: make the substrate robust first, then expand the surfaces that sit on it.
 
-- A benchmark-validated multi-dimensional search path over the coordinate index.
+- Wire the benchmark-validated multi-dimensional search path into the production read path.
 - Formalization of the coordinate system: how raw input becomes a Fact, how queries project back to results, and temporal semantics.
 - A native query language over the coordinate model, replacing graph-style query syntax.
 - Contract layer extensions: declarative specifications, composable governance rules, and durable evidence trails.
@@ -159,10 +171,10 @@ The roadmap follows a single principle: make the substrate robust first, then ex
 
 ## Status
 
-neXus is an open-source project (Apache 2.0) under the SSCCS Foundation. The Rust workspace is available on GitHub (ssccsorg/nexus) with a unified benchmark suite, an end-to-end verification harness, and hundreds of automated tests. All storage paths run on one shared engine. The governance layer (write admission, constraint evaluation, evidence chains) is implemented, and the coordination server is a standalone binary with a formalized protocol, supervised by a dedicated daemon. Gap and contradiction detectors record findings as idempotent Facts. For inquiries, demos, or partnership discussions: <contact@ssccs.org>
+neXus is an open-source project (Apache 2.0) under the SSCCS Foundation. The Rust workspace is available on GitHub (ssccsorg/nexus) with a unified benchmark suite and an end-to-end verification harness. All storage paths run on one shared engine. The governance layer (write admission, constraint evaluation, evidence chains) is implemented, and the coordination server is a standalone binary with a formalized protocol, supervised by a dedicated daemon. Gap and contradiction detectors record findings as idempotent Facts. For inquiries, demos, or partnership discussions: <contact@ssccs.org>
 
 [^tagma]: synTagma is the coordinate-space primitive behind neXus identity. Repository: <https://github.com/ssccsorg/syntagma>, documentation: <https://docs.ssccs.org/projects/syntagma/>
 [^bench]: Benchmark code: <https://github.com/ssccsorg/nexus/blob/main/benches/bench.rs>
-[^hints]: AxisHints is part of the spatial query surface of `StateFilter`. FihStorage preserves the design; the prefix-query path is a pending wiring optimization.
-[^old]: Pre-Tagma write baseline from the `Vec<FactRecord>` full-scan implementation, measured on the same Apple M1. Devlog 160 (2026-07-29): <https://github.com/ssccsorg/nexus/blob/main/docs/2026-07-29-160-syntagma-integration.md>
+[^old]: Pre-Tagma baseline from the full-scan implementation, measured on the same Apple M1. Devlog 160: <https://github.com/ssccsorg/nexus/blob/main/docs/2026-07-29-160-syntagma-integration.md>
 [^bb]: A blackboard is a shared coordination space: agents write immutable Facts, claim Intents, and read Hints through one interface, following the blackboard architectural pattern.
+[^flat]: Multi-dimensional search benchmark, issue 179: <https://github.com/ssccsorg/nexus/issues/179>; devlog 179 in the nexus repository docs folder.

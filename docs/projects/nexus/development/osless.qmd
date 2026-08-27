@@ -1,0 +1,114 @@
+---
+title: "OS-less FIH Storage"
+subtitle: "A knowledge network that runs where an operating system cannot"
+metadata-files:
+  - ../../../_include/author.yml
+abstract: |
+  FIH storage runs without an operating system. The core runtime never calls OS
+  APIs directly: time is abstracted behind the `Now` trait, storage behind the
+  `FileIo` capability, and the coordinate primitives build under `no_std`. A
+  Wasm build of `FihStorage` on a WASI runtime is verified in CI, so OS-less
+  execution is a measured capability, not a plan. What remains is deterministic
+  engineering: a launcher that maps a storage interface onto raw device I/O,
+  removal of remaining standard-library-only dependencies, and an index
+  representation dense enough for the target memory class. OS-less is a fixed
+  requirement; the hardware class is a tuning parameter.
+---
+
+```{python}
+title_meta_items = {
+    "html": [
+        {"title": "Reference", "link": "../", "content": "Development Index", "icon": "bi bi-link"},
+        {"title": "Reference", "link": "https://github.com/ssccsorg/nexus", "content": "Repository", "icon": "bi bi-link"},
+        {"title": "Reference", "link": "https://github.com/ssccsorg/nexus/issues/181", "content": "Issue 181", "icon": "bi bi-link"},
+        {"title": "Reference", "link": "../syntagma.html", "content": "Flat Indexing Cost", "icon": "bi bi-link"},
+    ]
+}
+```
+
+{{< include ../../../_include/_title_meta_items.qmd >}}
+
+```{python}
+#| include: false
+#| context: local
+%run ../../../_include/_graphviz.py
+```
+
+## Why an OS-less storage matters
+
+Every knowledge system drifts to the cloud because local hardware cannot run it. An operating system is one more layer that prices local deployment out: it needs a general-purpose processor, a kernel, a filesystem stack, and the power budget to hold all of it. A storage core that makes no OS API calls removes that layer. The same behavior runs on a server, on a WASI runtime, or through a bare-metal launcher with storage mapped onto raw device I/O.
+
+This property is the peer of the flat indexing cost [^syntagma]. Flat indexing cost answers the question of how much memory the index needs as records accumulate. OS-less answers the question of where the whole stack can run. Together they bound the product position: a knowledge network that accumulates records while its indexing memory stays flat, and that runs where an operating system cannot.
+
+## Verified capability
+
+The following are measured and continuously verified, not planned.
+
+| Fact | Evidence |
+|---|---|
+| The core runtime makes no direct OS API calls | `FihStorage` routes time through the `Now` trait and storage through the `FileIo` capability |
+| A Wasm build runs on a WASI runtime | the repository apps job installs the `wasm32-wasip2` target and the Spin runtime, then verifies the Wasm apps in CI |
+| The coordinate primitives build without an OS | `tagma-core` is `#![no_std]` with `alloc` |
+| Bare-metal storage is an intended backend | the `FileIo` trait documentation names raw flash as a backend example |
+
+## Why the architecture allows it
+
+`FihStorage` is storage behavior over a narrow interface. The clock, the IO, and the synchronization primitive are all abstracted: the behavior layer does not know whether a clock read is a kernel call, a WASI function, or a hardware register. `Cell2` selects the synchronization primitive per platform. This is what makes the OS-less claim structural rather than incidental: the core was written against abstractions that a bare-metal launcher can satisfy.
+
+```{python}
+#| label: fig-osless-stack
+#| fig-cap: "OS-less layering: FIH behavior over narrow traits; the Wasm path runs on a WASI runtime, the bare-metal path maps storage onto raw device I/O"
+dot("""
+digraph OsLessStack {
+    rankdir=TB;
+    splines=ortho;
+    node [shape=box, style="rounded,filled", fontsize=9, width=1.6, height=0.4];
+    edge [fontsize=8];
+
+    fih [label="FIH behavior (FihStorage)", fillcolor="#d4f1f9"];
+    now [label="Now (clock trait)", fillcolor="#e8e8e8"];
+    io [label="FileIo (storage trait)", fillcolor="#e8e8e8"];
+    cell [label="Cell2 (platform sync)", fillcolor="#e8e8e8"];
+    wasm [label="Wasm / WASI runtime (verified)", fillcolor="#e8ffe8"];
+    bare [label="Bare-metal launcher (raw device I/O)", fillcolor="#ffe0b2"];
+
+    fih -> now [label="time"];
+    fih -> io [label="storage"];
+    fih -> cell [label="mutation"];
+    io -> wasm [label="KvIo path"];
+    io -> bare [label="sector-level path"];
+}
+""")
+```
+
+## What remains
+
+OS-less execution is demonstrated on the WASI path. The remaining items are deterministic engineering, not research:
+
+- A launcher that maps a storage interface onto raw device I/O at sector level.
+- Removal of remaining standard-library-only dependencies.
+- An embedded Wasm runtime or a native bare-metal runtime for the launcher target.
+
+## The index density is the hardware floor
+
+The flat indexing cost property bounds the memory story [^179]. The structural index is constant in record count: about 264 MB at both 100,000 and 1,000,000 facts over a fixed axis-combo space, with about 901 bytes per fact for the record layer. The constant is paid in axis cardinality: each distinct axis value costs about 349 KB, one 268 KB leaf plus one 89 KB branch, because nodes are dense 11,172-slot arrays.
+
+| Measured quantity | Value |
+|---|---|
+| Structural index footprint, 100k facts | about 264 MB |
+| Structural index footprint, 1m facts | about 264 MB, identical over a fixed axis-combo space |
+| Record layer marginal | about 901 bytes per fact |
+| Cost per distinct axis value | about 349 KB (268 KB leaf plus 89 KB branch) |
+| Three-axis query, coordinate tree vs record-map scan | 5x to 47x faster at 1m facts |
+| FIH lifecycle accumulation on real documents | 2.4x to 2.9x, phase 1 to 3 |
+
+That node cost is the single bottleneck that decides the hardware class. With dense nodes, the index needs a memory budget of about 349 KB per distinct axis value, so a constrained target needs a small, carefully bounded axis space. With a densified node encoding, the same index footprint drops with occupancy, and the same axis space fits far smaller memory.
+
+OS-less is a fixed requirement; the hardware class is a tuning parameter. The density work in the coordinate primitives decides where the floor sits, and the measurement gate is the compressed cost per distinct axis value against the target memory budget.
+
+## Status
+
+The WASI-path run is verified in CI. Issue #181 tracks the remaining work: removal of all standard-library-only dependencies and the launcher integration. The density measurement gate decides the hardware floor.
+
+[^syntagma]: The peer property is developed in the Flat Indexing Cost document: <../syntagma.html>
+[^179]: Multi-dimensional search benchmark, issue 179: <https://github.com/ssccsorg/nexus/issues/179>; devlog 2026-08-27 in the nexus repository docs folder.

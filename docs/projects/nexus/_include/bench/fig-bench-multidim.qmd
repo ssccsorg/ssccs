@@ -1,0 +1,31 @@
+```{python}
+#| label: fig-bench-multidim
+#| fig-cap: "Multi-dimensional search at scale (origin + creator + time range): the coordinate-tree path (iter_prefix) versus the record-map scan. The gap widens as records accumulate: 6x to 25x at 100k, 5x to 47x at 1m facts."
+import matplotlib.pyplot as plt
+
+labels = ['100k\nwide', '100k\nnarrow', '1m\nwide', '1m\nnarrow']
+scan = [1440.0, 940.0, 25300.0, 18600.0]   # microseconds, record-map scan
+struc = [257.0, 37.4, 5000.0, 398.0]       # microseconds, coordinate tree
+
+fig, ax = plt.subplots(figsize=(5.2, 3.2))
+x = range(len(labels))
+w = 0.35
+ax.bar([i - w / 2 for i in x], scan, w, color='white', edgecolor='black',
+       linewidth=0.8, hatch='///', label='Record-map scan')
+ax.bar([i + w / 2 for i in x], struc, w, color='white', edgecolor='black',
+       linewidth=0.8, label='Coordinate tree')
+ax.set_xticks(list(x))
+ax.set_xticklabels(labels)
+ax.set_ylabel('Time per query (µs)')
+ax.set_yscale('log')
+ax.set_ylim(10, 100_000)
+
+for i, (s, t) in enumerate(zip(scan, struc)):
+    fmt = lambda v: f'{v / 1000:.1f} ms' if v >= 1000 else f'{v:.0f} µs'
+    ax.text(i - w / 2, s * 1.15, fmt(s), ha='center', va='bottom', fontsize=7)
+    ax.text(i + w / 2, t * 1.15, fmt(t), ha='center', va='bottom', fontsize=7)
+
+ax.legend(fontsize=7, loc='upper left')
+plt.tight_layout()
+plt.show()
+```
