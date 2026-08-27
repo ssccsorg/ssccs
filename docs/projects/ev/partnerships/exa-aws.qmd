@@ -8,9 +8,9 @@ date: last-modified
 
 ## Executive Summary
 
-ExaProof is an open-core verification engine that exhaustively enumerates the full instruction space of a RISC-V processor design. The structural enumeration method compiles field constraints into coordinate-based filters at setup time, completing exhaustive verification of production cores (CVA6, Ibex) in milliseconds rather than minutes. This is not a simulation speedup. It is a structural improvement that eliminates hash tables and index lookups from the verification path entirely.
+ExaProof is an open-core verification engine that exhaustively enumerates the full instruction space of a RISC-V processor design. The structural enumeration method compiles field constraints into coordinate-based filters at setup time, completing exhaustive verification of production cores (CVA6, Ibex) in milliseconds rather than minutes: the CVA6 encoding space verifies end-to-end in about 0.2 seconds with the core pipeline at 36.3 milliseconds, and Ibex in 9.10 milliseconds. This is not a simulation speedup. It is a structural improvement that eliminates hash tables and index lookups from the verification path entirely.
 
-The strategic strength is foundational: coordinate-based addressing replaces conventional indexing at the arithmetic level, making verification deterministic, reproducible, and cumulative. Every run feeds an accumulating knowledge structure that grows more valuable over time. The approach is published in peer-reviewed research and validated against real silicon designs.
+The strategic strength is foundational: coordinate-based addressing replaces conventional indexing at the arithmetic level, making verification deterministic, reproducible, and cumulative. Every run feeds an accumulating knowledge structure that grows more valuable over time. The approach is published with open artifacts and validated against real production cores.
 
 For AWS, ExaProof is a native ARM workload that differentiates Graviton for EDA, drives HPC utilization in the fastest-growing semiconductor region, and creates a new FPGA verification category on F1. The Asian semiconductor corridor spanning Singapore's design R&D to Malaysia's high-volume manufacturing provides a concentrated customer base that maps directly onto AWS's regional infrastructure.
 
@@ -22,7 +22,7 @@ RISC-V changes this calculus. Its open instruction set architecture, combined wi
 
 ## ExaProof Architecture
 
-ExaProof performs exhaustive enumeration of a Spec Space. A YAML specification defines every instruction field, its range, alignment, and constraints (oneof, cross, range, eq, neq, and others). From this specification, the engine generates every valid combination of fields and evaluates each deterministically. This is the difference between statistical sampling and exhaustive proof.
+ExaProof performs exhaustive enumeration of a Spec Space. A YAML specification defines every instruction field, its range, alignment, and constraints (oneof, cross, range, eq, neq, and others). From this specification, the engine generates every valid combination of fields and evaluates each deterministically. No combination is left unexamined.
 
 Three infrastructure properties differentiate the approach:
 
@@ -36,10 +36,10 @@ These three together mean that adding another specification dimension costs only
 
 The structural enumeration strategy has been validated against two publicly verifiable RISC-V cores:
 
-- **CVA6** (OpenHW Group): 229,376 valid encodings enumerated in 31 milliseconds on a single ARM core (Apple M1). Independently confirmed through RISC-V ISA simulation (Spike) and hardware decoder cross-checking (cvxif_instr_pkg.sv).
-- **Ibex** (lowRISC): 92,160 valid encodings enumerated in 46.3 milliseconds.
+- **CVA6** (OpenHW Group): 196,608 valid encodings of the 33.5M space enumerated in 18.8 milliseconds on a single Apple silicon core; the CLI verify path completes end-to-end in about 0.2 seconds. Cross-checked through a C reimplementation under Spike and the hardware decoder mask table (cvxif_instr_pkg.sv).
+- **Ibex** (lowRISC): 92,160 valid encodings enumerated in 9.10 milliseconds.
 
-The method is independent of the target. A YAML specification encodes field relationships, and the engine compiles them into coordinate spaces. Additional targets under non-disclosure agreements are in progress.
+These two cores complete the proof of concept: the method is implementation-independent. A YAML specification encodes field relationships, and the engine compiles them into coordinate spaces. The production prototype stage is expanding fixtures across more cores, extensions, and peripherals, with additional targets under non-disclosure agreements.
 
 ## Collaboration with AWS
 
@@ -61,7 +61,7 @@ Pre-silicon emulation requires compute at scale. ExaProof parallelizes naturally
 
 ### C. FPGA Golden Reference on F1
 
-ExaProof's coordinate-based decoder is verified combinational hardware of roughly 300 gates. The same YAML specification that drives software enumeration can be mapped to AWS F1 FPGA instances as a golden reference model.
+The synthesis channel turns a verified specification into a combinational decoder. The demonstrated Tagma decoder backs the roughly 300 gate claim with exhaustive verification, formal equivalence between RTL and netlist, and a Sky130 standard cell report of 388 cells. The same YAML specification that drives software enumeration can be mapped to AWS F1 FPGA instances as a golden reference model.
 
 **Joint value:** This gives AWS F1 a differentiated RISC-V verification workload. The dual-path verification (software enumeration + FPGA golden reference) provides a completeness guarantee that neither path achieves alone. F1 instances become the reference platform for RISC-V instruction set validation.
 
