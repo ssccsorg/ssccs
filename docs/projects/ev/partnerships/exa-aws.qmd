@@ -1,0 +1,101 @@
+---
+title: "ExaProof: Exhaustive RISC-V Verification as a Cloud Service"
+subtitle: Structural enumeration on Graviton, HPC, and FPGA instances for the Asian semiconductor corridor
+date: last-modified
+---
+
+{{< include ../../../_include/_title_meta_items.qmd >}}
+
+## Executive Summary
+
+ExaProof is an open-core verification engine that exhaustively enumerates the full instruction space of a RISC-V processor design. The structural enumeration method compiles field constraints into coordinate-based filters at setup time, completing exhaustive verification of production cores (CVA6, Ibex) in milliseconds rather than minutes. This is not a simulation speedup. It is a structural improvement that eliminates hash tables and index lookups from the verification path entirely.
+
+The strategic strength is foundational: coordinate-based addressing replaces conventional indexing at the arithmetic level, making verification deterministic, reproducible, and cumulative. Every run feeds an accumulating knowledge structure that grows more valuable over time. The approach is published in peer-reviewed research and validated against real silicon designs.
+
+For AWS, ExaProof is a native ARM workload that differentiates Graviton for EDA, drives HPC utilization in the fastest-growing semiconductor region, and creates a new FPGA verification category on F1. The Asian semiconductor corridor spanning Singapore's design R&D to Malaysia's high-volume manufacturing provides a concentrated customer base that maps directly onto AWS's regional infrastructure.
+
+## The Verification Problem
+
+Verification consumes up to 70 percent of chip project effort. A single bug at 2nm costs over $20 million to respin. Existing EDA verification tools rely on random simulation, formal property checking, and manual inspection. All leave the same gap: the full cross product of instruction fields is never exhaustively visited because standard Cartesian enumeration is too slow for practical use.
+
+RISC-V changes this calculus. Its open instruction set architecture, combined with the fact that most of the world's silicon is designed in Singapore and manufactured in Malaysia, creates conditions for a verification standard that emerges from the region where the hardware is actually built. ExaProof is built on open standards (RISC-V) and open infrastructure independent of proprietary toolchains or geographic licensing.
+
+## ExaProof Architecture
+
+ExaProof performs exhaustive enumeration of a Spec Space. A YAML specification defines every instruction field, its range, alignment, and constraints (oneof, cross, range, eq, neq, and others). From this specification, the engine generates every valid combination of fields and evaluates each deterministically. This is the difference between statistical sampling and exhaustive proof.
+
+Three infrastructure properties differentiate the approach:
+
+- **Structural performance:** the Spec Space is enumerated through coordinate arithmetic, not hash tables or index lookups. A single specification completes in milliseconds regardless of constraint complexity.
+- **Cumulative nature:** every verification result is stored as a structured record. No result is discarded, every run raises the baseline. The accumulated Spec Space becomes a design asset that grows with use.
+- **Spatial storage:** the Spec Space is stored using coordinate primitives where the address is the coordinate. No index maintenance, no hash collisions, no lookup overhead.
+
+These three together mean that adding another specification dimension costs only the machine time for one more enumeration, with zero coordination overhead and zero storage amplification.
+
+## Validated on Production Cores
+
+The structural enumeration strategy has been validated against two publicly verifiable RISC-V cores:
+
+- **CVA6** (OpenHW Group): 229,376 valid encodings enumerated in 31 milliseconds on a single ARM core (Apple M1). Independently confirmed through RISC-V ISA simulation (Spike) and hardware decoder cross-checking (cvxif_instr_pkg.sv).
+- **Ibex** (lowRISC): 92,160 valid encodings enumerated in 46.3 milliseconds.
+
+The method is independent of the target. A YAML specification encodes field relationships, and the engine compiles them into coordinate spaces. Additional targets under non-disclosure agreements are in progress.
+
+## Collaboration with AWS
+
+### A. Graviton-Native EDA Workload
+
+ExaProof is already validated on ARMv8-A microarchitecture. Graviton instances provide the optimal deployment target. The structural enumeration pipeline runs natively with no x86 emulation layer, no translation overhead, and no special library dependencies.
+
+**Joint value:** ExaProof gives AWS a native ARM EDA workload that showcases Graviton's compute efficiency for semiconductor design. Every RISC-V core design team that adopts ExaProof becomes a Graviton customer. The existing EDA segment is dominated by x86 instances; ExaProof provides a clear ARM migration path.
+
+**Integration point:** ExaProof binaries distributed through AWS Marketplace as a Graviton-optimized AMI. CI/CD integration via CodePipeline for automated verification on each design release.
+
+### B. HPC Cluster Utilization in ASEAN
+
+Pre-silicon emulation requires compute at scale. ExaProof parallelizes naturally across HPC nodes, with each node evaluating a different constraint set or projection target. AWS HPC clusters in Singapore and Malaysia (both served by AWS Local Zones) provide proximity to the design teams that need this capability.
+
+**Joint value:** ExaProof drives HPC instance utilization for EDA workloads in ASEAN, a region where semiconductor design activity is growing faster than local compute infrastructure. AWS ParallelCluster with ExaProof provides an on-demand emulation farm that competes with on-premise alternatives requiring capital expenditure.
+
+**Integration point:** CloudFormation template that provisions a ParallelCluster environment pre-configured for ExaProof specification enumeration.
+
+### C. FPGA Golden Reference on F1
+
+ExaProof's coordinate-based decoder is verified combinational hardware of roughly 300 gates. The same YAML specification that drives software enumeration can be mapped to AWS F1 FPGA instances as a golden reference model.
+
+**Joint value:** This gives AWS F1 a differentiated RISC-V verification workload. The dual-path verification (software enumeration + FPGA golden reference) provides a completeness guarantee that neither path achieves alone. F1 instances become the reference platform for RISC-V instruction set validation.
+
+**Integration point:** F1 FPGA AMI with pre-built ExaProof decoder bitstream and software development kit.
+
+## The Asian Semiconductor Corridor
+
+Singapore and Malaysia together form one of the world's densest concentrations of semiconductor activity:
+
+| Country | Role | Key Players |
+|---------|------|-------------|
+| Singapore | Design R&D, HQ | Broadcom, MediaTek, Micron, AMD, NXP |
+| Malaysia | High-volume manufacturing | Intel (Penang), Infineon, AMD, Bosch, STMicro |
+| Both | Growing RISC-V ecosystem | OpenHW Group, lowRISC, SiFive partners |
+
+ExaProof is strategically positioned to serve this corridor. The verification engine runs on AWS infrastructure that is already deployed in both countries. A design team in Singapore can verify an instruction extension on Graviton, emulate it on HPC, validate it on FPGA, and send the verified specification to manufacturing in Malaysia, all within the same AWS region. This geographic concentration of customers gives AWS a clear advantage in selling integrated EDA solutions.
+
+## Proposed Collaboration Model
+
+ExaProof is open-core under Apache 2.0. The base CLI is free. Enterprise deployment adds batch processing, CI integration, and parallel evaluation across multiple specifications.
+
+**AWS alignment:**
+
+| AWS Service | ExaProof Integration | Differentiation |
+|-------------|---------------------|-----------------|
+| Graviton | Native ARM EDA workload | First RISC-V verification engine optimized for Graviton |
+| HPC (ParallelCluster) | ASEAN HPC template | On-demand emulation farm for regional design teams |
+| EC2 F1 | FPGA golden reference AMI | RISC-V verification category on F1 |
+| AWS Marketplace | Distribution channel | Enterprise tier with CI/CD integration |
+
+**Phase 1:** ExaProof CLI on Graviton with published benchmarks. Marketplace AMI.
+**Phase 2:** HPC ParallelCluster template for ASEAN design teams. Joint reference architecture.
+**Phase 3:** F1 FPGA golden reference AMI. Dual-path verification whitepaper.
+
+## Immediate Request
+
+An introductory conversation with the AWS Semiconductor team to identify the most suitable entry point. ExaProof is already validated on ARM hardware and ready for Graviton deployment. The Asian semiconductor corridor provides a concentrated customer base that maps directly onto AWS's regional infrastructure. A joint reference architecture would accelerate adoption across both ExaProof's RISC-V customer base and AWS's existing semiconductor accounts.
