@@ -17,6 +17,8 @@ We aggressively adopt any technology that advances computing paradigms faster an
 ### Results and Pragmatism
 
 - **Results-Oriented:** The "pedigree" of how code was written matters less than whether it works, remains maintainable, and positively impacts the system.
+- **Value Proven by Implementation:** Fluent speech does not imply deep knowledge. Value is proven only by the implementation itself and the direction it has taken. Reviewers meet this standard with genuine effort, evaluating artifacts, not declarations.
+- **Express Through Artifacts:** Deep insight often resists verbal explanation; we deal with things beyond the scope of human language expression. Skip the speech and produce the artifact: a document with AI assistance, or a figure. Community members understand you through your artifacts, not your words.
 - **Efficiency:** We bypass unnecessary bureaucracy and exhausting debates. Prove your point with code.
 - **Strict Technical Focus:** Discussions are limited to software engineering, architecture, and performance. Ideological or social agendas unrelated to the project are considered noise; such behavior will naturally lose relevance and fade out within this community.
 
