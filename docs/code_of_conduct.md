@@ -22,6 +22,8 @@ We aggressively adopt any technology that advances computing paradigms faster an
 - **Efficiency:** We bypass unnecessary bureaucracy and exhausting debates. Prove your point with code.
 - **Strict Technical Focus:** Discussions are limited to software engineering, architecture, and performance. Ideological or social agendas unrelated to the project are considered noise; such behavior will naturally lose relevance and fade out within this community.
 
+This standard automatically demands high effort and level from the verifier, and we answer that demand faithfully. For example, the startup investment field asks the same questions(e.g. why now, why you, who is target, ...) of pitch after pitch; that culture was born of evaluators' convenience. We evaluate value in the opposite way. A member who has been digging deeply into a subject need not force that understanding through words.  
+
 ### Realistic Approach to Equality and Diversity
 
 We support equal opportunity regardless of background. However, we recognize that human psychology does not always align with abstract ideals. We ensure that enforcing "equality" or "righteousness" does not itself become a new form of oppression. Complex social issues are addressed through a healthy project culture and merit-based consensus, not rigid policing.
