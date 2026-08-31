@@ -1,0 +1,242 @@
+---
+title: "Telos"
+subtitle: "General agent execution layer: a native headless agent, deployable as a fleet"
+format:
+    html: {}
+metadata-files:
+  - ../../_include/author.yml
+  - ../../_include/format.html.yml
+---
+
+```{python}
+#| include: false
+#| context: local
+title_meta_items = {
+    "html": [
+        {"title": "References", "link": "https://docs.ssccs.org/projects/actus/", "content": "Actus", "icon": "bi bi-link"},
+        {"title": "References", "link": "https://docs.ssccs.org/projects/nexus/", "content": "neXus", "icon": "bi bi-link"},
+        {"title": "References", "link": "https://docs.ssccs.org/projects/", "content": "SSCCS Projects", "icon": "bi bi-link"},
+    ]
+}
+```
+
+{{< include ../../_include/_title_meta_items.qmd >}}
+
+```{python}
+#| include: false
+#| context: local
+%run ../../_include/_graphviz.py
+```
+
+Telos is the general agent execution layer of the SSCCS stack. Actus plans
+with the LLM; Telos converts plans into system effects. A command arrives,
+a coordinate is resolved, a process or file or network effect happens, and
+the result returns. The layer is general: it executes without binding to a
+language or a domain.
+
+Telos is a headless agent in the form of a single native binary of about
+seventy megabytes. There is no interface to launch, no runtime to install,
+and no daemon to supervise; the binary is the entire deployment unit. It
+runs on any machine that can execute it, serves a project from its root,
+and scales into a fleet of coordinated nodes.
+
+The working thesis is that an agent does not need to traverse trees to act.
+Work is addressed by coordinate and reached by teleport: no directory
+descent, no sequential scans. The agent moves between work locations in
+space, and the execution layer materializes that movement as concrete
+system calls, tool invocations, and protocol traffic over files, processes,
+and networks.
+
+**tel: an agent per project, one command away.**
+
+## Native Execution
+
+Telos is a native binary. The agent core runs on OS threads with
+ownership-checked parallelism, so CPU-bound work such as parsing, indexing,
+and large-scale analysis uses every core it is given.
+
+- Single binary, no dependencies: one file is the entire deployment unit,
+  and the node runs wherever the file runs.
+- Multithreaded by construction: the agent loop, language analysis, LSP
+  traffic, and tool execution share a native thread pool instead of
+  contending for one lock or one event loop.
+- Ownership-checked parallelism: the compiler rules out the data races
+  that interpreted runtimes discover only at runtime.
+- Bounded resources: each node owns its memory space and thread pool, so
+  resource use stays predictable under load.
+
+## The Fleet
+
+```{python}
+#| label: fig-telos-fleet
+#| fig-cap: "The Telos fleet: one node per project root, addressed by the tel command surface and by actus, coordinated as peers through the neXus coordinate space."
+dot("""
+digraph TelosFleet {
+    rankdir=TB;
+    splines=ortho;
+    nodesep=0.5;
+    ranksep=0.7;
+
+    tel   [label="tel\\ncommand surface", shape=box, style=filled, fillcolor="#d4f1f9", fontsize=11];
+    actus [label="actus\\norchestration", shape=box, style=filled, fillcolor="#a8e6cf", fontsize=11];
+
+    subgraph cluster_nodes {
+        label="telos nodes, one per project root"; fontsize=12; style=filled; fillcolor="#f7f7f2"; color="#4488cc"; penwidth=2;
+        node_a [label="node A\\nproject alpha", shape=box, style=filled, fillcolor="#ffd3b6", fontsize=10];
+        node_b [label="node B\\nproject beta", shape=box, style=filled, fillcolor="#ffd3b6", fontsize=10];
+        node_c [label="node C\\nproject gamma", shape=box, style=filled, fillcolor="#ffd3b6", fontsize=10];
+        node_a -> node_b -> node_c [style=dotted, color="#8aa8bd"];
+    }
+
+    nexus [label="neXus coordinate space\\nfacts, traces, stigmergy", shape=box, style=filled, fillcolor="#e1bee7", fontsize=11];
+
+    tel -> node_a [label="command", style=bold];
+    tel -> node_b [label="command", style=bold];
+    tel -> node_c [label="command", style=bold];
+    actus -> node_a [style=bold];
+    actus -> node_b [style=bold];
+    actus -> node_c [style=bold];
+    node_a -> nexus [label="deposit"];
+    node_b -> nexus [label="deposit"];
+    node_c -> nexus [label="deposit"];
+    nexus -> node_a [label="strengthen", style=dashed];
+    nexus -> node_b [label="strengthen", style=dashed];
+    nexus -> node_c [label="strengthen", style=dashed];
+}
+""")
+```
+
+A single binary is a complete execution node. The fleet model scales at two
+levels:
+
+- Instance level: each node is an independent process with its own memory
+  space and thread pool. The multithreaded core already uses the cores of
+  its machine; nothing is shared and nothing contends.
+- Machine level: any number of nodes can run on one machine, each isolated
+  from the others. There is no shared runtime, no shared interpreter state,
+  and no scheduler to coordinate them; the operating system schedules
+  independent processes, which it does well.
+
+Deployment is orchestration-free. Copying the binary into a project root
+makes it a node. There is no container image to build, no daemon to
+install, no registry to join; the node exists because the file exists.
+
+Coordination is by stigmergy through neXus. Nodes deposit facts and traces
+in the shared coordinate space and read the deposits of others. A node in
+project alpha records a finding; a node in project beta reads it and
+adapts; a node in project gamma combines both and addresses a correction
+to the common library. The fleet coordinates as peers, with no central
+planner and no single point of failure.
+
+## Linear Economics
+
+```{python}
+#| label: fig-telos-linear
+#| fig-cap: "The unit economics of a fleet: per-node cost stays flat as nodes are added, and total cost grows as a straight line through the origin. Server and LLM spend scale with workload; the overhead terms stay constant."
+import matplotlib.pyplot as plt
+import numpy as np
+
+plt.rcParams.update({"font.family": "sans-serif", "font.size": 9, "figure.dpi": 150})
+
+fig, (ax_left, ax_right) = plt.subplots(1, 2, figsize=(9.5, 3.4))
+
+fleet = np.arange(1, 21, dtype=float)
+
+ax_left.plot(fleet, np.ones_like(fleet), color="#2c6f8f", linewidth=2)
+ax_left.fill_between(fleet, 0.90, 1.10, color="#9ec9e8", alpha=0.35)
+ax_left.set_xlabel("nodes in the fleet")
+ax_left.set_ylabel("cost per node")
+ax_left.set_title("per-node cost")
+ax_left.set_xticks([1, 5, 10, 15, 20])
+ax_left.set_ylim(0, 1.5)
+ax_left.grid(alpha=0.3, linewidth=0.5)
+
+ax_right.plot(fleet, fleet, color="#a06b8a", linewidth=2)
+ax_right.fill_between(fleet, fleet * 0.90, fleet * 1.10, color="#d9b8c8", alpha=0.35)
+ax_right.set_xlabel("nodes in the fleet")
+ax_right.set_ylabel("total cost")
+ax_right.set_title("total cost")
+ax_right.set_xticks([1, 5, 10, 15, 20])
+ax_right.set_ylim(0, 24)
+ax_right.grid(alpha=0.3, linewidth=0.5)
+
+fig.tight_layout()
+```
+
+The cost structure of a fleet is its defining property. Server spend and
+LLM spend scale linearly with workload: doubling the fleet doubles the cost
+and nothing else. The resources that grow are the ones the work consumes,
+compute and tokens; the overhead terms stay constant. Each node's resource
+use is bounded and predictable, so the unit economics hold from one node to
+a thousand. Pricing can be set per call or per project without superlinear
+cost growth.
+
+## The tel Interface
+
+`tel` is the command surface of the fleet. A command names a target: a
+project root, a repository, a task. The nearest node picks up the command,
+executes it, and streams the result back in real time. Command intake,
+cancellation, and tool authorization arrive over the actus WebSocket
+contract, so a run can be interrupted mid-execution and the node records
+exactly where it stopped.
+
+## Project-Root Deployment
+
+Telos is designed to live in the project root, one binary per project.
+There is no project file to open and no interface process to keep alive.
+The presence of the binary in the root is the registration: the node is on
+the network because it exists on disk.
+
+Each node is bound to its tree by the operating system. A node in project
+alpha cannot read the files of project beta, because there is no shared
+process and no shared privilege. Nodes exchange only addressed facts and
+traces through neXus, so the blast radius of a failure or a compromise
+stays inside one project.
+
+## Contract
+
+Telos keeps a wire contract 1:1 with actus. Actus launches telos as its
+agent binary; telos connects back over WebSocket, announces readiness, and
+then serves commands and emits events. The contract is the only stable
+boundary: eight event types flow from telos to actus, three command types
+flow from actus to telos, and every consumer path in actus depends on their
+semantics, including cumulative content overwrite, turn-end replay
+filtering, and the one-terminal-event-per-request rule.
+
+## Layers
+
+| Layer | Project | Role |
+|:---|:---|:---|
+| Physical foundation | Chton (tagma) | coordinates over disk, RAM, and network bytes |
+| Data hub | Nexus | logs, snapshots, and state over the coordinate space |
+| Verification | EV and peers | mathematical verification of coordinate operations |
+| Intelligence | Actus | planning with the LLM, domain knowledge |
+| Execution | Telos | command intake, system call conversion, ACP/MCP execution |
+
+## Status
+
+Bootstrap. A self-contained agent core (`telos-core`) implements the
+contract end to end: an LLM backend with a tool registry and a tool-call
+loop. Without an API key the loop falls back to a canned backend, so the
+actus chat flow works with this binary attached either way.
+
+The headless binary runs the core directly (project, native agent, and
+external websocket sync) with no interface stack, and ships with the
+built-in model providers. The repository is private. Licensing is decided
+only if and when distribution is planned.
+
+## Direction
+
+- The full tool surface: file, process, network, and MCP effects produced
+  from resolved coordinates.
+- Basic indexing integrated into tagma coordinates, so location resolution
+  is arithmetic over coordinates rather than filesystem descent.
+- Time teleport: neXus replay restores a previous execution state at fine
+  granularity, coarser than a commit and cheaper than a checkout.
+- Fleet operations: multi-node deployment, stigmergy coordination, and the
+  `tel` command surface.
+- The layer stays general: any LLM, any environment, any domain.
+
+---
+
+*Telos is a project of the SSCCS Foundation.*
