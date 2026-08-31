@@ -43,15 +43,6 @@ def _auto_other_formats(doc_stem: str, current_fmt: str, declared_formats: set[s
                 "content_class": "bi bi-file-pdf",
             }
         ]
-    if current_fmt == "pdf":
-        html_link = f"{site_url}/{doc_stem}.html" if site_url else f"/{doc_stem}.html"
-        return [
-            {
-                "title": "Other Formats",
-                "link": html_link,
-                "content": "HTML",
-            }
-        ]
     return []
 
 
@@ -238,27 +229,29 @@ display(HTML(html_output))
 from IPython.display import Latex, display
 
 items = title_meta_items['pdf']
-latex_lines = []
-latex_lines.append(r'\setlength{\tabcolsep}{10pt}')
 
-col_spec = '@{} p{0.24\\textwidth} p{0.24\\textwidth} p{0.24\\textwidth} p{0.24\\textwidth} @{}'
-latex_lines.append(r'\begin{tabular}{' + col_spec + '}')
-
-for i in range(0, len(items), 4):
-    row_cells = []
-    for j in range(4):
-        if i + j < len(items):
-            item = items[i + j]
-            cell = r'{\large ' + item['title'] + r'}\newline{\normalsize \texttt{\href{' + item['link'] + '}{' + item['content'] + '}}}'
-        else:
-            cell = ''
-        row_cells.append(cell)
-    row = '    ' + ' & '.join(row_cells) + r' \\[2em]'
-    latex_lines.append(row)
-latex_lines.append(r'\end{tabular}')
-
-latex_output = '\n'.join(latex_lines)
-display(Latex(latex_output))
+if items:
+    latex_lines = []
+    latex_lines.append(r'\setlength{\tabcolsep}{10pt}')
+    
+    col_spec = '@{} p{0.24\\textwidth} p{0.24\\textwidth} p{0.24\\textwidth} p{0.24\\textwidth} @{}'
+    latex_lines.append(r'\begin{tabular}{' + col_spec + '}')
+    
+    for i in range(0, len(items), 4):
+        row_cells = []
+        for j in range(4):
+            if i + j < len(items):
+                item = items[i + j]
+                cell = r'{\large ' + item['title'] + r'}\newline{\normalsize \texttt{\href{' + item['link'] + '}{' + item['content'] + '}}}'
+            else:
+                cell = ''
+            row_cells.append(cell)
+        row = '    ' + ' & '.join(row_cells) + r' \\[2em]'
+        latex_lines.append(row)
+    latex_lines.append(r'\end{tabular}')
+    
+    latex_output = '\n'.join(latex_lines)
+    display(Latex(latex_output))
 ```
 
 :::
