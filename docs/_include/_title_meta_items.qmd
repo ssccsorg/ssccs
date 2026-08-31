@@ -233,10 +233,10 @@ items = title_meta_items['pdf']
 if items:
     latex_lines = []
     latex_lines.append(r'\setlength{\tabcolsep}{10pt}')
-    
+
     col_spec = '@{} p{0.24\\textwidth} p{0.24\\textwidth} p{0.24\\textwidth} p{0.24\\textwidth} @{}'
     latex_lines.append(r'\begin{tabular}{' + col_spec + '}')
-    
+
     for i in range(0, len(items), 4):
         row_cells = []
         for j in range(4):
@@ -249,7 +249,7 @@ if items:
         row = '    ' + ' & '.join(row_cells) + r' \\[2em]'
         latex_lines.append(row)
     latex_lines.append(r'\end{tabular}')
-    
+
     latex_output = '\n'.join(latex_lines)
     display(Latex(latex_output))
 ```

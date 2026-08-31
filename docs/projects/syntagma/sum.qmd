@@ -10,7 +10,7 @@ format:
       - twocolumn
     fontsize: 10pt
     geometry:
-      - margin=16mm
+      - margin=14mm
     pdf-engine: xelatex
     include-in-header:
       text: |
@@ -41,6 +41,10 @@ title_meta_items = {
 
 {{< include ../../_include/_title_meta_items.qmd >}}
 
+## Overview
+
+synTagma is a spatial coordinate space computing system. Its core primitive, [Tagma](https://docs.ssccs.org/projects/syntagma/tagma/), is a 16-bit coordinate embedded in a fixed Unicode block: every valid value is simultaneously a 1-D address, a 3-D coordinate, and a displayable character, so identity and address converge in a single value. On this primitive, synTagma builds a full stack: a family of coordinate-space data structures (Coord, CoordSet, and the CoordSpace variants from a 22 KB no-allocator array to terabyte-scale mapped spaces), a spatial query layer (CoordCube), a hashless key-value store (TagmaMap), a security layer that binds authority, integrity, audit, and non-repudiation to coordinates, self-validating Base11172 serialization, a combinational hardware decoder carried through FPGA and standard-cell flows, and a coordination layer that routes coordinates across physical topologies without consensus. Application domains span embedded systems, LLM inference caches, graph and multi-dimensional query, RISC-V verification, and petabyte-scale scientific storage, with commercial products forming in RISC-V verification, spatial AI memory, and extreme-scale storage.
+
 ## The problem: hash-based addressing is the hidden tax on every system
 
 Every content-addressable system today generates identifiers through a hash function -- SHA-256, UUID, hash tables. This cost is so universal that it has become invisible: ~10,000 gates and 64--75 cycles for a single SHA-256 operation, followed by collision resolution and dynamic resizing. UUID generation requires entropy and delivers only probabilistic uniqueness. The industry's response has been faster hash units and larger hash tables -- compensating for a structural inefficiency rather than eliminating it.
@@ -67,6 +71,31 @@ Lookup latency is flat across all depths in the native path: 0.39 ns at every N,
 
 Memory efficiency follows a different curve from hash tables. Dense preallocation (fixed 119 MB for the full coordinate grid) drops to 11.9 B/entry at 10M entries. Tree allocation scales with prefix count, not entry count: each leaf node covers 11,172 slots regardless of occupancy. Hash table memory and allocation calls grow linearly with every entry and exceed both strategies at scale.
 
+:::{ layout-ncol=2 }
+{{< include _include/bench/fig-bench-identity.qmd >}}
+{{< include _include/bench/fig-bench-address-space.qmd >}}
+:::
+
+## Beyond the key-value model
+
+A coordinate is identity and address simultaneously, so the index layer ceases to exist as a separate structure: no hash tables, no B-trees, no CAM cells. A hash map is lossy compression: it preserves only key-to-value mappings and destroys the geometry between keys. Tagma retains the full structural position of every coordinate, so lookup, proximity search, axis projection, and set membership are arithmetic over coordinates. Query reduces to arithmetic: an axis filter is a field projection, proximity is field-wise Hamming distance, and a compound axis filter is a bitwise AND over 175 machine words.
+
+Tagma replaces ID generation and hash-map keys outright, partially covers content addressing and cache keys, and leaves cryptographic roles intact: SHA-256 or BLAKE3 for integrity, Ed25519 or ECDSA for signatures, and HKDF, bcrypt, or Argon2 for key derivation and password hashing.
+
+Against content-addressable memory, direct SRAM mapping uses about 2.5x less transistor count for sparse sets and roughly four orders of magnitude less energy per operation, because a CAM search precharges every matchline while a direct read activates a single wordline.
+
+## Hardware: identity as a silicon primitive
+
+The decoder is a three-stage combinational circuit: range check, field extraction, validation. Two implementations of the same arithmetic were synthesized with the open toolchain (Yosys) and placed and routed on the iCE40 UP5K. The naive shift-subtract structure costs about 206 to 232 cells, which is the source of the approximate 300-gate claim, but misses timing closure; the multiply-shift structure costs 478 cells (588 in a 2-input gate estimate) and closes the 12 MHz board clock at 16.79 MHz. Both are functionally identical, which the verification pipeline proves over all 2^16 inputs.
+
+Tagma attaches to any processor pipeline through a standard coprocessor interface without modifying the core. An example implementation uses the RISC-V XIF interface with three custom instructions, tagma_check, tagma_compose, and tagma_dist, each one cycle and combinational, bit-exact against the Rust reference.
+
+In the memory hierarchy, the space maps to a flat 22 KB SRAM array of 11,172 words. Software lookup runs at memory speed, 0.39 ns with the whole space in L1; the hardware value is on other axes: energy per access, fixed one-cycle latency determinism, physical embedding as a device, and streaming throughput when pipelined. The Sky130 flow measures the pure decoder at 388 cells and 2,826 µm². A 19 x 21 x 28 three-axis bitcell array replaces the single row-column decoder: at 28 nm the 11,172-cell core covers about 0.003 to 0.004 mm² including peripherals, roughly 30x smaller than a 32-bit multiplier.
+
+## Verification by exhaustive enumeration
+
+Verification is exhaustive, not probabilistic. All 65,536 possible 16-bit inputs are validated against the decoder specification in milliseconds on any commodity system: 11,172 are structurally valid and 54,364 are rejected. The hardware closes the loop against the Rust reference through four independent channels: formula simulation, golden anchors, gate-level netlist simulation, and formal equivalence over all 2^16 inputs. The exhaustive tests surfaced the boundary correction (the last valid character is U+D7A3, not U+D7AF), which the testbench initially got wrong. No hash-based system can be exhaustively verified across its input space.
+
 ## Application domains
 
 **LLM inference cache.** KV caches indexed by token prefixes achieve O(N) direct array access with zero hash computation. Production cache sizes (10^4--10^7 entries) are covered by 2--4 Coords.
@@ -77,8 +106,49 @@ Memory efficiency follows a different curve from hash tables. Dense preallocatio
 
 **General-purpose addressing.** Wherever UUIDs, hash keys, or sequence numbers are used, synTagma provides a shorter, faster, deterministic alternative with zero collision probability.
 
+**Radiation-tolerant computing.** The structural validity check embedded in every decode is inherent error detection: exhaustive enumeration over all 11,172 valid coordinates measures a 24.1% average detection rate for single-bit upsets from the structural check alone, at zero additional hardware cost. ECC supplements the remaining cases.
+
+**Real-time object identification.** Coordinates serve as deterministic identifiers in sensor fusion: an object receives a coordinate at encoding time, and later frames reference it without hash computation or lookup tables.
+
+## Production-scale validation
+
+Two production-scale deployments demonstrate the model beyond microbenchmarks.
+
+**Structural enumeration in RISC-V verification.** ExaVerif exhaustively verifies RISC-V custom instruction encodings. The standard pipeline generates the full Cartesian product and filters; the structural pipeline encodes constraints into the coordinate space during enumeration setup, so only valid combinations are ever visited. The 99.3% of the CVA6 space that is invalid is never allocated, never iterated, never tested. At CVA6 full scale, verification drops from 29.7 s to 31.3 ms, a 950x reduction.
+
+:::{ layout-ncol=2 }
+{{< include _include/bench/fig-bench-exaverif-cva6.qmd >}}
+{{< include _include/bench/fig-bench-root-ttree-speedup.qmd >}}
+:::
+
+**Petabyte-scale science software.** A documented production bottleneck in CERN's ROOT TTree read path: a Fermilab analysis issues 372,000 singular reads averaging 4.6 KB, sustaining 33 KB/s for about 14 hours. A fork of ROOT replaces branch, basket, and cache traversal with closed-form coordinate arithmetic, an event addressed as (run, luminosity block, event number) resolving to a direct byte offset, while the TTree API stays unchanged. On the full CMS Run2016G DoubleMuon NanoAOD file, the full-file read drops from 192.8 s to 1.06 s (181.7x), throughput rises from 11.2 MB/s to 5,584 MB/s, and the mapped path serves reads with zero application-level read system calls.
+
+## The synTagma stack
+
+**CoordCube: spatial interpretation.** The same CoordPath storage is reinterpreted as D-dimensional coordinates, adding proximity, bounding box, and distance queries without an external index. Empty region checks return in 15.7 ns, Hamming distance costs 1.75 ns, and at 10M entries a proximity query costs 285 ns versus 238 ms for a HashMap filter.
+
+**TagmaMap: a key-value store on coordinate primitives.** TagmaMap builds a practical storage engine on the coordinate primitives: multi-node sharding, persistence, and protocol adaptation (Redis RESP, S3 REST). Key placement, collision resolution, and range partitioning are handled by the coordinate model rather than hash functions. Bulk operations run 14.6 to 17.3x over HashMap, and 500,000 interleaved operations complete in 3.64 ms versus 12.2 ms.
+
+**Tagma Security: secure coordination traffic.** The tagma-sec layer composes keyed primitives with public coordinate arithmetic: authorization over CoordPath scopes, epoch-bound seals, chained audit evidence, and non-repudiation receipts. A route update resolves in 696.1 ns, authorization is O(scope depth) and independent of store size (36.8 ns at 2-Coord depth, 62.7 ns at 19), and chain verification over 10,000 audit entries costs 9.9 µs, about 1 ns per entry.
+
+**Serialization (Base11172).** Every coordinate index maps to exactly one Unicode character (U+AC00 + index); the encoding is self-validating, human-readable, and free of special characters, padding, and escaping. A pair of Coords encodes a 16-bit value.
+
+## Coordination layer
+
+The coordination layer extends the coordinate arithmetic to physical topologies without modifying the core. The composition formula admits unbounded recursion: at k=1 each of the three axes of a 19-Coord sequence is itself a full 19-Coord sequence. A Coord sequence is self-routing: any node decides whether each sub-axis is local or remote by applying the topology function, with no routing-table lookup, and because each axis is independently stored and accessed, no distributed consensus is required. The three axes carry no intrinsic semantics: Axis 0 may mean region, shard, or timestamp depending on deployment, while the arithmetic is invariant.
+
+## Boundaries
+
+The 11,172-identifier bound per Coord is a consequence of the composition formula, not a configurable parameter; larger spaces compose multiple Coords. The structural validity check detects single-bit errors that leave the valid range, but errors that map one valid coordinate to another require ECC. Tagma does not replace cryptographic primitives: SHA-256 remains for signatures, Merkle proofs, and preimage resistance; encryption, authentication, and key derivation stay outside its scope. For content determinism, SHA-256 fingerprints with Tagma encoding compose: the 20-Coord output preserves the 2^-256 collision bound and becomes human-readable and self-validating.
+
+## Ecosystem and validation at scale
+
+synTagma is the shared foundation of an open ecosystem: an agent runtime (neXus), an execution layer (Kinesis), and commercial products in RISC-V verification, spatial AI memory, and extreme-scale storage.
+
+We are already contributing to industry-standard open-source projects, including CERN's ROOT, vLLM, DuckDB, and Bitcoin, to gain production-grade insight on multi-dimensional indexing and to demonstrate the system at scale. The roadmap targets every domain where hashing remains a foundational bottleneck.
+
 ## Status
 
-synTagma is an open-source project (Apache 2.0) under the SSCCS Foundation. The Rust reference implementation is available on GitHub with a full benchmark suite and end-to-end verification harness. The coordinate space is exhaustively verifiable -- all 65,536 inputs can be validated against the decoder specification in milliseconds on any commodity system, a guarantee that no hash-based system can offer.
+synTagma is an open-source project (Apache 2.0) under the SSCCS Foundation, a Swiss non-profit association in formation. The Rust reference implementation is available on GitHub with a full benchmark suite and end-to-end verification harness.
 
 Commercial licensing and hardware implementation partnerships are available. For inquiries, demos, or partnership discussions: **<syntagma@ssccs.org>**
