@@ -5,12 +5,12 @@ date: 2026-07
 date-format: "MMMM, YYYY"
 version-prefix: tagma_id
 version-mark: true
-bibliography: ../_include/reference.bib
-csl: ../../../_include/ieee.csl
+bibliography: ../../_include/reference.bib
+csl: ../../../../_include/ieee.csl
 metadata-files:
-    - ../../../_include/author.yml
-    - ../../../_include/format.pdf.yml
-    - ../../../_include/format.html.yml
+    - ../../../../_include/author.yml
+    - ../../../../_include/format.pdf.yml
+    - ../../../../_include/format.html.yml
 colorlinks: true
 abstract: |
   SHA-256 is the de facto standard for content-addressable identity generation across storage engines, distributed systems, and databases. This paper demonstrates that SHA-256 can be replaced by a structural coordinate composition derived from a fixed 16-bit Unicode block (U+AC00–U+D7AF), reducing identity generation latency by approximately 115x (from 227 ns to 2 ns per operation), eliminating collision handling entirely, and converting multi-axis index queries from O(K x N) intersection to O(1) direct coordinate extraction. The replacement is not cryptographic: preimage resistance, authentication, and encryption remain with SHA-256. Identity generation alone is replaced. A software proof of concept confirming these measurements over 100k operations on ARMv8.4-A Firestorm silicon is provided as open-source reference implementation.
@@ -80,12 +80,12 @@ title_meta_items = {
 }
 ```
 
-{{< include ../../../_include/_title_meta_items.qmd >}}
+{{< include ../../../../_include/_title_meta_items.qmd >}}
 
 ```{python}
 #| include: false
 #| context: local
-%run ../../../_include/_graphviz.py
+%run ../../../../_include/_graphviz.py
 ```
 
 ## Introduction
@@ -137,7 +137,7 @@ The coordinate space grows exponentially with coordinate count. At 10 coordinate
 
 Each CoordPath defines $3N$ independent axes whose semantics are entirely application-defined. The same N-coordinate sequence may encode geographic coordinates in one system and token sequence positions in another. The coordinate algebra -- composition, decomposition, linearisation, axis projection -- is invariant; the axis meaning is not. Tagma is an abstract coordinate algebra, not a fixed geometry.
 
-{{< include ../_include/bench/fig-bench-address-space.qmd >}}
+{{< include ../../_include/bench/fig-bench-address-space.qmd >}}
 
 ## Index Elimination
 
@@ -159,7 +159,7 @@ A software proof of concept implements the Tagma coordinate in Rust, with 10 int
 | Collision | probabilistic ($2^{-128}$) | deterministic zero | deterministic zero | deterministic zero |
 | Multi-axis query | $O(K \times N)$ | $O(1)$ direct | $O(1)$ direct | $O(1)$ direct |
 
-{{< include ../_include/bench/fig-bench-identity.qmd >}}
+{{< include ../../_include/bench/fig-bench-identity.qmd >}}
 
 ## Conclusion
 
@@ -193,4 +193,4 @@ The complete reference implementation is available.
 ::: {#refs}
 :::
 
-{{< include ../../../_include/_license.md >}}
+{{< include ../../../../_include/_license.md >}}
