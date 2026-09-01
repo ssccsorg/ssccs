@@ -9,11 +9,50 @@ abstract: |
 
 {{< include ../_include/_title_meta_items.qmd >}}
 
+```{python}
+#| include: false
+#| context: local
+%run ../_include/_graphviz.py
+```
+
 ## The Two Planes
 
 SSCCS is the top-level umbrella project. It is not an extension of existing computing; it stands opposite to it. Computation is the observation of fixed structure under changing conditions, not sequential state mutation, and the thinking itself stays independent of the von Neumann model. The shared surface below is the pure plane: the formal model, defined from its own primitives.
 
 Every project in the ecosystem is a virtual materialization on the practical plane. Each domain concretizes one functional region of the paradigm in running code on existing computing, so the philosophy becomes usable immediately. Projects inherit philosophy downward and deposit experience upward as strengthened primitives through the shared surface. The poc layer implements only the pure crystallized essence and knows no project internals.
+
+## The Three Pillars
+
+| Pillar | Project | Domain | Role |
+|:---|:---|:---|:---|
+| Space | synTagma | addressing | the coordinate space as a formal model |
+| State | neXus | observation | facts, traces, and stigmergy over the space |
+| Motion | kineTics | execution | universal execution and transduction |
+
+```{python}
+#| label: fig-three-pillars
+#| fig-cap: "The three pillars of the shared substrate: synTagma addresses, neXus observes, and kineTics executes. The loop closes when the effect lands back in the space."
+dot("""
+digraph ThreePillars {
+    rankdir=LR;
+    splines=ortho;
+    nodesep=0.6;
+    ranksep=0.9;
+
+    space  [label="synTagma\\nspace", shape=box, style=filled, fillcolor="#d4f1f9", fontsize=12];
+    state  [label="neXus\\nstate", shape=box, style=filled, fillcolor="#e1bee7", fontsize=12];
+    motion [label="kineTics\\nmotion", shape=box, style=filled, fillcolor="#ffd3b6", fontsize=12];
+
+    space -> state  [label="address", fontsize=9];
+    state -> motion [label="observe", fontsize=9];
+    motion -> space [label="effect", style=dashed, fontsize=9];
+}
+""")
+```
+
+The shared substrate is a cycle: each pillar reads from and writes to the
+others. What kineTics executes becomes a new fact in neXus, and every fact
+is addressed in synTagma.
 
 ## Recursive Synergy of the Shared Substrate
 
