@@ -1,0 +1,166 @@
+---
+title: "kineTic"
+subtitle: "Universal execution and transduction controller: the third pillar of the shared substrate"
+format:
+    html: {}
+metadata-files:
+  - ../../_include/author.yml
+  - ../../_include/format.html.yml
+abstract: |
+  kineTic is the universal execution and transduction controller of the SSCCS stack, the third pillar of the shared substrate after synTagma (space) and neXus (state). It supervises, orchestrates, and bridges all executor types, from software agents to physical signal transducers, hardware actuators, human-machine interfaces, and external systems, unified under a coordinate-based contract protocol.
+---
+
+```{python}
+#| include: false
+#| context: local
+title_meta_items = {
+    "html": [
+        {"title": "References", "link": "/projects/nexus/", "content": "neXus", "icon": "bi bi-link"},
+        {"title": "References", "link": "/projects/syntagma/", "content": "synTagma", "icon": "bi bi-link"},
+        {"title": "Integrations", "link": "/projects/chton/", "content": "Chton", "icon": "bi bi-link"},
+        {"title": "Integrations", "link": "/projects/syntagma/signal/", "content": "Tagma Signal", "icon": "bi bi-link"},
+        {"title": "Executors", "link": "/projects/actus/", "content": "Actus", "icon": "bi bi-link"},
+        {"title": "Executors", "link": "/projects/telos/", "content": "Telos", "icon": "bi bi-link"},
+    ]
+}
+```
+
+{{< include ../../_include/_title_meta_items.qmd >}}
+
+```{python}
+#| include: false
+#| context: local
+%run ../../_include/_graphviz.py
+```
+
+kineTic is the universal execution and transduction controller of the
+SSCCS stack. synTagma defines the coordinate space, neXus records what is
+observed in it, and kineTic moves it: execution is the motion that closes
+the loop of the substrate. The controller supervises, orchestrates, and
+bridges every kind of executor, from software agents to physical signal
+transducers, hardware actuators, human-machine interfaces, and external
+systems, all unified under a coordinate-based contract protocol.
+
+The ordering of the pillars is structural. An address (space) is required
+before observation (state) is possible, and observation is required before
+execution (motion) has meaning. kineTic is the closing point of that
+cycle.
+
+## The Three Pillars
+
+| Pillar | Project | Domain | Role |
+|:---|:---|:---|:---|
+| Space | synTagma | addressing | the coordinate space as a formal model |
+| State | neXus | observation | facts, traces, and stigmergy over the space |
+| Motion | kineTic | execution | universal execution and transduction |
+
+```{python}
+#| label: fig-kine-pillars
+#| fig-cap: "The three pillars of the shared substrate: synTagma addresses, neXus observes, and kineTic executes. The loop closes when the effect lands back in the space."
+dot("""
+digraph KineTicPillars {
+    rankdir=LR;
+    splines=ortho;
+    nodesep=0.6;
+    ranksep=0.9;
+
+    space  [label="synTagma\\nspace", shape=box, style=filled, fillcolor="#d4f1f9", fontsize=12];
+    state  [label="neXus\\nstate", shape=box, style=filled, fillcolor="#e1bee7", fontsize=12];
+    motion [label="kineTic\\nmotion", shape=box, style=filled, fillcolor="#ffd3b6", fontsize=12];
+
+    space -> state  [label="address", fontsize=9];
+    state -> motion [label="observe", fontsize=9];
+    motion -> space [label="effect", style=dashed, fontsize=9];
+}
+""")
+```
+
+The shared substrate is a cycle: each pillar reads from and writes to the
+others. What kineTic executes becomes a new fact in neXus, and every fact
+is addressed in synTagma.
+
+## Layer Position
+
+kineTic supervises executor types; actus manages agent instances. The
+boundary keeps the controller general:
+
+- kineTic defines what an executor is: the ontology of executor types
+  under one coordinate-based contract.
+- actus is the hub of the agent type. It manages the lifecycle of any
+  agent, vendor-agnostic; telos is the base system agent instance among
+  them.
+- Signal, hardware, human-machine, and bridge executors are further types
+  under the same supervision.
+
+## Executor Types
+
+| Executor type | Supervised role |
+|:---|:---|
+| agent | software agent hub (actus) with agent instances (telos and third-party agents) |
+| signal | coordinate receipt and interpretation over Tagma-WAV, physical emission through Chton |
+| hardware | FPGA, robot controllers, and sensor networks |
+| hmi | human input into coordinates, system state back to humans |
+| bridge | interoperability with external distributed systems |
+
+```{python}
+#| label: fig-kine-types
+#| fig-cap: "Executor types under kineTic supervision. Every type conforms to the same coordinate-based contract, so a new type adds a supervisor instead of a protocol."
+dot("""
+digraph KineTicTypes {
+    rankdir=TB;
+    splines=ortho;
+    nodesep=0.5;
+    ranksep=0.7;
+
+    controller [label="kineTic\\nuniversal execution and transduction", shape=box, style=filled, fillcolor="#ffd3b6", fontsize=12];
+
+    agent    [label="agent\\nactus hub, telos instance", shape=box, style=filled, fillcolor="#a8e6cf", fontsize=10];
+    signal   [label="signal\\nTagma-WAV + Chton", shape=box, style=filled, fillcolor="#fff9c4", fontsize=10];
+    hardware [label="hardware\\nFPGA, robotics", shape=box, style=filled, fillcolor="#d4f1f9", fontsize=10];
+    hmi      [label="hmi\\nhuman-machine", shape=box, style=filled, fillcolor="#f4e8f8", fontsize=10];
+    bridge   [label="bridge\\nexternal systems", shape=box, style=filled, fillcolor="#e8f8e8", fontsize=10];
+
+    controller -> agent;
+    controller -> signal;
+    controller -> hardware;
+    controller -> hmi;
+    controller -> bridge;
+}
+""")
+```
+
+## The Contract
+
+The unifying mechanism is a single coordinate-based contract protocol.
+Commands are addressed by coordinate, and results are deposited as facts
+in neXus. **One contract serves every executor type, so a new executor
+type adds a supervisor instead of a protocol.** The actus to telos wire
+contract is expressed as an instance of this universal contract.
+
+## Integration
+
+kineTic is the execution consumer of the substrate. It addresses through
+synTagma, records through neXus, materializes through Chton, and
+transduces through Tagma Signal. The integration surface is where the
+controller earns its place: execution is wired to state and medium rather
+than standing apart from them.
+
+## Status
+
+Planned. No implementation exists yet. The layer definition, the executor
+type ontology, and the contract principle are the current deliverables.
+Building starts at the boundary, as in the rest of the stack: the
+universal contract first, then the supervisors behind it.
+
+## Direction
+
+- Define the universal coordinate-based contract in the core.
+- Build the agent supervisor (actus) as the first executor type, with
+  telos as the base system agent instance.
+- Follow with signal, hardware, human-machine, and bridge supervisors.
+- Integrate execution with neXus state, Tagma Signal, and Chton
+  materialization.
+
+---
+
+*kineTic is a project of the SSCCS Foundation.*
