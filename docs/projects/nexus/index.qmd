@@ -30,21 +30,92 @@ title_meta_items = {
 
 ## Overview
 
-neXus is a homeomorphic runtime fabric unifying swarm agents and spatial storage through contract-governed protocol over an immutable problem-knowledge-solution space. Its core runtime called `nex` is a lightweight binary hub that scales by attaching storage or any agent orchestration from embeded to enterprise server environment, like a tiny universal USB hub which has memory and processing unit on the same device package.
+neXus is a homeomorphic runtime fabric unifying swarm agents and spatial
+storage. Its core runtime, `nex`, is a lightweight binary hub that scales
+by attaching storage or agent orchestration:
 
-The same binary runs on Wasm, edge nodes, portable devices, blockchain runtimes, or bare-metal containers. Any backend that can store an append‑only record (Fact), a stateful record (Intent), and a read‑only record (Hint) becomes a fully functional neXus Blackboard without a graph database or specialised indexing layer. This data model natively supports serverless deployment and eliminates recurring LLM inference costs by confining AI use strictly to knowledge-branch generation. Graph traversal, gap detection, and reporting operate on accumulated facts at zero marginal cost.
+- Runs on Wasm, edge nodes, portable devices, blockchain runtimes, and
+  bare-metal containers.
+- Turns any backend that stores an append-only Fact, a stateful Intent,
+  and a read-only Hint into a fully functional neXus Blackboard, with no
+  graph database and no indexing layer.
+- Operates traversal, gap detection, and reporting on accumulated facts
+  at zero marginal cost, with LLM use confined to knowledge-branch
+  generation.
 
-Where conventional knowledge graphs store static entity‑relationship triplets, neXus records the research process itself. A Fact is not merely a statement — it carries the Intent that proposed the exploration, the Hint constraints that bounded it, and the evidence that validated it. The graph is a queryable, replayable computational trace. Every conclusion can be audited back to the hypothesis that generated it and the experiment that confirmed it. This is a direct instantiation of SSCCS’s ontological primitives: Segment, Scheme, Field, and Observation manifest as Fact, Intent, and Hint within the knowledge domain.
+```{python}
+#| label: fig-nexus-fabric
+#| fig-cap: "Where knowledge graphs store static triplets, neXus records the research process: a Fact carries the Intent that proposed it, the Hints that bounded it, and the evidence that validated it. Every conclusion is auditable back to the hypothesis that generated it. The SSCCS primitives Segment, Scheme, Field, and Observation manifest here as Fact, Intent, and Hint."
+import matplotlib.pyplot as plt
+import numpy as np
+
+plt.rcParams.update({"font.family": "sans-serif", "font.size": 9, "figure.dpi": 120})
+
+fig = plt.figure(figsize=(6, 5)) 
+ax = fig.add_subplot(111, projection="3d")
+
+hosts = [
+    ("edge device", (0.2, 0.2, 0.2)),
+    ("server",      (4.8, 0.2, 1.0)),
+    ("desktop",     (0.6, 4.2, 0.2)),
+    ("robot",       (4.8, 4.8, 1.5)),
+    ("agent",       (2.5, 2.5, 3.2)),
+    ("sensor node", (0.2, 4.8, 3.2)),
+    ("gateway",     (4.8, 0.2, 3.2)),
+]
+
+HOST_C = "#bcd7e8"
+NEX_C = "#ffd3b6"
+SYN = "#4A8BAA"
+
+d = 0.7
+for name, (x, y, z) in hosts:
+    ax.bar3d(x - d / 2, y - d / 2, z - d / 2, d, d, d,
+             color=HOST_C, alpha=0.5, edgecolor="#666666", linewidth=0.5, shade=True)
+    ax.text(x, y, z - d / 2 - 0.4, name, ha="center", va="top", fontsize=8, color="#333333")
+
+nex_pts = np.array([(x, y, z + d / 2) for _, (x, y, z) in hosts])
+
+# synapses: every instance links to its nearest peers, a flat mesh
+
+def nearest_edges(pts, k=2):
+    edges = set()
+    for i in range(len(pts)):
+        dist = np.linalg.norm(pts - pts[i], axis=1)
+        for j in np.argsort(dist)[1:k + 1]:
+            edges.add(tuple(sorted((i, int(j)))))
+    return edges
+
+for i, j in nearest_edges(nex_pts, 2):
+    ax.plot([nex_pts[i][0], nex_pts[j][0]],
+            [nex_pts[i][1], nex_pts[j][1]],
+            [nex_pts[i][2], nex_pts[j][2]],
+            color=SYN, linewidth=1.2, alpha=0.85)
+
+# a nex instance on every host, each a full blackboard (F/I/H triad)
+triads = [("#a8e6cf", "F"), ("#ffd3b6", "I"), ("#d4a5a5", "H")]
+
+for i, (x, y, z) in enumerate(nex_pts):
+    ax.text(x, y, z + 0.4, "nex", ha="center", fontsize=7, color="#333333")
+    for k, (color, label) in enumerate(triads):
+        ax.scatter(x + 0.38 + k * 0.15, y - 0.3, z, s=26, color=color, depthshade=False)
+    ax.scatter(x, y, z, s=170, color=NEX_C, edgecolor="#333333", linewidth=0.5, depthshade=True)
+
+ax.set_axis_off()
+ax.set_xlim(-0.5, 5.7)
+ax.set_ylim(-0.5, 5.5)
+ax.set_zlim(-0.9, 4.3) 
+```
 
 ## Design Philosophy and Direction
 
-neXus began as a research platform for a new computational model SSCCS, serving simultaneously as its proof of concept. The platform and the theory describe each other by design. The infrastructure that validates the model is itself built on the model—a self‑referential loop that already makes neXus a general‑purpose, open‑source problem‑solving infrastructure for any data-driven domain.
-
-neXus itself is not a runtime platform in the conventional sense: not an open-core business that hosts a marketplace, not a centralized runtime that extracts rent from extension modules, and not a foundation-controlled standard that polices who may participate. Its fundamental design eliminates central control entirely. A developer who produces value runs nex directly, on their own infrastructure, under their own terms. nex is neither like `core install extension -g` extension platform nor a hosted service; it is an zero-knowledge background with which any developer can build such a platform for themselves, while simultaneously participating in a shared value data store.
-
-Therefore the goal of neXus project is not to become a platform, but to equip direct value producers---engineers, researchers, domain experts---to solve concrete problems using the accumulated tools and knowledge within the nex ecosystem. So the producer decides what their work is worth. No centralized reviewer, platform gate and middleman arbitrates value. Impact in the real world is the only credential.
-
-Each producer, in solving their own problem, structurally and unavoidably contributes verified knowledge back into the shared store to access it because of their own benefits, so that accumulated knowledge is then inherited and evolved by other producers, who build upon it and return further improvements. The ecosystem grows by the recursive, stigmergic compounding of independently verified progress.
+neXus began as the proof of concept of the SSCCS computational model; the
+platform and the theory describe each other by design. It is a peer
+runtime rather than a platform: no marketplace, no extension rent, no
+central gatekeeper. A producer runs `nex` on their own infrastructure and
+decides what their work is worth. Solving a problem deposits verified
+knowledge back into the shared store, and the ecosystem grows by the
+recursive, stigmergic compounding of independently verified progress.
 
 ## Universal primitives and near-unlimited storage scalability
 

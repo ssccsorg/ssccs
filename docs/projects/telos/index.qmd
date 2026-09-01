@@ -37,8 +37,8 @@ language or a domain.
 Telos is a headless agent in the form of a single native binary of about
 seventy megabytes. There is no interface to launch, no runtime to install,
 and no daemon to supervise; the binary is the entire deployment unit. It
-runs on any machine that can execute it, serves a project from its root,
-and scales into a fleet of coordinated nodes.
+runs on any machine that can execute it and scales into a fleet of
+coordinated nodes.
 
 The working thesis is that an agent does not need to traverse trees to act.
 Work is addressed by coordinate and reached by teleport: no directory
@@ -46,8 +46,6 @@ descent, no sequential scans. The agent moves between work locations in
 space, and the execution layer materializes that movement as concrete
 system calls, tool invocations, and protocol traffic over files, processes,
 and networks.
-
-**tel: an agent per project, one command away.**
 
 ## Native Execution
 
@@ -69,7 +67,7 @@ and large-scale analysis uses every core it is given.
 
 ```{python}
 #| label: fig-telos-fleet
-#| fig-cap: "The Telos fleet: one node per project root, addressed by the tel command surface and by actus, coordinated as peers through the neXus coordinate space."
+#| fig-cap: "The Telos fleet: nodes addressed by the tel command surface and by actus, coordinated as peers through the neXus coordinate space."
 dot("""
 digraph TelosFleet {
     rankdir=TB;
@@ -81,21 +79,21 @@ digraph TelosFleet {
     actus [label="actus\\norchestration", shape=box, style=filled, fillcolor="#a8e6cf", fontsize=11];
 
     subgraph cluster_nodes {
-        label="telos nodes, one per project root"; fontsize=12; style=filled; fillcolor="#f7f7f2"; color="#4488cc"; penwidth=2;
-        node_a [label="node A\\nproject alpha", shape=box, style=filled, fillcolor="#ffd3b6", fontsize=10];
-        node_b [label="node B\\nproject beta", shape=box, style=filled, fillcolor="#ffd3b6", fontsize=10];
-        node_c [label="node C\\nproject gamma", shape=box, style=filled, fillcolor="#ffd3b6", fontsize=10];
+        label="telos nodes in the fleet"; fontsize=12; style=filled; fillcolor="#f7f7f2"; color="#4488cc"; penwidth=2;
+        node_a [label="node A", shape=box, style=filled, fillcolor="#ffd3b6", fontsize=10];
+        node_b [label="node B", shape=box, style=filled, fillcolor="#ffd3b6", fontsize=10];
+        node_c [label="node C", shape=box, style=filled, fillcolor="#ffd3b6", fontsize=10];
         node_a -> node_b -> node_c [style=dotted, color="#8aa8bd"];
     }
 
     nexus [label="neXus coordinate space\\nfacts, traces, stigmergy", shape=box, style=filled, fillcolor="#e1bee7", fontsize=11];
 
-    tel -> node_a [label="command", style=bold];
-    tel -> node_b [label="command", style=bold];
-    tel -> node_c [label="command", style=bold];
-    actus -> node_a [style=bold];
-    actus -> node_b [style=bold];
-    actus -> node_c [style=bold];
+    tel -> node_a [label="command"];
+    tel -> node_b [label="command"];
+    tel -> node_c [label="command"];
+    actus -> node_a;
+    actus -> node_b;
+    actus -> node_c;
     node_a -> nexus [label="deposit"];
     node_b -> nexus [label="deposit"];
     node_c -> nexus [label="deposit"];
@@ -117,9 +115,10 @@ levels:
   and no scheduler to coordinate them; the operating system schedules
   independent processes, which it does well.
 
-Deployment is orchestration-free. Copying the binary into a project root
-makes it a node. There is no container image to build, no daemon to
-install, no registry to join; the node exists because the file exists.
+Deployment is orchestration-free. A node exists wherever the binary runs,
+and placement is a choice: a project root, a machine, a CI runner, or any
+environment that can execute the file. There is no daemon to install and
+no registry to join; the node exists because the file exists.
 
 Coordination is by stigmergy through neXus. Nodes deposit facts and traces
 in the shared coordinate space and read the deposits of others. A node in
@@ -180,18 +179,19 @@ cancellation, and tool authorization arrive over the actus WebSocket
 contract, so a run can be interrupted mid-execution and the node records
 exactly where it stopped.
 
-## Project-Root Deployment
+## Deployment
 
-Telos is designed to live in the project root, one binary per project.
-There is no project file to open and no interface process to keep alive.
-The presence of the binary in the root is the registration: the node is on
-the network because it exists on disk.
+A node can live in a project root, on a machine, in a container, or in a
+CI runner. Placement is a choice, made where the boundary of the work
+sits: a project tree, a repository, a build pipeline. The presence of the
+binary is the registration: the node is on the network because it exists
+on disk.
 
-Each node is bound to its tree by the operating system. A node in project
-alpha cannot read the files of project beta, because there is no shared
-process and no shared privilege. Nodes exchange only addressed facts and
-traces through neXus, so the blast radius of a failure or a compromise
-stays inside one project.
+When a node is bound to a tree, the operating system enforces the
+boundary. A node serving project alpha cannot read the files of project
+beta, because there is no shared process and no shared privilege. Nodes
+exchange only addressed facts and traces through neXus, so the blast
+radius of a failure or a compromise stays contained.
 
 ## Contract
 
