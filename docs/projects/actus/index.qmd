@@ -35,17 +35,29 @@ title_meta_items = {
 %run ../../_include/_graphviz.py
 ```
 
-Actus is a headless AI agent server that pairs a stateless language model with persistent conversation state, filesystem awareness, and tool execution capabilities through a lightweight HTTP interface.
+Actus is the agent orchestration layer of the SSCCS stack. It plans with
+the LLM, holds conversation state, and commands the execution agent that
+does the actual work. That agent is Telos: the direct coding agent with
+filesystem and command execution, speaking the actus WebSocket contract.
 
-A large language model by itself is stateless. Every interaction starts from zero. To make an AI assistant useful across sessions, the infrastructure around it must manage conversation history, provide context about the workspace, and handle tool invocations. Actus solves this by running a headless, GUI-less development agent alongside a minimal server that external clients can call directly. The result is a drop-in AI coding agent that runs on any machine without a desktop environment, display server, or browser.
+A large language model by itself is stateless. Every interaction starts
+from zero. The infrastructure around it must manage conversation history,
+provide context about the workspace, and command a tool-carrying
+executor. Actus provides the orchestration: it owns threads and context,
+and drives Telos as its instrument for file edits, command runs, and
+network effects. The client sees one headless service with no GUI, no
+display server, and no browser.
 
-Where full IDE remote-server setups require a desktop environment and a heavyweight API surface, Actus runs headless: no GUI, no X server, no browser. A single command is all you need to chat with an agent that has full filesystem and git awareness.
+The shape mirrors the layer below. neXus realizes its purpose through
+chhton, the single low-level executor over the coordinate space. Actus
+does the same with Telos: the orchestra decides, the executor acts, and
+the agent underneath stays replaceable behind the contract.
 
 ## Architecture
 
 ```{python}
 #| label: fig-actus-architecture
-#| fig-cap: "Actus: a server layer bridges external clients to a headless agent process."
+#| fig-cap: "Actus: a server layer bridges external clients to the Telos execution agent."
 dot("""
 digraph ActusArchitecture {
     rankdir=LR;
@@ -70,7 +82,7 @@ digraph ActusArchitecture {
         state -> ctx [style=dashed, color="#667766"];
     }
 
-    agent [label="Headless Agent\n(AI coding agent)", shape=box, style=filled, fillcolor="#c8e6c9", fontsize=12, width=1.8];
+    agent [label="Telos\n(execution agent)", shape=box, style=filled, fillcolor="#c8e6c9", fontsize=12, width=1.8];
 
     client -> api [label="REST / Streaming", style=bold, color="#5577bb"];
     bridge -> agent [label="Protocol Bridge", style=bold, color="#5577bb"];
@@ -84,7 +96,9 @@ The architecture follows a layered separation of concerns:
 
 - **Session State and Persistence**: Manages conversation threads across reconnections. Each thread maintains its full message history, so the agent resumes from where it left off even after connection drops or server restarts.
 
-- **Agent Bridge**: The communication channel between the server and the headless agent process. Handles automatic reconnection, message delivery guarantees, and the lifecycle of the agent process.
+- **Agent Bridge**: The communication channel between the server and the
+  Telos process. Handles automatic reconnection, message delivery
+  guarantees, and the lifecycle of the agent process.
 
 - **Workspace Context**: Provides filesystem-level and git-aware context to the agent. Enables file search, repository structure awareness, and workspace navigation without manual path specification.
 
@@ -98,7 +112,16 @@ The architecture follows a layered separation of concerns:
 
 ## Status and Direction
 
-Actus is in active development. The core chat loop, thread management, and workspace awareness are operational. Current work focuses on agent configuration profiles, multi-model routing, and integration with the neXus blackboard for long-term conversation archival and cross-session knowledge accumulation.
+Actus is in active development. The actus to Telos contract works end to
+end: Telos connects over WebSocket, serves threads, tools, and
+cancellation, and the flows are gated by deterministic conformance tests
+that run without an LLM alongside the live suite. Thread persistence and
+bearer-token authentication are in place.
+
+Current work focuses on wider tool coverage through Telos, additional
+agent kinds behind the same orchestration surface, and integration with
+the neXus blackboard for long-term conversation archival and cross-session
+knowledge accumulation.
 
 ---
 

@@ -1,0 +1,880 @@
+---
+title: "neXus"
+subtitle: "A homeomorphic FIH blackboard runtime: spatial knowledge and execution over an immutable problem-knowledge-solution space"
+date: 2026-09
+date-format: "MMMM, YYYY"
+version-prefix: nexus
+version-mark: true
+colorlinks: true
+latex-clean: false
+metadata-files:
+  - ../../_include/author.founder.yml
+  - ../../_include/format.pdf.yml
+  - ../../_include/format.html.yml
+format:
+  html:
+    number-sections: true
+    code-font: "Source Code Pro"
+    appendix-style: plain
+  pdf:
+    pdf-engine: xelatex
+    geometry:
+      - margin=16mm
+    keep-tex: true
+    number-sections: true
+    execute:
+      echo: false
+    colorlinks: true
+    linkcolor: darkgray
+    citecolor: gray
+    urlcolor: gray
+    code-block-bg: false
+    code-block-border-left: true
+    include-in-header:
+      text: |
+        \usepackage{xcolor}
+        \usepackage{microtype}
+        \setkeys{Gin}{width=\linewidth,height=\textheight,keepaspectratio}
+        \addtokomafont{disposition}{\rmfamily}
+        \geometry{bottom=1.6cm, footskip=1cm}
+        \input{./_files/nexus_whitepaper_metadata.tex}
+        \DeclareTOCStyleEntry[beforeskip=6pt]{default}{section}
+        \DeclareTOCStyleEntry[beforeskip=0pt]{default}{subsection}
+        \makeatletter
+        \def\@maketitle{
+          \begin{center}
+            {\LARGE \bfseries \@title \par}
+            \vspace{1em}
+            {\large \@subtitle \par}
+            \vspace{4em}
+                {\large \@author \thanks{\authorrole; Corresponding author: \texttt{\href{mailto:\authoremail}{\authoremail}}} \par}
+                \vspace{0.3em}
+                {\normalsize \affiliationname \par}
+                \vspace{0.3em}
+                {\normalsize \texttt{\href{\affiliationurl}{\affiliationdomain}} \par}
+            \vspace{2em}
+                {\normalsize \@date \par}
+          \end{center}
+          \vspace{2em}
+        }
+        \makeatother
+---
+
+{{< include ../../_include/_title_meta_items.qmd >}}
+
+```{python}
+#| include: false
+#| context: local
+%run ../../_include/_graphviz.py
+```
+
+## Abstract {.unnumbered .unlisted}
+
+This whitepaper presents neXus, a runtime and data model in which software agents, machines, and human users coordinate through a shared blackboard defined by three record primitives. A Fact is an immutable, validated observation. An Intent is a proposed exploration that follows a strict lifecycle from submission through claiming, heartbeat, and conclusion. A Hint is a volatile, read-only constraint that bounds admissible actions. Any storage backend that can hold these three record kinds becomes a functional neXus blackboard without a graph database or a dedicated indexing service.
+
+The model is grounded in the SSCCS primitives of Segment, Scheme, Field, and Observation, which materialize as Fact, Intent, and Hint in the knowledge domain. Identity is spatial: records are addressed by coordinates in a fixed composition space rather than by hashed keys, so identity is queryable and lookup cost is independent of record count. The algebraic skeleton $F \times I \times H \to F'$ is instantiated by a minimal calculator that is also the conformance reference: replay of a recorded path equals recomputation of the path, and the state of the system is its record.
+
+The document specifies the record model, the coordinate identity scheme, the storage architecture, the runtime daemons, and the wire protocol as implemented in the reference repository, and it separates established results from conjectures under test. Measured results on the reference implementation include a write path of 5.19 microseconds per fact, a three-axis structural filter at 83.8 microseconds over 50,000 facts, and an index whose memory is bounded by axis cardinality rather than by record count. Verification covers exhaustive enumeration of the coordinate space, adversarial simulation of seven attack scenarios, and an OS-less build profile. The text is written for engineers and researchers; implementation status is marked per section.
+
+## Introduction {#sec-introduction}
+
+Generative agents operate on ephemeral context. A session opens with no memory of prior sessions, documents are re-read, and state is rebuilt through prompts. The infrastructure that gives agents durable memory has developed in the shape of cloud vector stores, graph databases, and retrieval pipelines, each requiring accounts, configuration, and platform trust. Two structural costs recur. First, a knowledge system pays the indexing cost at write time and again at query time: records are written once but must be found many times, and conventional indexes grow with the record set. Second, every retrieval decision in an agent stack is typically paid in model inference, so memory operations carry recurring marginal cost that grows with usage.
+
+neXus addresses both costs at the data model level rather than at the serving level. Records are written under three primitives that any storage backend can hold. Retrieval, traversal, and gap detection operate on accumulated records through a structural filter index whose memory is bounded by axis cardinality, and the measured cost of these operations is sub-microsecond to millisecond on commodity hardware. Because records are immutable and identity is coordinate-based, the same code remains readable across platform changes: storage is a tactical choice, not an architectural dependency.
+
+This document is a technical record of the system as it exists in the reference implementation and in the accompanying documentation. Its intended uses are three: as a specification for implementers, as the archival basis for a registered DOI, and as a dated statement of the original ideas in the model for the purpose of prior-art defense. Sections 2 through 6 define the model. Sections 7 and 8 state verification results and measurements. Sections 9 through 13 delimit the ecosystem, its boundaries, related work, the roadmap, and the conclusion. Appendices carry the detailed specifications, protocol tables, verification catalogs, benchmark tables, and a glossary.
+
+The reference code is published under Apache License 2.0[^repo] and the documentation is published on the SSCCS documentation site[^docs]. Where a claim is a hypothesis rather than a measured result, it is labeled as such.
+
+## The FIH Blackboard Model {#sec-fih}
+
+The model uses three record primitives that form a complete basis for system state. The letters F, I, and H denote the three record kinds, and a neXus blackboard is any storage that can retain them.
+
+```{python}
+#| label: fig-fih-primitives
+#| fig-cap: "The recursive cycle of the three primitives. An Intent proposes an exploration; its conclusion produces an immutable Fact; Hints bound both."
+dot("""
+digraph FihCycle {
+    rankdir=LR;
+    node [shape=box, style="rounded,filled", fontsize=10];
+    edge [fontsize=8];
+
+    Fact [label="Fact\nimmutable, validated observation", fillcolor="#d8f0e0"];
+    Intent [label="Intent\nsubmit -> claim -> heartbeat -> conclude", shape=diamond, fillcolor="#ffe9c9"];
+    Hint [label="Hint\nvolatile, read-only constraint", fillcolor="#f0dcdc"];
+
+    Intent -> Fact [label="conclude(i) = f"];
+    Fact -> Intent [label="evidence and provenance"];
+    Hint -> Intent [style=dashed, label="bounds the search"];
+    Hint -> Fact [style=dashed, label="bounds admissible facts"];
+}
+""")
+```
+
+### Primitives {#sec-fih-primitives}
+
+A Fact is an immutable record of a validated observation. It is the output of a concluded Intent and carries the identity of that Intent, so every Fact is traceable to the hypothesis that proposed it. A Fact is never overwritten. An Intent is a stateful record of a proposed exploration. It carries references to the Facts from which it departs, a description of the operation to perform, and a creator identity. A Hint is a volatile, read-only record that constrains which Intents and Facts are admissible in a given scope. Hints can be garbage-collected.
+
+A governing rule keeps the blackboard clean at scale: observers record what they find as Facts, and actors propose what they intend as Intents. Automated detectors therefore do not accumulate unclaimed Intents; they write idempotent Facts. The rule is stated as *observe as Fact, act as Intent*.
+
+The three primitives map one-to-one onto the SSCCS ontological primitives[^ssccs]: Segment materializes as the immutable coordinate identity of a Fact, Scheme materializes as the structural relationships and memory layout declared by the blackboard scope, Field materializes as the constraint set carried by Hints, and Observation materializes as the evaluation that produces a Fact from an Intent.
+
+### Lifecycle {#sec-lifecycle}
+
+Every Intent follows the lifecycle
+
+$$ \text{submit} \rightarrow \text{claim} \rightarrow \text{heartbeat} \rightarrow \text{conclude} . $$
+
+A submitted Intent is claimed by an agent, kept alive by heartbeats, and concluded with a result. Conclusion produces a Fact. A scheduler monitors heartbeats and evicts stale Intents that have not been claimed or that have stopped heartbeating. The lifecycle is the enforcement point for liveness: a crashed or dishonest agent is detectable by the absence of heartbeats, and an Intent that is never concluded leaves no Fact behind.
+
+```{python}
+#| label: fig-intent-lifecycle
+#| fig-cap: "Intent lifecycle state machine. Concluded Intents emit Facts; stale Intents are evicted by the scheduler."
+dot("""
+digraph IntentLifecycle {
+    rankdir=LR;
+    node [shape=box, style="rounded,filled", fontsize=10];
+    edge [fontsize=8];
+
+    Submitted [label="submitted", fillcolor="#fff3cd"];
+    Claimed [label="claimed", fillcolor="#fff3cd"];
+    Active [label="heartbeat", fillcolor="#fff3cd"];
+    Concluded [label="concluded", fillcolor="#d8f0e0"];
+    Evicted [label="evicted", shape=doubleoctagon, fillcolor="#f8d7da"];
+
+    Submitted -> Claimed [label="claim(i, agent)"];
+    Claimed -> Active [label="heartbeat(i, agent)"];
+    Active -> Active [label="heartbeat", style=dashed];
+    Active -> Concluded [label="conclude(i, result)"];
+    Submitted -> Evicted [label="timeout"];
+    Claimed -> Evicted [label="timeout"];
+    Active -> Evicted [label="timeout"];
+    Concluded [label="concluded\nemits Fact f"];
+}
+""")
+```
+
+### Recursion and Scaling Modes {#sec-recursion}
+
+The FIH triad is self-similar across scales, the property the project calls homeomorphic: the same record structure reappears at every scale, from a single agent to an ecosystem. A single agent runs a blackboard; a project runs a blackboard whose participants include that agent; an ecosystem runs a blackboard whose participants include projects. Each blackboard is a node that can contain sub-blackboards, and the composition rule is that an Observation at dimension $N$ becomes a Hint at dimension $N-1$. This nesting is structural, not logical: the same record semantics apply at every level.
+
+Three scaling modes follow from treating the triad as a three-vector basis of state.
+
+1. *Multi-blackboard composition.* Recursive scoping composes blackboards without a central store.
+2. *Temporal accumulation.* State is a four-dimensional record: Facts are permanent, Intents are transient and leave a Fact residue on conclusion, and Hints are garbage-collectible. Every record carries a timestamp coordinate.
+3. *Independent streaming.* Each primitive is an independent publish-subscribe stream, so distributed instances synchronize by FIH deltas without a shared database.
+
+### The Minimal Skeleton and Computation as Record {#sec-skeleton}
+
+The reference application `nex-calc` reduces the model to a minimal complete skeleton. `put 3` writes a Fact at a coordinate, `put 5` writes another, `add` creates an Intent that is a directional vector between Facts, and `resolve` traverses from Fact to Intent to Fact and produces a new persistent Fact. The algebraic shape of the skeleton is
+
+$$ F \times I \times H \rightarrow F' , $$
+
+read as: a set of Facts, an Intent, and a set of Hints determine a new Fact. Nothing is added to the model to make the calculator work; the calculator is the model running unchanged. The skeleton is deliberately inefficient. Its purpose is not throughput but conformance: a complex system is designed by composing new Intents and Hints over the same immutable records, and the properties demonstrated by the skeleton are the properties that any complex design must preserve.
+
+Two consequences follow, and they differ in epistemic status.
+
+The first is a consequence of the record layer: an operation is a traversal recorded as an immutable Fact, the record is the state, and the traversal is the computation. This is established by the skeleton and by the record semantics of the store, and it is testable: replay of a recorded path must equal recomputation of that path, and no Fact is overwritten.
+
+The second is a hypothesis under active test: the same record semantics can ground systems that learn. An agent records the Intents it proposes, the Facts it observes, and the Hints that bound its search; knowledge grows by accumulation of recorded paths instead of by overwriting continuous weights. The hypothesis is falsifiable. If reconstructing a recorded computation requires information outside the FIH record, such as timing, ordering, or hidden state, then computation-equals-record fails for that case. If path-accumulated learning cannot match a trivial stochastic gradient baseline on a toy problem at any cost, the learning extension is unsupported[^learn].
+
+## Coordinate Identity and Spatial Addressing {#sec-identity}
+
+Record systems conventionally assign identity by hashing content and resolving collisions probabilistically. neXus derives identity from a fixed coordinate space supplied by Tagma[^tagma], a spatial primitive defined over a contiguous 16-bit Unicode block (U+AC00 through U+D7A3). Every value in that block is produced by a closed-form composition of three structural axes,
+
+$$ C(i,m,f) = \text{U+AC00} + 588\,i + 28\,m + f, \qquad 0 \le i < 19,\; 0 \le m < 21,\; 0 \le f < 28 , $$
+
+and exactly $11{,}172 = 19 \times 21 \times 28$ of the $65{,}536$ possible 16-bit values are structurally valid. A coordinate is therefore simultaneously a 16-bit address and a three-axis point, and decoding is combinational: the coordinate of a value is its address, so finding a record is arithmetic rather than a table scan.
+
+### Identity Size and the Axis Model {#sec-identity-size}
+
+An identity in neXus is an ordered tuple of coordinates. With $|\mathcal{A}| = 11{,}172$ valid values per coordinate, the space of $N$-coordinate identities has cardinality
+
+$$ |\mathcal{I}_N| = 11{,}172^N , \qquad \log_2 11{,}172 \approx 13.45 . $$
+
+Two configurations are in use.
+
+- The default identity uses six application-defined axes, giving $|\mathcal{I}_6| = 11{,}172^6 \approx 1.9 \times 10^{24}$ addresses, about $2^{81}$. Six axes are sufficient for domain-local record identity at a rate far above any realistic accumulation.
+- Evidence-chain identity uses twenty coordinates, $|\mathcal{I}_{20}| = 11{,}172^{20} \approx 2^{268.9}$. Since $268.9 > 256$, the twenty-coordinate identity is a full-injective encoding of a 256-bit digest into 20 base-11,172 coordinates; two distinct contents collide only up to SHA-256 collision resistance[^coord20].
+
+The six default axes are application-defined and ordered as `time_hi`, `time_lo`, entity kind (F, I, or H), `origin`, `creator`, and `serial`. Because the axes are part of the identity, identity is queryable: a filter on any axis prefix is a range query over coordinates, and an inverse index over the remaining axes resolves the matching identity set.
+
+```{python}
+#| label: fig-coordinate-identity
+#| fig-cap: "Content is placed on six axes; the ordered tuple of coordinates is the record identity, and axis filters become range queries over coordinates."
+dot("""
+digraph CoordId {
+    rankdir=LR;
+    node [shape=box, style="rounded,filled", fontsize=10];
+    edge [fontsize=8];
+
+    Content [label="record\n(content, origin, creator, kind, time)", fillcolor="#ffffff"];
+    Axes [label="axis decomposition\ntime_hi, time_lo, kind\norigin, creator, serial", shape=box, fillcolor="#e8ecf8"];
+    Space [label="coordinate space\nA^6, |A| = 11,172\nA^20 extends to 2^256", shape=box, fillcolor="#e8ecf8"];
+    Id [label="CoordId\nordered tuple of coordinates", shape=ellipse, fillcolor="#d8f0e0"];
+
+    Content -> Axes [label="semantic mapping"];
+    Axes -> Space [label="encode each axis"];
+    Space -> Id [label="compose tuple"];
+}
+""")
+```
+
+### Semantic Identity and the Conflict Guard {#sec-identity-derivation}
+
+Identity is semantic: the coordinate tuple is derived from the entity kind, the origin, the creator, and the content of the record, not from a random nonce. The same record produced by the same creator under the same origin converges on the same identity, which makes duplicate submission detectable. At commit time a content-hash conflict guard checks the target coordinate: if the coordinate is already occupied by a record with a different content hash, the write is rejected as a conflict; if the hashes agree, the write is idempotent. The occupancy lookup is O(1) through the existing-content-hash index. After the L2 restructure the per-call conflict check measures 445 nanoseconds, against 135 to 390 milliseconds before the restructure[^l2].
+
+The change of identity derivation from six to twenty coordinates is breaking for stored records and has no automatic in-place migration tool; the documented path for pre-1.0 data is re-ingestion through the semantic layer.
+
+### Determinism and Auditability {#sec-determinism}
+
+Every Fact carries a provenance link to the Intent that produced it, forming a chain from conclusion back to hypothesis. Two properties make that chain auditable. Replay is deterministic: `rebuild_cache` reconstructs the record maps and the structural index from the stored records, so two nodes that hold the same record set converge on the same state. Identity is content-derived: given the same content, origin, and creator, the same coordinate arises on any implementation. The content hash remains in the record as evidence; coordinates provide ordering and addressing, and do not provide preimage resistance. The distinction is maintained in the design: hashing is for evidence, coordinates are for structure. The two compose: a digest encoded as coordinates remains verifiable and becomes queryable by axis.
+
+## Storage Architecture {#sec-storage}
+
+The storage architecture applies one principle at two boundaries: *storage down, semantics up*. Low-level storage and I/O move outward to the external chton project at the crate boundary, and record bodies, identity, and relationships move to application-owned record maps at the internal layer-2 boundary. What remains inside the core is semantics: the FIH lifecycle, the conflict guard, the inverse index, the structural filter index, deterministic replay, and per-channel partition scans.
+
+### The Layer-2 Restructure {#sec-storage-l2}
+
+The unified tree index was reduced to a primitive: a six-axis structural filter index that maps each axis combination to a set of record ids over low-cardinality axes (time, entity, origin, creator, status), a filter projection of the identity axes. Record bodies live in hash-map record maps owned by the application layer. This is the standard index-to-heap pattern, applied to the whole store. The measured outcomes of the restructure are:
+
+- per-fact heap footprint dropped from about 3.4 MB to about 40 KB on average, with a steady-state marginal cost around 0.9 KB per additional fact;
+- the conflict check dropped from 135 to 390 ms per call to 445 ns;
+- index memory is bounded by axis cardinality, not by record count.
+
+```{python}
+#| label: fig-storage-layout
+#| fig-cap: "Layer-2 layout: a six-axis structural filter index maps axis combinations to id sets; record bodies and the inverse index live in application-owned record maps."
+dot("""
+digraph StorageLayout {
+    rankdir=LR;
+    node [shape=box, style="rounded,filled", fontsize=10];
+    edge [fontsize=8];
+
+    subgraph cluster_core {
+        label="nexus core: semantics";
+        style=filled; fillcolor="#eef4ee";
+
+        Filter [label="structural filter index\n6 axes, low cardinality\naxis combo -> id set", fillcolor="#ffffff"];
+        Records [label="record maps (application-owned)\nrecord bodies, identity, relationships", fillcolor="#ffffff"];
+        Inverse [label="inverse index\nfact_to_intents", fillcolor="#ffffff"];
+        Replay [label="deterministic replay\nrebuild_cache", fillcolor="#ffffff"];
+
+        Filter -> Records [style=dashed, label="id set -> bodies"];
+        Records -> Inverse [style=dashed];
+        Records -> Replay [style=dashed];
+    }
+
+    subgraph cluster_chton {
+        label="external boundary: chton";
+        style=filled; fillcolor="#f5efe8";
+
+        EntityStore [label="EntityStore\nMemory / Map / Coord", fillcolor="#ffffff"];
+        FileIo [label="CoordMapStoreIo\nfile I/O", fillcolor="#ffffff"];
+    }
+
+    Records -> EntityStore [style=dashed, label="re-exported traits"];
+    Records -> FileIo [style=dashed, label="re-exported backend"];
+}
+""")
+```
+
+At the crate boundary the `EntityStore` trait family and the `CoordMapStoreIo` file backend are owned by chton and re-exported by the `fih` crate so that consumers keep a stable crate path. The re-export is a compatibility shim: it fixes the public path, not the coupling, and dependency drift between the two repositories is an accepted coordination cost.
+
+### Storage Primitives and Tiers {#sec-storage-primitives}
+
+The store surface consists of three pure synchronous primitives with a zero-async core.
+
+| Primitive | Operations | Typical backing |
+|-----------|------------|-----------------|
+| Key-value | read, write, delete, list | warm records, SQLite |
+| Blob | put, get, delete, list | cold bodies, Parquet, DuckDB |
+| Object | read-state, compare-and-swap | hot coordination, WAL |
+
+Compare-and-swap is the only coordination primitive; it is supplied by whatever the backend offers (SQLite WAL, a blockchain, or an object store). Storage is tiered: hot records use object compare-and-swap, warm records use key-value, and cold records use blobs with an advancing flush cursor, optionally composed through a composite cold-storage layer.
+
+Asynchronous runtimes (browser workers, Cloudflare Workers, canisters) cannot host the synchronous core directly. The AsyncStorage bridge hydrates the backend into memory, runs the synchronous core against dirty-tracked buffers, and drains only the mutated keys back through the async boundary. The same core files serve synchronous native builds and asynchronous hosted builds without modification.
+
+### Memory Bound {#sec-storage-memory}
+
+Because the filter index is a fixed structure over axis combinations, its memory depends on the number of distinct axis values, not on the number of records. Let $A$ be the number of distinct axis values and $S$ the measured footprint per value, one dense leaf of $11{,}172$ slots plus one branch, about 349 KB. Index memory is then
+
+$$ M_{\text{index}} \approx S \cdot A , $$
+
+while record heap grows with record count $R$ and marginal cost $m \approx 0.9$ KB, so
+
+$$ M_{\text{total}} \approx S \cdot A + m \cdot R . $$
+
+At 100,000 and 1,000,000 records the index remains approximately 264 MB, while the record heap grows with $R$; the flatness of the index is the property that keeps lookup fast and memory predictable as knowledge accumulates. The bound is linear in distinct axis values, so application axes must stay bounded in practice; a high-cardinality axis, such as per-record conclusion ids, inflates the index linearly.
+
+## Runtime and System Architecture {#sec-architecture}
+
+```{python}
+#| label: fig-nexus-fabric
+#| fig-cap: "Where knowledge graphs store static triplets, neXus records the research process: a Fact carries the Intent that proposed it, the Hints that bounded it, and the evidence that validated it. Every conclusion is auditable back to the hypothesis that generated it. The SSCCS primitives Segment, Scheme, Field, and Observation manifest here as Fact, Intent, and Hint."
+import matplotlib.pyplot as plt
+import numpy as np
+
+plt.rcParams.update({"font.family": "sans-serif", "font.size": 9, "figure.dpi": 120})
+
+fig = plt.figure(figsize=(6, 5)) 
+ax = fig.add_subplot(111, projection="3d")
+
+hosts = [
+    ("edge device", (0.2, 0.2, 0.2)),
+    ("data center", (0, 1, 3.5)),
+    ("server/-less", (4.8, 0.2, 1.0)),
+    ("desktop",     (0.6, 4.2, 0.2)),
+    ("robot",       (4.8, 4.8, 1.5)),
+    ("agent",       (2.5, 4.5, 3.2)),
+    ("sensor node", (0.2, 4.8, 3.2)),
+    ("gateway",     (4.8, 0.2, 3.2)),
+]
+
+HOST_C = "#bcd7e8"
+NEX_C = "#ffd3b6"
+SYN = "#4A8BAA"
+
+d = 0.7
+for name, (x, y, z) in hosts:
+    ax.bar3d(x - d / 2, y - d / 2, z - d / 2, d, d, d,
+             color=HOST_C, alpha=0.5, edgecolor="#666666", linewidth=0.5, shade=True)
+    ax.text(x, y, z - d / 2 - 0.4, name, ha="center", va="top", fontsize=8, color="#333333")
+
+nex_pts = np.array([(x, y, z + d / 2) for _, (x, y, z) in hosts])
+
+# synapses: every instance links to its nearest peers, a flat mesh
+
+def nearest_edges(pts, k=2):
+    edges = set()
+    for i in range(len(pts)):
+        dist = np.linalg.norm(pts - pts[i], axis=1)
+        for j in np.argsort(dist)[1:k + 1]:
+            edges.add(tuple(sorted((i, int(j)))))
+    return edges
+
+for i, j in nearest_edges(nex_pts, 2):
+    ax.plot([nex_pts[i][0], nex_pts[j][0]],
+            [nex_pts[i][1], nex_pts[j][1]],
+            [nex_pts[i][2], nex_pts[j][2]],
+            color=SYN, linewidth=1.2, alpha=0.85)
+
+# a nex instance on every host, each a full blackboard (F/I/H triad)
+triads = [("#a8e6cf", "F"), ("#ffd3b6", "I"), ("#d4a5a5", "H")]
+
+for i, (x, y, z) in enumerate(nex_pts):
+    ax.text(x, y, z + 0.4, "nex", ha="center", fontsize=7, color="#333333")
+    for k, (color, label) in enumerate(triads):
+        ax.scatter(x + 0.38 + k * 0.15, y - 0.3, z, s=26, color=color, depthshade=False)
+    ax.scatter(x, y, z, s=170, color=NEX_C, edgecolor="#333333", linewidth=0.5, depthshade=True)
+
+ax.set_axis_off()
+ax.set_xlim(-0.5, 5.7)
+ax.set_ylim(-0.5, 5.5)
+ax.set_zlim(-0.9, 4.3) 
+```
+
+The runtime is a peer fabric, not a client-server platform. All participants, whether verification engines, editors, synthesis tools, or sensors, are equal peers that interact only through the FIH blackboard interface. There is no privileged orchestrator; a peer is defined by what it reads and writes, and the same binary can act as a blackboard, a peer, or both.
+
+```{python}
+#| label: fig-peer-blackboard
+#| fig-cap: "Peers around a blackboard. Every peer can itself host a nested blackboard, which makes the fabric recursive at every scale."
+dot("""
+digraph PeerBlackboard {
+    rankdir=LR;
+    node [shape=box, style="rounded,filled", fontsize=10];
+    edge [fontsize=8];
+
+    BB [label="FIH blackboard\nFacts, Intents, Hints", shape=cylinder, fillcolor="#d8f0e0"];
+
+    Planner [label="Planner\nwrites Intents", fillcolor="#e8ecf8"];
+    Verifier [label="Verifier\nwrites Facts", fillcolor="#e8ecf8"];
+    Generator [label="Generator\nreads Facts", fillcolor="#e8ecf8"];
+    Editor [label="Editor\nreads and writes", fillcolor="#e8ecf8"];
+    Sensor [label="Sensor observer\nwrites Facts", fillcolor="#e8ecf8"];
+
+    subgraph cluster_nested {
+        label="one peer may host a nested blackboard";
+        style=filled; fillcolor="#f7f3e8";
+        Nested [label="sub-blackboard\nF, I, H at dimension N-1", shape=cylinder, fillcolor="#d8f0e0"];
+    }
+
+    Planner -> BB [label="submit intent"];
+    BB -> Planner [label="facts and hints"];
+    Verifier -> BB [label="conclude to fact"];
+    Generator -> BB [dir=both];
+    Editor -> BB [dir=both];
+    Sensor -> BB [label="observe as fact"];
+    BB -> Nested [style=dashed, label="recursion"];
+}
+""")
+```
+
+### nex: The Runtime Binary {#sec-nex-runtime}
+
+The core runtime `nex` is a lightweight binary hub that scales by attaching storage or agent orchestration. The same binary runs on Wasm, edge nodes, portable devices, blockchain runtimes, and bare-metal containers. When `nex` attaches to a backend, the backend becomes a blackboard through three record kinds; when it attaches to an agent, the agent becomes a peer. Because the binary is identical everywhere, capability is a property of the attachment, and the runtime itself carries no platform-specific logic. The Rust core exports a C ABI and a Wasm target, and capability traits, rather than a monolithic storage type, define the runtime surface.
+
+### The Daemon Layer: nexd and nex-server {#sec-nexd}
+
+Execution is split into two processes with different responsibilities. `nex-server` is the blackboard engine: it owns the FIH state and answers record operations. `nexd` is a pure supervisor: it spawns `nex-server` as a managed child, waits for its socket, respawns it after a crash with the original command, and terminates it with SIGTERM and a bounded wait on shutdown. The two processes communicate over Unix domain sockets with line-delimited JSON-RPC 2.0, one object per line. The blackboard socket defaults to `/tmp/nex-server.sock` and the supervisor socket to `/tmp/nexd.sock`, each overridable by environment.
+
+```{python}
+#| label: fig-nexd
+#| fig-cap: "nexd runs three concurrent subsystems above the shared blackboard engine."
+dot("""
+digraph Nexd {
+    rankdir=LR;
+    node [shape=box, style="rounded,filled", fontsize=10];
+    edge [fontsize=8];
+
+    subgraph cluster_nexd {
+        label="nexd (supervisor)";
+        style=filled; fillcolor="#eef4ee";
+
+        Ipc [label="IPC server\nJSON-RPC over Unix socket", fillcolor="#dff1f9"];
+        Sched [label="Scheduler\nOODA tick, heartbeat watch\nstale Intent eviction", fillcolor="#fff7d6"];
+        Pm [label="Process manager\nspawn, monitor, kill", fillcolor="#ffe9d2"];
+
+        Ipc -> Sched;
+        Sched -> Pm;
+    }
+
+    Server [label="nex-server\nblackboard engine\nFIH state", shape=cylinder, fillcolor="#d8f0e0"];
+    Agents [label="external agents\nnex-* applications", fillcolor="#efe1f5"];
+
+    Ipc -> Server [label="FIH calls"];
+    Agents -> Ipc [label="JSON-RPC"];
+    Pm -> Server [style=dashed, label="supervises"];
+}
+""")
+```
+
+The supervisor exposes three responsibilities: local IPC for clients, an OODA scheduler that monitors heartbeats and evicts stale Intents, and a process manager for agent applications. FIH methods are forwarded verbatim to `nex-server` through the client SDK; supervision methods (`spawn_agent`, `list_agents`, `kill_agent`) are handled locally. `nexd` keeps no compile-time dependency on the blackboard engine; the wire contract is the boundary, and a change to a method name, parameter, or error code is a breaking change to the protocol.
+
+### The Five-Layer System Architecture {#sec-five-layers}
+
+At the system level the fabric is organized in five layers, from retrieval to governance.
+
+| Layer | Logical component | Core responsibility |
+|-------|-------------------|---------------------|
+| 1 | Knowledge graph engine | Vector, graph, and temporal hybrid retrieval over documents, entities, simulations, and sensor traces |
+| 2 | Artifact ingestion pipeline | Engine-agnostic sync from object store through workers and queues |
+| 3 | Agentic research loop | Stigmergy-based coordination of Planner, Verifier, and Generator |
+| 4 | Learning loop | On-policy RL over blackboard traces with knowledge support rewards |
+| 5 | Contract governance | Admission, constraint evaluation, evidence chains, and the research economy |
+
+Layer 1 decomposes artifacts into typed relationships and community clusters and supports naive, local, global, and hybrid retrieval strategies. Layer 2 abstracts storage backends behind a minimal interface so that SQLite, blockchain, and cloud databases are interchangeable without core changes. Layer 3 coordinates agents by stigmergy: detectors such as gap and contradiction finders apply count-based heuristics and record findings as idempotent Facts, and every action appends to an evolving memory for conflict-free concurrency and replay. Layer 4 batches rollouts for group-normalized advantages and updates the planner with an on-policy clipped objective and KL penalty (Flow-GRPO), converting multi-turn credit assignment into single-turn updates. Layer 5 gates what may be written, evaluates constraints, and keeps evidence chains; its economic rules are described in the governance section.
+
+### Design Principles {#sec-design-principles}
+
+The posture of the runtime follows five principles.
+
+- Peer runtime, not a platform: no marketplace, no extension rent, and no central gatekeeper; a producer runs nex on its own infrastructure and decides what its work is worth.
+- Engine-agnostic and zero lock-in: synchronization endpoints isolate the system from specific backends, and every component is replaceable with an open equivalent.
+- Research-first: the system is optimized for the cycle of hypothesize, validate, and publish, across digital and physical domains.
+- Boundaryless by design: physical-digital extension is a consequence of the engine-agnostic pattern, not an architectural rewrite.
+- Invisible infrastructure: nex is measured by the success of the instances built on it; each instance is a standalone project with its own identity and an implicit nex extension.
+
+## Knowledge Accumulation and Governance {#sec-governance}
+
+### Three Fabrics in One {#sec-three-fabrics}
+
+From the perspective of AI agent architectures, neXus provides three fabrics in one: a semantic fabric that records the research process and runs retrieval and gap detection on accumulated facts at zero marginal inference cost, a governance fabric that gates what may be written, evaluates constraints, and keeps an evidence chain, and a storage router fabric that lets agents, editors, and verification engines coordinate through one shared interface regardless of which backend holds the state. Each fabric is detailed in this chapter and in the architecture chapter. The industrial utility follows: accountable collaboration, since every conclusion is traceable to its evidence; affordable operation, since routine coordination costs no LLM inference; and sovereignty, since organizations run the fabric on their own infrastructure.
+
+### Zero-Marginal-Cost Retrieval {#sec-zero-marginal}
+
+Model inference is confined to the generation of knowledge branches. Traversal, gap detection, and reporting operate on accumulated Facts through the structural filter index, so their cost does not scale with inference calls. The economic consequence is structural: reading and checking accumulated knowledge has zero marginal inference cost, and inference is spent only where a new branch of knowledge is produced.
+
+### Stigmergic Compounding {#sec-stigmergy}
+
+Agents coordinate indirectly through the traces they leave, a mechanism known as stigmergy. A producer who solves a problem deposits verified knowledge into the shared store, and other producers inherit that knowledge and build on it. The ecosystem grows by recursive compounding of independently verified progress. In this model the accumulated record plays the role that difficulty plays in proof-of-work chains: value compounds with knowledge depth rather than with raw compute, and the same store serves as the coordination medium and the audit trail.
+
+The governance layer recognizes five economic contributions: gap discovery, hypothesis submission, experimental validation, concept drift detection, and knowledge ingestion. Validated hypotheses return stake plus reward; falsified hypotheses are slashed. Write admission, constraint evaluation, and evidence chains are implemented in the core; the on-chain economy is staged in the hosted deployments.
+
+### The ULHM Verifier {#sec-ulhm}
+
+The Universal Latent Homeomorphic Manifold (ULHM) framework extends the verifier to cross-modal domains. A homeomorphism is a continuous bijection that preserves topological structure; the verifier validates a candidate mapping $\phi: X \to Y$ between modalities with three canonical loss terms:
+
+$$ L = \lambda_c L_c + \lambda_t L_t + \lambda_w W(P_X, P_Y) , $$
+
+where $L_c$ is a continuity loss bounding local perturbation, $L_t$ is a trust loss preserving neighborhood structure, and $W(P_X, P_Y)$ is the Wasserstein distance aligning the global distributions:
+
+$$ L_c = \mathbb{E}\, d\big(\phi(x), \phi(x')\big) \quad \text{for small } d(x,x'), \qquad L_t = \mathbb{E}\, d\big(N(\phi(x)), \phi(N(x))\big) . $$
+
+This is the mathematical basis for validating that a simulation result, a robot trajectory, and a physical measurement describe the same underlying structure. The term homeomorphism is used here in its strict topological sense, distinct from the structural self-similarity of the blackboard across scales. Two enablers extend the framework: an episodic knowledge graph that turns the evolving memory into a temporal, provenance-ordered record for cross-modal coherence and physical reproducibility, and a homeomorphic bridge that supports semantic-guided recovery of partial physical observations and zero-shot compositional reasoning across simulation and hardware. The extension is in the design and validation stage; the core record model it verifies is implemented.
+
+## Verification and Correctness {#sec-verification}
+
+Correctness is argued at four levels: exhaustive enumeration of the coordinate space, adversarial simulation of the coordination protocol, an exchange-contract proof sketch, and portability verification of the OS-less profile.
+
+### Exhaustive Coordinate Enumeration {#sec-verify-coords}
+
+The 16-bit coordinate space contains $65{,}536$ values, of which exactly $11{,}172 = 19 \times 21 \times 28$ are structurally valid under the closed-form composition. A verification harness enumerates all 65,536 inputs and validates the decoder over the full space in milliseconds; the valid subset is exhaustive, not sampled. Because every record identity is composed from valid coordinates and invalid coordinates are rejected at construction, collision freedom holds by construction for the identity space rather than by probabilistic guarantee, and every storage layout that addresses records by coordinates inherits the property.
+
+### Adversarial Simulation {#sec-verify-sim}
+
+The simulator implements the same core traits as the production backends at two depths: at the trait level against a reference storage runtime, and across the async boundary through an HTTP emulation of hosted worker I/O. Acceptance phases 0 through 3 are complete; phase 4 is open. Seven attack scenarios are exercised.
+
+- Direct free-riding: reading without contributing.
+- Evasive free-riding: contributing minimal or duplicated content.
+- Falsified contribution: fabricating results or evidence.
+- Poison injection: inserting misleading facts into the shared store.
+- Intent spam: flooding the blackboard with unclaimed Intents.
+- Replay: re-submitting recorded actions.
+- Sybil: impersonating multiple identities.
+
+Four game-theoretic scenarios run as CI gates with explicit thresholds.
+
+| Scenario | Condition | Gate |
+|----------|-----------|------|
+| Basic cooperation | 200 turns | score of tit-for-tat exceeds score of always-defect |
+| Evolutionary stability | 500 generations | tit-for-tat remains among extant strategies |
+| Generous forgiveness | repeated play | cooperation rate above 0.6 |
+| FIH intent lifecycle | repeated play | honest completion above 0.7, false conclusion below 0.1 |
+
+The simulator emits a violation matrix, a signed proof artifact, and Hint generation. The same FIH domain recurrence maps the simulator to ExaVerif, the exhaustive verification engine for instruction extensions.
+
+### The Exchange Contract {#sec-verify-proof}
+
+The proof sketch reduces the coordination surface to a single function, `exchange(session_token, query_spec)`, under a rule that reading requires writing: provided data commits as Facts before search results are returned, and no read-only fact endpoint exists at the function level, which makes free-riding structurally impossible at that boundary. The oracle problem is addressed by execution as proof: an observer signs the act it performs, and the signature is carried in the record. The threat model covers free-riding, data poisoning, and governance collapse. Status is a design-level draft; implementation is scheduled after the core protocol stabilizes.
+
+### OS-less and Portability Verification {#sec-verify-osless}
+
+The core compiles for environments without an operating system. The Wasm build is exercised in CI, the core time and file abstractions are narrowed to two traits, `Now` and `FileIo`, and the coordinate core builds with `no_std`. The OS-less profile is the bound on the runtime surface: the same record semantics that run on a server also run where an operating system cannot, and the remaining work is a bare-metal launcher rather than a change to the record layer.
+
+## Measured Performance {#sec-performance}
+
+The numbers in this section come from the benchmark suite of the reference repository[^bench]. Runs execute on an Apple M1 (ARMv8.4 Firestorm cores at 3.2 GHz) in release mode; the suite is Criterion-based with a sample size of ten and reports the median. Fixtures run in memory on the simulation I/O backend, synchronously, with one flush boundary per workload: 50,000 facts across 50 origins and 20 creators for the core benches, a controlled 10-day by 10-origin by 10-creator grid for the scale runs, and the real embedded document manifest for the lifecycle runs. Measurements are marked with their scope: some compare the restructured index against a previous ceiling, and others compare the structural filter against a record-map scan. The core baseline is dated 2026-08-20 and the scale and lifecycle runs 2026-08-27; figures published earlier than the layer-2 restructure are meaningful only within a run, and the structural and scan result sets are asserted equal by the test harness.
+
+### Identity Lookup {#sec-perf-identity}
+
+Ten thousand identity lookups, three representations.
+
+| Representation | Total | Per lookup | Note |
+|----------------|-------|------------|------|
+| Hash index | 120.9 µs | 12.1 ns | baseline |
+| Tagma dense packed array | 60.8 µs | 6.08 ns | 2.0x faster |
+| Tagma tree | 533 µs | 53.3 ns | carries prefix navigation |
+
+Lookup cost scales with coordinate depth, not with volume: ten thousand and $10^{24}$ records cost the same number of dereferences because the coordinate is the address.
+
+### Structural Filtering {#sec-perf-filter}
+
+Over 50,000 facts, axis filters resolve to id sets without materializing records.
+
+| Query | Matches | Time |
+|-------|---------|------|
+| creator only | 2,500 | 745 µs |
+| origin and creator (AND) | 500 | 296 µs |
+| three axes (origin, creator, time) | bounded | 83.8 µs |
+
+The figures above are predicate times: they resolve coordinate id sets without loading record bodies. The full read path additionally materializes record bodies from the record maps; on the same 50,000 facts a creator filter including materialization measures about 4.9 ms, which shows that the structural index is the cheap stage and that pruning happens before any record is loaded. The previous full-scan ceiling was 27.8 ms at 10,000 facts, and a scan pays that cost regardless of selectivity. On the same 10,000-fact store the predicate path runs in 127 µs without axis hints and 42 µs with them; the pair measures the planned axis-hint fast path, whose wiring into the production read path is pending. The current predicate path sits roughly 219x below the earlier ceiling. Selectivity is structural: each added dimension shrinks the candidate set before a record is loaded, so the most selective query is the cheapest.
+
+### Knowledge-Base Scenario {#sec-perf-kb}
+
+A document store of 10,000 documents across 10 projects and 10 distinct authors.
+
+| Query | Time |
+|-------|------|
+| project and author (AND) | 70.2 µs |
+| project only | 260 µs |
+| project, author, time | 70.4 µs |
+| reverse lookup of Intents referencing a Fact | 189 µs per 100 calls (about 1.9 µs per call) |
+
+Reverse lookup uses the inverse index from Facts to Intents, measured at 189 µs per 100 calls in this scenario. The earlier full-scan path cost 60.4 ms per call and is superseded by the inverse index.
+
+### Write Path {#sec-perf-write}
+
+A batch of 10,000 facts commits in 51.9 ms, or 5.19 microseconds per fact, within a single flush boundary. The same workload before the coordinate restructure took 1,776 ms, a 34x gap.
+
+### Restructure Outcomes {#sec-perf-restructure}
+
+The layer-2 restructure moved record bodies to application-owned maps. Conflict detection is sub-microsecond per call (445 ns against 135 to 390 ms before), the average per-fact footprint dropped from about 3.4 MB to about 40 KB, and a 10,000-event stress completes in about 9.0 seconds against 17.7 seconds previously.
+
+### Flat Index Cost {#sec-perf-flat}
+
+The index footprint is flat across record count: approximately 264 MB from 10,000 through 1,000,000 records, because the index is a fixed structure over axis combinations; the scale runs pin facts to fixed day buckets through a stepping clock, so the index structure is byte-identical across scales. The record layer costs about 901 bytes per fact, and live heap grows from 287 MB at 10,000 records to 354 MB at 100,000 and 1,165 MB at 1,000,000. Three-axis filters against a record-map scan are 8 to 38x faster at 100,000 records (scan 1,520 and 952 µs for wide and narrow queries, tree 173 and 25 µs) and 8 to 81x faster at 1,000,000 records (scan 25,700 and 18,300 µs, tree 3,240 and 226 µs). On a document set with real FIH lifecycles the tree advantage is 4.5x in phase 1 and 5.3x in phase 3. The flatness boundary is about 349 KB per distinct axis value, one dense leaf of 11,172 slots plus one branch.
+
+### Tree Walk and Prefix Queries {#sec-perf-tree}
+
+A full walk of a 50,000-entry tree takes 540 ms. Five hundred prefix queries complete in 1.12 ms total, 2.24 microseconds per query. The gap between a full O(N) walk and a subtree prefix query is a factor of about 241,000. Query time therefore does not grow as the knowledge base grows from 1,000 to 1,000,000 records; only the prefix depth changes.
+
+### Identity Generation {#sec-perf-idgen}
+
+Coordinate identity generation measures about 0.38 ns per identity against 227 ns for a SHA-256 digest, a factor of about 600, in the coordinate integration measurements of the Tagma application stage. The comparison is scoped to identity generation, not to cryptographic integrity.
+
+## Application Domains and Ecosystem {#sec-apps}
+
+The ecosystem follows one naming rule, `nex-{implementation}`: each application is an independent project with its own identity and, simultaneously, an instance of the same record model. The set below is the current catalog with implementation status. Four domains recur across deployments: research documentation, where hypotheses are recorded as Intents, validated results as Facts, and scope as Hints; agent coordination, where peers interact only through the shared space without a privileged orchestrator; serverless and edge execution on any append-only backend; and knowledge accumulation, where solved problems deposit verified knowledge back into a store that compounds recursively.
+
+```{python}
+#| label: fig-ecosystem
+#| fig-cap: "The nex ecosystem. Each application is an independent project that speaks the same FIH record model."
+dot("""
+digraph Ecosystem {
+    node [shape=box, style="rounded,filled", fontsize=10];
+    edge [fontsize=8];
+
+    Core [label="nex core\nfih record model\nnexd / nex-server", shape=cylinder, fillcolor="#d8f0e0", penwidth=2];
+
+    Calc [label="nex-calc\nconformance skeleton", fillcolor="#e8ecf8"];
+    Tagma [label="nex-tagma\ncoordinate bridge", fillcolor="#e8ecf8"];
+    Cf [label="nex-cf\nCloudflare Workers", fillcolor="#e8ecf8"];
+    Icp [label="nex-icp\nInternet Computer", fillcolor="#e8ecf8"];
+    Zed [label="nex-zed\neditor agent", fillcolor="#e8ecf8"];
+    Ros [label="nex-ros\nrobotics (HexaField)", fillcolor="#e8ecf8"];
+    Ev [label="nex-ev (ExaVerif)\nverification engine", fillcolor="#e8ecf8"];
+
+    Calc -> Core [dir=both];
+    Tagma -> Core [dir=both];
+    Cf -> Core [dir=both];
+    Icp -> Core [dir=both];
+    Zed -> Core [dir=both];
+    Ros -> Core [dir=both];
+    Ev -> Core [dir=both];
+}
+""")
+```
+
+- `nex-calc` is the conformance skeleton. Every number is a Fact, every operator is an Intent, and every constraint is a Hint; the CLI reduces FIH computation to $F \times I \times H \to F'$. It is intentionally inefficient and serves as the design basis: vector and transform placeholders mark the same extension point that matrix and signal operations will occupy.
+- `nex-tagma` bridges the Tagma coordinate space and FIH storage: O(1) addressing, collision-free identity, and axis slicing. Integration stages 1 through 3 are complete and feed the core coordinate system; stages 4 and 5 are in progress.
+- `nex-cf` deploys the same core to Cloudflare Workers (`wasm32-unknown-unknown`) through the AsyncStorage bridge. The recorded status is production-ready at the storage boundary: 30 of 30 core tests and 8 AsyncStorage session tests pass with zero core files changed. Its roadmap stages a single worker, durable-object compare-and-swap, R2 archival and snapshots, then multi-durable-object sharding with a governance durable object.
+- `nex-icp` maps the FIH traits onto the Internet Computer: key-value storage onto stable memory, time onto the canister clock. The roadmap runs from core canister bindings, through agent canister templates and a cross-canister Candid protocol, to an on-chain `contract.nex` governance layer.
+- `nex-zed` embeds an agentic instance in the Zed editor over the Agent Client Protocol (ACP). Messages are translated to FIH blocks: a prompt request becomes an Intent, a tool result becomes a Fact, and a session mode becomes a Hint. The agent is a peer, not an orchestrator.
+- `nex-ros` (HexaField) is a robotics demonstration: an 18-degree-of-freedom hexapod on a Raspberry Pi 5 with LiDAR, IMU, and ROS 2, running three staged demos from segment-field observation to LLM-guided navigation. Its purpose is the physical validation of the model outside text and code.
+- `nex-ev` (ExaVerif) is the first production-grade instance. It exhaustively enumerates every valid combination of RISC-V custom instruction fields, evaluates constraints, and records each deterministic pass or fail as a Fact in the same FIH format.
+
+Bindings mirror the core: Rust is native, C and C++ are planned, a Python prototype exists, and Node is planned. Hosted deployments demonstrate that the same core serves serverless workers, canisters, and native daemons without code changes to the record layer.
+
+## Boundaries {#sec-boundaries}
+
+The following limits are explicit, and several of them are deliberate design decisions documented in the repository.
+
+- Coordinates give ordering and addressing, not preimage resistance. The content hash is retained in the record as evidence; identity claims are scoped to structure, and cryptographic claims are scoped to the hash.
+- The conflict guard lives on the `submit_fact` path. A direct writer that bypasses submission can place a record at an occupied coordinate; id stability is documented on the placement function and asserted in debug builds, and conforming applications derive identity from content. A fresh id is an O(1) record-map miss and does not pay the guard.
+- Bulk import is a documented restore operation that overwrites. It is the migration path for whole-storage import and intentionally does not run conflict-checked per-record submission.
+- The change from six-coordinate to twenty-coordinate identity is breaking, and pre-1.0 data requires re-ingestion through the semantic layer rather than an in-place migration.
+- Recording everything is expensive. The skeleton is a reference, not a product; the claim is that the record is the value, and the cost must be measured. The measurements in this document are the beginning of that accounting, not its end.
+- The CERN ROOT result (a coordinate-addressed read path reducing a full-file read from 192.8 seconds to 1.06 seconds, 181.7x) validates coordinate addressing on legacy software; the boundary is kept explicit that it does not by itself validate FIH record semantics.
+- The learning extension is a hypothesis with a falsifiable program, not a result. Path accumulation may fail on representational grounds against stochastic optimization.
+- The on-chain governance economy is staged: write admission, constraint evaluation, and evidence chains are implemented; consensus, ordering, and the adversary model sit above the record layer, in the same place the FIH lifecycle lives.
+- The structural advantage requires a bounded prefix. A creator-only query that cannot bind the leading origin axis cannot prune the tree: at one million facts the tree walk (381 ms) is slower than the record-map scan (108 ms). Queries should bind high-cardinality leading axes, typically time or origin.
+- The aether transport layer is outside the verified scope of the repository and is treated as conjecture until it has concrete content.
+
+## Related Work {#sec-related}
+
+The FIH blackboard belongs to a family that includes classical blackboard architectures, knowledge graphs, vector stores, and agent memory layers, and it differs from each in a specific way.
+
+Classical blackboards coordinate problem solvers through shared state; neXus restricts the state to three record kinds with a fixed lifecycle, makes Facts immutable, and gives identity a coordinate structure, which turns the blackboard itself into a replayable audit trail. Knowledge graphs store static entity-relationship triplets; a neXus Fact stores the research step that produced a statement, so the graph is a queryable computational trace rather than a snapshot. Vector stores answer similarity queries over embeddings; the structural filter answers axis queries over coordinates at constant marginal cost with no model inference. Agent memory layers in closed ecosystems couple memory to the platform; the FIH primitives decouple memory from any single backend.
+
+The ledger direction of the project follows from the same record layer: a twenty-coordinate identity is a full-injective encoding of a 256-bit digest, `rebuild_cache` is the seed of offline state reconstruction, and per-channel partition scans are the seed of multi-channel semantics. The framework of stigmergic coordination grounded in distributed ledger state has a published formal counterpart[^ledger]. Consensus, ordering, and optional propagation are application-layer programs over the record layer; they are not yet part of the core.
+
+A landscape catalog of roughly sixty external systems, spanning knowledge-graph construction, autonomous research, GraphRAG, and curation, is maintained in the project documentation as the reference survey for the retrieval and agent layers[^refs].
+
+## Status and Roadmap {#sec-status}
+
+The record layer and the runtime are implemented. The workspace is split into core, FIH, storage, and application crates; the last proprietary storage backend has been removed; the runtime is separated into a blackboard engine (`nex-server`) and a pure supervisor (`nexd`) with a formalized wire contract; and the governance primitives of write admission, constraint evaluation, and evidence chains operate in the core. Gap and contradiction detectors record idempotent Facts. The OS-less profile is verified in CI. The simulator passes phases 0 through 3.
+
+The roadmap, in the order the project publishes it:
+
+| Item | Status |
+|------|--------|
+| Wire the multidimensional search path into the production read path | planned |
+| Formalize the coordinate system specification | planned |
+| Native query language over the record model | planned |
+| Contract layer extensions | planned |
+| Data-at-rest protection | planned |
+| Research loop with AI hypothesis generation | planned |
+| Attack-scenario verification of storage | planned |
+| Agent-layer stigmergy: pressure fields and trace decay | planned |
+| Editor integration over a standard agent protocol | in progress, see `nex-zed` |
+| Deterministic path learning research program | phases defined, first phase in execution |
+
+The learning research program deserves a closing note because it frames the direction. Phase 1 formalizes the skeleton as the conformance reference and tests that a run is fully reconstructible from its FIH record. Phase 2 builds a path learner over the structural filter index. Phase 3 benchmarks the learning trace on the existing store surfaces. Phase 4 runs the learner on the OS-less storage line. Phase 5 expresses a small SGD-trained function as accumulated paths and compares reproducibility, auditability, accuracy, and cost. The purpose of the program is to find the boundary between path-accumulated knowledge and stochastic optimization, not to declare a winner in advance.
+
+## Conclusion {#sec-conclusion}
+
+neXus records computation and knowledge with three primitives over any storage backend. Facts are immutable observations, Intents are bounded explorations with a strict lifecycle, and Hints are volatile constraints; identity is a coordinate, so identity is queryable and lookup is arithmetic. The reference implementation demonstrates the properties that matter for accumulated knowledge: a flat index whose memory is bounded by axis cardinality, a write path measured in microseconds per record, structural filters that resolve queries without materializing records, deterministic replay, and an OS-less profile. The model instantiates SSCCS primitives directly, and the ecosystem of `nex-*` applications validates the record semantics on serverless workers, canisters, editors, robots, and verification engines.
+
+The distinction between what is established and what is conjectured is maintained throughout the text. The record semantics, the measurements, and the verification results are established for the reference implementation. The extension of the record model to learning, to cross-reality verification, and to on-chain governance is a research program with defined, falsifiable phases. The value of the design is that both kinds of claims are testable against one immutable record.
+
+## Appendices {.unnumbered}
+
+The appendices carry the detailed specifications that the main text summarizes. Each appendix is self-contained and cites the repository files that define the contract.
+
+```{=latex}
+\appendix
+\renewcommand{\thesection}{\Alph{section}}
+\renewcommand{\thesubsection}{\Alph{section}.\arabic{subsection}}
+```
+
+## FIH Record and Lifecycle Specification {#sec-appendix-fih-spec}
+
+A Fact record is immutable and carries the coordinate identity, the origin, the creator, the content, the content hash, and a provenance reference to the Intent that concluded it. An Intent record is stateful and carries the coordinate identity, the set of Facts from which it departs, a description of the proposed operation, the creator, and a lifecycle state. A Hint record is volatile and carries a constraint over admissible Intents and Facts in its scope.
+
+Intent lifecycle states and transitions:
+
+| State | Transition | Meaning |
+|-------|------------|---------|
+| submitted | on write | proposal entered, no agent assigned |
+| claimed | claim(id, agent) | an agent binds to the Intent |
+| active | heartbeat(id, agent) | the agent confirms liveness |
+| concluded | conclude(id, result) | the Intent emits a Fact |
+| evicted | timeout | stale Intent removed by the scheduler |
+
+Governing rules: observe as Fact, act as Intent; a concluded Intent emits exactly one Fact; no Fact is overwritten.
+
+## Coordinate Identity Specification {#sec-appendix-coord}
+
+Default axis order and semantics:
+
+| Axis | Semantics |
+|------|-----------|
+| time_hi | coarse time coordinate |
+| time_lo | fine time coordinate |
+| kind | entity kind: F, I, or H |
+| origin | originating domain or blackboard |
+| creator | producing agent or observer |
+| serial | disambiguating counter |
+
+Identity configurations:
+
+| Configuration | Coordinates | Space size | Use |
+|---------------|-------------|------------|-----|
+| domain identity | 6 | $11{,}172^6 \approx 2^{81}$ | record addressing within a blackboard |
+| evidence identity | 20 | $11{,}172^{20} > 2^{256}$ | full-injective encoding of a 256-bit digest |
+
+Conflict semantics: a coordinate occupied by different content is a conflict and the write is rejected; a coordinate occupied by identical content is an idempotent write; occupancy lookup is O(1) via the existing-content-hash index. The six-to-twenty coordinate change is breaking and requires re-ingestion.
+
+## Storage Architecture Specification {#sec-appendix-storage}
+
+The synchronous core exposes three primitives.
+
+| Primitive | Operations | Coordination role |
+|-----------|------------|-------------------|
+| Object | read-state, compare-and-swap | only coordination primitive |
+| Key-value | read, write, delete, list | warm record bodies |
+| Blob | put, get, delete, list | cold bodies and archives |
+
+The tier model: hot state on object compare-and-swap, warm state on key-value, cold state on blobs with an advancing flush cursor. Composite cold storage layers Parquet or DuckDB under the same interface.
+
+The AsyncStorage bridge runs in four steps: hydrate the backend into memory, run the synchronous core on dirty-tracked buffers, drain only mutated keys, and flush through the async boundary. Core source files are shared between native and hosted builds.
+
+Crate boundary re-exports that keep consumer paths stable:
+
+- `chton::store`: `CoordEntityStore`, `EntityStore`, `MapEntityStore`, `MemoryEntityStore`
+- `chton::io`: `CoordMapStoreIo` file backend
+
+Core semantics that remain in the `fih` crate: the conflict guard in `submit_fact`, the occupancy lookup `existing_fact_content_hash`, the inverse index `fact_to_intents`, the structural filter index maintained by `place_record` and `vacate_record`, deterministic replay in `rebuild_cache`, and per-channel partition scans in `scan_partition`.
+
+## Wire Protocol Reference {#sec-appendix-wire}
+
+Transport: Unix domain sockets, line-delimited JSON-RPC 2.0, one object per line, no version field in the message.
+
+| Endpoint | Default path | Environment |
+|----------|--------------|-------------|
+| nex-server (blackboard engine) | /tmp/nex-server.sock | NEX_SOCKET_PATH |
+| nexd (supervisor) | /tmp/nexd.sock | NEXD_SOCKET_PATH |
+
+Error codes:
+
+| Code | Meaning |
+|------|---------|
+| -32602 | invalid params |
+| -32601 | method not found |
+| -32000 | internal error |
+| -32001 | not found |
+| -32002 | conflict, for example duplicate id with different content hash |
+| -32003 | forbidden, for example an Intent without a Fact reference |
+
+Blackboard methods on nex-server (id values are canonical coordinates):
+
+| Method | Parameters | Result |
+|--------|------------|--------|
+| write_fact | origin, content, creator | fact id |
+| read_state | none | facts, intents, hints |
+| read_state_struct | none | state structure with empty content |
+| read_fact | id | fact |
+| read_intent | id | intent |
+| read_hint | id | hint |
+| write_intent | from_facts, description, creator | intent id |
+| claim_intent | id, agent | ok |
+| heartbeat_intent | id, agent | ok |
+| release_intent | id, agent | ok |
+| conclude_intent | id, result | resulting fact |
+| write_hint | id, content, creator | ok |
+
+Supervisor methods on nexd forward FIH methods verbatim and handle locally:
+
+| Method | Parameters | Result |
+|--------|------------|--------|
+| spawn_agent | command, args | pid, command |
+| list_agents | none | agents with pid and command |
+| kill_agent | pid | ok |
+
+The contract is stable: a change to a method name, parameter, or error code is breaking and must be updated in the client SDK together with the protocol document.
+
+## Verification Scenario Catalog {#sec-appendix-verify}
+
+The simulator exercises seven attack scenarios against the FIH lifecycle.
+
+| Scenario | Attack surface | Expected defense |
+|----------|----------------|------------------|
+| Direct free-riding | read without contribution | read requires write |
+| Evasive free-riding | minimal or duplicated contribution | content-derived identity and conflict guard |
+| Falsified contribution | fabricated result | provenance chain and signed execution |
+| Poison injection | misleading Facts in shared store | admission and constraint evaluation |
+| Intent spam | unclaimed Intent flood | heartbeat lifecycle and stale eviction |
+| Replay | re-submitted action | idempotent identity semantics |
+| Sybil | multiple fake identities | origin and creator binding |
+
+Game-theoretic gates run in CI: basic cooperation over 200 turns requires tit-for-tat to outscore always-defect; evolutionary stability over 500 generations requires tit-for-tat to survive; generous forgiveness requires a cooperation rate above 0.6; the FIH lifecycle gate requires honest completion above 0.7 and false conclusions below 0.1.
+
+## Benchmark Notes {#sec-appendix-benchmarks}
+
+All figures in @sec-performance come from the reference benchmark suite, executed on Apple silicon (M1) in release mode with the median of ten runs reported. The suite and its sources are in the reference repository under `benches`. Two structural properties explain the flatness of the results: each leaf of the filter index covers 11,172 slots, and dense packing gives a flat lookup independent of record count. Figures compare the restructured index against recorded internal baselines, the pre-restructure ceiling or a hash index, not against an external benchmark. Methodology, fixture shapes, and measurement conventions are stated in @sec-performance.
+
+## Ecosystem Catalog {#sec-appendix-ecosystem}
+
+| Instance | Role | Platform | Status |
+|----------|------|----------|--------|
+| nex-calc | conformance skeleton | native CLI | reference |
+| nex-tagma | coordinate bridge | core integration | stages 1 to 3 complete |
+| nex-cf | hosted blackboard | Cloudflare Workers | storage boundary production-ready |
+| nex-icp | hosted blackboard | Internet Computer | integration roadmap |
+| nex-zed | editor agent | Zed over ACP | in progress |
+| nex-ros | robotics validation | ROS 2 hexapod | demonstration plan |
+| nex-ev (ExaVerif) | exhaustive verification | native | production-grade |
+| bindings | language surfaces | Rust, C/C++, Python, Node | Rust native, Python prototype |
+
+## Glossary {#sec-appendix-glossary}
+
+| Term | Meaning |
+|------|---------|
+| Blackboard | any backend holding Facts, Intents, and Hints |
+| Fact | immutable, validated observation |
+| Intent | proposed exploration with submit-claim-heartbeat-conclude lifecycle |
+| Hint | volatile, read-only constraint |
+| CoordId | ordered tuple of coordinates used as identity |
+| Structural filter index | axis-combination index mapping to id sets |
+| Conflict guard | content-hash check rejecting id collisions at commit |
+| rebuild_cache | deterministic replay of record maps and index |
+| scan_partition | per-channel record flow scan |
+| nexd | supervisor daemon |
+| nex-server | blackboard engine process |
+| OODA scheduler | observe-orient-decide-act tick for heartbeats and eviction |
+| Stigmergy | indirect coordination through left traces |
+| eKG | episodic knowledge graph preserving temporal and provenance order |
+| ULHM | universal latent homeomorphic manifold verifier |
+| AsyncStorage bridge | hydrate-run-drain pattern for hosted runtimes |
+
+[^repo]: neXus reference repository, github.com/ssccsorg/nexus, Apache License 2.0.
+[^docs]: neXus project documentation, <https://docs.ssccs.org/projects/nexus/>
+[^ssccs]: SSCCS whitepaper, Schema-Segment Composition Computing System, <https://ssccs.org/wp>, DOI 10.5281/zenodo.18759106
+[^tagma]: Tagma whitepaper, <https://docs.ssccs.org/projects/syntagma/tagma/>, DOI 10.5281/zenodo.21302508
+[^coord20]: Coord ID 20 migration note, ssccs-nexus repository, <https://github.com/ssccsorg/nexus/blob/main/docs/2026-08-20-coord-id-20-migration.md>
+[^l2]: Content-hash conflict detection and the L2 restructure (2026-08-20) and The thin nexus principle (2026-08-20), ssccs-nexus repository docs; <https://github.com/ssccsorg/nexus/blob/main/docs/2026-08-20-176-content-hash-conflict-l2-restructure.md> and <https://github.com/ssccsorg/nexus/blob/main/docs/2026-08-20-thin-nexus-principle.md>
+[^learn]: Computation as knowledge: deterministic path learning (2026-09-02), ssccs-nexus repository docs; <https://github.com/ssccsorg/nexus/blob/main/docs/2026-09-02-computation-as-knowledge-deterministic-path-learning.md>
+[^bench]: neXus benchmark suite, github.com/ssccsorg/nexus, benches directory
+[^ledger]: Ledger-State Stigmergy: A Formal Framework for Indirect Coordination Grounded in Distributed Ledger State, arXiv preprint cited in the project documentation
+[^refs]: Reference landscape catalog of external systems, maintained in the neXus project documentation
