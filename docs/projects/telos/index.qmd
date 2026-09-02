@@ -35,7 +35,7 @@ the result returns. The layer is general: it executes without binding to a
 language or a domain.
 
 Telos is a headless agent in the form of a single native binary of about
-seventy megabytes. There is no interface to launch, no runtime to install,
+40-50 megabytes. There is no interface to launch, no runtime to install,
 and no daemon to supervise; the binary is the entire deployment unit. It
 runs on any machine that can execute it and scales into a fleet of
 coordinated nodes.
@@ -215,15 +215,15 @@ filtering, and the one-terminal-event-per-request rule.
 
 ## Status
 
-Bootstrap. A self-contained agent core (`telos-core`) implements the
-contract end to end: an LLM backend with a tool registry and a tool-call
-loop. Without an API key the loop falls back to a canned backend, so the
-actus chat flow works with this binary attached either way.
+Bootstrap. The agent core is attached and speaks the actus contract end
+to end: an LLM backend with a tool registry and a tool-call loop, plus a
+deterministic backend that exercises the same flows without an LLM. The
+actus chat flow works with the `tel` binary attached either way.
 
-The headless binary runs the core directly (project, native agent, and
-external websocket sync) with no interface stack, and ships with the
-built-in model providers. The repository is private. Licensing is decided
-only if and when distribution is planned.
+The binary runs the core directly with no interface stack and ships with
+the built-in model providers. Telos is an independent project; actus
+depends on it as its agent binary and nothing else. The repository is
+private. Licensing is decided only if and when distribution is planned.
 
 ## Direction
 
