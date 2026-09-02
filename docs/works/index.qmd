@@ -11,7 +11,7 @@ abstract: |
 
 ## Works and the Foundation
 
-A work is an activity of the SSCCS Foundation conducted with an external party: a research institution, an open-hardware community, an industry partner, or an independent researcher. Works span technical and non-technical fields, and every work is aligned with the foundation's direction, philosophy, and charter. The foundation is independent, open-source, and public-good oriented; its core technology is released under Apache 2.0. Works are the mission expressed in cooperation with external parties. The governing references are the [Direction](/direction/), the [Philosophy](/philosophy/), the [Axioms](/axioms/), and the [Foundational Charter](/legal/).
+A work is an activity of the SSCCS Foundation conducted with an external party: a research institution, an open-hardware community, an industry partner, or an independent researcher. Works span technical and non-technical fields, and every work is aligned with the foundation's direction, philosophy, and charter. The foundation is independent, open-source, and operates as a foundational technology provider; its core technology is released under Apache 2.0. Works are the mission expressed in cooperation with external parties. The governing references are the [Direction](/direction/), the [Philosophy](/philosophy/), the [Axioms](/axioms/), and the [Foundational Charter](/legal/).
 
 ```{python}
 #| label: fig-concept
@@ -24,20 +24,22 @@ from matplotlib.patches import Circle
 
 # (label, sub, (x, y), radius, color, fontsize, label side)
 nodes = [
-    ("SSCCS Foundation",   "independent · open-source\npublic-good mission", (-4.5, 0.0), 0.72, "#D4E6F1", 10, "left"),
-    ("Partners",           "research · open hardware\nindustry · researchers",(0.0, 2.2), 0.62, "#F8F4E8", 10, "left"),
+    ("SSCCS Foundation",   "infrastructure stack", (-4.5, 0.0), 0.72, "#D4E6F1", 10, "below"),
+    ("Partners",           "research · open hardware\nindustry · researchers",(0.0, 2.2), 0.62, "#F8F4E8", 10, "above"),
     ("Demonstrable artifact", "fork · benchmark · report", (0.0, -2.2), 0.62, "#FFF4E6", 10, "below"),
     ("Shared surface",     "verified results", (4.5, 0.0), 0.62, "#E8F8E8", 10, "below"),
 ]
 pos = {n[0]: np.array(n[2]) for n in nodes}
 
-# edges: (from, to, label, start-side)  label None => chain arrow
+# edges: (from, to, label)  label None => chain arrow
 edges = [
-    ("SSCCS Foundation", "Partners", "reciprocal contribution · joint value"),
-    ("SSCCS Foundation", "Demonstrable artifact", "verified technology"),
-    ("Partners", "Demonstrable artifact", "problem · data"),
-    ("Demonstrable artifact", "Shared surface", "deposits results"),
-    ("Shared surface", "SSCCS Foundation", "strengthened primitives"),
+    ("SSCCS Foundation", "Partners", "Reciprocal contribution · Joint value"),
+    ("SSCCS Foundation", "Demonstrable artifact", "Verified technology"),
+    ("Partners", "Demonstrable artifact", "Problem · Data"),
+    ("Demonstrable artifact", "Shared surface", "Deposits results"),
+    ("Shared surface", "SSCCS Foundation", "Strengthened primitives"),
+    # NEW edge connecting Partners and Shared surface
+    ("Partners", "Shared surface", "Contribute"),
 ]
 
 fig, ax = plt.subplots(figsize=(10.0, 7.0))
@@ -106,7 +108,9 @@ The direction document defines the foundation's basic posture for partnership, c
 - Foundational over immediate: redefining computation matters more than market fit.
 - Substance over ceremony: rigorous scrutiny is welcome from those committed to paradigm-shifting work.
 
-Funding is a catalyst, and the preference is research-first. Research-first institutions fund research and development, provide demonstration environments and regulatory sandboxes, and offer the bridge from a proven result to the market. A work begins with a proven primitive and ends with a measured result on the partner's own ground. The pattern is permissionless: identify a long-neglected bottleneck in widely used infrastructure, map it to one of the foundation's primitives, deliver a minimal solution with measurements, publish the source, and absorb the validated results. No response is required; the validation is the return, accumulating as proven primitives, measurement data, and independence from institutional approval. The full statement lives in [Direction: Partnership, Collaboration, and Support](/direction#partnership-collaboration-and-support).
+Validation is the ultimate currency. We operate as an open-source solution provider. When traditional capital is hesitant to invest directly, we go directly by introducing our validated primitives directly to engineering teams and venture portfolio companies for real-world workload evaluation. A work begins with a proven primitive and ends with a measured result on the partner's own ground. 
+
+**Permissionless:** identify a long-neglected bottleneck in widely used infrastructure, map it to one of the foundation's primitives, deliver a minimal solution with measurements, publish the source, and absorb the validated results. The validation is the return, accumulating as proven primitives, measurement data, and independence from institutional approval. The full statement lives in [Direction: Partnership, Collaboration, and Support](/direction#partnership-collaboration-and-support).
 
 ## Ecosystem Strategy
 
@@ -132,9 +136,9 @@ Technical fields:
 
 Non-technical fields:
 
-- Open science: collaboration with public-good science organizations, such as the CERN engagement.
-- Funding and support: partnerships with research-first institutions that provide R&D funding, demonstration environments, and regulatory sandboxes.
-- Standards and community: contributions to open formats and specification channels, joint publications, and outreach.
+- Open science and industry validation: collaboration with research institutions and enterprise engineering teams to solve concrete infrastructure bottlenecks.
+- Ecosystem and community support: partnerships with research-first institutions, complemented by founder-led community sustainability models (e.g., GitHub Sponsors, Patreon) that operate independently of traditional institutional gatekeeping.
+- Standards and narrative: contributions to open formats, specification channels, and transparent, founder-driven technical storytelling.
 
 The codebases behind the technical fields live under [Projects](/projects/).
 
@@ -151,15 +155,15 @@ The engagements below are the works currently in motion. This section is supplem
 | [SSCCS Validation with OpenHW CORE-V Ecosystem](/works/openhw_integration.html) | OpenHW Group | Phased integration roadmap | Proposal |
 | [ExaVerif Contribution to RISC-V](../projects/ev/) | RISC-V Foundation | ExaVerif contribution and joint collaboration | In progress |
 | [SSCCS × AWS Strategic Collaboration Roadmap](/works/aws.html) | AWS | Phased collaboration proposal | Discussion |
-| [A Foundation for Energy-Efficient and Trustworthy Computing](/works/proposal.html) | Public | Funding and collaboration proposal | Published |
-| [(Slides) A Foundation for Energy-Efficient and Trustworthy Computing](/works/pt.html) | Public | Slide deck for outreach | Published |
 
-Flagship works are chosen by mission alignment. The archetype is an engagement with a public-good science institution: the partner's ecosystem stays intact, and the work is delivered as a measured artifact on the partner's own data and access pattern.
+Flagship works are chosen by mission alignment. The archetype is an engagement with a research or industry institution: the partner's ecosystem stays intact, and the work is delivered as a measured artifact on the partner's own data and access pattern.
 
 Each engagement follows a bounded sequence: alignment through a framework or proposal, a bounded demonstration through a development plan, a measured result against the partner's own baseline, and an integration decision that belongs to the partner. The foundation's role ends at the boundary it defined.
 
 ## Engage with SSCCS
 
-Engagements begin with a concrete problem. If your institution has a workload where data movement, verification, or I/O dominates the cost, the starting point is the [A Foundation for Energy-Efficient and Trustworthy Computing](/works/proposal.html) or the [(Slides) A Foundation for Energy-Efficient and Trustworthy Computing](/works/pt.html), and the direct route is a message to [co@ssccs.org](mailto:co@ssccs.org).
+Engagements begin with a concrete problem. If your institution or startup portfolio faces workloads where data movement, verification, or I/O dominates the cost, the starting point is the [A Foundation for Energy-Efficient and Trustworthy Computing](/works/proposal.html) or the [(Slides) A Foundation for Energy-Efficient and Trustworthy Computing](/works/pt.html).
 
-All outputs remain open under Apache 2.0.
+For venture ecosystems: if direct investment is not a fit, we welcome the opportunity to introduce our validated open-source infrastructure to your portfolio companies for technical evaluation.
+
+Our trajectory is sustained by founder-led community support and transparent technical narratives. The direct route for collaboration or community sponsorship is a message to [co@ssccs.org](mailto:co@ssccs.org).
