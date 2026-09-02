@@ -70,7 +70,7 @@ format:
 
 ## Abstract {.unnumbered .unlisted}
 
-This whitepaper presents neXus, a runtime and data model in which software agents, machines, and human users coordinate through a shared blackboard defined by three record primitives. A Fact is an immutable, validated observation. An Intent is a proposed exploration that follows a strict lifecycle from submission through claiming, heartbeat, and conclusion. A Hint is a volatile, read-only constraint that bounds admissible actions. Any storage backend that can hold these three record kinds becomes a functional neXus blackboard without a graph database or a dedicated indexing service.
+This whitepaper presents neXus, a runtime and data model in which software agents, machines, and human users coordinate through a shared blackboard defined by three record primitives. A Fact is an immutable, validated observation. An Intent is a proposed exploration that follows a strict lifecycle from submission through claiming, heartbeat, and conclusion. A Hint is a volatile, read-only constraint that bounds admissible actions. Any storage backend that can hold these three record kinds becomes a functional neXus blackboard without a graph database or a dedicated indexing service. The model is carried by one runtime binary, `nex`, which attaches to any storage backend or agent and turns it into a participant in that blackboard.
 
 The model is grounded in the SSCCS primitives of Segment, Scheme, Field, and Observation, which materialize as Fact, Intent, and Hint in the knowledge domain. Identity is spatial: records are addressed by coordinates in a fixed composition space rather than by hashed keys, so identity is queryable and lookup cost is independent of record count. The algebraic skeleton $F \times I \times H \to F'$ is instantiated by a minimal calculator that is also the conformance reference: replay of a recorded path equals recomputation of the path, and the state of the system is its record.
 
@@ -82,9 +82,64 @@ Generative agents operate on ephemeral context. A session opens with no memory o
 
 neXus addresses both costs at the data model level rather than at the serving level. Records are written under three primitives that any storage backend can hold. Retrieval, traversal, and gap detection operate on accumulated records through a structural filter index whose memory is bounded by axis cardinality, and the measured cost of these operations is sub-microsecond to millisecond on commodity hardware. Because records are immutable and identity is coordinate-based, the same code remains readable across platform changes: storage is a tactical choice, not an architectural dependency.
 
-This document is a technical record of the system as it exists in the reference implementation and in the accompanying documentation. Its intended uses are three: as a specification for implementers, as the archival basis for a registered DOI, and as a dated statement of the original ideas in the model for the purpose of prior-art defense. Sections 2 through 6 define the model. Sections 7 and 8 state verification results and measurements. Sections 9 through 13 delimit the ecosystem, its boundaries, related work, the roadmap, and the conclusion. Appendices carry the detailed specifications, protocol tables, verification catalogs, benchmark tables, and a glossary.
+The centerpiece is `nex` itself, a single lightweight binary that behaves like a universal hub. It attaches to a backend, an embedded filesystem, an enterprise database, or an object store, and that backend becomes a blackboard; it attaches to an agent, and that agent becomes a peer. The hub carries memory and processing in the same package, and because the same binary runs on Wasm, edge nodes, portable devices, blockchain runtimes, and bare-metal containers, capability is a property of the attachment rather than of the platform. Wherever it is attached, the FIH records defined below are the interface it exposes. The runtime architecture is specified in @sec-nex-runtime.
+
+This document is a technical record of the system as it exists in the reference implementation and in the accompanying documentation. Its intended uses are three: as a specification for implementers, as the archival basis for a registered DOI, and as a dated statement of the original ideas in the model for the purpose of prior-art defense. Sections 2 through 7 define the model and its realization. Sections 8 and 9 state verification results and measurements. Sections 10 through 14 delimit the ecosystem, its boundaries, related work, the roadmap, and the conclusion. Appendices carry the detailed specifications, protocol tables, verification catalogs, benchmark tables, and a glossary.
 
 The reference code is published under Apache License 2.0[^repo] and the documentation is published on the SSCCS documentation site[^docs]. Where a claim is a hypothesis rather than a measured result, it is labeled as such.
+
+## The neXus Model {#sec-model}
+
+neXus is a computing model before it is a system. The model states what computation is: a directed path over immutable records, in which the record is the state and the traversal is the computation. This section states the model itself; the following chapters specify the record kinds (@sec-fih), the coordinate identity (@sec-identity), the storage (@sec-storage), and the runtime (@sec-architecture) that realize it, and the conformance skeleton (@sec-skeleton) that tests it.
+
+*State.* A knowledge state is a triple $K = (F, I, H)$, where $F$ is the set of immutable Facts, $I$ is the set of active Intents, and $H$ is the set of active Hints. Every record carries a coordinate identity and a time coordinate, so $K$ is a spatiotemporal state, and the state of the system is its record.
+
+*Operation.* An operation is an Intent $i$ that departs from a set of Facts $\text{src}(i)$ and is bounded by a set of Hints $\text{bnd}(i)$. Concluding the Intent produces exactly one new Fact $f'$:
+
+$$ (\text{src}(i),\, i,\, \text{bnd}(i)) \;\vdash\; f' , $$
+
+or, in the algebraic form the reference implementation uses, $F \times I \times H \rightarrow F'$. No Fact is overwritten; the state advances to $K' = K \cup \{f'\}$ with the concluded Intent removed.
+
+*Computation path.* A computation is a sequence of such steps,
+
+$$ \pi = (f_0, i_1, f_1, i_2, \dots, f_n) , $$
+
+where each $f_k$ is the Fact concluded by $i_k$ from the Facts that precede it,
+
+$$ f_k = \mathrm{conclude}\big(\mathrm{src}(i_k),\, i_k,\, \mathrm{bnd}(i_k)\big), \qquad k = 1, \dots, n , $$
+
+and because every step is recorded and no step depends on hidden state, replaying $\pi$ from its recorded Facts reproduces $f_n$ deterministically: replay equals computation. This equality is the property the model guarantees, the skeleton tests, and the storage layer makes measurable.
+
+*Closure.* A new capability is a new Intent or a new Hint composed over the same immutable Facts. There is no separate execution model to invent: complex systems are built by composition, and the properties demonstrated by the minimal calculator are the properties every complex design must preserve.
+
+*Scale.* The definitions hold at every scale, from a single agent to an ecosystem; an Observation at dimension $N$ becomes a Hint at dimension $N-1$, which is the property the project calls homeomorphic and which is specified with the scaling modes in @sec-recursion.
+
+```{python}
+#| label: fig-nexus-model
+#| fig-cap: "A computation in the nex model: Facts are consumed and produced by Intents under Hints; the recorded path is replayable, so replay equals recomputation."
+dot("""
+digraph NexModel {
+    rankdir=LR;
+    node [shape=box, style="rounded,filled", fontsize=10];
+    edge [fontsize=8];
+
+    F0 [label="Fact f0\nput 3", fillcolor="#d8f0e0"];
+    I1 [label="Intent i1\nadd", shape=diamond, fillcolor="#ffe9c9"];
+    H1 [label="Hint h1\nbounds the search", fillcolor="#f0dcdc"];
+    F1 [label="Fact f1\nconclude: f1 = f0 + 5", fillcolor="#d8f0e0"];
+    I2 [label="Intent i2", shape=diamond, fillcolor="#ffe9c9"];
+    F2 [label="Fact f2\npath continues", fillcolor="#d8f0e0"];
+
+    F0 -> I1 [label="evidence"];
+    H1 -> I1 [style=dashed, label="bounds"];
+    I1 -> F1 [label="conclude"];
+    F1 -> I2;
+    I2 -> F2 [label="conclude"];
+}
+""")
+```
+
+The minimal calculator `nex-calc` realizes this model for arithmetic: `put` writes Facts, `add` creates an Intent, and `resolve` concludes the path into a new persistent Fact, which makes the model complete enough to compute in its standard form. Whether the same record semantics also ground learning is a separate, falsifiable question taken up in @sec-skeleton and @sec-status.
 
 ## The FIH Blackboard Model {#sec-fih}
 
@@ -126,6 +181,20 @@ Every Intent follows the lifecycle
 $$ \text{submit} \rightarrow \text{claim} \rightarrow \text{heartbeat} \rightarrow \text{conclude} . $$
 
 A submitted Intent is claimed by an agent, kept alive by heartbeats, and concluded with a result. Conclusion produces a Fact. A scheduler monitors heartbeats and evicts stale Intents that have not been claimed or that have stopped heartbeating. The lifecycle is the enforcement point for liveness: a crashed or dishonest agent is detectable by the absence of heartbeats, and an Intent that is never concluded leaves no Fact behind.
+
+Formally, an Intent is a finite state machine over the states
+
+$$ \mathcal{S} = \{\text{submitted},\; \text{claimed},\; \text{active},\; \text{concluded},\; \text{evicted}\} $$
+
+with the transition events claim, heartbeat, release, conclude, and timeout, and conclusion is the map that emits the resulting Fact and binds its provenance to the Intent:
+
+$$ \mathrm{conclude}(i, r) = f', \qquad \mathrm{prov}(f') = \mathrm{id}(i) . $$
+
+An Intent is evicted when its last heartbeat is older than a scheduler bound $\tau$,
+
+$$ \mathrm{evict}(i) \iff t_{\mathrm{now}} - \mathrm{last}(i) > \tau , $$
+
+so liveness is an enforced, measurable property of the record rather than an assumption about the agent.
 
 ```{python}
 #| label: fig-intent-lifecycle
@@ -199,6 +268,12 @@ Two configurations are in use.
 
 The six default axes are application-defined and ordered as `time_hi`, `time_lo`, entity kind (F, I, or H), `origin`, `creator`, and `serial`. Because the axes are part of the identity, identity is queryable: a filter on any axis prefix is a range query over coordinates, and an inverse index over the remaining axes resolves the matching identity set.
 
+An axis query is an intersection of precomputed projections. For a query that fixes axis-value sets $P_a$ on a set of axes $Q$,
+
+$$ \mathcal{R}(Q) = \big\{ r \in R : \mathrm{coord}_a(r) \in P_a,\; \forall a \in Q \big\} = \bigcap_{a \in Q} S_a , $$
+
+where $S_a$ is the id set of the fixed value on axis $a$. Each added axis intersects the candidate set before any record body is loaded, which is why the most selective query is the cheapest.
+
 ```{python}
 #| label: fig-coordinate-identity
 #| fig-cap: "Content is placed on six axes; the ordered tuple of coordinates is the record identity, and axis filters become range queries over coordinates."
@@ -223,6 +298,14 @@ digraph CoordId {
 ### Semantic Identity and the Conflict Guard {#sec-identity-derivation}
 
 Identity is semantic: the coordinate tuple is derived from the entity kind, the origin, the creator, and the content of the record, not from a random nonce. The same record produced by the same creator under the same origin converges on the same identity, which makes duplicate submission detectable. At commit time a content-hash conflict guard checks the target coordinate: if the coordinate is already occupied by a record with a different content hash, the write is rejected as a conflict; if the hashes agree, the write is idempotent. The occupancy lookup is O(1) through the existing-content-hash index. After the L2 restructure the per-call conflict check measures 445 nanoseconds, against 135 to 390 milliseconds before the restructure[^l2].
+
+$$ \mathrm{id}(r) = \Phi\big(\mathrm{kind}(r),\, \mathrm{origin}(r),\, \mathrm{creator}(r),\, \mathrm{content}(r)\big) , $$
+
+and the content-hash guard accepts a write exactly when the coordinate is free or the hashes agree,
+
+$$ \mathrm{accept}(w) \iff \neg\, \mathrm{occupied}(\mathrm{id}(w)) \;\lor\; h_w = h_e , $$
+
+where $h_w$ is the content hash of the write and $h_e$ that of the existing occupant; the guard compares hashes so that content equality is decidable without comparing record bodies.
 
 The change of identity derivation from six to twenty coordinates is breaking for stored records and has no automatic in-place migration tool; the documented path for pre-1.0 data is re-ingestion through the semantic layer.
 
@@ -309,9 +392,47 @@ At 100,000 and 1,000,000 records the index remains approximately 264 MB, while t
 
 ## Runtime and System Architecture {#sec-architecture}
 
+The runtime is a peer fabric, not a client-server platform. All participants, whether verification engines, editors, synthesis tools, or sensors, are equal peers that interact only through the FIH blackboard interface. There is no privileged orchestrator; a peer is defined by what it reads and writes, and the same binary can act as a blackboard, a peer, or both.
+
+```{python}
+#| label: fig-peer-blackboard
+#| fig-cap: "Peers around a blackboard. Every peer can itself host a nested blackboard, which makes the fabric recursive at every scale."
+dot("""
+digraph PeerBlackboard {
+    rankdir=LR;
+    node [shape=box, style="rounded,filled", fontsize=10];
+    edge [fontsize=8];
+
+    BB [label="FIH blackboard\nFacts, Intents, Hints", shape=cylinder, fillcolor="#d8f0e0"];
+
+    Planner [label="Planner\nwrites Intents", fillcolor="#e8ecf8"];
+    Verifier [label="Verifier\nwrites Facts", fillcolor="#e8ecf8"];
+    Generator [label="Generator\nreads Facts", fillcolor="#e8ecf8"];
+    Editor [label="Editor\nreads and writes", fillcolor="#e8ecf8"];
+    Sensor [label="Sensor observer\nwrites Facts", fillcolor="#e8ecf8"];
+
+    subgraph cluster_nested {
+        label="one peer may host a nested blackboard";
+        style=filled; fillcolor="#f7f3e8";
+        Nested [label="sub-blackboard\nF, I, H at dimension N-1", shape=cylinder, fillcolor="#d8f0e0"];
+    }
+
+    Planner -> BB [label="submit intent"];
+    BB -> Planner [label="facts and hints"];
+    Verifier -> BB [label="conclude to fact"];
+    Generator -> BB [dir=both];
+    Editor -> BB [dir=both];
+    Sensor -> BB [label="observe as fact"];
+    BB -> Nested [style=dashed, label="recursion"];
+}
+""")
+```
+
+### nex: The Runtime Binary {#sec-nex-runtime}
+
 ```{python}
 #| label: fig-nexus-fabric
-#| fig-cap: "Where knowledge graphs store static triplets, neXus records the research process: a Fact carries the Intent that proposed it, the Hints that bounded it, and the evidence that validated it. Every conclusion is auditable back to the hypothesis that generated it. The SSCCS primitives Segment, Scheme, Field, and Observation manifest here as Fact, Intent, and Hint."
+#| fig-cap: "The nex fabric: one nex instance on every host, each a full FIH blackboard, linked to its nearest peers in a flat mesh."
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -373,44 +494,6 @@ ax.set_xlim(-0.5, 5.7)
 ax.set_ylim(-0.5, 5.5)
 ax.set_zlim(-0.9, 4.3) 
 ```
-
-The runtime is a peer fabric, not a client-server platform. All participants, whether verification engines, editors, synthesis tools, or sensors, are equal peers that interact only through the FIH blackboard interface. There is no privileged orchestrator; a peer is defined by what it reads and writes, and the same binary can act as a blackboard, a peer, or both.
-
-```{python}
-#| label: fig-peer-blackboard
-#| fig-cap: "Peers around a blackboard. Every peer can itself host a nested blackboard, which makes the fabric recursive at every scale."
-dot("""
-digraph PeerBlackboard {
-    rankdir=LR;
-    node [shape=box, style="rounded,filled", fontsize=10];
-    edge [fontsize=8];
-
-    BB [label="FIH blackboard\nFacts, Intents, Hints", shape=cylinder, fillcolor="#d8f0e0"];
-
-    Planner [label="Planner\nwrites Intents", fillcolor="#e8ecf8"];
-    Verifier [label="Verifier\nwrites Facts", fillcolor="#e8ecf8"];
-    Generator [label="Generator\nreads Facts", fillcolor="#e8ecf8"];
-    Editor [label="Editor\nreads and writes", fillcolor="#e8ecf8"];
-    Sensor [label="Sensor observer\nwrites Facts", fillcolor="#e8ecf8"];
-
-    subgraph cluster_nested {
-        label="one peer may host a nested blackboard";
-        style=filled; fillcolor="#f7f3e8";
-        Nested [label="sub-blackboard\nF, I, H at dimension N-1", shape=cylinder, fillcolor="#d8f0e0"];
-    }
-
-    Planner -> BB [label="submit intent"];
-    BB -> Planner [label="facts and hints"];
-    Verifier -> BB [label="conclude to fact"];
-    Generator -> BB [dir=both];
-    Editor -> BB [dir=both];
-    Sensor -> BB [label="observe as fact"];
-    BB -> Nested [style=dashed, label="recursion"];
-}
-""")
-```
-
-### nex: The Runtime Binary {#sec-nex-runtime}
 
 The core runtime `nex` is a lightweight binary hub that scales by attaching storage or agent orchestration. The same binary runs on Wasm, edge nodes, portable devices, blockchain runtimes, and bare-metal containers. When `nex` attaches to a backend, the backend becomes a blackboard through three record kinds; when it attaches to an agent, the agent becomes a peer. Because the binary is identical everywhere, capability is a property of the attachment, and the runtime itself carries no platform-specific logic. The Rust core exports a C ABI and a Wasm target, and capability traits, rather than a monolithic storage type, define the runtime surface.
 
@@ -556,7 +639,11 @@ Ten thousand identity lookups, three representations.
 | Tagma dense packed array | 60.8 µs | 6.08 ns | 2.0x faster |
 | Tagma tree | 533 µs | 53.3 ns | carries prefix navigation |
 
-Lookup cost scales with coordinate depth, not with volume: ten thousand and $10^{24}$ records cost the same number of dereferences because the coordinate is the address.
+Lookup cost scales with coordinate depth, not with volume: ten thousand and $10^{24}$ records cost the same number of dereferences because the coordinate is the address. With $d$ the coordinate depth and $c_d$ the per-level dereference cost,
+
+$$ T_{\text{lookup}} = d \cdot c_d , $$
+
+which is independent of the record count $|R|$.
 
 ### Structural Filtering {#sec-perf-filter}
 
@@ -581,11 +668,17 @@ A document store of 10,000 documents across 10 projects and 10 distinct authors.
 | project, author, time | 70.4 µs |
 | reverse lookup of Intents referencing a Fact | 189 µs per 100 calls (about 1.9 µs per call) |
 
-Reverse lookup uses the inverse index from Facts to Intents, measured at 189 µs per 100 calls in this scenario. The earlier full-scan path cost 60.4 ms per call and is superseded by the inverse index.
+Reverse lookup uses the inverse index from Facts to Intents; the earlier full-scan path cost 60.4 ms per call and is superseded by the inverse index.
 
 ### Write Path {#sec-perf-write}
 
 A batch of 10,000 facts commits in 51.9 ms, or 5.19 microseconds per fact, within a single flush boundary. The same workload before the coordinate restructure took 1,776 ms, a 34x gap.
+
+In rate form the single-flush batch sustains
+
+$$ \lambda = \frac{N}{\Delta} = \frac{10{,}000}{51.9\,\mathrm{ms}} \approx 1.9 \times 10^{5} \; \mathrm{facts/s} , $$
+
+where per-record I/O would multiply the flush cost by $N$.
 
 ### Restructure Outcomes {#sec-perf-restructure}
 
@@ -598,6 +691,12 @@ The index footprint is flat across record count: approximately 264 MB from 10,00
 ### Tree Walk and Prefix Queries {#sec-perf-tree}
 
 A full walk of a 50,000-entry tree takes 540 ms. Five hundred prefix queries complete in 1.12 ms total, 2.24 microseconds per query. The gap between a full O(N) walk and a subtree prefix query is a factor of about 241,000. Query time therefore does not grow as the knowledge base grows from 1,000 to 1,000,000 records; only the prefix depth changes.
+
+In cost terms a scan pays the full store while a prefix query pays only the named subtree,
+
+$$ T_{\text{scan}} \approx c\,N, \qquad T_{\text{prefix}} \approx c\,|T(\mathrm{pre})| , $$
+
+so the measured per-query gap is $N/|T(\mathrm{pre})| \approx 241{,}000$, and growth in $N$ never enters $T_{\text{prefix}}$.
 
 ### Identity Generation {#sec-perf-idgen}
 

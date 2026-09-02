@@ -4,7 +4,7 @@ subtitle: Homeomorphic runtime fabric unifying swarm agents and spatial storage
 metadata-files:
   - ../../_include/author.yml
 abstract: |
-  Fundamental computing paradiam must evolve from static document-code knowledge graphs into a cross-reality research manifold, and requires handling a vast scale of research by nature. As a general-purpose meta-information computing runtime swarm neXus, for instance, we build a research platform for SSCCS that provides a unified, queryable structure where whitepaper insights, compiler traces, physics simulations, robotic validations, and sensor streams coexist and interoperate.
+  Fundamental computing paradigm must evolve from static document-code knowledge graphs into a cross-reality research manifold, and requires handling a vast scale of research by nature. As a general-purpose meta-information computing runtime swarm neXus, for instance, we build a research platform for SSCCS that provides a unified, queryable structure where whitepaper insights, compiler traces, physics simulations, robotic validations, and sensor streams coexist and interoperate.
 ---
 
 ```{python}
@@ -20,6 +20,7 @@ title_meta_items = {
         {"title": "Reference", "link": "./notes/stigmergic_fih.html", "content": "Stigmergic Solving", "icon": "bi bi-link"},
         {"title": "Reference", "link": "./development", "content": "Development", "icon": "bi bi-link"},
         {"title": "Reference", "link": "./apps", "content": "Apps", "icon": "bi bi-link"},
+        {"title": "Reference", "link": "./whitepaper.html", "content": "Whitepaper", "icon": "bi bi-file-text"},
         {"title": "Reference", "link": "../sdbs", "content": "SDBS", "icon": "bi bi-link"},
         {"title": "Code", "link": "https://github.com/ssccsorg/nexus", "content": "Github (Pre-release)", "icon": "bi bi-link"},
         {"title": "Code", "link": "https://github.com/ssccsorg/nex-ext", "content": "nex Extensions", "icon": "bi bi-link"},
@@ -31,9 +32,8 @@ title_meta_items = {
 
 ## Overview
 
-neXus is a homeomorphic runtime fabric unifying swarm agents and spatial
-storage. Its core runtime, `nex`, is a lightweight binary hub that scales
-by attaching storage or agent orchestration:
+`nex` is the lightweight binary hub of the neXus runtime. It scales by
+attaching storage or agent orchestration:
 
 - Runs on Wasm, edge nodes, portable devices, blockchain runtimes, and
   bare-metal containers.
@@ -268,6 +268,12 @@ digraph NexdArch {
 | 4 | Learning Loop | On-policy RL (Flow-GRPO) optimizing the Planner using knowledge-graph support, novelty, and reproducibility rewards. |
 | 5 | Contract Governance | On-chain, self-executing protocol defining evidence thresholds, research economy rules, and staking mechanisms. |
 
+Specification: the [neXus](whitepaper.html#sec-architecture),
+[neXus](whitepaper.html#sec-five-layers),
+[neXus](whitepaper.html#sec-recursion), and
+[neXus](whitepaper.html#sec-ulhm) are detailed in the
+[neXus](whitepaper.html).
+
 ### FIH as a Data Structure Dimension
 
 FIH primitives form a 3-vector basis for the system state, enabling three scaling modes:
@@ -275,14 +281,6 @@ FIH primitives form a 3-vector basis for the system state, enabling three scalin
 1. Multi-Blackboard Composition: Recursive scoping. An Observation at dimension *N* becomes a Hint at dimension *N-1*.
 2. Temporal Accumulation: A 4D spatiotemporal graph. Facts are permanent, Intents are transient (leaving a Fact residue), and Hints are garbage-collectible, all timestamped.
 3. Independent Streaming: Each primitive operates as an independent pub/sub stream, allowing distributed nexus instances to synchronize via FIH deltas without a shared database.
-
-## Layer Details
-
-- Layer 1 (KG Engine): Decomposes artifacts into typed relationships and community clusters, supporting naive, local, global, and hybrid retrieval strategies.
-- Layer 2 (Ingestion): Abstracts storage backends (SQLite, blockchain, cloud DBs) behind a minimal interface. Custom storage can be injected without modifying core logic.
-- Layer 3 (Agentic Loop): Agents coordinate via Stigmergy (leaving/reading traces). Detectors (gap/contradiction finders) apply count-based heuristics, recording findings as idempotent Facts. All actions append to an Evolving Memory for conflict-free concurrency and RL replay.
-- Layer 4 (Learning Loop): Rollouts are batched for group-normalized advantages. The Planner is updated via clipped objectives with KL penalty, converting multi-turn credit assignment into single-turn updates.
-- Layer 5 (Governance): Recognizes five economic contributions (Gap Discovery, Hypothesis Submission, Experimental Validation, Concept Drift Detection, Knowledge Ingestion). Validated hypotheses return stake + reward; falsified ones are slashed.
 
 ## Extension: Boundaryless Research Infrastructure
 
