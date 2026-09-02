@@ -72,7 +72,7 @@ For detailed prerequisites and advanced rendering options, see
 
 ## Governance
 
-The SSCCS Foundation is a non‑profit entity (in formation) that holds
+The SSCCS Foundation is a open-source foundation (in formation) that holds
 the intellectual property, manages the trademark, and oversees the
 standardization process. The foundation’s charter ensures that the
 project remains open, neutral, and aligned with its mission of creating
