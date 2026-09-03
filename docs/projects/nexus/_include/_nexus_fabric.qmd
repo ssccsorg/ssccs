@@ -1,0 +1,63 @@
+
+```{python}
+#| label: fig-nexus-fabric
+#| fig-cap: "Where knowledge graphs store static triplets, neXus records the research process: a Fact carries the Intent that proposed it, the Hints that bounded it, and the evidence that validated it. Every conclusion is auditable back to the hypothesis that generated it. The SSCCS primitives Segment, Scheme, Field, and Observation manifest here as Fact, Intent, and Hint."
+import matplotlib.pyplot as plt
+import numpy as np
+
+plt.rcParams.update({"font.family": "sans-serif", "font.size": 9, "figure.dpi": 120})
+
+fig = plt.figure(figsize=(6, 5)) 
+ax = fig.add_subplot(111, projection="3d")
+
+hosts = [
+    ("edge device", (0, 0, 0.2)),
+    ("data center", (0.2, 4.8, 3.5)),
+    ("server/-less", (5, 2, 0)),
+    ("manual system", (3, 4, 3)),
+    ("desktop", (0.6, 4.2, 0.2)),
+    ("robotics", (4.8, 4.8, 1.5)),
+    ("agent", (2.5, 6, 4.2)),
+    ("nex-cluster\ngroup", (5, 6, 4)),
+    ("sensor node", (0, 2, 3)),
+    ("gateway", (4.8, 0.2, 3.2)),
+]
+
+HOST_C = "#bcd7e8"
+NEX_C = "#ffd3b6"
+SYN = "#4A8BAA"
+d = 0.7
+
+for name, (x, y, z) in hosts:
+    ax.bar3d(x - d/2, y - d/2, z - d/2, d, d, d,
+             color=HOST_C, alpha=0.5, edgecolor="#666666", linewidth=0.5, shade=True)
+    ax.text(x, y, z - d/2 - 0.4, name, ha="center", va="top", fontsize=8, color="#333333")
+
+nex_pts = np.array([(x, y, z + d/2) for _, (x, y, z) in hosts])
+
+def nearest_edges(pts, k=2):
+    edges = set()
+    for i in range(len(pts)):
+        dist = np.linalg.norm(pts - pts[i], axis=1)
+        for j in np.argsort(dist)[1:k+1]:
+            edges.add(tuple(sorted((i, int(j)))))
+    return edges
+
+for i, j in nearest_edges(nex_pts, 2):
+    ax.plot([nex_pts[i][0], nex_pts[j][0]],
+            [nex_pts[i][1], nex_pts[j][1]],
+            [nex_pts[i][2], nex_pts[j][2]],
+            color=SYN, linewidth=1.2, alpha=0.85)
+
+triads = [("#a8e6cf", "F"), ("#ffd3b6", "I"), ("#d4a5a5", "H")]
+
+for i, (x, y, z) in enumerate(nex_pts):
+    ax.scatter(x, y, z, s=40, color=NEX_C, edgecolor="#333333", linewidth=0.5, depthshade=True)
+    ax.text(x, y, z + 0.4, "nex", ha="center", fontsize=6, color="#333333")
+
+ax.set_axis_off()
+ax.set_xlim(-0.5, 5.7)
+ax.set_ylim(-0.5, 5.5)
+ax.set_zlim(-0.9, 4.3)
+plt.show()
+```
