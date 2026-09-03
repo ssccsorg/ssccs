@@ -35,10 +35,23 @@ title_meta_items = {
 %run ../../_include/_graphviz.py
 ```
 
-Actus is the agent orchestration layer of the SSCCS stack. It plans with
-the LLM, holds conversation state, and commands the execution agent that
-does the actual work. That agent is Telos: the direct coding agent with
-filesystem and command execution, speaking the actus WebSocket contract.
+Actus is the agent orchestration layer of the SSCCS stack, licensed under
+Apache-2.0. It plans with the LLM, holds conversation state and workspace
+context, and commands the execution agents that convert plans into system
+effects. The default execution agent is Telos, the general headless agent
+layer of the stack. Telos runs as a separate native process and speaks an
+ACP-over-WebSocket contract; actus never links or bundles agent code, so
+the Apache-2.0 actus image carries no GPL-3.0-or-later Telos code.
+
+The orchestration surface is agent-agnostic. Every agent kind implements
+one `AgentBackend` trait, and an `AgentRegistry` maps names to running
+adapters. Telos is the default kind. A native in-process adapter serves
+as a reference and for tests, and further kinds plug in behind the same
+surface. Configuration lives in `~/.actus/config.toml`: each `[[agents]]`
+entry sets kind, provider, model, binary path, WebSocket port, tool
+approval policy, and the MCP servers injected into the agent. Without a
+config file, actus derives a single default Telos agent from CLI flags
+and environment variables.
 
 A large language model by itself is stateless. Every interaction starts
 from zero. The infrastructure around it must manage conversation history,
@@ -49,7 +62,7 @@ network effects. The client sees one headless service with no GUI, no
 display server, and no browser.
 
 The shape mirrors the layer below. neXus realizes its purpose through
-chhton, the single low-level executor over the coordinate space. Actus
+chton, the single low-level executor over the coordinate space. Actus
 does the same with Telos: the orchestra decides, the executor acts, and
 the agent underneath stays replaceable behind the contract.
 
@@ -57,7 +70,7 @@ the agent underneath stays replaceable behind the contract.
 
 ```{python}
 #| label: fig-actus-architecture
-#| fig-cap: "Actus: a server layer bridges external clients to the Telos execution agent."
+#| fig-cap: "Actus: a server layer owns threads and context and bridges external clients to one or more execution agents behind a uniform registry. Telos is the default."
 dot("""
 digraph ActusArchitecture {
     rankdir=LR;
@@ -74,33 +87,33 @@ digraph ActusArchitecture {
 
         api [label="HTTP API Layer", shape=box, style=filled, fillcolor="#a8e6cf", fontsize=11, width=1.6];
         state [label="Session State\n+ Persistence", shape=box, style=filled, fillcolor="#fff9c4", fontsize=11, width=1.6];
-        bridge [label="Agent Bridge", shape=box, style=filled, fillcolor="#ffd3b6", fontsize=11, width=1.6];
-        ctx [label="Workspace Context\n(Files / Git)", shape=box, style=filled, fillcolor="#e1bee7", fontsize=11, width=1.6];
+        bridge [label="Agent Registry + Bridge\n(Telos · Native · more)", shape=box, style=filled, fillcolor="#ffd3b6", fontsize=11, width=1.6];
+        ctx [label="Workspace Context\n(Files / Git / Rules)", shape=box, style=filled, fillcolor="#e1bee7", fontsize=11, width=1.6];
 
         api -> state [style=bold, color="#5577bb"];
         state -> bridge [style=bold, color="#5577bb"];
         state -> ctx [style=dashed, color="#667766"];
     }
 
-    agent [label="Telos\n(execution agent)", shape=box, style=filled, fillcolor="#c8e6c9", fontsize=12, width=1.8];
+    telos [label="Telos\n(default execution agent,\nseparate process)", shape=box, style=filled, fillcolor="#c8e6c9", fontsize=12, width=1.8];
+    aux [label="Auxiliary agents\n(planned)", shape=box, style=filled, fillcolor="#f8f8f8", fontsize=11, width=1.6];
 
     client -> api [label="REST / Streaming", style=bold, color="#5577bb"];
-    bridge -> agent [label="Protocol Bridge", style=bold, color="#5577bb"];
+    bridge -> telos [label="ACP over WebSocket", style=bold, color="#5577bb"];
+    bridge -> aux [label="contract", style=dashed, color="#889988"];
 }
 """)
 ```
 
 The architecture follows a layered separation of concerns:
 
-- **HTTP API Layer**: Exposes the agent's capabilities over REST with streaming support for real-time response delivery. Clients interact through a uniform interface without needing to manage the agent process directly.
+- **HTTP API Layer**: Exposes the agent's capabilities over REST with streaming support for real-time response delivery, guarded by bearer-token authentication. Clients interact through a uniform interface without needing to manage the agent process directly.
 
-- **Session State and Persistence**: Manages conversation threads across reconnections. Each thread maintains its full message history, so the agent resumes from where it left off even after connection drops or server restarts.
+- **Session State and Persistence**: Manages conversation threads per agent across reconnections. Each thread maintains its full message history under `~/.actus/threads/{agent}`, so the agent resumes from where it left off even after connection drops or server restarts.
 
-- **Agent Bridge**: The communication channel between the server and the
-  Telos process. Handles automatic reconnection, message delivery
-  guarantees, and the lifecycle of the agent process.
+- **Agent Registry and Bridge**: The communication channel between the server and the agent processes. The Telos adapter speaks ACP over WebSocket and handles automatic reconnection, message delivery guarantees, and the lifecycle of the agent process. Each configured agent carries its own tool approval policy (`always`, `ask`, `never`) and its injected MCP servers, and the policy is carried to the agent on launch.
 
-- **Workspace Context**: Provides filesystem-level and git-aware context to the agent. Enables file search, repository structure awareness, and workspace navigation without manual path specification.
+- **Workspace Context**: Provides filesystem-level and git-aware context to the agent. Enables file search, symbol search, project rule discovery, repository structure awareness, and workspace navigation. Context mentions can pull file contents, symbol definitions, rule files, and public URLs behind an SSRF guard.
 
 ## Design Principles
 
@@ -110,18 +123,37 @@ The architecture follows a layered separation of concerns:
 
 **Protocol isolation.** The server owns the agent lifecycle and communication protocol. Clients interact only through HTTP, insulating them from changes in the underlying agent protocol or implementation.
 
+**Thin runtime with process-separated agents.** The runtime links no agent implementation. Agents are external processes located by path and reached over a contract, so the Apache-2.0 actus image never carries GPL Telos code, and an agent can be swapped without changing the server. The published runtime image holds only the actus binary and git.
+
 ## Status and Direction
 
-Actus is in active development. The actus to Telos contract works end to
-end: Telos connects over WebSocket, serves threads, tools, and
-cancellation, and the flows are gated by deterministic conformance tests
-that run without an LLM alongside the live suite. Thread persistence and
-bearer-token authentication are in place.
+Actus is Apache-2.0 licensed, pre-release, and in active development. The
+actus to Telos contract works end to end: Telos connects over WebSocket
+and serves threads, tools, and cancellation. Deterministic conformance
+tests run without an LLM in CI, using a stub agent for the mock-only
+tier and a fake backend for the contract scenarios, beside the live local
+suite. Per-agent thread persistence, bearer-token authentication,
+per-agent tool approval, and MCP injection are in place.
 
-Current work focuses on wider tool coverage through Telos, additional
-agent kinds behind the same orchestration surface, and integration with
-the neXus blackboard for long-term conversation archival and cross-session
-knowledge accumulation.
+Packaging follows the thin runtime: a multi-stage Dockerfile builds a
+test image for CI and a slim runtime image for publishing. The Rust unit
+and integration suites run on the test image, and published images are
+cut on version tags (a versioned image plus `latest`) or as manual dev
+snapshots, so ordinary development commits publish nothing.
+
+Current direction:
+
+- **Multi-agent operation.** Keep Telos as the professional execution
+  core and add lightweight auxiliary agents behind the same registry, the
+  first trial of a one-plus-a deployment. The first candidate is Ante, a
+  single-binary terminal agent whose source is Apache-2.0 and whose
+  prebuilt binary ships under separate preview terms; actus would drive
+  it through its JSONL serve protocol or headless one-shot mode.
+- **neXus integration.** Archive long-running conversations on the neXus
+  blackboard and accumulate knowledge across sessions.
+- **Wider tool coverage through Telos.** Extend the endpoint surface that
+  the orchestration layer exposes without coupling to a single agent
+  implementation.
 
 ---
 
