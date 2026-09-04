@@ -86,7 +86,7 @@ Axis hints. A query with axis hints resolves in 42 µs versus 127 µs without, o
 
 ### Knowledge base and write
 
-Knowledge-base scenario. Ten thousand documents across ten projects and twenty authors: a project and author AND query resolves in 70.2 µs, a project-only query in 260 µs, and a project, author, and time-range query in 70.4 µs. Reverse lookup of intents referencing a fact costs 60.4 ms per call, an O(fan-out) scan whose cost is known and documented.
+Knowledge-base scenario. Ten thousand documents across ten projects and twenty authors: a project and author AND query resolves in 70.2 µs, a project-only query in 260 µs, and a project, author, and time-range query in 70.4 µs. Reverse lookup of intents referencing a fact resolves through the inverse index in about 1.9 µs per call, superseding the earlier full-scan path at 60.4 ms per call.
 
 Batch write. Ten thousand facts submit and flush in 51.9 ms, 5.19 µs per fact, with a single flush boundary rather than per-record IO. The pre-Tagma implementation took 1,776 ms for the same volume, a 34x gap.
 

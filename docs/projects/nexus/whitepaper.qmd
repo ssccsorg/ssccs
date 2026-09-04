@@ -1,6 +1,6 @@
 ---
 title: "neXus"
-subtitle: "A homeomorphic FIH blackboard runtime: spatial knowledge and execution over an immutable problem-knowledge-solution space"
+subtitle: "A heterogeneous, horizontal, coordinate-addressed runtime network for agents and executable systems from edge to bare metal."
 date: 2026-09
 date-format: "MMMM, YYYY"
 version-prefix: nexus
@@ -70,27 +70,32 @@ format:
 
 ## Abstract {.unnumbered .unlisted}
 
-This whitepaper presents neXus, a runtime and data model in which software agents, machines, and human users coordinate through a shared blackboard defined by three record primitives. A Fact is an immutable, validated observation. An Intent is a proposed exploration that follows a strict lifecycle from submission through claiming, heartbeat, and conclusion. A Hint is a volatile, read-only constraint that bounds admissible actions. Any storage backend that can hold these three record kinds becomes a functional neXus blackboard without a graph database or a dedicated indexing service. The model is carried by one runtime binary, `nex`, which attaches to any storage backend or agent and turns it into a participant in that blackboard.
+:::{ layout="[[50, 50]]" }
 
-The model is grounded in the SSCCS primitives of Segment, Scheme, Field, and Observation, which materialize as Fact, Intent, and Hint in the knowledge domain. Identity is spatial: records are addressed by coordinates in a fixed composition space rather than by hashed keys, so identity is queryable and lookup cost is independent of record count. The algebraic skeleton $F \times I \times H \to F'$ is instantiated by a minimal calculator that is also the conformance reference: replay of a recorded path equals recomputation of the path, and the state of the system is its record.
+:::{#content}
 
-The document specifies the record model, the coordinate identity scheme, the storage architecture, the runtime daemons, and the wire protocol as implemented in the reference repository, and it separates established results from conjectures under test. Measured results on the reference implementation include a write path of 5.19 microseconds per fact, a three-axis structural filter at 83.8 microseconds over 50,000 facts, and an index whose memory is bounded by axis cardinality rather than by record count. Verification covers exhaustive enumeration of the coordinate space, adversarial simulation of seven attack scenarios, and an OS-less build profile. The text is written for engineers and researchers; implementation status is marked per section.
+neXus is a horizontal fabric where heterogeneous software systems — servers, agents, edge devices, data centers, and even human-operated terminals — attach to a common peer-to-peer network through a single lightweight binary, nex. Every attached node speaks the same coordinate-addressed[^synTagma] I/O[^chton] interface, regardless of its internal architecture. There is no hierarchy: any node can observe, act, or coordinate, and the fabric itself provides the shared blackboard. Retrieval is arithmetic, not indexed; the network scales horizontally without a central orchestrator. This whitepaper specifies the FIH (Fact, Intent, Hint) record model, the coordinate identity, the runtime, and the verified behavior of the reference implementation, marking established results and open questions.
+
+:::
+
+:::{#fig}
+
+{{< include ./_include/_nexus_fabric.qmd >}}
+
+:::
+:::
 
 ## Introduction {#sec-introduction}
 
-Generative agents operate on ephemeral context. A session opens with no memory of prior sessions, documents are re-read, and state is rebuilt through prompts. The infrastructure that gives agents durable memory has developed in the shape of cloud vector stores, graph databases, and retrieval pipelines, each requiring accounts, configuration, and platform trust. Two structural costs recur. First, a knowledge system pays the indexing cost at write time and again at query time: records are written once but must be found many times, and conventional indexes grow with the record set. Second, every retrieval decision in an agent stack is typically paid in model inference, so memory operations carry recurring marginal cost that grows with usage.
+Generative agents, cloud functions, edge sensors, and human operators each speak different protocols and store state in incompatible backends. Coordinating across them typically requires a central orchestrator, an indexing layer, or a translation gateway — each adding latency, cost, and a single point of failure.
 
-neXus addresses both costs at the data model level rather than at the serving level. Records are written under three primitives that any storage backend can hold. Retrieval, traversal, and gap detection operate on accumulated records through a structural filter index whose memory is bounded by axis cardinality, and the measured cost of these operations is sub-microsecond to millisecond on commodity hardware. Because records are immutable and identity is coordinate-based, the same code remains readable across platform changes: storage is a tactical choice, not an architectural dependency.
+neXus replaces the gateway with a fabric. Any software that can attach to a storage backend or an agent becomes a peer, speaking the same FIH interface. nex is the universal attachment point: a binary that runs unchanged on Wasm, microcontrollers, cloud VMs, and bare metal. Once attached, the backend becomes a blackboard; the agent becomes a peer. There is no master, no slave, no orchestrator — only a horizontal network of observers and actors where the observer is also an actor, and the actor is also an observer.
 
-The centerpiece is `nex` itself, a single lightweight binary that behaves like a universal hub. It attaches to a backend, an embedded filesystem, an enterprise database, or an object store, and that backend becomes a blackboard; it attaches to an agent, and that agent becomes a peer. The hub carries memory and processing in the same package, and because the same binary runs on Wasm, edge nodes, portable devices, blockchain runtimes, and bare-metal containers, capability is a property of the attachment rather than of the platform. Wherever it is attached, the FIH records defined below are the interface it exposes. The runtime architecture is specified in @sec-nex-runtime.
+The effect is a flat ecosystem: a sensor node can write Facts, a data center can read them, an agent can propose an Intent, and a human-operated system can apply Hints — all through the same coordinate-addressed I/O. Because identity is spatial (coordinate, not hash) and records are immutable, the cost of finding a record is independent of the number of records, and the cost of coordinating across nodes scales with the number of attachments, not with the amount of data. The reference code is published under Apache License 2.0[^repo]. Where a claim is a hypothesis rather than a measured result, it is labeled as such.
 
-This document is a technical record of the system as it exists in the reference implementation and in the accompanying documentation. Its intended uses are three: as a specification for implementers, as the archival basis for a registered DOI, and as a dated statement of the original ideas in the model for the purpose of prior-art defense. Sections 2 through 7 define the model and its realization. Sections 8 and 9 state verification results and measurements. Sections 10 through 14 delimit the ecosystem, its boundaries, related work, the roadmap, and the conclusion. Appendices carry the detailed specifications, protocol tables, verification catalogs, benchmark tables, and a glossary.
+## Model {#sec-model}
 
-The reference code is published under Apache License 2.0[^repo] and the documentation is published on the SSCCS documentation site[^docs]. Where a claim is a hypothesis rather than a measured result, it is labeled as such.
-
-## The neXus Model {#sec-model}
-
-neXus is a computing model before it is a system. The model states what computation is: a directed path over immutable records, in which the record is the state and the traversal is the computation. This section states the model itself; the following chapters specify the record kinds (@sec-fih), the coordinate identity (@sec-identity), the storage (@sec-storage), and the runtime (@sec-architecture) that realize it, and the conformance skeleton (@sec-skeleton) that tests it.
+neXus is a computing model before it is a system. The model states what computation is: a directed path over immutable records, in which the record is the state and the traversal is the computation. This section states the model itself and the minimal skeleton (@sec-skeleton) that tests it; the following chapters specify the record kinds (@sec-fih), the coordinate identity (@sec-identity), the storage (@sec-storage), and the runtime (@sec-architecture) that realize it.
 
 *State.* A knowledge state is a triple $K = (F, I, H)$, where $F$ is the set of immutable Facts, $I$ is the set of active Intents, and $H$ is the set of active Hints. Every record carries a coordinate identity and a time coordinate, so $K$ is a spatiotemporal state, and the state of the system is its record.
 
@@ -139,7 +144,19 @@ digraph NexModel {
 """)
 ```
 
-The minimal calculator `nex-calc` realizes this model for arithmetic: `put` writes Facts, `add` creates an Intent, and `resolve` concludes the path into a new persistent Fact, which makes the model complete enough to compute in its standard form. Whether the same record semantics also ground learning is a separate, falsifiable question taken up in @sec-skeleton and @sec-status.
+### The Minimal Skeleton and Computation as Record {#sec-skeleton}
+
+As the first program in a new language is often a calculator, `nex-calc`[^nexcalc] is the calculator of neXus: deliberately slow, and a minimal core proof. `put 3` writes a Fact at a coordinate, `put 5` writes another, `add` creates an Intent that is a directional vector between Facts, and `resolve` traverses from Fact to Intent to Fact and produces a new persistent Fact. The algebraic shape of the skeleton is
+
+$$ F \times I \times H \rightarrow F' , $$
+
+read as: a set of Facts, an Intent, and a set of Hints determine a new Fact. Nothing is added to the model to make the calculator work; the calculator is the model running unchanged. The skeleton is deliberately inefficient. Its purpose is not throughput but conformance: a complex system is designed by composing new Intents and Hints over the same immutable records, and the properties demonstrated by the skeleton are the properties that any complex design must preserve.
+
+Two consequences follow, and they differ in epistemic status.
+
+The first is a consequence of the record layer: an operation is a traversal recorded as an immutable Fact, the record is the state, and the traversal is the computation. This is established by the skeleton and by the record semantics of the store, and it is testable: replay of a recorded path must equal recomputation of that path, and no Fact is overwritten.
+
+The second is a hypothesis under active test: the same record semantics can ground systems that learn. An agent records the Intents it proposes, the Facts it observes, and the Hints that bound its search; knowledge grows by accumulation of recorded paths instead of by overwriting continuous weights. The hypothesis is falsifiable. If reconstructing a recorded computation requires information outside the FIH record, such as timing, ordering, or hidden state, then computation-equals-record fails for that case. If path-accumulated learning cannot match a trivial stochastic gradient baseline on a toy problem at any cost, the learning extension is unsupported[^learn].
 
 ## The FIH Blackboard Model {#sec-fih}
 
@@ -232,20 +249,6 @@ Three scaling modes follow from treating the triad as a three-vector basis of st
 1. *Multi-blackboard composition.* Recursive scoping composes blackboards without a central store.
 2. *Temporal accumulation.* State is a four-dimensional record: Facts are permanent, Intents are transient and leave a Fact residue on conclusion, and Hints are garbage-collectible. Every record carries a timestamp coordinate.
 3. *Independent streaming.* Each primitive is an independent publish-subscribe stream, so distributed instances synchronize by FIH deltas without a shared database.
-
-### The Minimal Skeleton and Computation as Record {#sec-skeleton}
-
-The reference application `nex-calc` reduces the model to a minimal complete skeleton. `put 3` writes a Fact at a coordinate, `put 5` writes another, `add` creates an Intent that is a directional vector between Facts, and `resolve` traverses from Fact to Intent to Fact and produces a new persistent Fact. The algebraic shape of the skeleton is
-
-$$ F \times I \times H \rightarrow F' , $$
-
-read as: a set of Facts, an Intent, and a set of Hints determine a new Fact. Nothing is added to the model to make the calculator work; the calculator is the model running unchanged. The skeleton is deliberately inefficient. Its purpose is not throughput but conformance: a complex system is designed by composing new Intents and Hints over the same immutable records, and the properties demonstrated by the skeleton are the properties that any complex design must preserve.
-
-Two consequences follow, and they differ in epistemic status.
-
-The first is a consequence of the record layer: an operation is a traversal recorded as an immutable Fact, the record is the state, and the traversal is the computation. This is established by the skeleton and by the record semantics of the store, and it is testable: replay of a recorded path must equal recomputation of that path, and no Fact is overwritten.
-
-The second is a hypothesis under active test: the same record semantics can ground systems that learn. An agent records the Intents it proposes, the Facts it observes, and the Hints that bound its search; knowledge grows by accumulation of recorded paths instead of by overwriting continuous weights. The hypothesis is falsifiable. If reconstructing a recorded computation requires information outside the FIH record, such as timing, ordering, or hidden state, then computation-equals-record fails for that case. If path-accumulated learning cannot match a trivial stochastic gradient baseline on a toy problem at any cost, the learning extension is unsupported[^learn].
 
 ## Coordinate Identity and Spatial Addressing {#sec-identity}
 
@@ -428,12 +431,6 @@ digraph PeerBlackboard {
 """)
 ```
 
-### nex: The Runtime Binary {#sec-nex-runtime}
-
-{{< include ./_include/_nexus_fabric.qmd >}}
-
-The core runtime `nex` is a lightweight binary hub that scales by attaching storage or agent orchestration. The same binary runs on Wasm, edge nodes, portable devices, blockchain runtimes, and bare-metal containers. When `nex` attaches to a backend, the backend becomes a blackboard through three record kinds; when it attaches to an agent, the agent becomes a peer. Because the binary is identical everywhere, capability is a property of the attachment, and the runtime itself carries no platform-specific logic. The Rust core exports a C ABI and a Wasm target, and capability traits, rather than a monolithic storage type, define the runtime surface.
-
 ### The Daemon Layer: nexd and nex-server {#sec-nexd}
 
 Execution is split into two processes with different responsibilities. `nex-server` is the blackboard engine: it owns the FIH state and answers record operations. `nexd` is a pure supervisor: it spawns `nex-server` as a managed child, waits for its socket, respawns it after a crash with the original command, and terminates it with SIGTERM and a bounded wait on shutdown. The two processes communicate over Unix domain sockets with line-delimited JSON-RPC 2.0, one object per line. The blackboard socket defaults to `/tmp/nex-server.sock` and the supervisor socket to `/tmp/nexd.sock`, each overridable by environment.
@@ -503,7 +500,7 @@ From the perspective of AI agent architectures, neXus provides three fabrics in 
 
 ### Zero-Marginal-Cost Retrieval {#sec-zero-marginal}
 
-Model inference is confined to the generation of knowledge branches. Traversal, gap detection, and reporting operate on accumulated Facts through the structural filter index, so their cost does not scale with inference calls. The economic consequence is structural: reading and checking accumulated knowledge has zero marginal inference cost, and inference is spent only where a new branch of knowledge is produced.
+Model inference is confined to the generation of knowledge branches. Traversal, gap detection, and reporting operate on accumulated Facts through the filter index, so their cost does not scale with inference calls. The economic consequence is structural: reading and checking accumulated knowledge has zero marginal inference cost, and inference is spent only where a new branch of knowledge is produced.
 
 ### Stigmergic Compounding {#sec-stigmergy}
 
@@ -566,7 +563,7 @@ The core compiles for environments without an operating system. The Wasm build i
 
 The numbers in this section come from the benchmark suite of the reference repository[^bench]. Runs execute on an Apple M1 (ARMv8.4 Firestorm cores at 3.2 GHz) in release mode; the suite is Criterion-based with a sample size of ten and reports the median. Fixtures run in memory on the simulation I/O backend, synchronously, with one flush boundary per workload: 50,000 facts across 50 origins and 20 creators for the core benches, a controlled 10-day by 10-origin by 10-creator grid for the scale runs, and the real embedded document manifest for the lifecycle runs. Measurements are marked with their scope: some compare the restructured index against a previous ceiling, and others compare the structural filter against a record-map scan. The core baseline is dated 2026-08-20 and the scale and lifecycle runs 2026-08-27; figures published earlier than the layer-2 restructure are meaningful only within a run, and the structural and scan result sets are asserted equal by the test harness.
 
-### Identity Lookup {#sec-perf-identity}
+### Identity Lookup and Tree Walk {#sec-perf-identity}
 
 Ten thousand identity lookups, three representations.
 
@@ -582,6 +579,17 @@ $$ T_{\text{lookup}} = d \cdot c_d , $$
 
 which is independent of the record count $|R|$.
 
+A full walk of a 50,000-entry tree takes 540 ms. Five hundred prefix queries complete in 1.12 ms total, 2.24 microseconds per query. The gap between a full O(N) walk and a subtree prefix query is a factor of about 241,000. Query time therefore does not grow as the knowledge base grows from 1,000 to 1,000,000 records; only the prefix depth changes. In cost terms a scan pays the full store while a prefix query pays only the named subtree,
+
+$$ T_{\text{scan}} \approx c\,N, \qquad T_{\text{prefix}} \approx c\,|T(\mathrm{pre})| , $$
+
+so the measured per-query gap is $N/|T(\mathrm{pre})| \approx 241{,}000$, and growth in $N$ never enters $T_{\text{prefix}}$.
+
+:::{ layout-ncol=2 }
+{{< include _include/bench/fig-bench-lookup.qmd >}}
+{{< include _include/bench/fig-bench-prefix.qmd >}}
+:::
+
 ### Structural Filtering {#sec-perf-filter}
 
 Over 50,000 facts, axis filters resolve to id sets without materializing records.
@@ -594,9 +602,14 @@ Over 50,000 facts, axis filters resolve to id sets without materializing records
 
 The figures above are predicate times: they resolve coordinate id sets without loading record bodies. The full read path additionally materializes record bodies from the record maps; on the same 50,000 facts a creator filter including materialization measures about 4.9 ms, which shows that the structural index is the cheap stage and that pruning happens before any record is loaded. The previous full-scan ceiling was 27.8 ms at 10,000 facts, and a scan pays that cost regardless of selectivity. On the same 10,000-fact store the predicate path runs in 127 µs without axis hints and 42 µs with them; the pair measures the planned axis-hint fast path, whose wiring into the production read path is pending. The current predicate path sits roughly 219x below the earlier ceiling. Selectivity is structural: each added dimension shrinks the candidate set before a record is loaded, so the most selective query is the cheapest.
 
-### Knowledge-Base Scenario {#sec-perf-kb}
+:::{ layout-ncol=2 }
+{{< include _include/bench/fig-bench-filter.qmd >}}
+{{< include _include/bench/fig-bench-hints.qmd >}}
+:::
 
-A document store of 10,000 documents across 10 projects and 10 distinct authors.
+### Knowledge Base and Write Path {#sec-perf-kb}
+
+The knowledge-base fixture moves the properties measured on the synthetic store into an application-shaped store: 10,000 documents across 10 projects and 20 authors, with Intents referencing Facts.
 
 | Query | Time |
 |-------|------|
@@ -605,9 +618,7 @@ A document store of 10,000 documents across 10 projects and 10 distinct authors.
 | project, author, time | 70.4 µs |
 | reverse lookup of Intents referencing a Fact | 189 µs per 100 calls (about 1.9 µs per call) |
 
-Reverse lookup uses the inverse index from Facts to Intents; the earlier full-scan path cost 60.4 ms per call and is superseded by the inverse index.
-
-### Write Path {#sec-perf-write}
+Selectivity is structural here, as in @sec-perf-filter: the single-axis project query is the slowest at 260 µs, and adding axes does not add cost because each axis prunes the candidate set before any record is loaded, so the two-axis and three-axis queries both resolve in about 70 µs. Reverse lookup of the Intents referencing a Fact resolves through the inverse index in 189 µs per 100 calls, about 1.9 µs per call; the earlier full-scan path cost 60.4 ms per call and is superseded by the inverse index.
 
 A batch of 10,000 facts commits in 51.9 ms, or 5.19 microseconds per fact, within a single flush boundary. The same workload before the coordinate restructure took 1,776 ms, a 34x gap.
 
@@ -617,6 +628,11 @@ $$ \lambda = \frac{N}{\Delta} = \frac{10{,}000}{51.9\,\mathrm{ms}} \approx 1.9 \
 
 where per-record I/O would multiply the flush cost by $N$.
 
+:::{ layout-ncol=2 }
+{{< include _include/bench/fig-bench-kb.qmd >}}
+{{< include _include/bench/fig-bench-write.qmd >}}
+:::
+
 ### Restructure Outcomes {#sec-perf-restructure}
 
 The layer-2 restructure moved record bodies to application-owned maps. Conflict detection is sub-microsecond per call (445 ns against 135 to 390 ms before), the average per-fact footprint dropped from about 3.4 MB to about 40 KB, and a 10,000-event stress completes in about 9.0 seconds against 17.7 seconds previously.
@@ -625,15 +641,10 @@ The layer-2 restructure moved record bodies to application-owned maps. Conflict 
 
 The index footprint is flat across record count: approximately 264 MB from 10,000 through 1,000,000 records, because the index is a fixed structure over axis combinations; the scale runs pin facts to fixed day buckets through a stepping clock, so the index structure is byte-identical across scales. The record layer costs about 901 bytes per fact, and live heap grows from 287 MB at 10,000 records to 354 MB at 100,000 and 1,165 MB at 1,000,000. Three-axis filters against a record-map scan are 8 to 38x faster at 100,000 records (scan 1,520 and 952 µs for wide and narrow queries, tree 173 and 25 µs) and 8 to 81x faster at 1,000,000 records (scan 25,700 and 18,300 µs, tree 3,240 and 226 µs). On a document set with real FIH lifecycles the tree advantage is 4.5x in phase 1 and 5.3x in phase 3. The flatness boundary is about 349 KB per distinct axis value, one dense leaf of 11,172 slots plus one branch.
 
-### Tree Walk and Prefix Queries {#sec-perf-tree}
-
-A full walk of a 50,000-entry tree takes 540 ms. Five hundred prefix queries complete in 1.12 ms total, 2.24 microseconds per query. The gap between a full O(N) walk and a subtree prefix query is a factor of about 241,000. Query time therefore does not grow as the knowledge base grows from 1,000 to 1,000,000 records; only the prefix depth changes.
-
-In cost terms a scan pays the full store while a prefix query pays only the named subtree,
-
-$$ T_{\text{scan}} \approx c\,N, \qquad T_{\text{prefix}} \approx c\,|T(\mathrm{pre})| , $$
-
-so the measured per-query gap is $N/|T(\mathrm{pre})| \approx 241{,}000$, and growth in $N$ never enters $T_{\text{prefix}}$.
+:::{ layout-ncol=2 }
+{{< include _include/bench/fig-bench-flat-index.qmd >}}
+{{< include _include/bench/fig-bench-multidim.qmd >}}
+:::
 
 ### Identity Generation {#sec-perf-idgen}
 
@@ -703,6 +714,19 @@ The FIH blackboard belongs to a family that includes classical blackboard archit
 
 Classical blackboards coordinate problem solvers through shared state; neXus restricts the state to three record kinds with a fixed lifecycle, makes Facts immutable, and gives identity a coordinate structure, which turns the blackboard itself into a replayable audit trail. Knowledge graphs store static entity-relationship triplets; a neXus Fact stores the research step that produced a statement, so the graph is a queryable computational trace rather than a snapshot. Vector stores answer similarity queries over embeddings; the structural filter answers axis queries over coordinates at constant marginal cost with no model inference. Agent memory layers in closed ecosystems couple memory to the platform; the FIH primitives decouple memory from any single backend.
 
+A separate axis of comparison is the orchestration harness. Recent agent frameworks coordinate model calls through a fixed program: the harness owns the state machine, lays out the graph or pipeline of steps, and routes messages between roles. neXus inverts this shape. There is no harness-owned state machine and no fixed program; the fabric is a concurrent substrate on which observers move. An observer is any executor in the kineTics sense, an agent, a sensor, a hardware transducer, or a human-operated terminal, and its only commitment is a set of Hints, the contract that bounds what it may do. Under that contract it reads and writes coordinate-addressed records on the shared blackboard, and coordination between observers is stigmergic: each acts on the traces the others left, with no central router deciding the next step.
+
+| Dimension | Orchestration harness | neXus fabric |
+|---|---|---|
+| Coordination | central harness runs a fixed graph or pipeline | none; observers coordinate through shared immutable records |
+| State | harness-owned session or context object | the record is the state; the blackboard is append-only |
+| Agent contract | tool and model calls defined by the harness | Hints bound what an observer may do; roles are not assigned |
+| Retrieval | vector or external index chosen by the harness | coordinate addressing via Tagma; no inverted index for lookup |
+| Memory | per-run context or external store | FIH records over any backend, decoupled from the platform |
+| Scale | one orchestration run | horizontal fabric of independent nex instances |
+
+The difference is not throughput but control. A harness composes a fixed sequence and is therefore deterministic by construction, which is its strength for reproducible single workflows; neXus does not sequence observers and cannot guarantee a step order, which is its strength for open-ended concurrent accumulation. The two are complementary: a harness may run inside an observer, and the trace that observer leaves is recorded as Facts like any other, but the harness does not become the coordination medium of the fabric.
+
 The ledger direction of the project follows from the same record layer: a twenty-coordinate identity is a full-injective encoding of a 256-bit digest, `rebuild_cache` is the seed of offline state reconstruction, and per-channel partition scans are the seed of multi-channel semantics. The framework of stigmergic coordination grounded in distributed ledger state has a published formal counterpart[^ledger]. Consensus, ordering, and optional propagation are application-layer programs over the record layer; they are not yet part of the core.
 
 A landscape catalog of roughly sixty external systems, spanning knowledge-graph construction, autonomous research, GraphRAG, and curation, is maintained in the project documentation as the reference survey for the retrieval and agent layers[^refs].
@@ -726,7 +750,7 @@ The roadmap, in the order the project publishes it:
 | Editor integration over a standard agent protocol | in progress, see `nex-zed` |
 | Deterministic path learning research program | phases defined, first phase in execution |
 
-The learning research program deserves a closing note because it frames the direction. Phase 1 formalizes the skeleton as the conformance reference and tests that a run is fully reconstructible from its FIH record. Phase 2 builds a path learner over the structural filter index. Phase 3 benchmarks the learning trace on the existing store surfaces. Phase 4 runs the learner on the OS-less storage line. Phase 5 expresses a small SGD-trained function as accumulated paths and compares reproducibility, auditability, accuracy, and cost. The purpose of the program is to find the boundary between path-accumulated knowledge and stochastic optimization, not to declare a winner in advance.
+The learning research program deserves a closing note because it frames the direction. Phase 1 formalizes the skeleton as the conformance reference and tests that a run is fully reconstructible from its FIH record. Phase 2 builds a path learner over the filter index. Phase 3 benchmarks the learning trace on the existing store surfaces. Phase 4 runs the learner on the OS-less storage line. Phase 5 expresses a small SGD-trained function as accumulated paths and compares reproducibility, auditability, accuracy, and cost. The purpose of the program is to find the boundary between path-accumulated knowledge and stochastic optimization, not to declare a winner in advance.
 
 ## Conclusion {#sec-conclusion}
 
@@ -904,13 +928,15 @@ All figures in @sec-performance come from the reference benchmark suite, execute
 | ULHM | universal latent homeomorphic manifold verifier |
 | AsyncStorage bridge | hydrate-run-drain pattern for hosted runtimes |
 
-[^repo]: neXus reference repository, github.com/ssccsorg/nexus, Apache License 2.0.
-[^docs]: neXus project documentation, <https://docs.ssccs.org/projects/nexus/>
+[^repo]: neXus reference repository, <https://github.com/ssccsorg/nexus>, Apache License 2.0.
+[^nexcalc]: `nex-calc` source, <https://github.com/ssccsorg/nexus/tree/main/apps/nex-calc>
+[^synTagma]: synTagma is the coordinate-space stack beneath the fabric: the Tagma whitepaper defines coordinate identity, and the reference implementation lives at <https://docs.ssccs.org/projects/syntagma>
+[^chton]: chton is the IO materialization layer: it lands the coordinate space onto physical origins (memory, file, signal, network) and provides the flat key-space IO surface that neXus backends implement; <https://docs.ssccs.org/projects/chton>.
 [^ssccs]: SSCCS whitepaper, Schema-Segment Composition Computing System, <https://ssccs.org/wp>, DOI 10.5281/zenodo.18759106
 [^tagma]: Tagma whitepaper, <https://docs.ssccs.org/projects/syntagma/tagma/>, DOI 10.5281/zenodo.21302508
-[^coord20]: Coord ID 20 migration note, ssccs-nexus repository, <https://github.com/ssccsorg/nexus/blob/main/docs/2026-08-20-coord-id-20-migration.md>
+[^coord20]: Coord ID 20 migration note, nexus repository, <https://github.com/ssccsorg/nexus/blob/main/docs/2026-08-20-coord-id-20-migration.md>
 [^l2]: Content-hash conflict detection and the L2 restructure (2026-08-20) and The thin nexus principle (2026-08-20), ssccs-nexus repository docs; <https://github.com/ssccsorg/nexus/blob/main/docs/2026-08-20-176-content-hash-conflict-l2-restructure.md> and <https://github.com/ssccsorg/nexus/blob/main/docs/2026-08-20-thin-nexus-principle.md>
 [^learn]: Computation as knowledge: deterministic path learning (2026-09-02), ssccs-nexus repository docs; <https://github.com/ssccsorg/nexus/blob/main/docs/2026-09-02-computation-as-knowledge-deterministic-path-learning.md>
-[^bench]: neXus benchmark suite, github.com/ssccsorg/nexus, benches directory
+[^bench]: neXus benchmark suite, <https://github.com/ssccsorg/nexus>, benches directory
 [^ledger]: Ledger-State Stigmergy: A Formal Framework for Indirect Coordination Grounded in Distributed Ledger State, arXiv preprint cited in the project documentation
 [^refs]: Reference landscape catalog of external systems, maintained in the neXus project documentation
