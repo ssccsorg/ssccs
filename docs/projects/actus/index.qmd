@@ -1,6 +1,6 @@
 ---
 title: "Actus"
-subtitle: "Agent orchestration runtime across a shared knowledge space"
+subtitle: "A headless runtime that executes acts, directly and through agents"
 format:
     html: {}
 metadata-files:
@@ -14,15 +14,19 @@ metadata-files:
 title_meta_items = {
     "html": [
         {"title": "Code", "link": "https://github.com/ssccsorg/actus", "content": "GitHub (Pre-release)", "icon": "bi bi-link"},
+        {"title": "References", "link": "https://docs.ssccs.org/projects/kinetics/", "content": "kineTics", "icon": "bi bi-link"},
+        {"title": "References", "link": "https://docs.ssccs.org/projects/telos/", "content": "Telos", "icon": "bi bi-link"},
         {"title": "References", "link": "https://docs.ssccs.org/projects/nexus/", "content": "neXus", "icon": "bi bi-link"},
         {"title": "References", "link": "https://docs.ssccs.org/projects/", "content": "SSCCS Projects", "icon": "bi bi-link"},
-        {"title": "References", "link": "/projects/syntagma/tagma/signal/", "content": "Tagma Signal", "icon": "bi bi-link"},        
+        {"title": "References", "link": "/projects/syntagma/tagma/signal/", "content": "Tagma Signal", "icon": "bi bi-link"},
     ],
     "pdf": [
         {"title": "Code", "link": "https://github.com/ssccsorg/actus", "content": "GitHub", "icon": "bi bi-link"},
+        {"title": "References", "link": "https://docs.ssccs.org/projects/kinetics/", "content": "kineTics", "icon": "bi bi-link"},
+        {"title": "References", "link": "https://docs.ssccs.org/projects/telos/", "content": "Telos", "icon": "bi bi-link"},
         {"title": "References", "link": "https://docs.ssccs.org/projects/nexus/", "content": "neXus", "icon": "bi bi-link"},
         {"title": "References", "link": "https://docs.ssccs.org/projects/", "content": "SSCCS Projects", "icon": "bi bi-link"},
-        {"title": "References", "link": "https://docs.ssccs.org/projects/syntagma/tagma/signal/", "content": "Tagma Signal", "icon": "bi bi-link"},        
+        {"title": "References", "link": "https://docs.ssccs.org/projects/syntagma/tagma/signal/", "content": "Tagma Signal", "icon": "bi bi-link"},
     ]
 }
 ```
@@ -35,42 +39,52 @@ title_meta_items = {
 %run ../../_include/_graphviz.py
 ```
 
-Actus is the agent orchestration layer of the SSCCS stack, licensed under
-Apache-2.0. It plans with the LLM, holds conversation state and workspace
-context, and commands the execution agents that convert plans into system
-effects. The default execution agent is Telos, the general headless agent
-layer of the stack. Telos runs as a separate native process and speaks an
-ACP-over-WebSocket contract; actus never links or bundles agent code, so
-the Apache-2.0 actus image carries no GPL-3.0-or-later Telos code.
+Actus is a headless runtime that executes acts, directly and through
+agents. The name joins act and us: the runtime exists for acts, the way
+nex-us exists for knowledge. An act is any unit of execution, from
+reading workspace context, editing files, running commands, resolving
+symbols, and fetching resources, to driving an agent through a task. An
+agentic process is one kind of act, the first implemented kind and not
+the only one; direct acts run in-process, and control acts let one agent
+dispatch another through a policy-gated surface.
+
+Under [kineTics](https://docs.ssccs.org/projects/kinetics/), the
+universal execution and transduction controller of the stack, actus is
+the hub of the agent executor type. It manages the lifecycle of any
+agent instance, vendor-agnostic, with Telos as the base system agent
+instance among them. Building actus as the agent supervisor is the first
+step toward kineTics, and actus is positioned to become its core
+implementation. Actus is licensed under Apache-2.0. It never links or
+bundles agent code: agents are external processes reached over a
+contract, so the Apache-2.0 actus image carries no GPL-3.0-or-later
+Telos code.
 
 The orchestration surface is agent-agnostic. Every agent kind implements
 one `AgentBackend` trait, and an `AgentRegistry` maps names to running
-adapters. Telos is the default kind. A native in-process adapter serves
-as a reference and for tests, and further kinds plug in behind the same
-surface. Configuration lives in `~/.actus/config.toml`: each `[[agents]]`
-entry sets kind, provider, model, binary path, WebSocket port, tool
-approval policy, and the MCP servers injected into the agent. Without a
-config file, actus derives a single default Telos agent from CLI flags
-and environment variables.
+adapters. Implemented kinds are Telos (sessionful, ACP over WebSocket),
+`ext_cli` (one-shot raw-CLI profiles such as Ante and AURA), and the
+native in-process reference adapter; a LangGraph kind is declared and
+parsed but has no adapter yet. Each adapter advertises capabilities
+(sessionful, streaming, tools, approval, parallel, transport), so upper
+layers choose the right act shape instead of assuming every agent is a
+full session. Configuration lives in `~/.actus/config.toml`: each
+`[[agents]]` entry sets kind, provider, model, binary path, WebSocket
+port, tool approval policy, working directory, and the MCP servers
+injected into the agent. Meta dispatch between agents is gated by an
+`[agent-control]` allowlist. Without a config file, actus derives a
+single default Telos agent from CLI flags and environment variables.
 
-A large language model by itself is stateless. Every interaction starts
-from zero. The infrastructure around it must manage conversation history,
-provide context about the workspace, and command a tool-carrying
-executor. Actus provides the orchestration: it owns threads and context,
-and drives Telos as its instrument for file edits, command runs, and
-network effects. The client sees one headless service with no GUI, no
-display server, and no browser.
-
-The shape mirrors the layer below. neXus realizes its purpose through
-chton, the single low-level executor over the coordinate space. Actus
-does the same with Telos: the orchestra decides, the executor acts, and
-the agent underneath stays replaceable behind the contract.
+Clients see one headless service with no GUI, no display server, and no
+browser. Actus owns conversation threads, workspace context, and the
+agent process lifecycle; the agent owns its planning and its LLM. The
+actus to Telos wire contract is one instance of the coordinate-based
+contract that kineTics defines for every executor type.
 
 ## Architecture
 
 ```{python}
 #| label: fig-actus-architecture
-#| fig-cap: "Actus: a server layer owns threads and context and bridges external clients to one or more execution agents behind a uniform registry. Telos is the default."
+#| fig-cap: "Actus: a server layer owns threads and context and bridges external clients to one or more agent instances behind a uniform registry. Telos is the base system agent instance; auxiliaries attach as one-shot profiles."
 dot("""
 digraph ActusArchitecture {
     rankdir=LR;
@@ -87,73 +101,109 @@ digraph ActusArchitecture {
 
         api [label="HTTP API Layer", shape=box, style=filled, fillcolor="#a8e6cf", fontsize=11, width=1.6];
         state [label="Session State\n+ Persistence", shape=box, style=filled, fillcolor="#fff9c4", fontsize=11, width=1.6];
-        bridge [label="Agent Registry + Bridge\n(Telos · Native · more)", shape=box, style=filled, fillcolor="#ffd3b6", fontsize=11, width=1.6];
-        ctx [label="Workspace Context\n(Files / Git / Rules)", shape=box, style=filled, fillcolor="#e1bee7", fontsize=11, width=1.6];
+        bridge [label="Agent Registry + Bridge\n(Telos · ext_cli · Native)", shape=box, style=filled, fillcolor="#ffd3b6", fontsize=11, width=1.6];
+        direct [label="Direct Acts\n(Files / Git / Rules / Fetch)", shape=box, style=filled, fillcolor="#e1bee7", fontsize=11, width=1.6];
 
         api -> state [style=bold, color="#5577bb"];
         state -> bridge [style=bold, color="#5577bb"];
-        state -> ctx [style=dashed, color="#667766"];
+        state -> direct [style=dashed, color="#667766"];
     }
 
-    telos [label="Telos\n(default execution agent,\nseparate process)", shape=box, style=filled, fillcolor="#c8e6c9", fontsize=12, width=1.8];
-    aux [label="Auxiliary agents\n(planned)", shape=box, style=filled, fillcolor="#f8f8f8", fontsize=11, width=1.6];
+    telos [label="Telos\n(base system agent instance,\nseparate process)", shape=box, style=filled, fillcolor="#c8e6c9", fontsize=12, width=1.8];
+    aux [label="Auxiliary agents\n(ext_cli one-shot profiles)", shape=box, style=filled, fillcolor="#e8f8e8", fontsize=11, width=1.6];
 
     client -> api [label="REST / Streaming", style=bold, color="#5577bb"];
     bridge -> telos [label="ACP over WebSocket", style=bold, color="#5577bb"];
-    bridge -> aux [label="contract", style=dashed, color="#889988"];
+    bridge -> aux [label="one process per turn", style=dashed, color="#889988"];
+    telos -> aux [label="meta dispatch\n(actus-control)", style=dotted, color="#996688"];
 }
 """)
 ```
 
 The architecture follows a layered separation of concerns:
 
-- **HTTP API Layer**: Exposes the agent's capabilities over REST with streaming support for real-time response delivery, guarded by bearer-token authentication. Clients interact through a uniform interface without needing to manage the agent process directly.
+- **HTTP API Layer**: Exposes actus over REST with streaming support for
+  real-time delivery, guarded by bearer-token authentication. Clients
+  interact through a uniform interface without managing the agent process
+  directly.
 
-- **Session State and Persistence**: Manages conversation threads per agent across reconnections. Each thread maintains its full message history under `~/.actus/threads/{agent}`, so the agent resumes from where it left off even after connection drops or server restarts.
+- **Session State and Persistence**: Manages conversation threads per
+  agent across reconnections. Each thread keeps its message history under
+  `~/.actus/threads/{agent}`, so a sessionful agent resumes after
+  connection drops or server restarts. Threads of one-shot agents record
+  the dispatch origin (`parent`) when a meta agent created them.
 
-- **Agent Registry and Bridge**: The communication channel between the server and the agent processes. The Telos adapter speaks ACP over WebSocket and handles automatic reconnection, message delivery guarantees, and the lifecycle of the agent process. Each configured agent carries its own tool approval policy (`always`, `ask`, `never`) and its injected MCP servers, and the policy is carried to the agent on launch.
+- **Agent Registry and Bridge**: The channel between actus and agent
+  processes. The Telos adapter speaks ACP over WebSocket and handles
+  reconnection and the agent process lifecycle; the `ext_cli` adapter
+  spawns a declared binary per turn with a launch probe, per-agent
+  working directory, and request-scoped cancellation. Each agent carries
+  its own tool approval policy (`always`, `ask`, `never`) and injected
+  MCP servers.
 
-- **Workspace Context**: Provides filesystem-level and git-aware context to the agent. Enables file search, symbol search, project rule discovery, repository structure awareness, and workspace navigation. Context mentions can pull file contents, symbol definitions, rule files, and public URLs behind an SSRF guard.
+- **Direct Acts**: Filesystem and git acts run inside the server: file
+  search and mention, symbol search, project rule discovery, URL fetch
+  behind an SSRF guard, and git status, diff, and log.
 
 ## Design Principles
 
-**Stateless client, stateful server.** Clients send individual messages without managing conversation history. The server tracks thread state, injects prior context, and presents a coherent narrative to the agent on each turn.
+**Stateless client, stateful server.** Clients send individual messages
+without managing conversation history. The server tracks thread state,
+injects prior context, and presents a coherent narrative to the agent on
+each turn.
 
-**Headless by default.** The agent runs without any graphical interface. This eliminates the dependency on desktop environments, display servers, and browser runtimes, making the system deployable on servers, containers, edge nodes, and embedded devices.
+**Headless by default.** The agent runs without any graphical interface.
+This removes desktop environments, display servers, and browser
+runtimes, making the system deployable on servers, containers, edge
+nodes, and embedded devices.
 
-**Protocol isolation.** The server owns the agent lifecycle and communication protocol. Clients interact only through HTTP, insulating them from changes in the underlying agent protocol or implementation.
+**Protocol isolation.** The server owns the agent lifecycle and
+communication protocol. Clients interact only through HTTP, insulated
+from changes in the underlying agent protocol or implementation.
 
-**Thin runtime with process-separated agents.** The runtime links no agent implementation. Agents are external processes located by path and reached over a contract, so the Apache-2.0 actus image never carries GPL Telos code, and an agent can be swapped without changing the server. The published runtime image holds only the actus binary and git.
+**Thin runtime with process-separated agents.** The runtime links no
+agent implementation. Agents are external processes located by path and
+reached over a contract, so the Apache-2.0 actus image never carries GPL
+Telos code and an agent can be swapped without changing the server.
+
+**Acts over agents.** The agent family is one kind of act. Direct acts
+run without any agent, and control acts let one agent drive another, so
+the runtime surface stays an act surface rather than an agent shell.
 
 ## Status and Direction
 
-Actus is Apache-2.0 licensed, pre-release, and in active development. The
-actus to Telos contract works end to end: Telos connects over WebSocket
-and serves threads, tools, and cancellation. Deterministic conformance
-tests run without an LLM in CI, using a stub agent for the mock-only
-tier and a fake backend for the contract scenarios, beside the live local
-suite. Per-agent thread persistence, bearer-token authentication,
-per-agent tool approval, and MCP injection are in place.
+Actus is Apache-2.0 licensed, pre-release, and in active development.
+The actus to Telos contract works end to end: Telos connects over
+WebSocket and serves threads, tools, and cancellation. Per-agent thread
+persistence, bearer-token authentication, per-agent tool approval, MCP
+injection, auxiliary one-shot agents, and the meta-agent control surface
+are in place. Deterministic conformance runs without an LLM in CI: the
+mock tier uses a stub agent, and a pull-based real-agent tier runs the
+suite against the real Telos binary from the prebuilt telos image once
+that image is published.
 
 Packaging follows the thin runtime: a multi-stage Dockerfile builds a
-test image for CI and a slim runtime image for publishing. The Rust unit
-and integration suites run on the test image, and published images are
-cut on version tags (a versioned image plus `latest`) or as manual dev
-snapshots, so ordinary development commits publish nothing.
+test image for CI and a slim runtime image for publishing. Published
+images are cut on version tags (a versioned image plus `latest`) or as
+manual dev snapshots, so ordinary development commits publish nothing.
 
 Current direction:
 
-- **Multi-agent operation.** Keep Telos as the professional execution
-  core and add lightweight auxiliary agents behind the same registry, the
-  first trial of a one-plus-a deployment. The first candidate is Ante, a
-  single-binary terminal agent whose source is Apache-2.0 and whose
-  prebuilt binary ships under separate preview terms; actus would drive
-  it through its JSONL serve protocol or headless one-shot mode.
-- **neXus integration.** Archive long-running conversations on the neXus
-  blackboard and accumulate knowledge across sessions.
-- **Wider tool coverage through Telos.** Extend the endpoint surface that
-  the orchestration layer exposes without coupling to a single agent
-  implementation.
+- **kineTics alignment.** Actus is the hub of the agent executor type
+  under kineTics. As kineTics defines further executor types (signal,
+  hardware, human-machine, bridge), the act kinds actus routes today
+  extend toward them behind the same contract.
+- **Auxiliary agents.** The `ext_cli` one-shot family is implemented.
+  Ante is the first candidate over its headless `-p` mode; AURA is the
+  second over its standalone `--query` mode.
+- **Meta-agent control.** A sessionful agent can dispatch auxiliary
+  agents through the `actus-control` MCP surface under the
+  `[agent-control]` policy. Live verification waits on the telos headless
+  contract fix so actus-injected settings and context servers reach the
+  agent process.
+- **Telos contract.** The headless agent entry point currently ignores
+  `--user-data-dir` (telos issue tracker), so actus-injected settings
+  load only after the upstream fix lands.
 
 ---
 
