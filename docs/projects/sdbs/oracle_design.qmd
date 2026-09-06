@@ -8,8 +8,9 @@ abstract: |
   The corpus the engine publishes becomes observable. A task enters at a
   coordinate and the oracle returns the insight path that connects it to
   the next step, with every hop evidenced and every response bound to one
-  corpus snapshot. This document states the observation contract, the
-  canonical chain model, the path dimensions, and the milestones.
+  corpus snapshot. This document states the domain position, the current
+  state, the observation contract, the canonical chain model, the path
+  dimensions, and the milestones.
 ---
 
 {{< include ../../_include/_title_meta_items.qmd >}}
@@ -20,13 +21,42 @@ abstract: |
 %run ../../_include/_graphviz.py
 ```
 
-## Observation
+## Position
 
-Build time and observation time are separate. The engine declares a
-canonical snapshot of the corpus. This layer observes the snapshot: for
-the task an agent needs to perform, it returns a path of evidenced hops
-instead of a list of matches. Each hop is one fact anchored to a cell, and
-the terminal hop is the proposed next step.
+The engine layer is open. It validates, heals, renders, and extracts the
+machine-readable corpus, and it declares what the current corpus is. The
+observation layer reads the same snapshots and returns insight paths
+instead of match lists. The two layers stay separate over one record model,
+and the corpus produced by the engine is their shared entry point.
+
+| Role | Responsibility |
+|------|----------------|
+| Corpus producer | Validates, heals, and extracts the machine-readable corpus from source documents |
+| Structural addressing | Gives every document and fact a structural coordinate |
+| Materialization | Lands the coordinate space on media: file today, signal, network, and GPU later |
+| Runtime | Holds facts, accumulates verified records, and enables graph traversal and gap detection |
+| Client and edge | Carries the spatial state engine to any device with offline self-custody |
+
+The structural addressing layer is the tagma coordinate space, the
+materialization layer is chton, and the runtime is neXus. The client and
+edge layer implements the same state space on portable hardware.
+
+## State
+
+- The machine-readable corpus is produced on every build of the reference
+  suite, is published, and is publicly fetchable. Verified.
+- A fast authoring loop previews single documents and collects published
+  artifacts between full builds. Verified.
+- The ingestion half of the pipeline is exercised end to end: the corpus is
+  fetched, pages are stored as facts, and coordinate and semantic indexes
+  are rebuilt. Verified as existing capability.
+- The service surface for normal users is a known gap. Verified as absent.
+- Refresh is manual; scheduled and diff-based refresh is absent. Verified
+  as absent.
+- Storage routing through the materialization layer, and client and edge
+  integration, are designed but built later. Projected.
+
+## Observation
 
 The response A(q, σ) to a request q over a snapshot σ is a path, and the
 oracle contract fixes four properties:
@@ -154,22 +184,28 @@ lives at a coordinate, is the planned replacement for this dimension.
 
 - Cell granularity: token, sentence, or segment, uniform or adaptive.
 - Projection cadence: per snapshot or lazily on request.
+- Refresh strategy: scheduled full sync versus diff-based incremental
+  ingestion.
+- Storage routing: adoption of the materialization layer at Phase 2 or
+  earlier.
 - Semantic introduction: when embeddings enter under the pin, and what
   the structural vector space must provide to replace them.
 - Status detection: contradiction and supersession beyond count-based gap
   heuristics.
 - Path semantics: what makes a hop valid across dimensions and what
   counts as a terminal next step.
-- Product surface and distribution.
+- Service surface, distribution, and commercial boundary: desktop
+  application, hosted endpoint, or both; package identity and the
+  open-core boundary.
 
 ## Milestones
 
 | Phase | Deliverable | Evidence |
 |-------|-------------|----------|
-| 1 | Snapshot contract | Manifest reproduced byte for byte by independent rebuilds |
-| 2 | Chain and structure, time, provenance, relation projections | Time travel returns the exact state at a past build |
-| 3 | Observation surface | A task returns an evidenced path or an open intent under the pin |
-| 4 | Scale and governance | A corpus beyond the reference suite with the same guarantees |
+| 1 | Snapshot contract and corpus service | Manifest byte-identical across independent rebuilds; corpus reflects changes without manual intervention |
+| 2 | Chain, projections, and storage routing | Time travel returns the exact state at a past build; materialization layer holds the knowledge store |
+| 3 | Observation surface and client | A task returns an evidenced path or an open intent under the pin; the client surfaces it offline with multi-device sync |
+| 4 | Scale and governance | A corpus beyond the reference suite; provenance and audit across corpora and teams |
 
 Development starts at Phase 1. A specification for the snapshot contract
 will follow this document.
@@ -179,4 +215,3 @@ will follow this document.
 - SDBS index (index.qmd in this directory)
 - Single-path artifact pipeline observation (ci_observations.qmd in this
   directory)
-- The Living Corpus (living_corpus.qmd in this directory)
