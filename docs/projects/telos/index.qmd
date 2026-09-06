@@ -14,6 +14,7 @@ metadata-files:
 title_meta_items = {
     "html": [
         {"title": "References", "link": "https://docs.ssccs.org/projects/actus/", "content": "Actus", "icon": "bi bi-link"},
+        {"title": "References", "link": "https://docs.ssccs.org/projects/kinetics/", "content": "kineTics", "icon": "bi bi-link"},
         {"title": "References", "link": "https://docs.ssccs.org/projects/nexus/", "content": "neXus", "icon": "bi bi-link"},
         {"title": "References", "link": "https://docs.ssccs.org/projects/", "content": "SSCCS Projects", "icon": "bi bi-link"},
     ]
@@ -28,11 +29,14 @@ title_meta_items = {
 %run ../../_include/_graphviz.py
 ```
 
-Telos is the general agent execution layer of the SSCCS stack. Actus plans
-with the LLM; Telos converts plans into system effects. A command arrives,
-a coordinate is resolved, a process or file or network effect happens, and
-the result returns. The layer is general: it executes without binding to a
-language or a domain.
+Telos is the general agent execution layer of the SSCCS stack and the
+base system agent instance under the actus hub. Under
+[kineTics](https://docs.ssccs.org/projects/kinetics/), actus supervises
+the agent executor type; Telos is its first instance. Planning with the
+LLM and converting plans into system effects happen inside Telos: a
+command arrives over the actus contract, a coordinate is resolved, a
+process or file or network effect happens, and the result returns. The
+layer is general: it executes without binding to a language or a domain.
 
 Telos is a headless agent in the form of a single native binary of about
 40-50 megabytes. There is no interface to launch, no runtime to install,
@@ -67,7 +71,7 @@ and large-scale analysis uses every core it is given.
 
 ```{python}
 #| label: fig-telos-fleet
-#| fig-cap: "The Telos fleet: nodes addressed by the tel command surface and by actus, coordinated as peers through the neXus coordinate space."
+#| fig-cap: "The Telos fleet: nodes addressed by the tel command surface and by the actus agent hub, coordinated as peers through the neXus coordinate space under kineTics."
 dot("""
 digraph TelosFleet {
     rankdir=TB;
@@ -76,7 +80,7 @@ digraph TelosFleet {
     ranksep=0.7;
 
     tel   [label="tel\\ncommand surface", shape=box, style=filled, fillcolor="#d4f1f9", fontsize=11];
-    actus [label="actus\\norchestration", shape=box, style=filled, fillcolor="#a8e6cf", fontsize=11];
+    actus [label="actus\\nagent hub", shape=box, style=filled, fillcolor="#a8e6cf", fontsize=11];
 
     subgraph cluster_nodes {
         label="telos nodes in the fleet"; fontsize=12; style=filled; fillcolor="#f7f7f2"; color="#4488cc"; penwidth=2;
@@ -210,23 +214,30 @@ filtering, and the one-terminal-event-per-request rule.
 | Physical foundation | Chton (tagma) | coordinates over disk, RAM, and network bytes |
 | Data hub | Nexus | logs, snapshots, and state over the coordinate space |
 | Verification | EV and peers | mathematical verification of coordinate operations |
-| Intelligence | Actus | planning with the LLM, domain knowledge |
-| Execution | Telos | command intake, system call conversion, ACP/MCP execution |
+| Agent hub | Actus | hub of the agent executor type under kineTics; supervises agent instances |
+| Base agent instance | Telos | LLM planning, command intake, and system-effect conversion over ACP/MCP |
 
 ## Status
 
 Bootstrap. The agent core is attached and speaks the actus contract end
 to end: an LLM backend with a tool registry and a tool-call loop, plus a
-deterministic backend that exercises the same flows without an LLM. The
-actus chat flow works with the `tel` binary attached either way.
+deterministic stub backend that exercises the same flows without an LLM.
+The actus chat flow works with the `tel` binary attached either way.
 
 The binary runs the core directly with no interface stack and ships with
 the built-in model providers. Telos is an independent project; actus
 depends on it as its agent binary and nothing else. The repository is
 private. Licensing is decided only if and when distribution is planned.
 
+Two integration items sit on the telos board: the headless entry point
+must consume `--user-data-dir` so actus-injected settings and context
+servers reach the agent process, and a prebuilt agent image must be
+published so downstream actus CI can pull it instead of building.
+
 ## Direction
 
+- Complete the actus integration contract: consume `--user-data-dir` in
+  the headless entry point and publish the prebuilt agent image.
 - The full tool surface: file, process, network, and MCP effects produced
   from resolved coordinates.
 - Basic indexing integrated into tagma coordinates, so location resolution
