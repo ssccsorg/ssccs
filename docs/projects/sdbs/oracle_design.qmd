@@ -1,0 +1,272 @@
+---
+title: "The Corpus Oracle"
+subtitle: "Development design: structural observation and insight paths over a deterministic corpus chain"
+date: last-modified
+metadata-files:
+  - ../../_include/author.yml
+abstract: |
+  This document records the development design for the next stage of the
+  SDBS project: a corpus oracle built on a deterministic corpus chain. SDBS
+  keeps its role as the open engine that produces canonical corpus
+  snapshots; the oracle is a product layer that observes accumulated
+  snapshots and returns structural observations on the same substrate. An
+  observation weaves the key insight paths across multiple dimensions and
+  connects the task an agent needs to perform to its next steps. The design
+  states the oracle contract, the single canonical chain as the primitive
+  source, the derived projections, the recorded decisions, the open design
+  questions, and the milestones. Implementation-level interfaces are
+  intentionally left to a later specification.
+---
+
+{{< include ../../_include/_title_meta_items.qmd >}}
+
+```{python}
+#| include: false
+#| context: local
+%run ../../_include/_graphviz.py
+```
+
+## Purpose and Scope
+
+This document is the design layer of the SDBS project. Its siblings cover
+the other layers: the index describes the build system as it exists today,
+the single-path artifact pipeline observation describes the production
+side, and the living corpus document describes the knowledge-base domain
+and its vision. This document sits between the vision and the code. It
+states the target architecture for the next stage, records the design
+decisions that are already made, and lists the questions that remain open.
+It does not specify interfaces or data formats in code form.
+
+The design is renderer-agnostic and substrate-agnostic in the same sense as
+the build system: the corpus chain and its projections apply to any corpus
+that the engine can validate and publish.
+
+## Design Position
+
+The project evolves along two layers that share one substrate and one
+record model.
+
+The engine layer is open. It validates, heals, renders, and extracts the
+machine-readable corpus, and it declares what the current corpus is. Its
+output is a canonical snapshot, deterministic and re-derivable by anyone.
+
+The product layer observes accumulated snapshots. It owns the
+observation-time responsibilities: the derived projections, the insight
+paths woven across them, and the provenance and gap responses attached to
+each path. It is a separate operating layer with its own boundary,
+distinct from the build engine.
+
+The boundary between the layers is explicit. The engine owns the build
+time: validation, normalization, and snapshot declaration. The product
+owns the observation time: projections, path weaving, and next-step
+responses. Folding observation responsibilities into the build engine
+would pull the project back toward a document builder with retrieval
+bolted on.
+
+## The Oracle Contract
+
+An oracle is defined by four guarantees. The guarantees apply to the
+insight paths it returns and separate an oracle from an index-driven
+search engine.
+
+- Determinism: the same snapshot and the same observation request produce
+  the same path with the same evidence per hop.
+- Provenance: every hop of a path carries the document, section, and cell
+  it comes from.
+- Freshness: every path states which corpus build it is bound to.
+- Gap awareness: when the corpus contains no evidence for a path, the
+  oracle returns an open intent instead of fabricating a step.
+
+An oracle response is a path, and each hop is anchored to a fact with a
+coordinate. Indexed search is the single-hop case of the same form.
+
+The first gate for these guarantees is the snapshot contract. Every build
+produces a corpus manifest with content-derived fingerprints, one per
+document and one for the corpus as a whole. The manifest is the authority
+that binds every observation to a specific corpus state.
+
+## Structural Observation
+
+The oracle observes the structure of the corpus for the task an agent
+needs to perform and weaves the key insight paths that lead from the task
+to the next step.
+Each path crosses the derived projections: a structural hop to the section
+that defines a term, a semantic hop to the document that develops it, a
+temporal hop to the build that changed it, a relational hop to the
+specification that constrains it, and a status hop that marks it as
+superseded. Every hop carries provenance.
+
+Path endpoints are next steps. A path that reaches a concrete directive or
+a validated fact proposes that directive or fact as the next action. A
+path that ends without evidence returns an open intent: the gap itself is
+the next step, and the observation loop continues when new facts thicken
+the structure. Agents deposit facts, the structure grows, and later
+observations find richer paths.
+
+## The Deterministic Primitive: a Single Canonical Chain
+
+The organizing insight of the design is that a corpus of any complexity and
+any document count can be represented as one stretched chain of ordered
+cells. The chain is the primitive source. Every other structure, the
+document hierarchy, the cross-reference graph, the time index, and the
+semantic index, is a deterministic derived projection over the chain.
+
+The chain has four properties.
+
+A cell is the atomic unit. What a cell holds is an open question, recorded
+below. Candidates are a token, a sentence, or a segment. Each cell carries
+a structural coordinate, a content fingerprint, and, under a pinned model,
+a deterministic vector.
+
+Content is stored once. A unit that is included or referenced by many
+documents exists at one coordinate, and documents refer to it instead of
+duplicating it. A document is a coordinate interval, not a copy.
+
+The order is canonical. The chain has a single ordering rule so that
+merging corpora or runner outputs is commutative, mirroring the merge
+semantics the engine already uses. Without a canonical order, the same
+corpus could produce different chains and break determinism.
+
+The snapshot is a pointer. A snapshot is a manifest plus a position in the
+chain. Time-travel queries reconstruct the state at any past position by
+reading the chain prefix up to that position. Determinism of the derived
+structures follows from the manifest, the pinned model, and the fixed
+segmentation rule, which together form the snapshot contract.
+
+The chain is the source; the projections are the access paths. Observation
+requests never scan the whole chain. Each dimension is served by a
+projection that is rebuilt from the chain deterministically and
+idempotently.
+
+```{python}
+#| label: fig-chain-design
+#| fig-cap: "The canonical chain as primitive source and its derived projections"
+dot("""
+digraph ChainDesign {
+    rankdir=LR;
+    splines=ortho;
+    node [shape=box, style=rounded, fontsize=9];
+    edge [fontsize=8];
+
+    Sources [label="Source documents\n(qmd, md)", fillcolor="#E8F4F8", style=filled];
+    Engine [label="SDBS engine\nvalidate, heal, render,\nmachine-readable extraction", fillcolor="#FFF4E6", style=filled];
+    Snapshot [label="Corpus snapshot\n(manifest, fingerprints)", fillcolor="#E6F0E6", style=filled];
+    Chain [label="Canonical chain\nordered cells, one copy per unit", fillcolor="#F3E8F4", style=filled];
+    Projections [label="Derived projections\nstructure, meaning, time,\nprovenance, relation, status", fillcolor="#E8F4F8", style=filled];
+    Oracle [label="Observation plane\ninsight paths, provenance,\nopen intents", fillcolor="#FFF4E6", style=filled];
+    Users [label="Agents and users\n(next-step execution)", fillcolor="#E6F0E6", style=filled];
+
+    Sources -> Engine;
+    Engine -> Snapshot;
+    Snapshot -> Chain [label="cell order rule"];
+    Chain -> Projections [label="deterministic rebuild"];
+    Projections -> Oracle;
+    Oracle -> Users;
+}
+""")
+```
+
+## Derived Projections
+
+Six dimensions feed path weaving over the chain. Each dimension
+contributes one kind of hop to an insight path.
+
+| Dimension | Contribution to a path |
+|-----------|------------------------|
+| Structure | Document and section coordinates from the chain intervals |
+| Meaning | Similarity over cell vectors under a pinned model |
+| Time | Snapshot positions and change history between builds |
+| Provenance | Source file, commit, and build identity per hop |
+| Relation | The validated cross-reference graph as derived edges |
+| Status | Validity, supersession, and contradiction candidates |
+
+The record model maps the projections onto facts with coordinates and
+timestamps. Every path and hop can be traced back to the chain cells and
+the snapshot that produced it, which makes the oracle auditable by
+construction. Derived rebuilds are idempotent: running the same projection
+twice on the same snapshot yields the same index.
+
+The semantic projection deserves one design note. Today meaning depends on
+external embedding models, which change over time. The snapshot contract
+keeps semantics deterministic by pinning the model and the segmentation
+rule to the manifest. A structural vector space, where the vector itself
+lives at a coordinate, is the future direction for this projection; until
+it exists, external embeddings are permitted only under the pin.
+
+## Recorded Decisions
+
+The following decisions are made in this document and will anchor the
+implementation.
+
+- The chain is the primitive source; every index is a derived projection.
+- Content is stored once; documents are coordinate intervals over cells.
+- The snapshot contract carries determinism: manifest, order rule, pinned
+  model, and fixed segmentation.
+- The engine and the product are separate layers over one substrate.
+- The oracle is defined by the four guarantees of the contract.
+
+## Open Design Questions
+
+Six questions remain open. Each is a decision point for the development
+kickoff.
+
+- Cell granularity: token, sentence, or segment, and whether granularity is
+  uniform or adaptive.
+- Projection cadence: which projections rebuild per snapshot and which
+  rebuild lazily on query.
+- Semantic introduction: when external embeddings enter under the pin, and
+  what the structural vector space must provide to replace them.
+- Status detection: how contradiction and supersession detection evolve
+  beyond count-based gap heuristics.
+- Path semantics: what makes a hop valid across projections and what
+  counts as a terminal next step.
+- Product surface and distribution: deferred to the decisions recorded in
+  the living corpus document.
+
+## Milestones
+
+Phase 1: Snapshot contract. The engine emits a corpus manifest with
+document and corpus fingerprints on every build. The evidence criterion is
+a manifest that two independent rebuilds reproduce byte for byte.
+
+Phase 2: Chain implementation. The canonical ordering rule, the cell store,
+and the structure, time, provenance, and relation projections exist over
+one snapshot. The evidence criterion is a time-travel query that returns
+the exact state at a past build.
+
+Phase 3: Observation surface. A task entered at a coordinate returns an
+insight path with per-hop provenance bound to a snapshot, or an open
+intent when no path exists, with semantic projection under the pin. The
+evidence criterion is that the four guarantees of the oracle contract hold
+on the published corpus.
+
+Phase 4: Scale and governance. Multiple corpora and teams share the
+substrate, and each deposit strengthens the shared primitives. The evidence
+criterion is a corpus larger than the reference suite managed with the same
+guarantees.
+
+Development starts at Phase 1.
+
+## Relationship to Sibling Documents
+
+The four documents form one arc. The index describes what the engine does
+today. The single-path artifact pipeline observation describes how corpus
+and artifacts converge in one pipeline. The living corpus document states
+why the corpus becomes a living knowledge base. This document states how:
+snapshot, chain, projections, and oracle. The build pipeline extends into
+the oracle pipeline at the snapshot boundary.
+
+## Scope
+
+This document records a design direction. A specification will follow. It
+does not describe interfaces, file formats, or implementation details, and
+it claims no universal applicability. SDBS is one functional region of the shared
+substrate, and its growth follows the ecosystem pattern: each deposit
+strengthens the primitives for every other domain.
+
+## References
+
+- SDBS index (index.qmd in this directory)
+- Single-path artifact pipeline observation (ci_observations.qmd in this
+  directory)
+- The Living Corpus (living_corpus.qmd in this directory)
