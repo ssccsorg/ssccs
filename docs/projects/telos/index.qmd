@@ -1,6 +1,6 @@
 ---
 title: "Telos"
-subtitle: "General agent execution layer: a native headless agent, deployable as a fleet"
+subtitle: "General agent runs as a fleet of peers with coordinate teleport"
 format:
     html: {}
 metadata-files:
@@ -14,7 +14,7 @@ metadata-files:
 title_meta_items = {
     "html": [
         {"title": "Code", "link": "https://github.com/ssccsorg/telos", "content": "Github (Pre-release)", "icon": "bi bi-link"},
-        
+
         {"title": "References", "link": "https://docs.ssccs.org/projects/actus/", "content": "Actus", "icon": "bi bi-link"},
         {"title": "References", "link": "https://docs.ssccs.org/projects/kinetics/", "content": "kineTics", "icon": "bi bi-link"},
         {"title": "References", "link": "https://docs.ssccs.org/projects/nexus/", "content": "neXus", "icon": "bi bi-link"},
@@ -31,49 +31,25 @@ title_meta_items = {
 %run ../../_include/_graphviz.py
 ```
 
-Telos is the general agent execution layer of the SSCCS stack and the
-base system agent instance under the actus hub. Under
-[kineTics](https://docs.ssccs.org/projects/kinetics/), actus supervises
-the agent executor type; Telos is its first instance. Planning with the
-LLM and converting plans into system effects happen inside Telos: a
-command arrives over the actus contract, a coordinate is resolved, a
-process or file or network effect happens, and the result returns. The
-layer is general: it executes without binding to a language or a domain.
+Telos is a general end-tier agent execution runtime within the SSCCS's execution infra stack. Operating under the [kineTics](https://docs.ssccs.org/projects/kinetics/) framework and supervised by the [actus](https://docs.ssccs.org/projects/actus/) hub, Telos bridges LLM-driven planning with deterministic system effects.
 
-Telos is a headless agent in the form of a single native binary of about
-40-50 megabytes. There is no interface to launch, no runtime to install,
-and no daemon to supervise; the binary is the entire deployment unit. It
-runs on any machine that can execute it and scales into a fleet of
-coordinated nodes.
+Commands arrive via the actus contract, spatial coordinates are resolved, and Telos materializes these intents into concrete filesystem, process, or network operations. The runtime is strictly general-purpose, executing without binding to a specific language or domain.
 
-The working thesis is that an agent does not need to traverse trees to act.
-Work is addressed by coordinate and reached by teleport: no directory
-descent, no sequential scans. The agent moves between work locations in
-space, and the execution layer materializes that movement as concrete
-system calls, tool invocations, and protocol traffic over files, processes,
-and networks.
+Translating directory trees into spatial memory. Telos replaces traditional hierarchical agent traversal with coordinate-based addressing. By indexing the underlying worktree into tagma coordinates, the agent resolves locations in $O(1)$ time, teleporting directly to relevant buffers rather than performing sequential directory descents.
 
-## Native Execution
+## Native Execution Architecture
 
-Telos is a native binary. The agent core runs on OS threads with
-ownership-checked parallelism, so CPU-bound work such as parsing, indexing,
-and large-scale analysis uses every core it is given.
+Telos is distributed as a statically linked, standalone native binary.
 
-- Single binary, no dependencies: one file is the entire deployment unit,
-  and the node runs wherever the file runs.
-- Multithreaded by construction: the agent loop, language analysis, LSP
-  traffic, and tool execution share a native thread pool instead of
-  contending for one lock or one event loop.
-- Ownership-checked parallelism: the compiler rules out the data races
-  that interpreted runtimes discover only at runtime.
-- Bounded resources: each node owns its memory space and thread pool, so
-  resource use stays predictable under load.
+* **Zero-Dependency Deployment:** The entire node is packaged in a single ~45MB executable. It requires no runtime, interpreter, daemon, or external dependencies.
+* **Ownership-Checked Concurrency:** The agent core operates on OS threads with compile-time data race guarantees. CPU-bound workloads—such as language analysis, LSP traffic, and large-scale indexing—utilize a native thread pool for maximum core utilization.
+* **Bounded Resource Footprint:** Each node maintains absolute ownership of its memory space and thread pool, ensuring execution overhead remains deterministic and predictable under heavy load.
 
-## The Fleet
+## Fleet Topology & Orchestration
 
 ```{python}
 #| label: fig-telos-fleet
-#| fig-cap: "The Telos fleet: nodes addressed by the tel command surface and by the actus agent hub, coordinated as peers through the neXus coordinate space under kineTics."
+#| fig-cap: "The Telos fleet topology: Nodes are addressed via the tel command surface and actus hub, coordinating as decentralized peers through the neXus coordinate space."
 dot("""
 digraph TelosFleet {
     rankdir=TB;
@@ -108,36 +84,21 @@ digraph TelosFleet {
     nexus -> node_c [label="strengthen", style=dashed];
 }
 """)
+
 ```
 
-A single binary is a complete execution node. The fleet model scales at two
-levels:
+A single Telos binary operates as a complete execution node. The fleet scales horizontally across two axes:
 
-- Instance level: each node is an independent process with its own memory
-  space and thread pool. The multithreaded core already uses the cores of
-  its machine; nothing is shared and nothing contends.
-- Machine level: any number of nodes can run on one machine, each isolated
-  from the others. There is no shared runtime, no shared interpreter state,
-  and no scheduler to coordinate them; the operating system schedules
-  independent processes, which it does well.
+1. **Process Isolation:** Nodes execute as independent OS processes. They share no runtime or interpreter state, delegating scheduling entirely to the underlying operating system to prevent application-level lock contention.
+2. **Stigmergic Coordination:** The fleet operates without a central planner. Nodes deposit operational facts and traces into the neXus coordinate space. Peer nodes read these deposits asynchronously, adapt to findings, and propagate corrections. This yields a highly resilient, peer-coordinated network with no single point of failure.
 
-Deployment is orchestration-free. A node exists wherever the binary runs,
-and placement is a choice: a project root, a machine, a CI runner, or any
-environment that can execute the file. There is no daemon to install and
-no registry to join; the node exists because the file exists.
+Deployment is orchestration-free. A node exists simply because the binary exists on disk—whether at a project root, in a CI runner, or in a container.
 
-Coordination is by stigmergy through neXus. Nodes deposit facts and traces
-in the shared coordinate space and read the deposits of others. A node in
-project alpha records a finding; a node in project beta reads it and
-adapts; a node in project gamma combines both and addresses a correction
-to the common library. The fleet coordinates as peers, with no central
-planner and no single point of failure.
-
-## Linear Economics
+## Linear Scaling Economics
 
 ```{python}
 #| label: fig-telos-linear
-#| fig-cap: "The unit economics of a fleet: per-node cost stays flat as nodes are added, and total cost grows as a straight line through the origin. Server and LLM spend scale with workload; the overhead terms stay constant."
+#| fig-cap: "Unit economics of the Telos fleet: Per-node overhead remains strictly flat, guaranteeing O(n) total cost scaling tied directly to workload."
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -166,89 +127,38 @@ ax_right.set_ylim(0, 24)
 ax_right.grid(alpha=0.3, linewidth=0.5)
 
 fig.tight_layout()
+
 ```
 
-The cost structure of a fleet is its defining property. Server spend and
-LLM spend scale linearly with workload: doubling the fleet doubles the cost
-and nothing else. The resources that grow are the ones the work consumes,
-compute and tokens; the overhead terms stay constant. Each node's resource
-use is bounded and predictable, so the unit economics hold from one node to
-a thousand. Pricing can be set per call or per project without superlinear
-cost growth.
+The architectural constraints of Telos guarantee strictly linear cost scaling. Server compute and LLM token expenditures scale directly with the workload; structural overhead remains flat. Because resource utilization per node is strictly bounded, the unit economics are identical whether running one node or one thousand.
 
-## The tel Interface
+## Interfaces and Boundaries
 
-`tel` is the command surface of the fleet. A command names a target: a
-project root, a repository, a task. The nearest node picks up the command,
-executes it, and streams the result back in real time. Command intake,
-cancellation, and tool authorization arrive over the actus WebSocket
-contract, so a run can be interrupted mid-execution and the node records
-exactly where it stopped.
+* **The Actus Contract:** Telos maintains a strict 1:1 WebSocket contract with the actus hub. Actus provisions the binary, and Telos responds with readiness, telemetry, and command output. The protocol relies on eight upstream event types and three downstream command types, ensuring deterministic handling of turn-end replay filtering, state overwriting, and terminal event rules.
+* **The `tel` Command Surface:** The CLI entry point targets project roots, repositories, or specific task vectors. Commands are streamed in real time. Telos supports native asynchronous interruption via the actus contract—if a run is canceled, the node halts and records the exact termination vector.
+* **Security Perimeter:** The operating system enforces the isolation boundary. A node bound to *Project A* shares no privileges or process state with a node serving *Project B*. Cross-node communication occurs strictly via addressed facts in neXus, containing the blast radius of any compromise.
 
-## Deployment
-
-A node can live in a project root, on a machine, in a container, or in a
-CI runner. Placement is a choice, made where the boundary of the work
-sits: a project tree, a repository, a build pipeline. The presence of the
-binary is the registration: the node is on the network because it exists
-on disk.
-
-When a node is bound to a tree, the operating system enforces the
-boundary. A node serving project alpha cannot read the files of project
-beta, because there is no shared process and no shared privilege. Nodes
-exchange only addressed facts and traces through neXus, so the blast
-radius of a failure or a compromise stays contained.
-
-## Contract
-
-Telos keeps a wire contract 1:1 with actus. Actus launches telos as its
-agent binary; telos connects back over WebSocket, announces readiness, and
-then serves commands and emits events. The contract is the only stable
-boundary: eight event types flow from telos to actus, three command types
-flow from actus to telos, and every consumer path in actus depends on their
-semantics, including cumulative content overwrite, turn-end replay
-filtering, and the one-terminal-event-per-request rule.
-
-## Layers
+## Integration Stack
 
 | Layer | Project | Role |
-|:---|:---|:---|
-| Physical foundation | Chton (tagma) | coordinates over disk, RAM, and network bytes |
-| Data hub | Nexus | logs, snapshots, and state over the coordinate space |
-| Verification | EV and peers | mathematical verification of coordinate operations |
-| Agent hub | Actus | hub of the agent executor type under kineTics; supervises agent instances |
-| Base agent instance | Telos | LLM planning, command intake, and system-effect conversion over ACP/MCP |
+| --- | --- | --- |
+| **Foundation** | Chton (tagma) | Physical IO materialization and coordinate primitives. |
+| **Data Hub** | neXus | State, logs, and snapshot management over the coordinate space. |
+| **Agent Hub** | Actus | Orchestration hub under kineTics; supervises agent lifecycles. |
+| **Execution** | **Telos** | LLM planning, command intake, and system-effect conversion (ACP/MCP). |
 
-## Status
+## Status & Roadmap
 
-Bootstrap. The agent core is attached and speaks the actus contract end
-to end: an LLM backend with a tool registry and a tool-call loop, plus a
-deterministic stub backend that exercises the same flows without an LLM.
-The actus chat flow works with the `tel` binary attached either way.
+**Current State: Bootstrap Phase.**
+The agent core successfully negotiates the actus contract end-to-end. It supports both active LLM backends (with a functional tool-call loop) and deterministic stub backends for non-LLM testing. Actus integrates Telos purely as an external binary dependency. The underlying repository remains private pending formal distribution decisions.
 
-The binary runs the core directly with no interface stack and ships with
-the built-in model providers. Telos is an independent project; actus
-depends on it as its agent binary and nothing else. The repository is
-private. Licensing is decided only if and when distribution is planned.
+**Engineering Vectors:**
 
-Two integration items sit on the telos board: the headless entry point
-must consume `--user-data-dir` so actus-injected settings and context
-servers reach the agent process, and a prebuilt agent image must be
-published so downstream actus CI can pull it instead of building.
-
-## Direction
-
-- Complete the actus integration contract: consume `--user-data-dir` in
-  the headless entry point and publish the prebuilt agent image.
-- The full tool surface: file, process, network, and MCP effects produced
-  from resolved coordinates.
-- Basic indexing integrated into tagma coordinates, so location resolution
-  is arithmetic over coordinates rather than filesystem descent.
-- Time teleport: neXus replay restores a previous execution state at fine
-  granularity, coarser than a commit and cheaper than a checkout.
-- Fleet operations: multi-node deployment, stigmergy coordination, and the
-  `tel` command surface.
-- The layer stays general: any LLM, any environment, any domain.
+* **Headless Context Injection:** Support for `--user-data-dir` on the headless entry point to allow actus to inject localized settings and context servers.
+* **CI Distribution:** Publish pre-compiled agent images to eliminate downstream build requirements in actus CI pipelines.
+* **Effect Materialization:** Complete the tool surface API to translate resolved coordinates directly into file, process, network, and MCP effects.
+* **Arithmetic Resolution:** Integrate foundational tagma indexing to replace filesystem descent entirely with coordinate arithmetic.
+* **Granular State Restoration:** Implement sub-commit "time teleportation" via neXus replay, enabling high-resolution execution state recovery.
 
 ---
 
