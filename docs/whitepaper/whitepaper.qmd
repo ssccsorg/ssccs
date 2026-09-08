@@ -41,7 +41,7 @@ format:
         \def\@maketitle{
           \begin{center}
             {\LARGE \bfseries \@title \par}
-            \vspace{4em}
+            \vspace{6em}
                 {\large \@author \thanks{\authorrole; Corresponding author: \texttt{\href{mailto:\authoremail}{\authoremail}}} \par}
                 \vspace{0.3em}
                 {\normalsize \affiliationname \par}
@@ -49,8 +49,10 @@ format:
                 {\normalsize \texttt{\href{\affiliationurl}{\affiliationdomain}} \par}
             \vspace{2em}
                 {\normalsize \@date \par}
+                \vspace{0.3em}
+                {\normalsize \texttt{\href{https://doi.org/10.5281/zenodo.18759106}{doi.org/10.5281/zenodo.18759106}} \par}
           \end{center}
-          \vspace{4em}
+          \vspace{6em}
         }
         \makeatother
 ---
@@ -74,11 +76,11 @@ title_meta_items = {
 
 ## Abstract {.unnumbered .unlisted}
 
-SSCCS (Schema—Segment Composition Computing System) defines computation as the deterministic projection of immutable structural primitives under dynamic constraints. The model consists of four concepts: Segments (immutable coordinate points in a possibility space), Schemes (immutable blueprints that define structural relationships between segments), Fields (mutable constraint predicates that determine which segments are admissible), and Observation (the event that evaluates a field against a scheme and produces a projection). Fields can be composed through union, intersection, and product operations, and their constraints can be encrypted or cryptographically signed for secure composition across trust boundaries.
+SSCCS (Schema–Segment Composition Computing System) replaces the sequential instruction‑centric model with a geometric, observation‑driven model. Computation is defined as the deterministic projection of immutable structural primitives under dynamic constraints. The model rests on four primitives: Segments (immutable coordinate points in a possibility space), Schemes (immutable blueprints that define structural relationships between segments), Fields (mutable constraint predicates that determine admissible segments), and Observation (the evaluation of a field against a scheme that produces a projection). Fields support composition through union, intersection, and product operations, and may be encrypted or cryptographically signed to enable secure composition across trust boundaries.
 
 This model differs from the von Neumann approach in three ways. First, time is a coordinate axis within a scheme rather than an implicit sequence: a scheme may declare a temporal dimension, and observations are parameterized by a time bound. Second, data movement is a compile-time property rather than a runtime cost: coordinates are not relocated between observations, and the compiler maps structural adjacency to physical adjacency in the target memory hierarchy. Third, determinism follows from the observation operator being a function of its inputs: for a fixed scheme, field, and time bound, the same projection is always produced. Non-determinism must be introduced explicitly through the resolution strategy.
 
-The model is architecture-agnostic: the same scheme can be compiled to conventional processors (via software emulation), FPGA fabrics, or specialized hardware. A Rust-based proof of concept validates all core concepts, confirming that the abstract primitives produce deterministic results on existing silicon. An open format specification is under development [*-@sec-appendix-openformat*] and is updated as the specification evolves through implementations across projects.
+The model is architecture-agnostic: the same Scheme can target CPUs, FPGAs, or custom silicon without modification. A Rust-based proof of concept validates all core concepts, confirming that the abstract primitives produce deterministic results on existing silicon. An open format specification is under development [*-@sec-appendix-openformat*] and is updated as the specification evolves through implementations across projects.
 
 {{< pagebreak >}}
 
@@ -88,7 +90,7 @@ The model is architecture-agnostic: the same scheme can be compiled to conventio
 
 **Loops disappear into layout. Data, or state, is the shadow cast by collapsed possibility. Time is one coordinate axis among many.**
 
-A System where Structured Deployment is the Path, and Observed Synthesis is the Computation, which is not execution over time: Beneath immutable segments and schemes, observation momentarily activates the Field, precipitating the collapse of possibility and giving rise to a projection. A projection, as the residue of collapse, is transient; it constitutes what we recognize as data or state. Yet throughout this entire process, the fundamental structure itself remains untouched and unaltered.
+Computation is observed synthesis, not execution over time. Observation activates the Field, collapses possibility, and produces a projection. The underlying structure remains unchanged. A projection, as the residue of collapse, is transient; it constitutes what we recognize as data or state. Yet throughout this entire process, the fundamental structure itself remains untouched and unaltered.
 
 {{< pagebreak >}}
 
@@ -1225,27 +1227,57 @@ As demonstrated in the emergence of State-Space Models (SSMs) [@gu2023mamba] and
 
 ## Related Work
 
-Although SSCCS was developed without direct reference to prior work, its theoretical core reveals meaningful parallels with several established research domains:
+Although SSCCS was developed without direct reference to prior work, its theoretical core reveals meaningful parallels with several established research domains and contemporary infrastructure trends.
 
-- **Dataflow architectures** treat programs as graphs where nodes fire when inputs are available.
-- **Functional programming** emphasizes immutability and referential transparency.
-- **Processing-in-memory (PIM)** research addresses the data movement problem within the von Neumann paradigm [*-@sec-appendix-integration-existing-toolchains*; @eyeriss2016; @ieee2023performancewalls; @ieee2025].
-- **Safety and Accountability**: Real‑world incidents illustrate the need for deterministic reproducibility; for example, autonomous vehicle collisions [@ntsb2019uber], financial flash crashes [@nanex2010flash; @sec2010flash], and diagnostic errors [@yang2025pathology] highlight the consequences of non‑deterministic AI behavior. Recent analyses indicate that AI‑related incidents have risen by more than 50% in the last year alone, with total damages exceeding $100 billion [@raiids2025]. SSCCS's structural determinism offers a foundation for audit‑by‑design systems.
+### Dataflow Architectures
+Dataflow models treat programs as directed graphs where nodes fire when inputs are available, eliminating the program counter and enabling data-driven execution. Both dataflow and SSCCS avoid global instruction sequencing. Dataflow execution is demand-driven by data availability. SSCCS computation is constraint-driven by Field observation. Dataflow relies on token movement between nodes. SSCCS keeps all Segments stationary and moves only the projection. Dataflow parallelism is bounded by token availability. SSCCS parallelism is bounded only by structural independence and physical propagation delay.
 
-Recent work in AI demonstrates the growing relevance of structural constraints:
+### Functional Programming
+Functional languages enforce immutability and referential transparency, enabling equational reasoning and automatic parallelisation. This aligns with SSCCS immutable Segments and deterministic Observation. Both treat state as immutable, eliminating data races and simplifying verification. Referential transparency in functional programming corresponds to deterministic Observation in SSCCS. Functional languages execute on von Neumann hardware, inheriting the instruction-fetch and data-movement bottleneck. SSCCS is defined independently of the execution substrate. Its immutability is structural, not merely a language-enforced discipline. Functional programming operates over time-ordered sequences of operations. SSCCS treats time as one coordinate among many.
 
-- **Geometric Constraints**: Research such as *Manifold-Constrained Hyper-Connections* by DeepSeek [@deepseek2025manifold] highlights the efficacy of applying geometric inductive biases. This supports the SSCCS approach of defining computational processes through topological constraints.
-- **Structural Parallels**: SSCCS shares conceptual ground with State-Space Models (SSMs) like Mamba [@gu2023mamba].
-While these systems achieve high-performance linear recurrences through ad-hoc kernel tuning, SSCCS redefines
-the recurrence not as a procedural loop, but as a one-dimensional Scheme of adjacent Segments. By shifting from
-execution-based optimization to the deterministic observation of stationary topological constraints, SSCCS offers
-a universal, structure-defined architecture.
+### Processing-in-Memory (PIM)
+PIM architectures place compute units near or inside memory banks, reducing data movement between processor and memory. This directly addresses the von Neumann bottleneck that motivates SSCCS [*-@sec-appendix-integration-existing-toolchains*; @eyeriss2016; @ieee2023performancewalls; @ieee2025]. Both minimise data movement. PIM moves compute to data. SSCCS keeps data stationary and observes structure. PIM is a hardware optimisation within the von Neumann paradigm. It still executes instructions, still moves addresses, and still requires synchronisation. SSCCS eliminates the paradigm itself: no instruction fetch, no address decode, no data movement.
 
-These references contextualize SSCCS within the broader intellectual landscape. In each domain, the shift from execution to observation is expected to offer advantages that incremental optimization cannot provide.
+### RISC‑V Vector Extension (RVV)
+RVV provides data-parallel processing through vector registers and SIMD-style instructions, exploiting regular data-level parallelism. Both exploit data parallelism and structured access patterns. RVV vectorised loops over contiguous memory regions resemble SSCCS structural adjacency mapped to memory layout. RVV still executes a sequential stream of vector instructions. SSCCS eliminates instruction sequencing entirely. Parallelism is implicit in the Scheme topology, not expressed as a vector-length-agnostic loop. RVV performance depends on register pressure and memory bandwidth. SSCCS performance depends on structural propagation delay. RVV is a programmer-visible feature. SSCCS is a substrate-visible abstraction.
 
-A concurrent implementation case. The DeepSeek paper on spatiotemporal composability [@shi2026spatiotemporal] (August 2026) formalizes dynamic software composition through revertible effects and reactive coeffects, six months after the SSCCS model of February 2026. The case is examined in the appendix [*-@sec-appendix-deepseek-comparison*].
+### GraphBLAS
+GraphBLAS defines graph algorithms in terms of linear algebra over semirings, enabling portable and optimised graph processing. Both treat computation as algebraic operations over structured data. GraphBLAS sparse matrix operations and SSCCS Field constraints over topological relations both express parallelism implicitly. GraphBLAS is an API and implementation standard targeting existing hardware. Its performance depends on optimised sparse kernels and memory layout. SSCCS defines computation as structural observation, not matrix algebra. GraphBLAS relies on efficient sparse storage formats like CSR and CSC that require index traversal. SSCCS eliminates indexing by using coordinates as addresses.
 
-Recent ecosystem developments in open-hardware space computing further contextualize SSCCS’s relevance. Initiatives such as ESA’s TRISTAN roadmap and radiation-tolerant RISC-V implementations (e.g., StarRISC, HARV-SoC) highlight the industry’s shift toward deterministic, mixed-criticality aware processors. SSCCS aligns with this trajectory by providing a software-defined resilience layer that complements physical hardening, enabling semantic fault detection, adaptive redundancy, and cryptographic policy enforcement on open silicon.
+### Apache Arrow / Parquet
+Arrow provides a standardised, language-agnostic columnar memory format for zero-copy data exchange. Parquet extends this to compressed, columnar storage for analytics. Both Arrow and Parquet are layout-first. Data representation is designed to match access patterns. Arrow columnar layout enables vectorised processing. SSCCS MemoryLayout abstraction similarly maps structural adjacency to physical address proximity. Arrow and Parquet are data-format optimisations within the existing compute stack. They still rely on index scans and query execution engines. SSCCS eliminates indexing altogether. Coordinate is address, so lookup is arithmetic, not a scan. Arrow reduces data movement between languages and processes. SSCCS eliminates data movement within a computation.
+
+### CXL / Compute Express Link
+CXL is an open standard interconnect for cache-coherent memory sharing between CPUs, accelerators, and memory devices. It enables memory pooling, tiering, and accelerator-attached memory. Both CXL and SSCCS recognise the need to unify memory and compute. CXL provides a physical and protocol layer for memory-centric computing. SSCCS defines a computational model where memory and compute are structurally unified. CXL is a hardware interconnect standard within the von Neumann ecosystem. SSCCS stationary Segments eliminate the need for address translation and memory referencing at the computational level.
+
+### Safety and Accountability
+Real-world incidents illustrate the need for deterministic reproducibility: autonomous vehicle collisions [@ntsb2019uber], financial flash crashes [@nanex2010flash; @sec2010flash], and diagnostic errors [@yang2025pathology] highlight the consequences of non-deterministic AI behavior. Recent analyses indicate that AI-related incidents have risen by more than 50% in the last year alone, with total damages exceeding $100 billion [@raiids2025]. SSCCS structural determinism offers a foundation for audit-by-design systems.
+
+### Geometric Constraints and State-Space Models
+Recent AI research demonstrates the growing relevance of structural constraints. Research such as *Manifold-Constrained Hyper-Connections* by DeepSeek [@deepseek2025manifold] highlights the efficacy of applying geometric inductive biases. This supports the SSCCS approach of defining computational processes through topological constraints. SSCCS also shares conceptual ground with State-Space Models (SSMs) like Mamba [@gu2023mamba]. While these systems achieve high-performance linear recurrences through ad-hoc kernel tuning, SSCCS redefines the recurrence not as a procedural loop, but as a one-dimensional Scheme of adjacent Segments.
+
+### Concurrent Implementation Case: DeepSeek Spatiotemporal Composability
+A concurrent implementation case. The DeepSeek paper on spatiotemporal composability [@shi2026spatiotemporal] (August 2026) formalizes dynamic software composition through revertible effects and reactive coeffects, six months after the SSCCS model of February 2026. It was developed independently. Its reference list contains no SSCCS work, and the parallel is convergent evolution from shared ancestors. Five structural patterns coincide with the model: explicit admissibility predicates, change classification, version-based staleness, algebraic composition, and commutation as the concurrency condition. The surface vocabulary carries different meanings, and the underlying definitions of computation differ. SSCCS defines computation as revelation. The case defines it as the mutation of a shared context with rollback machinery. The case is examined in the appendix [*-@sec-appendix-deepseek-comparison*].
+
+### Recent Ecosystem Developments
+Recent ecosystem developments in open-hardware space computing further contextualize SSCCS relevance. Initiatives such as ESA TRISTAN roadmap and radiation-tolerant RISC-V implementations (e.g., StarRISC, HARV-SoC) highlight the industry shift toward deterministic, mixed-criticality aware processors [@tristan2025]. SSCCS aligns with this trajectory by providing a software-defined resilience layer that complements physical hardening, enabling semantic fault detection, adaptive redundancy, and cryptographic policy enforcement on open silicon.
+
+### Summary of Structural Differences
+
+| Paradigm | Data Movement | Execution Model | Indexing Dependency | Verification |
+|----------|---------------|-----------------|---------------------|--------------|
+| Von Neumann (CPU/GPU) | Data moves to compute | Instruction stream, sequential | Hash tables, B‑trees | Runtime-dependent |
+| Dataflow | Tokens move between nodes | Graph-driven, dataflow | Fixed graph, no indexing | Medium (static analysis) |
+| Functional Programming | Data moves through transformations | Evaluated by reduction or graph rewriting | Language-dependent; inherits substrate indexing | High (referential transparency) |
+| Processing-in-Memory | Compute moves near data; data still moves between banks | Instruction-based, near-memory | Inherits substrate indexing | Medium |
+| RISC‑V Vector Extension | Data moves in vectorised loads/stores | Vectorised instruction stream | Inherits index-traversal cost | Medium |
+| GraphBLAS | Sparse kernels over memory arrays | Matrix algebra over semirings | Inherits storage index traversal (CSR/CSC) | Medium (API-level) |
+| Apache Arrow / Parquet | Zero-copy columnar access | Query-engine execution plans | Scan or index, depending on engine | Low (storage format only) |
+| CXL | Cache-coherent memory sharing | Existing instruction-based model | Inherits substrate indexing | Medium |
+| FPGA Overlays | Configuration bitstream loaded; data flows through fabric | Spatial, reconfigurable | Deterministic memory map | Medium (netlist analysable) |
+| SSCCS | Segments stationary; only Projection transmitted | Structural Observation | **No indexing, coordinate is address** | High (deterministic by definition) |
+
+These references contextualize SSCCS within the broader intellectual landscape. In each domain, the shift from execution to observation is expected to offer advantages that incremental optimization cannot provide. While SSCCS shares surface-level principles with many prior innovations, its integration of stationary data, coordinate-based addressing, and structural observation creates a distinct architectural category.
 
 ## Development Roadmap and milestones
 
