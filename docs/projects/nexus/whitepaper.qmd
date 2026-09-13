@@ -1,6 +1,6 @@
 ---
 title: "neXus"
-subtitle: "A heterogeneous, horizontal, coordinate-addressed runtime network for agents and executable systems from edge to bare metal."
+subtitle: "A heterogeneous coordinate-addressed runtime fabric for observers, from microcontrollers to cloud."
 date: 2026-09
 date-format: "MMMM, YYYY"
 version-prefix: nexus-doi.org/10.5281/zenodo.22303887
@@ -117,7 +117,7 @@ and because every step is recorded and no step depends on hidden state, replayin
 
 *Closure.* A new capability is a new Intent or a new Hint composed over the same immutable Facts. There is no separate execution model to invent: complex systems are built by composition, and the properties demonstrated by the minimal calculator are the properties every complex design must preserve.
 
-*Scale.* The definitions hold at every scale, from a single agent to an ecosystem; an Observation at dimension $N$ becomes a Hint at dimension $N-1$, which is the property the project calls homeomorphic and which is specified with the scaling modes in @sec-recursion.
+*Scale.* The definitions hold at every scale, from a single agent to an ecosystem; an Observation at dimension $N$ becomes a Hint at dimension $N-1$, which is the property the project calls **scale-invariant** and which is specified with the scaling modes in @sec-recursion.
 
 ```{python}
 #| label: fig-nexus-model
@@ -242,7 +242,7 @@ digraph IntentLifecycle {
 
 ### Recursion and Scaling Modes {#sec-recursion}
 
-The FIH triad is self-similar across scales, the property the project calls homeomorphic: the same record structure reappears at every scale, from a single agent to an ecosystem. A single agent runs a blackboard; a project runs a blackboard whose participants include that agent; an ecosystem runs a blackboard whose participants include projects. Each blackboard is a node that can contain sub-blackboards, and the composition rule is that an Observation at dimension $N$ becomes a Hint at dimension $N-1$. This nesting is structural, not logical: the same record semantics apply at every level.
+The FIH triad is **scale-invariant** across scales, the property the project calls **isomorphic as an FIH algebra**: the same record structure and the same composition rules reappear at every scale, from a single agent to an ecosystem. A single agent runs a blackboard; a project runs a blackboard whose participants include that agent; an ecosystem runs a blackboard whose participants include projects. Each blackboard is a node that can contain sub-blackboards, and the composition rule is that an Observation at dimension $N$ becomes a Hint at dimension $N-1$. This nesting is structural, not logical: the same record semantics apply at every level.
 
 Three scaling modes follow from treating the triad as a three-vector basis of state.
 
@@ -264,18 +264,19 @@ An identity in neXus is an ordered tuple of coordinates. With $|\mathcal{A}| = 1
 
 $$ |\mathcal{I}_N| = 11{,}172^N , \qquad \log_2 11{,}172 \approx 13.45 . $$
 
-Two configurations are in use.
+Two configurations are in use, and they differ in kind, not only in size.
 
-- The default identity uses six application-defined axes, giving $|\mathcal{I}_6| = 11{,}172^6 \approx 1.9 \times 10^{24}$ addresses, about $2^{81}$. Six axes are sufficient for domain-local record identity at a rate far above any realistic accumulation.
-- Evidence-chain identity uses twenty coordinates, $|\mathcal{I}_{20}| = 11{,}172^{20} \approx 2^{268.9}$. Since $268.9 > 256$, the twenty-coordinate identity is a full-injective encoding of a 256-bit digest into 20 base-11,172 coordinates; two distinct contents collide only up to SHA-256 collision resistance[^coord20].
+The **domain identity** uses six application-defined axes, giving $|\mathcal{I}_6| = 11{,}172^6 \approx 1.9 \times 10^{24}$ addresses, about $2^{81}$. Six axes are sufficient for domain-local record identity at a rate far above any realistic accumulation. Because the axes are part of the identity, identity is queryable: a filter on any axis prefix is a range query over coordinates, and an inverse index over the remaining axes resolves the matching identity set.
 
-The six default axes are application-defined and ordered as `time_hi`, `time_lo`, entity kind (F, I, or H), `origin`, `creator`, and `serial`. Because the axes are part of the identity, identity is queryable: a filter on any axis prefix is a range query over coordinates, and an inverse index over the remaining axes resolves the matching identity set.
+The **evidence-chain identity** uses twenty coordinates, $|\mathcal{I}_{20}| = 11{,}172^{20} \approx 2^{268.9}$. Since $268.9 > 256$, the twenty-coordinate identity is a full-injective encoding of a 256-bit digest into 20 base-11,172 coordinates; two distinct contents collide only up to SHA-256 collision resistance[^coord20]. This configuration is an encoding of a digest, not a semantic axis decomposition; the axis-query property below applies to the six-coordinate configuration. The twenty coordinates are positional digits, not named axes, and are not independently filterable.
+
+The six default axes are application-defined and ordered as `time_hi`, `time_lo`, entity kind (F, I, or H), `origin`, `creator`, and `serial`.
 
 An axis query is an intersection of precomputed projections. For a query that fixes axis-value sets $P_a$ on a set of axes $Q$,
 
 $$ \mathcal{R}(Q) = \big\{ r \in R : \mathrm{coord}_a(r) \in P_a,\; \forall a \in Q \big\} = \bigcap_{a \in Q} S_a , $$
 
-where $S_a$ is the id set of the fixed value on axis $a$. Each added axis intersects the candidate set before any record body is loaded, which is why the most selective query is the cheapest.
+where $S_a$ is the id set of the fixed value on axis $a$. In this design, each added axis intersects the candidate set before any record body is loaded, which is why the most selective query is the cheapest.
 
 ```{python}
 #| label: fig-coordinate-identity
@@ -480,14 +481,14 @@ At the system level the fabric is organized in five layers, from retrieval to go
 | 4 | Learning loop | On-policy RL over blackboard traces with knowledge support rewards |
 | 5 | Contract governance | Admission, constraint evaluation, evidence chains, and the research economy |
 
-Layer 1 decomposes artifacts into typed relationships and community clusters and supports naive, local, global, and hybrid retrieval strategies. Layer 2 abstracts storage backends behind a minimal interface so that SQLite, blockchain, and cloud databases are interchangeable without core changes. Layer 3 coordinates agents by stigmergy: detectors such as gap and contradiction finders apply count-based heuristics and record findings as idempotent Facts, and every action appends to an evolving memory for conflict-free concurrency and replay. Layer 4 batches rollouts for group-normalized advantages and updates the planner with an on-policy clipped objective and KL penalty (Flow-GRPO), converting multi-turn credit assignment into single-turn updates. Layer 5 gates what may be written, evaluates constraints, and keeps evidence chains; its economic rules are described in the governance section.
+Layer 1 decomposes artifacts into typed relationships and community clusters and supports naive, local, global, and hybrid retrieval strategies. Layer 2 abstracts storage backends behind a minimal interface so that SQLite, blockchain, and cloud databases are interchangeable without core changes. Layer 3 coordinates agents by stigmergy: detectors such as gap and contradiction finders apply count-based heuristics and record findings as idempotent Facts, and every action appends to an evolving memory for conflict-free concurrency and replay. Layer 4 batches rollouts for group-normalized advantages and updates the planner with an on-policy clipped objective and KL penalty (Flow-GRPO, a variant of group relative policy optimization); the learning loop is in the design stage and is not yet implemented in the core. Layer 5 gates what may be written, evaluates constraints, and keeps evidence chains; its economic rules are described in the governance section.
 
 ### Design Principles {#sec-design-principles}
 
 The posture of the runtime follows five principles.
 
 - Peer runtime, not a platform: no marketplace, no extension rent, and no central gatekeeper; a producer runs nex on its own infrastructure and decides what its work is worth.
-- Engine-agnostic and zero lock-in: synchronization endpoints isolate the system from specific backends, and every component is replaceable with an open equivalent.
+- Engine-agnostic and zero lock-in: synchronization endpoints isolate the system from specific backends, and every component is replaceable with an open equivalent, with dependency drift between the two repositories accepted as a coordination cost (see @sec-boundaries).
 - Research-first: the system is optimized for the cycle of hypothesize, validate, and publish, across digital and physical domains.
 - Boundaryless by design: physical-digital extension is a consequence of the engine-agnostic pattern, not an architectural rewrite.
 - Invisible infrastructure: nex is measured by the success of the instances built on it; each instance is a standalone project with its own identity and an implicit nex extension.
@@ -500,7 +501,7 @@ From the perspective of AI agent architectures, neXus provides three fabrics in 
 
 ### Zero-Marginal-Cost Retrieval {#sec-zero-marginal}
 
-Model inference is confined to the generation of knowledge branches. Traversal, gap detection, and reporting operate on accumulated Facts through the filter index, so their cost does not scale with inference calls. The economic consequence is structural: reading and checking accumulated knowledge has zero marginal inference cost, and inference is spent only where a new branch of knowledge is produced.
+Model inference is confined to the generation of knowledge branches. Traversal, gap detection, and reporting operate on accumulated Facts through the filter index, so their cost does not scale with inference calls. The economic consequence is structural: reading and checking accumulated knowledge has zero marginal **inference** cost, and inference is spent only where a new branch of knowledge is produced. Retrieval itself is not free: its arithmetic and I/O cost scales with the size of the matching subtree, not with the total record count.
 
 ### Stigmergic Compounding {#sec-stigmergy}
 
@@ -510,7 +511,7 @@ The governance layer recognizes five economic contributions: gap discovery, hypo
 
 ### The ULHM Verifier {#sec-ulhm}
 
-The Universal Latent Homeomorphic Manifold (ULHM) framework extends the verifier to cross-modal domains. A homeomorphism is a continuous bijection that preserves topological structure; the verifier validates a candidate mapping $\phi: X \to Y$ between modalities with three canonical loss terms:
+The Universal Latent Homeomorphic Manifold (ULHM) framework extends the verifier to cross-modal domains. A homeomorphism is a continuous bijection that preserves topological structure, and applying it to a learned latent space assumes that space is a manifold; verifying that assumption is an open question. The verifier validates a candidate mapping $\phi: X \to Y$ between modalities with three canonical loss terms:
 
 $$ L = \lambda_c L_c + \lambda_t L_t + \lambda_w W(P_X, P_Y) , $$
 
@@ -518,7 +519,7 @@ where $L_c$ is a continuity loss bounding local perturbation, $L_t$ is a trust l
 
 $$ L_c = \mathbb{E}\, d\big(\phi(x), \phi(x')\big) \quad \text{for small } d(x,x'), \qquad L_t = \mathbb{E}\, d\big(N(\phi(x)), \phi(N(x))\big) . $$
 
-This is the mathematical basis for validating that a simulation result, a robot trajectory, and a physical measurement describe the same underlying structure. The term homeomorphism is used here in its strict topological sense, distinct from the structural self-similarity of the blackboard across scales. Two enablers extend the framework: an episodic knowledge graph that turns the evolving memory into a temporal, provenance-ordered record for cross-modal coherence and physical reproducibility, and a homeomorphic bridge that supports semantic-guided recovery of partial physical observations and zero-shot compositional reasoning across simulation and hardware. The extension is in the design and validation stage; the core record model it verifies is implemented.
+This is the mathematical basis for validating that a simulation result, a robot trajectory, and a physical measurement describe the same underlying structure. The term homeomorphism is used here in its strict topological sense, distinct from the structural scale-invariance of the blackboard across scales. Two enablers extend the framework: an episodic knowledge graph that turns the evolving memory into a temporal, provenance-ordered record for cross-modal coherence and physical reproducibility, and a homeomorphic bridge that supports semantic-guided recovery of partial physical observations and zero-shot compositional reasoning across simulation and hardware. The extension is in the design and validation stage; the core record model it verifies is implemented.
 
 ## Verification and Correctness {#sec-verification}
 
@@ -549,7 +550,7 @@ Four game-theoretic scenarios run as CI gates with explicit thresholds.
 | Generous forgiveness | repeated play | cooperation rate above 0.6 |
 | FIH intent lifecycle | repeated play | honest completion above 0.7, false conclusion below 0.1 |
 
-The simulator emits a violation matrix, a signed proof artifact, and Hint generation. The same FIH domain recurrence maps the simulator to ExaVerif, the exhaustive verification engine for instruction extensions.
+The simulator emits a violation matrix, a signed proof artifact, and Hint generation. The same FIH domain recurrence maps the simulator to ExaVerif, the exhaustive verification engine for instruction extensions: both reduce a target to a FIH record set and evaluate constraints over it, so the simulator's core traits are the verification engine's core traits.
 
 ### The Exchange Contract {#sec-verify-proof}
 
@@ -600,7 +601,7 @@ Over 50,000 facts, axis filters resolve to id sets without materializing records
 | origin and creator (AND) | 500 | 296 µs |
 | three axes (origin, creator, time) | bounded | 83.8 µs |
 
-The figures above are predicate times: they resolve coordinate id sets without loading record bodies. The full read path additionally materializes record bodies from the record maps; on the same 50,000 facts a creator filter including materialization measures about 4.9 ms, which shows that the structural index is the cheap stage and that pruning happens before any record is loaded. The previous full-scan ceiling was 27.8 ms at 10,000 facts, and a scan pays that cost regardless of selectivity. On the same 10,000-fact store the predicate path runs in 127 µs without axis hints and 42 µs with them; the pair measures the planned axis-hint fast path, whose wiring into the production read path is pending. The current predicate path sits roughly 219x below the earlier ceiling. Selectivity is structural: each added dimension shrinks the candidate set before a record is loaded, so the most selective query is the cheapest.
+The figures above are predicate times: they resolve coordinate id sets without loading record bodies. The full read path additionally materializes record bodies from the record maps; on the same 50,000 facts a creator filter including materialization measures about 4.9 ms, which shows that the structural index is the cheap stage and that pruning happens before any record is loaded. The previous full-scan ceiling was 27.8 ms at 10,000 facts, and a scan pays that cost regardless of selectivity. On the same 10,000-fact store the predicate path runs in 127 µs without axis hints and 42 µs with them; the pair measures the planned axis-hint fast path, whose wiring into the production read path is pending. The current predicate path sits roughly 219x below the earlier ceiling. In this design, selectivity is structural: each added dimension shrinks the candidate set before a record is loaded, so the most selective query is the cheapest.
 
 :::{ layout-ncol=2 }
 {{< include _include/bench/fig-bench-filter.qmd >}}
@@ -648,7 +649,7 @@ The index footprint is flat across record count: approximately 264 MB from 10,00
 
 ### Identity Generation {#sec-perf-idgen}
 
-Coordinate identity generation measures about 0.38 ns per identity against 227 ns for a SHA-256 digest, a factor of about 600, in the coordinate integration measurements of the Tagma application stage. The comparison is scoped to identity generation, not to cryptographic integrity.
+Coordinate identity generation measures about 0.38 ns per identity against 227 ns for a SHA-256 digest, a factor of about 600, in the coordinate integration measurements of the Tagma application stage. The comparison is scoped to identity generation, not to cryptographic integrity; a non-cryptographic hash such as FNV-1a or xxHash is a closer comparator, and the structural coordinate is cheaper than those as well.
 
 ## Application Domains and Ecosystem {#sec-apps}
 
@@ -707,6 +708,7 @@ The following limits are explicit, and several of them are deliberate design dec
 - The on-chain governance economy is staged: write admission, constraint evaluation, and evidence chains are implemented; consensus, ordering, and the adversary model sit above the record layer, in the same place the FIH lifecycle lives.
 - The structural advantage requires a bounded prefix. A creator-only query that cannot bind the leading origin axis cannot prune the tree: at one million facts the tree walk (381 ms) is slower than the record-map scan (108 ms). Queries should bind high-cardinality leading axes, typically time or origin.
 - The aether transport layer is outside the verified scope of the repository and is treated as conjecture until it has concrete content.
+- The twenty-coordinate identity is an encoding of a digest, not a set of semantic axes; axis queries apply to the six-coordinate domain identity only.
 
 ## Related Work {#sec-related}
 
@@ -714,7 +716,7 @@ The FIH blackboard belongs to a family that includes classical blackboard archit
 
 Classical blackboards coordinate problem solvers through shared state; neXus restricts the state to three record kinds with a fixed lifecycle, makes Facts immutable, and gives identity a coordinate structure, which turns the blackboard itself into a replayable audit trail. Knowledge graphs store static entity-relationship triplets; a neXus Fact stores the research step that produced a statement, so the graph is a queryable computational trace rather than a snapshot. Vector stores answer similarity queries over embeddings; the structural filter answers axis queries over coordinates at constant marginal cost with no model inference. Agent memory layers in closed ecosystems couple memory to the platform; the FIH primitives decouple memory from any single backend.
 
-A separate axis of comparison is the orchestration harness. Recent agent frameworks coordinate model calls through a fixed program: the harness owns the state machine, lays out the graph or pipeline of steps, and routes messages between roles. neXus inverts this shape. There is no harness-owned state machine and no fixed program; the fabric is a concurrent substrate on which observers move. An observer is any executor in the kineTics sense, an agent, a sensor, a hardware transducer, or a human-operated terminal, and its only commitment is a set of Hints, the contract that bounds what it may do. Under that contract it reads and writes coordinate-addressed records on the shared blackboard, and coordination between observers is stigmergic: each acts on the traces the others left, with no central router deciding the next step.
+A separate axis of comparison is the orchestration harness. Recent agent frameworks coordinate model calls through a fixed program: the harness owns the state machine, lays out the graph or pipeline of steps, and routes messages between roles. neXus inverts this shape. There is no harness-owned state machine and no fixed program; the fabric is a concurrent substrate on which observers act. An observer is any executor in the kineTics sense[^kinetics], an agent, a sensor, a hardware transducer, or a human-operated terminal, and its only commitment is a set of Hints, the contract that bounds what it may do. Under that contract it reads and writes coordinate-addressed records on the shared blackboard, and coordination between observers is stigmergic: each acts on the traces the others left, with no central router deciding the next step.
 
 | Dimension | Orchestration harness | neXus fabric |
 |---|---|---|
@@ -801,8 +803,8 @@ Identity configurations:
 
 | Configuration | Coordinates | Space size | Use |
 |---------------|-------------|------------|-----|
-| domain identity | 6 | $11{,}172^6 \approx 2^{81}$ | record addressing within a blackboard |
-| evidence identity | 20 | $11{,}172^{20} > 2^{256}$ | full-injective encoding of a 256-bit digest |
+| domain identity | 6 | $11{,}172^6 \approx 2^{81}$ | record addressing within a blackboard; axis-queryable |
+| evidence identity | 20 | $11{,}172^{20} > 2^{256}$ | full-injective encoding of a 256-bit digest; not axis-queryable |
 
 Conflict semantics: a coordinate occupied by different content is a conflict and the write is rejected; a coordinate occupied by identical content is an idempotent write; occupancy lookup is O(1) via the existing-content-hash index. The six-to-twenty coordinate change is breaking and requires re-ingestion.
 
@@ -940,3 +942,4 @@ All figures in @sec-performance come from the reference benchmark suite, execute
 [^bench]: neXus benchmark suite, [github.com/ssccsorg/nexus](https://github.com/ssccsorg/nexus), benches directory
 [^ledger]: Ledger-State Stigmergy: A Formal Framework for Indirect Coordination Grounded in Distributed Ledger State, arXiv preprint cited in the project documentation
 [^refs]: Reference landscape catalog of external systems, maintained in the neXus project documentation
+[^kinetics]: kineTics, universal execution and transduction controller; an executor is any agent, signal, hardware, human-machine, or bridge type under one coordinate-based contract. Reference: see project documentation under kineTics.
