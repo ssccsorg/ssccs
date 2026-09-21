@@ -1,0 +1,357 @@
+---
+title: "TagmaMatrix"
+subtitle: "Coordinate-Addressed Matrices, the Integer Product, and the Wire Form"
+date: 2026-09
+date-format: "MMMM, YYYY"
+version-prefix: tagma_matrix_draft
+version-mark: true
+bibliography: ../../_include/reference.bib
+csl: ../../../../_include/ieee.csl
+metadata-files:
+    - ../../../../_include/author.yml
+    - ../../../../_include/format.pdf.yml
+    - ../../../../_include/format.html.yml
+colorlinks: true
+format:
+  html:
+    number-sections: true
+    code-font: "Source Code Pro"
+    appendix-style: plain
+  pdf:
+    geometry:
+        - margin=16mm
+        - bottom=1.6cm
+        - footskip=1cm
+    keep-tex: true
+    number-sections: true
+    execute:
+        echo: false
+    colorlinks: true
+    linkcolor: darkgray
+    citecolor: gray
+    urlcolor: gray
+    code-block-bg: false
+    code-block-border-left: true
+    include-in-header:
+      text: |
+        \usepackage{xcolor}
+        \usepackage{microtype}
+        \setkeys{Gin}{width=\linewidth,height=\textheight,keepaspectratio}
+        \addtokomafont{disposition}{\rmfamily}
+        \input{./_files/matrix_metadata.tex}
+        \DeclareTOCStyleEntry[beforeskip=6pt]{default}{section}
+        \DeclareTOCStyleEntry[beforeskip=0pt]{default}{subsection}
+        \makeatletter
+        \def\@maketitle{
+          \begin{center}
+            {\LARGE \bfseries \@title \par}
+            \vspace{1em}
+            {\large \@subtitle \par}
+            \vspace{4em}
+                {\large \@author \thanks{\authorrole; Corresponding author: \texttt{\href{mailto:\authoremail}{\authoremail}}} \par}
+                \vspace{0.3em}
+                {\normalsize \texttt{\href{\affiliationurl}{\affiliationdomain}} \par}
+            \vspace{2em}
+                {\normalsize \@date \par}
+          \end{center}
+          \vspace{4em}
+        }
+        \makeatother
+---
+
+```{python}
+#| include: false
+#| context: local
+title_meta_items = {
+    "html": [
+        {"title": "Whitepapers", "link": "https://doi.org/10.5281/zenodo.21302508", "content": "Tagma", "icon": "bi bi-link"},
+
+        {"title": "References", "link": "/projects/syntagma/tagma/", "content": "Primitive", "icon": "bi bi-link"},
+        {"title": "References", "link": "https://github.com/ssccsorg/syntagma/tree/main/docs/devlogs", "content": "Devlog", "icon": "bi bi-link"},
+        {"title": "Code", "link": "https://github.com/ssccsorg/syntagma", "content": "GitHub", "icon": "bi bi-link"},
+
+        {"title": "Code", "link": "https://github.com/ssccsorg/syntagma/tree/main/sw/rust/matrix", "content": "Crate", "icon": "bi bi-link"},
+    ],
+}
+```
+
+{{< include ../../../../_include/_title_meta_items.qmd >}}
+
+```{python}
+#| include: false
+#| context: local
+%run ../../../../_include/_graphviz.py
+```
+
+## Abstract {.unnumbered .unlisted}
+
+A `CoordPath<2>` is the smallest composition the coordinate system offers: two Coords, and a point. `tagma-matrix` reads that pair as the address of an element of a rank-2 integer matrix. The physical order of the backing bytes is a type parameter and never part of that address, so a coordinate names the same element whether the bytes sit row-major or column-major, the product over the elements is byte-identical across the two, and the bytes a matrix writes are the same in either order. That property, relocation invariance, is what lets a matrix cross between devices without changing its identity, and it is held by a test. The crate adds the integer product, `i8` by `i8` into `i32`, and a wire form that carries coordinates and values instead of a layout. It takes no allocator: `tagma-core` is taken with its defaults off, and a link into a program with no operating system and no global allocator is part of the crate's verification. This document is a draft.
+
+[^tagma]: Tagma Whitepaper: [docs.ssccs.org/projects/syntagma/tagma/](https://docs.ssccs.org/projects/syntagma/tagma/)
+[^syntagma]: synTagma repository: [Github (Pre-release, Apache 2.0)](https://github.com/ssccsorg/syntagma)
+[^matrix-src]: `tagma-matrix` reference implementation: [github.com/ssccsorg/syntagma/tree/main/sw/rust/matrix](https://github.com/ssccsorg/syntagma/tree/main/sw/rust/matrix)
+[^linkcheck]: No-allocator link check: [github.com/ssccsorg/syntagma/tree/main/sw/rust/verify/linkcheck](https://github.com/ssccsorg/syntagma/tree/main/sw/rust/verify/linkcheck)
+[^issue]: Issue 65, `Add tagma-matrix`: [github.com/ssccsorg/syntagma/issues/65](https://github.com/ssccsorg/syntagma/issues/65)
+
+## Introduction {#sec-introduction}
+
+The family answers four different questions over the same space. `CoordPath`[^tagma] decides whether a path exists. TagmaGeo decides where paths stand relative to one another. TagmaMap decides which value a path holds. TagmaMatrix decides what the value at a coordinate is when the values form a structure the program computes with.
+
+The observation it starts from is that a matrix element's position is already an address in this system. A row and a column are two Coords, and two Coords are a `CoordPath<2>`. Nothing about the element's byte offset enters the statement.
+
+Heap tensor libraries make the opposite choice. The offset of an element is derived from a base pointer and a stride, the stride is part of the API, and the layout of the data is therefore something a consumer must know in order to read it. In that model the physical order is part of the element's address.
+
+Two consequences follow once the coordinate is the address. A reader answers the same coordinate with the same value whatever arrangement the bytes are in, because the arrangement is a storage decision. A matrix can cross to another device as its coordinates and their values, leaving the receiver free to lay the bytes out differently. Both are one statement: the identity of an element is its coordinate, and relocation invariance is that statement made checkable.
+
+## The Address Model
+
+An element is named by two Coords, the row first and the column second. The crate carries them as a `CoordPath<2>`.
+
+The addressable range follows from the primitive rather than from the matrix. Each axis holds at most 11,172 values, so a matrix is at most 11,172 by 11,172, and at one byte per element a full one occupies about 125 MB. That is the reason the crate offers a borrowed form: an owned matrix carries its buffer inline, and a borrowed one reads a buffer that stays where the linker put it.
+
+The physical order is a type, and its only job is to turn a position into an offset.
+
+| Order | Offset of element `(i, j)` in an `R` by `C` matrix | Adjacent in memory |
+|-------|---------------------------------------------------|--------------------|
+| `RowMajor` | `i * C + j` | consecutive columns |
+| `ColMajor` | `j * R + i` | consecutive rows |
+
+The order is not part of the address. The same coordinate resolved under the two orders lands at two different offsets and answers with the same value.
+
+```{python}
+#| label: fig-matrix-address
+#| fig-cap: "One coordinate, two physical orders, two offsets, one value."
+dot("""
+digraph DOTGraph {
+    compound=true;
+    fontname="Arial";
+    node [shape=box, fontname="Arial", fontcolor=black, color=black];
+    graph [fontcolor=black, fontname="Arial", bgcolor=white, splines=ortho];
+    edge [color=black];
+
+    coordinate [label="CoordPath<2>\nrow 1, column 1", shape=ellipse];
+
+    subgraph cluster_rows {
+        label="RowMajor\noffset = i * C + j";
+        style=dashed; color=black; pencolor=black; fontcolor=black; fontsize=11;
+        rows_major [label="a b c d e f\n(1, 1) at offset 4"];
+    }
+    subgraph cluster_columns {
+        label="ColMajor\noffset = j * R + i";
+        style=dashed; color=black; pencolor=black; fontcolor=black; fontsize=11;
+        columns_major [label="a d b e c f\n(1, 1) at offset 3"];
+    }
+
+    coordinate -> rows_major [label="same coordinate"];
+    coordinate -> columns_major [label="same coordinate"];
+    rows_major -> columns_major [label="same value", style=dotted, constraint=false];
+}
+""")
+```
+
+A matrix owns its buffer as `[[i8; C]; R]`, so the buffer's shape is in the type and the offsets above are the only arithmetic between a position and a byte. The type derives `Copy`, as the family's other fixed-size value types do, which means a copy duplicates the whole buffer. A large matrix is therefore a value to borrow, or to read through the borrowed form, rather than one to pass around by value.
+
+## The Bounds Contract {#sec-bounds}
+
+Two surfaces read an element, and they fail differently on purpose.
+
+| Surface | Out of range | Reason |
+|---------|--------------|--------|
+| `get(i, j)`, `set(i, j, v)` | panics | indexing a container, which Rust spells as a panic |
+| `path_of(i, j)`, `at(path)` | `None` | an address that names no element of this matrix |
+
+The panicking surface exists because the alternative was worse than a panic. The flat offset of a position outside the matrix is the offset of a position inside it. For a two by three row-major matrix the offset of `(0, 3)` is `3`, which is the offset of `(1, 0)`, so an unchecked read returns the neighbouring row's first element, while the same call in column-major order panics on the slice index instead. One mistake, silent in one order and loud in the other, which is a shape of failure a reader cannot reason about. Both readers refuse the position, and the refusal is documented under `# Panics`.
+
+The dimensions carry a bound of their own. Both are at least one, because a column count is the divisor that turns a flat offset back into a position and a matrix with no row holds no element, and neither exceeds the coordinate space, because an index above it has no coordinate to be named by. Every constructor and every derived method asserts this, so a matrix outside the space fails to build rather than resolving an address to the wrong element.
+
+The assertion relates two const generic parameters, a relation the compiler evaluates at monomorphization. A build reports it, and `cargo check` on its own does not.
+
+## Relocation Invariance {#sec-relocation}
+
+Relocation invariance is the property the crate exists to make checkable. Stated as a test rather than as prose, it has four parts: the same logical matrix in row-major and in column-major order answers the same coordinates with the same values, produces a byte-identical product, and writes identical bytes.
+
+The claims are falsifiable, and tests in the crate hold them. If an address depended on where the bytes sit, these runs would differ, and the difference would be the evidence.
+
+| Test | What it holds |
+|------|---------------|
+| `two_physical_orders_answer_the_same_coordinates` | the coordinate surface is order-independent |
+| `two_physical_orders_produce_a_byte_identical_product` | the product over the same logical elements is the same, element for element |
+| `the_stream_does_not_depend_on_the_physical_order` | the two orders write the same bytes |
+| `a_round_trip_carries_the_matrix_into_another_order` | a matrix read into the other order holds the same values and produces the same product |
+| `a_relocated_value_writes_the_same_bytes_it_arrived_in` | a value that moved writes back what it arrived as |
+
+Relocation invariance is what the term teleport means here, and it is a statement about identity rather than about transport. A value that moves between devices keeps its identity when the receiver can name it by the same coordinate, and the coordinate is the one thing both sides already share.
+
+## The Wire Form {#sec-wire}
+
+A matrix crosses as its coordinates and their values. The encoding opens with a header and then writes one record per element in logical order.
+
+| Field | Width | Content |
+|-------|-------|---------|
+| magic | 4 bytes | `TGMX` |
+| version | 1 byte | `1`, the only version this build reads |
+| rows | 2 bytes | `R`, little-endian |
+| columns | 2 bytes | `C`, little-endian |
+| record | 5 bytes | row Coord index, column Coord index, value, each little-endian |
+
+The length follows from the shape: `9 + 5 * R * C` bytes. Records are written in logical order rather than in storage order, so the stream is canonical and two matrices with the same logical content write the same bytes whatever order their own storage uses.
+
+```{python}
+#| label: fig-matrix-wire
+#| fig-cap: "A matrix moves as coordinates and values, and the receiver lays the bytes out as it likes."
+dot("""
+digraph DOTGraph {
+    compound=true;
+    fontname="Arial";
+    node [shape=box, fontname="Arial", fontcolor=black, color=black];
+    graph [fontcolor=black, fontname="Arial", bgcolor=white, splines=ortho];
+    edge [color=black];
+    rankdir=LR;
+
+    subgraph cluster_sender {
+        label="RowMajor";
+        style=dashed; color=black; pencolor=black; fontcolor=black; fontsize=11;
+        sender [label="a b c d e f"];
+    }
+    stream [label="TGMX v1 2x3\n(0,0) a\n(0,1) b\n(0,2) c\n(1,0) d\n(1,1) e\n(1,2) f", shape=ellipse];
+    subgraph cluster_receiver {
+        label="ColMajor";
+        style=dashed; color=black; pencolor=black; fontcolor=black; fontsize=11;
+        receiver [label="a d b e c f"];
+    }
+
+    sender -> stream [label="encode"];
+    stream -> receiver [label="decode"];
+    receiver -> sender [label="same coordinates, same values", style=dotted, constraint=false];
+}
+""")
+```
+
+The write half is a method on the trait every reader implements, so an owned matrix and a borrowed one write through the same code, and a matrix whose weights live in read-only memory is sent on without being copied into RAM. The read half is an associated function of the owned type, because reading in is the one direction that needs an owner to place the values in.
+
+A reader refuses a stream it cannot account for, and it names the reason rather than reading something plausible.
+
+| Refusal | Condition |
+|---------|-----------|
+| `TooShort` | fewer bytes than a header holds |
+| `BadMagic` | the opening bytes belong to another format |
+| `UnsupportedVersion` | the version is not one this build reads |
+| `ShapeMismatch` | the shape in the stream is not the shape of the matrix being filled |
+| `Truncated` | the stream ends before its records do |
+| `TrailingBytes` | the stream holds bytes the shape does not account for |
+| `CoordinateOutOfRange` | a record's coordinate names no element of the matrix |
+| `CoordinateMismatch` | a record's coordinate names another element than its own position |
+
+The last two carry the weight of the format. A receiver places every value at the coordinate its record names, so a stream that names the wrong coordinate, or names one outside the matrix, is rejected instead of filling a plausible matrix with misplaced values.
+
+## The Integer Product {#sec-product}
+
+The product is a matrix-vector multiply over `i8` operands accumulating into `i32`.
+
+$$y_i = \sum_{j=0}^{C-1} a_{i,j} \, x_j$$
+
+Two properties are worth stating, because they are the whole of the operation's design.
+
+The accumulator cannot overflow at any addressable width. The largest magnitude a term can reach is `128 * 127`, since a product of two `i8` values is bounded by the extreme magnitudes rather than by their signed ranges, and the longest sum has 11,172 terms. The bound is therefore 181,612,032 against an `i32` maximum of 2,147,483,647, with room to spare, so no saturating arithmetic and no widening to 64 bits is needed.
+
+The product reads its operands through the coordinate surface, so an owned matrix and a borrowed one serve the same call. It computes into a caller-provided slice, so the operation allocates nothing: the accumulator is a register and the output is the caller's memory.
+
+## The No-Allocator Property {#sec-no-alloc}
+
+The crate is `#![no_std]`, and it takes `tagma-core` with its default features off so that the primitive's `alloc` feature stays off with it.
+
+A claim of that kind is worth turning into an artifact rather than leaving as a statement about source. The check links the crate into a program with no operating system and no global allocator, for `riscv32imac-unknown-none-elf`, and a successful link is the proof: a use of the allocator anywhere underneath fails the link with `no global memory allocator found but one is required`. The check reaches the whole surface, including the borrowed form and the wire form, so an addition that allocates is reached by the link rather than left unused and unnoticed.
+
+The check lives outside the Rust workspace on purpose. It has to be built on its own, because a workspace-wide build also selects TagmaGeo and TagmaMap, which unify `tagma-core`'s `alloc` feature on, and the link would then fail for a reason that has nothing to do with this crate[^linkcheck].
+
+## Scope and Boundaries {#sec-boundaries}
+
+In scope: the rank-2 element addressed by a coordinate, the integer product over the elements, the wire form that moves a matrix between devices, and relocation invariance held as a test.
+
+Out of scope, deliberately:
+
+- Quantization and requantization. A scale belongs to the model that owns it, and a crate that guessed one would be making a decision it cannot see.
+- Optimized kernels. A kernel belongs to the consumer that owns a target.
+- Ranks other than two. A rank-2 element is the smallest thing two Coords can address, and the wire form is written for that shape.
+- A C++ or Java port. The ports carry the in-memory contracts that storage needs, and this crate owns no persistence, so there is nothing for them to mirror yet.
+
+No performance claim is made for this crate in this document. The reason is in the last section.
+
+## Comparison with Existing Systems {#sec-comparison}
+
+The comparison here is structural, over the axes this crate changes. No performance comparison is offered, because none has been measured for this crate.
+
+| Aspect | TagmaMatrix | Heap tensor libraries | `no_std` inference kernels |
+|--------|-------------|-----------------------|----------------------------|
+| Allocator | none | heap, in the runtime | none |
+| What an element's address is | a pair of Coords | a base pointer and a stride | index arithmetic over a buffer |
+| Physical order in the API | a type parameter, absent from the address | strides, observable and commonly significant | a convention of the kernel |
+| Wire form | coordinates and values, defined by the crate | an external format such as ONNX or NNEF | none |
+| Relocation invariance | held by a test | not a property of the type | not a property of the type |
+| Rank | two | any | fixed by the model |
+
+The second column stands for frameworks whose tensor type is a view over heap memory with strides. The third stands for the `no_std` inference runtimes that provide zero-allocation kernels without a coordinate address model, such as `embedded-nn` and `ember-rs`. This crate replaces neither; it sits between them and `tagma-core`. A hosted runtime such as ONNX Runtime or tract is the usual choice when a model has to be loaded rather than addressed, and those require an allocator and an operating system.
+
+The axis that separates them is the address. Where the runtime gives an element an address derived from a base pointer and a stride, this crate gives it a coordinate that a second device can recompute without knowing anything about the first device's memory.
+
+## The Crate Surface
+
+| Item | Description |
+|------|-------------|
+| `Matrix<R, C, O>` | rank-2 `i8` elements that own their buffer, with the physical order as a type parameter |
+| `MatrixRef<'a, R, C, O>` | the same surface over a borrowed buffer, for weights that stay in read-only memory |
+| `Order`, `RowMajor`, `ColMajor` | the trait that turns a position into an offset, and the two orders |
+| `Elements<R, C, O>` | the read surface (`element`, `path_of`, `at`) and the write half of the wire form |
+| `gemv` | the integer product |
+| `Matrix::decode` | the read half of the wire form |
+
+## Status
+
+This document is a draft. The crate is version 0.1.0, in the `sw/rust/matrix` directory of the synTagma[^syntagma] repository[^matrix-src], added under issue 65[^issue].
+
+The crate carries 31 tests across five binaries, all green.
+
+| Binary | Tests | Subject |
+|--------|------:|---------|
+| `scalar_ref` | 5 | the product against a scalar reference that reads through coordinates |
+| `relocation` | 5 | the invariance claims in the table above |
+| `wire` | 10 | the write path and the reader's refusals |
+| `borrowed` | 6 | the borrowed form against the owned one, and its write path |
+| `addressing` | 5 | the refusals at the boundary |
+
+Verification runs on the host and for `riscv32imac-unknown-none-elf`, with `cargo clippy` warnings denied in both, and the no-allocator link check is built for the target[^linkcheck].
+
+No benchmark has been measured for this crate. The product is a scalar loop over a buffer, and the crate makes no throughput claim. What it adds to the family is where an element's address comes from, and that is verified by tests rather than by timing. A benchmark suite would have to measure the thing the crate changes, which is the cost of addressing rather than of the product, and that work is not done.
+
+## References {.unnumbered .unlisted}
+
+## Appendices {.unnumbered}
+
+### The Wire Format, Byte by Byte
+
+The encoding of a two by three matrix with the values
+
+$$a = \begin{bmatrix} 1 & -2 & 3 \\ 4 & 5 & -6 \end{bmatrix}$$
+
+is 39 bytes: nine for the header, then one five-byte record per element in logical order.
+
+| Offset | Bytes | Meaning |
+|-------:|-------|---------|
+| 0 | `54 47 4D 58` | magic, `TGMX` |
+| 4 | `01` | version |
+| 5 | `02 00` | rows, 2 |
+| 7 | `03 00` | columns, 3 |
+| 9 | `00 00 00 00 01` | `(0, 0) = 1` |
+| 14 | `00 00 01 00 FE` | `(0, 1) = -2` |
+| 19 | `00 00 02 00 03` | `(0, 2) = 3` |
+| 24 | `01 00 00 00 04` | `(1, 0) = 4` |
+| 29 | `01 00 01 00 05` | `(1, 1) = 5` |
+| 34 | `01 00 02 00 FA` | `(1, 2) = -6` |
+
+Negative values are two's complement, so `-2` is `0xFE` and `-6` is `0xFA`. The crate reads these bytes back into either physical order and writes them again from either order, which is the invariance the format exists to carry.
+
+### What Is Not in the Buffer
+
+The buffer holds elements and nothing else. There is no shape word, no stride, no scale, and no header in memory: the shape is in the type, the order is in the type, and the scale belongs to the consumer. A matrix in RAM is `R * C` bytes of `i8`, and the only thing between a coordinate and one of those bytes is the offset the order computes.
+
+That is the difference the crate is built around. A format needs a description of its layout; this one does not, because the coordinate that names an element is the same on both sides of a transfer.

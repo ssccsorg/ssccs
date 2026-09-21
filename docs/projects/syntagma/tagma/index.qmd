@@ -970,6 +970,16 @@ The security model rests on keyed primitives over public coordinate arithmetic. 
 
 The full design, benchmark charts, and implementation status are described in the Tagma Security whitepaper and in the Tagma security layer specification[^tagma-spec] in the synTagma repository.
 
+## TagmaMatrix[^tagma-matrix]: Coordinate-Addressed Matrices {#sec-appendix-tagma-matrix}
+
+TagmaMatrix carries the coordinate model to numeric arrays. An element of a rank-2 matrix already has an address in this system: a row and a column are two Coords, and two Coords are a `CoordPath<2>`. Where the core library addresses a path and TagmaMap addresses a stored value, TagmaMatrix addresses the element a path names when the elements form a structure the program computes with.
+
+The crate makes one property checkable. The physical order of the backing bytes is a type parameter and never part of the address, so the same coordinate names the same element whether the bytes are stored row-major or column-major: the same logical matrix in the two orders answers the same coordinates with the same values, produces a byte-identical product, and writes identical bytes. That is relocation invariance, held by test, and it is what lets a matrix move between devices without changing its identity. A wire form follows from the same statement, because a matrix can cross as its coordinates and their values while the receiver lays the bytes out as it likes.
+
+The crate adds the integer product over the elements, `i8` by `i8` into `i32`, whose accumulator is bounded by the coordinate space itself at 181,612,032, so no widening is needed at any addressable width. It is the family member that takes no allocator: `tagma-core` is taken with its defaults off, and a link into a program with no operating system and no global allocator is part of the crate's verification.
+
+The full design and the verification surface are described in the TagmaMatrix whitepaper; the reference implementation lives in `sw/rust/matrix`[^tagma-matrix-src].
+
 ## Structural Enumeration in Practice: RISC-V Verification {#sec-appendix-exaverif}
 
 ExaVerif[^exaverif] exhaustively verifies RISC-V custom instruction encodings.
@@ -1094,6 +1104,8 @@ Korean without a hex dump.
 [^tagma-map-src]: TagmaMap reference implementation: [github.com/ssccsorg/syntagma/tree/main/sw/rust/map](https://github.com/ssccsorg/syntagma/tree/main/sw/rust/map)
 [^tagma-sec]: Tagma Security whitepaper: [docs.ssccs.org/projects/syntagma/tagma/security](https://docs.ssccs.org/projects/syntagma/tagma/security)
 [^tagma-spec]: Tagma Security Layer Specification: [github.com/ssccsorg/syntagma/blob/main/docs/spec/tagma-sec.md](https://github.com/ssccsorg/syntagma/blob/main/docs/spec/tagma-sec.md)
+[^tagma-matrix]: TagmaMatrix whitepaper (draft): [docs.ssccs.org/projects/syntagma/tagma/matrix](https://docs.ssccs.org/projects/syntagma/tagma/matrix)
+[^tagma-matrix-src]: TagmaMatrix reference implementation: [github.com/ssccsorg/syntagma/tree/main/sw/rust/matrix](https://github.com/ssccsorg/syntagma/tree/main/sw/rust/matrix)
 [^tagma-swref]: Tagma Reference Implementations: [docs.ssccs.org/projects/syntagma/impl](https://docs.ssccs.org/projects/syntagma/impl)
 [^exaverif]: Project ExaVerif, Exhaustive Verification for RISC-V Custom Instructions [docs.ssccs.org/projects/ev](https://docs.ssccs.org/projects/ev)
 [^tagma-root-ttree]: Solving CERN's ROOT TTree I/O bottleneck: [docs.ssccs.org/works/cern/root-ttree/](https://docs.ssccs.org/works/cern/root-ttree/); measured evidence reproducible from the [ROOT fork](https://github.com/ssccsorg/root) and its [benchmark](https://github.com/ssccsorg/root/blob/master/benchmarks/tagma/tagma_bench.C)
