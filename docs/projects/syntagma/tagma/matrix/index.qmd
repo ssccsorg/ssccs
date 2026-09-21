@@ -107,7 +107,7 @@ Two consequences follow once the coordinate is the address. A reader answers the
 
 An element is named by two Coords, the row first and the column second. The crate carries them as a `CoordPath<2>`.
 
-The addressable range follows from the primitive rather than from the matrix. Each axis holds at most 11,172 values, so a matrix is at most 11,172 by 11,172, and at one byte per element a full one occupies about 125 MB. That is the reason the crate offers a borrowed form: an owned matrix carries its buffer inline, and a borrowed one reads a buffer that stays where the linker put it.
+The addressable range follows from the primitive. Each axis holds at most 11,172 values, so a matrix is at most 11,172 by 11,172, and at one byte per element a full one occupies about 125 MB. That is the reason the crate offers a borrowed form: an owned matrix carries its buffer inline, and a borrowed one reads a buffer that stays where the linker put it.
 
 The physical order is a type, and its only job is to turn a position into an offset.
 
@@ -149,7 +149,7 @@ digraph DOTGraph {
 """)
 ```
 
-A matrix owns its buffer as `[[i8; C]; R]`, so the buffer's shape is in the type and the offsets above are the only arithmetic between a position and a byte. The type derives `Copy`, as the family's other fixed-size value types do, which means a copy duplicates the whole buffer. A large matrix is therefore a value to borrow, or to read through the borrowed form, rather than one to pass around by value.
+A matrix owns its buffer as `[[i8; C]; R]`, so the buffer's shape is in the type and the offsets above are the only arithmetic between a position and a byte. The type derives `Copy`, as `Coord`, `CoordPath` and `CoordSet` do, which means a copy duplicates the whole buffer. A large matrix is therefore a value to borrow, or to read through the borrowed form.
 
 ## The Bounds Contract {#sec-bounds}
 
@@ -162,7 +162,7 @@ Two surfaces read an element, and they fail differently on purpose.
 
 The panicking surface exists because the alternative was worse than a panic. The flat offset of a position outside the matrix is the offset of a position inside it. For a two by three row-major matrix the offset of `(0, 3)` is `3`, which is the offset of `(1, 0)`, so an unchecked read returns the neighbouring row's first element, while the same call in column-major order panics on the slice index instead. One mistake, silent in one order and loud in the other, which is a shape of failure a reader cannot reason about. Both readers refuse the position, and the refusal is documented under `# Panics`.
 
-The dimensions carry a bound of their own. Both are at least one, because a column count is the divisor that turns a flat offset back into a position and a matrix with no row holds no element, and neither exceeds the coordinate space, because an index above it has no coordinate to be named by. Every constructor and every derived method asserts this, so a matrix outside the space fails to build rather than resolving an address to the wrong element.
+The dimensions carry a bound of their own. Both are at least one, because a column count is the divisor that turns a flat offset back into a position and a matrix with no row holds no element, and neither exceeds the coordinate space, because an index above it has no coordinate to be named by. Every constructor and every method the trait provides asserts this, so a matrix outside the space fails to build rather than resolving an address to the wrong element.
 
 The assertion relates two const generic parameters, a relation the compiler evaluates at monomorphization. A build reports it, and `cargo check` on its own does not.
 
@@ -252,7 +252,7 @@ $$y_i = \sum_{j=0}^{C-1} a_{i,j} \, x_j$$
 
 Two properties are worth stating, because they are the whole of the operation's design.
 
-The accumulator cannot overflow at any addressable width. The largest magnitude a term can reach is `128 * 127`, since a product of two `i8` values is bounded by the extreme magnitudes rather than by their signed ranges, and the longest sum has 11,172 terms. The bound is therefore 181,612,032 against an `i32` maximum of 2,147,483,647, with room to spare, so no saturating arithmetic and no widening to 64 bits is needed.
+The accumulator cannot overflow at any addressable width. The largest magnitude a term can reach is `128 * 127`, since the bound on a product of two `i8` values is the extreme magnitudes, `128` and `127`, and the longest sum has 11,172 terms. The bound is therefore 181,612,032 against an `i32` maximum of 2,147,483,647, with room to spare, so no saturating arithmetic and no widening to 64 bits is needed.
 
 The product reads its operands through the coordinate surface, so an owned matrix and a borrowed one serve the same call. It computes into a caller-provided slice, so the operation allocates nothing: the accumulator is a register and the output is the caller's memory.
 
@@ -260,7 +260,7 @@ The product reads its operands through the coordinate surface, so an owned matri
 
 The crate is `#![no_std]`, and it takes `tagma-core` with its default features off so that the primitive's `alloc` feature stays off with it.
 
-A claim of that kind is worth turning into an artifact rather than leaving as a statement about source. The check links the crate into a program with no operating system and no global allocator, for `riscv32imac-unknown-none-elf`, and a successful link is the proof: a use of the allocator anywhere underneath fails the link with `no global memory allocator found but one is required`. The check reaches the whole surface, including the borrowed form and the wire form, so an addition that allocates is reached by the link rather than left unused and unnoticed.
+A claim of that kind is worth making into an artifact, because the link is the evidence. The check links the crate into a program with no operating system and no global allocator, for `riscv32imac-unknown-none-elf`, and a successful link is the proof: a use of the allocator anywhere underneath fails the link with `no global memory allocator found but one is required`. The check reaches the whole surface, including the borrowed form and the wire form, so an addition that allocates is reached by the link.
 
 The check lives outside the Rust workspace on purpose. It has to be built on its own, because a workspace-wide build also selects TagmaGeo and TagmaMap, which unify `tagma-core`'s `alloc` feature on, and the link would then fail for a reason that has nothing to do with this crate[^linkcheck].
 
@@ -290,7 +290,7 @@ The comparison here is structural, over the axes this crate changes. No performa
 | Relocation invariance | held by a test | not a property of the type | not a property of the type |
 | Rank | two | any | fixed by the model |
 
-The second column stands for frameworks whose tensor type is a view over heap memory with strides. The third stands for the `no_std` inference runtimes that provide zero-allocation kernels without a coordinate address model, such as `embedded-nn` and `ember-rs`. This crate replaces neither; it sits between them and `tagma-core`. A hosted runtime such as ONNX Runtime or tract is the usual choice when a model has to be loaded rather than addressed, and those require an allocator and an operating system.
+The second column stands for frameworks whose tensor type is a view over heap memory with strides. The third stands for the `no_std` inference runtimes that provide zero-allocation kernels without a coordinate address model, such as `embedded-nn` and `ember-rs`. This crate replaces neither; it sits between them and `tagma-core`. A hosted engine such as ONNX Runtime or tract is the usual choice when a model has to be loaded rather than addressed, and both require `std` and an allocator.
 
 The axis that separates them is the address. Where the runtime gives an element an address derived from a base pointer and a stride, this crate gives it a coordinate that a second device can recompute without knowing anything about the first device's memory.
 
@@ -299,11 +299,12 @@ The axis that separates them is the address. Where the runtime gives an element 
 | Item | Description |
 |------|-------------|
 | `Matrix<R, C, O>` | rank-2 `i8` elements that own their buffer, with the physical order as a type parameter |
-| `MatrixRef<'a, R, C, O>` | the same surface over a borrowed buffer, for weights that stay in read-only memory |
+| `MatrixRef<'a, R, C, O>` | the same read surface over a borrowed buffer, for weights that stay in read-only memory |
 | `Order`, `RowMajor`, `ColMajor` | the trait that turns a position into an offset, and the two orders |
 | `Elements<R, C, O>` | the read surface (`element`, `path_of`, `at`) and the write half of the wire form |
 | `gemv` | the integer product |
 | `Matrix::decode` | the read half of the wire form |
+| `EncodeError`, `DecodeError` | why a write or a read was refused, one variant per condition |
 
 ## Status
 
