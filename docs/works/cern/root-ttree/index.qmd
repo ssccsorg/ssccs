@@ -96,9 +96,9 @@ title_meta_items = {
 
 ROOT is the petabyte-scale data analysis framework of the CERN community, and its TTree columnar format stores the events of nearly every physics analysis. A production bottleneck limits the read path: an analysis issues 372,000 singular reads averaging 4.6 KB, sustains an effective 33 KB/s, and runs for roughly 14 hours. The measured cause is per-request I/O overhead: each small read carries a system call, a cache lookup, and a context switch, while CPU and decompression stay idle in the remote production pattern.
 
-This report measures a coordinate-indexed read path, built on the synTagma[^synTagma] coordinate engine, inside a fork of CERN's ROOT. The path replaces branch, basket, and cache traversal with closed-form coordinate arithmetic: an event addressed as (run, luminosity block, event number) resolves to a direct byte offset with no hash and no index scan. It is a working implementation: a self-contained store class plus byte-source and entry hooks, with existing analysis code, the TTree API, and the build chain unchanged.
+This report measures a coordinate-indexed read path, built on the synTagma[^synTagma] coordinate engine, inside a fork of CERN's ROOT. The path replaces branch, basket, and cache traversal with closed-form coordinate arithmetic: an event addressed as (run, luminosity block, event number) resolves to a direct byte offset with no hash and no index scan. It is a working implementation: a self-contained store class plus byte-source and entry hooks, with existing analysis code, the TTree API, and the build chain unchanged. The measured dataset is a single file, so the axis the measurement populates is the event number.
 
-On the full CMS Run2016G DoubleMuon NanoAOD first file (2,315,223 events), the same medium, the coordinate path completes the read in 2.79 s against 192.8 s for the cache-disabled baseline, a 69.0x gain, serving every event with one aligned request. The memory-mapped variant issues zero application-level read system calls and completes in 1.06 s, a 181.7x gain, after a one-time conversion of 226.3 s. An analysis workload reproduces identical results on both paths, 20,861 selected events with histogram mean 132.696, at 60.9x. Served bytes are verified by a checksum, and analysis results by exact histogram equality.
+On the full CMS Run2016G DoubleMuon NanoAOD first file (2,315,223 events), the same medium, the coordinate path completes the read in 2.79 s against 192.8 s for the cache-disabled baseline, a 69.0x gain, serving every event with one aligned request. The memory-mapped variant issues zero application-level read system calls and completes in 1.06 s, a 181.7x gain, after a one-time conversion of 226.3 s. An analysis workload reproduces identical results on both paths, 20,861 selected events with histogram mean 132.696, at 60.9x. The baseline reads the compressed file through every branch, while the coordinate rows read the uncompressed fixed-width projection of the scalar leaves, so the ratios combine decompression removal, the payload change, and the addressing change. The controls that separate the three are the immediate next measurement, specified in the Status section. Served bytes are verified by a checksum, and analysis results by exact histogram equality.
 
 ## The TTree access pattern
 
@@ -215,11 +215,11 @@ The store class `TTagmaStore` is self-contained C++17 and carries the layout val
 
 The `TFile::ReadBuffer` hook serves a request when it resolves to exactly one fixed-width record: the position is record-aligned, the length equals the record size, and the decomposed axes fall inside the layout bounds. The `TTree::GetEntry` short circuit serves covered entries through the same store, keeping the record in the tree and exposing it through `GetTagmaRecordBuffer` and `GetTagmaRecordSize`.
 
-A preparation tool converts a real dataset into the store: each event becomes one fixed-width record holding the first 320 scalar leaf values serialized as doubles, with a sidecar checksum and a layout sidecar that maps field names to record offsets.
+A preparation tool converts a real dataset into the store: each event becomes one fixed-width record holding the first 320 scalar leaf values serialized as doubles, with a sidecar checksum and a layout sidecar that maps field names to record offsets. The 320 is the record capacity at the measured 2,560-byte record size, so the store holds at most that many leaves of the tree's 1,380, taken as the first scalar numeric leaves in tree order. Variable-length collection branches fall outside the fixed-width projection, and the baseline reads all of them.
 
 ## Benchmark Methodology
 
-The workload is the M1 pattern: read every event of the CMS Run2016G DoubleMuon NanoAOD first file, tree `Events`, 2,315,223 events, 2,155,974,646 bytes, with the TTreeCache disabled in the baseline. The baseline is the current ROOT read path, branch to basket to cache to file, with no store attached; the coordinate hooks are dormant null checks when no store is present, and the branch, basket, cache, and file layers are unchanged from upstream[^footprint_note]. The coordinate rows read the fixed-width store converted from the same events, 2,560-byte records, 320 scalar leaves. Both paths call the same API, `GetEntry`, so the comparison isolates the interior read path.
+The workload is the M1 pattern: read every event of the CMS Run2016G DoubleMuon NanoAOD first file, tree `Events`, 2,315,223 events, 2,155,974,646 bytes, with the TTreeCache disabled in the baseline. The baseline is the current ROOT read path, branch to basket to cache to file, with no store attached; the coordinate hooks are dormant null checks when no store is present, and the branch, basket, cache, and file layers are unchanged from upstream[^footprint_note]. The coordinate rows read the fixed-width store converted from the same events, 2,560-byte records, 320 scalar leaves. Both paths call the same API, `GetEntry`, so the comparison isolates the interior read path. The layout in the measured rows holds a single populated axis: the run and lumi extents are one and the event axis carries the entry count, so the composition evaluates to the entry index times the record size. The mixed-radix composition over nonzero axis extents runs the same code and is verified against the reference engine over the canonical lattice, and a dataset-level layout whose axis extents come from the data is phase-2 work.
 
 The environment is a single Arm Firestorm 3.2 GHz core[^firestorm-note], macOS, out-of-source Release build with treeplayer and testing enabled. Absolute times are machine-specific; the request and system call counts are media-independent.
 
@@ -276,7 +276,7 @@ plt.tight_layout(); plt.show()
 
 :::
 
-The full comparison runs on local disk for both paths. The served checksum matches the conversion checksum (233,262,869,086), so the coordinate paths read the real converted event bytes[^checksum-note][^bench-artifact-note].
+The full comparison runs on local disk for both paths. The served checksum matches the conversion checksum (233,262,869,086), so the coordinate paths read the real converted event bytes[^checksum-note][^bench-artifact-note]. The baseline row reads every leaf's baskets and moves 2.15 GB, the file size, while the coordinate rows move 5.93 GB of raw records holding the 320-leaf scalar projection. The two rows do not move the same payload. The measured machine holds both files in the page cache, so the mapped row measures a memory copy of resident data rather than an access to the medium.
 
 | Path | wall (s) | cpu (s) | reads | reads/event | syscalls/event | bytes/read | MB/s | vs baseline |
 |------|---------:|--------:|------:|------------:|---------------:|-----------:|-----:|------------:|
@@ -442,13 +442,15 @@ The checksum verification closes the loop between the converted store and the se
 
 The fixed-width coordinate read path is implemented, built into the fork, and verified end to end. Phase 1 scope:
 
-- Fixed-width event records addressed as (run, luminosity block, event number), resolved by closed-form arithmetic
+- Fixed-width event records addressed as a coordinate and resolved by closed-form arithmetic; the measured rows populate the event axis alone, and the multi-axis composition is verified against the reference engine over the canonical lattice without being exercised by a dataset-level layout
 - The read path replaced behind the existing TTree and TFile interfaces; the researcher API, analysis code, and build chain are unchanged
-- Measured on the full CMS Run2016G DoubleMuon NanoAOD first file against the cache-disabled baseline: 69.0x (coordinate) and 181.7x (mapped, zero application-level read system calls), with a one-time conversion of 226.3 s
+- Measured on the full CMS Run2016G DoubleMuon NanoAOD first file against the cache-disabled baseline: 69.0x (coordinate) and 181.7x (mapped, zero application-level read system calls), with a one-time conversion of 226.3 s. The baseline reads the compressed file through every branch and the coordinate rows read the uncompressed scalar projection, so these ratios are not yet separated into their components
 - Correctness verified by a checksum over the served bytes and exact analysis-result equality, plus unit tests against the reference engine over the full lattice
 - Released as open source in the [ssccsorg/root](https://github.com/ssccsorg/root/tree/master/tree/tree) fork, with the benchmark harness and the runbook
 
 ### Phase 2 and later: planned
+
+The immediate next measurement separates the components of the measured ratios. The baseline reads a compressed file through every branch, and the coordinate rows read an uncompressed fixed-width projection of the scalar leaves, so three effects are currently summed: decompression removal, the payload change, and the addressing change. Two control rows isolate them on the same medium, single core, cache disabled: the source file re-written uncompressed and read through the ordinary path, which removes decompression alone, and the ordinary path restricted to the two leaves the analysis workload uses, which measures the column-selective read an RDataFrame analysis would perform. Until those rows exist, the ratios stand as measured sums and are reported as such.
 
 - P2: variable-length collections (jets, tracks). The store must support per-event record lengths; the fixed-width record is the addressing foundation
 - P3: compression semantics. The raw phase-1 store moves 2.76x more bytes than the compressed baseline; block-level or selective compression must preserve direct record addressing at the PB scale
@@ -459,6 +461,8 @@ The fixed-width coordinate read path is implemented, built into the fork, and ve
 ## Boundaries
 
 - The mapped path requires a Unix-like platform (mmap)
+- The source file (2.16 GB) and the store (5.93 GB) both fit the measured machine's page cache, so the mapped row reports a memory copy of resident data; a sample larger than memory is required before any mapped row can be read as a storage claim
+- The store serves scalar leaves only: at most 320 of the tree's 1,380 leaves, while the baseline reads every branch
 - All results are measured and reported as they are, with no projection ahead of measurement
 - The demonstration complements ROOT and RNTuple; the existing read paths remain in place
 
