@@ -14,13 +14,21 @@ import plotly.graph_objects as go
 # ----------------------------------------------------------------------
 # 1. Load remote search.json
 # ----------------------------------------------------------------------
-URL = "https://docs.ssccs.org/search.json"
+# Read through the Pages hostname rather than the custom domain. Both serve the
+# same deployment, but ssccs.org has Bot Fight Mode enabled, which refuses
+# automated clients and cannot be skipped with WAF custom rules, so a CI runner
+# is rejected on docs.ssccs.org.
+URL = "https://ssccs-docs.pages.dev/search.json"
+resp = None
 try:
     resp = requests.get(URL, timeout=10)
     resp.raise_for_status()
     data = resp.json()
 except Exception as e:
     print(f"Failed to load {URL}: {e}")
+    if resp is not None:
+        print(f"  status={resp.status_code}, server={resp.headers.get('server')}, "
+              f"cf-mitigated={resp.headers.get('cf-mitigated')}")
     raise
 
 # ----------------------------------------------------------------------

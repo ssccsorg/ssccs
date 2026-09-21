@@ -276,7 +276,7 @@ plt.tight_layout(); plt.show()
 
 :::
 
-The full comparison runs on local disk for both paths. The served checksum matches the conversion checksum (233,262,869,086), so the coordinate paths read the real converted event bytes[^checksum-note][^bench-artifact-note]. The baseline row reads every leaf's baskets and moves 2.15 GB, the file size, while the coordinate rows move 5.93 GB of raw records holding the store's 320 fields[^projection-note]. The two rows do not move the same payload. The measured machine holds both files in the page cache, so the mapped row measures a memory copy of resident data rather than an access to the medium.
+The full comparison runs on local disk for both paths. The served checksum matches the conversion checksum (233,262,869,086), so the coordinate paths read the real converted event bytes[^checksum-note][^bench-artifact-note]. The baseline row reads every leaf's baskets and moves 2.15 GB, the file size, while the coordinate rows move 5.93 GB of raw records holding the store's 320 fields. The two rows do not move the same payload. The measured machine holds both files in the page cache, so the mapped row measures a memory copy of resident data rather than an access to the medium.
 
 | Path | wall (s) | cpu (s) | reads | reads/event | syscalls/event | bytes/read | MB/s | vs baseline |
 |------|---------:|--------:|------:|------------:|---------------:|-----------:|-----:|------------:|
@@ -314,7 +314,7 @@ The analysis workload applies the same selection, MET_pt above 100 GeV and at le
 
 The selection counts and the histogram means are identical, which verifies that the coordinate path reproduces the baseline analysis exactly. The ratio in this table compares against a baseline that reads all 1,380 leaves for a selection that needs two.
 
-Measured on the same events, the two columns read through RDataFrame, which reads the active columns through their branches and never walks the tree's branch list per event, take 0.569 s[^controls-note]. The coordinate path takes 3.755 s on the same machine, so it is 6.6x slower than the reader, and 3.0x slower for the mapped path at 1.709 s. A two-column analysis is the case where the coordinate store is weakest: the store reads the whole 2,560-byte record whatever the analysis selects, while a column-selective reader reads two columns. The same reader costs 11.451 s for 44 scalar columns, against the store's 3.557 s for 320 fields, and the per-event costs of the two readers give a crossover near 14 columns, or near 6 with the store mapped[^crossover-note].
+Measured on the same events, the two columns read through RDataFrame, which reads the active columns through their branches and never walks the tree's branch list per event, take 0.569 s. The coordinate path takes 3.755 s on the same machine, so it is 6.6x slower than the reader, and 3.0x slower for the mapped path at 1.709 s. A two-column analysis is the case where the coordinate store is weakest: the store reads the whole 2,560-byte record whatever the analysis selects, while a column-selective reader reads two columns. The same reader costs 11.451 s for 44 scalar columns, against the store's 3.557 s for 320 fields, and the per-event costs of the two readers give a crossover near 14 columns, or near 6 with the store mapped[^crossover-note].
 
 ### Synthetic workload
 
@@ -465,7 +465,7 @@ The fixed-width coordinate read path is implemented, built into the fork, and ve
 
 ### Phase 2 and later: planned
 
-The component controls have run. Decompression removal accounts for 1.74x of the measured ratio on the full file and the read path for the rest. The store's advantage is column independence rather than a universal speedup: 17.1x against an uncompressed baseline reading the same columns, 32.5x against the compressed baseline reading those columns with the cache enabled, and 6.6x slower than RDataFrame on the two-column selection of the analysis workload. The crossover is near 14 columns, or near 6 with the store mapped. The phase that moves that boundary is the first one below, because 276 of the store's own 320 fields are arrays that the projection truncates to their leading element[^projection-note].
+The component controls have run. Decompression removal accounts for 1.74x of the measured ratio on the full file and the read path for the rest. The store's advantage is column independence rather than a universal speedup: 17.1x against an uncompressed baseline reading the same columns, 32.5x against the compressed baseline reading those columns with the cache enabled, and 6.6x slower than RDataFrame on the two-column selection of the analysis workload. The crossover is near 14 columns, or near 6 with the store mapped. The phase that moves that boundary is the first one below, because 276 of the store's own 320 fields are arrays that the projection truncates to their leading element.
 
 - P2: variable-length collections (jets, tracks). The store must support per-event record lengths; the fixed-width record is the addressing foundation, and this is the phase that decides whether the projection can carry the collections rather than their leading value
 - P3: compression semantics. The raw phase-1 store moves 2.76x more bytes than the compressed baseline; block-level or selective compression must preserve direct record addressing at the PB scale

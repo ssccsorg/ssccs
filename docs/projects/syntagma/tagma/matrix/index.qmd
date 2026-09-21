@@ -320,7 +320,7 @@ The crate carries 31 tests across five binaries, all green.
 | `borrowed` | 6 | the borrowed form against the owned one, and its write path |
 | `addressing` | 5 | the refusals at the boundary |
 
-Verification runs on the host and for `riscv32imac-unknown-none-elf`, with `cargo clippy` warnings denied in both, and the no-allocator link check is built for the target[^linkcheck].
+Verification runs on the host and for `riscv32imac-unknown-none-elf`, with `cargo clippy` warnings denied in both, and the no-allocator link check is built for the target.
 
 No benchmark has been measured for this crate. The product is a scalar loop over a buffer, and the crate makes no throughput claim. What it adds to the family is where an element's address comes from, and that is verified by tests rather than by timing. A benchmark suite would have to measure the thing the crate changes, which is the cost of addressing rather than of the product, and that work is not done.
 
