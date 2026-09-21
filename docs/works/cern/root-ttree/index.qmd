@@ -98,7 +98,7 @@ ROOT is the petabyte-scale data analysis framework of the CERN community, and it
 
 This report measures a coordinate-indexed read path, built on the synTagma[^synTagma] coordinate engine, inside a fork of CERN's ROOT. The path replaces branch, basket, and cache traversal with closed-form coordinate arithmetic: an event addressed as (run, luminosity block, event number) resolves to a direct byte offset with no hash and no index scan. It is a working implementation: a self-contained store class plus byte-source and entry hooks, with existing analysis code, the TTree API, and the build chain unchanged. The measured dataset is a single file, so the axis the measurement populates is the event number.
 
-On the full CMS Run2016G DoubleMuon NanoAOD first file (2,315,223 events), the same medium, the coordinate path completes the read in 2.79 s against 192.8 s for the cache-disabled baseline, a 69.0x gain, serving every event with one aligned request. The memory-mapped variant issues zero application-level read system calls and completes in 1.06 s, a 181.7x gain, after a one-time conversion of 226.3 s. An analysis workload reproduces identical results on both paths, 20,861 selected events with histogram mean 132.696, at 60.9x. Those ratios are measured against a baseline that reads every branch of a compressed file, and the controls that separate the components narrow the claim: decompression removal accounts for 1.74x on the full file, the store is 17.1x faster than a baseline reading the same columns uncompressed, and on the two-column selection of the analysis workload ROOT's column-selective reader is 6.6x faster than the store. The store's cost does not fall with the number of columns an analysis selects, because the record is the addressing unit, so its advantage is column independence above a measured crossover near 14 columns, or about 6 with the store mapped. Served bytes are verified by a checksum, and analysis results by exact histogram equality.
+On the full CMS Run2016G DoubleMuon NanoAOD first file (2,315,223 events), the same medium, the coordinate path completes the read in 2.71 to 2.81 s against 187.0 to 188.2 s for the cache-disabled baseline, a 67x to 69x gain, serving every event with one aligned request. The memory-mapped variant issues zero application-level read system calls and completes in 1.55 to 1.61 s, a 117x to 121x gain, after a one-time conversion of 226.3 s. An analysis workload reproduces identical results on both paths, 20,861 selected events with histogram mean 132.696, at 69.2x. Those ratios are measured against a baseline that reads every branch of a compressed file, and the controls that separate the components narrow the claim: decompression removal accounts for 2.2x to 2.3x on the full file, the store is 13.1x faster than a baseline reading the same columns uncompressed, and on the two-column selection of the analysis workload ROOT's column-selective reader is 4.9x faster than the store. The store's cost does not fall with the number of columns an analysis selects, because the record is the addressing unit, so its advantage is column independence above a measured crossover near 11 columns, or about 6 with the store mapped. Served bytes are verified by a checksum, and analysis results by exact histogram equality. Every row is measured against a warmed source: the harness reads each local source through the page cache in an untimed pass before the timed pass, which is what makes the rows comparable and what the earlier single-run numbers did not hold constant.
 
 ## The TTree access pattern
 
@@ -233,11 +233,11 @@ The reported metrics are wall and CPU time, request count, coordinate-served cou
 
 ```{python}
 #| label: fig-wall-full
-#| fig-cap: "Full-dataset wall time, same medium, log scale. The baseline reads the compressed file through the ordinary path; the coordinate rows read the raw fixed-width store."
+#| fig-cap: "Full-dataset wall time, same medium, log scale, the median of three warmed runs. The baseline reads the compressed file through the ordinary path; the coordinate rows read the raw fixed-width store."
 import matplotlib.pyplot as plt
 
 labels = ['baseline', 'coordinate', 'coordinate+map']
-wall = [192.8, 2.79, 1.06]
+wall = [188.0, 2.72, 1.57]
 fig, ax = plt.subplots(figsize=(5, 3.5))
 bars = ax.bar(labels, wall, color='white', edgecolor='black', linewidth=0.8,
               hatch=['', '///', '...'])
@@ -280,28 +280,30 @@ The full comparison runs on local disk for both paths. The served checksum match
 
 | Path | wall (s) | cpu (s) | reads | reads/event | syscalls/event | bytes/read | MB/s | vs baseline |
 |------|---------:|--------:|------:|------------:|---------------:|-----------:|-----:|------------:|
-| baseline | 192.8 | 182.9 | 470,131 | 0.20 | 0.20 | 4,573 | 11.2 | 1x |
-| coordinate | 2.79 | 2.62 | 2,315,223 | 1.00 | 1.00 | 2,560 | 2,122 | 69.0x |
-| coordinate+map | 1.06 | 1.05 | 2,315,223 | 1.00 | 0.00 | 2,560 | 5,584 | 181.7x |
+| baseline | 187.0-188.2 | 183.6-185.9 | 470,131 | 0.20 | 0.20 | 4,573 | 11.5 | 1x |
+| coordinate | 2.71-2.81 | 2.69-2.73 | 2,315,223 | 1.00 | 1.00 | 2,560 | 2,190 | 66.9-69.1x |
+| coordinate+map | 1.55-1.61 | 1.54-1.58 | 2,315,223 | 1.00 | 0.00 | 2,560 | 3,819 | 116.6-120.5x |
 
-The component controls, measured in one run on the same events and the same medium, with the compressed row reproducing the artifact within six percent[^controls-note]:
+The component controls, measured with the same warm-source protocol on the same events and the same medium:
 
 | Control row | wall (s) | cpu (s) | reads | bytes moved |
 |------|---------:|--------:|------:|------------:|
-| baseline, cache off | 205.07 | 192.35 | 470,131 | 2,149,961,076 |
-| baseline, compression 0 | 117.86 | 87.94 | 387,007 | 10,852,850,385 |
-| baseline, compression 0, the store's columns active | 60.99 | 36.79 | 118,680 | 6,127,346,663 |
-| baseline, compressed, the store's columns active, 32 MB cache | 115.68 | 110.51 | 1,985 | 1,404,068,431 |
-| coordinate | 3.56 | 3.32 | 2,315,223 | 5,926,970,880 |
-| coordinate+map | 1.71 | 1.61 | 2,315,223 | 5,926,970,880 |
+| baseline, cache off | 187.0-188.2 | 183.6-185.9 | 470,131 | 2,149,961,076 |
+| baseline, compression 0 | 81.1-85.7 | 74.1-74.7 | 387,007 | 10,852,850,385 |
+| baseline, compression 0, the store's columns active | 35.935 | 29.150 | 118,680 | 6,127,346,663 |
+| baseline, compressed, the store's columns active, 32 MB cache | 111.111 | 107.200 | 1,985 | 1,404,068,431 |
+| coordinate | 2.71-2.81 | 2.69-2.73 | 2,315,223 | 5,926,970,880 |
+| coordinate+map | 1.55-1.61 | 1.54-1.58 | 2,315,223 | 5,926,970,880 |
 
-Decompression removal is worth 1.74x of the compressed baseline's wall time, 87.21 s of 205.07 s, and 104.41 s of its CPU time. The rest of the gain is the read path. The payload-equal comparison is the uncompressed row with the store's columns active, which moves 3.3 percent more bytes than the store: the store is 17.1x faster, or 35.7x mapped. Against ROOT's best configuration for that payload, the same columns on the compressed file with the cache enabled, the gain is 32.5x, or 67.7x mapped. The 69.0x of the table above is measured against the all-branch row, which reads 1,380 leaves for a payload the store holds in 320 fields.
+Decompression removal is worth 2.20 to 2.31x of the compressed baseline's wall time, 102 to 106 s of 187.0 to 188.2 s, and 109 to 112 s of its CPU time. The rest of the gain is the read path. The payload-equal comparison is the uncompressed row with the store's columns active, which moves 3.4 percent more bytes than the store: the store is 13.1x faster, or 22.8x mapped. Against ROOT's best configuration for that payload, the same columns on the compressed file with the cache enabled, the gain is 40.5x, or 70.5x mapped. The 67x to 69x of the table above is measured against the all-branch row, which reads 1,380 leaves for a payload the store holds in 320 fields.
+
+Two properties of these rows set what they support. The baseline is the term that moves with the machine state: three runs on a settling page cache measured it at 248.979, 202.469 and 182.609 s against 187.0 to 188.2 s in steady state, so a ratio quoted without the protocol carries that spread. The coordinate rows are the term that moves with the source's residency: 2.79, 3.56 and 4.05 s unwarmed against 2.71 to 2.81 s warmed, and 1.06, 1.71 and 1.55 to 1.61 s for the mapped row, whose 1.06 s was measured against a store written moments earlier and still fully resident.
 
 ### Cache behavior, signature slice and remote access
 
 With the TTreeCache enabled on a fresh file open, the first 10,000 events read in 8 read calls at 1,943 KB per read, cache efficiency 0.917, miss rate 0.083[^cacheeff-note]. This is the ideal sequential case; the cache degradation under out-of-order multithreaded reads is a Phase 5 item in the Status section.
 
-The 2,000-event slice on the same medium measures the signature established above: baseline 1.37 reads per event at 2,635 bytes per read in 0.461 s wall. The remote EOS baseline over the same slice runs 100.1 s, I/O-wait bound[^remote-note], versus 0.002 s (coordinate) and about 0.0003 s (mapped) on the local store. The slice times on the coordinate paths are sub-millisecond; the derived ratios are indicative microbenchmark-scale values.
+The 2,000-event slice on the same medium measures the signature established above: baseline 1.37 reads per event at 2,635 bytes per read in 0.466 to 0.483 s wall. The remote EOS baseline over the same slice runs 100.1 s, I/O-wait bound[^remote-note], versus 0.002 to 0.003 s (coordinate) and 0.001 s (mapped) on the local store. The slice times on the coordinate paths are sub-millisecond; the derived ratios are indicative microbenchmark-scale values.
 
 ### Analysis workload
 
@@ -309,12 +311,12 @@ The analysis workload applies the same selection, MET_pt above 100 GeV and at le
 
 | Path | wall (s) | selected events | histogram mean | vs baseline |
 |------|---------:|----------------:|---------------:|------------:|
-| analysis baseline, every branch | 188.9 | 20,861 | 132.696 | 1x |
-| analysis coordinate | 3.10 | 20,861 | 132.696 | 60.9x |
+| analysis baseline, every branch | 187.9 | 20,861 | 132.696 | 1x |
+| analysis coordinate | 2.72 | 20,861 | 132.696 | 69.2x |
 
 The selection counts and the histogram means are identical, which verifies that the coordinate path reproduces the baseline analysis exactly. The ratio in this table compares against a baseline that reads all 1,380 leaves for a selection that needs two.
 
-Measured on the same events, the two columns read through RDataFrame, which reads the active columns through their branches and never walks the tree's branch list per event, take 0.569 s. The coordinate path takes 3.755 s on the same machine, so it is 6.6x slower than the reader, and 3.0x slower for the mapped path at 1.709 s. A two-column analysis is the case where the coordinate store is weakest: the store reads the whole 2,560-byte record whatever the analysis selects, while a column-selective reader reads two columns. The same reader costs 11.451 s for 44 scalar columns, against the store's 3.557 s for 320 fields, and the per-event costs of the two readers give a crossover near 14 columns, or near 6 with the store mapped[^crossover-note].
+Measured on the same events, the two columns read through RDataFrame, which reads the active columns through their branches and never walks the tree's branch list per event, take 0.558 s. The coordinate path takes 2.715 s on the same machine, which is also what it spends on the whole record, so on a two-column analysis it is 4.9x slower than the reader, and 1.6x slower for the mapped path at 1.577 s. A two-column analysis is the case where the coordinate store is weakest: the store reads the whole 2,560-byte record whatever the analysis selects, while a column-selective reader reads two columns. The same reader costs 10.849 s for the store's 44 scalar columns, against the store's 2.715 s for 320 fields, and the per-event costs of the two readers give a crossover near 11 columns, or near 6 with the store mapped[^crossover-note].
 
 ### Synthetic workload
 
@@ -329,8 +331,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 conditions = ['synthetic', 'M1 slice', 'full dataset', 'analysis']
-coord = [6.5, 230.5, 69.0, 60.9]
-mapped = [31.0, 1512.0, 181.7, float('nan')]
+coord = [2.0, 200.0, 68.0, 69.2]
+mapped = [11.0, 400.0, 118.0, float('nan')]
 
 x = np.arange(len(conditions))
 w = 0.3
@@ -378,13 +380,15 @@ plt.tight_layout(); plt.show()
 
 | Path | wall (s) | reads/event | syscalls/event | vs baseline |
 |------|---------:|------------:|---------------:|------------:|
-| baseline | 0.124 | 3.00 | 3.00 | 1x |
-| coordinate | 0.019 | 1.00 | 1.00 | 6.5x |
-| coordinate+map | 0.004 | 1.00 | 0.00 | 31.0x |
+| baseline | 0.128-0.138 | 3.00 | 3.00 | 1x |
+| coordinate | 0.026-0.078 | 1.00 | 1.00 | 1.6-5.3x |
+| coordinate+map | 0.011-0.027 | 1.00 | 0.00 | 4.7-12.6x |
+
+The coordinate rows move 51 MB in 20,000 aligned reads, so their 0.03 to 0.08 s wall is set by per-syscall cost and timer resolution rather than by the read path. The counts per event are the stable result here, and the ratio column is indicative.
 
 ## Cost Analysis
 
-The measured results separate two bottleneck regimes. On the remote EOS baseline, the bottleneck is per-request I/O wait (about 98.8 percent of wall time); the coordinate path removes requests and, when mapped, read system calls. On the local full-file baseline, the bottleneck is decompression CPU (cpu 182.9 s of wall 192.8 s, 94.8 percent); the coordinate store holds raw fixed-width records and removes decompression from the read path. Both removals are structural rather than incremental: the request and system call counts are deterministic properties of the addressing scheme, and the raw record layout removes the decompression step by construction.
+The measured results separate two bottleneck regimes. On the remote EOS baseline, the bottleneck is per-request I/O wait (about 98.8 percent of wall time); the coordinate path removes requests and, when mapped, read system calls. On the local full-file baseline, the bottleneck is decompression CPU (cpu 183.6 to 185.9 s of wall 187.0 to 188.2 s, 98.2 percent); the coordinate store holds raw fixed-width records and removes decompression from the read path. Both removals are structural rather than incremental: the request and system call counts are deterministic properties of the addressing scheme, and the raw record layout removes the decompression step by construction.
 
 :::{ layout-ncol=2 }
 
@@ -394,8 +398,8 @@ The measured results separate two bottleneck regimes. On the remote EOS baseline
 import matplotlib.pyplot as plt
 
 conditions = ['remote\nbaseline', 'local\nbaseline', 'coordinate', 'coordinate+map']
-io_wait = [98.8, 5.2, 6.2, 1.0]
-cpu = [1.2, 94.8, 93.8, 99.0]
+io_wait = [98.8, 1.8, 0.6, 0.8]
+cpu = [1.2, 98.2, 99.4, 99.2]
 
 fig, ax = plt.subplots(figsize=(5.5, 3.5))
 ax.bar(conditions, io_wait, color='white', edgecolor='black', linewidth=0.8, label='I/O wait')
@@ -414,18 +418,18 @@ plt.tight_layout(); plt.show()
 
 ```{python}
 #| label: fig-adoption-economics
-#| fig-cap: "Cumulative wall time over repeated read passes. The one-time conversion (226.3 s) amortizes against the per-pass baseline cost (192.8 s); the mapped coordinate path breaks even by the second pass and then accrues the gap per pass."
+#| fig-cap: "Cumulative wall time over repeated read passes. The one-time conversion (226.3 s) amortizes against the per-pass baseline cost (187.0 to 188.2 s); the mapped coordinate path breaks even by the second pass and then accrues the gap per pass."
 import matplotlib.pyplot as plt
 import numpy as np
 
 passes = np.arange(0, 6)
-baseline = 192.8 * passes
-coord = 226.3 + 1.06 * passes
-breakeven = 226.3 / (192.8 - 1.06)
+baseline = 188.0 * passes
+coord = 226.3 + 1.57 * passes
+breakeven = 226.3 / (188.0 - 1.57)
 
 fig, ax = plt.subplots(figsize=(5.5, 3.5))
-ax.plot(passes, baseline, marker='o', color='black', label='baseline (per pass 192.8 s)')
-ax.plot(passes, coord, marker='s', color='black', linestyle='--', label='conversion + coordinate+map (per pass 1.06 s)')
+ax.plot(passes, baseline, marker='o', color='black', label='baseline (per pass 188.0 s)')
+ax.plot(passes, coord, marker='s', color='black', linestyle='--', label='conversion + coordinate+map (per pass 1.57 s)')
 ax.axvline(breakeven, color='gray', linestyle=':', alpha=0.6)
 ax.text(breakeven + 0.05, 420, 'break-even', fontsize=8, color='gray')
 ax.set_xlabel('read passes', fontsize=10)
@@ -439,13 +443,13 @@ plt.tight_layout(); plt.show()
 
 At full scale the baseline request count drops to 0.20 per event because basket buffers stay resident in memory after the first cluster[^basket-note]; the full-file speedup is therefore dominated by decompression removal and aligned sequential access, while the request-count reduction from 1.37 to 1.00 per event is the M1 signature slice and the remote case.
 
-The bytes-per-read asymmetry is intentional. The baseline reads 2,149,961,076 compressed bytes in 470,131 requests; the coordinate paths read 5,926,970,880 raw bytes in 2,315,223 requests. The coordinate paths move 2.76x more bytes and still finish 69.0x and 181.7x faster on the full file, where decompression removal and aligned sequential access dominate, and the mapped path removes the application-level read system call entirely. Compression semantics remain a later-phase item, specified in the Status section.
+The bytes-per-read asymmetry is intentional. The baseline reads 2,149,961,076 compressed bytes in 470,131 requests; the coordinate paths read 5,926,970,880 raw bytes in 2,315,223 requests. The coordinate paths move 2.76x more bytes and still finish 67x to 69x and 117x to 121x faster on the full file, where decompression removal and aligned sequential access dominate, and the mapped path removes the application-level read system call entirely. Compression semantics remain a later-phase item, specified in the Status section.
 
-The speedup ratios vary with the condition, from 6.5x on the synthetic microbenchmark to 1,512x on the same-media slice, because the baseline cost composition changes with the access pattern and cache state. The stable claims are the request count (1.37 to 1.00 per event) and the system call count (1.37 to 0.00 per event), which are media-independent. All wall-time ratios are scoped to the access pattern, the cache-disabled baseline, and the same medium.
+The speedup ratios vary with the condition, from 1.6x to 5.3x on the synthetic microbenchmark to about 150x to 240x on the same-media slice, because the baseline cost composition changes with the access pattern and cache state, and both those rows sit at a scale where per-syscall cost and timer resolution dominate. The stable claims are the request count (1.37 to 1.00 per event) and the system call count (1.37 to 0.00 per event), which are media-independent. All wall-time ratios are scoped to the access pattern, the cache-disabled baseline, the same medium, and the warm-source protocol of the measured results.
 
 ### Conversion
 
-The one-time conversion of the full dataset into the store costs 226.3 s wall, 220.5 s CPU, producing 5,926,970,880 bytes across 2,315,223 records. The conversion is comparable to one baseline read pass (192.8 s) and amortizes: after conversion, every read pass costs 1.06 s (mapped) instead of 192.8 s, so the break-even point falls within the second analysis pass.
+The one-time conversion of the full dataset into the store costs 226.3 s wall, 220.5 s CPU, producing 5,926,970,880 bytes across 2,315,223 records. The conversion is comparable to one baseline read pass (187.0 to 188.2 s) and amortizes: after conversion, every read pass costs 1.55 to 1.61 s (mapped) instead of 187.0 to 188.2 s, so the break-even point falls within the second analysis pass.
 
 ## Correctness Verification
 
@@ -459,13 +463,13 @@ The fixed-width coordinate read path is implemented, built into the fork, and ve
 
 - Fixed-width event records addressed as a coordinate and resolved by closed-form arithmetic; the measured rows populate the event axis alone, and the multi-axis composition is verified against the reference engine over the canonical lattice without being exercised by a dataset-level layout
 - The read path replaced behind the existing TTree and TFile interfaces; the researcher API, analysis code, and build chain are unchanged
-- Measured on the full CMS Run2016G DoubleMuon NanoAOD first file against the cache-disabled baseline: 69.0x (coordinate) and 181.7x (mapped, zero application-level read system calls), with a one-time conversion of 226.3 s. Those ratios are against the all-branch baseline; the component controls are in the measured-results section, and the payload-equal figure is 17.1x with 35.7x mapped
+- Measured on the full CMS Run2016G DoubleMuon NanoAOD first file against the cache-disabled baseline: 66.9x to 69.1x (coordinate) and 116.6x to 120.5x (mapped, zero application-level read system calls), with a one-time conversion of 226.3 s. Those ratios are against the all-branch baseline; the component controls are in the measured-results section, and the payload-equal figure is 13.1x with 22.8x mapped
 - Correctness verified by a checksum over the served bytes and exact analysis-result equality, plus unit tests against the reference engine over the full lattice
 - Released as open source in the [ssccsorg/root](https://github.com/ssccsorg/root/tree/master/tree/tree) fork, with the benchmark harness and the runbook
 
 ### Phase 2 and later: planned
 
-The component controls have run. Decompression removal accounts for 1.74x of the measured ratio on the full file and the read path for the rest. The store's advantage is column independence rather than a universal speedup: 17.1x against an uncompressed baseline reading the same columns, 32.5x against the compressed baseline reading those columns with the cache enabled, and 6.6x slower than RDataFrame on the two-column selection of the analysis workload. The crossover is near 14 columns, or near 6 with the store mapped. The phase that moves that boundary is the first one below, because 276 of the store's own 320 fields are arrays that the projection truncates to their leading element.
+The component controls have run. Decompression removal accounts for 2.20x to 2.31x of the measured ratio on the full file and the read path for the rest. The store's advantage is column independence rather than a universal speedup: 13.1x against an uncompressed baseline reading the same columns, 40.5x against the compressed baseline reading those columns with the cache enabled, and 4.9x slower than RDataFrame on the two-column selection of the analysis workload. The crossover is near 11 columns, or near 6 with the store mapped. The phase that moves that boundary is the first one below, because 276 of the store's own 320 fields are arrays that the projection truncates to their leading element.
 
 - P2: variable-length collections (jets, tracks). The store must support per-event record lengths; the fixed-width record is the addressing foundation, and this is the phase that decides whether the projection can carry the collections rather than their leading value
 - P3: compression semantics. The raw phase-1 store moves 2.76x more bytes than the compressed baseline; block-level or selective compression must preserve direct record addressing at the PB scale
@@ -478,15 +482,15 @@ The component controls have run. Decompression removal accounts for 1.74x of the
 - The mapped path requires a Unix-like platform (mmap)
 - The source file (2.16 GB) and the store (5.93 GB) both fit the measured machine's page cache, so the mapped row reports a memory copy of resident data; a sample larger than memory is required before any mapped row can be read as a storage claim
 - The store serves a fixed-width projection: at most 320 of the tree's 1,380 leaves, of which 44 are scalar leaves and 276 are variable-length arrays truncated to their leading element, while the baseline reads every branch
-- The store's cost per event does not fall with the number of columns an analysis selects, so it is faster than a column-selective reader above a crossover near 14 columns, or near 6 with the store mapped, and slower below it
+- The store's cost per event does not fall with the number of columns an analysis selects, so it is faster than a column-selective reader above a crossover near 11 columns, or near 6 with the store mapped, and slower below it
 - All results are measured and reported as they are, with no projection ahead of measurement
 - The demonstration complements ROOT and RNTuple; the existing read paths remain in place
 
 ## Conclusion
 
-The coordinate-indexed read path replaces the branch, basket, and cache traversal of the TTree read path with closed-form arithmetic. On the full CMS dataset, the same medium, it reduces the read cost from 192.8 s to 2.79 s (69.0x), or 1.06 s with zero application-level read system calls when the store is mapped (181.7x), after a one-time conversion of 226.3 s. Those ratios compare against a baseline that reads every branch of a compressed file. Measured against a baseline reading the same columns uncompressed the figure is 17.1x, and on a two-column selection ROOT's column-selective reader is 6.6x faster than the store. The measured mechanism addresses the bottleneck, per-request I/O overhead, at the request and system call level, and removes decompression from the read path in the raw phase-1 store. Its advantage is column independence: the per-event cost is a fixed record read that does not rise with the number of columns an analysis selects, above a crossover in the low tens of columns.
+The coordinate-indexed read path replaces the branch, basket, and cache traversal of the TTree read path with closed-form arithmetic. On the full CMS dataset, the same medium, it reduces the read cost from 187.0 to 188.2 s to 2.71 to 2.81 s (67x to 69x), or 1.55 to 1.61 s with zero application-level read system calls when the store is mapped (117x to 121x), after a one-time conversion of 226.3 s. Those ratios compare against a baseline that reads every branch of a compressed file. Measured against a baseline reading the same columns uncompressed the figure is 13.1x, and on a two-column selection ROOT's column-selective reader is 4.9x faster than the store. The measured mechanism addresses the bottleneck, per-request I/O overhead, at the request and system call level, and removes decompression from the read path in the raw phase-1 store. Its advantage is column independence: the per-event cost is a fixed record read that does not rise with the number of columns an analysis selects, above a crossover in the low tens of columns.
 
-The measured evidence is a proposal, scoped to the measured conditions and the access pattern. The innovation is that the address replaces the traversal: for mapped data the byte source is the mapping, a point no cache tuning reaches, while the researcher keeps the same TTree API, the same scripts, and the same build chain. For CERN, whose analyses live with the 372,000-read signature and the 14-hour workload, the request and system call counts are the media-independent part of the result, and they belong to an analysis that reads enough of the event for the record to be the cheaper unit. That boundary is measured, not assumed: above a crossover near 14 columns, or near 6 with the store mapped, the fixed-width record costs less per event than a column-selective read of the same file.
+The measured evidence is a proposal, scoped to the measured conditions and the access pattern. The innovation is that the address replaces the traversal: for mapped data the byte source is the mapping, a point no cache tuning reaches, while the researcher keeps the same TTree API, the same scripts, and the same build chain. For CERN, whose analyses live with the 372,000-read signature and the 14-hour workload, the request and system call counts are the media-independent part of the result, and they belong to an analysis that reads enough of the event for the record to be the cheaper unit. That boundary is measured, not assumed: above a crossover near 11 columns, or near 6 with the store mapped, the fixed-width record costs less per event than a column-selective read of the same file.
 
 The next-phase work is specified in the Status section. It is a set of measured questions: the harness, the runbook, and the fork are the starting point for that conversation.
 
@@ -494,7 +498,7 @@ The next-phase work is specified in the Status section. It is a set of measured 
 
 [^m1-note]: The project tracks the work in milestones M1 to M5, stated in the [Direction](#the-direction): M1 instruments and measures the baseline read path, M2 to M4 build and integrate the coordinate-indexed store, and M5 releases the demonstration. This report covers the measured outcome; later references to the M1 signature and the M1 slice mean the cache-disabled baseline access pattern measured in M1.
 
-[^footprint_note]: The fork's footprint on the baseline path is two dormant null checks and one read-system-call counter increment per operation. Over the full run this is bounded below one millisecond against a 192.8 s wall time, about five orders of magnitude below measurement noise, so the baseline matches the upstream ROOT read path. The measured read pattern, 1.37 reads per event at 2,635 bytes per read on the M1 slice, is produced by the unchanged branch, basket, and cache logic, and matches the 372,000 by 4.6 KB singular-read scale. A cross-check against a build without the coordinate changes is expected to confirm identical numbers.
+[^footprint_note]: The fork's footprint on the baseline path is two dormant null checks and one read-system-call counter increment per operation. Over the full run this is bounded below one millisecond against a 187.0 to 188.2 s wall time, about five orders of magnitude below measurement noise, so the baseline matches the upstream ROOT read path. The measured read pattern, 1.37 reads per event at 2,635 bytes per read on the M1 slice, is produced by the unchanged branch, basket, and cache logic, and matches the 372,000 by 4.6 KB singular-read scale. A cross-check against a build without the coordinate changes is expected to confirm identical numbers.
 
 [^ccesop-note]: The case is the 2025 Fermilab CCESOP analysis: 372,000 singular reads averaging 4.6 KB at an effective 33 KB/s over roughly 14 hours. The M1 measurement reproduced the signature on the CMS Run2016G DoubleMuon NanoAOD first file: 1.37 to 2.76 reads per event at 2.6 to 0.8 KB per read across cache-disabled slices.
 
@@ -526,6 +530,6 @@ The next-phase work is specified in the Status section. It is a set of measured 
 
 [^projection-note]: The preparation tool selects leaves whose static length is one and serializes each value as a double, so a variable-length array branch enters the record through its leading element. Of the 320 fields, 276 have a leaf count in the file and 44 do not. The two analysis columns, MET_pt and nMuon, have no leaf count, so the analysis measurement is unaffected.
 
-[^controls-note]: The component and column measurements are in the fork's `benchmarks/tagma/tagma_columns.C` and `benchmarks/tagma/tagma_rdf_columns.C`, run on the same file and machine, and recorded in the tracking issues `ssccsorg/ssccs#120`. Single run per row, single core, cache disabled unless stated. The compressed baseline measured 205.07 s against the artifact's 192.8 s on the same machine, so the machine is about six percent slower; ratios within the control run are unaffected.
+[^controls-note]: The component and column measurements are in the fork's `benchmarks/tagma/tagma_columns.C` and `benchmarks/tagma/tagma_rdf_columns.C`, run on the same file and machine, and recorded in the tracking issue `ssccsorg/ssccs#120`. One warmed run per row, single core, cache disabled unless stated. `tagma_bench` reads each local source through the page cache before its timed pass, and the two column macros were run after a read of the source, because without that the row order decides the result: a pass over the uncompressed rewrite evicts the store. The full-file rows are therefore quoted as ranges over three steady-state runs.
 
 [^crossover-note]: Per event the column-selective reader costs 0.022 microseconds plus 0.112 per column, from the two-column and 44-column rows, and the coordinate path costs 1.54 microseconds, or 0.74 mapped, independent of the column count. The crossover is a first-order estimate from those two points, not a fitted model. The store's per-event cost includes the benchmark's byte-by-byte checksum over the 2,560-byte record.
