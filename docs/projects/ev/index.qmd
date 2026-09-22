@@ -54,9 +54,14 @@ pipeline and by autonomous agents. No result is discarded; every run raises
 the baseline, so verification output accumulates across projects, teams, and
 design phases instead of resetting with each tapeout decision.
 
-The engine is validated against two production RISC-V cores, CVA6 (OpenHW
-Group) and Ibex (lowRISC), with exact agreement against their hardware
-decoders. Expansion to a broad range of additional industry silicon
+The engine verifies encoding spaces, and its only knowledge of a target is the
+spec it is given: no constraint type or projector carries a target's name or
+constant. The cores and designs named in this documentation, CVA6 (OpenHW
+Group), Ibex (lowRISC), and the Tagma decoder (syntagma), are samples that
+exercise it. Each is described from that project's own source, and the CVA6
+encoding space is re-derived from the hardware decoder mask table at a pinned
+revision on every test run, so a transcription error fails rather than
+persists. Expansion to a broad range of additional industry silicon
 specifications is planned.
 
 ## The Spec Space
@@ -223,7 +228,7 @@ the most (CVA6 full 0.6% density, ~700x; Ibex 17.6%, 32x; dense spaces 1-2x).
 
 - **CVA6 CV-X-IF** (OpenHW): 33.5M combinations, 196,608 valid, 13.1 s vs
   18.8 ms (~700x); the `ev verify` CLI completes the same space end-to-end
-  in about 0.2 s (core pipeline 36.3 ms). Space derived from the hardware decoder mask table; the DV class generates encodings the decoder rejects,
+  in about 0.2 s (core pipeline 36.3 ms). Space derived from the hardware decoder mask table at a pinned revision and re-derived from it by a gate in the test suite; the DV class generates encodings the decoder rejects,
   a documented divergence. Master report: [CVA6 CV-X-IF Report (Standard Reference)](/projects/ev/cva6.html).
 - **Ibex RV32IMCB** (lowRISC): 524,288 combinations, 92,160 valid,
   291 ms vs 9.10 ms (32x); evaluate_structural core 16.2 ms. Report: [Ibex RV32IMCB Report](/projects/ev/ibex.html).

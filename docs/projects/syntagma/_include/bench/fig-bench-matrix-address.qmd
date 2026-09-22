@@ -1,0 +1,19 @@
+```{python}
+#| label: fig-bench-matrix-address
+#| fig-cap: "The same product over the same buffer at 64 by 256, addressed by flat offset and by coordinate. The address model costs a factor of 4.0 on a scalar loop, and the rescale costs nothing measurable beside it, since it is one multiply and one shift against 256 of them. Host: Apple M1 Max, rustc 1.95.0, 30 samples, release profile. Source: sw/rust/benches/bench_matrix.rs."
+import matplotlib.pyplot as plt
+
+ops = ['flat offset', 'coordinate', 'coordinate\n+ rescale']
+vals = [1.82, 7.32, 7.36]
+
+fig, ax = plt.subplots(figsize=(4.4, 3.1))
+ax.bar(ops, vals, width=0.5, color=['white', 'white', 'white'],
+       edgecolor='black', linewidth=0.8, hatch=['...', '///', '///'])
+ax.set_ylabel('Time per product (µs)')
+ax.set_ylim(0, 9)
+for x, v in enumerate(vals):
+    ax.text(x, v + 0.25, f'{v:.2f}', ha='center', va='bottom', fontsize=8)
+ax.annotate('4.0x', xy=(0.5, 4.3), fontsize=10, fontweight='bold', ha='center',
+            bbox=dict(boxstyle='round,pad=0.2', facecolor='white', edgecolor='black', alpha=0.85))
+plt.tight_layout(); plt.show()
+```

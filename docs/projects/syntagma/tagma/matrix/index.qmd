@@ -85,7 +85,7 @@ title_meta_items = {
 
 ## Abstract {.unnumbered .unlisted}
 
-A `CoordPath<2>` is the smallest composition the coordinate system offers: two Coords, and a point. `tagma-matrix` reads that pair as the address of an element of a rank-2 integer matrix. The physical order of the backing bytes is a type parameter and never part of that address, so a coordinate names the same element whether the bytes sit row-major or column-major, the product over the elements is byte-identical across the two, and the bytes a matrix writes are the same in either order. That property, relocation invariance, is what lets a matrix cross between devices without changing its identity, and it is held by a test. The crate adds the integer product, `i8` by `i8` into `i32`, and a wire form that carries coordinates and values instead of a layout. It takes no allocator: `tagma-core` is taken with its defaults off, and a link into a program with no operating system and no global allocator is part of the crate's verification. This document is a draft.
+A `CoordPath<2>` is the smallest composition the coordinate system offers: two Coords, and a point. `tagma-matrix` reads that pair as the address of an element of a rank-2 integer matrix. The physical order of the backing bytes is a type parameter and never part of that address, so a coordinate names the same element whether the bytes sit row-major or column-major, the product over the elements is byte-identical across the two, and the bytes a matrix writes are the same in either order. That property, relocation invariance, is what lets a matrix cross between devices without changing its identity, and it is held by a test. The crate adds the integer product, `i8` by `i8` into `i32`, the contraction of two such matrices, the rescale from an accumulator back to an element stated as a result rather than as a way of computing one, and a wire form that carries coordinates and values instead of a layout. It takes no allocator: `tagma-core` is taken with its defaults off, and a link into a program with no operating system and no global allocator is part of the crate's verification. This document is a draft.
 
 [^tagma]: Tagma Whitepaper: [docs.ssccs.org/projects/syntagma/tagma/](https://docs.ssccs.org/projects/syntagma/tagma/)
 [^syntagma]: synTagma repository: [Github (Pre-release, Apache 2.0)](https://github.com/ssccsorg/syntagma)
@@ -256,6 +256,57 @@ The accumulator cannot overflow at any addressable width. The largest magnitude 
 
 The product reads its operands through the coordinate surface, so an owned matrix and a borrowed one serve the same call. It computes into a caller-provided slice, so the operation allocates nothing: the accumulator is a register and the output is the caller's memory.
 
+The contraction takes the same form over two matrices.
+
+$$c_{i,j} = \sum_{k=0}^{K-1} a_{i,k} \, b_{k,j}$$
+
+The overflow bound is the shared one, because the largest term is still `128 * 127` and a contraction is at most 11,172 terms long, so the same `i32` accumulator carries it and no saturating arithmetic is introduced. Both operands are read through the coordinate surface, so the result does not depend on the order either one's bytes sit in. A contraction that is to be carried through a rescale can take it as each accumulator completes, which leaves the product without a matrix of intermediate values of its own.
+
+## The Rescale {#sec-rescale}
+
+A product accumulates in `i32` and an element is an `i8`. The step between them is one multiply by a fixed point value followed by a right shift, and it is the step in a quantized model where the arithmetic is easiest to get subtly wrong: the product does not fit in thirty-two bits, and a rounding that is right for a magnitude is wrong for a signed value.
+
+The contract is stated as one result rather than as a way of computing one, so any implementation that reproduces the result is conformant whatever it does inside.
+
+| Step | Operation |
+|------|-----------|
+| multiply | the accumulator times a signed 32-bit multiplier |
+| round | add `1 << (shift - 1)`, so a half moves toward positive infinity |
+| shift | move right by `shift`, arithmetic, which floors |
+| saturate | clamp into the `i8` range |
+
+The intermediate is sixty-four bits wide. A thirty-two bit target reaches it through a high multiply and a low multiply rather than through a wider register, which is why the bound on the shift is a bound on the intermediate: the product of two thirty-two bit values occupies at most sixty-two bits, so a rounding constant derived from a shift above sixty-two would push the sum past sixty-four bits. The crate accepts a shift up to sixty-two and refuses one above it. A shift of zero adds no rounding constant and takes the product as it stands.
+
+The rounding is asymmetric, and the asymmetry is the part worth stating plainly. Half of a negative odd value sits exactly between two integers, and it moves toward positive infinity, so half of `-1` is `0`. That is the convention the TFLite line and its gemmlowp ancestor state. Their other spelling, a doubling high multiply composed with a power-of-two divide, rounds the same product another way, and a model carrying that spelling is converted before it is run here.
+
+A result beyond the element range lands on its end. Saturation belongs to the step rather than to a policy the caller chooses, which keeps a stream of elements inside the type the wire form carries.
+
+```{python}
+#| label: fig-matrix-rescale
+#| fig-cap: "One accumulator, one result, and the four steps any implementation has to reproduce."
+dot("""
+digraph DOTGraph {
+    compound=true;
+    fontname="Arial";
+    node [shape=box, fontname="Arial", fontcolor=black, color=black];
+    graph [fontcolor=black, fontname="Arial", bgcolor=white, splines=ortho];
+    edge [color=black];
+    rankdir=LR;
+
+    accumulator [label="accumulator  i32", shape=ellipse];
+    multiply [label="x multiplier\n64-bit product"];
+    rounding [label="+ 2^(shift-1)"];
+    shift [label=">> shift\nfloors"];
+    saturate [label="saturate"];
+    element [label="element  i8", shape=ellipse];
+
+    accumulator -> multiply -> rounding -> shift -> saturate -> element;
+}
+""")
+```
+
+Stating the rescale as a result is what makes the channels comparable. The reference implementation reaches it through a sixty-four bit product and an arithmetic shift. A hand-written kernel on a target without a wide multiply reaches it through `mul` and `mulh`, with a carry into the high half. A hardware unit reaches it through a multiplier sized for the product. Three paths, one result, and the comparison between them is exact because the result was fixed before any of them was written.
+
 ## The No-Allocator Property {#sec-no-alloc}
 
 The crate is `#![no_std]`, and it takes `tagma-core` with its default features off so that the primitive's `alloc` feature stays off with it.
@@ -270,22 +321,23 @@ In scope: the rank-2 element addressed by a coordinate, the integer product over
 
 Out of scope, deliberately:
 
-- Quantization and requantization. A scale belongs to the model that owns it, and a crate that guessed one would be making a decision it cannot see.
+- Choosing a scale. Which multiplier and which shift a model needs belongs to the pipeline that measured them, and a crate that guessed one would be making a decision it cannot see. Applying a scale the caller supplies is a different matter: the rescale is arithmetic over the crate's own accumulators, so it is here, stated as a result.
 - Optimized kernels. A kernel belongs to the consumer that owns a target.
 - Ranks other than two. A rank-2 element is the smallest thing two Coords can address, and the wire form is written for that shape.
 - A C++ or Java port. The ports carry the in-memory contracts that storage needs, and this crate owns no persistence, so there is nothing for them to mirror yet.
 
-No performance claim is made for this crate in this document. The reason is in the last section.
+Performance is measured for two operations at one shape, and those numbers are under Status. No wider claim is made.
 
 ## Comparison with Existing Systems {#sec-comparison}
 
-The comparison here is structural, over the axes this crate changes. No performance comparison is offered, because none has been measured for this crate.
+The comparison here is structural, over the axes this crate changes. No comparison against another system's throughput is offered, because none has been measured. The one measurement that exists is of the address model against a flat loop over the same buffer, and it is under Status.
 
 | Aspect | TagmaMatrix | Heap tensor libraries | `no_std` inference kernels |
 |--------|-------------|-----------------------|----------------------------|
 | Allocator | none | heap, in the runtime | none |
 | What an element's address is | a pair of Coords | a base pointer and a stride | index arithmetic over a buffer |
 | Physical order in the API | a type parameter, absent from the address | strides, observable and commonly significant | a convention of the kernel |
+| Accumulator rescale | stated as a result, saturating into the element type | a dequantize op in the graph, with the runtime's own rounding | the kernel's own rounding |
 | Wire form | coordinates and values, defined by the crate | an external format such as ONNX or NNEF | none |
 | Relocation invariance | held by a test | not a property of the type | not a property of the type |
 | Rank | two | any | fixed by the model |
@@ -302,7 +354,11 @@ The axis that separates them is the address. Where the runtime gives an element 
 | `MatrixRef<'a, R, C, O>` | the same read surface over a borrowed buffer, for weights that stay in read-only memory |
 | `Order`, `RowMajor`, `ColMajor` | the trait that turns a position into an offset, and the two orders |
 | `Elements<R, C, O>` | the read surface (`element`, `path_of`, `at`) and the write half of the wire form |
-| `gemv` | the integer product |
+| `gemv` | the integer product, `i8` by `i8` into `i32` |
+| `gemv_requantized` | the product with the rescale applied to each accumulator |
+| `matmul` | the contraction of two matrices, into the caller's buffer |
+| `matmul_requantized` | the contraction with the rescale applied as each accumulator completes |
+| `Requant`, `requantize_into` | a multiplier and a shift, with `requantize` stating the result of one accumulator and `requantize_into` applying it to a run |
 | `Matrix::decode` | the read half of the wire form |
 | `EncodeError`, `DecodeError` | why a write or a read was refused, one variant per condition |
 
@@ -310,19 +366,35 @@ The axis that separates them is the address. Where the runtime gives an element 
 
 This document is a draft. The crate is version 0.1.0, in the `sw/rust/matrix` directory of the synTagma[^syntagma] repository[^matrix-src], added under issue 65[^issue].
 
-The crate carries 31 tests across five binaries, all green.
+The crate carries 49 tests across seven binaries, and one doc-test, all green.
 
 | Binary | Tests | Subject |
 |--------|------:|---------|
 | `scalar_ref` | 5 | the product against a scalar reference that reads through coordinates |
-| `relocation` | 5 | the invariance claims in the table above |
+| `matmul` | 6 | the contraction against a coordinate reference, across the orders of both operands and of the destination, and against the identity |
+| `relocation` | 7 | the invariance claims in the table above, including the requantized product |
 | `wire` | 10 | the write path and the reader's refusals |
 | `borrowed` | 6 | the borrowed form against the owned one, and its write path |
 | `addressing` | 5 | the refusals at the boundary |
+| `requant` | 10 | the rescale against a floor-division reference, the half case, the element ends, and the shift bound |
 
 Verification runs on the host and for `riscv32imac-unknown-none-elf`, with `cargo clippy` warnings denied in both, and the no-allocator link check is built for the target.
 
-No benchmark has been measured for this crate. The product is a scalar loop over a buffer, and the crate makes no throughput claim. What it adds to the family is where an element's address comes from, and that is verified by tests rather than by timing. A benchmark suite would have to measure the thing the crate changes, which is the cost of addressing rather than of the product, and that work is not done.
+The cost of addressing is measured rather than assumed. `sw/rust/benches/bench_matrix.rs` runs the product at the size of a layer and beside a flat loop over the same buffer, which is what an engine that addresses elements by offset writes.
+
+| Benchmark | Shape | Host time |
+|-----------|-------|----------:|
+| `matrix/gemv_addressed` | 64 x 256 | 7.32 µs |
+| `matrix/gemv_flat` | 64 x 256 | 1.82 µs |
+| `matrix/gemv_requantized` | 64 x 256 | 7.36 µs |
+| `matrix/wire_encode` | 64 x 256 | 16.26 µs |
+| `matrix/matmul_64x64x64` | 64 x 64 x 64 | 38.18 µs |
+| `matrix/matmul_requantized_64x64x64` | 64 x 64 x 64 | 37.73 µs |
+| `matrix/requantize_256` | 256 | 194.8 ns |
+
+{{< include ../../_include/bench/fig-bench-matrix-address.qmd >}}
+
+The product through coordinates costs about a factor of four over the same product through a flat loop, which is the price of an element's address being its coordinate on a scalar implementation. The rescale adds nothing measurable to the product, since it is one multiply and one shift against 256 of them. The wire form writes five bytes per element and takes about a nanosecond per element to do it. These are host numbers from a scalar build, and no kernel is claimed for any target.
 
 ## References {.unnumbered .unlisted}
 
@@ -350,6 +422,23 @@ is 39 bytes: nine for the header, then one five-byte record per element in logic
 | 34 | `01 00 02 00 FA` | `(1, 2) = -6` |
 
 Negative values are two's complement, so `-2` is `0xFE` and `-6` is `0xFA`. The crate reads these bytes back into either physical order and writes them again from either order, which is the invariance the format exists to carry.
+
+### The Rescale, Worked
+
+The rescale of this draft's example model is a multiplier of 38,997,123 and a shift of 27, so the divisor is 134,217,728 and the rounding constant is 67,108,864.
+
+| Accumulator | Product | Plus rounding | Shifted | Element |
+|------------:|--------:|--------------:|--------:|--------:|
+| 0 | 0 | 67,108,864 | 0.50 | 0 |
+| 1 | 38,997,123 | 106,105,987 | 0.79 | 0 |
+| 4 | 155,988,492 | 223,097,356 | 1.66 | 1 |
+| 300 | 11,699,136,900 | 11,766,245,764 | 87.66 | 87 |
+| -300 | -11,699,136,900 | -11,632,028,036 | -86.66 | -87 |
+| 2,000,000 | 77,994,246,000,000 | 77,994,313,108,864 | 581,102.92 | 127 |
+
+The last row is beyond the element range and lands on its end. The fourth and fifth rows are one magnitude with two signs and land on two elements of one magnitude, which is the rounding behaving symmetrically where the values are not halves.
+
+The rounding is asymmetric where they are. A multiplier of one with a shift of one puts the difference in one place: an accumulator of `-1` has a product of `-1`, which sits exactly between `0` and `-1` after the shift, and it lands on `0`. Rounding away from zero would put it on `-1`, and a test in the crate fixes which of the two this contract means.
 
 ### What Is Not in the Buffer
 
