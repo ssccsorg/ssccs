@@ -37,7 +37,7 @@ format:
         \setkeys{Gin}{width=\linewidth,height=\textheight,keepaspectratio}
         \addtokomafont{disposition}{\rmfamily}
         \geometry{bottom=1.6cm, footskip=1cm}
-        \input{./_files/nexus_whitepaper_metadata.tex}
+        \IfFileExists{./_files/nexus_whitepaper_metadata.tex}{\input{./_files/nexus_whitepaper_metadata.tex}}{\GenericWarning{}{Metadata: no generated file is present, so the version stamp and the affiliation values are empty. Run 'sdb pre .' to write them.}\providecommand{\affiliationname}{}\providecommand{\affiliationurl}{}\providecommand{\affiliationdomain}{}\providecommand{\authoremail}{}\providecommand{\authorrole}{}}
         \DeclareTOCStyleEntry[beforeskip=6pt]{default}{section}
         \DeclareTOCStyleEntry[beforeskip=0pt]{default}{subsection}
         \makeatletter
@@ -74,7 +74,7 @@ format:
 
 :::{#content}
 
-neXus is a horizontal fabric where heterogeneous software systems — servers, agents, edge devices, data centers, and even human-operated terminals — attach to a common peer-to-peer network through a single lightweight binary, nex. Every attached node speaks the same coordinate-addressed[^synTagma] I/O[^chton] interface, regardless of its internal architecture. There is no hierarchy: any node can observe, act, or coordinate, and the fabric itself provides the shared blackboard. Retrieval is arithmetic, not indexed; the network scales horizontally without a central orchestrator. This whitepaper specifies the FIH (Fact, Intent, Hint) record model, the coordinate identity, the runtime, and the verified behavior of the reference implementation, marking established results and open questions.
+neXus is a horizontal fabric where heterogeneous software systems — servers, agents, edge devices, data centers, and even human-operated terminals — attach to a common peer-to-peer network through a single lightweight binary, nex. Every attached node speaks the same coordinate-addressed[^synTagma] I/O[^chton] interface, regardless of its internal architecture. There is no hierarchy: any node can observe, act, or coordinate, and the fabric itself provides the shared blackboard. Identity resolves by arithmetic and a filter resolves through the structural index; the network scales horizontally without a central orchestrator. This whitepaper specifies the FIH (Fact, Intent, Hint) record model, the coordinate identity, the runtime, and the verified behavior of the reference implementation, marking established results and open questions.
 
 :::
 
@@ -91,7 +91,7 @@ Generative agents, cloud functions, edge sensors, and human operators each speak
 
 neXus replaces the gateway with a fabric. Any software that can attach to a storage backend or an agent becomes a peer, speaking the same FIH interface. nex is the universal attachment point: a binary that runs unchanged on Wasm, microcontrollers, cloud VMs, and bare metal. Once attached, the backend becomes a blackboard; the agent becomes a peer. There is no master, no slave, no orchestrator — only a horizontal network of observers and actors where the observer is also an actor, and the actor is also an observer.
 
-The effect is a flat ecosystem: a sensor node can write Facts, a data center can read them, an agent can propose an Intent, and a human-operated system can apply Hints — all through the same coordinate-addressed I/O. Because identity is spatial (coordinate, not hash) and records are immutable, the cost of finding a record is independent of the number of records, and the cost of coordinating across nodes scales with the number of attachments, not with the amount of data. The reference code is published under Apache License 2.0[^repo]. Where a claim is a hypothesis rather than a measured result, it is labeled as such.
+The effect is a flat ecosystem: a sensor node can write Facts, a data center can read them, an agent can propose an Intent, and a human-operated system can apply Hints — all through the same coordinate-addressed I/O. Because identity is spatial (coordinate, not hash) and records are immutable, the cost of resolving a record by identity is independent of the number of records, and the cost of coordinating across nodes scales with the number of attachments, not with the amount of data. The reference code is published under Apache License 2.0[^repo]. Where a claim is a hypothesis rather than a measured result, it is labeled as such.
 
 ## Model {#sec-model}
 
@@ -315,7 +315,9 @@ The change of identity derivation from six to twenty coordinates is breaking for
 
 ### Determinism and Auditability {#sec-determinism}
 
-Every Fact carries a provenance link to the Intent that produced it, forming a chain from conclusion back to hypothesis. Two properties make that chain auditable. Replay is deterministic: `rebuild_cache` reconstructs the record maps and the structural index from the stored records, so two nodes that hold the same record set converge on the same state. Identity is content-derived: given the same content, origin, and creator, the same coordinate arises on any implementation. The content hash remains in the record as evidence; coordinates provide ordering and addressing, and do not provide preimage resistance. The distinction is maintained in the design: hashing is for evidence, coordinates are for structure. The two compose: a digest encoded as coordinates remains verifiable and becomes queryable by axis.
+Every Fact carries a provenance link to the Intent that produced it, forming a chain from conclusion back to hypothesis. Two properties make that chain auditable. Replay is deterministic: the state is the record set, and what a read builds over it, the record maps and the structural filter index, is a cache reconstructed from the records, so two nodes that hold the same record set answer the same set of records. Identity is content-derived: given the same content, origin, and creator, the same coordinate arises on any implementation. The content hash remains in the record as evidence; coordinates give an ordering over the identity space and an address, and do not provide preimage resistance. The distinction is maintained in the design: hashing is for evidence, coordinates are for structure. The two compose: a digest encoded as coordinates remains verifiable and becomes queryable by axis.
+
+Retrieval imposes no sequence. An enumeration hands the records over a page at a time in the order the channel holds them, and a reader that needs an order states it, either by deriving it from the record's axes, which the time coordinate always carries, or by sorting the set it keeps.
 
 ## Storage Architecture {#sec-storage}
 
@@ -380,7 +382,7 @@ The store surface consists of three pure synchronous primitives with a zero-asyn
 
 Compare-and-swap is the only coordination primitive; it is supplied by whatever the backend offers (SQLite WAL, a blockchain, or an object store). Storage is tiered: hot records use object compare-and-swap, warm records use key-value, and cold records use blobs with an advancing flush cursor, optionally composed through a composite cold-storage layer.
 
-Asynchronous runtimes (browser workers, Cloudflare Workers, canisters) cannot host the synchronous core directly. The AsyncStorage bridge hydrates the backend into memory, runs the synchronous core against dirty-tracked buffers, and drains only the mutated keys back through the async boundary. The same core files serve synchronous native builds and asynchronous hosted builds without modification.
+Asynchronous runtimes (browser workers, Cloudflare Workers, canisters) cannot host the synchronous core directly. The AsyncStorage bridge hydrates the backend into memory, runs the synchronous core against dirty-tracked buffers, and drains only the mutated keys back through the async boundary. The same core files serve synchronous native builds and asynchronous hosted builds without modification, and the hosted instances exercise it at the storage boundary, where the record layer's own tests pass with no core file changed.
 
 ### Memory Bound {#sec-storage-memory}
 
@@ -392,7 +394,22 @@ while record heap grows with record count $R$ and marginal cost $m \approx 0.9$ 
 
 $$ M_{\text{total}} \approx S \cdot A + m \cdot R . $$
 
-At 100,000 and 1,000,000 records the index remains approximately 264 MB, while the record heap grows with $R$; the flatness of the index is the property that keeps lookup fast and memory predictable as knowledge accumulates. The bound is linear in distinct axis values, so application axes must stay bounded in practice; a high-cardinality axis, such as per-record conclusion ids, inflates the index linearly.
+
+:::{ layout-ncol=2 }
+
+:::{ #content }
+
+At 100,000 and 1,000,000 records the index remains approximately 264 MB, while the record heap grows with $R$; the flatness of the index is the property that keeps lookup fast and memory predictable as knowledge accumulates. The bound is linear in distinct axis values, so application axes must stay bounded in practice; a high-cardinality axis, such as per-record conclusion ids, inflates the index linearly. \
+ \
+This is the indexed profile. A deployment that resolves records by identity alone, or one whose part cannot hold the index, builds none: its memory is the record heap, and a read holds a page of keys and one record rather than the volume. The bound is visible in the walk's peak, measured on the OS-less tier over volumes the target did not write with one run each: three times the volume, from 32 to 96 records, moves the peak by 16 bytes, where reading the enumeration whole moved it by 27,648 bytes over the same span.
+
+:::
+
+:::{#fig}
+{{< include _include/bench/fig-bench-walk-peak.qmd >}}
+:::
+
+:::
 
 ## Runtime and System Architecture {#sec-architecture}
 
@@ -501,7 +518,7 @@ From the perspective of AI agent architectures, neXus provides three fabrics in 
 
 ### Zero-Marginal-Cost Retrieval {#sec-zero-marginal}
 
-Model inference is confined to the generation of knowledge branches. Traversal, gap detection, and reporting operate on accumulated Facts through the filter index, so their cost does not scale with inference calls. The economic consequence is structural: reading and checking accumulated knowledge has zero marginal **inference** cost, and inference is spent only where a new branch of knowledge is produced. Retrieval itself is not free: its arithmetic and I/O cost scales with the size of the matching subtree, not with the total record count.
+Model inference is confined to the generation of knowledge branches. Traversal, gap detection, and reporting operate on accumulated Facts through the filter index, so their cost does not scale with inference calls. The economic consequence is structural: reading and checking accumulated knowledge has zero marginal **inference** cost, and inference is spent only where a new branch of knowledge is produced. Retrieval itself is not free. Through the structural filter index its arithmetic and I/O cost scales with the size of the matching subtree; a query the index cannot prune, or a deployment that builds no index, pays a scan whose cost scales with the record count, which @sec-boundaries records as a boundary.
 
 ### Stigmergic Compounding {#sec-stigmergy}
 
@@ -558,7 +575,7 @@ The proof sketch reduces the coordination surface to a single function, `exchang
 
 ### OS-less and Portability Verification {#sec-verify-osless}
 
-The core compiles for environments without an operating system. The Wasm build is exercised in CI, the core time and file abstractions are narrowed to two traits, `Now` and `FileIo`, and the coordinate core builds with `no_std`. The OS-less profile is the bound on the runtime surface: the same record semantics that run on a server also run where an operating system cannot, and the remaining work is a bare-metal launcher rather than a change to the record layer.
+The core compiles for environments without an operating system. The Wasm build is exercised in CI, the core time and file abstractions are narrowed to two traits, `Now` and `FileIo`, and the coordinate core builds with `no_std`. The OS-less profile is the bound on the runtime surface: the same record semantics that run on a server also run where an operating system cannot, and the remaining work is a bare-metal launcher rather than a change to the record layer. The constrained profile drops the structural filter index, which is a build feature, and reads the volume a page of keys at a time, holding a page and one record; both shapes are exercised in CI.
 
 ## Measured Performance {#sec-performance}
 
@@ -653,44 +670,38 @@ Coordinate identity generation measures about 0.38 ns per identity against 227 n
 
 ## Application Domains and Ecosystem {#sec-apps}
 
-The ecosystem follows one naming rule, `nex-{implementation}`: each application is an independent project with its own identity and, simultaneously, an instance of the same record model. The set below is the current catalog with implementation status. Four domains recur across deployments: research documentation, where hypotheses are recorded as Intents, validated results as Facts, and scope as Hints; agent coordination, where peers interact only through the shared space without a privileged orchestrator; serverless and edge execution on any append-only backend; and knowledge accumulation, where solved problems deposit verified knowledge back into a store that compounds recursively.
+The model is substrate-independent, and the test of that claim is an instance on a substrate the reference never touched. Instances follow one naming rule, `nex-{implementation}`: each is an independent project with its own identity and, simultaneously, a configuration of the same record model, so nothing in the record layer is added or changed to carry it.
+
+Four domains recur across those instances: research documentation, where hypotheses are recorded as Intents, validated results as Facts, and scope as Hints; agent coordination, where peers interact only through the shared space without a privileged orchestrator; serverless and edge execution on any append-only backend; and knowledge accumulation, where solved problems deposit verified knowledge back into a store that compounds recursively.
 
 ```{python}
 #| label: fig-ecosystem
-#| fig-cap: "The nex ecosystem. Each application is an independent project that speaks the same FIH record model."
+#| fig-cap: "One record model, many substrates. An instance is a configuration of the same model, and the record layer is unchanged from a native daemon to a hosted runtime."
 dot("""
 digraph Ecosystem {
     node [shape=box, style="rounded,filled", fontsize=10];
     edge [fontsize=8];
 
-    Core [label="nex core\nfih record model\nnexd / nex-server", shape=cylinder, fillcolor="#d8f0e0", penwidth=2];
+    Core [label="the record model\nFacts, Intents, Hints\none coordinate identity", shape=cylinder, fillcolor="#d8f0e0", penwidth=2];
 
-    Calc [label="nex-calc\nconformance skeleton", fillcolor="#e8ecf8"];
-    Tagma [label="nex-tagma\ncoordinate bridge", fillcolor="#e8ecf8"];
-    Cf [label="nex-cf\nCloudflare Workers", fillcolor="#e8ecf8"];
-    Icp [label="nex-icp\nInternet Computer", fillcolor="#e8ecf8"];
-    Zed [label="nex-zed\neditor agent", fillcolor="#e8ecf8"];
-    Ros [label="nex-ros\nrobotics (HexaField)", fillcolor="#e8ecf8"];
-    Ev [label="nex-ev (ExaVerif)\nverification engine", fillcolor="#e8ecf8"];
+    Skeleton [label="the conformance skeleton\nthe model in its smallest form", fillcolor="#e8ecf8"];
+    Hosted [label="a hosted runtime\nworker, canister, edge", fillcolor="#e8ecf8"];
+    Editor [label="a person's editor\nan agent as a peer", fillcolor="#e8ecf8"];
+    Field [label="a field controller\nrobotics, sensing", fillcolor="#e8ecf8"];
+    Verifier [label="a verification engine\nexhaustive enumeration", fillcolor="#e8ecf8"];
 
-    Calc -> Core [dir=both];
-    Tagma -> Core [dir=both];
-    Cf -> Core [dir=both];
-    Icp -> Core [dir=both];
-    Zed -> Core [dir=both];
-    Ros -> Core [dir=both];
-    Ev -> Core [dir=both];
+    Skeleton -> Core [dir=both];
+    Hosted -> Core [dir=both];
+    Editor -> Core [dir=both];
+    Field -> Core [dir=both];
+    Verifier -> Core [dir=both];
 }
 """)
 ```
 
-- `nex-calc` is the conformance skeleton. Every number is a Fact, every operator is an Intent, and every constraint is a Hint; the CLI reduces FIH computation to $F \times I \times H \to F'$. It is intentionally inefficient and serves as the design basis: vector and transform placeholders mark the same extension point that matrix and signal operations will occupy.
-- `nex-tagma` bridges the Tagma coordinate space and FIH storage: O(1) addressing, collision-free identity, and axis slicing. Integration stages 1 through 3 are complete and feed the core coordinate system; stages 4 and 5 are in progress.
-- `nex-cf` deploys the same core to Cloudflare Workers (`wasm32-unknown-unknown`) through the AsyncStorage bridge. The recorded status is production-ready at the storage boundary: 30 of 30 core tests and 8 AsyncStorage session tests pass with zero core files changed. Its roadmap stages a single worker, durable-object compare-and-swap, R2 archival and snapshots, then multi-durable-object sharding with a governance durable object.
-- `nex-icp` maps the FIH traits onto the Internet Computer: key-value storage onto stable memory, time onto the canister clock. The roadmap runs from core canister bindings, through agent canister templates and a cross-canister Candid protocol, to an on-chain `contract.nex` governance layer.
-- `nex-zed` embeds an agentic instance in the Zed editor over the Agent Client Protocol (ACP). Messages are translated to FIH blocks: a prompt request becomes an Intent, a tool result becomes a Fact, and a session mode becomes a Hint. The agent is a peer, not an orchestrator.
-- `nex-ros` (HexaField) is a robotics demonstration: an 18-degree-of-freedom hexapod on a Raspberry Pi 5 with LiDAR, IMU, and ROS 2, running three staged demos from segment-field observation to LLM-guided navigation. Its purpose is the physical validation of the model outside text and code.
-- `nex-ev` (ExaVerif) is the first production-grade instance. It exhaustively enumerates every valid combination of RISC-V custom instruction fields, evaluates constraints, and records each deterministic pass or fail as a Fact in the same FIH format.
+The conformance skeleton is the model in its smallest form and the only instance this document leans on. Every number is a Fact, every operator is an Intent, and every constraint is a Hint, so the calculator reduces computation to $F \times I \times H \to F'$ and establishes that nothing else is needed. It is deliberately inefficient: its value is conformance rather than throughput, and the properties it demonstrates are the properties a complex design must preserve.
+
+The remaining instances are recorded with their platform, their source, and their status in the repository catalog rather than here, and this document states them at the level of what they show: the same records answer on a hosted runtime, in a canister, inside a person's editor, on a field controller, and in a verification engine. A named prototype dates a claim to the prototype, and the claim this document makes is about the model.
 
 Bindings mirror the core: Rust is native, C and C++ are planned, a Python prototype exists, and Node is planned. Hosted deployments demonstrate that the same core serves serverless workers, canisters, and native daemons without code changes to the record layer.
 
@@ -749,7 +760,7 @@ The roadmap, in the order the project publishes it:
 | Research loop with AI hypothesis generation | planned |
 | Attack-scenario verification of storage | planned |
 | Agent-layer stigmergy: pressure fields and trace decay | planned |
-| Editor integration over a standard agent protocol | in progress, see `nex-zed` |
+| Editor integration over a standard agent protocol | in progress |
 | Deterministic path learning research program | phases defined, first phase in execution |
 
 The learning research program deserves a closing note because it frames the direction. Phase 1 formalizes the skeleton as the conformance reference and tests that a run is fully reconstructible from its FIH record. Phase 2 builds a path learner over the filter index. Phase 3 benchmarks the learning trace on the existing store surfaces. Phase 4 runs the learner on the OS-less storage line. Phase 5 expresses a small SGD-trained function as accumulated paths and compares reproducibility, auditability, accuracy, and cost. The purpose of the program is to find the boundary between path-accumulated knowledge and stochastic optimization, not to declare a winner in advance.
@@ -895,19 +906,6 @@ Game-theoretic gates run in CI: basic cooperation over 200 turns requires tit-fo
 ## Benchmark Notes {#sec-appendix-benchmarks}
 
 All figures in @sec-performance come from the reference benchmark suite, executed on Apple silicon (M1) in release mode with the median of ten runs reported. The suite and its sources are in the reference repository under `benches`. Two structural properties explain the flatness of the results: each leaf of the filter index covers 11,172 slots, and dense packing gives a flat lookup independent of record count. Figures compare the restructured index against recorded internal baselines, the pre-restructure ceiling or a hash index, not against an external benchmark. Methodology, fixture shapes, and measurement conventions are stated in @sec-performance.
-
-## Ecosystem Catalog {#sec-appendix-ecosystem}
-
-| Instance | Role | Platform | Status |
-|----------|------|----------|--------|
-| nex-calc | conformance skeleton | native CLI | reference |
-| nex-tagma | coordinate bridge | core integration | stages 1 to 3 complete |
-| nex-cf | hosted blackboard | Cloudflare Workers | storage boundary production-ready |
-| nex-icp | hosted blackboard | Internet Computer | integration roadmap |
-| nex-zed | editor agent | Zed over ACP | in progress |
-| nex-ros | robotics validation | ROS 2 hexapod | demonstration plan |
-| nex-ev (ExaVerif) | exhaustive verification | native | production-grade |
-| bindings | language surfaces | Rust, C/C++, Python, Node | Rust native, Python prototype |
 
 ## Glossary {#sec-appendix-glossary}
 

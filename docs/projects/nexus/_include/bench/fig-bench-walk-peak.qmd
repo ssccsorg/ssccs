@@ -1,0 +1,33 @@
+```{python}
+#| label: fig-bench-walk-peak
+#| fig-cap: "The record walk's peak, measured on the OS-less tier over volumes the target did not write, one run each. Reading the enumeration whole grew it with the volume (3,312, 12,144, 39,792 bytes); reading a page of keys at a time does not (1,392, 2,144, 2,160). Three times the volume moves the peak by 16 bytes, where the whole enumeration moved it by 27,648."
+import matplotlib.pyplot as plt
+
+records = ['8', '32', '96']
+whole = [3312, 12144, 39792]   # bytes, the enumeration read whole
+paged = [1392, 2144, 2160]     # bytes, a page of keys at a time
+
+fig, ax = plt.subplots(figsize=(5.2, 3.2))
+x = range(len(records))
+w = 0.35
+ax.bar([i - w / 2 for i in x], whole, w, color='white', edgecolor='black',
+       linewidth=0.8, hatch='///', label='Enumeration read whole')
+ax.bar([i + w / 2 for i in x], paged, w, color='white', edgecolor='black',
+       linewidth=0.8, label='A page of keys at a time')
+ax.set_xticks(list(x))
+ax.set_xticklabels(records)
+ax.set_xlabel('Records in the volume')
+ax.set_ylabel('Walk peak (bytes)')
+ax.set_yscale('log')
+ax.set_ylim(800, 120_000)
+
+for i, (whole_bytes, paged_bytes) in enumerate(zip(whole, paged)):
+    ax.text(i - w / 2, whole_bytes * 1.15, f'{whole_bytes:,}', ha='center',
+            va='bottom', fontsize=7)
+    ax.text(i + w / 2, paged_bytes * 1.15, f'{paged_bytes:,}', ha='center',
+            va='bottom', fontsize=7)
+
+ax.legend(fontsize=7, loc='upper left')
+plt.tight_layout()
+plt.show()
+```
