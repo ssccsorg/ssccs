@@ -24,7 +24,7 @@ format:
             \usepackage{microtype}
             \usepackage{unicode-math}
             \addtokomafont{disposition}{\rmfamily}
-            \input{./_files/index_metadata.tex}
+            \IfFileExists{./_files/index_metadata.tex}{\input{./_files/index_metadata.tex}}{\GenericWarning{}{Metadata: no generated file is present, so the version stamp and the affiliation values are empty. Run 'sdb pre .' to write them.}}
             \makeatletter
             \def\@maketitle{
               \centering

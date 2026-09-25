@@ -38,7 +38,7 @@ format:
         \usepackage{xeCJK}
         \setCJKmainfont{Noto Sans CJK KR}
         \addtokomafont{disposition}{\rmfamily}
-        \input{./_files/cast_metadata.tex}
+        \IfFileExists{./_files/cast_metadata.tex}{\input{./_files/cast_metadata.tex}}{\GenericWarning{}{Metadata: no generated file is present, so the version stamp and the affiliation values are empty. Run 'sdb pre .' to write them.}\providecommand{\affiliationname}{}\providecommand{\affiliationurl}{}\providecommand{\affiliationdomain}{}}
         \DeclareTOCStyleEntry[beforeskip=6pt]{default}{section}
         \DeclareTOCStyleEntry[beforeskip=0pt]{default}{subsection}
         \makeatletter

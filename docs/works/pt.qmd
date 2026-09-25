@@ -15,7 +15,7 @@ format:
     slide-level: 2
     include-in-header:
         text: |
-            \input{./_files/pt_metadata.tex}
+            \IfFileExists{./_files/pt_metadata.tex}{\input{./_files/pt_metadata.tex}}{\GenericWarning{}{Metadata: no generated file is present, so the version stamp and the affiliation values are empty. Run 'sdb pre .' to write them.}\providecommand{\version}{}}
             \setbeamertemplate{title page}{
                 \centering
                 \begin{beamercolorbox}[sep=8pt,center]{title}

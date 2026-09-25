@@ -1,6 +1,6 @@
 ---
 title: "neXus"
-subtitle: "A heterogeneous coordinate-addressed runtime fabric for observers, from microcontrollers to cloud."
+subtitle: "Peer-to-peer state fabric for agents and storage, from microcontrollers to data centers."
 date: 2026-09
 date-format: "MMMM, YYYY"
 version-prefix: nexus-doi.org/10.5281/zenodo.22303887
@@ -13,7 +13,7 @@ metadata-files:
   - ../../_include/format.html.yml
 format:
   html:
-    number-sections: true
+    number-sections: false
     code-font: "Source Code Pro"
     appendix-style: plain
   pdf:
@@ -21,7 +21,7 @@ format:
     geometry:
       - margin=16mm
     keep-tex: true
-    number-sections: true
+    number-sections: false
     execute:
       echo: false
     colorlinks: true
@@ -74,7 +74,7 @@ format:
 
 :::{#content}
 
-neXus is a horizontal fabric where heterogeneous software systems — servers, agents, edge devices, data centers, and even human-operated terminals — attach to a common peer-to-peer network through a single lightweight binary, nex. Every attached node speaks the same coordinate-addressed[^synTagma] I/O[^chton] interface, regardless of its internal architecture. There is no hierarchy: any node can observe, act, or coordinate, and the fabric itself provides the shared blackboard. Identity resolves by arithmetic and a filter resolves through the structural index; the network scales horizontally without a central orchestrator. This whitepaper specifies the FIH (Fact, Intent, Hint) record model, the coordinate identity, the runtime, and the verified behavior of the reference implementation, marking established results and open questions.
+neXus is a peer-to-peer state fabric on which heterogeneous systems (servers, agents, edge devices, data centers, and human-operated terminals) join the same board through a single lightweight binary, *nex*. Every attached node speaks the same coordinate-addressed[^synTagma] I/O[^chton] interface, regardless of its internal architecture. There is no hierarchy: any node can observe, act, or coordinate, and the fabric itself provides the shared blackboard. Identity resolves by arithmetic, and a filter resolves through the structural index; the network scales without a central orchestrator. This whitepaper specifies the FIH (Fact, Intent, Hint) record model, the coordinate identity, the runtime, and the verified behavior of the reference implementation, marking established results and open questions.
 
 :::
 
@@ -87,11 +87,11 @@ neXus is a horizontal fabric where heterogeneous software systems — servers, a
 
 ## Introduction {#sec-introduction}
 
-Generative agents, cloud functions, edge sensors, and human operators each speak different protocols and store state in incompatible backends. Coordinating across them typically requires a central orchestrator, an indexing layer, or a translation gateway — each adding latency, cost, and a single point of failure.
+Generative agents, cloud functions, edge sensors, and human operators each speak different protocols and store state in incompatible backends. Coordinating across them typically requires a central orchestrator, an indexing layer, or a translation gateway, each adding latency, cost, and a single point of failure.
 
-neXus replaces the gateway with a fabric. Any software that can attach to a storage backend or an agent becomes a peer, speaking the same FIH interface. nex is the universal attachment point: a binary that runs unchanged on Wasm, microcontrollers, cloud VMs, and bare metal. Once attached, the backend becomes a blackboard; the agent becomes a peer. There is no master, no slave, no orchestrator — only a horizontal network of observers and actors where the observer is also an actor, and the actor is also an observer.
+neXus replaces the gateway with a fabric. Any software that can attach to a storage backend or an agent becomes a peer, speaking the same FIH interface. nex is the universal attachment point: a binary that runs unchanged on Wasm, microcontrollers, cloud VMs, and bare metal. Once attached, the backend becomes a blackboard; the agent becomes a peer. There is no master, no slave, no orchestrator, only a network of observers and actors where the observer is also an actor, and the actor is also an observer.
 
-The effect is a flat ecosystem: a sensor node can write Facts, a data center can read them, an agent can propose an Intent, and a human-operated system can apply Hints — all through the same coordinate-addressed I/O. Because identity is spatial (coordinate, not hash) and records are immutable, the cost of resolving a record by identity is independent of the number of records, and the cost of coordinating across nodes scales with the number of attachments, not with the amount of data. The reference code is published under Apache License 2.0[^repo]. Where a claim is a hypothesis rather than a measured result, it is labeled as such.
+The effect is a flat ecosystem: a sensor node can write Facts, a data center can read them, an agent can propose an Intent, and a human-operated system can apply Hints, all through the same coordinate-addressed I/O. Because identity is spatial (coordinate, not hash) and records are immutable, the cost of resolving a record by identity is independent of the number of records, and the cost of coordinating across nodes scales with the number of attachments, not with the amount of data. The reference code is published under Apache License 2.0[^repo]. Where a claim is a hypothesis rather than a measured result, it is labeled as such.
 
 ## Model {#sec-model}
 
@@ -242,7 +242,7 @@ digraph IntentLifecycle {
 
 ### Recursion and Scaling Modes {#sec-recursion}
 
-The FIH triad is **scale-invariant** across scales, the property the project calls **isomorphic as an FIH algebra**: the same record structure and the same composition rules reappear at every scale, from a single agent to an ecosystem. A single agent runs a blackboard; a project runs a blackboard whose participants include that agent; an ecosystem runs a blackboard whose participants include projects. Each blackboard is a node that can contain sub-blackboards, and the composition rule is that an Observation at dimension $N$ becomes a Hint at dimension $N-1$. This nesting is structural, not logical: the same record semantics apply at every level.
+The FIH triad is **scale-invariant**: the same record structure and the same composition rules reappear at every scale, from a single agent to an ecosystem. A single agent runs a blackboard; a project runs a blackboard whose participants include that agent; an ecosystem runs a blackboard whose participants include projects. Each blackboard is a node that can contain sub-blackboards, and the composition rule is that an Observation at dimension $N$ becomes a Hint at dimension $N-1$. This nesting is structural, not logical: the same record semantics apply at every level.
 
 Three scaling modes follow from treating the triad as a three-vector basis of state.
 
@@ -393,7 +393,6 @@ $$ M_{\text{index}} \approx S \cdot A , $$
 while record heap grows with record count $R$ and marginal cost $m \approx 0.9$ KB, so
 
 $$ M_{\text{total}} \approx S \cdot A + m \cdot R . $$
-
 
 :::{ layout-ncol=2 }
 

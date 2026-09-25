@@ -41,7 +41,7 @@ format:
         \setCJKmainfont{Noto Sans CJK KR}
         \addtokomafont{disposition}{\rmfamily}
         \geometry{bottom=1.6cm, footskip=1cm}
-        \input{./_files/tagma_metadata.tex}
+        \IfFileExists{./_files/tagma_metadata.tex}{\input{./_files/tagma_metadata.tex}}{\GenericWarning{}{Metadata: no generated file is present, so the version stamp and the affiliation values are empty. Run 'sdb pre .' to write them.}\providecommand{\affiliationname}{}\providecommand{\affiliationurl}{}\providecommand{\affiliationdomain}{}\providecommand{\authoremail}{}\providecommand{\authorrole}{}}
         \DeclareTOCStyleEntry[beforeskip=6pt]{default}{section}
         \DeclareTOCStyleEntry[beforeskip=0pt]{default}{subsection}
         \makeatletter

@@ -11,7 +11,7 @@ format:
   pdf:
     include-in-header:
       text: |
-        \input{./_files/foundation_metadata.tex}
+        \IfFileExists{./_files/foundation_metadata.tex}{\input{./_files/foundation_metadata.tex}}{\GenericWarning{}{Metadata: no generated file is present, so the version stamp and the affiliation values are empty. Run 'sdb pre .' to write them.}\providecommand{\affiliationurl}{}\providecommand{\affiliationdomain}{}\providecommand{\authoremail}{}}
         \addtokomafont{disposition}{\rmfamily}
         \makeatletter
         \def\@maketitle{

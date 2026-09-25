@@ -43,7 +43,7 @@ format:
         \usepackage{microtype}
         \addtokomafont{disposition}{\rmfamily}
         \geometry{bottom=1.6cm, footskip=1cm}
-        \input{./_files/proposal_metadata.tex}
+        \IfFileExists{./_files/proposal_metadata.tex}{\input{./_files/proposal_metadata.tex}}{\GenericWarning{}{Metadata: no generated file is present, so the version stamp and the affiliation values are empty. Run 'sdb pre .' to write them.}}
         \makeatletter
         \def\@maketitle{
           {\LARGE \bfseries \@title \par}

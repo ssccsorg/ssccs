@@ -43,7 +43,7 @@ format:
         \usepackage{xeCJK}
         \setCJKmainfont{Noto Sans CJK KR}
         \addtokomafont{disposition}{\rmfamily}
-        \input{./_files/wp_metadata.tex}
+        \IfFileExists{./_files/wp_metadata.tex}{\input{./_files/wp_metadata.tex}}{\GenericWarning{}{Metadata: no generated file is present, so the version stamp and the affiliation values are empty. Run 'sdb pre .' to write them.}\providecommand{\affiliationurl}{}\providecommand{\affiliationdomain}{}\providecommand{\authoremail}{}\providecommand{\authorrole}{}}
         \DeclareTOCStyleEntry[beforeskip=6pt]{default}{section}
         \DeclareTOCStyleEntry[beforeskip=0pt]{default}{subsection}
         \makeatletter

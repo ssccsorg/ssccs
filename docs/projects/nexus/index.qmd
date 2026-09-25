@@ -1,10 +1,15 @@
 ---
 title: neXus
-subtitle: Isomorphic runtime fabric unifying swarm agents and spatial storage
+subtitle: "Peer-to-peer state fabric for agents and storage, from microcontrollers to data centers"
 metadata-files:
   - ../../_include/author.yml
 abstract: |
-  Fundamental computing paradigm must evolve from static document-code knowledge graphs into a cross-reality research manifold, and requires handling a vast scale of research by nature. As a general-purpose meta-information computing runtime swarm neXus, for instance, we build a research platform for SSCCS that provides a unified, queryable structure where whitepaper insights, compiler traces, physics simulations, robotic validations, and sensor streams coexist and interoperate.
+  neXus is a runtime that turns any storage backend or agent into a peer
+  of a shared state fabric. A single binary, nex, runs on Wasm,
+  microcontrollers, and cloud VMs. Once attached, the backend becomes a
+  blackboard and the agent becomes a peer, speaking the same
+  Fact–Intent–Hint interface. No orchestrator, no index, no graph
+  database. The fabric scales from one device to an ecosystem.
 ---
 
 ```{python}
@@ -17,10 +22,9 @@ abstract: |
 ```{python}
 title_meta_items = {
     "html": [
-        {"title": "Reference", "link": "./notes/stigmergic_fih.html", "content": "Stigmergic Solving", "icon": "bi bi-link"},
+        {"title": "Reference", "link": "./whitepaper.html", "content": "Whitepaper", "icon": "bi bi-file-text"},        
         {"title": "Reference", "link": "./development", "content": "Development", "icon": "bi bi-link"},
         {"title": "Reference", "link": "./apps", "content": "Apps", "icon": "bi bi-link"},
-        {"title": "Reference", "link": "./whitepaper.html", "content": "Whitepaper", "icon": "bi bi-file-text"},
         {"title": "Reference", "link": "../sdbs", "content": "SDBS", "icon": "bi bi-link"},
         {"title": "Code", "link": "https://github.com/ssccsorg/nexus", "content": "Github (Pre-release)", "icon": "bi bi-link"},
         {"title": "Code", "link": "https://github.com/ssccsorg/nex-ext", "content": "nex Extensions", "icon": "bi bi-link"},
@@ -30,35 +34,54 @@ title_meta_items = {
 
 {{< include ../../_include/_title_meta_items.qmd >}}
 
-## Overview
+## What it is
 
-`nex` is the lightweight binary hub of the neXus runtime. It scales by
-attaching storage or agent orchestration:
+neXus connects storage backends and agents through one shared state
+space. You run a single binary, `nex`, and it attaches to what you
+already have: a database, a file, an agent, a sensor. Once attached,
+each becomes a peer that reads and writes the same three records.
 
-- Runs on Wasm, edge nodes, portable devices, blockchain runtimes, and
-  bare-metal containers.
-- Turns any backend that stores an append-only Fact, a stateful Intent,
-  and a read-only Hint into a fully functional neXus Blackboard, with no
-  graph database and no indexing layer.
-- Operates traversal, gap detection, and reporting on accumulated facts
-  at zero marginal cost, with LLM use confined to knowledge-branch
-  generation.
+- **Fact** — an immutable, validated observation.
+- **Intent** — a proposed exploration with a strict lifecycle: `submit` → `claim` → `heartbeat` → `conclude`.
+- **Hint** — a read-only constraint that bounds what is admissible.
+
+No orchestrator, no index, no graph database. The same binary runs on a
+microcontroller and on a cloud VM. There is no privileged layer: every
+participant is a peer, defined by what it reads and writes, not by rank.
 
 {{< include ./_include/_nexus_fabric.qmd >}}
 
-## Design Philosophy and Direction
+## Why it exists
 
-neXus began as the proof of concept of the SSCCS computational model; the
-platform and the theory describe each other by design. It is a peer
-runtime rather than a platform: no marketplace, no extension rent, no
-central gatekeeper. A producer runs `nex` on their own infrastructure and
-decides what their work is worth. Solving a problem deposits verified
-knowledge back into the shared store, and the ecosystem grows by the
-recursive, stigmergic compounding of independently verified progress.
+Every platform dependency is a vulnerability. API changes, price
+increases, and service shutdowns are vectors of disarmament against your
+autonomy. A single state machine makes any storage backend
+interchangeable, turning platform lock-in into a tactical choice rather
+than an architectural constraint.
+
+Data remains readable by the same code a decade later, regardless of
+which platform hosted it. Platform independence is a survival strategy,
+and neXus is its fabric.
+
+The ecosystem grows by stigmergy: solving a problem deposits verified
+knowledge back into the shared store, and other producers inherit it.
+Value compounds with knowledge depth rather than with raw compute.
+
+## Design direction
+
+One coordinate space, one protocol, multiple directions, no orchestration.
+
+neXus began as the proof of concept of the SSCCS computational model;
+the platform and the theory describe each other by design. It is a peer
+fabric rather than a platform: no marketplace, no extension rent, no
+central gatekeeper. A producer runs `nex` on their own infrastructure
+and decides what their work is worth.
 
 ## Universal primitives and near-unlimited storage scalability
 
-Every platform dependency is a vulnerability. API changes, price increases, and service shutdowns are vectors of disarmament against your autonomy. A single state machine makes any storage backend interchangeable, turning platform lock-in into a tactical choice rather than an architectural constraint. Fact is immutable, Intent is a state machine, Hint is volatile -- data remains readable by the same code a decade later, regardless of which platform hosted it. Platform independence is a survival strategy, and neXus is its runtime. Every interaction in neXus is expressed through three primitives, forming a recursive, self-similar cycle across all scales (agent, experiment, project, ecosystem):
+Every interaction in neXus is expressed through three primitives,
+forming a recursive, self-similar cycle across all scales (agent,
+experiment, project, ecosystem):
 
 - Fact: An immutable, validated observation (the output of a concluded Intent).
 - Intent: A proposed exploration with a strict lifecycle: `submit` → `claim` → `heartbeat` → `conclude`.
@@ -88,11 +111,18 @@ digraph FIH_Primitives {
 """)
 ```
 
-Every Fact carries a provenance hash linking it to its originating Intent, forming a deterministic, replayable audit trail. A core rule governs scale: *Observe as Fact, act as Intent.* Automated observers record findings as Facts, preventing the Blackboard from cluttering with unclaimed Intents.
+Every Fact carries a provenance hash linking it to its originating
+Intent, forming a deterministic, replayable audit trail. A core rule
+governs scale: *Observe as Fact, act as Intent.* Automated observers
+record findings as Facts, preventing the Blackboard from cluttering with
+unclaimed Intents.
 
-## Architecture Overview
+## Architecture overview
 
-All participants (verification engines, editors, synthesis tools) are equal peers interacting solely via the FIH Blackboard interface. There is no privileged orchestrator layer; peers are defined by their role (what they read/write), not hierarchy.
+All participants (verification engines, editors, synthesis tools) are
+equal peers interacting solely via the FIH Blackboard interface. There
+is no privileged orchestrator layer; peers are defined by their role
+(what they read/write), not hierarchy.
 
 ```{python}
 #| label: fig-recursive-blackboard
@@ -157,9 +187,13 @@ digraph RecursiveBlackboard {
 """)
 ```
 
-### nexd: Persistent Runtime Layer
+### nexd: persistent runtime layer
 
-Bridging the architecture layers to actual execution, `nexd` is the native daemon that maintains the FIH blackboard as a persistent process and orchestrates agent application lifecycles. It provides Unix socket IPC for local clients, process spawn/monitor/kill for child agents, and an OODA scheduler for heartbeat monitoring and stale intent eviction.
+Bridging the architecture layers to actual execution, `nexd` is the
+native daemon that maintains the FIH blackboard as a persistent process
+and orchestrates agent application lifecycles. It provides Unix socket
+IPC for local clients, process spawn/monitor/kill for child agents, and
+an OODA scheduler for heartbeat monitoring and stale intent eviction.
 
 ```{python}
 #| label: fig-nexd-architecture
@@ -195,7 +229,7 @@ digraph NexdArch {
 """)
 ```
 
-### The 5-Layer Architecture
+### The 5-layer architecture
 
 | Layer | Logical Component | Core Responsibility |
 |-------|-------------------|---------------------|
@@ -211,27 +245,33 @@ Specification: the [neXus](whitepaper.html#sec-architecture),
 [neXus](whitepaper.html#sec-ulhm) are detailed in the
 [neXus](whitepaper.html).
 
-### FIH as a Data Structure Dimension
+### FIH as a data structure dimension
 
-FIH primitives form a 3-vector basis for the system state, enabling three scaling modes:
+FIH primitives form a 3-vector basis for the system state, enabling
+three scaling modes:
 
-1. Multi-Blackboard Composition: Recursive scoping. An Observation at dimension *N* becomes a Hint at dimension *N-1*.
-2. Temporal Accumulation: A 4D spatiotemporal graph. Facts are permanent, Intents are transient (leaving a Fact residue), and Hints are garbage-collectible, all timestamped.
-3. Independent Streaming: Each primitive operates as an independent pub/sub stream, allowing distributed nexus instances to synchronize via FIH deltas without a shared database.
+1. **Multi-Blackboard Composition:** Recursive scoping. An Observation at dimension *N* becomes a Hint at dimension *N-1*.
+2. **Temporal Accumulation:** A 4D spatiotemporal graph. Facts are permanent, Intents are transient (leaving a Fact residue), and Hints are garbage-collectible, all timestamped.
+3. **Independent Streaming:** Each primitive operates as an independent pub/sub stream, allowing distributed nexus instances to synchronize via FIH deltas without a shared database.
 
-## Extension: Boundaryless Research Infrastructure
+## Extension: boundaryless research infrastructure
 
-Fundamental computing research requires validation beyond text and code. neXus extends into a cross-reality research manifold, unifying theoretical insights, simulation outputs, and physical measurements.
+Fundamental computing research requires validation beyond text and code.
+neXus extends into a cross-reality research manifold, unifying
+theoretical insights, simulation outputs, and physical measurements.
 
-### Mathematical Foundation: ULHM
+### Mathematical foundation: ULHM
 
-The Universal Latent Isomorphic Manifold (ULHM) framework uses *isomorphism* (continuous bijection preserving topological structure) to unify disparate modalities. The Verifier applies three canonical loss terms to validate cross-domain mappings:
+The Universal Latent Isomorphic Manifold (ULHM) framework uses
+*isomorphism* (continuous bijection preserving topological structure) to
+unify disparate modalities. The Verifier applies three canonical loss
+terms to validate cross-domain mappings:
 
-- Continuity loss: Small changes in one modality map to small changes in the other.
-- Trust loss: Preserves neighborhood relationships.
-- Wasserstein loss: Aligns global distributions of latent representations.
+- **Continuity loss:** Small changes in one modality map to small changes in the other.
+- **Trust loss:** Preserves neighborhood relationships.
+- **Wasserstein loss:** Aligns global distributions of latent representations.
 
-### Extended Architecture Scope
+### Extended architecture scope
 
 | Layer | Current Scope | Extended Scope |
 |-------|---------------|----------------|
@@ -241,13 +281,13 @@ The Universal Latent Isomorphic Manifold (ULHM) framework uses *isomorphism* (co
 | Learning Loop | Research session outcomes | Experimental validation rates, simulation fidelity, physical reproducibility |
 | Contract Governance | Structural/citation rules | Physical constraints, precision bounds, safety invariants |
 
-### Key Enablers
+### Key enablers
 
-1. Episodic Knowledge Graph (eKG): Evolving Memory transitions from append-only JSONL to an eKG, preserving temporal ordering, agent provenance, and cross-modal coherence for physical reproducibility.
-2. Isomorphic Bridge: Enables semantic-guided recovery (completing partial physical observations via formal descriptions) and zero-shot compositional reasoning across simulation and hardware.
-3. Required Additions: Multi-Modal Ingestion Handlers, a Isomorphic Verification Layer, and eKG Integration.
+1. **Episodic Knowledge Graph (eKG):** Evolving Memory transitions from append-only JSONL to an eKG, preserving temporal ordering, agent provenance, and cross-modal coherence for physical reproducibility.
+2. **Isomorphic Bridge:** Enables semantic-guided recovery (completing partial physical observations via formal descriptions) and zero-shot compositional reasoning across simulation and hardware.
+3. **Required Additions:** Multi-Modal Ingestion Handlers, an Isomorphic Verification Layer, and eKG Integration.
 
-## Component Interaction Matrix
+## Component interaction matrix
 
 | Component | KG Engine | Object Store | Sync Worker | Planner | Verifier | Generator | Sim / Hardware |
 |-----------|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
@@ -258,12 +298,12 @@ The Universal Latent Isomorphic Manifold (ULHM) framework uses *isomorphism* (co
 | Verifier | → hybrid + isomorphic | | | ← receives | ● | → signals | ← validates |
 | Generator | | | | | ← triggered | ● | |
 
-## Strategic Alignment
+## Strategic alignment
 
-- Engine-Agnostic: Synchronization endpoints isolate the system from specific backends, enabling seamless adoption of future KG, simulation, or robotic algorithms.
-- Zero Lock-in: All components (object store, queue, KG database, simulation engine) are replaceable with open equivalents.
-- Research-First: Optimized strictly for the academic exploration cycle (hypothesize → validate → publish) across digital and physical domains.
-- Boundaryless by Design: Physical-digital extension is a natural consequence of existing engine-agnostic patterns, requiring no fundamental architectural rewrite.
-- Invisible Infrastructure: nex does not seek attention. Its success is measured by the success of every instance built upon it — a verification engine becoming an industry standard, a development environment powering the next generation of tools, a hardware design flow quietly automating synthesis. Each is a standalone project with its own identity, and simultaneously an implicit nex extension instance. The core runtime remains deliberately unremarkable, like stage equipment that enables the performance without ever stepping into the light.
+- **Engine-Agnostic:** Synchronization endpoints isolate the system from specific backends, enabling seamless adoption of future KG, simulation, or robotic algorithms.
+- **Zero Lock-in:** All components (object store, queue, KG database, simulation engine) are replaceable with open equivalents.
+- **Research-First:** Optimized strictly for the academic exploration cycle (hypothesize → validate → publish) across digital and physical domains.
+- **Boundaryless by Design:** Physical-digital extension is a natural consequence of existing engine-agnostic patterns, requiring no fundamental architectural rewrite.
+- **Invisible Infrastructure:** nex does not seek attention. Its success is measured by the success of every instance built upon it: a verification engine becoming an industry standard, a development environment powering the next generation of tools, a hardware design flow quietly automating synthesis. Each is a standalone project with its own identity, and simultaneously an implicit nex extension instance. The core fabric remains deliberately unremarkable, like stage equipment that enables the performance without ever stepping into the light.
 
 {{< include ../../_include/_license.md >}}

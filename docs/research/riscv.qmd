@@ -19,7 +19,7 @@ format:
         \usepackage{geometry}
         \usepackage{microtype}
         \addtokomafont{disposition}{\rmfamily}
-        \input{./_files/riscv_metadata.tex}
+        \IfFileExists{./_files/riscv_metadata.tex}{\input{./_files/riscv_metadata.tex}}{\GenericWarning{}{Metadata: no generated file is present, so the version stamp and the affiliation values are empty. Run 'sdb pre .' to write them.}}
         \makeatletter
         \def\@maketitle{
           {\LARGE \bfseries \@title \par}
