@@ -117,6 +117,10 @@ initiative financially or in kind, please contact <contact@ssccs.org>.
   Authenticated via GPG:
   [BCCB196BADF50C99](https://keys.openpgp.org/search?q=BCCB196BADF50C99).
   Licensed under *Apache 2.0*.
+- Hardware design: the SystemVerilog under
+  [`poc/baremetal_riscv/sv/`](/poc/baremetal_riscv/sv/) is licensed under
+  *CERN-OHL-P v2*; the full text is at
+  [`poc/baremetal_riscv/sv/LICENSE`](/poc/baremetal_riscv/sv/LICENSE).
 - Governed by the [Foundational Charter and
   Statute](https://ssccs.org/legal) of the SSCCS Foundation (in
   formation).

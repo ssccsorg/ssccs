@@ -180,4 +180,4 @@ Generated gates follow `fn(*const i64) -> u32`: coordinate pointer in `a0`, gate
   under `baremetal_riscv/asm/`, the C programs under `baremetal_riscv/simulation/`,
   and the tooling): Apache License 2.0, see LICENSE at the repository root.
 - Hardware (the SystemVerilog design under `baremetal_riscv/sv/`): CERN-OHL-P v2,
-  see `baremetal_riscv/sv/LICENSE`.
+  see [`baremetal_riscv/sv/LICENSE`](baremetal_riscv/sv/LICENSE).
