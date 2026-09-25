@@ -427,7 +427,7 @@ The primitive is three combinational functions over the same 16-bit value, each 
 | compose | `tagma_compose` | three 5-bit axes | 14-bit coordinate index, `valid` | 258 |
 | distance | `tagma_dist` | two 16-bit code points | three 5-bit distances | 1329 |
 
-Decode and distance take a code point; compose returns the coordinate index, the offset from U+AC00, which is the internal representation of the Rust `Coord`, so the code point is U+AC00 + index. The distance unit instantiates two decoders, one per operand, which is why it is the largest of the three. A fourth module, `tagma_segment_store`, realizes the address path as an 11,172-slot store and is described under Memory hierarchy penetration below.
+Axis 0, Axis 1, and Axis 2 are the initial, medial, and final axes of the composition formula; the RTL names them `i`, `m`, and `f`. Decode and distance take a code point; compose returns the coordinate index, the offset from U+AC00, which is the internal representation of the Rust `Coord`, so the code point is U+AC00 + index. The distance unit instantiates two decoders, one per operand, which is why it is the largest of the three. A fourth module, `tagma_segment_store`, realizes the address path as an 11,172-slot store and is described under Memory hierarchy penetration below.
 
 ### The decoder {#sec-decoder}
 
