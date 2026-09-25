@@ -1,6 +1,6 @@
 ---
 title: "RTL"
-subtitle: "Decoder structure and the verification pipeline"
+subtitle: "The coordinate primitive in RTL: decode, compose, and distance"
 date: 2026-08
 date-format: "MMMM, YYYY"
 bibliography: ../../_include/reference.bib
@@ -59,6 +59,17 @@ The constant divisions dominate the critical path. Two implementations of the sa
 
 The multiply-shift constants are exact over the valid domain: division by 28 becomes division by 7 on `q4 = offset >> 2` (28 = 4 x 7, `q4` at most 2792), and division by 21 applies to `j` at most 398. Both structures are functionally identical, which the verification pipeline proves rather than assumes.
 
+## Compose and distance
+
+The decoder maps an index to the three axes. The primitive needs the inverse and a metric as well, and both are small combinational units in the same tree:
+
+| Unit | Operation | Structure |
+|------|-----------|-----------|
+| `tagma_compose` | axes to index, $588i + 28m + f$ | two constant multiplies ($21i$ and $28p$), one validity bound per axis |
+| `tagma_dist` | field-wise absolute difference of two code points | two `tagma_decoder` cores and three subtractors |
+
+`tagma_compose` is the decoder read backwards: the same 588 and 28 constants appear as multipliers instead of divisors, and an out-of-range axis triple is reported as `valid = 0` with `index = 0`. `tagma_dist` decodes each operand with the same core as the standalone decoder, so the two share one decode definition, and returns the three per-axis distances separately, matching `Coord::hamming_distance` on every valid pair.
+
 ## Verification pipeline
 
 The pipeline has a single source of truth: `tagma_core` in Rust, the reference implementation of the primitive. Every hardware artifact is checked against it. The pipeline is shown in Figure @fig-hw-verify.
@@ -78,6 +89,7 @@ The components:
 | Golden simulation | Reads the anchor file and checks the RTL against the Rust reference |
 | Gate-level simulation | Runs the synthesized netlist against the same anchor file |
 | Formal equivalence | Proves the RTL and the netlist identical over all 2^16 inputs with `equiv_simple` and `equiv_induct` |
+| Compose and distance channels | Formula and golden simulation for `tagma_compose` and `tagma_dist`, plus the same gate-level and equivalence checks |
 | Consistency gate | Python check that validates the generated anchor file against the decomposition contract |
 
 ## Results
@@ -88,5 +100,11 @@ The components:
 | Golden anchors (Rust reference mode) | PASS: all 11,172 |
 | Gate-level netlist simulation | PASS: all 11,172 |
 | Formal equivalence RTL vs netlist | proven, 50 cells, all 2^16 inputs |
+| Compose (formula mode) | PASS: all 32,768 axis combinations |
+| Compose (golden mode) | PASS: all 11,172 |
+| Distance (formula mode) | PASS: 3 x 11,172 over varying operands and both orders |
+| Distance (golden mode) | PASS: 3 x 11,172 over varying operands and both orders |
+| Compose RTL vs netlist | proven, all 2^15 axis combinations |
+| Distance RTL vs netlist | proven, all 2^32 input pairs |
 
 The exhaustive tests also found the boundary correction: the last valid syllable is U+D7A3, not U+D7AF. The testbench boundary was wrong initially and the failure surfaced only because the full space was enumerated.

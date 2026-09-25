@@ -76,6 +76,17 @@ Cell mix for the multiply-shift version:
 | Generic (478) | ANDNOT 25, AND 82, MUX 15, NAND 135, NOR 9, NOT 6, ORNOT 15, OR 44, XNOR 76, XOR 71 |
 | Gate-level (588) | AND 113, NAND 192, NOR 29, NOT 23, OR 44, XNOR 84, XOR 103 |
 
+### The primitive's other units
+
+The same 2-input gate library estimates the two smaller units that complete the primitive:
+
+| Unit | Cells (2-input) | Structure |
+|------|-----------------|-----------|
+| compose | 258 | axes to index, two constant multiplies (`21i`, `28p`) |
+| distance | 1329 | two decoder instances and three subtractors |
+
+The distance figure carries two decoders, because a pair needs both operands decoded; the comparators and subtractors around them are the remaining about 153 cells.
+
 ## The trade-off
 
 The ~300 gate claim in the Tagma whitepaper holds for the naive shift-subtract decoder (206 to 232 cells, below 300). It does not hold for the version that closes timing on a 12 MHz board: the multiply-shift structure costs 478 to 588 cells. The optimization is a deliberate exchange of about 2.5x gates for timing closure. The clock closure is shown in Figure @fig-hw-fmax.

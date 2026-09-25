@@ -39,7 +39,7 @@ title_meta_items = {
 
 ## Abstract {.unnumbered .unlisted}
 
-Tagma[^tagma] is a 16-bit coordinate primitive: a fixed Unicode block (U+AC00--U+D7A3) with a closed-form composition formula, three independent axes, and zero collision probability. The primitive is substrate-independent. Its definition is one formula, and its realizations differ only in the material that evaluates it. The software realization is the reference implementation in Rust and C++ [^syntagma] [^refimpl]; the hardware realization is the subject of this whitepaper series: a combinational decoder, a gate-level synthesis flow, an FPGA demo on the Upduino 3.1, and a chton SRAM segment store.
+Tagma[^tagma] is a 16-bit coordinate primitive: a fixed Unicode block (U+AC00--U+D7A3) with a closed-form composition formula, three independent axes, and zero collision probability. The primitive is substrate-independent. Its definition is one formula, and its realizations differ only in the material that evaluates it. The software realization is the reference implementation in Rust and C++ [^syntagma] [^refimpl]; the hardware realization is the subject of this whitepaper series: a combinational decoder with its inverse (the compose unit) and the field-wise distance unit, a gate-level synthesis flow, an FPGA demo on the Upduino 3.1, and a chton SRAM segment store modeled behaviorally pending the macro.
 
 Everything in this series is measured, not claimed. The decoder is verified exhaustively over all 11,172 valid syllables in three independent channels (formula, Rust reference, gate netlist), and formal equivalence proves the RTL and the synthesized netlist identical over all 2^16 inputs. The measured gate count is 478 cells in the ev-compatible generic schema and 588 cells in a 2-input gate-level estimate, with 201 LUT4 plus 41 carry cells on iCE40. The demo closes the 12 MHz board clock at 16.79 MHz Fmax (59.55 ns critical path after place and route).
 
@@ -60,6 +60,12 @@ What changes is the substrate. The software realization evaluates the formula wi
 :::
 
 One boundary correction is part of this work: the last valid syllable is U+D7A3, not U+D7AF. The block contains exactly 11,172 syllables and U+AC00 + 11,171 = U+D7A3. Inputs in U+D7A4..U+D7AF decode to an out-of-range initial axis and are structurally invalid; the `tagma_core` reference documents these as filler positions.
+
+## Realization status
+
+The claim of this series is bounded by what is realized. The three operations of the primitive are realized as RTL and verified end to end: the decoder, the compose unit (the decoder's inverse), and the distance unit. The gate-level netlist simulation and the formal-equivalence check cover all three.
+
+Two items are documented but not yet realized. The segment store is a behavioral model of the address map, pending the OpenRAM macro that needs a PDK install. The physical FPGA demonstration is pending a board, though the bitstream and the timing report are generated. Where a result depends on an unrealized item, the document states the dependency in place.
 
 ## Measured results summary
 
@@ -92,6 +98,9 @@ The verification status across all channels:
 | Golden anchors (Rust reference mode) | PASS: all 11,172 |
 | Gate-level netlist simulation | PASS: all 11,172 |
 | Formal equivalence RTL vs netlist | proven, 50 cells, all 2^16 inputs |
+| Compose, the decoder inverse (formula + golden) | PASS: 32^3 axis combinations and 11,172 anchors |
+| Distance (formula + golden) | PASS: 11,172 code points against two references and a varying-operand sweep |
+| Compose and distance equivalence | proven over 2^15 axis combinations and 2^32 input pairs |
 
 ## Verification pipeline
 
@@ -109,7 +118,7 @@ The pipeline runs in CI through `make -C hw check` in the syntagma repository, s
 
 | Document | Description |
 |----------|-------------|
-| [RTL](/projects/syntagma/tagma/hardware/rtl) | Decoder structure and the verification pipeline |
+| [RTL](/projects/syntagma/tagma/hardware/rtl) | Decode, compose, and distance: structure and the verification pipeline |
 | [Synthesis](/projects/syntagma/tagma/hardware/synth) | Gate counts, cell mixes, and the naive vs multiply-shift trade-off |
 | [FPGA](/projects/syntagma/tagma/hardware/fpga) | Upduino 3.1 demo, place and route, timing report |
 | [Memory](/projects/syntagma/tagma/hardware/memory) | chton SRAM segment store and the L1 cache analysis |
