@@ -420,11 +420,11 @@ This part states the hardware realization of the primitive on its own terms, so 
 
 The primitive is three combinational functions over the same 16-bit value, each a separate module verified independently:
 
-| Operation | Module | Input | Output | Cells (2-input) |
-|-----------|--------|-------|--------|------------------|
-| decode | `tagma_decoder` | 16-bit code point | three axes, `valid` | 588 |
-| compose | `tagma_compose` | three 5-bit axes | 14-bit coordinate index, `valid` | 258 |
-| distance | `tagma_dist` | two 16-bit code points | three 5-bit distances | 1329 |
+| Operation | Module | Input | Output |
+|-----------|--------|-------|--------|
+| decode | `tagma_decoder` | 16-bit code point | three axes, `valid` |
+| compose | `tagma_compose` | three 5-bit axes | 14-bit coordinate index, `valid` |
+| distance | `tagma_dist` | two 16-bit code points | three 5-bit distances |
 
 Axis 0, Axis 1, and Axis 2 are the initial, medial, and final axes of the composition formula; the RTL names them `i`, `m`, and `f`. Decode and distance take a code point; compose returns the coordinate index, the offset from U+AC00, which is the internal representation of the Rust `Coord`, so the code point is U+AC00 + index. The distance unit instantiates two decoders, one per operand, which is why it is the largest of the three. A fourth module, `tagma_segment_store`, realizes the address path as an 11,172-slot store and is described under Memory hierarchy penetration below.
 
@@ -523,7 +523,7 @@ Three custom instructions implement the core `Coord` API:
 
 **tagma_dist rd, rs1, rs2.** Computes field-wise absolute difference between the two 16-bit coordinates. Returns three 5-bit distances packed as: Axis 0 (bits 14--10), Axis 1 (bits 9--5), Axis 2 (bits 4--0); bit 15 is reserved. Corresponds to `Coord::hamming_distance(rs1, rs2)`. One cycle, combinational.
 
-All three operations are realized in the hardware tree (`hw/rtl/`) as the modules `tagma_decoder`, `tagma_compose`, and `tagma_dist`, each verified in the same four channels as the decoder. The decode and distance units take a 16-bit code point; the compose unit returns the coordinate index, the offset from U+AC00, which mirrors the Rust `Coord`. In a 2-input gate library the three units are 588, 258, and 1329 cells; the distance unit carries two decoder instances, because a pair needs both operands decoded.
+All three instructions are realized in the hardware tree (`hw/rtl/`) as the modules `tagma_decoder`, `tagma_compose`, and `tagma_dist`, each verified in the same channels as the decoder; the cell counts are in Synthesis and timing below.
 
 ### Verification
 
@@ -533,12 +533,12 @@ The hardware realization closes the loop against the Rust reference with four in
 
 The three units cover their own input spaces in the same channels:
 
-| Unit | Simulation | Formal equivalence | Gate-level cells |
-|------|------------|--------------------|------------------|
-| decoder | all 11,172 valid characters | all 2^16 inputs | 588 |
-| compose | all 32^3 axis combinations | all 2^15 axis combinations | 258 |
-| distance | 11,172 code points against two references and a varying-operand sweep | all 2^32 input pairs | 1329 |
-| segment store | 11,172 slots, reserved addresses, read-during-write (behavioral model) | not applicable | not applicable |
+| Unit | Simulation | Formal equivalence |
+|------|------------|--------------------|
+| decoder | all 11,172 valid characters | all 2^16 inputs |
+| compose | all 32^3 axis combinations | all 2^15 axis combinations |
+| distance | 11,172 code points against two references and a varying-operand sweep | all 2^32 input pairs |
+| segment store | 11,172 slots, reserved addresses, read-during-write (behavioral model) | not applicable |
 
 :::{ layout-ncol=1 }
 
@@ -752,7 +752,7 @@ The rows marked No retain cryptographic functions. The tagma-sec layer (Appendix
 
 The deterministic single-cycle decode makes Tagma suitable for real-time and safety-critical systems. The three-decoder topology of the future path reduces worst-case decode latency compared to a single linear decoder.
 
-**Radiation-tolerant computing.** The structural validity check embedded in every decode provides inherent error detection. A single-bit upset that maps a valid coordinate outside the U+AC00-U+D7A3 range produces an immediate invalid flag. Errors that map one valid coordinate to another are not detected by the structural check alone and require ECC supplementation, as noted in Boundaries. The decoder's small measured gate count (478 cells in the ev-compatible generic schema, 588 in a 2-input gate library) makes triplication feasible at lower cost than protecting a full hash unit.
+**Radiation-tolerant computing.** The structural validity check embedded in every decode provides inherent error detection. A single-bit upset that maps a valid coordinate outside the valid range produces an immediate invalid flag. Errors that map one valid coordinate to another are not detected by the structural check alone and require ECC supplementation, as noted in Boundaries. The decoder's small measured gate count makes triplication feasible at lower cost than protecting a full hash unit.
 
 An exact enumeration of all 11,172 valid coordinates confirms the detection rate[^seu-enum]. Each valid coordinate has 16 possible single-bit-flip destinations. Averaged across all valid states, 12.14 of those 16 destinations remain within [U+AC00, U+D7A3] (standard deviation 0.62; range 8--13). The resulting average SEU detection rate is 24.1% from the structural check alone, before any ECC supplementation. This detection rate comes at zero additional hardware cost, as a free byproduct of the structural encoding. When combined with ECC, the structural check handles the subset of errors that map valid coordinates outside the valid range, while ECC handles the remaining cases.
 
@@ -820,7 +820,7 @@ conditions:
 
 ## Vision
 
-Tagma defines a new type of silicon primitive: a combinational decoder that derives identity from structure at a measured 478 cells (generic schema; 588 in a 2-input gate-level estimate) and one cycle. At this gate cost, content-addressable operation becomes viable where hash-based approaches are too expensive in power, area, or latency. The decoder is verified exhaustively over all 11,172 valid characters in three simulation channels, plus formal equivalence to the synthesized netlist over all 2^16 inputs; the compose and distance units are verified the same way. The structural validity check embedded in every decode provides inherent error detection, relevant for radiation-tolerant computing in space environments. The coordinate space that enables this is this Unicode block, an open international standard and a public good. Tagma is released as open-source hardware under CERN-OHL-P v2 in `hw/` in the syntagma repository, with the FPGA demo closing the 12 MHz board clock at 16.79 MHz, inviting the next conversation: what else becomes possible when identity costs less than a single multiply. The broader hardware design implications of this shift are discussed in Appendix [*-@sec-appendix-hardware*].
+Tagma defines a new type of silicon primitive: a combinational decoder that derives identity from structure at a measured 478 cells and one cycle. At this gate cost, content-addressable operation becomes viable where hash-based approaches are too expensive in power, area, or latency. The decoder is verified exhaustively over all 11,172 valid characters in three simulation channels, plus formal equivalence to the synthesized netlist over all 2^16 inputs; the compose and distance units are verified the same way. The structural validity check embedded in every decode provides inherent error detection, relevant for radiation-tolerant computing in space environments. The coordinate space that enables this is this Unicode block, an open international standard and a public good. Tagma is released as open-source hardware under CERN-OHL-P v2 in `hw/` in the syntagma repository, with the FPGA demo closing the 12 MHz board clock at 16.79 MHz, inviting the next conversation: what else becomes possible when identity costs less than a single multiply. The broader hardware design implications of this shift are discussed in Appendix [*-@sec-appendix-hardware*].
 
 The SynTagma specification [@tagma-syn] complements this document. It defines how the recursive state space expansion described in the previous section is realised across physical topologies: routing, transport framing, device-boundary resolution, and distributed coordination. Where this document defines the invariant, SynTagma defines the protocol.
 
@@ -969,7 +969,7 @@ Tagma changes the problem that hardware must solve alongside the speed at which 
 | Accelerator | Dedicated hash unit for DHT or content addressing | Coordinate arithmetic only; hash unit eliminated |
 | Energy | Dynamic voltage scaling to cover worst-case hash latency | Fixed, minimal decode path; predictable power |
 
-Conventional hardware searches. Tagma hardware interprets. This shifts the hardware design problem from faster computation to simpler decoding. The measured trade is explicit: timing closure costs about 2.5x gates [*-@sec-decoder*], and the N=1 dense case trades per-operation speed for energy, determinism, and physical embedding [*-@sec-memory-hierarchy*]. All three operations of the primitive are realized and verified in RTL; the remaining hardware work is the OpenRAM macro for the segment store, the physical FPGA board bring-up, and the power model over the VCD activity trace. The realization itself is stated in Section [*-@sec-hardware*].
+Conventional hardware searches. Tagma hardware interprets. This shifts the hardware design problem from faster computation to simpler decoding. The measured trade is explicit: timing closure costs about 2.5x gates [*-@sec-decoder*], and the N=1 dense case trades per-operation speed for energy, determinism, and physical embedding [*-@sec-memory-hierarchy*]. All three operations of the primitive are realized and verified in RTL; the realization and its remaining work are stated in Section [*-@sec-hardware*].
 
 ## SHA-256 with Tagma Encoding {#sec-appendix-sha-tagma}
 
@@ -1134,7 +1134,7 @@ The full comparison across all examined writing systems. Main-stream computing a
 
 | Script | Contiguous Address | Combinatorial Structure | 3-Axis Decomposition | Compatible? |
 |--------|-------------------|----------------------|--------------------------|-------------------|
-| Hangul | Y U+AC00-U+D7A3 | Y 19x21x28, no exceptions | Y Onset-Nucleus-Coda | Y |
+| Hangul | Y U+AC00..U+D7A3 | Y 19x21x28, no exceptions | Y Onset-Nucleus-Coda | Y |
 | ASCII | Y U+0000-U+007F | N | N | N |
 | Cyrillic | Y U+0400-U+04FF | N | N | N |
 | Greek | Y U+0370-U+03FF | N | N | N |
@@ -1160,7 +1160,7 @@ This is a single unique atom's address in our observable universe:
 맨가억빈힣쐭롮직랯픟첹겨뇨됴듸뤼뮈븨싀쨔 
 ```
 
-Twenty Korean characters (U+AC00--U+D7A3) form a coordinate path.
+Twenty Korean characters (U+AC00..U+D7A3) form a coordinate path.
 Each character encodes a value drawn from 11,172 possibilities through
 its initial, medial, and final decompositions, yielding 11,172²⁰ ≈
 9.2 × 10⁸⁰ possible addresses. This is enough to assign a unique
