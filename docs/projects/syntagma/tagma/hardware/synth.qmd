@@ -93,4 +93,20 @@ The ~300 gate claim in the Tagma whitepaper holds for the naive shift-subtract d
 | Fmax | 8.63 MHz | 16.79 MHz |
 | Meets 12 MHz board clock | no | yes |
 
-The one-cycle latency holds for both structures; what differs is the achievable clock rate. These are generic-library and FPGA numbers, not PDK standard cell numbers. The OpenROAD flow is the next step for a Sky130 report with real timing, area, and power.
+The one-cycle latency holds for both structures; what differs is the achievable clock rate.
+
+## Standard cell (Sky130)
+
+The counts above come from the generic Yosys library and the iCE40 flow, not from a PDK standard cell library. `hw/openroad/run.sh` closes that gap: it runs ORFS end to end (synth, floorplan, place, cts, route, finish) against the SkyWater 130nm HD library, and reproduces on x86 and on Apple Silicon under Rosetta. Measured for the registered demo top at the 12 MHz board-equivalent clock (83.33 ns):
+
+| Metric | Value |
+|--------|-------|
+| design area | 4631 um^2, 35% utilization |
+| critical path delay | 11.19 ns |
+| worst setup slack | +72.33 ns |
+| total power | 0.897 mW (combinational 95.5%, sequential 3.3%, clock 1.2%) |
+| pure decoder | 388 cells, 2826 um^2 (`yosys stat -liberty`) |
+
+The 388-cell pure decoder count is the abc mapping of the multiply-shift network against `sky130_fd_sc_hd__tt_025C_1v80.lib`, consistent with the 478 generic cells and the 588 gate-level estimate above. The hw CI job runs the same flow and uploads the reports as the `sky130-reports` artifact.
+
+Two flow bugs surfaced during setup, recorded in the derisking devlog. The clock was first declared as a virtual clock with no source port, so CTS built no clock tree; the fix gives the clock its source port. The bundled kepler-formal LEC step crashes with an illegal instruction on the available CPUs, so it is disabled with `LEC_CHECK = 0`; the RTL-to-netlist equivalence it would check is already proven by the yosys equiv gate.
