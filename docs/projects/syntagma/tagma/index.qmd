@@ -50,7 +50,7 @@ format:
             {\LARGE \bfseries \@title \par}
             \vspace{1em}
             {\large \@subtitle \par}
-            \vspace{4em}
+            \vspace{2em}
                 {\large \@author \thanks{\authorrole; Corresponding author: \texttt{\href{mailto:\authoremail}{\authoremail}}} \par}
                 \vspace{0.3em}
                 {\normalsize \affiliationname \par}
@@ -76,7 +76,7 @@ format:
 
 ## Abstract {.unnumbered .unlisted}
 
-Tagma[^tagma-etym] is a computing primitive where the address *is* the coordinate — not a flat pointer, but a point in an N-dimensional geometric space. This is made possible by a fixed 16-bit contiguous Unicode closed-form composition block *(U+AC00-U+D7A3)*, which provides a collision-free, hash-less, structurally addressable coordinate space. Every valid 16-bit value in this space is simultaneously a 1-D address, a 3-D coordinate (Axis 0, Axis 1, Axis 2). This triple interpretation enables hash-less content addressing [*-@sec-paradigm-shift*] with zero collision probability and single-cycle combinational decoding (measured 478 cells)[^tagma-hw]. The coordinate arithmetic admits unbounded N-Coord composition — the address space grows as $11,172^N$ while lookup cost remains O(N) per Coord. We present a gate-level decoder specification, a processor pipeline attachment reference (e.g., RISC-V XIF)[^tagma-repo], a hardware reference implementation of all three primitive operations (decode, compose, and distance) verified exhaustively against the Rust reference and formally equivalent to the synthesized netlist, a software reference implementation [*-@sec-appendix-rust*], and a full benchmark suite [*-@sec-appendix-benches*]. Measured lookup latency: 0.39 ns vs 227 ns for SHA-256 (582x) at single-Coord; 62 ns vs 227 ns (3.7x) at SHA-256 scale (20 Coords). Structural prefix queries show the decisive advantage: a direct-address table answers nonexistent prefix in 1.65 ns while a general-purpose hash table scans 10M entries in 23.05 ms (14.0Mx). Bit-set axis filters resolve compound queries at 329 Melem/s vs hash table scan at 2.4 Melem/s (137x, bitwise AND vs full scan). The same table completes 10M sparse get operations in 44.9 ms vs hash table 1.05 s (23.4x). The coordinate space is an open international standard (Unicode) and a public good — unencumbered by proprietary licensing. A production-scale validation in CERN's ROOT TTree read path confirms the model in petabyte-scale high-energy physics software [*-@sec-appendix-root-ttree*].
+Tagma[^tagma-etym] is a computing primitive where the address *is* the coordinate — not a flat pointer, but a point in an N-dimensional geometric space. This is made possible by a fixed 16-bit contiguous Unicode closed-form composition block *(U+AC00-U+D7A3)*, which provides a collision-free, hash-less, structurally addressable coordinate space. Every valid 16-bit value in this space is simultaneously a 1-D address, a 3-D coordinate (Axis 0, Axis 1, Axis 2). This triple interpretation enables hash-less content addressing [*-@sec-paradigm-shift*] with zero collision probability and single-cycle combinational decoding (measured 478 cells in the ev-compatible generic schema)[^tagma-hw]. The coordinate arithmetic admits unbounded N-Coord composition — the address space grows as $11,172^N$ while lookup cost remains O(N) per Coord. We present a gate-level decoder specification, a processor pipeline attachment reference (e.g., RISC-V XIF)[^tagma-repo], a hardware reference implementation of all three primitive operations (decode, compose, and distance) verified exhaustively against the Rust reference and formally equivalent to the synthesized netlist, a software reference implementation [*-@sec-appendix-rust*], and a full benchmark suite [*-@sec-appendix-benches*]. Measured lookup latency: 0.39 ns vs 227 ns for SHA-256 (582x) at single-Coord; 62 ns vs 227 ns (3.7x) at SHA-256 scale (20 Coords). Structural prefix queries show the decisive advantage: a direct-address table answers nonexistent prefix in 1.65 ns while a general-purpose hash table scans 10M entries in 23.05 ms (14.0Mx). Bit-set axis filters resolve compound queries at 329 Melem/s vs hash table scan at 2.4 Melem/s (137x, bitwise AND vs full scan). The same table completes 10M sparse get operations in 44.9 ms vs hash table 1.05 s (23.4x). The coordinate space is an open international standard (Unicode) and a public good — unencumbered by proprietary licensing. A production-scale validation in CERN's ROOT TTree read path confirms the model in petabyte-scale high-energy physics software [*-@sec-appendix-root-ttree*].
 
 ## Introduction {#sec-introduction}
 
@@ -413,7 +413,23 @@ The elimination of separate index structures is a direct consequence of coordina
 
 This property, verified in the reference implementation, is the software-level manifestation of the same principle the hardware decoder implements: the coordinate IS the identity, and the identity IS the coordinate. No indirection, no intersection, no hash tables.
 
-## The Decoder {#sec-decoder}
+## Hardware Realization {#sec-hardware}
+
+This part states the hardware realization of the primitive on its own terms, so that it can be read without the software benchmark sections above. The same formula the Rust reference evaluates in arithmetic is evaluated here in gates, and every claim in this part is reproduced by the hardware verification gate in the syntagma repository under `hw/`.
+
+### The primitive in gates
+
+The primitive is three combinational functions over the same 16-bit value, each a separate module verified independently:
+
+| Operation | Module | Input | Output | Cells (2-input) |
+|-----------|--------|-------|--------|------------------|
+| decode | `tagma_decoder` | 16-bit code point | three axes, `valid` | 588 |
+| compose | `tagma_compose` | three 5-bit axes | 14-bit coordinate index, `valid` | 258 |
+| distance | `tagma_dist` | two 16-bit code points | three 5-bit distances | 1329 |
+
+Decode and distance take a code point; compose returns the coordinate index, the offset from U+AC00, which is the internal representation of the Rust `Coord`, so the code point is U+AC00 + index. The distance unit instantiates two decoders, one per operand, which is why it is the largest of the three. A fourth module, `tagma_segment_store`, realizes the address path as an 11,172-slot store and is described under Memory hierarchy penetration below.
+
+### The decoder {#sec-decoder}
 
 The decoder extracts three 5-bit fields from a 16-bit input in three combinational stages:
 
@@ -474,9 +490,9 @@ The division structure determines the cost. Two implementations of the same arit
 
 :::
 
-The ~300 gate claim of earlier documents holds for the naive shift-subtract decoder (206 to 232 cells), but timing closure on a 12 MHz board requires the multiply-shift structure at about 2.5x the gate count. The current RTL implements the constant divisions with multiply-shift, exact over the valid domain: division by 28 becomes division by 7 on `offset >> 2` (at most 2792), and division by 21 applies to values at most 398. Both structures are functionally identical, which the verification pipeline proves over all 2^16 inputs. The decoder is verified exhaustively over all 11,172 valid characters in three independent channels (formula, Rust reference, gate netlist). The full compliance criteria for Tagma-compatible implementations are defined in Section [*-@sec-compliance*].
+The ~300 gate claim of earlier documents holds for the naive shift-subtract decoder (206 to 232 cells), but timing closure on a 12 MHz board requires the multiply-shift structure at about 2.5x the gate count. The current RTL implements the constant divisions with multiply-shift, exact over the valid domain: division by 28 becomes division by 7 on `offset >> 2` (at most 2792), and division by 21 applies to values at most 398. Both structures are functionally identical, which the verification pipeline proves over all 2^16 inputs. The decoder is verified exhaustively over all 11,172 valid characters in three simulation channels (formula, Rust reference, gate netlist), plus formal equivalence over all 2^16 inputs. The full compliance criteria for Tagma-compatible implementations are defined in Section [*-@sec-compliance*].
 
-## Reference Implementation: Coprocessor Attachment
+### Coprocessor attachment
 
 Tagma can be attached to any processor pipeline through a standard coprocessor interface for custom instructions that does not require modifying the core pipeline. An example implementation uses the RISC-V XIF interface [@openhw-xif; @cva6-xif]. The Rust reference implementation (`Coord`) serves as the functional golden model: every hardware instruction must produce results bit-exact with the corresponding Rust function.
 
@@ -534,6 +550,136 @@ The three units cover their own input spaces in the same channels:
 ### Architectural Mapping
 
 A coordinate in this space is a 16-bit value whose identity is its structure. The composition rules of Axis 0, Axis 1, and Axis 2 correspond to the Scheme that defines which coordinates are valid. Validity predicates (range checks) implement the Field by defining admissible coordinate ranges. Enumerating coordinates under constraints implements Observation: a hardware-level selection of valid states.
+
+### Memory hierarchy penetration {#sec-memory-hierarchy}
+
+The comparison is measured:
+
+:::{ layout-ncol=2 }
+
+{{< include ../_include/bench/fig-hw-decode.qmd >}}
+
+:::{#hw-decode-col}
+
+The coordinate space maps onto physical memory as a flat array: 11,172 slots of 16 bits each, addressed by the 14-bit offset from the decoder. The store is configured as a single-port SRAM macro for SkyWater 130nm (16-bit words, 11,172 words, one read-write port): about 22 KB of raw storage, or 44 to 89 KB with values depending on the value width. Its behavior is verified today as a behavioral model over all 11,172 slots, the 5,212 reserved addresses, and the read-during-write case; the macro generation is pending the OpenRAM PDK install. 11,172 is not a power of two; the fallback is 16,384 words (2^14) with 5,212 reserved entries, since the 14-bit address space covers the valid range either way.
+
+:::
+:::
+
+| Path | Latency | Note |
+|------|---------|------|
+| `CoordSpace.get` (software) | 0.38 ns | whole space in L1 cache |
+| `Coord::to_axes` (software) | 1.44 ns | reference decode |
+| HW decoder (UP5K PnR) | 59.55 ns | worst-case critical path at 16.79 MHz |
+
+The software numbers come from the hardware-comparison baseline (`sw/rust/benches/bench_hw.rs`); the main benchmark center measures 0.39 ns for `CoordSpace.get` [*-@sec-appendix-benches*].
+
+For the N=1 dense case, hardware is not a speedup. The entire working set fits in L1 cache, and the software already runs at memory speed. The hardware value is on other axes: energy per access (22 KB SRAM at 16 MHz; orders of magnitude below a host cache hierarchy, an estimate pending a power model), latency determinism (fixed one cycle), physical embedding (the primitive becomes a device), and streaming throughput (one code point per clock when pipelined). The acceleration case appears at N greater than 1, where software falls back to sparse trees (0.87 to 53 ns per operation), and in embedded or IO paths where energy and determinism dominate over raw speed.
+
+The Sky130 standard cell flow runs in CI (ORFS, `hw` job in the syntagma repository) and produced the first measured PDK numbers: the registered demo top at 4631 $\mu$m$^2$ with 35% utilization, an 11.19 ns critical path with +72.33 ns slack, and 0.897 mW; the pure decoder at 388 Sky130 cells and 2826 $\mu$m$^2$. The FPGA demo on the Upduino 3.1 closes the onboard 12 MHz clock at 16.79 MHz.
+
+The coprocessor path (above) attaches Tagma to a linear memory system: the coordinate is decoded and the result is used as an address in conventional memory. Two extensions remain future directions:
+
+#### Memory controller mapping
+
+The Tagma coordinate space can be mapped to a physical address region configured to bypass virtual-to-physical translation through memory protection or non-standard memory region attributes. The controller then receives each coordinate directly as a physical address and maps `Axis0-Axis1-Axis2` to `row-column` within the existing memory array. General-purpose platforms support custom address mapping logic at the memory controller or system level.
+
+#### Three-dimensional decode
+
+The bitcell array can be organized as a 19 x 21 x 28 grid (11,172 cells) rather than a linear array. Alternatively, a memory controller can map the 11,172 valid coordinates to a dense linear array through a simple packed-index transformation. The three coordinate fields each have their own decoder:
+
+```{python}
+#| label: fig-three-decode
+#| fig-cap: "Three parallel decode paths from the 16-bit coordinate fields to the bitcell array wordlines."
+dot("""
+digraph ThreeDecode {
+    rankdir=LR;
+    node [shape=box];
+
+    input [label="16-bit coordinate\\nAxis0(5) Axis1(5) Axis2(5)"];
+
+    init_dec [label="Axis 0 decoder\\n5-to-19"];
+    med_dec [label="Axis 1 decoder\\n5-to-21"];
+    fin_dec [label="Axis 2 decoder\\n5-to-28"];
+
+    init_wl [label="Primary wordline\\n19 lines"];
+    med_wl [label="Secondary wordline\\n21 lines"];
+    fin_sel [label="Column select\\n28 lines"];
+
+    bitcell [label="Bitcell array\\n19 x 21 x 28"];
+
+    input -> init_dec [label="  Axis0[4:0]"];
+    input -> med_dec [label="  Axis1[4:0]"];
+    input -> fin_dec [label="  Axis2[4:0]"];
+
+    init_dec -> init_wl;
+    med_dec -> med_wl;
+    fin_dec -> fin_sel;
+
+    init_wl -> bitcell;
+    med_wl -> bitcell;
+    fin_sel -> bitcell;
+}
+""")
+```
+
+| Parameter | Linear (SRAM) | Tagma 3D (SRAM) |
+|-----------|---------------|------------------|
+| Decoder type | 1 decoder (N-to-2^N) | 3 decoders (5-to-19, 5-to-21, 5-to-28) |
+| Worst-case decoder delay | O(2^N) | O(32) max |
+| Address mapping | row + column | Axis 0 + Axis 1 + Axis 2 |
+| Address translation | required | none |
+| Structural validity | external (ECC) | built-in |
+
+The bitcell array remains standard 6T SRAM. The change is in the peripheral circuitry: three independent decoders replace the single row-column decoder pair, and the sense amplifier layout must accommodate three-axis access. This increases peripheral complexity but leaves the bitcell array unchanged [@openram].
+
+In a 28 nm CMOS process, a 6T SRAM high-density bitcell occupies approximately 0.127 $\mu$m$^2$. The 11,172-cell core array therefore covers approximately 1,419 $\mu$m$^2$ (0.0014 mm$^2$). With peripheral circuitry -- three decoders, sense amplifiers, and wordline drivers -- the total area approximately doubles to 0.003--0.004 mm$^2$, roughly 30x smaller than a single 32-bit multiplier in the same process.
+
+### Synthesis and timing
+
+The three units are synthesized with Yosys; the decoder is also placed and routed on the iCE40 UP5K and mapped to a Sky130 standard cell library. Every figure names its library or node, and figures from different flows are not comparable.
+
+| Decoder metric | Value | Flow |
+|----------------|-------|------|
+| generic cells | 478 | Yosys `proc; synth`, ev-compatible schema |
+| 2-input gate estimate | 588 | `abc -g AND,NAND,OR,NOR,XOR,XNOR` |
+| iCE40 LUT4 + SB_CARRY | 201 + 41 | `synth_ice40` |
+| iCE40 placement | 255 ICESTORM_LC of 5280 (4%) | nextpnr-ice40, `--freq 12` |
+| critical path | 59.55 ns | icetime, host Homebrew toolchain |
+| Fmax | 16.79 MHz | icetime, host Homebrew toolchain |
+| Sky130 area | 388 cells, 2826 um^2 | OpenROAD, `yosys stat -liberty` |
+
+The compose and distance units are measured in the 2-input gate library only: 258 and 1329 cells. The distance figure carries two decoders, because a pair needs both operands decoded; the comparators and subtractors around them are the remaining about 153 cells.
+
+The registered demo top, which adds clocking and the LED output, is measured on Sky130 at the 12 MHz board-equivalent clock (83.33 ns):
+
+| Demo metric | Value |
+|-------------|-------|
+| design area | 4631 um^2, 35% utilization |
+| critical path delay | 11.19 ns |
+| worst setup slack | +72.33 ns |
+| total power | 0.897 mW |
+
+Place and route numbers are tool-version dependent: the image (nextpnr 0.6, Ubuntu) measured 62.35 ns / 16.04 MHz on the demo, while the host Homebrew toolchain measured 59.55 ns / 16.79 MHz.
+
+### Hardware compliance
+
+A hardware implementation is Tagma-compatible iff, in addition to the conditions in Section [*-@sec-compliance*], it satisfies:
+
+1. **Decode bit-exactness.** Decode is a combinational function bit-exact with `Coord::to_axes` over all 2^16 inputs, reporting validity for the 11,172 valid values.
+2. **Compose bit-exactness.** Compose is bit-exact with `Coord::from_axes`: it returns the coordinate index for an in-range axis triple and reports invalidity otherwise.
+3. **Distance bit-exactness.** Distance is bit-exact with `Coord::hamming_distance` for valid operand pairs.
+4. **Netlist equivalence.** The RTL and the synthesized netlist are formally equivalent over the full input space of each operation.
+
+The hardware contract mirrors the software contract: the two agree on every input, and the verification pipeline enforces it rather than assuming it.
+
+### Status and reproduction
+
+Realized and verified: the decode, compose, and distance units in RTL, each exhaustively simulated against the Rust reference, simulated at gate level, and formally equivalent to its synthesized netlist; the segment store as a behavioral model over all 11,172 slots, the reserved addresses, and the read-during-write case.
+
+Pending: the OpenRAM macro for the segment store (needs a PDK install), the physical FPGA board bring-up (the bitstream is generated), and the power model over the VCD activity trace.
+
+Reproduction: `make -C hw check` runs the whole gate (simulation, synthesis, and equivalence) from a clean checkout of the syntagma repository, and the `hw` CI job runs the same gate. The HDL is licensed under CERN-OHL-P v2; the software reference under `sw/` remains Apache 2.0.
 
 ## Comparison with Existing Paradigms
 
@@ -603,95 +749,11 @@ What Tagma replaces, partially replaces, and does not replace:
 
 The rows marked No retain cryptographic functions. The tagma-sec layer (Appendix [*-@sec-appendix-tagma-sec*]) composes them with the coordinate primitives for coordination traffic, providing integrity, authorization, audit, and non-repudiation.
 
-## Memory Hierarchy Penetration {#sec-memory-hierarchy}
-
-The comparison is measured:
-
-:::{ layout-ncol=2 }
-
-{{< include ../_include/bench/fig-hw-decode.qmd >}}
-
-:::{#hw-decode-col}
-
-The coordinate space maps onto physical memory as a flat array: 11,172 slots of 16 bits each, addressed by the 14-bit offset from the decoder. The store is configured as a single-port SRAM macro for SkyWater 130nm (16-bit words, 11,172 words, one read-write port): about 22 KB of raw storage, or 44 to 89 KB with values depending on the value width. Its behavior is verified today as a behavioral model over all 11,172 slots, the 5,212 reserved addresses, and the read-during-write case; the macro generation is pending the OpenRAM PDK install. 11,172 is not a power of two; the fallback is 16,384 words (2^14) with 5,212 reserved entries, since the 14-bit address space covers the valid range either way.
-
-:::
-:::
-
-| Path | Latency | Note |
-|------|---------|------|
-| `CoordSpace.get` (software) | 0.38 ns | whole space in L1 cache |
-| `Coord::to_axes` (software) | 1.44 ns | reference decode |
-| HW decoder (UP5K PnR) | 59.55 ns | worst-case critical path at 16.79 MHz |
-
-The software numbers come from the hardware-comparison baseline (`sw/rust/benches/bench_hw.rs`); the main benchmark center measures 0.39 ns for `CoordSpace.get` [*-@sec-appendix-benches*].
-
-For the N=1 dense case, hardware is not a speedup. The entire working set fits in L1 cache, and the software already runs at memory speed. The hardware value is on other axes: energy per access (22 KB SRAM at 16 MHz; orders of magnitude below a host cache hierarchy, an estimate pending a power model), latency determinism (fixed one cycle), physical embedding (the primitive becomes a device), and streaming throughput (one code point per clock when pipelined). The acceleration case appears at N greater than 1, where software falls back to sparse trees (0.87 to 53 ns per operation), and in embedded or IO paths where energy and determinism dominate over raw speed.
-
-The Sky130 standard cell flow runs in CI (ORFS, `hw` job in the syntagma repository) and produced the first measured PDK numbers: the registered demo top at 4631 $\mu$m$^2$ with 35% utilization, an 11.19 ns critical path with +72.33 ns slack, and 0.897 mW; the pure decoder at 388 Sky130 cells and 2826 $\mu$m$^2$. The FPGA demo on the Upduino 3.1 closes the onboard 12 MHz clock at 16.79 MHz.
-
-The coprocessor path (above) attaches Tagma to a linear memory system: the coordinate is decoded and the result is used as an address in conventional memory. Two extensions remain future directions:
-
-### Memory Controller Mapping
-
-The Tagma coordinate space can be mapped to a physical address region configured to bypass virtual-to-physical translation through memory protection or non-standard memory region attributes. The controller then receives each coordinate directly as a physical address and maps `Axis0-Axis1-Axis2` to `row-column` within the existing memory array. General-purpose platforms support custom address mapping logic at the memory controller or system level.
-
-### Three-Dimensional Decode
-
-The bitcell array can be organized as a 19 x 21 x 28 grid (11,172 cells) rather than a linear array. Alternatively, a memory controller can map the 11,172 valid coordinates to a dense linear array through a simple packed-index transformation. The three coordinate fields each have their own decoder:
-
-```{python}
-#| label: fig-three-decode
-#| fig-cap: "Three parallel decode paths from the 16-bit coordinate fields to the bitcell array wordlines."
-dot("""
-digraph ThreeDecode {
-    rankdir=LR;
-    node [shape=box];
-
-    input [label="16-bit coordinate\\nAxis0(5) Axis1(5) Axis2(5)"];
-
-    init_dec [label="Axis 0 decoder\\n5-to-19"];
-    med_dec [label="Axis 1 decoder\\n5-to-21"];
-    fin_dec [label="Axis 2 decoder\\n5-to-28"];
-
-    init_wl [label="Primary wordline\\n19 lines"];
-    med_wl [label="Secondary wordline\\n21 lines"];
-    fin_sel [label="Column select\\n28 lines"];
-
-    bitcell [label="Bitcell array\\n19 x 21 x 28"];
-
-    input -> init_dec [label="  Axis0[4:0]"];
-    input -> med_dec [label="  Axis1[4:0]"];
-    input -> fin_dec [label="  Axis2[4:0]"];
-
-    init_dec -> init_wl;
-    med_dec -> med_wl;
-    fin_dec -> fin_sel;
-
-    init_wl -> bitcell;
-    med_wl -> bitcell;
-    fin_sel -> bitcell;
-}
-""")
-```
-
-| Parameter | Linear (SRAM) | Tagma 3D (SRAM) |
-|-----------|---------------|------------------|
-| Decoder type | 1 decoder (N-to-2^N) | 3 decoders (5-to-19, 5-to-21, 5-to-28) |
-| Worst-case decoder delay | O(2^N) | O(32) max |
-| Address mapping | row + column | Axis 0 + Axis 1 + Axis 2 |
-| Address translation | required | none |
-| Structural validity | external (ECC) | built-in |
-
-The bitcell array remains standard 6T SRAM. The change is in the peripheral circuitry: three independent decoders replace the single row-column decoder pair, and the sense amplifier layout must accommodate three-axis access. This increases peripheral complexity but leaves the bitcell array unchanged [@openram].
-
-In a 28 nm CMOS process, a 6T SRAM high-density bitcell occupies approximately 0.127 $\mu$m$^2$. The 11,172-cell core array therefore covers approximately 1,419 $\mu$m$^2$ (0.0014 mm$^2$). With peripheral circuitry -- three decoders, sense amplifiers, and wordline drivers -- the total area approximately doubles to 0.003--0.004 mm$^2$, roughly 30x smaller than a single 32-bit multiplier in the same process.
-
 ## Application Domains
 
 The deterministic single-cycle decode makes Tagma suitable for real-time and safety-critical systems. The three-decoder topology of the future path reduces worst-case decode latency compared to a single linear decoder.
 
-**Radiation-tolerant computing.** The structural validity check embedded in every decode provides inherent error detection. A single-bit upset that maps a valid coordinate outside the U+AC00-U+D7A3 range produces an immediate invalid flag. Errors that map one valid coordinate to another are not detected by the structural check alone and require ECC supplementation, as noted in Boundaries. The decoder's small measured gate count (478 to 588 cells depending on the division structure) makes triplication feasible at lower cost than protecting a full hash unit.
+**Radiation-tolerant computing.** The structural validity check embedded in every decode provides inherent error detection. A single-bit upset that maps a valid coordinate outside the U+AC00-U+D7A3 range produces an immediate invalid flag. Errors that map one valid coordinate to another are not detected by the structural check alone and require ECC supplementation, as noted in Boundaries. The decoder's small measured gate count (478 cells in the ev-compatible generic schema, 588 in a 2-input gate library) makes triplication feasible at lower cost than protecting a full hash unit.
 
 An exact enumeration of all 11,172 valid coordinates confirms the detection rate[^seu-enum]. Each valid coordinate has 16 possible single-bit-flip destinations. Averaged across all valid states, 12.14 of those 16 destinations remain within [U+AC00, U+D7A3] (standard deviation 0.62; range 8--13). The resulting average SEU detection rate is 24.1% from the structural check alone, before any ECC supplementation. This detection rate comes at zero additional hardware cost, as a free byproduct of the structural encoding. When combined with ECC, the structural check handles the subset of errors that map valid coordinates outside the valid range, while ECC handles the remaining cases.
 
@@ -759,7 +821,7 @@ conditions:
 
 ## Vision
 
-Tagma defines a new type of silicon primitive: a combinational decoder that derives identity from structure at a measured 478 cells (588 in a 2-input gate-level estimate) and one cycle. At this gate cost, content-addressable operation becomes viable where hash-based approaches are too expensive in power, area, or latency. The decoder is verified exhaustively over all 11,172 valid characters in three independent channels and formally equivalent to the synthesized netlist over all 2^16 inputs. The structural validity check embedded in every decode provides inherent error detection, relevant for radiation-tolerant computing in space environments. The coordinate space that enables this is this Unicode block, an open international standard and a public good. Tagma is released as open-source hardware under `hw/` in the syntagma repository, with the FPGA demo closing the 12 MHz board clock at 16.79 MHz, inviting the next conversation: what else becomes possible when identity costs less than a single multiply. The broader hardware design implications of this shift are discussed in Appendix [*-@sec-appendix-hardware*].
+Tagma defines a new type of silicon primitive: a combinational decoder that derives identity from structure at a measured 478 cells (generic schema; 588 in a 2-input gate-level estimate) and one cycle. At this gate cost, content-addressable operation becomes viable where hash-based approaches are too expensive in power, area, or latency. The decoder is verified exhaustively over all 11,172 valid characters in three simulation channels, plus formal equivalence to the synthesized netlist over all 2^16 inputs; the compose and distance units are verified the same way. The structural validity check embedded in every decode provides inherent error detection, relevant for radiation-tolerant computing in space environments. The coordinate space that enables this is this Unicode block, an open international standard and a public good. Tagma is released as open-source hardware under CERN-OHL-P v2 in `hw/` in the syntagma repository, with the FPGA demo closing the 12 MHz board clock at 16.79 MHz, inviting the next conversation: what else becomes possible when identity costs less than a single multiply. The broader hardware design implications of this shift are discussed in Appendix [*-@sec-appendix-hardware*].
 
 The SynTagma specification [@tagma-syn] complements this document. It defines how the recursive state space expansion described in the previous section is realised across physical topologies: routing, transport framing, device-boundary resolution, and distributed coordination. Where this document defines the invariant, SynTagma defines the protocol.
 
@@ -767,6 +829,8 @@ The SynTagma specification [@tagma-syn] complements this document. It defines ho
 
 ::: {#refs}
 :::
+
+{{< include ../../../_include/_license.md >}}
 
 {{< pagebreak >}}
 
@@ -906,7 +970,7 @@ Tagma changes the problem that hardware must solve alongside the speed at which 
 | Accelerator | Dedicated hash unit for DHT or content addressing | Coordinate arithmetic only; hash unit eliminated |
 | Energy | Dynamic voltage scaling to cover worst-case hash latency | Fixed, minimal decode path; predictable power |
 
-Conventional hardware searches. Tagma hardware interprets. This shifts the hardware design problem from faster computation to simpler decoding. The measured trade is explicit: timing closure costs about 2.5x gates [*-@sec-decoder*], and the N=1 dense case trades per-operation speed for energy, determinism, and physical embedding [*-@sec-memory-hierarchy*]. All three operations of the primitive are realized and verified in RTL; the remaining hardware work is the OpenRAM macro for the segment store, the physical FPGA board bring-up, and the power model over the VCD activity trace.
+Conventional hardware searches. Tagma hardware interprets. This shifts the hardware design problem from faster computation to simpler decoding. The measured trade is explicit: timing closure costs about 2.5x gates [*-@sec-decoder*], and the N=1 dense case trades per-operation speed for energy, determinism, and physical embedding [*-@sec-memory-hierarchy*]. All three operations of the primitive are realized and verified in RTL; the remaining hardware work is the OpenRAM macro for the segment store, the physical FPGA board bring-up, and the power model over the VCD activity trace. The realization itself is stated in Section [*-@sec-hardware*].
 
 ## SHA-256 with Tagma Encoding {#sec-appendix-sha-tagma}
 
