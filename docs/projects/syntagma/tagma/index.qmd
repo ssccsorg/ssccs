@@ -1,6 +1,6 @@
 ---
 title: "Tagma"
-subtitle: "Hashless spatial primitive on a fixed 16-bit Unicode, 3-axis composition space"
+subtitle: "Hashless spatial primitive on a fixed 16-bit, 3-axis Unicode composition space"
 date: 2026-07
 date-format: "MMMM, YYYY"
 version-prefix: tagma-doi.org/10.5281/zenodo.21302508
@@ -76,7 +76,7 @@ format:
 
 ## Abstract {.unnumbered .unlisted}
 
-Tagma[^tagma-etym] is a computing primitive where the address *is* the coordinate — not a flat pointer, but a point in an N-dimensional geometric space. This is made possible by a fixed 16-bit contiguous Unicode block whose closed-form composition rule holds over *U+AC00..U+D7A3*, providing a collision-free, hash-less, structurally addressable coordinate space. Every valid 16-bit value in this space is simultaneously a 1-D address, a 3-D coordinate (Axis 0, Axis 1, Axis 2), and a compositional character. This triple interpretation enables hash-less content addressing [*-@sec-paradigm-shift*] with zero collision probability and single-cycle combinational decoding (measured 478 cells in a generic synthesis flow)[^tagma-hw]. The coordinate arithmetic admits unbounded N-Coord composition — the address space grows as $11,172^N$ while lookup cost remains O(N) per Coord. We present a gate-level decoder specification, a processor pipeline attachment reference (e.g., RISC-V XIF)[^tagma-repo], a hardware reference implementation of all three primitive operations (decode, compose, and distance) verified over their input spaces against the Rust reference and formally equivalent to the synthesized netlist [*-@sec-hardware*], a software reference implementation [*-@sec-appendix-rust*], and a full benchmark suite [*-@sec-appendix-benches*]. Measured lookup latency in the software reference: 0.39 ns vs 227 ns for SHA-256 (582x) at single-Coord; 62 ns vs 227 ns (3.7x) at SHA-256 scale (20 Coords). Structural prefix queries show the decisive advantage: a direct-address table answers nonexistent prefix in 1.65 ns while a general-purpose hash table scans 10M entries in 23.05 ms (14.0Mx). Bit-set axis filters resolve compound queries at 329 Melem/s vs hash table scan at 2.4 Melem/s (137x, bitwise AND vs full scan). The same table completes 10M sparse get operations in 44.9 ms vs hash table 1.05 s (23.4x). The coordinate space is an open international standard (Unicode) and a public good; the standard's composition rules are unencumbered by proprietary licensing. A production-scale validation in CERN's ROOT TTree read path confirms the model in petabyte-scale high-energy physics software [*-@sec-appendix-root-ttree*].
+Tagma[^tagma-etym] is a computing primitive where the address *is* the coordinate — not a flat pointer, but a point in an N-dimensional geometric space. This is made possible by a fixed 16-bit contiguous Unicode block whose closed-form composition rule holds over *U+AC00..U+D7A3*, so every valid value is at once a 1-D address, a 3-D coordinate (Axis 0, Axis 1, Axis 2), and a compositional character. This triple interpretation gives a collision-free, hash-less, structurally addressable space [*-@sec-paradigm-shift*] and a single-cycle combinational decoder[^tagma-hw]. The coordinate arithmetic admits unbounded N-Coord composition — the address space grows as $11,172^N$ while lookup cost remains O(N) per Coord. We present a gate-level decoder specification, a processor pipeline attachment reference (e.g., RISC-V XIF)[^tagma-repo], a hardware reference implementation of all three primitive operations (decode, compose, and distance) verified over their input spaces against the Rust reference and formally equivalent to the synthesized netlist [*-@sec-hardware*], a software reference implementation [*-@sec-appendix-rust*], and a full benchmark suite [*-@sec-appendix-benches*]. Measured lookup latency in the software reference: 0.39 ns at single-Coord and 62 ns at SHA-256 scale (20 Coords), against SHA-256's 227 ns (582x and 3.7x). Structural prefix queries show the decisive advantage: a direct-address table answers a nonexistent prefix in 1.65 ns where a hash-table scan of 10M entries takes 23.05 ms (14.0Mx); bit-set axis filters resolve compound queries at 329 Melem/s against a 2.4 Melem/s scan (137x, bitwise AND against full scan); and 10M sparse gets complete in 44.9 ms against 1.05 s (23.4x). That standard is open, a public good whose composition rules carry no proprietary encumbrance. A production-scale validation in CERN's ROOT TTree read path confirms the model in petabyte-scale high-energy physics software [*-@sec-appendix-root-ttree*].
 
 ## Introduction {#sec-introduction}
 
@@ -105,20 +105,6 @@ Every valid 16-bit value carries **three simultaneous interpretations**: a 1-D U
 :::
 
 The durability guarantee is the open international standard itself: Unicode's stability policy fixes the block, keeping the constants (U+AC00, U+D7A3, 11,172, 588, 28) permanent, and Hangul is the only writing system in existence that satisfies all three structural properties. The full comparison, including near-miss combinatorial, syllabic, and supplementary-plane cases, is in Appendix: Script Comparison [*-@sec-appendix-scripts*].
-
-::: {tbl-colwidths="[22, 18, 25, 25, 10]"}
-
-| Script | Contiguous Address | Combinatorial Structure | 3-Axis Decomposition | Compatible? |
-|--------|-------------------|----------------------|--------------------------|-------------------|
-| Hangul | Y AC00-D7A3 | Y 19x21x28 (invariably) | Y Onset-Nucleus-Coda | Y |
-| Braille | Y 2800-28FF | Y (2^6 dot bit pattern) | N (bit pattern, no axis) | N |
-| Ethiopic | Y 1200-137F | N (1D syllabary) | N | N |
-| Hangul Jamo | Y 1100-11FF | N (conjoining sequences) | N (multi-code-point) | N |
-| CJK Unified | Y 4E00-9FFF | N (infinite, irregular) | N | N |
-| ASCII | Y 0000-007F | N | N | N |
-| Greek | Y 0370-03FF | N | N | N |
-
-:::
 
 ## The Encoding Problem
 
@@ -505,7 +491,7 @@ digraph TagmaStack {
     app [label="Application logic"];
     pipeline [label="Processor pipeline\n(unmodified)"];
     interface [label="Coprocessor interface\n(e.g., XIF)", shape=box];
-    tagma [label="Tagma decoder\n478 cells, 1 cycle"];
+    tagma [label="Tagma decoder\nsingle cycle"];
     mem [label="Standard memory hierarchy\n(unmodified)"];
     app -> pipeline;
     pipeline -> interface [style=dashed];
@@ -678,7 +664,7 @@ Realized and verified: the decode, compose, and distance units in RTL, each exha
 
 Pending: the OpenRAM macro for the segment store (needs a PDK install), the physical FPGA board bring-up (the bitstream is generated), and the power model over the VCD activity trace.
 
-Reproduction: `make -C hw check` runs the whole gate (simulation, synthesis, and equivalence) from the sources recorded with this document's version, and the `hw` CI job runs the same gate. The HDL lives under `hw/` in the syntagma repository [@tagma-source] and is licensed under CERN-OHL-P v2; the software reference under `sw/` remains Apache 2.0, and this document's text is CC BY-NC 4.0.
+Reproduction: `make -C hw check` runs the whole gate (simulation, synthesis, and equivalence) from the sources recorded with this document's version, and the `hw` CI job runs the same gate. The HDL lives under `hw/` in the syntagma repository [@tagma-source].
 
 ## Comparison with Existing Paradigms
 
@@ -820,7 +806,7 @@ conditions:
 
 ## Vision
 
-Tagma defines a new type of silicon primitive: a combinational decoder that derives identity from structure at a measured 478 cells and one cycle. At this gate cost, content-addressable operation becomes viable where hash-based approaches are too expensive in power, area, or latency. The decoder is verified exhaustively over all 11,172 valid characters in three simulation channels, plus formal equivalence to the synthesized netlist over all 2^16 inputs; the compose and distance units are verified the same way. The structural validity check embedded in every decode provides inherent error detection, relevant for radiation-tolerant computing in space environments. The coordinate space that enables this is this Unicode block, an open international standard and a public good. Tagma is released as open-source hardware under CERN-OHL-P v2 in `hw/` in the syntagma repository, with the FPGA demo closing the 12 MHz board clock at 16.79 MHz, inviting the next conversation: what else becomes possible when identity costs less than a single multiply. The broader hardware design implications of this shift are discussed in Appendix [*-@sec-appendix-hardware*].
+Tagma defines a new type of silicon primitive: a combinational decoder that derives identity from structure in a single cycle. At a cost measured in hundreds of gates, content-addressable operation becomes viable where hash-based approaches are too expensive in power, area, or latency. The decoder is verified exhaustively over all 11,172 valid characters in three simulation channels, plus formal equivalence to the synthesized netlist over all 2^16 inputs; the compose and distance units are verified the same way. The structural validity check embedded in every decode provides inherent error detection, relevant for radiation-tolerant computing in space environments. The coordinate space that enables this is this Unicode block, an open international standard and a public good. Tagma is released as open-source hardware in `hw/` in the syntagma repository, with the FPGA demo closing the 12 MHz board clock at 16.79 MHz, inviting the next conversation: what else becomes possible when identity costs less than a single multiply. The broader hardware design implications of this shift are discussed in Appendix [*-@sec-appendix-hardware*].
 
 The SynTagma specification [@tagma-syn] complements this document. It defines how the recursive state space expansion described in the previous section is realised across physical topologies: routing, transport framing, device-boundary resolution, and distributed coordination. Where this document defines the invariant, SynTagma defines the protocol.
 
@@ -843,7 +829,7 @@ The SynTagma specification [@tagma-syn] complements this document. It defines ho
 
 ## Reference Implementation {#sec-appendix-rust}
 
-The coordinate space is implemented as a multi-crate Rust reference implementation[^tagma-swref]. The `Coord` type is defined in the core library and is bit-exact with the hardware decoder. The workspace is published on GitHub (Apache 2.0) [@tagma-source].
+The coordinate space is implemented as a multi-crate Rust reference implementation[^tagma-swref]. The `Coord` type is defined in the core library and is bit-exact with the hardware decoder. The workspace is published on GitHub [@tagma-source].
 
 ### Core Types
 
@@ -969,7 +955,7 @@ Tagma changes the problem that hardware must solve alongside the speed at which 
 | Accelerator | Dedicated hash unit for DHT or content addressing | Coordinate arithmetic only; hash unit eliminated |
 | Energy | Dynamic voltage scaling to cover worst-case hash latency | Fixed, minimal decode path; predictable power |
 
-Conventional hardware searches. Tagma hardware interprets. This shifts the hardware design problem from faster computation to simpler decoding. The measured trade is explicit: timing closure costs about 2.5x gates [*-@sec-decoder*], and the N=1 dense case trades per-operation speed for energy, determinism, and physical embedding [*-@sec-memory-hierarchy*]. All three operations of the primitive are realized and verified in RTL; the realization and its remaining work are stated in Section [*-@sec-hardware*].
+Conventional hardware searches. Tagma hardware interprets. This shifts the hardware design problem from faster computation to simpler decoding. The measured trade is explicit: timing closure costs about 2.5x gates [*-@sec-decoder*], and the N=1 dense case is examined in Section [*-@sec-memory-hierarchy*]. All three operations of the primitive are realized and verified in RTL; the realization and its remaining work are stated in Section [*-@sec-hardware*].
 
 ## SHA-256 with Tagma Encoding {#sec-appendix-sha-tagma}
 
@@ -1104,17 +1090,19 @@ absence of filtering.
 
 ROOT is the data analysis framework of the CERN community, and its TTree columnar format stores the events of nearly every physics analysis. A documented production bottleneck limits the read path: a Fermilab CCESOP analysis over CMS NanoAOD issues 372,000 singular reads averaging 4.6 KB, sustains an effective 33 KB/s, and runs for roughly 14 hours. The measured cause is per-request I/O overhead (system call, cache lookup, context switch), so the cost is per request, not per byte.
 
-A fork of CERN's ROOT replaces branch, basket, and cache traversal with closed-form coordinate arithmetic: an event addressed as (run, luminosity block, event number) resolves to a direct byte offset with no hash and no index scan, while the TTree API and existing analysis code stay unchanged. The table below compares the read paths on the full CMS Run2016G DoubleMuon NanoAOD first file (2,315,223 events, 2,155,974,646 bytes).
+A fork of CERN's ROOT replaces branch, basket, and cache traversal with closed-form coordinate arithmetic: an event addressed as (run, luminosity block, event number) resolves to a direct byte offset with no hash and no index scan, while the TTree API and existing analysis code stay unchanged. The store is a fixed-width projection of each event, 320 of the tree's 1,380 leaves with the 276 array fields truncated to their leading element. The table compares the read paths on the full CMS Run2016G DoubleMuon NanoAOD first file (2,315,223 events, 2,155,974,646 bytes).
 
 | Metric | ROOT TTree baseline | Tagma coordinate | Tagma mapped |
 |--------|--------------------:|-----------------:|-------------:|
-| Full-file read | 192.8 s | 2.79 s (69.0x) | 1.06 s (181.7x) |
-| Read throughput | 11.2 MB/s | 2,122 MB/s | 5,584 MB/s |
+| Full-file read | 187.0-188.2 s | 2.71-2.81 s (66.9-69.1x) | 1.55-1.61 s (116.6-120.5x) |
+| Read throughput | 11.5 MB/s | 2,190 MB/s | 3,819 MB/s |
 | Reads per event | 0.20 | 1.00 | 1.00 |
 | Syscalls per event | 0.20 | 1.00 | 0.00 |
-| Analysis workload (20,861 events) | 188.9 s | 3.10 s (60.9x) | n/a |
+| Analysis workload (20,861 events) | 187.9 s | 2.72 s (69.2x) | n/a |
 
-An analysis workload reproduces the baseline results exactly (20,861 selected events, histogram mean 132.696, checksum-verified bytes). The full report is the ROOT TTree I/O report[^tagma-root-ttree].
+The ratios compare against the all-branch baseline, and the rows move different payloads: 2.15 GB of compressed file against 5.93 GB of raw records, so the throughput figures are not like for like. The component controls narrow the claim. Decompression removal accounts for 2.2x to 2.3x; against an uncompressed baseline reading the same columns the store is 13.1x, or 22.8x mapped; and against ROOT's best configuration for that payload, 40.5x, or 70.5x mapped. The store's cost does not fall with the number of columns an analysis selects, so on the two-column selection of the analysis workload ROOT's column-selective reader is 4.9x faster, and the store is the cheaper unit above a crossover near 11 columns, or about 6 with the store mapped. A one-time conversion of the full dataset costs 226.3 s, so the mapped path breaks even within the second read pass.
+
+The analysis workload reproduces the baseline exactly (20,861 selected events, histogram mean 132.696), and the served bytes match the conversion checksum (233,262,869,086). The full report is the ROOT TTree I/O report[^tagma-root-ttree].
 
 The two charts below capture the result. The first shows the speedup across all measured conditions; the second shows the mechanism on the full dataset: the baseline scatters one event across many small requests, while the coordinate path serves every event with one aligned request and the mapped path adds zero application-level read system calls.
 
@@ -1171,7 +1159,7 @@ rendered in human-readable Hangul, decodable by anyone who reads
 Korean without a hex dump.
 
 [^tagma-etym]: Greek *τάγμα* from *σύνταγμα* (syn-tagma, *co-ordinate* in English), "a well-ordered arrangement of constituent elements". *Tagma* is the system name; *Coord* is the concrete implementation type.
-[^tagma-repo]: Repository: [Github (Pre-release, Apache 2.0)](https://github.com/ssccsorg/syntagma), Benchmark [github.com/ssccsorg/syntagma/blob/main/sw/rust/benches/bench.rs](https://github.com/ssccsorg/syntagma/blob/main/sw/rust/benches/bench.rs)
+[^tagma-repo]: Repository: [Github (Pre-release)](https://github.com/ssccsorg/syntagma), Benchmark [github.com/ssccsorg/syntagma/blob/main/sw/rust/benches/bench.rs](https://github.com/ssccsorg/syntagma/blob/main/sw/rust/benches/bench.rs)
 [^tagma-hw]: Tagma hardware series: [docs.ssccs.org/projects/syntagma/tagma/hardware/](https://docs.ssccs.org/projects/syntagma/tagma/hardware/)
 [^tagma-map]: TagmaMap whitepaper (DOI: [10.5281/zenodo.21550431](https://doi.org/10.5281/zenodo.21550431)): [docs.ssccs.org/projects/syntagma/tagma/map](https://docs.ssccs.org/projects/syntagma/tagma/map)
 [^tagma-geo]: TagmaGeo whitepaper (draft): [docs.ssccs.org/projects/syntagma/tagma/geo](https://docs.ssccs.org/projects/syntagma/tagma/geo)
@@ -1183,4 +1171,4 @@ Korean without a hex dump.
 [^tagma-matrix-src]: TagmaMatrix reference implementation: [github.com/ssccsorg/syntagma/tree/main/sw/rust/matrix](https://github.com/ssccsorg/syntagma/tree/main/sw/rust/matrix)
 [^tagma-swref]: Tagma Reference Implementations: [docs.ssccs.org/projects/syntagma/impl](https://docs.ssccs.org/projects/syntagma/impl)
 [^exaverif]: Project ExaVerif, Exhaustive Verification for RISC-V Custom Instructions [docs.ssccs.org/projects/ev](https://docs.ssccs.org/projects/ev)
-[^tagma-root-ttree]: Solving CERN's ROOT TTree I/O bottleneck: [docs.ssccs.org/works/cern/root-ttree/](https://docs.ssccs.org/works/cern/root-ttree/); measured evidence reproducible from the [ROOT fork](https://github.com/ssccsorg/root) and its [benchmark](https://github.com/ssccsorg/root/blob/master/benchmarks/tagma/tagma_bench.C)
+[^tagma-root-ttree]: Solving CERN's ROOT TTree I/O bottleneck: [docs.ssccs.org/works/cern/root-ttree/](https://docs.ssccs.org/works/cern/root-ttree/); measured evidence reproducible from the [ROOT fork](https://github.com/ssccsorg/root), its [benchmark](https://github.com/ssccsorg/root/blob/master/benchmarks/tagma/tagma_bench.C), and the [measured artifact](https://github.com/ssccsorg/root/blob/2fc1c8204bdeefcc82c3a34cf4c693ff19906eb5/benchmarks/tagma/result/reference.json) that records every row.
