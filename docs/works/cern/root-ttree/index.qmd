@@ -504,6 +504,83 @@ a shared cache is not reproduced here; a shared cache or a scattered, remote
 pattern would be needed, and that pairing is open. The machine has ten cores, so
 the row ends at eight and O(128) is an extrapolation.
 
+```{python}
+#| label: fig-scatter
+#| fig-cap: "Event-selected reads, 2,000 events, same medium, requests per event. The store answers each event in one request whatever the order; the baseline pays 683 requests per event when the order is scattered against 0.004 when it is a scan, and a 64 MB cache collapses its calls to 0.008 without moving its time, 199.3 s against 206.1."
+import matplotlib.pyplot as plt
+
+labels = ['baseline\nscan', 'baseline\nscattered', 'baseline+cache\nscattered', 'store\nany order']
+requests = [0.004, 682.6, 0.008, 1.0]
+fig, ax = plt.subplots(figsize=(5.2, 3.5))
+bars = ax.bar(labels, requests, color='white', edgecolor='black', linewidth=0.8,
+              hatch=['', '//', 'xx', '..'])
+ax.set_yscale('log')
+ax.set_ylabel('requests per event (log)', fontsize=10)
+for bar, v in zip(bars, requests):
+    ax.text(bar.get_x() + bar.get_width()/2, v * 1.5, f'{v}', ha='center', fontsize=8.5)
+ax.grid(axis='y', linestyle=':', alpha=0.3)
+plt.tight_layout(); plt.show()
+```
+
+```{python}
+#| label: fig-scatter-wall
+#| fig-cap: "The same events by wall time, log scale. The baseline runs 206.1 s scattered against 0.601 s over a scan, the cache leaves it at 199.3 s, and the compressed store serves the list in 0.445 s, the mapped store below the millisecond the timer resolves. The scattered baseline is superlinear besides, 0.210 s over 500 events against 206 s over 2,000."
+import matplotlib.pyplot as plt
+
+labels = ['baseline\nscan', 'baseline\nscattered', 'baseline+cache', 'store block\nscattered']
+wall = [0.601, 206.139, 199.311, 0.445]
+fig, ax = plt.subplots(figsize=(5.2, 3.5))
+bars = ax.bar(labels, wall, color='white', edgecolor='black', linewidth=0.8,
+              hatch=['', '//', 'xx', '..'])
+ax.set_yscale('log')
+ax.set_ylabel('wall time (s, log)', fontsize=10)
+for bar, v in zip(bars, wall):
+    ax.text(bar.get_x() + bar.get_width()/2, v * 1.3, f'{v}', ha='center', fontsize=8.5)
+ax.grid(axis='y', linestyle=':', alpha=0.3)
+plt.tight_layout(); plt.show()
+```
+
+```{python}
+#| label: fig-threads
+#| fig-cap: "Thread scaling, the store against the baseline, every worker with its own file object and a disjoint range. Both scale, the store 4.6 times and the cache-less baseline 5.8 over eight cores, so the lead narrows from 14.3 to 11.2 times; the cache neither helps nor hurts."
+import matplotlib.pyplot as plt
+
+threads = [1, 2, 4, 8]
+store = [13.04, 9.86, 5.32, 2.86]
+base = [186.4, 93.7, 50.3, 31.9]
+basec = [183.8, 92.7, 53.7, 32.2]
+
+fig, ax = plt.subplots(figsize=(5.2, 3.5))
+ax.plot(threads, store, 'o-', color='black', label='store')
+ax.plot(threads, base, 's--', color='black', label='baseline')
+ax.plot(threads, basec, '^:', color='black', label='baseline+cache')
+ax.set_yscale('log')
+ax.set_xscale('log', base=2)
+ax.set_xticks(threads)
+ax.set_xticklabels(threads)
+ax.set_xlabel('threads', fontsize=10)
+ax.set_ylabel('wall time (s, log)', fontsize=10)
+ax.legend(fontsize=7.5)
+ax.grid(linestyle=':', alpha=0.3)
+plt.tight_layout(); plt.show()
+```
+
+```{python}
+#| label: fig-compression
+#| fig-cap: "The store under compression, 256 KB blocks, zlib level 1. The payload closes from 7,082,290,985 to 2,897,372,833 bytes, 2.44 times, and the read path on its own is 12.4 s at 572 MB/s against the raw store's 14.6 s and the baseline's 177.4 s. An 8 KB block cuts the scattered read to 16 microseconds per event against 222 and costs almost nothing, 2.44 to 2.37 times."
+import matplotlib.pyplot as plt
+
+labels = ['payload, raw', 'file, compressed']
+gigabytes = [7.08, 2.90]
+fig, ax = plt.subplots(figsize=(5.2, 3.5))
+bars = ax.bar(labels, gigabytes, color='white', edgecolor='black', linewidth=0.8, hatch=['', '//'])
+ax.set_ylabel('GB', fontsize=10)
+for bar, v in zip(bars, gigabytes):
+    ax.text(bar.get_x() + bar.get_width()/2, v * 1.03, f'{v}', ha='center', fontsize=9)
+ax.grid(axis='y', linestyle=':', alpha=0.3)
+plt.tight_layout(); plt.show()
+```
+
 ## Cost Analysis
 
 The measured results separate two bottleneck regimes. On the remote EOS baseline, the bottleneck is per-request I/O wait (about 98.8 percent of wall time); the coordinate path removes requests and, when mapped, read system calls. On the local full-file baseline, the bottleneck is decompression CPU (cpu 183.6 to 185.9 s of wall 187.0 to 188.2 s, 98.2 percent); the coordinate store holds raw fixed-width records and removes decompression from the read path. Both removals are structural rather than incremental: the request and system call counts are deterministic properties of the addressing scheme, and the raw record layout removes the decompression step by construction.
