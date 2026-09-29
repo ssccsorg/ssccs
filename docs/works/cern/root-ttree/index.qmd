@@ -506,17 +506,9 @@ neither helps nor hurts, because each worker reads a contiguous range and the
 cache is redundant under sequential access, so the concern that threads degrade
 a shared cache is not reproduced here; a shared cache or a scattered, remote
 pattern would be needed, and that pairing is open. The machine has ten cores, so the row ends at eight, and the 128-core
-measurement itself needs a larger system and is not taken. What the small
-sample gives is a deterministic prediction rather than a hope. The store
-answers every event in one request whatever the order and whatever the thread
-count, while the baseline's scattered request count grows superlinearly with
-the events read, 0.210 s over 500 against 206 s over 2,000, because it is the
-traversal and the decode of every event and a cache cannot hold the working
-set. The request count is media-independent, so the tendency is settled at the
-scale measured and it does not close with more cores: the store's per-event
-cost stays one request and the baseline's stays hundreds. Only the wall-time
-magnitude at 128 cores depends on that machine's bandwidth, and that needs the
-machine.
+measurement itself needs a larger system and is not taken.
+
+:::{ layout-ncol=2 }
 
 ```{python}
 #| label: fig-scatter
@@ -553,6 +545,21 @@ for bar, v in zip(bars, wall):
 ax.grid(axis='y', linestyle=':', alpha=0.3)
 plt.tight_layout(); plt.show()
 ```
+:::
+
+What the small
+sample gives is a deterministic prediction. The store
+answers every event in one request whatever the order and whatever the thread
+count, while the baseline's scattered request count grows superlinearly with
+the events read, 0.210 s over 500 against 206 s over 2,000, because it is the
+traversal and the decode of every event and a cache cannot hold the working
+set. The request count is media-independent, so the tendency is settled at the
+scale measured and it does not close with more cores: the store's per-event
+cost stays one request and the baseline's stays hundreds. Only the wall-time
+magnitude at 128 cores depends on that machine's bandwidth, and that needs the
+machine.
+
+:::{ layout-ncol=2 }
 
 ```{python}
 #| label: fig-threads
@@ -594,6 +601,8 @@ for bar, v in zip(bars, gigabytes):
 ax.grid(axis='y', linestyle=':', alpha=0.3)
 plt.tight_layout(); plt.show()
 ```
+
+:::
 
 ## Cost Analysis
 
