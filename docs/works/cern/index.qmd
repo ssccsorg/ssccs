@@ -57,10 +57,24 @@ SSCCS addresses this by replacing the read path with coordinate addressing. An e
 
 ROOT's I/O interface stays exactly as it is. Researchers keep the TTree API they already know, and their existing analysis scripts run unchanged. Underneath, mapped data is served from the coordinate space instead of the disk. The ecosystem remains intact; only the interior is replaced.
 
-### Proposed Demonstration
+### Demonstration
 
-We propose a bounded demonstration on CMS Open Data (MiniAOD) that reproduces the access pattern and reports the comparison against the ROOT baseline. The collaboration would start from a working result, demonstrated on CERN's own access pattern without disturbing the production ecosystem.
+The demonstration has run. The technical report in this directory measures the
+fork on the CMS Run2016G DoubleMuon NanoAOD first file: the coordinate read path
+serves every event with one request and zero application-level read system calls
+where the baseline issues hundreds of thousands of singular reads, and it
+reproduces the access pattern the case above describes. The measured record now
+covers the whole event, a block-compressed store, and the event-selected access
+the production signature is made of, where the baseline pays 683 requests per
+event against the store's one. The report states what is measured and what is
+not: the scan gain, the column-selection crossover, and the conditions that need
+infrastructure, recorded row by row in the fork's benchmark harness.
 
 ## Status
 
-This is a draft framework document for initial discussion. It outlines the alignment, technical assets, and a proposed starting point for collaboration. The document will be updated as the discussion develops.
+The document has moved from a proposed starting point to a measured one. The
+fork is open, the report carries the measurement, and the harness, the runbook,
+and the open fronts are in the fork's `benchmarks/tagma`. What remains needs
+infrastructure rather than method, O(128), multi-terabyte samples, and the
+remote medium, together with the claim revision that keeps every number scoped
+to the condition it was measured in.

@@ -100,6 +100,22 @@ This report measures a coordinate-indexed read path, built on the synTagma[^synT
 
 On the full CMS Run2016G DoubleMuon NanoAOD first file (2,315,223 events), the same medium, the coordinate path completes the read in 2.71 to 2.81 s against 187.0 to 188.2 s for the cache-disabled baseline, a 67x to 69x gain, serving every event with one aligned request. The memory-mapped variant issues zero application-level read system calls and completes in 1.55 to 1.61 s, a 117x to 121x gain, after a one-time conversion of 226.3 s. An analysis workload reproduces identical results on both paths, 20,861 selected events with histogram mean 132.696, at 69.2x. Those ratios are measured against a baseline that reads every branch of a compressed file, and the controls that separate the components narrow the claim: decompression removal accounts for 2.2x to 2.3x on the full file, the store is 13.1x faster than a baseline reading the same columns uncompressed, and on the two-column selection of the analysis workload ROOT's column-selective reader is 4.9x faster than the store. The store's cost does not fall with the number of columns an analysis selects, because the record is the addressing unit, so its advantage is column independence above a measured crossover near 11 columns, or about 6 with the store mapped. Served bytes are verified by a checksum, and analysis results by exact histogram equality. Every row is measured against a warmed source: the harness reads each local source through the page cache in an untimed pass before the timed pass, which is what makes the rows comparable and what the earlier single-run numbers did not hold constant.
 
+The fork has since carried the path through the later phases, and the section
+Measured results, phases 2 to 6 is the current record. The store now carries the
+whole event rather than a projection, 974 scalars and 19 collections at two
+reads per event, and it compresses, 2.44 times, with the read path at 572 MB/s.
+The result that bears most on the signature this report opens with is the access
+pattern itself: the phase-1 rows above are all scans, while the production
+signature is an analysis reading selected events in list order. Read that way,
+over 2,000 events, the baseline pays 683 requests per event and 206.1 s where
+the store pays one request and no measurable time, so the coordinate path wins
+there by about five orders of magnitude rather than by tens, and it is
+event-selected access, not the scan, where the mechanism lives. The limits are
+stated with the result: a whole-event read is 1.5 times because the entry layer
+dominates, a narrow column selection is upstream's below about 42 scalar
+columns, and O(128), multi-terabyte samples, and the remote medium remain
+extrapolations.
+
 ## The TTree access pattern
 
 The production case in the 2025 Fermilab CCESOP analysis is an analysis over a CMS NanoAOD dataset that performs 372,000 singular reads averaging 4.6 KB, at an effective 33 KB/s, over roughly 14 hours[^ccesop-note]. The scale in bytes is small: 1.6 GB moves in seconds at raw bandwidth. The cost is per request.
