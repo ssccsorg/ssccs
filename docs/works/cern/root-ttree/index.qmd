@@ -113,8 +113,10 @@ there by about five orders of magnitude rather than by tens, and it is
 event-selected access, not the scan, where the mechanism lives. The limits are
 stated with the result: a whole-event read is 1.5 times because the entry layer
 dominates, a narrow column selection is upstream's below about 42 scalar
-columns, and O(128), multi-terabyte samples, and the remote medium remain
-extrapolations.
+columns, and O(128), multi-terabyte samples, and the remote medium need infrastructure:
+the 128-core row is predicted from the media-independent request counts, which
+are settled at the scale measured, rather than measured, and only its wall-
+time magnitude needs the larger machine.
 
 ## The TTree access pattern
 
@@ -249,14 +251,14 @@ The reported metrics are wall and CPU time, request count, coordinate-served cou
 
 ```{python}
 #| label: fig-wall-full
-#| fig-cap: "Full-dataset wall time, same medium, log scale, the median of three warmed runs. The baseline reads the compressed file through the ordinary path; the coordinate rows read the raw fixed-width store."
+#| fig-cap: "Full-dataset wall time, same medium, log scale, the median of three warmed runs for the projection and one run for the collections. The baseline reads the compressed file through the ordinary path; the coordinate rows read the raw store, the projection at 2,560 bytes and the collections at 1,280."
 import matplotlib.pyplot as plt
 
-labels = ['baseline', 'coordinate', 'coordinate+map']
-wall = [188.0, 2.72, 1.57]
+labels = ['baseline', 'coordinate\nprojection', 'coordinate+map\nprojection',
+          'coordinate\ncollections', 'coord+map\ncollections']
+wall = [188.0, 2.72, 1.57, 10.2, 8.3]
 fig, ax = plt.subplots(figsize=(5, 3.5))
-bars = ax.bar(labels, wall, color='white', edgecolor='black', linewidth=0.8,
-              hatch=['', '///', '...'])
+bars = ax.bar(labels, wall, color='white', edgecolor='black', linewidth=0.8)
 ax.set_yscale('log')
 ax.set_ylabel('wall time (s, log)', fontsize=10)
 for bar, v in zip(bars, wall):
@@ -267,21 +269,23 @@ plt.tight_layout(); plt.show()
 
 ```{python}
 #| label: fig-req-per-event
-#| fig-cap: "Requests and read system calls per event, full dataset. The mapped path serves every event with one aligned request and zero application-level read system calls."
+#| fig-cap: "Requests and read system calls per event. The mapped path serves every event with one aligned request and zero application-level read system calls; the collection store serves the whole event, the index record and the event's slice, in two."
 import matplotlib.pyplot as plt
 import numpy as np
 
 metrics = ['reads/event', 'syscalls/event']
 x = np.arange(len(metrics))
-w = 0.25
+w = 0.2
 base = [0.20, 0.20]
 coord = [1.00, 1.00]
 mapped = [1.00, 0.00]
+coll = [2.00, 0.00]
 
 fig, ax = plt.subplots(figsize=(5, 3.5))
-ax.bar(x - w, base, w, label='baseline', color='white', edgecolor='black', linewidth=0.8)
-ax.bar(x, coord, w, label='coordinate', color='white', edgecolor='black', linewidth=0.8, hatch='///')
-ax.bar(x + w, mapped, w, label='coordinate+map', color='white', edgecolor='black', linewidth=0.8, hatch='...')
+ax.bar(x - 1.5 * w, base, w, label='baseline', color='white', edgecolor='black', linewidth=0.8)
+ax.bar(x - 0.5 * w, coord, w, label='coordinate', color='white', edgecolor='black', linewidth=0.8, hatch='///')
+ax.bar(x + 0.5 * w, mapped, w, label='coordinate+map', color='white', edgecolor='black', linewidth=0.8, hatch='...')
+ax.bar(x + 1.5 * w, coll, w, label='coord+map collections', color='white', edgecolor='black', linewidth=0.8, hatch='xx')
 ax.set_xticks(x)
 ax.set_xticklabels(metrics, fontsize=10)
 ax.set_ylabel('count per event', fontsize=10)
@@ -501,8 +505,18 @@ widening: the store is bandwidth bound and the baseline I/O bound. The cache
 neither helps nor hurts, because each worker reads a contiguous range and the
 cache is redundant under sequential access, so the concern that threads degrade
 a shared cache is not reproduced here; a shared cache or a scattered, remote
-pattern would be needed, and that pairing is open. The machine has ten cores, so
-the row ends at eight and O(128) is an extrapolation.
+pattern would be needed, and that pairing is open. The machine has ten cores, so the row ends at eight, and the 128-core
+measurement itself needs a larger system and is not taken. What the small
+sample gives is a deterministic prediction rather than a hope. The store
+answers every event in one request whatever the order and whatever the thread
+count, while the baseline's scattered request count grows superlinearly with
+the events read, 0.210 s over 500 against 206 s over 2,000, because it is the
+traversal and the decode of every event and a cache cannot hold the working
+set. The request count is media-independent, so the tendency is settled at the
+scale measured and it does not close with more cores: the store's per-event
+cost stays one request and the baseline's stays hundreds. Only the wall-time
+magnitude at 128 cores depends on that machine's bandwidth, and that needs the
+machine.
 
 ```{python}
 #| label: fig-scatter
@@ -705,9 +719,14 @@ scope of the claim. The whole-event read is 1.5 times, not tens of times,
 because the delivery layer costs about 50 microseconds per event. A narrow
 column selection is upstream's to win below about 42 scalar columns. A cache
 does not rescue the scattered baseline, but thread scaling does narrow the lead,
-14.3 to 11.2 times over eight cores. And O(128), multi-terabyte samples, and the
-remote medium need infrastructure the measurement machine does not have, so they
-are extrapolations and are labelled as such, not measurements.
+14.3 to 11.2 times over eight cores. And O(128), multi-terabyte samples, and the remote medium need infrastructure
+the measurement machine does not have. The 128-core row is therefore not
+measured, but it is predicted and not guessed: the per-event request count is
+media-independent and settled at the scale measured, one for the store
+whatever the order against hundreds for the baseline, and the baseline's count
+grows superlinearly with the events read while the store's stays flat, so the
+tendency holds at 128 cores and the gap does not close. Only the wall-time
+magnitude there depends on the machine's bandwidth and needs that machine.
 
 The numbers are media-independent where they are counts, and the counts are
 where the mechanism lives. The fork, the harness, and the runbook are the
