@@ -386,6 +386,108 @@ plt.tight_layout(); plt.show()
 
 The coordinate rows move 51 MB in 20,000 aligned reads, so their 0.03 to 0.08 s wall is set by per-syscall cost and timer resolution rather than by the read path. The counts per event are the stable result here, and the ratio column is indicative.
 
+## Measured results, phases 2 to 6
+
+The section above measures the phase-1 projection. The fork has since carried
+the read path through the later phases, and this section is that record, on the
+same machine, the same file, and the same medium. The harness in the fork's
+`benchmarks/tagma` reproduces every row, and `tagma_bench.C` is the entry point
+over the tool set.
+
+### The store carries the collections
+
+The phase-1 store holds a fixed-width projection of the event: of its 320
+fields, 276 are variable-length arrays truncated to their leading element. The
+read path now carries them whole. The conversion tool derives a schema from the
+tree, one scalar field per scalar numeric leaf and one collection per
+variable-length array leaf bounded by its count leaf, preserves the leaf types
+instead of widening every value to `double`, and writes a self-describing store:
+974 scalar fields and 19 collections, an index record of 1,280 bytes, a data
+region of 4,118,805,545 bytes and a payload of 7,082,290,985 bytes over
+2,315,223 events, converted in 1,963.3 s. The whole event is two reads per
+event, the index record and the event's slice, and it reads back byte for byte
+through the ordinary leaves.
+
+Against the same cache-disabled baseline, the read path moves 7,082,290,985
+bytes in 10.2 s against the baseline's 176.7 s, and a scalar-only selection,
+which the reader serves from the index record alone, in 4.2 s, 42 times, or 54
+times with the store mapped. The whole-event row with the branches active runs
+117.6 s: the read path is 10.2 s of it and the branch delivery, about 50
+microseconds per event, is the rest. Delivery, not the read path, decides that
+comparison.
+
+### The store compresses under the same addressing
+
+The phase-1 store is raw and moves 2.76 times more bytes than the compressed
+baseline, which this report names as the phase-3 gap. The store now splits its
+payload into fixed blocks, compresses each block on its own, and closes the file
+with the same descriptor at a higher version, the block size carried in it. The
+address arithmetic is untouched, so the file hook, the branches, and the leaves
+do not know the difference, and `TTagmaBlockSource` decompresses the blocks a
+read touches. The payload closes to 2,897,372,833 bytes, 2.44 times, in 75.4 s.
+
+Read on its own, with no entry layer, the whole payload through the byte source
+takes 12.4 s at 572 MB/s, against the raw store's 14.6 s and the baseline's
+177.4 s. Compression therefore keeps the read-path advantage and shrinks the
+file; it is not a trade against the read, and the whole-event row that suggests
+otherwise is the delivery layer. A block size of 8 KB, one line of the format,
+cuts the scattered read below to 16 microseconds per event against 222, and
+costs the file almost nothing, 2.44 to 2.37 times.
+
+### Event-selected reads, the regime this report motivates
+
+This report opens on the production signature, 372,000 singular reads averaging
+4.6 KB over fourteen hours, and the per-request cost that produces it. That
+signature is an analysis reading selected events, in list order, and every
+phase-1 row is a scan. Measured in list order over 2,000 events on the same
+medium, the store row copying the record from the mapping or decompressing its
+block, the baseline driving `TTree::GetEntry` with no branch addresses:
+
+| order | row | seconds | requests | requests/event |
+| :--- | :--- | ---: | ---: | ---: |
+| sequential | store mapped | 0.010 | 2,000 | 1.00 |
+| sequential | store block | 0.003 | 2,000 | 1.00 |
+| sequential | baseline | 0.601 | 7 | 0.004 |
+| scattered | store mapped | 0.000 | 2,000 | 1.00 |
+| scattered | store block | 0.445 | 2,000 | 1.00 |
+| scattered | baseline | 206.139 | 1,365,153 | 682.6 |
+| scattered | baseline+cache | 199.311 | 16 | 0.008 |
+
+The store answers each event in one request whatever the order, while the
+baseline pays 683 requests per event when the order is scattered against 0.004
+when it is a scan. That is the measured mechanism of the signature this report
+motivates, and it is where the coordinate read path wins by about five orders of
+magnitude rather than by tens. The scattered baseline is superlinear besides,
+0.210 s over 500 events against 206 s over 2,000, a cliff, while the store stays
+at one request and linear in the events: the O(1) addressing tells at scale.
+
+The cache is not the answer under scatter. A 64 MB `TTreeCache` collapses the
+read calls to 16 and leaves the time where it was, 199.3 s against 206.1, so the
+scattered cost is the traversal and the decode of every event, and a cache
+cannot hold the working set. The store removes that cost by addressing.
+
+### Thread scaling
+
+Every worker with its own file object and a disjoint range, the store row
+through the byte source and the baseline row through `TTree::GetEntry` with no
+branch addresses, on the same disk:
+
+| threads | store_s | store_MB/s | baseline_s | baseline+cache_s | baseline/store |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 13.04 | 543 | 186.4 | 183.8 | 14.3 |
+| 2 | 9.86 | 718 | 93.7 | 92.7 | 9.5 |
+| 4 | 5.32 | 1331 | 50.3 | 53.7 | 9.4 |
+| 8 | 2.86 | 2481 | 31.9 | 32.2 | 11.2 |
+
+Both scale, the store 4.6 times and the cache-less baseline 5.8 over eight
+threads, so the store's lead narrows from 14.3 to 11.2 times rather than
+widening: the store is bandwidth bound and the baseline I/O bound. The cache
+neither helps nor hurts, because each worker reads a contiguous range and the
+cache is redundant under sequential access, so the concern that threads degrade
+a shared cache is not reproduced here; a shared cache or a scattered, remote
+pattern would be needed, and that pairing is open. The machine has ten cores, so
+the row ends at eight and O(128) is an extrapolation.
+
 ## Cost Analysis
 
 The measured results separate two bottleneck regimes. On the remote EOS baseline, the bottleneck is per-request I/O wait (about 98.8 percent of wall time); the coordinate path removes requests and, when mapped, read system calls. On the local full-file baseline, the bottleneck is decompression CPU (cpu 183.6 to 185.9 s of wall 187.0 to 188.2 s, 98.2 percent); the coordinate store holds raw fixed-width records and removes decompression from the read path. Both removals are structural rather than incremental: the request and system call counts are deterministic properties of the addressing scheme, and the raw record layout removes the decompression step by construction.
@@ -467,7 +569,9 @@ The fixed-width coordinate read path is implemented, built into the fork, and ve
 - Correctness verified by a checksum over the served bytes and exact analysis-result equality, plus unit tests against the reference engine over the full lattice
 - Released as open source in the [ssccsorg/root](https://github.com/ssccsorg/root) fork, with the benchmark harness and the runbook
 
-### Phase 2 and later: planned
+### Phase 2 to 6: delivered
+
+The phases below are delivered in the fork, and the measured record is the section Measured results, phases 2 to 6. The statements below were written while the phases were planned and are kept as the plan of record.
 
 The component controls have run. Decompression removal accounts for 2.20x to 2.31x of the measured ratio on the full file and the read path for the rest. The store's advantage is column independence rather than a universal speedup: 13.1x against an uncompressed baseline reading the same columns, 40.5x against the compressed baseline reading those columns with the cache enabled, and 4.9x slower than RDataFrame on the two-column selection of the analysis workload. The crossover is near 11 columns, or near 6 with the store mapped. The phase that moves that boundary is the first one below, because 276 of the store's own 320 fields are arrays that the projection truncates to their leading element.
 
@@ -488,11 +592,36 @@ The component controls have run. Decompression removal accounts for 2.20x to 2.3
 
 ## Conclusion
 
-The coordinate-indexed read path replaces the branch, basket, and cache traversal of the TTree read path with closed-form arithmetic. On the full CMS dataset, the same medium, it reduces the read cost from 187.0 to 188.2 s to 2.71 to 2.81 s (67x to 69x), or 1.55 to 1.61 s with zero application-level read system calls when the store is mapped (117x to 121x), after a one-time conversion of 226.3 s. Those ratios compare against a baseline that reads every branch of a compressed file. Measured against a baseline reading the same columns uncompressed the figure is 13.1x, and on a two-column selection ROOT's column-selective reader is 4.9x faster than the store. The measured mechanism addresses the bottleneck, per-request I/O overhead, at the request and system call level, and removes decompression from the read path in the raw phase-1 store. Its advantage is column independence: the per-event cost is a fixed record read that does not rise with the number of columns an analysis selects, above a crossover in the low tens of columns.
+The coordinate-indexed read path replaces branch, basket, and cache traversal
+with closed-form arithmetic, and after the later phases the measured picture is
+sharper than the phase-1 projection it started from. The store carries the whole
+event, 974 scalars and 19 collections at two reads per event. It compresses,
+2.44 times, with the read path at 572 MB/s. And the regime this report
+motivates, an analysis reading selected events in list order rather than a scan,
+is where the mechanism shows: the store answers each event in one request
+whatever the order, the baseline pays 683 requests per event over 2,000
+scattered events and 0.004 over a scan, and the store's advantage there is about
+five orders of magnitude against 11 to 14 times on a scan. The scattered
+baseline is superlinear besides, a cliff the store's flat one request does not
+share.
 
-The measured evidence is a proposal, scoped to the measured conditions and the access pattern. The innovation is that the address replaces the traversal: for mapped data the byte source is the mapping, a point no cache tuning reaches, while the researcher keeps the same TTree API, the same scripts, and the same build chain. For CERN, whose analyses live with the 372,000-read signature and the 14-hour workload, the request and system call counts are the media-independent part of the result, and they belong to an analysis that reads enough of the event for the record to be the cheaper unit. That boundary is measured, not assumed: above a crossover near 11 columns, or near 6 with the store mapped, the fixed-width record costs less per event than a column-selective read of the same file.
+The phase-1 rows remain the measured record of the projection, and that depth is
+real: 2.71 to 2.81 s against 187.0 to 188.2 s, or 1.55 to 1.61 s mapped, with
+the same controls and the same boundaries. What the later phases change is the
+scope of the claim. The whole-event read is 1.5 times, not tens of times,
+because the delivery layer costs about 50 microseconds per event. A narrow
+column selection is upstream's to win below about 42 scalar columns. A cache
+does not rescue the scattered baseline, but thread scaling does narrow the lead,
+14.3 to 11.2 times over eight cores. And O(128), multi-terabyte samples, and the
+remote medium need infrastructure the measurement machine does not have, so they
+are extrapolations and are labelled as such, not measurements.
 
-The next-phase work is specified in the Status section. It is a set of measured questions: the harness, the runbook, and the fork are the starting point for that conversation.
+The numbers are media-independent where they are counts, and the counts are
+where the mechanism lives. The fork, the harness, and the runbook are the
+starting point: `benchmarks/tagma/tagma_bench.C` is the entry point,
+`tagma_entry.C` holds the measured record, and `FRONTS.md` holds the open
+fronts, a column-major layout to move the crossover, the delivery layer, and the
+revision of the claim itself.
 
 [^synTagma]: synTagma, Spatial coordinate space computing system [docs.ssccs.org/projects/syntagma](https://docs.ssccs.org/projects/syntagma), Pre-release, Apache 2.0.
 
