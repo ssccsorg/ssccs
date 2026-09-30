@@ -96,7 +96,7 @@ title_meta_items = {
 
 ROOT is the petabyte-scale data analysis framework of the CERN community, and its TTree columnar format stores the events of nearly every physics analysis. A production bottleneck limits the read path: an analysis issues 372,000 singular reads averaging 4.6 KB, sustains an effective 33 KB/s, and runs for roughly 14 hours. The measured cause is per-request I/O overhead: each small read carries a system call, a cache lookup, and a context switch, while CPU and decompression stay idle in the remote production pattern.
 
-This report measures a coordinate-indexed read path, built on the synTagma[^synTagma] coordinate engine, inside a fork of CERN's ROOT. The path replaces branch, basket, and cache traversal with closed-form coordinate arithmetic: an event addressed as (run, luminosity block, event number) resolves to a direct byte offset with no hash and no index scan. It is a working implementation: a self-contained store class plus byte-source and entry hooks, with existing analysis code, the TTree API, and the build chain unchanged. The measured dataset is a single file, so the axis the measurement populates is the event number.
+This report measures a coordinate-indexed read path, built on the synTagma[^synTagma] coordinate engine, inside a fork of CERN's ROOT. The path replaces branch, basket, and cache traversal with closed-form coordinate arithmetic: an event addressed as (run, luminosity block, event number) resolves to a direct byte offset with no hash and no index scan. It is a working implementation: a self-contained store class plus byte-source and entry hooks, with existing analysis code, the TTree API, and the build chain unchanged. The dataset these rows measure is a single file, so the axis they populate is the event number; the coordinate reaches a dataset of many files in the later phases.
 
 On the full CMS Run2016G DoubleMuon NanoAOD first file (2,315,223 events), the same medium, the coordinate path completes the read in 2.71 to 2.81 s against 187.0 to 188.2 s for the cache-disabled baseline, a 67x to 69x gain, serving every event with one aligned request. The memory-mapped variant issues zero application-level read system calls and completes in 1.55 to 1.61 s, a 117x to 121x gain, after a one-time conversion of 226.3 s. An analysis workload reproduces identical results on both paths, 20,861 selected events with histogram mean 132.696, at 69.2x. Those ratios are measured against a baseline that reads every branch of a compressed file, and the controls that separate the components narrow the claim: decompression removal accounts for 2.2x to 2.3x on the full file, the store is 13.1x faster than a baseline reading the same columns uncompressed, and on the two-column selection of the analysis workload ROOT's column-selective reader is 4.9x faster than the store. The store's cost does not fall with the number of columns an analysis selects, because the record is the addressing unit, so its advantage is column independence above a measured crossover near 11 columns, or about 6 with the store mapped. Served bytes are verified by a checksum, and analysis results by exact histogram equality. Every row is measured against a warmed source: the harness reads each local source through the page cache in an untimed pass before the timed pass, which is what makes the rows comparable and what the earlier single-run numbers did not hold constant.
 
@@ -113,7 +113,11 @@ delivered, pays two reads per event and 0.101 s, so the coordinate path wins
 there by 2,000 times rather than by tens; the block-compressed store is at 345
 times. The store's per-event cost does not move with the order, and the penalty
 behind the baseline's number is a basket boundary rather than a slope. The
-limits are stated with the result: a whole-event read is 1.5 times because the
+coordinate also reaches a dataset rather than one file: one shard per run, 38
+runs, a run resolved by arithmetic against the chain's run-branch scan of 11.1
+s, at 18.1 ms per file to attach against the chain's forced 9.3 ms, with the
+dense grid carrying 1.24 times the event cells. The limits are stated with the
+result: a whole-event read is 1.5 times because the
 entry layer dominates, a narrow column selection is upstream's below the column
 crossover, near 42 scalar columns for the read path and near 810 with delivery,
 and O(128), multi-terabyte samples, and the remote medium need infrastructure:
@@ -240,7 +244,7 @@ A preparation tool converts a real dataset into the store: each event becomes on
 
 ## Benchmark Methodology
 
-The workload is the M1 pattern: read every event of the CMS Run2016G DoubleMuon NanoAOD first file, tree `Events`, 2,315,223 events, 2,155,974,646 bytes, with the TTreeCache disabled in the baseline. The baseline is the current ROOT read path, branch to basket to cache to file, with no store attached; the coordinate hooks are dormant null checks when no store is present, and the branch, basket, cache, and file layers are unchanged from upstream[^footprint_note]. The coordinate rows read the fixed-width store converted from the same events, 2,560-byte records, 320 scalar leaves. Both paths call the same API, `GetEntry`, so the comparison isolates the interior read path. The layout in the measured rows holds a single populated axis: the run and lumi extents are one and the event axis carries the entry count, so the composition evaluates to the entry index times the record size. The mixed-radix composition over nonzero axis extents runs the same code and is verified against the reference engine over the canonical lattice, and a dataset-level layout whose axis extents come from the data is phase-2 work.
+The workload is the M1 pattern: read every event of the CMS Run2016G DoubleMuon NanoAOD first file, tree `Events`, 2,315,223 events, 2,155,974,646 bytes, with the TTreeCache disabled in the baseline. The baseline is the current ROOT read path, branch to basket to cache to file, with no store attached; the coordinate hooks are dormant null checks when no store is present, and the branch, basket, cache, and file layers are unchanged from upstream[^footprint_note]. The coordinate rows read the fixed-width store converted from the same events, 2,560-byte records, 320 scalar leaves. Both paths call the same API, `GetEntry`, so the comparison isolates the interior read path. The layout in the phase-1 measured rows holds a single populated axis: the run and lumi extents are one and the event axis carries the entry count, so the composition evaluates to the entry index times the record size. The mixed-radix composition over nonzero axis extents runs the same code and is verified against the reference engine over the canonical lattice, and the dataset-level layout whose axis extents come from the data is delivered and measured in the dataset subsection of the later results.
 
 The environment is a single Arm Firestorm 3.2 GHz core[^firestorm-note], macOS, out-of-source Release build with treeplayer and testing enabled. Absolute times are machine-specific; the request and system call counts are media-independent.
 
@@ -413,7 +417,8 @@ The coordinate rows move 51 MB in 20,000 aligned reads, so their 0.03 to 0.08 s 
 
 The section above measures the phase-1 projection. The fork has since carried
 the read path through the later phases, and this section is that record, on the
-same machine, the same file, and the same medium. The harness in the fork's
+same machine and the same source file, with the dataset subsection below
+extending the partition to one file per run. The harness in the fork's
 `benchmarks/tagma` reproduces every row, and `tagma_bench.C` is the entry point
 over the tool set.
 
@@ -436,8 +441,8 @@ bytes in 10.2 s against the baseline's 176.7 s, and a scalar-only selection,
 which the reader serves from the index record alone, in 4.2 s, 42 times, or 54
 times with the store mapped. The whole-event row with the branches active runs
 117.6 s: the read path is 10.2 s of it and the branch delivery, about 50
-microseconds per event, is the rest. Delivery, not the read path, decides that
-comparison.
+microseconds per event at this single-file scale, is the rest. Delivery, not
+the read path, decides that comparison.
 
 ### The store compresses under the same addressing
 
@@ -454,7 +459,8 @@ takes 12.4 s at 572 MB/s, against the raw store's 14.6 s and the baseline's
 177.4 s. Compression therefore keeps the read-path advantage and shrinks the
 file; it is not a trade against the read, and the whole-event row that suggests
 otherwise is the delivery layer, which costs about 50 microseconds per event
-whatever the order and is measured directly in the scatter subsection below. A
+at single-file scale whatever the order and is measured directly in the scatter
+subsection below. A
 block size of 8 KB, one line of the format, cuts the scattered read below to 16
 microseconds per event against 222, and costs the file almost nothing, 2.44 to
 2.37 times.
@@ -495,7 +501,7 @@ baseline's 202.2 s over the same events that is 2,000 times, payload for payload
 and delivery for delivery, or 345 times for the compressed store. The store's
 per-event cost is 50 microseconds, the figure the whole-event scan rows measure
 too, which places the store's remaining cost in the delivery layer rather than
-in the read path.
+in the read path; the dataset subsection measures that layer's scale condition.
 
 The scatter penalty is a basket boundary, not a slope. The first basket of the
 measured file covers entries 0 to 999, and a scattered list inside it reads like
@@ -508,6 +514,41 @@ The cache is not the answer under scatter. A 64 MB `TTreeCache` collapses the
 read calls to 16 and leaves the time where it was, 204.0 s against 202.2, so the
 scattered cost is the traversal and the decode of every event, and a cache
 cannot hold the working set. The store removes that cost by addressing.
+
+### The coordinate addresses a dataset
+
+The step above the file asks whether the coordinate reaches a dataset rather
+than one store. The collection store is split into one shard per run,
+each shard declaring the luminosity blocks its run holds and the greatest block
+count, and the same partition is held as ROOT files with the manifest both
+sides share. Measured on the M1 file, 38 runs, the largest run 281,515 events,
+sources warmed:
+
+| row | seconds | note |
+| :--- | ---: | :--- |
+| attach, store | 0.687 | 18.1 ms per file, descriptor read, parse, map |
+| attach, chain | 0.002 | 0.05 ms per file, names only |
+| chain headers | 0.355 | 9.3 ms per file when forced |
+| select by run, chain | 11.1 | no run index, the range comes from a scan of the run branch |
+| read, manifest | 10.3 | 36 microseconds per event, one file, all branches |
+| read path, store | 1.6 | 942,333,903 bytes at 600 MB/s |
+| entry layer, store | 29.0 | 78.9 microseconds per grid cell over 368,008 cells, 54.5 over the first 2,000 |
+
+The coordinate resolves a run to its shard with no scan, which is the dataset
+level claim: the chain has no run index, so the same question costs it a scan
+of the run branch, 11.1 s over the 38 files. Two costs on the store side are
+recorded rather than argued: the descriptor is parsed per file and repeats the
+field table the shards share, 18.1 ms against the chain's forced 9.3 ms, and
+the dense grid carries 2,862,780 cells for 2,315,223 events, 1.24 times, the
+largest run 368,008 for 281,515, 1.31, which the walk pays as well as the
+bytes. The entry layer is 2.8 times the chain's per-event read over the same
+run, and its per-cell cost rises with the scale of the walk, 54.5 microseconds
+over the first 2,000 cells against 78.9 over 368,008, a rise this run does not
+attribute. The axes are slots while the record carries the physical run,
+luminosity block, and event number: over the physical luminosity block values a
+dense axis would carry 14,710,139 cells, 84.3 percent padding, 5.14 times the
+slot grid, and the alternative is a block table of 2,348 entries, so where the
+slot-to-physical mapping lives is open.
 
 ### Thread scaling
 
@@ -695,7 +736,7 @@ The one-time conversion of the full dataset into the store costs 226.3 s wall, 2
 
 ## Correctness Verification
 
-The checksum verification closes the loop between the converted store and the served bytes: the sum over every record byte at conversion time equals the sum over the bytes the coordinate paths serve, the value reported in the measured results. The analysis workload verifies semantic equivalence: the same selection and histogram over both paths produce identical selected counts and identical histogram means. The unit tests additionally verify the store arithmetic over the full 19 by 21 by 28 lattice[^lattice-note] against the canonical engine, the memory-backed read path (payload correctness with zero application-level read system calls), and the layout rejection paths.
+The checksum verification closes the loop between the converted store and the served bytes: the sum over every record byte at conversion time equals the sum over the bytes the coordinate paths serve, the value reported in the measured results. The analysis workload verifies semantic equivalence: the same selection and histogram over both paths produce identical selected counts and identical histogram means. The unit tests additionally verify the store arithmetic over the full 19 by 21 by 28 lattice[^lattice-note] against the canonical engine, the memory-backed read path (payload correctness with zero application-level read system calls), and the layout rejection paths. On the dataset side, the shard tool's self-check resolves 2,348 slot coordinates, one per block, and reads each record back with no mismatch, and the unit tests cover the partition by run and luminosity block (`gtest-io-io-tagma-dataset`, `PartitionsOneRunByLuminosityBlock`).
 
 ## Status
 
@@ -721,12 +762,17 @@ The component controls have run. Decompression removal accounts for 2.20x to 2.3
 - P5: cache-degradation scenario. Out-of-order multithreaded reads and the beyond-100,000-cluster cache collapse are not reproduced; the measured 0.917 cache efficiency is the ideal sequential case
 - P6: portability and independent verification. The mapped path requires a Unix-like platform; a Linux build cross-check is planned
 
+Dataset level, delivered and measured. `TTagmaDataset` partitions the run and luminosity block axes across store files; `tagma_shard.C` writes one shard per run, each declaring its own axes, `tagma_root_shard.C` splits the ROOT tree into one file per run with the manifest both sides share, and `tagma_dataset_bench.C` measures attach, select, and read over the partition. The coordinate resolves a run to its shard with no scan, and the chain has no run index, so the same question costs it a scan of the run branch, 11.1 s over the 38 files. The measured rows are the dataset subsection of the results above.
+
 ## Boundaries
 
 - The mapped path requires a Unix-like platform (mmap)
 - The source file (2.16 GB) and the store (5.93 GB) both fit the measured machine's page cache, so the mapped row reports a memory copy of resident data; a sample larger than memory is required before any mapped row can be read as a storage claim
 - The store serves a fixed-width projection: at most 320 of the tree's 1,380 leaves, of which 44 are scalar leaves and 276 are variable-length arrays truncated to their leading element, while the baseline reads every branch
 - The store's cost per event does not fall with the number of columns an analysis selects, so it is faster than a column-selective reader above a crossover near 11 columns, or near 6 with the store mapped, and slower below it
+- The dataset rows cover one partition: 38 runs of one file, one shard per run, on the warmed local medium
+- The dataset's run and lumi axes are slots while the record carries the physical values; where the slot-to-physical mapping lives is open, and a dense axis over the physical luminosity block values costs 5.14 times the slot grid, 84.3 percent padding
+- The entry layer's per-cell cost rises with the scale of the walk, 54.5 microseconds over the first 2,000 cells of a shard against 78.9 over 368,008; the rise is not attributed
 - All results are measured and reported as they are, with no projection ahead of measurement
 - The demonstration complements ROOT and RNTuple; the existing read paths remain in place
 
@@ -750,9 +796,10 @@ The phase-1 rows remain the measured record of the projection, and that depth is
 real: 2.71 to 2.81 s against 187.0 to 188.2 s, or 1.55 to 1.61 s mapped, with
 the same controls and the same boundaries. What the later phases change is the
 scope of the claim. The whole-event read is 1.5 times, not tens of times,
-because the delivery layer costs about 50 microseconds per event. A narrow
-column selection is upstream's to win below the column crossover, near 42 scalar
-columns for the read path and near 810 with delivery. A cache
+because the delivery layer costs about 50 microseconds per event at single-file
+scale, and the dataset subsection measures how it moves with the walk's scale.
+A narrow column selection is upstream's to win below the column crossover, near
+42 scalar columns for the read path and near 810 with delivery. A cache
 does not rescue the scattered baseline, but thread scaling does narrow the lead,
 14.3 to 11.2 times over eight cores. And O(128), multi-terabyte samples, and the remote medium need infrastructure
 the measurement machine does not have. The 128-core row is therefore not
@@ -763,12 +810,25 @@ basket, so the tendency holds at 128 cores and the gap does not close. Only the
 wall-time magnitude there depends on the machine's bandwidth and needs that
 machine.
 
+The coordinate also reaches a dataset rather than one file. One shard per run,
+38 runs, and a run resolves to its shard with no scan, where the chain has no
+run index and scans the run branch for 11.1 s; the attach cost is 18.1 ms per
+file against the chain's forced 9.3 ms, and the dense grid carries 1.24 times
+the cells the events need, which the walk pays as well as the bytes. Two things
+stay open: the entry layer's per-cell cost rises with the scale of the walk,
+54.5 microseconds over a shard's first 2,000 cells against 78.9 over 368,008,
+and the axes are slots while the record carries the physical values, so where
+the slot-to-physical mapping lives decides what a dense axis would cost, 5.14
+times the slot grid over the physical luminosity block values.
+
 The numbers are media-independent where they are counts, and the counts are
 where the mechanism lives. The fork, the harness, and the runbook are the
 starting point: `benchmarks/tagma/tagma_bench.C` is the entry point,
-`tagma_harness.C` holds the measured record, and `FRONTS.md` holds the open
-fronts, a column-major layout to move the crossover, the delivery layer, and the
-revision of the claim itself.
+`tagma_harness.C` holds the measured record, whose dataset rows come from
+`tagma_shard.C`, `tagma_root_shard.C`, and `tagma_dataset_bench.C`, and
+`FRONTS.md` holds the open fronts, a column-major layout to move the crossover,
+the delivery layer, the walk's per-cell cost, and the revision of the claim
+itself.
 
 [^synTagma]: synTagma, Spatial coordinate space computing system [docs.ssccs.org/projects/syntagma](https://docs.ssccs.org/projects/syntagma), Pre-release, Apache 2.0.
 
@@ -802,7 +862,7 @@ revision of the claim itself.
 
 [^lattice-note]: The lattice has 19 by 21 by 28 cells, equal to 11,172, the canonical scale. The test compares TTagmaStore::Compose against the canonical reference engine over every cell.
 
-[^bench-artifact-note]: The rows of the full-dataset table are the committed benchmark artifact in the fork, `benchmarks/tagma/result/reference.json`. It is tracked under a directory whose per-run results stay ignored, and the file records the run timestamp and the code commit it belongs to. Wall, CPU, request, and system call counts in this report match that artifact. The later-phase rows sit in the same file, in its `phases_2_6` section, each entry naming its tool and the layer the row reads at.
+[^bench-artifact-note]: The rows of the full-dataset table are the committed benchmark artifact in the fork, `benchmarks/tagma/result/reference.json`. It is tracked under a directory whose per-run results stay ignored, and the file records the run timestamp and the code commit it belongs to. Wall, CPU, request, and system call counts in this report match that artifact. The later-phase rows sit in the same file: `phases_2_6` carries the collection store, the compressed store, the scatter rows, and the thread rows, and `step_2_dataset` carries the shard partition and the dataset bench rows, each entry naming its tool and the layer the row reads at.
 
 [^projection-note]: The preparation tool selects leaves whose static length is one and serializes each value as a double, so a variable-length array branch enters the record through its leading element. Of the 320 fields, 276 have a leaf count in the file and 44 do not. The two analysis columns, MET_pt and nMuon, have no leaf count, so the analysis measurement is unaffected.
 
