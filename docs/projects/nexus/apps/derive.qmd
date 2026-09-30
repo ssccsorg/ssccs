@@ -1,0 +1,256 @@
+---
+title: "nex-derive"
+subtitle: "Directed FIH goal space over work, intent, and contract"
+metadata-files:
+  - ../../../_include/author.yml
+abstract: |
+  nex-derive reads the FIH primitives as a directed relation over a goal
+  space. A goal is a point in the product of work, intent, and contract (the
+  hint), resolving a goal derives a fact, and the derivation is kept as the
+  record goal -> fact. A conjunctive goal resolves by intersecting the
+  per-axis posting bitsets, so the resolution costs a fixed number of word
+  operations set by the coordinate geometry, while a scan over the records
+  rises with the board. The app is dependency-free and states its fragment
+  exactly: conjunction only, materialized and monotone, fixed radix, one
+  derivation per goal.
+---
+
+```{python}
+#| include: false
+#| context: local
+%run ../../../_include/_graphviz.py
+```
+
+```{python}
+title_meta_items = {
+    "html": [
+        {"title": "Source", "link": "https://github.com/ssccsorg/nexus/tree/main/apps/nex-derive", "content": "Github", "icon": "bi bi-link"},
+        {"title": "Reference", "link": "./index.html", "content": "Nexus Apps", "icon": "bi bi-link"},
+        {"title": "Reference", "link": "./calc.html", "content": "nex-calc", "icon": "bi bi-link"},
+    ]
+}
+```
+
+{{< include ../../../_include/_title_meta_items.qmd >}}
+
+## Specification
+
+nex-derive is a command-line app that keeps a board of derivations and
+resolves conjunctive goals against it. A goal is a point in the product space
+of three axes: the work the goal belongs to, the intent it carries, and the
+contract that bounds it, which is the FIH hint. Resolving a goal derives a
+fact, and the board stores the pair as the record `goal -> fact`.
+
+The direction is the point of the app. The FIH relation carries
+`goal -> fact`, while the intersection that resolves a conjunctive goal is
+symmetric and cannot express it. The intersection is the inner step, and the
+record keeps the direction, which is what the name refers to.
+
+### Interface
+
+The user pins names on the axes, derives facts at goals, and resolves a goal
+by naming its values. An unconstrained axis is written `*`.
+
+```text
+> define work parse scan audit
+work[0] = parse
+work[1] = scan
+work[2] = audit
+> define intent plan execute
+intent[0] = plan
+intent[1] = execute
+> define hint strict lax
+hint[0] = strict
+hint[1] = lax
+> derive parse plan strict design the parser
+derived 0 [work=parse intent=plan hint=strict] -> design the parser
+> derive scan execute lax scan, best effort
+derived 4161 [work=scan intent=execute hint=lax] -> scan, best effort
+> resolve parse * *
+resolved: 1 derivation(s) over 2 goal(s), 1 constrained axis/axes
+  [work=parse intent=plan hint=strict] -> design the parser
+scan agrees: yes (1)
+> explain parse * *
+candidate elimination:
+  goals               2
+  intersect work      1
+  intersect intent     1
+  intersect hint       1
+```
+
+The prompt accepts `*` for an unconstrained axis and `#<n>` for a raw value
+index. `derive` interns an unknown name on first use, so a transcript stays
+readable; `resolve`, `explain`, and `scan` require a defined name, `*`, or
+`#<n>`. Every `resolve` reports whether the scan agrees with the intersection
+on that call.
+
+### Commands
+
+- `define <axis> <name> ...` pins symbolic values on an axis in registration
+  order, so a name is a stable address once defined.
+- `values` lists the defined values per axis.
+- `derive <work> <intent> <hint> [fact]` records that a goal derives a fact.
+- `resolve <work> <intent> <hint>` resolves a conjunctive goal by
+  intersection and checks the result against the scan.
+- `explain <work> <intent> <hint>` prints the candidate count after each
+  condition.
+- `scan <work> <intent> <hint>` resolves the same goal with the naive
+  predicate, the reference path.
+- `bench [n]` times the intersection against the scan over a board of n
+  goals.
+- `stats` prints the geometry and the derivation count.
+- `demo` runs a scripted session, and `help` lists the commands.
+
+Each of the three query arguments takes a defined name, `*`, or `#<n>`.
+
+## Design
+
+### Mapping
+
+| FIH Primitive | Role | nex-derive Mapping |
+|---------------|------|--------------------|
+| F (Fact) | Immutable data at a coordinate | The fact a goal derives, recorded with its goal |
+| I (Intent) | Directional function | The intent axis: the direction the goal carries |
+| H (Hint) | Constraint or transform | The contract axis that bounds the goal |
+
+### Geometry
+
+The space is the Cartesian product of three axes with fixed radix, and a point
+is one combination addressed by a packed index. Fixed radix is what lets a
+conjunction be a word-wise AND rather than a walk over records.
+
+| Constant | Value | Role |
+|----------|-------|------|
+| AXIS_BITS | 6 | Bits per axis value index |
+| AXIS_CARD | 64 | Values per axis, pinned by the condition mask |
+| AXES | 3 | work, intent, hint |
+| COORD_BITS | 18 | Bits that address the product space |
+| COORD_SPACE | 262,144 | Coordinates in the product space |
+| WORDS | 4,096 | u64 words per bitset, 32 KiB |
+
+A condition is a u64 mask over value indices with a compile-time assert at 64
+values per axis, so AXIS_BITS is the knob that widens the mask with the
+geometry. The bitsets pay the geometry up front: 192 postings of 32 KiB each,
+about 6 MiB, plus the coordinate-to-slot table of 262,144 entries.
+
+### Structures
+
+Three structures share one coordinate index space:
+
+| Structure | Role |
+|-----------|------|
+| occupancy | The goals that hold a derivation |
+| postings | One bitset per (axis, value): the goals carrying that value |
+| slots | Goal coordinate to derivation index, for reading the derivation back |
+
+A derivation is written once per goal, and the first fact recorded at a goal
+stays. A repeat call reports the goal as already derived and changes nothing.
+
+### Resolution
+
+```{python}
+#| label: fig-resolution
+#| fig-cap: "Conjunctive resolution: the conditions name postings, the postings are intersected over the occupancy bitset, and the scan is the reference the result is checked against"
+dot("""
+digraph Resolution {
+    rankdir=LR;
+    node [shape=box, style=rounded];
+    Goal [label="conjunctive goal\nwork x intent x hint", shape=diamond];
+    Postings [label="postings\nthe bitsets the conditions name"];
+    Meet [label="AND over occupancy\nWORDS word operations"];
+    Records [label="derivations\ngoal -> fact", shape=note];
+    Scan [label="scan\none predicate per derivation", style=dashed];
+    Goal -> Postings [label="names"];
+    Postings -> Meet [label="intersect"];
+    Meet -> Records [label="exact result"];
+    Goal -> Scan [label="reference path"];
+    Scan -> Records [label="agreement check"];
+}
+""")
+```
+
+A conjunctive query intersects the postings its conditions name, starting from
+the occupancy bitset. The result is exact, so no candidate filter runs
+afterwards. The scan is the naive predicate, one test per derivation per
+constrained axis, and the CLI checks the two against each other on every
+resolve.
+
+### Cost
+
+The resolution cost is set by the geometry:
+
+- A single-value condition costs one posting copy plus one AND, so `WORDS`
+  word operations.
+- An unconstrained axis is skipped, since it narrows nothing.
+- The scan costs one predicate per derivation per constrained axis, so its
+  cost rises with the goal count.
+
+The bench sweep shows the two paths crossing. The board is filled with n
+distinct goals from a deterministic stream, and every query is timed on both
+paths, which also checks that the counts agree.
+
+| Goals | Queries | Matched | Resolution / Query | Scan / Query | Speedup |
+|-------|---------|---------|--------------------|--------------|---------|
+| 1,000 | 500 | 16,913 | 14.5 µs | 1.5 µs | 0.1x |
+| 10,000 | 500 | 205,861 | 14.6 µs | 14.5 µs | 1.0x |
+| 50,000 | 133 | 271,942 | 14.8 µs | 76.1 µs | 5.2x |
+| 200,000 | 33 | 225,637 | 15.4 µs | 296.6 µs | 19.3x |
+
+The table is one dev-profile run on the development machine, so the timings
+are indicative while the matched counts reproduce. At 1,000 goals the scan
+wins by about an order of magnitude, the two paths are even near 10,000, and
+above that the resolution dominates while its column stays flat.
+
+## Boundary
+
+The resolution is the whole computation inside a stated fragment, and the
+boundary is part of the design:
+
+- Conjunction only. Negation and disjunction leave the monotone fragment
+  where the intersection is the whole evaluation; a negated condition is a
+  difference of sets, which is cheap but breaks the reading.
+- Materialized and monotone. A derivation is written once per goal, and
+  retraction or update needs the postings maintained.
+- Fixed radix. Each axis has 64 values, and each goal holds one derivation.
+- One derivation per goal. Several facts for one goal need a second index on
+  top of the board.
+- Recursion, aggregation, ranking, and temporal validity leave the fragment.
+  A transitive closure needs a fixpoint, a count needs a pass over the
+  result, a rank needs an order, and a validity interval needs time.
+
+The app records derivations and resolves them. Computing a fact from its
+premise is nex-calc's job.
+
+## Relationship to the Ecosystem
+
+- nex-calc executes the relation once, as a state transition on an Intent
+  (submit, claim, conclude) that writes the resulting Fact. nex-derive keeps
+  the derivation instead, so an accumulated board can be read back and a
+  conjunctive goal resolved against it.
+- nex-tagma is the same intersection over a larger coordinate space for one
+  axis; nex-derive is the minimal directed three-axis form.
+- The board lives in memory, and the app carries no dependencies. The
+  storage backends of the neXus FIH layer take no part in it.
+
+## Verification
+
+- `cargo fmt --all --check`, `cargo clippy -p nex-derive --all-targets --
+  -D warnings`, and `cargo test -p nex-derive` (9 tests).
+- `./apps/nex-derive/run.sh --demo` runs the scripted session.
+- The load-bearing test is `resolve_matches_scan_over_a_population`: over a
+  2,000-goal board and 200 random queries, the intersection must return
+  exactly what the naive predicate returns.
+- `multi_value_conditions_union_their_postings` covers the posting union,
+  which the CLI does not build.
+- The apps job in CI runs `./run.sh --apps`, which builds and tests the app.
+
+## Open Questions
+
+- Negation as a difference of sets is the nearest extension, and it keeps the
+  resolution exact. It costs the monotone reading the fragment rests on.
+- Retraction and update need the postings maintained rather than written
+  once.
+- Several facts for one goal need a second index keyed by the goal.
+- A derived fact that becomes the next goal's hint needs order and time,
+  which this fragment excludes. That loop is where the derivation record
+  starts constraining later work.
