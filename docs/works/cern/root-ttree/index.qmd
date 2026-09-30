@@ -107,13 +107,16 @@ reads per event, and it compresses, 2.44 times, with the read path at 572 MB/s.
 The result that bears most on the signature this report opens with is the access
 pattern itself: the phase-1 rows above are all scans, while the production
 signature is an analysis reading selected events in list order. Read that way,
-over 2,000 events, the baseline pays 683 requests per event and 206.1 s where
-the store pays one request and no measurable time, so the coordinate path wins
-there by about five orders of magnitude rather than by tens, and it is
-event-selected access, not the scan, where the mechanism lives. The limits are
-stated with the result: a whole-event read is 1.5 times because the entry layer
-dominates, a narrow column selection is upstream's below about 42 scalar
-columns, and O(128), multi-terabyte samples, and the remote medium need infrastructure:
+over 2,000 events, the baseline pays 683 requests per event and 202.2 s, while
+the store reading the whole event, index record and slice with the fields
+delivered, pays two reads per event and 0.101 s, so the coordinate path wins
+there by 2,000 times rather than by tens; the block-compressed store is at 345
+times. The store's per-event cost does not move with the order, and the penalty
+behind the baseline's number is a basket boundary rather than a slope. The
+limits are stated with the result: a whole-event read is 1.5 times because the
+entry layer dominates, a narrow column selection is upstream's below the column
+crossover, near 42 scalar columns for the read path and near 810 with delivery,
+and O(128), multi-terabyte samples, and the remote medium need infrastructure:
 the 128-core row is predicted from the media-independent request counts, which
 are settled at the scale measured, rather than measured, and only its wall-
 time magnitude needs the larger machine.
@@ -450,9 +453,11 @@ Read on its own, with no entry layer, the whole payload through the byte source
 takes 12.4 s at 572 MB/s, against the raw store's 14.6 s and the baseline's
 177.4 s. Compression therefore keeps the read-path advantage and shrinks the
 file; it is not a trade against the read, and the whole-event row that suggests
-otherwise is the delivery layer. A block size of 8 KB, one line of the format,
-cuts the scattered read below to 16 microseconds per event against 222, and
-costs the file almost nothing, 2.44 to 2.37 times.
+otherwise is the delivery layer, which costs about 50 microseconds per event
+whatever the order and is measured directly in the scatter subsection below. A
+block size of 8 KB, one line of the format, cuts the scattered read below to 16
+microseconds per event against 222, and costs the file almost nothing, 2.44 to
+2.37 times.
 
 ### Event-selected reads, the regime this report motivates
 
@@ -460,29 +465,47 @@ This report opens on the production signature, 372,000 singular reads averaging
 4.6 KB over fourteen hours, and the per-request cost that produces it. That
 signature is an analysis reading selected events, in list order, and every
 phase-1 row is a scan. Measured in list order over 2,000 events on the same
-medium, the store row copying the record from the mapping or decompressing its
-block, the baseline driving `TTree::GetEntry` with no branch addresses:
+medium, the 8 KB block store, one run. The index rows copy the addressing unit,
+the index record; the entry rows read the whole event, the index record and the
+slice with the 1,380 field branches delivered, so they are layer-matched and
+payload-matched with the baseline, which drives `TTree::GetEntry` with no branch
+addresses. The entry rows are gated: before they are timed, the delivered
+`event` and `MET_pt` values are compared with the baseline file over 32 sampled
+entries, and the gate passed with no mismatch.
 
-| order | row | seconds | requests | requests/event |
+| order | row | seconds | reads | reads/event |
 | :--- | :--- | ---: | ---: | ---: |
-| sequential | store mapped | 0.010 | 2,000 | 1.00 |
-| sequential | store block | 0.003 | 2,000 | 1.00 |
-| sequential | baseline | 0.601 | 7 | 0.004 |
+| sequential | store mapped | 0.003 | 2,000 | 1.00 |
+| sequential | store block | 0.005 | 2,000 | 1.00 |
+| sequential | store entry | 0.109 | 4,000 | 2.00 |
+| sequential | store block entry | 0.182 | 4,000 | 2.00 |
+| sequential | baseline | 0.453 | 7 | 0.004 |
+| sequential | baseline+cache | 0.468 | 16 | 0.008 |
 | scattered | store mapped | 0.000 | 2,000 | 1.00 |
-| scattered | store block | 0.445 | 2,000 | 1.00 |
-| scattered | baseline | 206.139 | 1,365,153 | 682.6 |
-| scattered | baseline+cache | 199.311 | 16 | 0.008 |
+| scattered | store block | 0.031 | 2,000 | 1.00 |
+| scattered | store entry | 0.101 | 4,000 | 2.00 |
+| scattered | store block entry | 0.586 | 4,000 | 2.00 |
+| scattered | baseline | 202.209 | 1,365,153 | 682.6 |
+| scattered | baseline+cache | 204.010 | 16 | 0.008 |
 
-The store answers each event in one request whatever the order, while the
-baseline pays 683 requests per event when the order is scattered against 0.004
-when it is a scan. That is the measured mechanism of the signature this report
-motivates, and it is where the coordinate read path wins by about five orders of
-magnitude rather than by tens. The scattered baseline is superlinear besides,
-0.210 s over 500 events against 206 s over 2,000, a cliff, while the store stays
-at one request and linear in the events: the O(1) addressing tells at scale.
+The entry rows settle the claim at the layer the baseline reads at: reading the
+whole event costs 0.101 s scattered against 0.109 s sequential, two reads per
+event, so the store's cost does not move with the order, and against the
+baseline's 202.2 s over the same events that is 2,000 times, payload for payload
+and delivery for delivery, or 345 times for the compressed store. The store's
+per-event cost is 50 microseconds, the figure the whole-event scan rows measure
+too, which places the store's remaining cost in the delivery layer rather than
+in the read path.
+
+The scatter penalty is a basket boundary, not a slope. The first basket of the
+measured file covers entries 0 to 999, and a scattered list inside it reads like
+a scan, 6 requests at 500 and at 1,000 events, 0.076 to 0.093 s; a list that
+spans a second basket collapses, 1,365,153 requests at 2,000 events, because a
+jump between baskets invalidates the current basket of each of the 1,380
+branches. The store's count is flat across that threshold.
 
 The cache is not the answer under scatter. A 64 MB `TTreeCache` collapses the
-read calls to 16 and leaves the time where it was, 199.3 s against 206.1, so the
+read calls to 16 and leaves the time where it was, 204.0 s against 202.2, so the
 scattered cost is the traversal and the decode of every event, and a cache
 cannot hold the working set. The store removes that cost by addressing.
 
@@ -512,7 +535,7 @@ measurement itself needs a larger system and is not taken.
 
 ```{python}
 #| label: fig-scatter
-#| fig-cap: "Event-selected reads, 2,000 events, same medium, requests per event. The store answers each event in one request whatever the order; the baseline pays 683 requests per event when the order is scattered against 0.004 when it is a scan, and a 64 MB cache collapses its calls to 0.008 without moving its time, 199.3 s against 206.1."
+#| fig-cap: "Event-selected reads, 2,000 events, same medium, requests per event. The store answers each event in one or two requests whatever the order; the baseline pays 683 requests per event when the order is scattered against 0.004 when it is a scan, and a 64 MB cache collapses its calls to 0.008 without moving its time, 204.0 s against 202.2."
 import matplotlib.pyplot as plt
 
 labels = ['baseline\nscan', 'baseline\nscattered', 'baseline+cache\nscattered', 'store\nany order']
@@ -530,14 +553,14 @@ plt.tight_layout(); plt.show()
 
 ```{python}
 #| label: fig-scatter-wall
-#| fig-cap: "The same events by wall time, log scale. The baseline runs 206.1 s scattered against 0.601 s over a scan, the cache leaves it at 199.3 s, and the compressed store serves the list in 0.445 s, the mapped store below the millisecond the timer resolves. The scattered baseline is superlinear besides, 0.210 s over 500 events against 206 s over 2,000."
+#| fig-cap: "The same events by wall time, log scale. The baseline runs 202.2 s scattered against 0.453 s over a scan, the cache leaves it at 204.0 s, and the store reads the whole event in 0.101 s, 0.586 s through the block source, against 0.003 s for the index record alone."
 import matplotlib.pyplot as plt
 
-labels = ['baseline\nscan', 'baseline\nscattered', 'baseline+cache', 'store block\nscattered']
-wall = [0.601, 206.139, 199.311, 0.445]
+labels = ['baseline\nscan', 'baseline\nscattered', 'baseline+cache', 'store entry\nscattered', 'store block\nentry']
+wall = [0.453, 202.209, 204.010, 0.101, 0.586]
 fig, ax = plt.subplots(figsize=(5.2, 3.5))
 bars = ax.bar(labels, wall, color='white', edgecolor='black', linewidth=0.8,
-              hatch=['', '//', 'xx', '..'])
+              hatch=['', '//', 'xx', '..', '++'])
 ax.set_yscale('log')
 ax.set_ylabel('wall time (s, log)', fontsize=10)
 for bar, v in zip(bars, wall):
@@ -549,15 +572,16 @@ plt.tight_layout(); plt.show()
 
 What the small
 sample gives is a deterministic prediction. The store
-answers every event in one request whatever the order and whatever the thread
-count, while the baseline's scattered request count grows superlinearly with
-the events read, 0.210 s over 500 against 206 s over 2,000, because it is the
-traversal and the decode of every event and a cache cannot hold the working
-set. The request count is media-independent, so the tendency is settled at the
-scale measured and it does not close with more cores: the store's per-event
-cost stays one request and the baseline's stays hundreds. Only the wall-time
-magnitude at 128 cores depends on that machine's bandwidth, and that needs the
-machine.
+answers every event in one or two requests whatever the order and whatever the
+thread count, while the baseline's scattered request count collapses once the
+entry set spans a basket, 6 requests at 500 and at 1,000 events inside the
+file's first basket against 1,365,153 at 2,000, because a jump between baskets
+invalidates the current basket of each branch and a cache cannot hold the
+working set. The request count is media-independent, so the tendency is settled
+at the scale measured and it does not close with more cores: the store's
+per-event cost stays one or two requests and the baseline's stays hundreds. Only
+the wall-time magnitude at 128 cores depends on that machine's bandwidth, and
+that needs the machine.
 
 :::{ layout-ncol=2 }
 
@@ -714,33 +738,35 @@ sharper than the phase-1 projection it started from. The store carries the whole
 event, 974 scalars and 19 collections at two reads per event. It compresses,
 2.44 times, with the read path at 572 MB/s. And the regime this report
 motivates, an analysis reading selected events in list order rather than a scan,
-is where the mechanism shows: the store answers each event in one request
-whatever the order, the baseline pays 683 requests per event over 2,000
-scattered events and 0.004 over a scan, and the store's advantage there is about
-five orders of magnitude against 11 to 14 times on a scan. The scattered
-baseline is superlinear besides, a cliff the store's flat one request does not
-share.
+is where the mechanism shows: the store reads the whole event, fields delivered,
+in 0.101 s scattered against 0.109 s sequential over 2,000 events, two reads per
+event, while the baseline pays 683 requests per event and 202.2 s in the
+scattered order against 0.004 requests and 0.453 s over a scan. That is 2,000
+times, payload for payload and delivery for delivery, or 345 times for the
+compressed store, against 12 to 14 times on the scan's read path. The scatter
+penalty is a basket boundary the store's flat request count does not share.
 
 The phase-1 rows remain the measured record of the projection, and that depth is
 real: 2.71 to 2.81 s against 187.0 to 188.2 s, or 1.55 to 1.61 s mapped, with
 the same controls and the same boundaries. What the later phases change is the
 scope of the claim. The whole-event read is 1.5 times, not tens of times,
 because the delivery layer costs about 50 microseconds per event. A narrow
-column selection is upstream's to win below about 42 scalar columns. A cache
+column selection is upstream's to win below the column crossover, near 42 scalar
+columns for the read path and near 810 with delivery. A cache
 does not rescue the scattered baseline, but thread scaling does narrow the lead,
 14.3 to 11.2 times over eight cores. And O(128), multi-terabyte samples, and the remote medium need infrastructure
 the measurement machine does not have. The 128-core row is therefore not
 measured, but it is predicted and not guessed: the per-event request count is
-media-independent and settled at the scale measured, one for the store
-whatever the order against hundreds for the baseline, and the baseline's count
-grows superlinearly with the events read while the store's stays flat, so the
-tendency holds at 128 cores and the gap does not close. Only the wall-time
-magnitude there depends on the machine's bandwidth and needs that machine.
+media-independent and settled at the scale measured, one or two for the store
+whatever the order against hundreds for the baseline once its entries span a
+basket, so the tendency holds at 128 cores and the gap does not close. Only the
+wall-time magnitude there depends on the machine's bandwidth and needs that
+machine.
 
 The numbers are media-independent where they are counts, and the counts are
 where the mechanism lives. The fork, the harness, and the runbook are the
 starting point: `benchmarks/tagma/tagma_bench.C` is the entry point,
-`tagma_entry.C` holds the measured record, and `FRONTS.md` holds the open
+`tagma_harness.C` holds the measured record, and `FRONTS.md` holds the open
 fronts, a column-major layout to move the crossover, the delivery layer, and the
 revision of the claim itself.
 
