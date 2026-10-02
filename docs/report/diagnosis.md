@@ -1,7 +1,7 @@
 # Diagnosis Report: Technical Assessment & Strategic Roadmap
 
 - 2026-03-30
-- SSCCS Foundation
+- SSCCS Initiative
 
 ## Executive Summary
 
@@ -489,7 +489,7 @@ Allocated explicitly in WP4:
 | WP1: Core Compiler and Formal Verification | Formal methods partner | Europe or Asia | Rust compiler core, algebraic formalisation, mechanized proofs |
 | WP2: Hardware Mapping and FPGA Prototyping | Hardware partner | Asia (Korea, Taiwan, Singapore) or Europe | Memory layout, hardware profiles, FPGA backend, energy measurement |
 | WP3: Domain Demonstration | Application partner | Europe or Asia | Workload implementation, benchmark execution, validation |
-| WP4: Community Building and Standardisation | Founder / SSCCS Foundation | Global (rotating) | Open‑source governance, collaborative activities, standardisation engagement |
+| WP4: Community Building and Standardisation | Founder / SSCCS Initiative | Global (rotating) | Open‑source governance, collaborative activities, standardisation engagement |
 | WP5: Project Management and Dissemination | Founder | Asia (flexible) | Coordination, reporting, dissemination |
 
 ## 12. Global Impact and Strategic Positioning
@@ -595,7 +595,7 @@ By following this plan, SSCCS will transform from a philosophical whitepaper int
 
 ------------------------------------------------------------------------
 
-© 2026 [SSCCS Foundation](https://ssccs.org) — A computing systems initiative building a computing model and compiler
+© 2026 [SSCCS Initiative](https://ssccs.org) — A computing systems initiative building a computing model and compiler
 infrastructure.
 
 - Whitepaper: [PDF](https://ssccs.org/wp) /
@@ -607,6 +607,6 @@ infrastructure.
   [BCCB196BADF50C99](https://keys.openpgp.org/search?q=BCCB196BADF50C99).
   Licensed under *Apache 2.0*.
 - Governed by the [Foundational Charter and
-  Statute](https://ssccs.org/legal) of the SSCCS Foundation (in
+  Statute](https://ssccs.org/legal) of the SSCCS Initiative (in
   formation).
 - Provenance: Human-in-Command, AI-assisted. Aligns with [ISO/IEC JTC 1/SC 42](https://www.iso.org/committee/6794475.html) and [C2PA-certified](https://ssccs.org/wpc2pa). Full intellectual responsibility with author(s).

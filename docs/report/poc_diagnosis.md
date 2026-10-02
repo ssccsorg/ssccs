@@ -2,7 +2,7 @@
 
 2026-08-06
 
-SSCCS Foundation
+SSCCS Initiative
 
 ## Context
 

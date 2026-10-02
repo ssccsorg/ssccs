@@ -72,7 +72,7 @@ For detailed prerequisites and advanced rendering options, see
 
 ## Governance
 
-The SSCCS Foundation is a open-source foundation (in formation) that holds
+The SSCCS Initiative is a open-source foundation (in formation) that holds
 the intellectual property, manages the trademark, and oversees the
 standardization process. The foundation’s charter ensures that the
 project remains open, neutral, and aligned with its mission of creating
@@ -101,13 +101,13 @@ grateful to the open‑source communities that have made this work
 possible, and to the early collaborators who have contributed ideas,
 code, and critical feedback.
 
-The project is currently maintained by the SSCCS Foundation and a
+The project is currently maintained by the SSCCS Initiative and a
 growing network of volunteers. If you would like to support the
 initiative financially or in kind, please contact <contact@ssccs.org>.
 
 ------------------------------------------------------------------------
 
-© 2026 [SSCCS Foundation](https://ssccs.org) — Open-source computing systems initiative.
+© 2026 [SSCCS Initiative](https://ssccs.org) — Open-source computing systems initiative.
 
 - Whitepaper: [PDF](https://ssccs.org/wp) /
   [HTML](https://ssccs.org/wpw) DOI:
@@ -122,6 +122,6 @@ initiative financially or in kind, please contact <contact@ssccs.org>.
   *CERN-OHL-P v2*; the full text is at
   [`poc/baremetal_riscv/sv/LICENSE`](/poc/baremetal_riscv/sv/LICENSE).
 - Governed by the [Foundational Charter and
-  Statute](https://ssccs.org/legal) of the SSCCS Foundation (in
+  Statute](https://ssccs.org/legal) of the SSCCS Initiative (in
   formation).
 - Provenance: Human-in-Command, AI-assisted. Aligns with [ISO/IEC JTC 1/SC 42](https://www.iso.org/committee/6794475.html) and [C2PA-certified](https://ssccs.org/wpc2pa). Full intellectual responsibility with author(s).

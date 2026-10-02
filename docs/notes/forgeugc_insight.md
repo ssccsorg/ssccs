@@ -362,6 +362,6 @@ These insights are offered as conceptual provocations and engineering guidelines
 
 [1] Kumar, S., & Jha, S. (2026). FORGE‑UGC: FX Optimization & Register‑Graph Engine — Universal Graph Compiler. *arXiv preprint arXiv:2604.16498*. Retrieved from [arxiv.org/pdf/2604.16498](https://arxiv.org/pdf/2604.16498)
 
-[2] Lee, T. (2026). *Schema–Segment Composition Computing System: A Structure‑Defined, Constraint‑Conditioned, and Observation‑Centric Computational System Architecture*. SSCCS Foundation. DOI: 10.5281/zenodo.18759106. Retrieved from [docs.ssccs.org](https://docs.ssccs.org)
+[2] Lee, T. (2026). *Schema–Segment Composition Computing System: A Structure‑Defined, Constraint‑Conditioned, and Observation‑Centric Computational System Architecture*. SSCCS Initiative. DOI: 10.5281/zenodo.18759106. Retrieved from [docs.ssccs.org](https://docs.ssccs.org)
 
 {{< include ../_include/_license.md >}}

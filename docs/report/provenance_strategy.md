@@ -72,7 +72,7 @@ production_requirements:
 
 Standard: C2PA Technical Specification v2.3 (December 2025)  
 Governance: Joint Development Foundation Projects, LLC  
-Key Members: Adobe, Microsoft, Google, Intel, Arm, BBC, Sony, Truepic, SSCCS Foundation
+Key Members: Adobe, Microsoft, Google, Intel, Arm, BBC, Sony, Truepic, SSCCS Initiative
 
 ### 2.2 Data Model Hierarchy
 
@@ -436,7 +436,7 @@ def sign_pdf_pades(
     key_path: Path,
     tsa_url: str,
     reason: str = "IP Protection",
-    location: str = "SSCCS Foundation"
+    location: str = "SSCCS Initiative"
 ):
     """Apply PAdES signature with timestamp to PDF."""
 
