@@ -151,9 +151,25 @@ def _build_title_meta_items(qmd_path: Path) -> dict:
     return result
 
 
-doc_dir = Path(os.environ["QUARTO_DOCUMENT_PATH"])
 doc_file = os.environ["QUARTO_DOCUMENT_FILE"]
-qmd_path = doc_dir / doc_file
+doc_rel_dir = os.environ["QUARTO_DOCUMENT_PATH"]
+project_dir = Path(os.environ["QUARTO_PROJECT_DIR"])
+
+# Quarto names the document directory relative to the project, and the directory
+# a cell runs in is the document's own when the render is given a single file,
+# so no single variable holds the document.  Take the join that does.
+qmd_path = next(
+    (
+        candidate
+        for candidate in (
+            Path.cwd() / doc_file,
+            project_dir / doc_rel_dir / doc_file,
+            project_dir / doc_file,
+        )
+        if candidate.is_file()
+    ),
+    Path.cwd() / doc_file,
+)
 
 # ----- Build title_meta_items for the title-meta grid -----
 title_meta_items = _build_title_meta_items(qmd_path)
