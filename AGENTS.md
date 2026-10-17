@@ -84,4 +84,5 @@ digraph DOTGraph {
 - Code as pessimistically and critically as possible.
 - Do not generate unnecessary code. Produce only what is **essential** for the goal.
 - Do not use text characters to draw diagrams (e.g., trees or boxes using ╔═) in code comments.
+- Keep comments short: one or two lines, only to explain non-obvious intent, constraints, or tradeoffs. Do not restate the code.
 - Symlinks: for a tracked path that is a symlink (`git ls-files -s` mode 120000), edit and stage the target file, never the link.
