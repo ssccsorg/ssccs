@@ -34,11 +34,10 @@ abstract: |
   the decoder's own mask table, this verification is a conformance check of
   the encoding contract rather than a proof of the silicon: its value is the
   deterministic accept/reject oracle, the boundary and divergence findings,
-  and the exhaustive ground truth for test generation. The Tagma-based
-  structural enumeration
-  evaluates the same space in 18.8 milliseconds by enumerating only the
-  combinations that satisfy the cross constraints, a ~700x improvement on
-  this machine. The ev verify CLI runs this structural pipeline by default:
+  and the exhaustive ground truth for test generation. The structural
+  classifier evaluates the same space in 18.8 milliseconds by enumerating
+  only the combinations that satisfy the cross constraints, a ~700x
+  improvement on this machine. The ev verify CLI runs this structural classifier by default:
   the end-to-end command completes in about 0.2 seconds, and the core
   pipeline (raw total plus structural subset plus evaluation) benches at
   36.3 milliseconds. The structural iterator emits exactly the combinations that
@@ -259,7 +258,7 @@ in enumeration strategy.
 
 ```{python}
 #| label: fig-pipeline
-#| fig-cap: "ExaVerif verification pipeline: the YAML fixture drives both the standard evaluate pipeline and the Tagma-based structural pipeline; results are reported and every valid row is re-checked by the Spike backend."
+#| fig-cap: "ExaVerif verification pipeline: the YAML fixture drives both the standard evaluate pipeline and the structural classifier; results are reported and every valid row is re-checked by the Spike backend."
 dot("""
 digraph EvPipeline {
     rankdir=LR
@@ -267,7 +266,7 @@ digraph EvPipeline {
 
     Yaml [label="CVA6 XIF YAML\nfields + constraints", fillcolor="#D4E6F1"]
     Std [label="Standard evaluate\nexpand_all + evaluate_all\nO(N), 33.5M combos", fillcolor="#FADBD8"]
-    Struct [label="Structural struct_enum\nO(V), 196K valid only", fillcolor="#D5F5E3"]
+    Struct [label="Structural classifier\nO(V), 196K valid only", fillcolor="#D5F5E3"]
     Report [label="Report\nText / JSON / CSV / Trace\nFact envelope", fillcolor="#FDEBD0"]
     Spike [label="Spike backend\nC recheck + word compare", fillcolor="#E8DAEF"]
 
@@ -284,8 +283,9 @@ digraph EvPipeline {
   combinations, peak memory ~4-6 GB) and runs every constraint check on
   every combination.
 - The structural pipeline encodes the constraints into the enumeration
-  space itself and visits only the 196,608 valid combinations, lazily,
-  with O(1) memory.
+  space itself and visits only the 196,608 valid combinations. The iterator
+  is lazy; the filter setup is O(sum of domain sizes), and the pipeline
+  collects O(V) combinations and verdicts.
 - Both pipelines produce the same valid set; the regression suite asserts
   this on the CVA6 fixtures (see Correctness Guarantees).
 - Every valid row is also re-checked by a C reimplementation under Spike + pk
@@ -357,25 +357,34 @@ plt.show()
 ```
 
 Memory behavior is the other scaling axis. The standard pipeline allocates
-O(N) combinations; the structural iterator is lazy and holds O(1) state:
+O(N) combinations. The structural iterator is lazy, but the pipeline
+collects the valid combinations and the verdicts, so its memory is O(V);
+the filter setup adds O(sum of domain sizes). The iterator state itself is
+O(1).
 
 ```{python}
 #| label: fig-memory
-#| fig-cap: "Peak memory vs space size: evaluate allocates the full combination Vec (O(N)); struct_enum streams combinations and stays flat. At 33.5M combinations the standard pipeline peaks at several GB, while the structural path uses a few KB."
+#| fig-cap: "Peak memory vs space size: evaluate allocates the full combination Vec (O(N)); the structural pipeline stores O(V) verdicts and the filter setup. The iterator state alone is O(1). At 33.5M combinations the standard pipeline peaks at several GB, while the structural pipeline stores the 196,608 valid points."
 import matplotlib.pyplot as plt
 import numpy as np
 
 plt.rcParams.update({"font.family": "sans-serif", "font.size": 9, "figure.dpi": 150})
 
 sizes = np.array([27, 32768, 524288, 33554432])
-eval_bytes = sizes * 150.0          # ~150 B per Combination
-struct_bytes = np.full_like(sizes, 2000.0)  # O(1) iterator state
+valid = np.array([27, 20480, 92160, 196608])
+eval_bytes = sizes * 150.0
+struct_bytes = valid * 150.0
+iter_bytes = np.full_like(sizes, 2000.0)
 
 fig, ax = plt.subplots(figsize=(7, 4))
 ax.plot(sizes, eval_bytes / 1e6, 'o-', color='#A23B72', linewidth=1.5,
-        markerfacecolor='white', markeredgecolor='#A23B72', markersize=6, label='evaluate (Vec) O(N)')
+        markerfacecolor='white', markeredgecolor='#A23B72', markersize=6,
+        label='evaluate (Vec) O(N)')
 ax.plot(sizes, struct_bytes / 1e6, 's-', color='#2E86AB', linewidth=1.5,
-        markerfacecolor='white', markeredgecolor='#2E86AB', markersize=6, label='struct_enum (lazy) O(1)')
+        markerfacecolor='white', markeredgecolor='#2E86AB', markersize=6,
+        label='structural pipeline O(V)')
+ax.plot(sizes, iter_bytes / 1e6, ':', color='#F18F01', linewidth=1.5,
+        label='iterator state O(1)')
 ax.set_xscale('log')
 ax.set_yscale('log')
 ax.set_xlabel('Raw combinations (log scale)')
@@ -387,9 +396,9 @@ fig.tight_layout()
 plt.show()
 ```
 
-At very large spaces the standard pipeline becomes infeasible on memory
-before the structural path does; the comparison then stops being "slower"
-and becomes "cannot run".
+The structural pipeline avoids O(N) memory, but its memory still grows
+with V. At very large V a streaming path is required; ev does not implement
+one yet.
 
 ## Correctness Guarantees
 
@@ -400,8 +409,8 @@ The structural pipeline is guarded by regression tests
 |------|--------|
 | `structural_enum_cross_wrap_regression` | the exact parent-advance wrap pattern that produced stale child values |
 | `structural_enum_skips_invalid_initial_state` | the all-zero raw state is never emitted when invalid |
-| `structural_enum_matches_evaluate_cva6_full` | struct_enum emits exactly 196,608 combinations, all satisfying the full constraint set |
-| `structural_enum_matches_evaluate_cva6_r4` | struct_enum emits exactly 2,560 combinations |
+| `structural_enum_matches_evaluate_cva6_full` | the structural classifier emits exactly 196,608 combinations, all satisfying the full constraint set |
+| `structural_enum_matches_evaluate_cva6_r4` | the structural classifier emits exactly 2,560 combinations |
 | `validate_into_space_matches_evaluate_cva6_fixtures` | the CoordSpace stores exactly the valid paths (196,608 / 2,560) |
 
 In addition, the `struct_enum_validity/cva6_full_33M` benchmark asserts on
@@ -410,47 +419,23 @@ pass the full constraint set; a regression fails the benchmark.
 
 ## Speed and Scale
 
-```{python}
-#| label: fig-speed-comparison
-#| fig-cap: "Verification time comparison across three approaches for the CVA6 XIF encoding space. ExaVerif completes in 13 seconds on a single core (release build)."
-import matplotlib.pyplot as plt
-import numpy as np
+| Approach | Time | What it measures |
+|---|---:|---|
+| riscv-dv (random) | 10 to 600 minutes, indicative | a sampling budget, not a completeness claim |
+| Formal (OneSpin) | 2 to 72 hours, indicative | properties of the RTL, a different class of guarantee |
+| ev CLI, structural | about 0.2 s (36.3 ms core) | exhaustive classification of the 33.5M space |
+| ev, naive reference | 13.1 s | full expansion of the same space |
 
-plt.rcParams.update({"font.family": "sans-serif", "font.size": 9, "figure.dpi": 150})
-
-tools = ["riscv-dv\n(random)", "Formal\n(OneSpin)", "ExaVerif\n(exhaustive)"]
-times_min = [10, 120, 0.22]  # 13.1 seconds = 0.22 minutes
-times_max = [600, 4320, 0.22]  # 10 hours in minutes
-
-fig, ax = plt.subplots(figsize=(8, 4))
-colors = ["#A23B72", "#F18F01", "#2E86AB"]
-
-for i, (tool, tmin, tmax) in enumerate(zip(tools, times_min, times_max)):
-    ax.barh(tool, tmax - tmin, left=tmin, height=0.4, color=colors[i], alpha=0.8)
-    ax.text(tmax + 20, i, f"{tmax:.0f}m", va="center", fontsize=9, fontweight="bold", color=colors[i])
-
-ax.set_xscale("log")
-ax.set_xlabel("Time to result (minutes, log scale)", fontsize=9)
-ax.set_title("Verification Time Comparison", fontsize=11, fontweight="bold")
-ax.tick_params(labelsize=9)
-ax.set_xlim(0.1, 20000)
-ax.grid(axis="x", alpha=0.3)
-
-fig.tight_layout()
-plt.show()
-```
-
-Scope of the comparison: the riscv-dv and OneSpin figures are indicative,
-not measured here. Formal RTL verification (OneSpin) proves properties about
-the actual core and is a different class of guarantee. ExaVerif verifies the
-encoding model derived from the RTL decoder, not the RTL itself; the two
-approaches are complementary.
+The riscv-dv and OneSpin figures are indicative and not measured here. Formal
+RTL verification proves properties about the actual core; ev classifies the
+encoding model derived from the RTL decoder. The two are complementary. The
+13.1 s naive reference is ev's comparison baseline, not the product path.
 
 ## Structural Enumeration Performance
 
 ```{python}
 #| label: fig-struct-speed
-#| fig-cap: "Verification time: standard evaluate (3.14ms for R4, 13.1s for full) vs struct_enum (250us for R4, 18.8ms for full). At CVA6 scale, struct_enum achieves 13x (R4) and ~700x (full) speedup on this machine."
+#| fig-cap: "Verification time: standard evaluate (3.14ms for R4, 13.1s for full) vs the structural classifier (250us for R4, 18.8ms for full). At CVA6 scale, the structural classifier achieves 13x (R4) and ~700x (full) speedup on this machine."
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -468,7 +453,7 @@ x = np.arange(len(fixtures))
 w = 0.3
 ax1.bar(x - w/2, eval_times, w, label='evaluate (standard)',
         color='white', edgecolor='#A23B72', linewidth=1.2)
-ax1.bar(x + w/2, struct_times, w, label='struct_enum (synTagma)',
+ax1.bar(x + w/2, struct_times, w, label='structural classifier',
         color='white', edgecolor='#2E86AB', linewidth=1.2, hatch='///')
 ax1.set_xticks(x)
 ax1.set_xticklabels(fixtures, fontsize=8)
@@ -487,7 +472,7 @@ ax2.barh(fixtures, speedups, height=0.4, color='white', edgecolor='black', linew
 for i, sp in enumerate(speedups):
     ax2.text(sp + 20, i, f'{sp:.0f}x', va='center', fontsize=9, fontweight='bold')
 ax2.set_xlabel('Speedup factor')
-ax2.set_title('synTagma Speedup', fontsize=10, fontweight='bold')
+ax2.set_title('Structural speedup', fontsize=10, fontweight='bold')
 ax2.set_xlim(0, max(speedups) * 1.25)
 
 fig.tight_layout()
@@ -511,7 +496,7 @@ import numpy as np
 
 plt.rcParams.update({"font.family": "sans-serif", "font.size": 9, "figure.dpi": 150})
 
-stages = ["evaluate\n(standard)", "struct_enum\n(count)", "evaluate_structural\n(core)", "ev verify\n(end-to-end)"]
+stages = ["evaluate\n(standard)", "structural\n(count)", "evaluate_structural\n(core)", "ev verify\n(end-to-end)"]
 times_ms = [13.1e3, 18.8, 36.3, 210.0]  # ms
 colors = ["#A23B72", "#2E86AB", "#6BC8B8", "#F18F01"]
 
@@ -540,7 +525,7 @@ benches at 16.2 ms, against 291 ms for the naive evaluate.
 
 ```{python}
 #| label: fig-scaling
-#| fig-cap: "Scaling behavior: evaluate runs in O(N) where N is the full encoding space; struct_enum runs in O(V) where V is the structurally valid subset. The CVA6 full space (0.6% density) shows ~700x speedup; denser spaces see smaller gains."
+#| fig-cap: "Scaling behavior: evaluate runs in O(N) where N is the full encoding space; the structural iterator visits O(V) where V is the structurally valid subset. The CVA6 full space (0.6% density) shows ~700x speedup; denser spaces see smaller gains."
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -557,7 +542,7 @@ fig, ax = plt.subplots(figsize=(7, 4))
 ax.plot(raw_sizes, eval_times_us, 'o-', color='#A23B72', linewidth=1.5,
         markerfacecolor='white', markeredgecolor='#A23B72', markersize=6, label='evaluate (standard)')
 ax.plot(valid_sizes, struct_times_us, 's-', color='#2E86AB', linewidth=1.5,
-        markerfacecolor='white', markeredgecolor='#2E86AB', markersize=6, label='struct_enum (synTagma)')
+        markerfacecolor='white', markeredgecolor='#2E86AB', markersize=6, label='structural classifier')
 for (rx, ty), (vx, sy), lab in zip(zip(raw_sizes, eval_times_us), zip(valid_sizes, struct_times_us), labels):
     sp = ty / sy
     ax.annotate(f'{sp:.0f}x', xy=(rx, ty), fontsize=7, fontweight='bold',
@@ -578,14 +563,14 @@ plt.show()
 
 ```{python}
 #| label: fig-bench-table
-#| fig-cap: "Complete benchmark data including CVA6 fixtures. struct_enum achieves 1.7x-~700x speedup over the standard pipeline across real-world RISC-V verification targets; the Tagma row is a reference measurement excluded from the speedup comparison. Absolute times are machine-specific."
+#| fig-cap: "Complete benchmark data including CVA6 fixtures. The structural classifier achieves 1.7x-~700x speedup over the standard pipeline across the RISC-V samples; the Tagma row is a reference measurement excluded from the speedup comparison. Absolute times are machine-specific."
 import matplotlib.pyplot as plt
 import numpy as np
 
 plt.rcParams.update({"font.family": "sans-serif", "font.size": 8, "figure.dpi": 150})
 
 columns = ('Fixture', 'Raw combos', 'Valid combos', 'Density',
-           'evaluate', 'struct_enum', 'Speedup')
+           'evaluate', 'structural', 'Speedup')
 data = [
     ('Small',      '27',         '27',       '100%',   '4.87 µs',   '2.86 µs',   '1.7x'),
     ('Medium',     '32,768',     '20,480',   '62.5%',  '5.99 ms',   '3.02 ms',   '2.0x'),
@@ -695,12 +680,12 @@ not an ISA simulation; see the abstract for the boundary.
 
 ## Structural vs Standard: the mechanism
 
-| Aspect | Standard (`evaluate`) | Structural (`struct_enum`) |
+| Aspect | Standard (`evaluate`) | Structural classifier |
 |--------|----------------------|---------------------------|
 | Combinations generated | **All** 33,554,432 | **Valid only** 196,608 |
-| Constraint evaluation | 10 checks × 33.5M | **0** (structurally encoded) |
-| Invalid detection | `check.allows()` → false | Vacant slot → 1.65 ns |
-| Memory | 4 GB peak (Vec) | 0 (lazy iterator) |
+| Constraint evaluation | per-combination checks | structurally encoded |
+| Invalid detection | `check.allows()` → false | Vacant slot in the structural iterator |
+| Memory | 4 GB peak (Vec) | O(V) verdicts plus O(sum domains) setup |
 | Time (CVA6 R4) | 3.14 ms | 250 µs |
 | Time (CVA6 full) | 13.1 s | 18.8 ms |
 
@@ -722,52 +707,37 @@ UVM/simulator stack that does not enumerate, and formal tools use SAT/BMC
 engines that are not exhaustive searches. ExaVerif is an exhaustive
 enumeration of the encoding space; that is a different category from both.
 
-## Comparison with synTagma Benchmarks
+The end-to-end cost is `O(sum domains + V*k)`, not `O(V)` alone: the filter
+setup expands the domains, while the iterator itself is index-free. The
+scaling group measures both sides of that boundary.
 
-The struct_enum speedup mirrors synTagma's core thesis: structural
-addressing eliminates hash-based lookup overhead. The primitive timings
-(1.65 ns, 5.2 ns) are synTagma measurements, reproduced here for context.
+## Layering and provenance
 
-| synTagma primitive | ev application | Measured | Advantage |
-|--------------------|---------------|:--------:|:---------:|
-| Nonexistent prefix lookup | Invalid encoding detection | **1.65 ns** | 14x vs HashMap |
-| CoordPath indexing | Combination addressing | **5.2 ns** | O(depth) = O(5) |
-| CoordSpace sparse get | Valid encoding iteration | **250 µs** (16K space) | 13x vs evaluate |
-| Axis projection | funct7/funct3 filtering | **9.10 ms** (524K space) | 32x vs evaluate |
+The CVA6 fixtures enter ev through the layout layer:
+`xif_ref.xif.yaml` declares `profile: riscv-r` and
+`xif_ref_r4.xif.yaml` declares `profile: riscv-r4`. The profile supplies the
+bit positions, and the layout is part of the content address. The `riscv`
+feature carries the profiles and the Spike backend; the engine itself has no
+RISC-V branch.
 
-## Comparison with Random Verification (riscv-dv)
+The report's claims rest on two different checks. The derivation gate
+re-extracts the CVA6 decoder mask table at the pinned commit and compares
+the accepted set with each fixture, so a transcription error in those three
+fixtures fails. The source pin covers the decoder file and the fixture
+digests. The record layer is separate from both: every run names its engine
+and claim class, and each point carries a `point_id` that excludes the
+verdict. Accumulation and cross-engine comparison are the consumer's
+responsibility, not ev's.
 
-```{python}
-#| label: fig-coverage-comparison
-#| fig-cap: "Unique encoding coverage: exhaustive enumeration evaluates the full 33.5M-point space, where riscv-dv's random sampling budget is a configuration choice, not a ceiling."
-import matplotlib.pyplot as plt
-import numpy as np
+## Relation to Random Verification (riscv-dv)
 
-plt.rcParams.update({"font.family": "sans-serif", "font.size": 9, "figure.dpi": 150})
-
-methods = ["riscv-dv\n(random)", "ExaVerif\n(exhaustive)"]
-unique = [1e6, 33.5e6]
-colors = ["#A23B72", "#2E86AB"]
-
-fig, ax = plt.subplots(figsize=(6, 4))
-bars = ax.bar(methods, unique, color=colors, width=0.4, edgecolor="white")
-for bar, val in zip(bars, unique):
-    ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.5e6,
-            f"{val:,.0f}", ha="center", fontsize=10, fontweight="bold")
-ax.set_ylabel("Points evaluated")
-ax.set_title("Coverage Comparison", fontsize=11, fontweight="bold")
-ax.tick_params(labelsize=9)
-ax.grid(axis="y", alpha=0.3)
-ax.set_ylim(0, 40e6)
-
-fig.tight_layout()
-plt.show()
-```
-
-The 33.5x ratio compares a 1M-sample budget against the full space. Random
-generators can raise coverage by increasing the budget or by directing
-samples with coverage feedback; the point of exhaustive enumeration is
-determinism and completeness, not a fixed budget.
+The CVA6 flow uses riscv-dv as a random instruction generator and its UVM
+testbench for execution checks. Those methods sample and observe behavior;
+ev classifies the declared encoding space exhaustively and deterministically.
+The two answer different questions, so this report does not use a coverage
+ratio or a sampling budget as an argument for ev. The comparison of
+interest is within ev: the structural classifier against the full-expansion
+reference on the same spec, which is what the benchmark table measures.
 
 ## Relation to the Standard CVA6 Verification Environment
 
@@ -822,6 +792,9 @@ fixture.
   values. ev treats all register values uniformly.
 - **Pipeline hazards**: write-after-read hazards (rs1==rd) are not modelled
   at the encoding level.
+- **Compile-time configuration**: ev models one declared encoding space.
+  CVA6's elaboration parameters are not fields of an encoding, so the fixture
+  states the configuration it assumes (issue #36 decision).
 
 ## References
 

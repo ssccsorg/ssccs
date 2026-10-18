@@ -8,11 +8,32 @@ date: last-modified
 
 ## Executive Summary
 
-ExaProof is an open-core verification engine that exhaustively enumerates the full instruction space of a RISC-V processor design. The structural enumeration method compiles field constraints into coordinate-based filters at setup time, completing exhaustive verification of production cores (CVA6, Ibex) in milliseconds rather than minutes: the CVA6 encoding space verifies end-to-end in about 0.2 seconds with the core pipeline at 36.3 milliseconds, and Ibex in 9.10 milliseconds. This is not a simulation speedup. It is a structural improvement that eliminates hash tables and index lookups from the verification path entirely.
+ExaProof is an open-core verification engine for declared discrete spaces.
+RISC-V instruction encoding is its first profile family. The engine
+exhaustively classifies every point a specification admits, deterministically
+and without sampling. The structural classifier is the default; the
+full-expansion reference is selectable for comparison.
 
-The strategic strength is foundational: coordinate-based addressing replaces conventional indexing at the arithmetic level, making verification deterministic, reproducible, and cumulative. Every run feeds an accumulating knowledge structure that grows more valuable over time. The approach is published with open artifacts and validated against real production cores.
+The performance claim is measured and bounded. On the CVA6 encoding space the
+structural classifier completes the 33,554,432-point raw space in 18.8 ms and
+the `ev verify` pipeline in about 0.2 s end to end (36.3 ms core). The Ibex
+space's 92,160 valid encodings classify in 9.10 ms. The iterator is index-free
+and its cost follows the valid set; the raw total is O(k); the structural
+filter setup is O(sum of domain sizes), so the end-to-end cost is
+`O(sum domains + V*k)`. Memory is O(V).
 
-For AWS, ExaProof is a native ARM workload that differentiates Graviton for EDA, drives HPC utilization in the fastest-growing semiconductor region, and creates a new FPGA verification category on F1. The Asian semiconductor corridor spanning Singapore's design R&D to Malaysia's high-volume manufacturing provides a concentrated customer base that maps directly onto AWS's regional infrastructure.
+The strategic strength is the record contract. Every run emits a
+classification that names its engine and claim class and addresses each point
+by spec hash and field values. A consumer can accumulate, compare, and
+supersede those records; accumulation is the consumer's layer, not the
+engine's.
+
+For AWS, ExaProof is a native ARM workload that differentiates Graviton for
+EDA, drives HPC utilization in the fastest-growing semiconductor region, and
+creates a new FPGA verification category on F1. The Asian semiconductor
+corridor spanning Singapore's design R&D to Malaysia's high-volume
+manufacturing provides a concentrated customer base that maps directly onto
+AWS's regional infrastructure.
 
 ## The Verification Problem
 
@@ -22,24 +43,42 @@ RISC-V changes this calculus. Its open instruction set architecture, combined wi
 
 ## ExaProof Architecture
 
-ExaProof performs exhaustive enumeration of a Spec Space. A YAML specification defines every instruction field, its range, alignment, and constraints (oneof, cross, range, eq, neq, and others). From this specification, the engine generates every valid combination of fields and evaluates each deterministically. No combination is left unexamined.
+ExaProof performs exhaustive classification of a Spec Space. A YAML
+specification defines every field, its domain, the constraints between
+fields, and a projector. The engine enumerates the points the constraints
+admit and classifies each one. The same specification drives the optional
+channels: RTL generation, synthesis, and a simulation recheck.
 
-Three infrastructure properties differentiate the approach:
+The engine is layered. A layout profile supplies bit positions when a target
+packs fields into a word; `riscv-r` and `riscv-r4` are profiles, and the Spike
+backend is a simulation backend, both under the `riscv` feature. The
+classification layer is a capability: the structural classifier is the
+default, the full-expansion reference is selectable, and an imported engine
+implements the same trait. The record layer names the engine and claim class
+and addresses each point by spec hash and field values.
 
-- **Structural performance:** the Spec Space is enumerated through coordinate arithmetic, not hash tables or index lookups. A single specification completes in milliseconds regardless of constraint complexity.
-- **Cumulative nature:** every verification result is stored as a structured record. No result is discarded, every run raises the baseline. The accumulated Spec Space becomes a design asset that grows with use.
-- **Spatial storage:** the Spec Space is stored using coordinate primitives where the address is the coordinate. No index maintenance, no hash collisions, no lookup overhead.
+Three properties differentiate the approach:
 
-These three together mean that adding another specification dimension costs only the machine time for one more enumeration, with zero coordination overhead and zero storage amplification.
+- Deterministic completeness: every point of the declared space is classified,
+  with no sampling and no probabilistic claim.
+- Structural efficiency: the iterator visits only the valid set. The measured
+  boundary is `O(sum domains + V*k)` with O(V) memory, not an unbounded claim.
+- Addressed records: the spec hash, the point identity, and the engine
+  identity make two runs comparable. Accumulation and cross-run comparison
+  belong to the consumer.
+
+A consumer can run many specifications; each run is independent. The record
+size tracks the emitted set, not the raw product, and there is no coordination
+overhead between runs.
 
 ## Validated on Production Cores
 
-The structural enumeration strategy has been validated against two publicly verifiable RISC-V cores:
+The structural classification strategy has been validated against two publicly verifiable RISC-V cores:
 
-- **CVA6** (OpenHW Group): 196,608 valid encodings of the 33.5M space enumerated in 18.8 milliseconds on a single Apple silicon core; the CLI verify path completes end-to-end in about 0.2 seconds. Cross-checked through a C reimplementation under Spike and the hardware decoder mask table (cvxif_instr_pkg.sv).
-- **Ibex** (lowRISC): 92,160 valid encodings enumerated in 9.10 milliseconds.
+- CVA6 (OpenHW Group): 196,608 valid encodings of the 33.5M space, classified in 18.8 milliseconds on a single Apple silicon core; the CLI verify path completes end-to-end in about 0.2 seconds. The space is derived from the hardware decoder mask table (cvxif_instr_pkg.sv) at a pinned revision and re-derived by a gate. The Spike backend cross-checks the constraint model and word assembly.
+- Ibex (lowRISC): 92,160 valid encodings, classified in 9.10 milliseconds. The mapping is a hand transcription from the pinned `ibex_decoder.sv`; the source pin checks the decoder file and the fixture digests, not the mapping.
 
-These two cores complete the proof of concept: the method is implementation-independent. A YAML specification encodes field relationships, and the engine compiles them into coordinate spaces. The production prototype stage is expanding fixtures across more cores, extensions, and peripherals, with additional targets under non-disclosure agreements.
+These two cores complete the proof of concept: the method is implementation-independent. A YAML specification encodes field relationships, and the engine classifies the space they define. The production prototype stage is expanding fixtures across more cores, extensions, and peripherals, with additional targets under non-disclosure agreements.
 
 ## Collaboration with AWS
 
@@ -53,7 +92,10 @@ ExaProof is already validated on ARMv8-A microarchitecture. Graviton instances p
 
 ### B. HPC Cluster Utilization in ASEAN
 
-Pre-silicon emulation requires compute at scale. ExaProof parallelizes naturally across HPC nodes, with each node evaluating a different constraint set or projection target. AWS HPC clusters in Singapore and Malaysia (both served by AWS Local Zones) provide proximity to the design teams that need this capability.
+Pre-silicon emulation requires compute at scale. A batch driver can partition
+specifications across HPC nodes, with each node running an independent
+classification. AWS HPC clusters in Singapore and Malaysia (both served by AWS
+Local Zones) provide proximity to the design teams that need this capability.
 
 **Joint value:** ExaProof drives HPC instance utilization for EDA workloads in ASEAN, a region where semiconductor design activity is growing faster than local compute infrastructure. AWS ParallelCluster with ExaProof provides an on-demand emulation farm that competes with on-premise alternatives requiring capital expenditure.
 
@@ -61,7 +103,7 @@ Pre-silicon emulation requires compute at scale. ExaProof parallelizes naturally
 
 ### C. FPGA Golden Reference on F1
 
-The synthesis channel turns a verified specification into a combinational decoder. The demonstrated Tagma decoder backs the roughly 300 gate claim with exhaustive verification, formal equivalence between RTL and netlist, and a Sky130 standard cell report of 388 cells. The same YAML specification that drives software enumeration can be mapped to AWS F1 FPGA instances as a golden reference model.
+The synthesis channel turns a verified specification into a combinational decoder. The syntagma Tagma decoder is the sample: ev's Yosys flow reports 478 cells, and the syntagma Sky130 flow reports 388 cells for the same RTL. The same YAML specification that drives software classification can be mapped to AWS F1 FPGA instances as a golden reference model.
 
 **Joint value:** This gives AWS F1 a differentiated RISC-V verification workload. The dual-path verification (software enumeration + FPGA golden reference) provides a completeness guarantee that neither path achieves alone. F1 instances become the reference platform for RISC-V instruction set validation.
 

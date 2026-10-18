@@ -1,6 +1,6 @@
 ---
 title: "ExaVerif"
-subtitle: "Exhaustive Verification for RISC-V Custom Instructions"
+subtitle: "Exhaustive Verification for Declared Design Spaces"
 format:
     html: {}
     pdf: {}
@@ -42,80 +42,119 @@ title_meta_items = {
 ## The Project
 
 ExaVerif is an open-core (Apache 2.0) CLI engine for exhaustive verification
-of RISC-V custom instruction extensions. A single command consumes a YAML
-specification of a custom instruction extension, enumerates every valid
-combination of its fields, and evaluates each one deterministically.
-The specification declares every instruction field, its range, alignment,
-and constraints. The CLI provides three subcommands: `verify` for
-constraint evaluation, `simulate` for instruction execution, and `synth`
-for RTL generation and synthesis.
-Each result is recorded as a structured Fact, consumable by the neXus
-pipeline and by autonomous agents. No result is discarded; every run raises
-the baseline, so verification output accumulates across projects, teams, and
-design phases instead of resetting with each tapeout decision.
+of a declared discrete space. A single command consumes a YAML specification
+that names fields, their domains, the constraints between them, and an
+optional projector. The engine enumerates every point the constraints admit,
+classifies it, and reports the result deterministically. The CLI provides
+three subcommands: `verify` for classification, `simulate` for a backend
+recheck, and `synth` for RTL generation and synthesis.
 
-The engine verifies encoding spaces, and its only knowledge of a target is the
-spec it is given: no constraint type or projector carries a target's name or
-constant. The cores and designs named in this documentation, CVA6 (OpenHW
-Group), Ibex (lowRISC), and the Tagma decoder (syntagma), are samples that
-exercise it. Each is described from that project's own source, and the CVA6
-encoding space is re-derived from the hardware decoder mask table at a pinned
-revision on every test run, so a transcription error fails rather than
-persists. Expansion to a broad range of additional industry silicon
-specifications is planned.
+The engine's only knowledge of a target is the spec. A target family enters
+through two seams: a layout profile, which supplies bit positions when the
+target packs its fields into a word, and a backend, which supplies a channel
+such as simulation or synthesis. RISC-V is one category in that structure:
+`riscv-r` and `riscv-r4` are registry entries, and the Spike backend is a
+simulation backend, both compiled under the `riscv` feature. That feature is
+in the default build; a build with `--no-default-features` carries no RISC-V
+code and verifies any spec that declares its own layout.
+
+The cores and designs named in this documentation, CVA6 (OpenHW Group), Ibex
+(lowRISC), and the Tagma decoder (syntagma), are samples that exercise the
+engine. Each is described from that project's own source. The CVA6 encoding
+space is re-derived from the hardware decoder mask table at a pinned revision
+on every test run. The Ibex mapping is a hand transcription with a pinned
+source, and the pin checks the decoder file and the fixture digests, not the
+mapping. The Tagma decoder is the sample for the `decompose` projector.
+
+ev emits a structured Fact. Accumulation, supersession, cross-run corpora,
+cross-engine comparison, and the design-oracle product belong to the
+consumer, ExaSpec. ev's responsibility is the classification itself: complete
+over the declared space, reproducible, and correctly addressed.
+
+## The Layer Stack
+
+The engine is organized as layers, each with one responsibility and a
+capability seam at its boundary:
+
+| Layer | What it owns | Seam |
+|---|---|---|
+| Spec space | fields, domains, constraints, projector, optional word layout | `FormatCapable` |
+| Layout profile | named bit layouts; `riscv-r`, `riscv-r4`, or a caller's profile | `LayoutRegistry` |
+| Classification | the engine that decides each point; structural is the default, naive is the reference | `Classify` |
+| Record | `spec_hash`, `point_id`, `id`, `engine`, `claim`, and the verdicts | `Classification` and the Fact envelope |
+| Channels | text, JSON, CSV, trace, RTL generation, synthesis, simulation | `ReporterCapable`, `GenerateRtl`, `RunSynthesis`, `RunSimulation` |
+| Consumers | accumulation, comparison, supersession, the design oracle | outside ev |
+
+A layer can be replaced without changing the ones above or below it. The
+classification layer is the most recent seam: `EV_CLASSIFIER=structural` is
+the default, `EV_CLASSIFIER=naive` selects the full-expansion reference, and
+an imported engine implements the same trait.
 
 ## The Spec Space
 
 The unit of verification is the Spec Space, a tripartite model:
 
-- Axes: field domains, each an instruction field with its admissible values.
+- Axes: field domains, each a field with its admissible values.
 - Constraints: admissible subspaces over the axes, including oneof, range,
   bitmask, cross, eq, and neq.
 - Projector: a mapping from each point of the space to a result value.
 
-The model is itself a complete decoder specification: axes define the
-inputs, constraints define the legal encodings, and the projector defines
-the result mapping. The same YAML compiles to synthesizable SystemVerilog
-through `synth`, so exhaustive verification doubles as design generation.
+The model is itself a complete target specification: axes define the inputs,
+constraints define the legal points, and the projector defines the result
+mapping. The same YAML compiles to synthesizable SystemVerilog through
+`synth`, so exhaustive verification doubles as design generation.
+
+A fourth layer is optional. A word layout maps fields to bit positions when
+the target packs them into an instruction, a frame, or a record prefix. The
+layout is data: a spec selects a named profile or declares it inline, and a
+spec without one has no word. The layout is part of the content address, so
+the same fields mapped to different bits are different spaces.
 
 The engine compiles constraints into the enumeration itself. The iterator
 visits the valid space directly instead of the full cross product, so a
-single complete spec space verifies in milliseconds, hundreds of times
-faster than the standard pipeline. Because a single space is that cheap,
-N spec spaces run in parallel, each an observation perspective with its
-own constraint set, projection target, and interpretation layer. Their
-cross-insights compose into a multi-dimensional design map that no single
-pass can produce:
+single spec space verifies in milliseconds, hundreds of times faster than
+the standard pipeline. A consumer can run many specs, each an observation
+perspective with its own constraint set and projection target; accumulation
+and cross-insight belong to that consumer, not to ev.
 
-```shell
-ev verify --target spec_space_N.xif.yaml
-```
-
-Identical runs produce identical records, so results stay comparable
-across runs and become a queryable design record that agents and design
-teams consult without re-executing verification. This structural
-enumeration is the source of the speedups measured in the benchmarks
-below, and it is independent of the target: any deterministic system that
-maps onto axes, constraints, and a projector benefits from the same
-pipeline.
+Identical runs produce identical records, so the classification is
+comparable across runs. ev emits the record; a consumer decides how to
+accumulate or query it. The structural enumeration is the source of the
+speedups measured below, and it is independent of the target: any
+deterministic system that maps onto axes, constraints, and a projector
+benefits from the same pipeline.
 
 ## Why the Gain Is Algorithmic
 
-The speedup is an O(N) vs O(V) structural gain, not a language effect.
+The speedup is a structural property of the enumeration, not a language
+effect. Four points state it, and each has a measurement:
 
-1. Standard `evaluate_all` checks every combination of the full space N;
-   `struct_enum` visits the valid space V directly, constraints encoded into
-   the enumeration.
-2. Both pipelines are Rust, the same release build, measured by the same
-   harness: the ratio is the enumeration strategy alone, and it survives a
-   port to any language.
-3. riscv-dv (UVM/simulator) and formal tools (SAT/BMC) do not enumerate at
-   all; comparing against them is comparing apples to oranges.
-4. Interpreted verification software (e.g., Python-based) dominates the
-   industry landscape. The baseline here is a release-build Rust standard
-   implementation, which in the combined assessment of memory safety-efficiency and
-   performance already holds an overwhelming lead over C/C++; the structural
-   gain therefore stands against an already high-performance baseline.
+1. Standard `evaluate_all` checks every combination of the full space N. The
+   structural classifier visits only the valid space V, with the constraints
+   encoded into the iterator.
+2. The iterator is index-free. At fixed V, a 100x increase in the raw product
+   moves the iterator from 1.64 to 1.93 µs; the cost follows V and the field
+   count, not N.
+3. `raw_total_combinations` is O(k) and flat in N, because `FieldSpec::len`
+   computes a domain's cardinality without materializing it. The measured
+   cost is 37 ns across the same 100x range.
+4. The structural filter setup is O(sum of domain sizes). It dominates the
+   end-to-end time when one field carries a large domain: 3.7 µs to 272 µs as
+   that domain grows 100x. The end-to-end pipeline is therefore
+   `O(sum domains + V*k)`, not `O(V)` alone.
+
+Both pipelines are Rust in the same release build, measured by the same
+harness, so the ratio is the enumeration strategy alone. riscv-dv (UVM and
+simulator) and formal tools (SAT and BMC) do not enumerate at all; comparing
+against them is comparing different objects. The baseline here is a release
+build Rust standard implementation, and the structural gain stands against
+that baseline.
+
+Memory is O(V): `evaluate_structural` collects the valid combinations and the
+verdicts. The largest committed valid set is 196,608 points. A streaming path
+would need a sink-based record API and is deferred until a consumer needs a
+valid set that does not fit memory. There is no probabilistic claim: a run
+classifies every point of the declared space and nothing else.
 
 ## Benchmarks
 
@@ -129,7 +168,7 @@ plt.rcParams.update({"font.family": "sans-serif", "font.size": 9, "figure.dpi": 
 
 fixtures = ["Ibex RV32IMCB\n524K raw · 92K valid", "CVA6 XIF full\n33M raw · 196K valid"]
 eval_us = [291e3, 13.1e6]    # naive evaluate
-struct_us = [9100, 18800]    # struct_enum (count)
+struct_us = [9100, 18800]    # structural (count)
 cli_us = [16200, 36300]      # evaluate_structural (core)
 
 struct_sp = [e / s for e, s in zip(eval_us, struct_us)]
@@ -141,7 +180,7 @@ x = np.arange(len(fixtures))
 w = 0.26
 ax1.bar(x - w, eval_us, w, label='evaluate (standard)',
         color='white', edgecolor='#A23B72', linewidth=1.2)
-ax1.bar(x, struct_us, w, label='struct_enum (count)',
+ax1.bar(x, struct_us, w, label='structural (count)',
         color='white', edgecolor='#2E86AB', linewidth=1.2, hatch='///')
 ax1.bar(x + w, cli_us, w, label='evaluate_structural (core)',
         color='white', edgecolor='#F18F01', linewidth=1.2, hatch='...')
@@ -176,7 +215,7 @@ plt.show()
 
 ```{python}
 #| label: fig-scaling-main
-#| fig-cap: "Scaling across fixtures: evaluate runs in O(N), struct_enum in O(V). The gap widens as valid density drops; CVA6 full (0.6% density) shows ~700x."
+#| fig-cap: "Scaling across fixtures: evaluate runs in O(N), the structural iterator visits O(V). The gap widens as valid density drops; CVA6 full (0.6% density) shows ~700x."
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -192,7 +231,7 @@ fig, ax = plt.subplots(figsize=(8, 4.5))
 ax.plot(raw_sizes, eval_times_us, 'o-', color='#A23B72', linewidth=1.5,
         markerfacecolor='white', markeredgecolor='#A23B72', markersize=6, label='evaluate (standard) O(N)')
 ax.plot(valid_sizes, struct_times_us, 's-', color='#2E86AB', linewidth=1.5,
-        markerfacecolor='white', markeredgecolor='#2E86AB', markersize=6, label='struct_enum (synTagma) O(V)')
+        markerfacecolor='white', markeredgecolor='#2E86AB', markersize=6, label='structural classifier O(V)')
 for (rx, ty), (vx, sy), lab in zip(zip(raw_sizes, eval_times_us), zip(valid_sizes, struct_times_us), labels):
     sp = ty / sy
     ax.annotate(f'{sp:.0f}x', xy=(rx, ty), fontsize=7, fontweight='bold',
@@ -224,21 +263,45 @@ the most (CVA6 full 0.6% density, ~700x; Ibex 17.6%, 32x; dense spaces 1-2x).
 | CVA6 full | 33,554,432 | 196,608 | 13.1 s | 18.8 ms | ~700x |
 | CVA6 full (evaluate_structural) | 33,554,432 | 196,608 | 13.1 s | 36.3 ms | 361x |
 
+The two synthetic scaling axes in `benches/bench.rs` isolate the property.
+At fixed V, the iterator stays flat as the raw space grows; the filter setup
+grows with the domain size. At fixed V with a growing field count k, the
+end-to-end cost is linear in k: 0.97, 1.91, 3.69, and 8.15 µs for 4, 8, 16,
+and 32 fields. `cargo bench -- scaling` reproduces both.
+
 ## Status
 
-- **CVA6 CV-X-IF** (OpenHW): 33.5M combinations, 196,608 valid, 13.1 s vs
-  18.8 ms (~700x); the `ev verify` CLI completes the same space end-to-end
-  in about 0.2 s (core pipeline 36.3 ms). Space derived from the hardware decoder mask table at a pinned revision and re-derived from it by a gate in the test suite; the DV class generates encodings the decoder rejects,
-  a documented divergence. Master report: [CVA6 CV-X-IF Report (Standard Reference)](/projects/ev/cva6.html).
-- **Ibex RV32IMCB** (lowRISC): 524,288 combinations, 92,160 valid,
-  291 ms vs 9.10 ms (32x); evaluate_structural core 16.2 ms. Report: [Ibex RV32IMCB Report](/projects/ev/ibex.html).
+The engine is the default path. `ev verify` runs the structural classifier;
+the naive pipeline is selectable with `EV_CLASSIFIER=naive` and is the
+reference the tests compare against. Every record names its engine and claim
+class, and every point carries a coordinate identity that excludes the
+verdict.
+
+The RISC-V samples are two reports:
+
+- CVA6 CV-X-IF (OpenHW): the 33.5M space derives from the hardware decoder
+  mask table at a pinned revision and is re-derived by a gate. Report:
+  [CVA6 CV-X-IF Report](/projects/ev/cva6.html).
+- Ibex RV32IMCB (lowRISC): the 524,288-point space is a hand transcription
+  from `ibex_decoder.sv` at a pinned revision; the pin checks the decoder and
+  the fixture digests, not the mapping. Report:
+  [Ibex RV32IMCB Report](/projects/ev/ibex.html).
 
 ### Limits
 
-- Exhaustive coverage grows exponentially with parameters; the speedup
-  depends on valid-space density, not raw size.
+- Exhaustive coverage grows exponentially with the number of fields and their
+  domains. The speedup depends on valid-space density, not raw size.
+- The structural filter setup is O(sum of domain sizes). A single very large
+  domain costs its size even though the valid set is small.
+- Memory is O(V). A valid set that does not fit memory needs a streaming path,
+  which is not implemented.
+- Compile-time configuration spaces are out of scope. A configuration selects
+  which instructions exist; a spec models one configuration and states the
+  parameter binding it assumes.
+- The Ibex mapping is a transcription, not a derived artifact. A consumer that
+  needs a mechanically derived Ibex mapping must derive it outside ev.
 - Counts are field-value combinations and equal distinct instruction words
-  (no enable_mask collapsing in the CVA6 fixtures).
+  where no enable_mask collapses them.
 
 ---
 

@@ -1,6 +1,6 @@
 ---
 title: "Ibex RV32IMCB Report"
-subtitle: "Structural enumeration with ExaVerif (ev) and synTagma"
+subtitle: "Exhaustive encoding verification with ExaVerif (ev)"
 metadata-files:
   - ../../_include/author.yml
 abstract: |
@@ -8,10 +8,10 @@ abstract: |
   register-register (OPCODE_OP) and register-immediate (OPCODE_IMM) ALU
   encoding spaces, covering the full RV32IMCB instruction set including
   Zbt (R4-type ternary instructions). The standard pipeline evaluates
-  524,288 combinations in 3.66 seconds. The Tagma-based structural
-  enumeration evaluates the same space in 46.3 milliseconds — a 79x
-  improvement — by generating only structurally valid combinations and
-  eliminating all runtime constraint checks. Total valid encodings:
+  524,288 combinations in 291 milliseconds. The structural classifier
+  evaluates the same space in 9.10 milliseconds, 32x faster, by generating
+  only structurally valid combinations; this fixture's constraints are
+  structural, so it runs no runtime checks. Total valid encodings:
   92,160 (R-type) plus 55,616 (I-type).
 ---
 
@@ -46,6 +46,11 @@ instruction set with an optional Bit-Manipulation extension. This
 verification covers the OPCODE_OP (0x33, register-register) and
 OPCODE_IMM (0x13, register-immediate) decode logic in
 `ibex_decoder.sv` under the RV32BFull configuration.
+
+The mapping is a hand transcription from `ibex_decoder.sv` at commit
+`f4540774`. `tests/ibex_source_pin.rs` pins the decoder file and the fixture
+digests, so a decoder change or a fixture edit is visible. The pin does not
+derive the pairs; the tables in this report are the fixture's claim.
 
 ### R-type: funct7/funct3 decode (OPCODE_OP)
 
@@ -82,14 +87,14 @@ set with funct3=101).
 
 ```{python}
 #| label: fig-verification-scale
-#| fig-cap: "Ibex RV32IMCB encoding space: 524,288 raw combinations reduce to 92,160 structurally valid encodings. The remaining 54 unmapped funct7 values pass trivially per the cross-constraint semantics."
+#| fig-cap: "Ibex RV32IMCB encoding space: 524,288 raw combinations reduce to 92,160 structurally valid encodings. The 52 main-case pairs and 128 Zbt pairs account for the valid set; the 54 funct7 values with no decoder case are mapped to an empty set and are illegal."
 import matplotlib.pyplot as plt
 import numpy as np
 
 plt.rcParams.update({"font.family": "sans-serif", "font.size": 9, "figure.dpi": 150})
 
-categories = ["Main case\n(10 funct7)", "Zbt ternary\n(64 funct7)", "Unmapped\n(54 funct7)"]
-valid_counts = [26112, 65536, 512]
+categories = ["Main case\n(52 pairs)", "Zbt ternary\n(128 pairs)", "No decoder case\n(54 funct7)"]
+valid_counts = [26624, 65536, 0]
 colors = ["#2E86AB", "#4CB4C7", "#A2D3C9"]
 
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4), gridspec_kw={"width_ratios": [1, 1.5]})
@@ -130,17 +135,17 @@ plt.show()
 
 ```{python}
 #| label: fig-speed-comparison
-#| fig-cap: "Verification time comparison: struct_enum (Tagma-based) vs standard evaluate pipeline across four fixture sizes. At CVA6 R4 2M scale, struct_enum achieves 32x speedup by eliminating all runtime constraint evaluation."
+#| fig-cap: "Verification time comparison: the structural classifier against the standard evaluate pipeline across four fixture sizes. The Ibex space is 32x; the CVA6 full space is ~700x on the same machine."
 import matplotlib.pyplot as plt
 import numpy as np
 
 plt.rcParams.update({"font.family": "sans-serif", "font.size": 9, "figure.dpi": 150})
 
-fixtures = ["Small\n27 combos", "Medium\n32K combos", "Ibex\n524K combos", "CVA6 R4\n2M combos"]
-evaluate_times = [3.26, 6580, 3.66e6, 0.944e6]  # µs
-struct_times = [2.73, 3106, 46300, 29500]  # µs
-evals_us = [3.26, 6580, 3.66e6, 0.944e6]
-struct_us = [2.73, 3106, 46300, 29500]
+fixtures = ["Small\n27 combos", "Medium\n32K combos", "Ibex\n524K combos", "CVA6 R4\n16K combos"]
+evaluate_times = [4.87, 5990, 291000, 3140]  # µs
+struct_times = [2.86, 3020, 9100, 250]  # µs
+evals_us = [4.87, 5990, 291000, 3140]
+struct_us = [2.86, 3020, 9100, 250]
 speedups = [e / s for e, s in zip(evals_us, struct_us)]
 
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4.5), gridspec_kw={"width_ratios": [2, 1]})
@@ -150,7 +155,7 @@ x = np.arange(len(fixtures))
 w = 0.3
 bars1 = ax1.bar(x - w/2, evals_us, w, label='evaluate (standard)', 
                 color='white', edgecolor='#A23B72', linewidth=1.2, hatch='')
-bars2 = ax1.bar(x + w/2, struct_us, w, label='struct_enum (synTagma)', 
+bars2 = ax1.bar(x + w/2, struct_us, w, label='structural classifier',
                 color='white', edgecolor='#2E86AB', linewidth=1.2, hatch='///')
 ax1.set_xticks(x)
 ax1.set_xticklabels(fixtures, fontsize=7.5)
@@ -161,7 +166,7 @@ ax1.grid(axis='y', alpha=0.3)
 # Annotate speedup
 for i, (e, s, sp) in enumerate(zip(evals_us, struct_us, speedups)):
     mid = (e * s) ** 0.5
-    label = f'{sp:.0f}x' if sp > 1 else f'{sp:.1f}x'
+    label = f'{sp:.1f}x' if sp < 10 else f'{sp:.0f}x'
     ax1.annotate(label, xy=(i, mid), fontsize=8, fontweight='bold', ha='center', va='center',
                 bbox=dict(boxstyle='round,pad=0.15', facecolor='white', edgecolor='black', alpha=0.85))
 
@@ -173,7 +178,7 @@ for i, sp in enumerate(speedups):
     label = f'{sp:.0f}x' if sp > 10 else f'{sp:.1f}x'
     ax2.text(sp + 5, i, label, va='center', fontsize=8, fontweight='bold')
 ax2.set_xlabel('Speedup factor')
-ax2.set_title('synTagma Speedup', fontsize=10, fontweight='bold')
+ax2.set_title('Structural speedup', fontsize=10, fontweight='bold')
 ax2.set_xlim(0, max(speedups) * 1.3)
 ax2.tick_params(labelsize=8)
 
@@ -185,17 +190,17 @@ plt.show()
 
 ```{python}
 #| label: fig-scaling
-#| fig-cap: "Scaling behavior: evaluate runs in O(N) where N is the full space; struct_enum runs in O(V) where V is the structurally valid subset. The gap widens with space density: the sparser the valid space, the greater the speedup."
+#| fig-cap: "Scaling behavior: evaluate runs in O(N); the structural iterator visits O(V). The gap widens with space density. The end-to-end structural cost also includes O(sum domains) filter setup."
 import matplotlib.pyplot as plt
 import numpy as np
 
 plt.rcParams.update({"font.family": "sans-serif", "font.size": 9, "figure.dpi": 150})
 
 # Scaling data
-raw_sizes = [27, 32768, 524288, 2097152]
-valid_sizes = [27, 20480, 92160, 266240]
-eval_times = [3.26, 6580, 3.66e6, 0.944e6]
-struct_times = [2.73, 3106, 46300, 29500]
+raw_sizes = [27, 32768, 524288, 33554432]
+valid_sizes = [27, 20480, 92160, 196608]
+eval_times = [4.87, 5990, 291000, 13.1e6]
+struct_times = [2.86, 3020, 9100, 18800]
 
 fig, ax = plt.subplots(figsize=(7, 4))
 
@@ -203,7 +208,7 @@ fig, ax = plt.subplots(figsize=(7, 4))
 ax.plot(raw_sizes, eval_times, 'o-', color='#A23B72', linewidth=1.5, 
         markerfacecolor='white', markeredgecolor='#A23B72', markersize=6, label='evaluate (standard)')
 ax.plot(valid_sizes, struct_times, 's-', color='#2E86AB', linewidth=1.5,
-        markerfacecolor='white', markeredgecolor='#2E86AB', markersize=6, label='struct_enum (synTagma)')
+        markerfacecolor='white', markeredgecolor='#2E86AB', markersize=6, label='structural classifier')
 
 # Annotate points
 for (rx, ty), (vx, sy) in zip(zip(raw_sizes, eval_times), zip(valid_sizes, struct_times)):
@@ -228,7 +233,7 @@ plt.show()
 
 ```{python}
 #| label: fig-bench-table
-#| fig-cap: "Complete benchmark data. struct_enum achieves 79x–32x speedup over the standard pipeline across real-world RISC-V verification targets."
+#| fig-cap: "Complete benchmark data. The structural classifier achieves 1.7x to ~700x across the fixture set; the Ibex space is 32x."
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -236,12 +241,13 @@ plt.rcParams.update({"font.family": "sans-serif", "font.size": 8, "figure.dpi": 
 
 # Table data
 columns = ('Fixture', 'Raw combos', 'Valid combos', 'Density', 
-           'evaluate', 'struct_enum', 'Speedup')
+           'evaluate', 'structural', 'Speedup')
 data = [
-    ('Small',      '27',         '27',       '100%',  '3.26 µs',  '2.73 µs',  '1.2x'),
-    ('Medium',     '32,768',     '20,480',   '62.5%', '6.58 ms',  '3.11 ms',  '2.1x'),
-    ('Ibex R-type','524,288',    '92,160',   '17.6%', '3.66 s',   '46.3 ms',  '79x'),
-    ('CVA6 R4',    '2,097,152',  '266,240',   '12.7%',  '944 ms',   '29.5 ms',  '32x'),
+    ('Small',      '27',         '27',       '100%',  '4.87 µs',  '2.86 µs',  '1.7x'),
+    ('Medium',     '32,768',     '20,480',   '62.5%', '5.99 ms',  '3.02 ms',  '2.0x'),
+    ('Ibex R-type','524,288',    '92,160',   '17.6%', '291 ms',   '9.10 ms',  '32x'),
+    ('CVA6 R4',    '16,384',     '2,560',    '15.6%', '3.14 ms',  '250 µs',   '13x'),
+    ('CVA6 full',  '33,554,432', '196,608',  '0.6%',  '13.1 s',   '18.8 ms',  '~700x'),
 ]
 
 fig, ax = plt.subplots(figsize=(9, 3))
@@ -261,7 +267,7 @@ for j in range(len(columns)):
 # Highlight speedup column (index 6)
 for i in range(len(data)):
     cell = table[i + 1, 6]
-    sp = float(data[i][6].rstrip('x'))
+    sp = float(data[i][6].rstrip('x').lstrip('~'))
     if sp >= 100:
         cell.set_facecolor('#A23B72')
         cell.set_text_props(color='white', fontweight='bold')
@@ -273,54 +279,63 @@ plt.show()
 
 ## How It Works
 
-A YAML specification describes the encoding space. The standard pipeline
-enumerates all combinations and evaluates each against constraints:
+A YAML specification describes the encoding space. `ev verify` runs the
+structural classifier by default: the constraints are encoded into the
+enumeration, and only the valid points are evaluated. The full-expansion
+reference is selectable for comparison:
 
 ```bash
 ev verify --target tests/fixtures/ibex/rv32imcb.xif.yaml
+EV_CLASSIFIER=naive ev verify --target tests/fixtures/ibex/rv32imcb.xif.yaml
 ```
 
-The Tagma-based structural pipeline achieves the same result
-by encoding constraints into the enumeration space itself:
-
-```bash
-# structural verification via Rust library API
-# cargo bench -- struct_enum/ibex
-```
+The standard pipeline in the table below is the `evaluate_all` reference, not
+a separate CLI mode. `EV_CLASSIFIER=naive` selects it and produces the same
+record shape with `engine: ev/naive`.
 
 ### Structural vs Standard: the mechanism
 
-| Aspect | Standard (`evaluate`) | Structural (`struct_enum`) |
+| Aspect | Standard (`evaluate`) | Structural classifier |
 |--------|----------------------|---------------------------|
 | Combinations generated | **All** 524,288 | **Valid only** 92,160 |
-| Constraint evaluation | 10 checks × 524,288 | **0** (structurally encoded) |
-| Invalid detection | `check.allows()` → false | Vacant slot → 1.65 ns |
-| Memory | 8 GB peak (Vec) | 0 (lazy iterator) |
-| Time | 3.66 s | 46.3 ms |
+| Constraint evaluation | per-combination checks | none for this fixture; the cross is structural |
+| Invalid detection | `check.allows()` → false | Vacant slot in the structural iterator |
+| Memory | O(N) combinations | O(V) verdicts plus O(sum domains) setup |
+| Time | 291 ms | 9.10 ms |
 
-## Comparison with synTagma Benchmarks
+## Layering and provenance
 
-The struct_enum speedup mirrors synTagma's core thesis: structural
-addressing eliminates hash-based lookup overhead.
+The Ibex report is a sample, not a special mode. The fixture is an ev spec:
+five fields, a cross constraint between funct7 and funct3, and a sum
+projector. It declares no word layout, because the report classifies the
+decode relation rather than a packed instruction word. The RISC-V layout
+profiles are not involved; the `riscv` feature matters only for the Spike
+backend, which this report does not use.
 
-| synTagma primitive | ev application | Measured | Advantage |
-|--------------------|---------------|:--------:|:---------:|
-| Nonexistent prefix lookup | Invalid encoding detection | **1.65 ns** | 14x vs HashMap |
-| CoordPath indexing | Combination addressing | **5.2 ns** | O(depth) = O(5) |
-| CoordSpace sparse get | Valid encoding iteration | **29.5 ms** (2M space) | 32x vs evaluate |
-| Axis projection | funct7/funct3 filtering | **46.3 ms** (524K space) | 79x vs evaluate |
+The mapping is a hand transcription from `ibex_decoder.sv` at `f4540774`.
+`tests/ibex_source_pin.rs` pins the decoder file and the fixture digests, so
+a decoder change or a fixture edit is visible. The pin does not derive the
+pairs. The CVA6 fixtures are the set whose accepted set is re-derived by a
+gate; the Ibex fixtures claim a pinned source.
+
+Compile-time configuration is not an encoding field. The fixture states
+RV32BFull and RV32MFast with `LV_A == LV_B == 0`, and a different
+configuration would be a different spec. Configuration spaces are out of
+ev's scope (issue #36 decision).
 
 ## Limitations
 
-### What this verification does not yet cover
+### Scope and limitations
 
 - **Multi-cycle instruction modelling**: rol/ror and zbe/bdecompress/
   bcompress complete in 2 cycles. The encoding space is verified,
   but pipeline timing is not.
 - **RV32BBalanced vs RV32BFull**: The fixture assumes RV32BFull.
-  Balanced mode disables zbc, zbe, zbp, zbr. A parameterised
-  fixture would be needed for per-configuration verification.
+  Balanced mode disables zbc, zbe, zbp, zbr. Compile-time configuration
+  spaces are out of ev's scope; a different configuration would be a
+  different spec (issue #36 decision).
 - **RV32E register constraint**: Ibex optionally supports RV32E
-  (16 registers). The fixture assumes 32-register RV32I.
+  (16 registers). The fixture assumes 32-register RV32I; an RV32E model
+  would be a different spec.
 - **Pipeline hazards**: Write-after-read hazards (rs1==rd) are not
   modelled at the encoding level.
