@@ -46,17 +46,24 @@ of a declared discrete space. A single command consumes a YAML specification
 that names fields, their domains, the constraints between them, and an
 optional projector. The engine enumerates every point the constraints admit,
 classifies it, and reports the result deterministically. The CLI provides
-three subcommands: `verify` for classification, `simulate` for a backend
-recheck, and `synth` for RTL generation and synthesis.
+`verify` for classification, `simulate` for a backend recheck, `synth` for
+RTL generation and synthesis, and `capabilities` for the layer stack, plus a
+`fact decode` utility.
 
 The engine's only knowledge of a target is the spec. A target family enters
-through two seams: a layout profile, which supplies bit positions when the
-target packs its fields into a word, and a backend, which supplies a channel
-such as simulation or synthesis. RISC-V is one category in that structure:
-`riscv-r` and `riscv-r4` are registry entries, and the Spike backend is a
-simulation backend, both compiled under the `riscv` feature. That feature is
-in the default build; a build with `--no-default-features` carries no RISC-V
-code and verifies any spec that declares its own layout.
+through a layout profile, which supplies bit positions when the target packs
+its fields into a word, and a backend, which supplies a channel such as
+simulation or synthesis. The parser and the classifier are seams as well: a
+caller can supply a format or an engine.
+
+RISC-V is one category in that structure: `riscv-r` and `riscv-r4` are
+registry entries, and the Spike backend is a simulation backend, both
+compiled under the `riscv` feature. The default build includes the target
+modules that exist, and `targets` is the aggregate that selects them;
+RISC-V is its only member today. The pure generic core is
+`--no-default-features`, and `ev capabilities` reports the modules and layers
+the binary at hand carries. A spec that names `riscv-r` in the generic core
+fails with the rebuild named rather than falling back.
 
 The cores and designs named in this documentation, CVA6 (OpenHW Group), Ibex
 (lowRISC), and the Tagma decoder (syntagma), are samples that exercise the
@@ -84,6 +91,11 @@ capability seam at its boundary:
 | Record | `spec_hash`, `point_id`, `id`, `engine`, `claim`, and the verdicts | `Classification` and the Fact envelope |
 | Channels | text, JSON, CSV, trace, RTL generation, synthesis, simulation | `ReporterCapable`, `GenerateRtl`, `RunSynthesis`, `RunSimulation` |
 | Consumers | accumulation, comparison, supersession, the design oracle | outside ev |
+
+The default build includes the target modules that exist. A target module
+adds its layout profile and simulation backend; the generic core
+(`--no-default-features`) carries neither, and `ev capabilities` prints the
+layer stack for the binary at hand.
 
 A layer can be replaced without changing the ones above or below it. The
 classification layer is the most recent seam: `EV_CLASSIFIER=structural` is
