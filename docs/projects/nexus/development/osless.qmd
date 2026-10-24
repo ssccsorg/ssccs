@@ -49,7 +49,7 @@ The following are measured and continuously verified, not planned.
 | The core runtime makes no direct OS API calls | `FihStorage` routes time through the `Now` trait and storage through the `FileIo` capability |
 | A Wasm build runs on a WASI runtime | the repository apps job installs the `wasm32-wasip2` target and the Spin runtime, then verifies the Wasm apps in CI |
 | The coordinate primitives build without an OS | `tagma-core` is `#![no_std]` with `alloc` |
-| Bare-metal storage is an intended backend | the `FileIo` trait documentation names raw flash as a backend example |
+| The storage core runs on a device with no OS call under it | an ESP32-S3 ran the record layer over a 2MiB flash partition and read the records back after resets ([minimum-class device run](/projects/syntagma/tagma/#sec-minimum-device)); the hosting firmware is ESP-IDF and the core makes no OS call itself |
 
 ## Why the architecture allows it
 
@@ -108,7 +108,7 @@ OS-less is a fixed requirement; the hardware class is a tuning parameter. The de
 
 ## Status
 
-The WASI-path run is verified in CI. Issue #181 tracks the remaining work: removal of all standard-library-only dependencies and the launcher integration. The density measurement gate decides the hardware floor.
+The WASI-path run is verified in CI. The device path has one run: the record layer over a flash partition on an ESP32-S3, with no OS call under the engine, through the C surface that faces a firmware (the syntagma project's [minimum-class device run](/projects/syntagma/tagma/#sec-minimum-device)). The run belongs to an independent record-layer implementation, so the launcher item above stays open here. Two layers of this stack are on that path: the record semantics of neXus, which is what a fact and its coordinate id are, and the io and storage materialization contract of Chton, which the device channel restates as a byte, write, and erase seam over the firmware's partition API. synTagma contributes the address alphabet a record is keyed by, and that implementation links no synTagma crate. It shows the core's no-call property on a device that hosts it; it does not show the core on bare metal, which is a host without an operating system at all. Issue #181 tracks the remaining work: removal of all standard-library-only dependencies and the launcher integration. The density measurement gate decides the hardware floor.
 
 [^syntagma]: The peer property is developed in the Flat Indexing Cost document: <../syntagma.html>
 [^179]: Multi-dimensional search benchmark, issue 179: [github.com/ssccsorg/nexus/issues/179](https://github.com/ssccsorg/nexus/issues/179); devlog 2026-08-27 in the nexus repository docs folder.

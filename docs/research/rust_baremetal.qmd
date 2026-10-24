@@ -463,6 +463,34 @@ This document presents a **realistic and actionable research plan** that accurat
 3. **Secure OpenHW CORE‑V MCU DevKit access** – obtaining the physical hardware early is crucial for validating the prototype on a real RISC‑V target.
 4. **Prepare community contributions** – based on this research, draft documentation (e.g., a guide to implementing custom instructions via XIF) that can be contributed to the OpenHW community.
 
+## A bare-metal run on a device
+
+The contract described above has since been carried to hardware. The engine behind the coordinate primitives was built for `xtensa-esp32s3-none-elf`, which is `no_std`: it allocates from an arena the firmware hands over and takes its time from a tick the firmware advances, so no operating-system call runs under it. The part is an Xtensa one rather than a RISC-V one, and that is the point of the port: the contract is the target's, not the instruction set's, and the same surface builds for `riscv32imac-none-elf` as well.
+
+::: {.columns}
+::: {.column width="52%"}
+
+![A LiteWing on the bench: ESP32-S3, 512KB of SRAM, records kept in its own flash.](../_include/litewing_esp32.jpg){#fig-baremetal-litewing}
+
+:::
+::: {.column width="48%"}
+
+| Measured | Value |
+|:---------------------------|:-----------------------------------------|
+| Chip | ESP32-S3, 160MHz |
+| SRAM | 512KB |
+| OS calls | none |
+| Arena | 65,552 B, the 64KB minimum plus alignment |
+| Heap peak | 1,648 B |
+| Image | 447,968 B of a 1MiB slot |
+| Flash region | 2MiB, log and index on the medium |
+| Records kept | 3 |
+
+:::
+:::
+
+The run, with its charts and the coordinate records, is in the [primitive document](/projects/syntagma/tagma/#sec-minimum-device).
+
 ## Conclusion
 
 The Rust embedded and bare‑metal guides provide a robust, community‑validated foundation for building low‑level software that is safe, portable, and maintainable. The SSCCS hardware‑integration prototype already follows many of their recommendations—`no_std`, a dedicated target, a panic handler, and a runtime crate—but several opportunities for deeper alignment remain.

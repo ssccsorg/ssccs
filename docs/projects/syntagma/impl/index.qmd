@@ -40,7 +40,7 @@ for the Unicode block U+AC00..U+D7AF:
 $$C(i,m,f) = \text{U+AC00} + 588i + 28m + f, \quad 0 \leq i < 19,\; 0 \leq m < 21,\; 0 \leq f < 28$$
 
 The contract has four properties that make the whole space fit one 16-bit
-value: BMP membership (one syllable is one code unit), the closed-form
+value: BMP membership (one code point is one code unit), the closed-form
 composition algorithm, contiguity of the valid range, and the Unicode
 stability policy. Of 65,536 representable states, 11,172 are valid; the
 remaining 54,364 are structurally invalid and detectable on both
@@ -157,7 +157,7 @@ the full verification as smoke tests.
 ## Status
 
 Verified: the decoder matches the Rust reference on all 11,172 valid
-syllables in three independent channels, RTL and netlist are formally
+code points in three independent channels, RTL and netlist are formally
 equivalent over all 2^16 inputs, and the demo closes the 12 MHz board
 clock. The software workspace passes 360+ tests across all crates with a
 no-alloc core build.

@@ -23,8 +23,7 @@ format:
 
 Base11172 is the native serialization format of the Tagma coordinate
 space. It encodes arbitrary byte sequences into strings of compositional
-characters, using the 11,172 valid Tagma coordinates (the Hangul syllable
-block U+AC00..U+D7A3) as its alphabet. The reference implementation is the
+characters, using the 11,172 valid Tagma coordinates (the Hangul block U+AC00..U+D7A3) as its alphabet. The reference implementation is the
 `base11172` crate in the syntagma workspace.
 
 The format has four properties:
@@ -134,7 +133,7 @@ At the character level, Base11172 is denser than Base64:
 
 The CLI benchmark (`base11172 bench`, 1 MB input) reports the same ratio:
 1.33x fewer characters than Base64. The trade-off is UTF-8 size: each
-Hangul syllable occupies 3 bytes in UTF-8, so the serialized byte size is
+Hangul code point occupies 3 bytes in UTF-8, so the serialized byte size is
 about 3x the input, against 1.33x for Base64. The value of the format is
 therefore not byte compactness but character compactness, readability, and
 self-validation.
@@ -165,10 +164,10 @@ structural design. The strengths and limitations, side by side:
 | Aspect | Strength | Limitation |
 |--------|----------|------------|
 | Self-validation | the coordinate space is the validator; corrupted input is rejected on decode without a checksum | none |
-| Readability | Hangul syllables read as text to Hangul-literate users; no escaping in URLs, JSON, or shell arguments; consistent Unicode ordering | readable only to readers of Hangul |
+| Readability | Hangul text reads to Hangul-literate users; no escaping in URLs, JSON, or shell arguments; consistent Unicode ordering | readable only to readers of Hangul |
 | Alphabet structure | 11,172 = 19 x 21 x 28 borrows the linguistic structure of the block; the valid/invalid asymmetry doubles as the error-detection margin | none |
 | Portability | no_std with alloc; usable on bare-metal microcontrollers and radiation-hardened hardware | requires the base11172 library; Base64 ships with every platform |
-| Byte density | character-level denser than Base64 (1.0 versus 1.333 characters per byte) | 3 UTF-8 bytes per syllable, about 3x the input against 1.33x for Base64 |
+| Byte density | character-level denser than Base64 (1.0 versus 1.333 characters per byte) | 3 UTF-8 bytes per code point, about 3x the input against 1.33x for Base64 |
 
 The format occupies a different class from general-purpose encodings: the
 coordinate space is the validator, corrupted data is rejected on passage,

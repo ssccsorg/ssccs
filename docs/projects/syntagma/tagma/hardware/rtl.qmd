@@ -42,7 +42,7 @@ format:
 
 ## Decoder definition
 
-The decoder is a pure combinational function over one 16-bit input. Given a Hangul syllable code point in [U+AC00, U+D7A3], it produces the three structural axes:
+The decoder is a pure combinational function over one 16-bit input. Given a code point in [U+AC00, U+D7A3], it produces the three structural axes:
 
 $$offset = code - \text{U+AC00}, \qquad i = offset / 588, \qquad m = (offset \bmod 588) / 28, \qquad f = offset \bmod 28$$
 
@@ -107,4 +107,4 @@ The components:
 | Compose RTL vs netlist | proven, all 2^15 axis combinations |
 | Distance RTL vs netlist | proven, all 2^32 input pairs |
 
-The exhaustive tests also found the boundary correction: the last valid syllable is U+D7A3, not U+D7AF. The testbench boundary was wrong initially and the failure surfaced only because the full space was enumerated.
+The exhaustive tests also found the boundary correction: the last valid code point is U+D7A3, not U+D7AF. The testbench boundary was wrong initially and the failure surfaced only because the full space was enumerated.

@@ -85,7 +85,7 @@ title_meta_items = {
 
 ## Abstract {.unnumbered .unlisted}
 
-Tagma Signal defines the signal-domain utilization[^tagma-signal] of the Tagma coordinate primitive: how coordinates are encoded, validated, and interpreted as signals over existing physical channels. It is a signal-delivery protocol, not a transmission system: the transmitter, antenna, modulation waveform, and medium are delegated to the underlying channel (BLE, LoRa, UHF, optical, acoustic). The central claim is that packet-based communication can be replaced by coordinate-based signaling. Every message is a coordinate path[^coordpath], a sequence of N syllables that carries both the address and the payload in a single structural unit, so there is no packet header, no checksum, no protocol stack, and no parser on the receiving end. The coordinate itself is the message.
+Tagma Signal defines the signal-domain utilization[^tagma-signal] of the Tagma coordinate primitive: how coordinates are encoded, validated, and interpreted as signals over existing physical channels. It is a signal-delivery protocol, not a transmission system: the transmitter, antenna, modulation waveform, and medium are delegated to the underlying channel (BLE, LoRa, UHF, optical, acoustic). The central claim is that packet-based communication can be replaced by coordinate-based signaling. Every message is a coordinate path[^coordpath], a sequence of N code points that carries both the address and the payload in a single structural unit, so there is no packet header, no checksum, no protocol stack, and no parser on the receiving end. The coordinate itself is the message.
 
 The transmission-concept part of the persistent IO layer for spatial computing specifies the wave-observation pattern, in which a broadcast coordinate is observed by unspecified receivers, each acting according to its own local state, so response diversity is produced entirely on the receiver side. The framework covers emission and observation only; interpretation and action are application-level and deliberately out of scope. The coordinate space is one: the same coordinate path that keys a TagmaMap entry is transmitted as a wave sequence and, once observed, becomes a fact in the neXus FIH blackboard, where the Actus orchestration runtime[^actus] owns interpretation and action.
 
@@ -115,7 +115,7 @@ The container is eliminated entirely. The message is the coordinate; the coordin
 
 ## The Alternative: Structural Coordinate Transmission
 
-Coordinate-based transmission replaces packet-based transmission. A message is encoded as a coordinate path — a sequence of N syllables drawn from the Unicode block (U+AC00–U+D7A3). Each syllable encodes a 16-bit coordinate through its initial, medial, and final decomposition.
+Coordinate-based transmission replaces packet-based transmission. A message is encoded as a coordinate path — a sequence of N code points drawn from the Unicode block (U+AC00–U+D7A3). Each code point encodes a 16-bit coordinate through its initial, medial, and final decomposition.
 
 The transmission process is:
 
@@ -134,7 +134,7 @@ The transformation is:
 - **Self-validating**: $65{,}536 - 11{,}172 = 54{,}364$ invalid 16-bit values are immediately rejected
 - **Parser-free**: the coordinate path is the message; no extraction is needed
 
-Two framing conventions follow from the variable-length property. Either N is fixed per command class (the receiver knows how many syllables to expect), or a length indicator is required — in which case that indicator is the only framing element in the protocol. The parser-free property holds strictly in the fixed-N convention.
+Two framing conventions follow from the variable-length property. Either N is fixed per command class (the receiver knows how many code points to expect), or a length indicator is required — in which case that indicator is the only framing element in the protocol. The parser-free property holds strictly in the fixed-N convention.
 
 ## Transmission Implementations
 
@@ -273,7 +273,7 @@ The validation column reports the digital path only: range check and structural 
 | Checksum | 2 bytes per packet | ~99.99% (arbitrary multi-bit errors) |
 | **Tagma Signal coordinate validity** | **0 bytes** | **24.1% of single-bit flips** |
 
-The structural validity check provides inherent error detection at zero additional cost. The rates are not directly comparable: CRC and checksum detection is defined over arbitrary error patterns, while the coordinate check is a single-bit analysis. The complement is a design consideration: the remaining 75.9% of single-bit flips map to another valid coordinate and are silently accepted as a different command. For command channels this argues for a small command table with semantic validation at the application layer, or for FEC at the physical layer; for data channels, it argues for redundant syllables or an application-layer checksum. The 24.1% figure follows from the structure of the valid range: flips of bit 15 or bit 14 always leave the U+AC00–U+D7A3 interval, and boundary values contribute the remainder.
+The structural validity check provides inherent error detection at zero additional cost. The rates are not directly comparable: CRC and checksum detection is defined over arbitrary error patterns, while the coordinate check is a single-bit analysis. The complement is a design consideration: the remaining 75.9% of single-bit flips map to another valid coordinate and are silently accepted as a different command. For command channels this argues for a small command table with semantic validation at the application layer, or for FEC at the physical layer; for data channels, it argues for redundant code points or an application-layer checksum. The 24.1% figure follows from the structure of the valid range: flips of bit 15 or bit 14 always leave the U+AC00–U+D7A3 interval, and boundary values contribute the remainder.
 
 ## The Transmission Cost Model
 
@@ -329,7 +329,7 @@ Deep-space communication has extreme latency and limited bandwidth. The structur
 
 AI agents communicating with each other can use coordinate path transmission for high-speed, low-latency message passing. The coordinate path can encode both the message and the addressing information, eliminating the need for separate routing tables. The agent entity is the defining receiver of the observation model: the wave is received by infrastructure on behalf of the agent, and the agent interprets through its local context.
 
-When a coordinate path shares its syllables between address and payload, the capacity equation splits accordingly:
+When a coordinate path shares its code points between address and payload, the capacity equation splits accordingly:
 
 $$C_{\text{payload}} = 11172^{N - N_{\text{addr}}}$$
 
@@ -341,17 +341,17 @@ The reference orchestration runtime for this domain is Actus: its headless agent
 
 This scenario is the illustrative case: it demonstrates the model in its most perceptible form. The defining deployment relationship is wave to agent entity: an RF emission reaches a logical agent, with the physical receiver separated from the interpreting runtime (Section AI Agent Communication). The acoustic case demonstrates the same structure in fused form, where receiver and actor are one body.
 
-Consider a simple scenario: a machine emits the sound "명" — a single Hangul syllable corresponding to the coordinate U+BA85. This sound can be transmitted over any physical medium: acoustic, RF, optical, or any other carrier. Any receiving machine or entity that hears "명" can:
+Consider a simple scenario: a machine emits the sound "명" — a single Hangul code point, U+BA85. This sound can be transmitted over any physical medium: acoustic, RF, optical, or any other carrier. Any receiving machine or entity that hears "명" can:
 
 1. Validate the coordinate structurally (0.39 ns)
-2. Reconstruct the coordinate path (1 syllable = 1 coordinate)
+2. Reconstruct the coordinate path (1 code point = 1 coordinate)
 3. Execute the corresponding command or absorb the data
 
 There is no language translation: the sound "명" is a structural coordinate that machines understand directly. This is the ultimate expression of parserless communication: the message and the medium are one.
 
 #### The command space of one coord
 
-The Hangul block U+AC00–U+D7A3 contains exactly 11,172 valid syllables ($11172 = 19 \times 21 \times 28$). An N-syllable coordinate path therefore encodes:
+The Hangul block U+AC00–U+D7A3 contains exactly 11,172 valid code points ($11172 = 19 \times 21 \times 28$). An N-code-point coordinate path therefore encodes:
 
 $$C_N = 11172^N$$
 
@@ -361,7 +361,7 @@ $$C_N = 11172^N$$
 | 2 | 1.25 × 10⁸ | Command plus operand or parameter: covers every realistic command space |
 | 6 | 1.94 × 10²⁴ | Standard address space (≈ 2⁸¹)[^coordid6] |
 
-One coord already covers any practical command set; the second coord supplies the operand or parameter, so two syllables are sufficient for complete command coverage without headers or framing.
+One coord already covers any practical command set; the second coord supplies the operand or parameter, so two code points are sufficient for complete command coverage without headers or framing.
 
 ### Wave Observation: One Wave, Many Agents
 
@@ -369,7 +369,7 @@ Observation-based computing is the broader SSCCS paradigm; this section covers o
 
 - **Position**: physical location and role determine whether the coordinate applies; filtering is receiver-side, as established above
 - **Constraints**: the coordinate must pass the agent's validity rules — structural membership (Section Error Detection Comparison) plus its own hardware capability bounds
-- **Protocol**: the fixed-N framing convention (Section The Alternative) fixes how many syllables follow and what they mean
+- **Protocol**: the fixed-N framing convention (Section The Alternative) fixes how many code points follow and what they mean
 - **Contract**: the pair (structural filter, response policy) defined in the following paragraph
 
 The receiver contract has a two-part structure. The structural filter determines which axes carry group, role, or command fields and which values select this receiver. It is expressible in the coordinate space itself, so it is specifiable at the framework level: a conforming receiver evaluates membership by axis comparison (Section Mesh Networks and Broadcast Concurrency) before consulting any local state. The response policy determines what the agent does once selected, and it remains application-level. The contract is therefore the pair (structural filter, response policy): the filter is framework-specified, the policy is the agent's standing behavior rules, which this specification does not define.
@@ -475,7 +475,7 @@ The coordinate channel is not an authentication mechanism. This section states t
 
 **Coordinate Vernam.** Modular addition in the coord space preserves structural validity: a cipher coordinate $c' = (c + k) \bmod 11{,}172$ maps back to a valid coord, so every received symbol passes the structural gate (Section Error Detection Comparison) before decryption. If the key stream is used once, this is a Vernam cipher in the coord space; reuse degrades it to a substitution cipher, so key distribution and re-keying dominate the cost.
 
-**Nonce coordinates.** A reserved position in the coordinate path carries a counter or random nonce, making each emission unique and replay detectable. The nonce consumes capacity: N syllables with one nonce position leaves $11172^{N-1}$ effective combinations.
+**Nonce coordinates.** A reserved position in the coordinate path carries a counter or random nonce, making each emission unique and replay detectable. The nonce consumes capacity: N code points with one nonce position leaves $11172^{N-1}$ effective combinations.
 
 **Key identifiers.** A keyid position selects among a small set of shared keys, so re-keying does not require reconfiguring the fleet. Keyid and nonce together give per-emission authentication with replay protection, at the cost of two reserved positions per emission.
 
