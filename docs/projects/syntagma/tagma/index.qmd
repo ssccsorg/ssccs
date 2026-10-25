@@ -674,7 +674,7 @@ The target is a 32-bit part at 160MHz, with 512KB of SRAM and 8MB of flash. The 
 
 ![The part that carries the coordinate as a record address, on the bench.](../../../_include/esp32s3_board.jpg){#fig-minimum-device width=55%}
 
-The reader's working set peaks at 1,648 bytes of a 65,552-byte arena, the 64KB handed over plus its alignment, and the image occupies 447,968 bytes. No index structure stands between a record and its address: the value a writer computes is the value a reader computes, and there is nothing to build as the region fills. A record written by one start was read by the next from the same twenty code points.
+The reader's working set peaks at 1,648 bytes of a 65,552-byte arena, the 64KB handed over plus its alignment, and the image occupies 447,968 bytes. No index structure stands between a record and its address: the value a writer computes is the value a reader computes, and there is nothing to build as the region fills. A reader that starts does no storage work to find them, because the address is recomputed from the fields rather than restored from a table. There is no rebuild for a start to pay, and the working set stays flat as the region fills.
 
 ::: {layout-ncol=2}
 
