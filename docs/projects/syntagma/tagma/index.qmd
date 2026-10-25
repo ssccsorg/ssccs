@@ -76,7 +76,7 @@ format:
 
 ## Abstract {.unnumbered .unlisted}
 
-Tagma[^tagma-etym] is a computing primitive where the address *is* the coordinate — not a flat pointer, but a point in an N-dimensional geometric space. This is made possible by a fixed 16-bit contiguous Unicode block whose closed-form composition rule holds over *U+AC00..U+D7A3*, so every valid value is at once a 1-D address, a 3-D coordinate (Axis 0, Axis 1, Axis 2), and a compositional character. This triple interpretation gives a collision-free, hash-less, structurally addressable space [*-@sec-paradigm-shift*] and a single-cycle combinational decoder[^tagma-hw]. The coordinate arithmetic admits unbounded N-Coord composition — the address space grows as $11,172^N$ while lookup cost remains O(N) per Coord. We present a gate-level decoder specification, a processor pipeline attachment reference (e.g., RISC-V XIF)[^tagma-repo], a hardware reference implementation [*-@sec-hardware*] of all three primitive operations (decode, compose, and distance) verified over their input spaces against the Rust reference and formally equivalent to the synthesized netlist, a software reference implementation [*-@sec-appendix-rust*], a full benchmark suite [*-@sec-appendix-benches*], and a run of the record layer on a minimum-class device, with no operating system under the engine, that keeps its records across power cycles [*-@sec-minimum-device*]. Measured lookup latency in the software reference: 0.39 ns at single-Coord and 62 ns at SHA-256 scale (20 Coords), against SHA-256's 227 ns (582x and 3.7x). Structural prefix queries show the decisive advantage: a direct-address table answers a nonexistent prefix in 1.65 ns where a hash-table scan of 10M entries takes 23.05 ms (14.0Mx); bit-set axis filters resolve compound queries at 329 Melem/s against a 2.4 Melem/s scan (137x, bitwise AND against full scan); and 10M sparse gets complete in 44.9 ms against 1.05 s (23.4x). That standard is open, a public good whose composition rules carry no proprietary encumbrance. A production-scale validation in CERN's ROOT TTree read path confirms the model in petabyte-scale high-energy physics software [*-@sec-appendix-root-ttree*].
+Tagma[^tagma-etym] is a computing primitive where the address *is* the coordinate — not a flat pointer, but a point in an N-dimensional geometric space. This is made possible by a fixed 16-bit contiguous Unicode block whose closed-form composition rule holds over *U+AC00..U+D7A3*, so every valid value is at once a 1-D address, a 3-D coordinate (Axis 0, Axis 1, Axis 2), and a compositional character. This triple interpretation gives a collision-free, hash-less, structurally addressable space [*-@sec-paradigm-shift*] and a single-cycle combinational decoder[^tagma-hw]. The coordinate arithmetic admits unbounded N-Coord composition — the address space grows as $11,172^N$ while lookup cost remains O(N) per Coord. We present a gate-level decoder specification, a processor pipeline attachment reference (e.g., RISC-V XIF)[^tagma-repo], a hardware reference implementation [*-@sec-hardware*] of all three primitive operations (decode, compose, and distance) verified over their input spaces against the Rust reference and formally equivalent to the synthesized netlist, a software reference implementation [*-@sec-appendix-rust*], a full benchmark suite [*-@sec-appendix-benches*], and a run of the record layer on a minimum-class device, with no operating system under the engine, where the address a writer computes is the address a reader computes [*-@sec-minimum-device*]. Measured lookup latency in the software reference: 0.39 ns at single-Coord and 62 ns at SHA-256 scale (20 Coords), against SHA-256's 227 ns (582x and 3.7x). Structural prefix queries show the decisive advantage: a direct-address table answers a nonexistent prefix in 1.65 ns where a hash-table scan of 10M entries takes 23.05 ms (14.0Mx); bit-set axis filters resolve compound queries at 329 Melem/s against a 2.4 Melem/s scan (137x, bitwise AND against full scan); and 10M sparse gets complete in 44.9 ms against 1.05 s (23.4x). That standard is open, a public good whose composition rules carry no proprietary encumbrance. A production-scale validation in CERN's ROOT TTree read path confirms the model in petabyte-scale high-energy physics software [*-@sec-appendix-root-ttree*].
 
 ## Introduction {#sec-introduction}
 
@@ -668,24 +668,22 @@ Reproduction: `make -C hw check` runs the whole gate (simulation, synthesis, and
 
 ### Minimum-class device run {#sec-minimum-device}
 
-A storage engine implementation that keys records by a Tagma coordinate and keeps its index on the medium needs three primitives from a target: the region's bytes, a write, and an erase. One implementation supplies those three from an ESP32-S3 flash partition, with no file system and no database between a record and the medium, and this run measures what the engine costs above them.
+The claim that a coordinate is an address has a floor: a part with no operating system under the reader, no file system, and no room for a directory. This run takes that floor and measures what the address costs above it.
 
-The target is an ESP32-S3 board at 160MHz, with 512KB of SRAM and 8MB of quad flash, powered from its own 1S cell. The engine runs over a 2MiB data partition at 0x130000, and the partition table stays below the 4MB boundary the shipped bootloader accepts.
+The target is a 32-bit part at 160MHz, with 512KB of SRAM and 8MB of flash. The records sit in a 2MB region of that flash. A record is written under the coordinate it is addressed by, so a later reader reaches it by computing the address rather than by searching a table.
 
-![The device that carries the coordinate as a record address: an ESP32-S3 board with 512KB of SRAM, on the bench.](../../../_include/esp32s3_board.jpg){#fig-minimum-device width=55%}
+![The part that carries the coordinate as a record address, on the bench.](../../../_include/esp32s3_board.jpg){#fig-minimum-device width=55%}
 
-Peak heap over the run is 1,648 bytes against a 65,552-byte arena, the engine's 64KB minimum plus alignment, and the application image is 447,968 bytes of a 1MiB slot. The log is the volume. The only derived state the read path holds is one segment's key order, and a segment bounds it.
-
-Three records, each written by a separate boot, were read back by their coordinates after resets: four boots, three kept, each address twenty code points.
+The reader's working set peaks at 1,648 bytes of a 65,552-byte arena, the 64KB handed over plus its alignment, and the image occupies 447,968 bytes. No index structure stands between a record and its address: the value a writer computes is the value a reader computes, and there is nothing to build as the region fills. A record written by one start was read by the next from the same twenty code points.
 
 ::: {layout-ncol=2}
 
 ```{python}
 #| label: fig-device-footprint
-#| fig-cap: "Footprint against the two budgets the run must fit: 1,648 bytes of the 64KB minimum arena, and 447,968 bytes of the 1MiB factory slot."
+#| fig-cap: "Footprint against the two budgets the run must fit: 1,648 bytes of the 64KB arena, and 447,968 bytes of the 1MB image slot."
 import matplotlib.pyplot as plt
 
-labels = ['Arena\n(64KB minimum)', 'Factory slot\n(1MiB)']
+labels = ['Arena\n(64KB minimum)', 'Image slot\n(1MB)']
 used = [1648, 447968]
 budget = [65536, 1048576]
 share = [100.0 * u / b for u, b in zip(used, budget)]
@@ -705,44 +703,43 @@ fig.tight_layout()
 ```
 
 ```{python}
-#| label: fig-device-boots
-#| fig-cap: "Records kept across boots. Opening a blank region formats it, so the boot that formats reads none and writes one; every later boot reads what the earlier ones wrote and adds one. The last two boots were read directly on the bench."
+#| label: fig-device-memory
+#| fig-cap: "The reader's working set against the memory of the part, on a log scale: 1,648 bytes inside a 64KB arena, inside 512KB of SRAM."
 import matplotlib.pyplot as plt
 
-boots = ['Boot 1', 'Boot 2', 'Boot 3', 'Boot 4']
-kept = [0, 1, 2, 3]
+labels = ['Part SRAM', 'Arena handed over', "Reader's peak"]
+values = [512 * 1024, 65552, 1648]
+shades = ['#ececec', '#bdbdbd', '#7a7a7a']
 
 fig, ax = plt.subplots(figsize=(3.6, 2.4))
-ax.bar(range(4), kept, color='#d0d0d0', edgecolor='black', linewidth=0.8, width=0.5)
-ax.plot(range(4), kept, color='black', linewidth=0.8, marker='o', markersize=3)
-for i, k in enumerate(kept):
-    ax.text(i, k + 0.12, str(k), ha='center', fontsize=6.5)
-ax.set_xticks(range(4))
-ax.set_xticklabels(boots, fontsize=7)
-ax.set_ylabel('Records read before the boot writes', fontsize=7)
-ax.set_ylim(0, 3.6)
-ax.tick_params(axis='y', labelsize=6.5)
-ax.grid(axis='y', linestyle=':', alpha=0.4)
-ax.annotate('one record written per boot', xy=(2.4, 2.4), xytext=(0.25, 3.05), fontsize=6.5,
-            arrowprops=dict(arrowstyle='->', color='black', linewidth=0.8))
+ax.barh(range(3), values, color=shades, edgecolor='black', linewidth=0.8, height=0.5)
+ax.set_xscale('log')
+ax.set_yticks(range(3))
+ax.set_yticklabels(labels, fontsize=7)
+for i, value in enumerate(values):
+    ax.text(value * 1.18, i, f'{value:,} B', va='center', fontsize=6.5)
+ax.set_xlim(900, 3_000_000)
+ax.set_xlabel('bytes (log scale)', fontsize=7)
+ax.tick_params(axis='x', labelsize=6.5)
+ax.grid(axis='x', linestyle=':', alpha=0.4)
 fig.tight_layout()
 ```
 
 :::
 
-| Measured on the board | Value |
+| Measured on the part | Value |
 |---|---|
-| Chip | ESP32-S3, 512KB SRAM, 160MHz (the clock this run used) |
-| Operating system under the engine | none: the engine is `no_std`, allocates from the arena, and takes its time from a tick the firmware advances. The hosting firmware is ESP-IDF |
-| Arena the firmware hands the engine | 65,552 bytes: the 64KB minimum plus its alignment |
-| Heap peak over the run | 1,648 bytes |
-| Application image | 447,968 bytes |
-| Flash region | 2MiB partition, the log and its index on the medium |
-| Records kept across resets | 3, each read back by its coordinate |
+| Part | 32-bit, 512KB of SRAM, 8MB of flash, 160MHz |
+| Operating system under the reader | none: the reader is `no_std`, allocates from the arena, and takes its time from a tick the host advances |
+| Arena the host hands over | 65,552 bytes: the 64KB minimum plus its alignment |
+| Working set at the peak | 1,648 bytes |
+| Image | 447,968 bytes |
+| Flash region | 2MB, the records and their order on the medium |
+| Address of a record | twenty code points, computed from the record's fields |
 
-The record layer is an independent implementation that takes its record semantics from neXus and its io and storage materialization contract from Chton. This document supplies the address shape, the coordinate a record is keyed by. On the device the channel writes through the partition API of the hosting firmware, so the run exercises the coordinate as an address on a minimum-class MCU; the Chton file interface is the host path.
+The implementation is separate from this specification. The primitive supplies the address; the implementation supplies the log, the placement on the medium, and the recovery, and the run exercises the address on a part where nothing else could hold it.
 
-Scope of this run: reads go through the partition's memory mapping, and a payload is copied into the caller's buffer on delivery. Torn-tail recovery is gated on the host, and this board did not cut a write mid-flight. The RTL decoder, the FPGA bitstream, and the segment store are separate realizations of the primitive, and none of them is on this path.
+Scope of this run: reads go through the memory mapping of the region, and a payload is copied into the caller's buffer on delivery. The RTL decoder, the bitstream, and the segment store are other realizations of the primitive, and none of them is on this path.
 
 ## Comparison with Existing Paradigms
 
