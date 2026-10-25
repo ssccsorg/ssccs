@@ -674,7 +674,7 @@ The target is a 32-bit part at 160MHz, with 512KB of SRAM and 8MB of flash. The 
 
 ![The part that carries the coordinate as a record address, on the bench.](../../../_include/esp32s3_board.jpg){#fig-minimum-device width=55%}
 
-The reader's working set peaks at 1,648 bytes of a 65,552-byte arena, the 64KB handed over plus its alignment, and the image occupies 447,968 bytes. No index structure stands between a record and its address: the value a writer computes is the value a reader computes, and there is nothing to build as the region fills. A reader that starts does no storage work to find them, because the address is recomputed from the fields rather than restored from a table. There is no rebuild for a start to pay, and the working set stays flat as the region fills.
+The reader's working set peaks at 1,648 bytes of a 65,552-byte arena, the 64KB handed over plus its alignment, and the image occupies 447,968 bytes. The first start prepares the region and peaks at 2,384 bytes; later starts hold 1,648 bytes. No index structure stands between a record and its address: the value a writer computes is the value a reader computes, and there is nothing to build as the region fills. A reader that starts after the first does no storage work to find them, because the address is recomputed from the fields rather than restored from a table. There is no rebuild for a start to pay, and the working set stays flat as the region fills.
 
 ::: {layout-ncol=2}
 
@@ -732,7 +732,8 @@ fig.tight_layout()
 | Part | 32-bit, 512KB of SRAM, 8MB of flash, 160MHz |
 | Operating system under the reader | none: the reader is `no_std`, allocates from the arena, and takes its time from a tick the host advances |
 | Arena the host hands over | 65,552 bytes: the 64KB minimum plus its alignment |
-| Working set at the peak | 1,648 bytes |
+| First start, preparing the region | 2,384 bytes |
+| Working set at the peak after the first start | 1,648 bytes |
 | Image | 447,968 bytes |
 | Flash region | 2MB, the records and their order on the medium |
 | Address of a record | twenty code points, computed from the record's fields |
