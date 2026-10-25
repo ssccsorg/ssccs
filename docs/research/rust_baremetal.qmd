@@ -465,12 +465,12 @@ This document presents a **realistic and actionable research plan** that accurat
 
 ## A bare-metal run on a device
 
-The contract described above has since been carried to hardware. The engine behind the coordinate primitives was built for `xtensa-esp32s3-none-elf`, which is `no_std`: it allocates from an arena the firmware hands over and takes its time from a tick the firmware advances, so no operating-system call runs under it. The part is an Xtensa one rather than a RISC-V one, and that is the point of the port: the contract is the target's, not the instruction set's, and the same surface builds for `riscv32imac-none-elf` as well.
+The contract described above has since been carried to hardware. What the engine asks of a host is three primitives: the region's bytes, a write, and an erase. Above them it owns the log, the index on the medium, and the recovery. It was built for `xtensa-esp32s3-none-elf`, which is `no_std`: it allocates from an arena the firmware hands over and takes its time from a tick the firmware advances, so no operating-system call runs under it. The part is an Xtensa one rather than a RISC-V one, and that is the point of the port: the contract is the target's, not the instruction set's, and the same surface builds for `riscv32imac-none-elf` as well.
 
 ::: {.columns}
 ::: {.column width="52%"}
 
-![A LiteWing on the bench: ESP32-S3, 512KB of SRAM, records kept in its own flash.](../_include/litewing_esp32.jpg){#fig-baremetal-litewing}
+![An ESP32-S3 board on the bench: 512KB of SRAM, records kept in its own flash.](../_include/esp32s3_board.jpg){#fig-baremetal-board}
 
 :::
 ::: {.column width="48%"}

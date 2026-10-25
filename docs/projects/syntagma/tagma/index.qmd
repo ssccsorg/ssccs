@@ -668,11 +668,15 @@ Reproduction: `make -C hw check` runs the whole gate (simulation, synthesis, and
 
 ### Minimum-class device run {#sec-minimum-device}
 
-The claim that one coordinate is one register and one SRAM word has a floor: a target where the engine has no operating system under it, no file system, and an allocator that is an arena the firmware hands over. The smallest target this claim has been carried to is a LiteWing, an ESP32-S3 with 512KB of SRAM and a 2.4GHz radio, powered from its own 1S cell.
+A storage engine implementation that keys records by a Tagma coordinate and keeps its index on the medium needs three primitives from a target: the region's bytes, a write, and an erase. One implementation supplies those three from an ESP32-S3 flash partition, with no file system and no database between a record and the medium, and this run measures what the engine costs above them.
 
-![The smallest device that carries the coordinate as a record address: a LiteWing, ESP32-S3 with 512KB of SRAM, on the bench.](../../../_include/litewing_esp32.jpg){#fig-minimum-device width=55%}
+The target is an ESP32-S3 board at 160MHz, with 512KB of SRAM and 8MB of quad flash, powered from its own 1S cell. The engine runs over a 2MiB data partition at 0x130000, and the partition table stays below the 4MB boundary the shipped bootloader accepts.
 
-What ran is the record layer addressed by twenty-code-point coordinates, over a 2MiB flash partition. Three records, each written by a separate boot, were read back by their coordinates after resets. The index lives on the medium; what the channel holds is one segment's key order, not a map of the volume.
+![The device that carries the coordinate as a record address: an ESP32-S3 board with 512KB of SRAM, on the bench.](../../../_include/esp32s3_board.jpg){#fig-minimum-device width=55%}
+
+Peak heap over the run is 1,648 bytes against a 65,552-byte arena, the engine's 64KB minimum plus alignment, and the application image is 447,968 bytes of a 1MiB slot. The log is the volume. The only derived state the read path holds is one segment's key order, and a segment bounds it.
+
+Three records, each written by a separate boot, were read back by their coordinates after resets: four boots, three kept, each address twenty code points.
 
 ::: {layout-ncol=2}
 
@@ -738,7 +742,7 @@ fig.tight_layout()
 
 The record layer is an independent implementation that takes its record semantics from neXus and its io and storage materialization contract from Chton. This document supplies the address shape, the coordinate a record is keyed by. On the device the channel writes through the partition API of the hosting firmware, so the run exercises the coordinate as an address on a minimum-class MCU; the Chton file interface is the host path.
 
-The run does not exercise the RTL decoder, the FPGA bitstream, or the segment store; it exercises the coordinate as an address on a minimum-class MCU. That is the smallest class this addressing claim has been carried to, and the record survived a power cycle, which is the difference between a benchmark and a device tier.
+Scope of this run: reads go through the partition's memory mapping, and a payload is copied into the caller's buffer on delivery. Torn-tail recovery is gated on the host, and this board did not cut a write mid-flight. The RTL decoder, the FPGA bitstream, and the segment store are separate realizations of the primitive, and none of them is on this path.
 
 ## Comparison with Existing Paradigms
 
