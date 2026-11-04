@@ -1,0 +1,211 @@
+---
+title: "Axioms as Constraints for Open-Team Attribution"
+subtitle: "Ideas from arXiv:2611.03301 for the FIH Record Model"
+metadata-files:
+  - ../../../_include/author.yml
+abstract: |
+  The useful part of arXiv:2611.03301 is a design move: state the properties an
+  allocation must satisfy, then let the learning algorithm follow from them. Five
+  ideas carry into the FIH record model. The axiom set becomes a dial that
+  produces named variants. Openness acquires a structural signature that closed
+  accounting omits. Coalition membership separates from the value it is weighed
+  by, and the record graph already holds the membership. A horizon reads from a
+  counted structure instead of an arbitrary constant. Invariance becomes
+  architectural rather than checked at run time. One boundary runs through all
+  five: the record model holds no reward and no value, so an attribution can be
+  assembled from records only when the application supplies the weight.
+---
+
+{{< include ../../../_include/_title_meta_items.qmd >}}
+
+```{python}
+#| include: false
+#| context: local
+%run ../../../_include/_graphviz.py
+```
+
+## The Move
+
+[arXiv:2611.03301](https://arxiv.org/html/2611.03301) addresses a team drawn at the start of each episode from a pool of controlled agents and a pool of uncontrolled agents, where only the controlled policies are learned. The setting supplies a common reward at every step, a discount, a finite episode, and a policy per agent.
+
+The contribution is a change of direction. Instead of writing down the Shapley formula and estimating the coalition values it needs, the paper states the properties an allocation must satisfy and derives the learning algorithm from them. Three properties are imposed, and each becomes a piece of the algorithm: Efficiency becomes reward shaping plus a sum constraint, Linearity becomes a truncated TD(lambda) update whose horizon equals the number of non-empty coalitions, Symmetry becomes an architecture that commutes with relabelling agents. Together they recover the Shapley value for Dec-POMDPs, and dropping Efficiency yields the Banzhaf index instead.
+
+Property first and algorithm second is the transferable part, and the record model is where it gets tested.
+
+## Idea: The Axiom Set Is a Dial
+
+Because the algorithm follows from the property set, the property set becomes a design space. All three axioms give the Shapley value; Symmetry and Linearity alone give the Banzhaf index; both are presented as templates over the same two base algorithms. A constraint that can be dropped and named is a different object from one baked into an implementation, because the dropped version is a mode rather than a defect.
+
+The practice transfers to the record layer. The model already holds structural properties that can be stated, tested, and negated: a conclusion produces exactly one Fact, a record's set of consumed records is explicit, and identity does not depend on the reader. Naming them as properties makes each one a check with a meaningful failure mode, and makes a deliberate relaxation a documented variant.
+
+Its limit is that the paper's dial turns over payoff allocations, where dropping an axiom selects a different solution concept. The record model's properties are structural, and their negations are not alternative solution concepts. The method carries; the content does not.
+
+```{python}
+#| label: fig-axiom-dial
+#| fig-cap: "Two settings of one dial. Imposing all three axioms yields the Shapley value for Dec-POMDPs; dropping Efficiency yields the Banzhaf index over the same base algorithms."
+dot("""
+digraph AxiomDial {
+    rankdir=LR;
+    node [shape=box, style="rounded,filled", fontsize=9];
+    edge [fontsize=8];
+
+    Full [label="Efficiency\nSymmetry\nLinearity", fillcolor="#e8ecf8"];
+    SM [label="Shapley value\nfor Dec-POMDPs", shape=ellipse, fillcolor="#d8f0e0"];
+    BM [label="Banzhaf index\nfor Dec-POMDPs", shape=ellipse, fillcolor="#e8ecf8"];
+
+    Full -> SM [label="all three imposed"];
+    Full -> BM [label="Efficiency dropped", style=dashed];
+}
+""")
+```
+
+## Idea: Openness Has a Structural Signature
+
+The decomposition separates the team value into coalitions inside the controlled set and every coalition that reaches into the uncontrolled pool. The second part exists only because the team is open, and Example 3.3 shows that projecting onto the controlled span drops it outright. Openness therefore stops being a caveat and becomes a term with a place in the algebra.
+
+```{python}
+#| label: fig-naht-decomposition
+#| fig-cap: "The decomposition. A team M splits into controlled C and uncontrolled U, and the team value is a sum of basis games over coalitions inside C and over coalitions that reach outside it. The second sum is the openness term and vanishes when C = M."
+dot("""
+digraph NahtDecomposition {
+    rankdir=LR;
+    node [shape=box, style="rounded,filled", fontsize=9];
+    edge [fontsize=8];
+
+    Team [label="team M\nredrawn each episode", fillcolor="#e8ecf8"];
+    Ctrl [label="controlled C\n|C| = N, policies optimized", fillcolor="#d8f0e0"];
+    Unctrl [label="uncontrolled U\n|U| = M - N, unknown types", fillcolor="#f0dcdc"];
+
+    Internal [label="internal cooperation\nsum over non-empty subsets of C", fillcolor="#ffffff"];
+    External [label="external teamwork\nsum over the remaining non-empty subsets", fillcolor="#ffffff"];
+    Value [label="v_s in G(s)\nstate-specific game", shape=ellipse, fillcolor="#fff8d8"];
+
+    Team -> Ctrl;
+    Team -> Unctrl;
+    Ctrl -> Internal [label="coalitions of C"];
+    Ctrl -> External [label="coalitions mixing C and U"];
+    Unctrl -> External;
+    Internal -> Value;
+    External -> Value [label="vanishes when C = M"];
+}
+""")
+```
+
+For a record graph, the same distinction can be drawn with recorded structure. A declared scope, whether a creator, an origin, or a set of Intents, partitions dependencies into those inside the scope and those crossing its boundary. Marking the crossing edges makes the omission visible at the point where accounting would otherwise be silent. The magnitude of the interaction stays unmeasured.
+
+The limit is that the paper's term is a summand of a real-valued game, weighted by coefficients estimated from interaction data. A count of crossing dependencies is evidence that an interaction exists, and no value follows from the count.
+
+## Idea: Membership and Value Separate
+
+The paper needs a coalition structure before it needs any number: V(C, s) is defined for every non-empty subset, and the team value is a weighted sum over those subsets. The record graph already fixes membership, since an Intent lists the Facts it departs from and the conclusion names that Intent. What the paper estimates per coalition, the record states per operation.
+
+This suggests splitting attribution into two layers with different owners. Membership is recorded and verifiable; the weight comes from the application that defines the objective. A record layer can carry the first layer and has no standing on the second. Stating the split early removes a class of designs that cannot work, including any attempt to recover an allocation from a stored path alone.
+
+**The record supplies the coalition; the application supplies the value.**
+
+The limit is that recording membership is not computing a value. V(C, s) in the paper is estimated from interaction data and rewards, and a record set contains neither.
+
+```{python}
+#| label: fig-attribution-layers
+#| fig-cap: "Two layers. Coalition membership is recorded as an Intent's consumed Facts and its concluding Fact; the weight is supplied by the application that owns the objective. The attribution is composed where it is used and is not itself a record."
+dot("""
+digraph AttributionLayers {
+    rankdir=LR;
+    node [shape=box, style="rounded,filled", fontsize=9];
+    edge [fontsize=8];
+
+    subgraph cluster_record {
+        label="recorded in the FIH graph";
+        style="rounded,dashed";
+        color="#666666";
+        fontsize=9;
+        F1 [label="Fact f_1", fillcolor="#d8f0e0"];
+        F2 [label="Fact f_2", fillcolor="#d8f0e0"];
+        I1 [label="Intent\nfrom_facts = f_1, f_2", shape=diamond, fillcolor="#ffe9c9"];
+        F3 [label="Fact f_3", fillcolor="#d8f0e0"];
+        F1 -> I1;
+        F2 -> I1;
+        I1 -> F3 [label="conclude"];
+    }
+
+    subgraph cluster_value {
+        label="supplied by the application";
+        style="rounded,dashed";
+        color="#666666";
+        fontsize=9;
+        W [label="w(C)\na real number", shape=ellipse, fillcolor="#fff8d8"];
+    }
+
+    Attr [label="attribution\ncomposed, not recorded", shape=ellipse, fillcolor="#f0f0f0"];
+    I1 -> Attr [style=dashed, label="membership"];
+    W -> Attr [style=dashed, label="weight"];
+}
+""")
+```
+
+## Idea: Read the Horizon from Structure
+
+Definition D.2 orders the non-empty coalitions by size and pairs the i-th coalition with an i-step return. Proposition 4.2 then shows that a linear allocation over those basis games takes the form of a truncated TD(lambda) update, with the horizon equal to the number of non-empty coalitions and the weights set geometrically by lambda. Both parameters acquire a reading: one counts a structure, the other sets the tail.
+
+Dependency analysis has the same two parameters and usually sets them by convention. A walk over consumed-record edges needs a depth limit and a decay, and both can be tied to counted structure instead of a constant, for instance the number of distinct contributors or origins reachable from a conclusion.
+
+The evidence bounds the idea. In 8v9 and 10v11 the theoretical count exceeds the episode length, 127 against 120 and 511 against 150, so the horizon is set to the episode length; at that setting the Banzhaf variant is identical to its baseline, and the paper says so. Shapley variants were also unstable at those scales, with an accumulated-error explanation. The rule is a principled default with a known breaking point.
+
+Its limit is that the count is exponential in team size and required a cap, so the mechanism works as a starting rule only when the fallback is explicit.
+
+## Idea: Make Invariance Architectural
+
+Theorem 4.6 obtains Symmetry from permutation-equivariance of the allocation operator, and the paper realizes it through two structural conditions: the output permutes with the input, and each agent's value is invariant to the order of the other agents' information. Shared-parameter networks satisfy both by construction.
+
+The general form is that an invariance is cheapest when the mechanism cannot violate it. The record model already works this way: identity is a function of kind, origin, creator, and content, so reader, arrival order, and node do not enter the address at all. Where invariance cannot be built in, stating it as a property with a test is the next best step, because a run-time check only sees violations that happen to occur.
+
+Its limit is that the paper's invariance is over agent labels in a learned operator and the record model's is over readers and order in an address. The design pattern is shared, and no theorem moves between them.
+
+## What the Evidence Supports
+
+The reported results fix how far each idea can be pushed.
+
+| Finding | Setting | Consequence for the ideas |
+| :--- | :--- | :--- |
+| At least one variant reaches the best performance | MPE-PP, 3sv5z, 5v6 | a dropped axiom is a legitimate mode, which supports the dial |
+| Banzhaf comparable to or better than Shapley on unseen agent types | out-of-distribution evaluation | Efficiency can cost generalization, so the dial is worth having |
+| Shapley better on unseen conventions, except 10v11 | out-of-distribution evaluation, POAM instantiations | the full axiom set pays when the distribution shift is in conventions |
+| Horizon falls back to episode length in 8v9 and 10v11 | 127 against 120, 511 against 150 | the structural rule needs an explicit fallback |
+| Shapley variants unstable at the largest scales | 8v9, 10v11 | the sum constraint carries accumulated error, which a value-loss clip only partly controls |
+| Coalition-variance monotonicity partially verified | teammate-composition cap experiment | the horizon pairing rests on an assumption with supporting evidence, not proof |
+| Truncated return variance needs non-negative autocovariance of TD errors | Lemma E.2 | the monotonicity argument is conditional on the environment |
+
+## Where the Ideas Stop
+
+Two bounds keep the ideas from being over-extended.
+
+The first belongs to the record model. It holds Facts, Intents, and Hints, and among its record kinds there is no reward function, no policy, no value function, no episode, no discount, and no team value. The three axioms are stated over a map from cooperative games to allocations of a real value, and an allocation needs a value to divide, so an idea that ends in a payoff stops at the edge of the record.
+
+The second belongs to the ideas themselves. They are stated over interactions and rewards, so they carry nothing about how a record is kept.
+
+| Object | In the record model | In the framework |
+| :--- | :--- | :--- |
+| Reward, value, policy, learned operator | absent | the objects every axiom acts on |
+| Immutability | a Fact is never overwritten | outside the framework |
+| Identity | coordinate tuple from kind, origin, creator, content | outside the framework |
+| Lifecycle | `submit`, `claim`, `heartbeat`, `conclude`, with eviction | outside the framework |
+| Replay equality | replay of a recorded path equals recomputation | outside the framework |
+
+What the ideas supply is a learning rule over trajectories. A record set supplies the trajectories and no target for them, so the two meet where an application states the target. The setting the ideas address belongs to an agent runtime that composes agents it does not implement, and the elements they yield there are kept with [Open Teams: What an Agent Runtime Can Attribute](/projects/actus/notes/open_team_attribution.html).
+
+## Directions
+
+These are practical judgments, held with limited confidence.
+
+State the record model's structural properties explicitly and test them. The property-first method is the paper's real contribution and is independent of any axiom. The model's three properties, one conclusion per Intent, explicit consumed records, and identity independent of the reader, are implied by the design and each can be stated as a check.
+
+Mark scope-crossing dependencies when a scope is declared. This makes the openness term visible without claiming to measure it, and it carries the decomposition into recorded structure with no further machinery.
+
+If attribution is added, keep membership in the record and the weight in the application. Two results from the paper would apply as caveats: Efficiency traded away generalization to unseen agent types in the reported experiments, and the large-scale Shapley results were limited by horizon truncation, which the authors state as an open problem.
+
+## References
+
+1. Wang, J., Li, Y., Kaski, S., and Lawry, J. An Axiomatic Framework for Reinforcement Learning in Open Multi-Agent Systems. arXiv:2611.03301v2 [cs.LG], 3 November 2026. CC BY 4.0. [arxiv.org/abs/2611.03301](https://arxiv.org/abs/2611.03301)
+2. Dubey, P. On the Uniqueness of the Shapley Value. International Journal of Game Theory 4(3), 131-139, 1975.
+3. Wang, C., Rahman, M. A., Durugkar, I., Liebman, E., and Stone, P. N-agent Ad Hoc Teamwork. Advances in Neural Information Processing Systems 37, 2025.
+4. SSCCS neXus Whitepaper, sections on the model, lifecycle, coordinate identity, determinism, and auditability. [docs.ssccs.org/projects/nexus/whitepaper](https://docs.ssccs.org/projects/nexus/whitepaper)

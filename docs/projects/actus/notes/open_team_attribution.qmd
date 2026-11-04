@@ -1,0 +1,114 @@
+---
+title: "Open Teams: What an Agent Runtime Can Attribute"
+subtitle: "Elements from arXiv:2611.03301 for the Actus Runtime"
+metadata-files:
+  - ../../../_include/author.yml
+abstract: |
+  A runtime that composes agents it does not implement runs an open team:
+  composition is drawn per session, part of the behaviour sits inside the
+  surface the runtime configures, and the rest belongs to the agent or its
+  vendor. The framework supplies the vocabulary for that situation and three
+  usable elements. The team is drawn rather than fixed. The configured surface
+  and the agent's decision can be held apart in an outcome. Evaluation has two
+  distinct axes, agent type and convention. The framework's own output is a
+  value function learned from rewards, and a runtime routes acts without a
+  reward, so the elements stop before value.
+---
+
+{{< include ../../../_include/_title_meta_items.qmd >}}
+
+```{python}
+#| include: false
+#| context: local
+%run ../../../_include/_graphviz.py
+```
+
+## The Setting in Runtime Terms
+
+arXiv:2611.03301 studies an open team drawn at the start of each episode from a pool of controlled agents and a pool of uncontrolled agents, where only the controlled policies are learned. Two things vary from one interaction to the next: who is in the team, and how much of the team the learner controls. The objective is written as an expectation over the draw, which is what makes composition a first-class quantity rather than a background condition.
+
+Actus has the same two variables under a different name. A session is a composition. A base agent attaches for the session, auxiliary agents attach per request, and which agent kinds are installed is decided outside the runtime. Each agent is described by one configuration entry covering its kind, model endpoint, launch, approval policy, working directory, and tool servers, and dispatch by one agent of another passes an explicit policy list. Everything inside that configured surface belongs to the agent.
+
+The substitution is authority in place of policy. **A runtime constrains what an agent may do; the framework constrains what an agent's value may be.** The structure of the problem is shared, and the object that gets measured is not.
+
+```{python}
+#| label: fig-runtime-authority
+#| fig-cap: "The authority boundary in a session. The runtime configures kind, endpoint, launch, approval policy, dispatch policy, tool servers, and working directory; the agent decides everything inside that surface, and the act is recorded as the outcome."
+dot("""
+digraph RuntimeAuthority {
+    rankdir=LR;
+    node [shape=box, style="rounded,filled", fontsize=9];
+    edge [fontsize=8];
+
+    Session [label="session\ncomposition drawn", fillcolor="#e8ecf8"];
+
+    subgraph cluster_surface {
+        label="configured surface, runtime";
+        style="rounded,dashed";
+        color="#666666";
+        fontsize=9;
+        Kind [label="kind, endpoint, launch", fillcolor="#d8f0e0"];
+        Policy [label="approval policy\ndispatch policy list", fillcolor="#d8f0e0"];
+        Tools [label="tool servers\nworking directory", fillcolor="#d8f0e0"];
+    }
+
+    Decision [label="agent decision\ninside the surface", fillcolor="#f0dcdc"];
+    Outcome [label="act\nrecorded", shape=ellipse, fillcolor="#fff8d8"];
+
+    Session -> Kind;
+    Session -> Policy;
+    Session -> Tools;
+    Policy -> Decision [label="admits or refuses"];
+    Decision -> Outcome;
+    Kind -> Outcome [style=dotted];
+    Tools -> Outcome [style=dotted];
+}
+""")
+```
+
+## Element: The Team Is Drawn, Not Fixed
+
+The paper writes the objective as an expectation over the team draw, so a result belongs to a distribution over compositions rather than to one roster. A different number of controlled agents produces a different team, and the same policy set is judged across all of them.
+
+A session in actus accumulates a roster the same way. The base agent is fixed for the session, each request may attach a different auxiliary, and a chain of dispatches builds the team incrementally. Which session dispatched an auxiliary thread is already recorded, so the trace of a chain exists.
+
+The element is to make the composition readable as one object per session: the agents configured, the agents dispatched, and the agents only observed. Composition then becomes a query rather than a reconstruction from several thread records. No value is implied by the record, and none is needed for the roster to be useful.
+
+## Element: Surface and Decision Separate
+
+The paper's decomposition separates what the controlled agents do among themselves from what depends on the members outside control. The separation is what makes the openness of the system visible in the accounting instead of leaving it as a caveat.
+
+An act in a runtime has two sources that are easy to merge. The configured surface admits the operation, and the agent chooses it. When a trace keeps only the outcome, every failure reads as an agent failure and every success reads as a runtime success.
+
+The element is to keep the two layers distinct in the record: the act, the admission decision that allowed it, and the agent that requested it. Policy-gated dispatch already makes admission a distinct step in the request path, so the separation exists in the mechanism and the element is to carry it into the trace.
+
+## Element: Type and Convention Are Separate Axes
+
+The paper evaluates generalization on two axes and reports that they move differently: its results on unseen conventions favor the full axiom set, and its results on unseen agent types favor the relaxed one. A single out-of-distribution number would have hidden both.
+
+A conformance suite with one fixed attached agent measures the configured surface and nothing else. Varying the agent kind per request measures the axis the paper measures under the name of unseen types, and re-running the same kind against a different implementation of the same contract measures the other axis.
+
+The element is to name the axis a test varies, and to report the two separately. The paper's own result is the argument: a change that helps one axis costs the other.
+
+## Where the Elements Stop
+
+The framework's output is a value function learned from rewards, and a runtime routes acts without a reward, so the value half has no target here. The paper's controlled set is a set of learned functions whose parameters are optimized; the runtime's controlled set is a permission boundary, and the words match while the objects differ.
+
+Nothing in the framework constrains how a dispatch is admitted, recorded, or replayed. Those belong to the runtime.
+
+What the setting supplies is the shape of the question: a composition, a boundary of authority, and an outcome that has to be attributed across that boundary. The three elements are the part of that shape a runtime can act on today.
+
+## Directions
+
+These are practical judgments, held with limited confidence.
+
+Record the session composition as one object, covering configured, dispatched, and observed agents, so a chain of dispatches reads in one place.
+
+Carry the admission decision into the trace beside the act. The step already exists in the request path, and separating it makes an outcome attributable to a layer.
+
+In conformance runs, vary the agent kind and label the axis, so type variation and convention variation are reported apart.
+
+## References
+
+1. Wang, J., Li, Y., Kaski, S., and Lawry, J. An Axiomatic Framework for Reinforcement Learning in Open Multi-Agent Systems. arXiv:2611.03301v2 [cs.LG], 3 November 2026. CC BY 4.0. [arxiv.org/abs/2611.03301](https://arxiv.org/abs/2611.03301)
+2. Actus project page: a spatio-temporal runtime that executes acts, directly and through agents. [docs.ssccs.org/projects/actus/](https://docs.ssccs.org/projects/actus/)
