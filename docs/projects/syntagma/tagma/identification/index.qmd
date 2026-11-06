@@ -143,15 +143,48 @@ The order property follows from the first two. A fixed width over an ascending a
 comparison the same comparison the value makes, which is what lets a key space be read as a coordinate space
 with no separate index.
 
-Three consequences are normative.
+Two consequences are normative.
 
 - The text is ASCII. It is a legal file name on every file system, and it needs no Unicode normalisation on
   either side of a conversion.
 - The value is the authority. A structure inside a process holds the value, and the text exists where a
   surface needs it: a key, a file name, a wire field, a line of output.
-- A label is a derived identifier, and a label is not an address. `from_label` derives one by hashing, and
-  `resolve` answers with a label for any text that is not canonical, so a caller that must refuse a malformed
-  address checks with `from_string` before resolving.
+
+### Conversion
+
+Two operations, and which one a caller gets is part of the specification.
+
+| Operation | Input | Result | On bad input |
+|---|---|---|---|
+| parse | canonical text | the value | refused: a wrong length, a byte outside the alphabet, and an axis value at or above 11,172 are all `None` |
+| render | the value | the canonical text | no bad input exists, because every value below 11,172 has exactly one text |
+
+A refusal belongs to the boundary where the text entered, because that is the only place that can attribute it to a
+writer. The operation that accepts any text is a label and is described below.
+
+### Where each form lives
+
+| Layer | Holds | Converts |
+|---|---|---|
+| the model and the arithmetic | the value | never |
+| a container: a map, a set, an index, a filter | the value | at the edge that receives or emits text |
+| a storage key and a physical file name | the text | once per surface crossing |
+| the wire, a configuration file, a log line | the text | once per surface crossing |
+
+The rule is one line long: a container holds the value and a boundary converts once. It holds as a property of the
+types rather than as a convention of the callers, because a container keyed by the value cannot be written to with
+text. A container keyed by the text is the failure this rule describes: it costs both conversions on every access
+and it makes the text the thing the layer compares.
+
+### A label is a derived identifier
+
+`from_label` hashes an arbitrary string into the coordinate space, and `resolve` answers with a label for any text
+that is not canonical. Two consequences follow.
+
+- A label names a record that was not addressed. It cannot be decomposed back into its input, so it is a name and
+  not an address.
+- A caller that must refuse a malformed address parses rather than resolves. The two operations differ in what they
+  do with bad input, which is why they carry different names.
 
 The choice of form inside a process follows from two measurements on the reference machine at depth 20.
 
@@ -164,6 +197,12 @@ The choice of form inside a process follows from two measurements on the referen
 Composition is the operation this paper compares with SHA-256. The conversions are a boundary cost, paid once
 per surface crossing. A public interface reaches the value through one parse, and everything behind it
 compares values, which keeps the cost constant in the number of lookups rather than proportional to it.
+
+The costs are also the evidence for the rule. A record layer that keyed its maps and its index by the text paid
+both conversions on every lookup; keyed by the value it pays neither. Measured on the same machine at depth 20, an
+intent lookup by fact fell from 33.4 to 13.0 microseconds per hundred calls, and a wanted-id scan over ten thousand
+records from 133.6 to 95.6 microseconds. The medium's bytes did not move in either direction, because both
+spellings of a depth-20 identity are sixty bytes.
 
 ## N-Coordinate Expansion
 
