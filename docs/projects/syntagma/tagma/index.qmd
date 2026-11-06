@@ -165,6 +165,34 @@ Each Coord retains independent hardware-verifiable validity ($19 \times 21 \time
 
 This is not merely a larger address space, but a coordinate algebra of $3N$ independent axes whose semantics are entirely application-defined: a sensor network may assign axis 0 to device type, axis 1 to geographic zone, and axis 2 to timestamp, while a database system assigns the same axis positions to table, partition, and row. The coordinate arithmetic -- composition, decomposition, linearisation, Hamming distance, axis projection -- is invariant under semantic reinterpretation because the axes are fungible; the algebra depends only on the invariant structural relations among them, not on what any particular axis represents. This distinguishes Tagma from Euclidean space, where axes are bound to physical dimensions, and from hash space, where all structure is destroyed.
 
+### Identity Text {#sec-identity-text}
+
+A CoordPath is also an identifier, and the reference implementation fixes how it is written. The text is normative: a reader that accepts another spelling would accept an identifier this specification does not define.
+
+An identity of depth $N$ is $N$ axis windows of exactly three characters each, so the text is $3N$ characters and every character is ASCII. Each window is the axis value $0 \le v < 11{,}172$ written in base 36, most significant digit first, over the alphabet `0123456789abcdefghijklmnopqrstuvwxyz` in ascending code point order. The lowercase form is the only form. The uppercase form is refused, because two spellings of one value would cost both of the properties below.
+
+| Axis value | Window | Axis value | Window |
+|-----------:|:------:|-----------:|:------:|
+| 0 | `000` | 1,296 | `100` |
+| 35 | `00z` | 11,171 | `8mb` |
+| 36 | `010` | | |
+| 1,295 | `0zz` | | |
+
+At the default depth of twenty the text is sixty characters. That is the same number of bytes as the syllable spelling it replaces, because one syllable occupies three bytes of UTF-8.
+
+| Property | Why it holds | What it buys |
+|----------|--------------|--------------|
+| Fixed width, three per axis | every window has the same length | a prefix of the text is a prefix of the axes, so a bounding box is a string range and a key listing answers it without parsing |
+| Alphabet in ascending order | digit order equals value order | sorting the text sorts the coordinates |
+| ASCII only | no code point above U+007F | no normalization form and no code page, so a name survives any filesystem, archive, shell, and C string |
+| Three bytes per axis | base 36 needs at most three digits below 11,172 | the text is the same length as the syllable form, so keys, offsets, and stored layouts do not move |
+
+The coordinate value is still the structure of the syllable block: 11,172 is $19 \times 21 \times 28$, the composition formula is unchanged, and the hardware decoder still validates a 16-bit value. What changed is the spelling of that value in text. The syllable spelling is refused for two reasons that belong to the medium rather than to the model. A Hangul syllable has a canonical decomposition, so a filesystem or an archive that normalizes text rewrites the identifier into conjoining jamo and the value is lost; and a filesystem with a fixed code page cannot hold the character at all. Base 36 has neither failure mode.
+
+A text is refused unless it is exactly $3N$ bytes, every byte is in the alphabet, and every window is below 11,172. The last rule refuses the surplus of the alphabet: three base-36 digits carry 46,656 values and the coordinate space holds 11,172. On the C surface the text crosses as a NUL-terminated sixty-byte string.
+
+An identity derived from a digest reads the digest as a base-11,172 number, most significant digit first, and keeps the result as coordinates. At depth 20 the space is $11{,}172^{20} \approx 2^{268.9}$, so every 256-bit digest maps to a distinct coordinate path. The text is then written from those coordinates in the notation above.
+
 ### Recursive State Space Expansion
 
 The composition formula $C(i,m,f)$ accepts three axes whose ranges are fixed: 19, 21, and 28. Nothing in the formula requires these ranges to be atomic. A SynTagma is the structure that results when these axes are themselves composed of CoordPaths. An $N$-Coord CoordPath can occupy any axis position, replacing the original range with its own $11,172^{\,N}$ values.
@@ -913,6 +941,7 @@ The coordinate space is implemented as a multi-crate Rust reference implementati
 |------|-------------|--------------|
 | **Coord** | 16-bit newtype valid in $[0, 11171]$. Three-axis decomposition, composition, Hamming distance, Unicode display. | Bit-exact with hardware decoder |
 | **CoordPath\<N\>** | Compile-time $N$-element Coord array. Index path through multi-level address table. Each element is a direct array index at the corresponding tree depth. | No hashing, no equality comparison |
+| **CoordId\<N\>** | A CoordPath read as an identity, written as $3N$ base-36 characters, three digits an axis [*-@sec-identity-text*]. Adds the derivation a record layer needs from content or from a label. | The text sorts as the coordinate does, and no byte of it is outside ASCII |
 | **CoordSet** | Fixed-size bit array over 11,172-coordinate space. $[\texttt{u64}; 175]$ (1.4 KB, zero heap, `Copy`). Bitwise union, intersection, difference. | Single-bit ops; 175-word AND for compound axis filter |
 
 These three types are always available (no allocator required). With the `alloc` feature, the Space family below is added.
@@ -940,6 +969,8 @@ The `CoordSpace` series provides hash-free, collision-free coordinate-indexed sp
 ### Serialization: base11172
 
 A `no_std` + `alloc` crate providing Tagma's native serialization format. Every coordinate index 0..11171 maps to exactly one Unicode character (U+AC00 + index). A pair of Coords encodes a 16-bit value. The encoding is self-validating: characters outside U+AC00..U+D7A3 are immediately detectable as invalid. No special characters, padding, escaping.
+
+This crate is the byte codec and the structural character map, not the identity text. An identifier is written in base 36 as defined in Identity Text [*-@sec-identity-text*]; `Coord::to_char` remains the mapping from a value to its syllable, which the codec and the hardware's character interpretation use.
 
 Code-level analysis of all types -- including `Coord` bit layout, `CoordSpace` inline array with niche optimization, `CoordSet` bit iteration with `trailing_zeros`, and `CoordSpaceN` sparse tree with lazy node allocation -- is in the software reference implementation.
 
@@ -1225,18 +1256,18 @@ The full comparison across all examined writing systems. Main-stream computing a
 This is a single unique atom's address in our observable universe:
 
 ```text
-맨가억빈힣쐭롮직랯픟첹겨뇨됴듸뤼뮈븨싀쨔 
+2qw00052t3m08mb4rx2ge5vl2b384f6gp04o1601mc1rs2m432g3l44hs5xw
 ```
 
-Twenty Korean characters (U+AC00..U+D7A3) form a coordinate path.
-Each character encodes a value drawn from 11,172 possibilities through
-its initial, medial, and final decompositions, yielding 11,172²⁰ ≈
-9.2 × 10⁸⁰ possible addresses. This is enough to assign a unique
-address to each atom in a volume 9.2 times larger than the
-observable universe. Yet the entire address is a 20-character Korean
-string. It is not a hash of a larger datum, but the address itself
-rendered in human-readable Hangul, decodable by anyone who reads
-Korean without a hex dump.
+Twenty axis windows of three base-36 digits form a coordinate path.
+Each window encodes a value drawn from 11,172 possibilities through the
+initial, medial, and final decomposition of the syllable behind it, yielding
+11,172²⁰ ≈ 9.2 × 10⁸⁰ possible addresses. This is enough to assign a unique
+address to each atom in a volume 9.2 times larger than the observable
+universe. Yet the entire address is sixty ASCII characters. It is not a hash
+of a larger datum but the address itself, written so that a filesystem, an
+archive, a shell, and a C string carry it unchanged; the syllable each window
+stands for is still the unit the decoder validates.
 
 [^tagma-etym]: Greek *τάγμα* from *σύνταγμα* (syn-tagma, *co-ordinate* in English), "a well-ordered arrangement of constituent elements". *Tagma* is the system name; *Coord* is the concrete implementation type.
 [^tagma-repo]: Repository: [Github (Pre-release)](https://github.com/ssccsorg/syntagma), Benchmark [github.com/ssccsorg/syntagma/blob/main/sw/rust/benches/bench.rs](https://github.com/ssccsorg/syntagma/blob/main/sw/rust/benches/bench.rs)
