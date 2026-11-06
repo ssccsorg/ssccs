@@ -325,7 +325,7 @@ The storage architecture applies one principle at two boundaries: *storage down,
 
 ### The Layer-2 Restructure {#sec-storage-l2}
 
-The unified tree index was reduced to a primitive: a six-axis structural filter index that maps each axis combination to a set of record ids over low-cardinality axes (time, entity, origin, creator, status), a filter projection of the identity axes. Record bodies live in hash-map record maps owned by the application layer. This is the standard index-to-heap pattern, applied to the whole store. The measured outcomes of the restructure are:
+The unified tree index was reduced to a primitive: a filter index over the low-cardinality identity axes (time, entity, origin, creator, status), and record bodies owned by the application layer. The restructure separates a structure whose size follows axis cardinality from one whose size follows record count. The measured outcomes of the restructure are:
 
 - per-fact heap footprint dropped from about 3.4 MB to about 40 KB on average, with a steady-state marginal cost around 0.9 KB per additional fact;
 - the conflict check dropped from 135 to 390 ms per call to 445 ns;
@@ -333,7 +333,7 @@ The unified tree index was reduced to a primitive: a six-axis structural filter 
 
 ```{python}
 #| label: fig-storage-layout
-#| fig-cap: "Layer-2 layout: a six-axis structural filter index maps axis combinations to id sets; record bodies and the inverse index live in application-owned record maps."
+#| fig-cap: "Layer-2 layout: the filter index over identity axes is separate from record bodies, which the application owns; semantics stay in the core and I/O moves to the external boundary."
 dot("""
 digraph StorageLayout {
     rankdir=LR;
@@ -344,12 +344,12 @@ digraph StorageLayout {
         label="nexus core: semantics";
         style=filled; fillcolor="#eef4ee";
 
-        Filter [label="structural filter index\n6 axes, low cardinality\naxis combo -> id set", fillcolor="#ffffff"];
-        Records [label="record maps (application-owned)\nrecord bodies, identity, relationships", fillcolor="#ffffff"];
-        Inverse [label="inverse index\nfact_to_intents", fillcolor="#ffffff"];
-        Replay [label="deterministic replay\nrebuild_cache", fillcolor="#ffffff"];
+        Filter [label="structural filter index\nbounded by axis cardinality", fillcolor="#ffffff"];
+        Records [label="record bodies\napplication-owned\nidentity, relationships", fillcolor="#ffffff"];
+        Inverse [label="inverse index\nFact to Intents", fillcolor="#ffffff"];
+        Replay [label="deterministic replay", fillcolor="#ffffff"];
 
-        Filter -> Records [style=dashed, label="id set -> bodies"];
+        Filter -> Records [style=dashed, label="selects"];
         Records -> Inverse [style=dashed];
         Records -> Replay [style=dashed];
     }
@@ -358,12 +358,12 @@ digraph StorageLayout {
         label="external boundary: chton";
         style=filled; fillcolor="#f5efe8";
 
-        EntityStore [label="EntityStore\nMemory / Map / Coord", fillcolor="#ffffff"];
-        FileIo [label="CoordMapStoreIo\nfile I/O", fillcolor="#ffffff"];
+        EntityStore [label="store backends", fillcolor="#ffffff"];
+        FileIo [label="file backend", fillcolor="#ffffff"];
     }
 
-    Records -> EntityStore [style=dashed, label="re-exported traits"];
-    Records -> FileIo [style=dashed, label="re-exported backend"];
+    Records -> EntityStore [style=dashed, label="re-exported"];
+    Records -> FileIo [style=dashed];
 }
 """)
 ```
@@ -575,6 +575,8 @@ The proof sketch reduces the coordination surface to a single function, `exchang
 ### OS-less and Portability Verification {#sec-verify-osless}
 
 The core compiles for environments without an operating system. The Wasm build is exercised in CI, the core time and file abstractions are narrowed to two traits, `Now` and `FileIo`, and the coordinate core builds with `no_std`. The OS-less profile is the bound on the runtime surface: the same record semantics that run on a server also run where an operating system cannot, and the remaining work is a bare-metal launcher rather than a change to the record layer. The constrained profile drops the structural filter index, which is a build feature, and reads the volume a page of keys at a time, holding a page and one record; both shapes are exercised in CI.
+
+What the profile establishes is a property of the record layer: the semantics carry no operating-system dependency, and a device-class read is bounded. A persistent deployment on a part needs more than that property. It needs an on-medium format, an index held on the medium, recovery after an interrupted write, and a callable surface for firmware. Those belong to a deployment rather than to the record layer, and they are outside the scope of this document.
 
 ## Measured Performance {#sec-performance}
 
@@ -837,7 +839,7 @@ Crate boundary re-exports that keep consumer paths stable:
 - `chton::store`: `CoordEntityStore`, `EntityStore`, `MapEntityStore`, `MemoryEntityStore`
 - `chton::io`: `CoordMapStoreIo` file backend
 
-Core semantics that remain in the `fih` crate: the conflict guard in `submit_fact`, the occupancy lookup `existing_fact_content_hash`, the inverse index `fact_to_intents`, the structural filter index maintained by `place_record` and `vacate_record`, deterministic replay in `rebuild_cache`, and per-channel partition scans in `scan_partition`.
+Core semantics that remain in the `fih` crate: the conflict guard on submission, the occupancy lookup, the inverse index from a Fact to the Intents that cite it, the structural filter index, deterministic replay, and per-channel partition scans.
 
 ## Wire Protocol Reference {#sec-appendix-wire}
 
