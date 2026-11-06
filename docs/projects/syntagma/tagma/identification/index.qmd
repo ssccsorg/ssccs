@@ -13,7 +13,7 @@ metadata-files:
     - ../../../../_include/format.html.yml
 colorlinks: true
 abstract: |
-  SHA-256 is the de facto standard for content-addressable identity generation across storage engines, distributed systems, and databases. This paper demonstrates that SHA-256 can be replaced by a structural coordinate composition derived from a fixed 16-bit Unicode block (U+AC00–U+D7AF), reducing identity generation latency by approximately 115x (from 227 ns to 2 ns per operation), eliminating collision handling entirely, and converting multi-axis index queries from O(K x N) intersection to O(1) direct coordinate extraction. The replacement is not cryptographic: preimage resistance, authentication, and encryption remain with SHA-256. Identity generation alone is replaced. A software proof of concept confirming these measurements over 100k operations on ARMv8.4-A Firestorm silicon is provided as open-source reference implementation.
+  SHA-256 is the de facto standard for content-addressable identity generation across storage engines, distributed systems, and databases. This paper demonstrates that SHA-256 can be replaced by a structural coordinate composition over a 16-bit value space whose canonical text is a fixed-width lowercase base-36 spelling (block U+AC00–U+D7AF), reducing identity generation latency by approximately 115x (from 227 ns to 2 ns per operation), eliminating collision handling entirely, and converting multi-axis index queries from O(K x N) intersection to O(1) direct coordinate extraction. The replacement is not cryptographic: preimage resistance, authentication, and encryption remain with SHA-256. Identity generation alone is replaced. A software proof of concept confirming these measurements over 100k operations on ARMv8.4-A Firestorm silicon is provided as open-source reference implementation.
 format:
   html:
     number-sections: true
@@ -120,6 +120,51 @@ Despite this, every content-addressable system pays the full cost of both roles 
 
 The Tagma coordinate space provides a closed-form deterministic mapping with three independent structural axes per coordinate. The full specification, composition formula, and compliance criteria are defined in the Tagma whitepaper [@tagma-wp]. The relevant property for identity generation is that each coordinate is simultaneously a unique identifier and a decomposable address, eliminating the need for separate index structures.
 
+## The Identity Text
+
+A coordinate is a value. Its text is a spelling of that value, and this section fixes both so that an address
+means one thing in a file name, on the wire, and in a log line.
+
+| Form | Definition | Size at depth 20 |
+|---|---|---|
+| value | N axis values, each below 11,172 | 2 bytes an axis |
+| canonical text | N groups of three base-36 digits, lowercase, zero padded | 3 bytes an axis |
+
+The text is normative in four properties.
+
+| Property | Rule |
+|---|---|
+| alphabet | `0` to `9`, then `a` to `z`, in ascending code point order |
+| width | three digits an axis, so the length is exactly 3N bytes and no axis shifts |
+| case | lowercase only, and the uppercase form is refused on the way back |
+| order | the text sorts as the value sorts, and a prefix of the text is a prefix of the axes |
+
+The order property follows from the first two. A fixed width over an ascending alphabet makes a lexicographic
+comparison the same comparison the value makes, which is what lets a key space be read as a coordinate space
+with no separate index.
+
+Three consequences are normative.
+
+- The text is ASCII. It is a legal file name on every file system, and it needs no Unicode normalisation on
+  either side of a conversion.
+- The value is the authority. A structure inside a process holds the value, and the text exists where a
+  surface needs it: a key, a file name, a wire field, a line of output.
+- A label is a derived identifier, and a label is not an address. `from_label` derives one by hashing, and
+  `resolve` answers with a label for any text that is not canonical, so a caller that must refuse a malformed
+  address checks with `from_string` before resolving.
+
+The choice of form inside a process follows from two measurements on the reference machine at depth 20.
+
+| Operation | Cost |
+|---|---|
+| axis composition | about 2 ns |
+| value to canonical text | about 55 ns |
+| canonical text to value | about 35 ns |
+
+Composition is the operation this paper compares with SHA-256. The conversions are a boundary cost, paid once
+per surface crossing. A public interface reaches the value through one parse, and everything behind it
+compares values, which keeps the cost constant in the number of lookups rather than proportional to it.
+
 ## N-Coordinate Expansion
 
 $$S(N) = 11,172^N \approx 10^{4.05N}$$
@@ -159,11 +204,13 @@ A software proof of concept implements the Tagma coordinate in Rust, with 10 int
 | Collision | probabilistic ($2^{-128}$) | deterministic zero | deterministic zero | deterministic zero |
 | Multi-axis query | $O(K \times N)$ | $O(1)$ direct | $O(1)$ direct | $O(1)$ direct |
 
+The figure for N coordinates is composition. The text conversions are a separate cost, given in The Identity Text.
+
 {{< include ../../_include/bench/fig-bench-identity.qmd >}}
 
 ## Conclusion
 
-This a single atom's ID in a coordinate space larger than the observable universe:
+This is a single atom's ID in a coordinate space larger than the observable universe:
 
 `맨가억빈힣쐭롮직랯픟첹겨뇨됴듸뤼뮈븨싀쨔`
 
@@ -176,6 +223,12 @@ observable universe. Yet the entire address is a 20-code-point Hangul
 string. It is not a hash of a larger datum, but the address itself
 rendered in human-readable Hangul, decodable by anyone who reads
 Korean without a hex dump.
+
+The same twenty values have a second spelling. The canonical interchange text is sixty lowercase base-36
+characters, and that is the form a file name, a storage key, and a wire field carry, because it is ASCII and
+needs no normalisation. The Hangul string above is the block's own rendering of the value, and the two name the
+same twenty values. Which one a surface writes is a property of the surface; what the value is, is a property
+of the coordinate.
 
 The Unicode block U+AC00–U+D7AF (which encodes the compositional writing system) is the only block in the international standard whose encoding follows a closed-form composition formula with three independent structural axes. This property, documented in the Hunminjeongeum Haerye of 1443, remained a linguistic feature for over five centuries until content-addressable computing made it relevant as a hardware identity primitive. The gap between design intent and technological application is not unprecedented: the conic sections of Apollonius of Perga found their application in Keplerian orbits eighteen centuries later. Tagma designed for computing, that its structural properties solve a problem that computing currently solves with greater expense:
 
