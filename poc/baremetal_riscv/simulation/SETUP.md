@@ -41,7 +41,8 @@ Or from the repository root:
 ```
 
 Expected output:
-```
+
+```text
 === SUMMARY ===
 Passed: 30
 Failed: 0

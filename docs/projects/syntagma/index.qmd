@@ -15,7 +15,7 @@ title_meta_items = {
         {"title": "Whitepapers", "link": "https://doi.org/10.5281/zenodo.21499437", "content": "TagmaMap", "icon": "bi bi-link"},
 
         {"title": "References", "link": "/projects/syntagma/tagma/", "content": "Primitive", "icon": "bi bi-link"},
-        {"title": "References", "link": "/projects/syntagma/tagma/hardware/", "content": "Hardware", "icon": "bi bi-link"},
+        {"title": "References", "link": "/projects/syntagma/hardware/", "content": "Hardware", "icon": "bi bi-link"},
         {"title": "References", "link": "/projects/syntagma/tagma/#sec-appendix-benches", "content": "Benchmarks", "icon": "bi bi-link"},
 
         {"title": "Standards", "link": "https://www.unicode.org/charts/PDF/UAC00.pdf", "content": "Unicode", "icon": "bi bi-link"},
@@ -54,7 +54,7 @@ Three structural properties make the coordinate an address:
 - **Contiguity of the valid range** 11,172 consecutive values from U+AC00, so the offset is a single subtraction and the space is a flat array.
 - **BMP membership** one character is one UTF-16 code unit, so the coordinate is one u16, one register, one SRAM word.
 
-The Unicode stability policy keeps these constants durable; the general Tagma mechanism extends beyond the BMP with the N-dimensional machinery (CoordPath, base11172, CoordSpace2). No other Unicode character range combines the three structural properties: the block U+AC00--U+D7AF is the only one that does. The full account is in the [reference implementations](/projects/syntagma/impl/).
+The Unicode stability policy keeps these constants durable; the general Tagma mechanism extends beyond the BMP with the N-dimensional machinery (CoordPath, base11172, CoordSpace2). No other Unicode character range combines the three structural properties: the block U+AC00--U+D7AF is the only one that does. The full account is in the [software implementations](/projects/syntagma/software/).
 
 The core Tagma coordinate is defined by the composition formula (ISO/IEC 10646) for block U+AC00--U+D7AF:
 
@@ -255,15 +255,15 @@ The primitive family and its application domains are organized as follows:
 | Document | Description |
 |----------|-------------|
 | [Tagma](/projects/syntagma/tagma/) | Primitive whitepaper: coordinate space, decoder, coprocessor, compliance, benchmarks, SEU analysis |
-| [TagmaMap](/projects/syntagma/tagma/map) | Hashless Key-Value Storage (CoordSpace type paper) |
-| [TagmaGeo](/projects/syntagma/tagma/geo) | Spatial Query Layer on Structural Coordinate Spaces (CoordCube type paper) |
-| [TagmaMatrix](/projects/syntagma/tagma/matrix) | Coordinate-addressed rank-2 matrices, the integer product, and the wire form (Matrix type paper) |
+| [TagmaMap](/projects/syntagma/tagma-map) | Hashless Key-Value Storage (CoordSpace type paper) |
+| [TagmaGeo](/projects/syntagma/tagma-geo) | Spatial Query Layer on Structural Coordinate Spaces (CoordCube type paper) |
+| [TagmaMatrix](/projects/syntagma/tagma-matrix) | Coordinate-addressed rank-2 matrices, the integer product, and the wire form (Matrix type paper) |
 | [Serialization](/projects/syntagma/tagma/serialization) | Base11172: human-readable, self-validating serialization |
 | [Identification](/projects/syntagma/tagma/identification) | Content-addressable identity without hash functions (application domain) |
 | [Security](/projects/syntagma/tagma/security) | Integrity, authorization, audit, and non-repudiation on a structural coordinate space (application domain) |
 | [Signal](/projects/syntagma/tagma/signal) | Structural coordinate transmission: the coordinate is the message (application domain) |
-| [Hardware](/projects/syntagma/tagma/hardware) | Hardware implementation of the Tagma primitive: RTL, synthesis, FPGA demo, chton SRAM |
-| [Memory](/projects/syntagma/tagma/hardware/memory) | Three-dimensional SRAM decode and the chton SRAM segment store |
+| [Hardware](/projects/syntagma/hardware) | Hardware implementation of the Tagma primitive: RTL, synthesis, FPGA demo, chton SRAM |
+| [Memory](/projects/syntagma/hardware/memory) | Three-dimensional SRAM decode and the chton SRAM segment store |
 | Vec *(forthcoming)* | Vector processing over structural coordinates |
 | [Tagma benchmarks](/projects/syntagma/tagma/#sec-appendix-benches) | 51 microbenchmarks across 12 criterion groups: identity generation, spatial query, edge cases at 10M entries, deep trees, mixed-operation stress tests |
 | [Ibex RV32IMCB Report](/projects/ev/ibex.html) | Exhaustive RISC-V verification using structural enumeration: 79x speedup |

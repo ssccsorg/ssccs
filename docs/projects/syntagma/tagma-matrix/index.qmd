@@ -5,12 +5,12 @@ date: 2026-09
 date-format: "MMMM, YYYY"
 version-prefix: tagma_matrix_draft
 version-mark: true
-bibliography: ../../_include/reference.bib
-csl: ../../../../_include/ieee.csl
+bibliography: ../_include/reference.bib
+csl: ../../../_include/ieee.csl
 metadata-files:
-    - ../../../../_include/author.yml
-    - ../../../../_include/format.pdf.yml
-    - ../../../../_include/format.html.yml
+    - ../../../_include/author.yml
+    - ../../../_include/format.pdf.yml
+    - ../../../_include/format.html.yml
 colorlinks: true
 format:
   html:
@@ -75,12 +75,12 @@ title_meta_items = {
 }
 ```
 
-{{< include ../../../../_include/_title_meta_items.qmd >}}
+{{< include ../../../_include/_title_meta_items.qmd >}}
 
 ```{python}
 #| include: false
 #| context: local
-%run ../../../../_include/_graphviz.py
+%run ../../../_include/_graphviz.py
 ```
 
 ## Abstract {.unnumbered .unlisted}
@@ -392,7 +392,7 @@ The cost of addressing is measured rather than assumed. `sw/rust/benches/bench_m
 | `matrix/matmul_requantized_64x64x64` | 64 x 64 x 64 | 37.73 µs |
 | `matrix/requantize_256` | 256 | 194.8 ns |
 
-{{< include ../../_include/bench/fig-bench-matrix-address.qmd >}}
+{{< include ../_include/bench/fig-bench-matrix-address.qmd >}}
 
 The product through coordinates costs about a factor of four over the same product through a flat loop, which is the price of an element's address being its coordinate on a scalar implementation. The rescale adds nothing measurable to the product, since it is one multiply and one shift against 256 of them. The wire form writes five bytes per element and takes about a nanosecond per element to do it. These are host numbers from a scalar build, and no kernel is claimed for any target.
 

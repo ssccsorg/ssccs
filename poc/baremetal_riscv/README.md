@@ -16,7 +16,7 @@ This crate provides:
 
 The same constraint pipeline is independently implemented across **three computational substrates**, with automated cross-verification:
 
-```
+```text
 RISC-V Assembly (.S)  ──┐
                          ├── Golden Anchors (19, auto-verified by Python)
 SystemVerilog (.sv)    ──┤

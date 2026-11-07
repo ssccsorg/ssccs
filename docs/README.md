@@ -19,7 +19,7 @@ the Whitepaper [PDF](https://ssccs.org/wp)
 ## Proof of Concept
 
 The Rust PoC demonstrates the core ontological layers. See
-[poc/README.md](/poc/README.md) for detailed build and run instructions.
+[poc/README.md](/poc/README.htmlml) for detailed build and run instructions.
 
 ``` bash
 git clone https://github.com/ssccsorg/ssccs.git
@@ -41,9 +41,9 @@ enthusiasts.
 - [Documentation](https://docs.ssccs.org)
 - [GitHub Discussions](https://github.com/ssccsorg/ssccs/discussions)
 - [Deep Pair-Coding on Zed](https://zed.dev/channel/ssccsorg-37547): And support the spirit of Zed @zed-industries.
-- [Legal Charter](/docs/legal/index.qmd)
-- [Code of Conduct](/docs/code_of_conduct.md)
-- [Contributing Guidelines](/docs/contributing.md)
+- [Legal Charter/docs/legal/index.htmltml)
+- [Code of Conduc/docs/code_of_conduct.html.html)
+- [Contributing Guideli/docs/contributing.htmlng.html)
 
 ## Documentation
 
@@ -51,12 +51,12 @@ The SSCCS documentation suite consists of several formal documents:
 
 - **[Whitepaper](https://ssccs.org/wp)**: The core technical
   specification, available as PDF and HTML.
-- **[Project Direction](/docs/direction/index.md)**: Strategic orientation and regional engagement for the SSCCS initiative.
-- **[Manifesto](/docs/axioms/manifesto.qmd)**: The high‑level philosophical and
+- **[Project Dire/docs/direction/index.htmlndex.html)**: Strategic orientation and regional engagement for the SSCCS initiative.
+- **[Ma/docs/axioms/manifesto.htmlfesto.html)**: The high‑level philosophical and
   technical introduction.
-- **[Guide](/docs/axioms/guide.md)**: A comprehensive guide to SSCCS core
+- /docs/axioms/guide.htmls/guide.html)**: A comprehensive guide to SSCCS core
   concepts.
-- **[Legal documents](/docs/legal/index.qmd)**: The foundation’s charter
+- **[Legal/docs/legal/index.htmlal/index.html)**: The foundation’s charter
   and statutes.
 - **[Research notes](/docs/research)**: Informal technical explorations.
 
@@ -68,7 +68,7 @@ See the [SDBS repository](https://github.com/ssccsorg/sdbs) for setup
 instructions and usage documentation.
 
 For detailed prerequisites and advanced rendering options, see
-[docs/whitepaper/README.md](/docs/whitepaper/README.md).
+[docs/whitepape/docs/whitepaper/README.htmlper/README.html).
 
 ## Governance
 
@@ -91,7 +91,7 @@ We invite contributions of all kinds:
 - Research: Formal analysis, performance benchmarks, security audits.
 - Outreach: Blog posts, conference talks, educational material.
 
-Please read [contributing.md](/docs/contributing.md) for guidelines on pull requests, code style, and licensing.
+Please read [co/docs/contributing.htmlcontributing.html) for guidelines on pull requests, code style, and licensing.
 
 ## Acknowledgments
 

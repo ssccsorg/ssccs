@@ -43,7 +43,7 @@ The simulation flow uses Makefiles and requires a licensed Imperas simulator (or
 
 Once the simulator is available, the integration with [ev](https://github.com/ssccsorg/ev) follows this flow:
 
-```
+```text
 1. ev generates all valid constraint combinations (YAML → expand → observe)
 2. Each combination maps to a RISC-V instruction test case
 3. Simulator runs the test case on CORE-V core model
@@ -83,7 +83,7 @@ riscvOVPsimCOREV --program test.elf --variant CV32E40P
 ## References
 
 - [ev (ExaVerif)](https://github.com/ssccsorg/ev) — open-source exhaustive verification CLI
-- [SSCCS Bare-Metal README](../README.md)
+- [SSCCS Bare-Metal README](../README.html)
 - [OpenHW CORE-V-VERIF GitHub](https://github.com/openhwgroup/core-v-verif)
 - [Imperas OVPsim](https://www.imperas.com/riscv-ovpsim)
 - [CORE-V XIF Specification](https://github.com/openhwgroup/core-v-xif)
