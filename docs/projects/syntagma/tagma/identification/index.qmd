@@ -13,7 +13,7 @@ metadata-files:
     - ../../../../_include/format.html.yml
 colorlinks: true
 abstract: |
-  SHA-256 is the de facto standard for content-addressable identity generation across storage engines, distributed systems, and databases. This paper demonstrates that SHA-256 can be replaced by a structural coordinate composition over a 16-bit value space whose canonical text is a fixed-width lowercase base-36 spelling (block U+AC00–U+D7AF), reducing identity generation latency by approximately 115x (from 227 ns to 2 ns per operation), eliminating collision handling entirely, and converting multi-axis index queries from O(K x N) intersection to O(1) direct coordinate extraction. The replacement is not cryptographic: preimage resistance, authentication, and encryption remain with SHA-256. Identity generation alone is replaced. A software proof of concept confirming these measurements over 100k operations on ARMv8.4-A Firestorm silicon is provided as open-source reference implementation.
+  SHA-256 is the de facto standard for content-addressable identity generation across storage engines, distributed systems, and databases. This paper demonstrates that SHA-256 can be replaced by a structural coordinate composition over a 16-bit value space. The value is a sequence of axis values over 11,172 positions, each of which the Hangul block (U+AC00–U+D7AF) renders as one character, and its canonical text is a fixed-width lowercase base-36 spelling, reducing identity generation latency by approximately 115x (from 227 ns to 2 ns per operation), eliminating collision handling entirely, and converting multi-axis index queries from O(K x N) intersection to O(1) direct coordinate extraction. The replacement is not cryptographic: preimage resistance, authentication, and encryption remain with SHA-256. Identity generation alone is replaced. A software proof of concept confirming these measurements over 100k operations on ARMv8.4-A Firestorm silicon is provided as open-source reference implementation.
 format:
   html:
     number-sections: true
@@ -129,6 +129,7 @@ means one thing in a file name, on the wire, and in a log line.
 |---|---|---|
 | value | N axis values, each below 11,172 | 2 bytes an axis |
 | canonical text | N groups of three base-36 digits, lowercase, zero padded | 3 bytes an axis |
+| Hangul rendering | N characters of the block, one per axis, each `U+AC00 + value` | 20 characters, 60 bytes in UTF-8 |
 
 The text is normative in four properties.
 
@@ -149,6 +150,29 @@ Two consequences are normative.
   either side of a conversion.
 - The value is the authority. A structure inside a process holds the value, and the text exists where a
   surface needs it: a key, a file name, a wire field, a line of output.
+
+### A worked example
+
+Every axis value has a character of the block and a group of three digits.
+
+| Form | Example | Where it appears |
+|---|---|---|
+| value | `3560` | inside a process |
+| Hangul rendering | `맨` | a reader, a printed example |
+| canonical text | `2qw` | a storage key, a file name, a wire field |
+
+`2qw` is `2 x 1296 + 26 x 36 + 32`, which is `3560`, and `U+AC00 + 3560` is `맨`. The three name one axis
+value, and the value is the authority over both spellings.
+
+The whole space follows the same arithmetic at its two ends.
+
+| Position | Value | Hangul | Canonical text |
+|---|---:|---|---|
+| first | 0 | `가` | `000` |
+| last | 11,171 | `힣` | `8mb` |
+
+At depth 20 an address is twenty of these groups. Its text is sixty bytes and its value is forty, and the
+Hangul rendering is the same twenty values written as the block's own characters.
 
 ### Conversion
 
@@ -175,6 +199,11 @@ The rule is one line long: a container holds the value and a boundary converts o
 types rather than as a convention of the callers, because a container keyed by the value cannot be written to with
 text. A container keyed by the text is the failure this rule describes: it costs both conversions on every access
 and it makes the text the thing the layer compares.
+
+A record at the worked example's address is the file `facts/f_2qw.fact`, and a log line that names the same
+record prints `2qw`, never the character. A depth-20 key has the same shape with sixty characters between the
+prefix and the suffix. The container behind the process holds `3560`, so the lookup compares two bytes and
+parses nothing.
 
 ### A label is a derived identifier
 
@@ -219,6 +248,10 @@ $$S(N) = 11,172^N \approx 10^{4.05N}$$
 
 The coordinate space grows exponentially with coordinate count. At 10 coordinates it exceeds the UUID (128-bit) space, and at 19 coordinates it reaches the SHA-256 (256-bit) equivalent space.
 
+A two-coordinate address is two groups end to end. `2qw000` is the text of the values `3,560` and `0`, and
+the block renders the same pair as `맨가`. Composition places the coordinates side by side without mixing them,
+which is why an axis stays extractable at any depth.
+
 Each CoordPath defines $3N$ independent axes whose semantics are entirely application-defined. The same N-coordinate sequence may encode geographic coordinates in one system and token sequence positions in another. The coordinate algebra -- composition, decomposition, linearisation, axis projection -- is invariant; the axis meaning is not. Tagma is an abstract coordinate algebra, not a fixed geometry.
 
 {{< include ../../_include/bench/fig-bench-address-space.qmd >}}
@@ -230,6 +263,15 @@ Each CoordPath defines $3N$ independent axes whose semantics are entirely applic
 | Identity | SHA256(data) (256-bit opaque) | Tagma(i,m,f) = 0xAC00 + 588i + 28m + f (16-bit) |
 | Index | separate: HashMap, BTree, OrderedIndex | none: identity = coordinate |
 | Query | Vec ∩ Vec ∩ Vec -- O(K x N) intersection | decomposer() -- O(1) direct |
+
+The arithmetic turns a partial query into a range rather than an intersection. Fixing the initial and the
+medial leaves the final axis free, so `i = 6, m = 4` selects the twenty-eight consecutive values `3,640` to
+`3,667`, which is the characters `머` to `멓`, which is the text `2t4` to `2tv`. A reader that holds the keys
+answers the query by scanning that range, and a reader that holds a hash has no range to scan at all.
+
+Two divisions recover a syllable's initial, medial, and final from its value, and an index recovers one
+coordinate from a twenty-coordinate address. A hash supports neither operation, which is why a hash-keyed
+store maintains the posting lists the next section compares against.
 
 ## Empirical Validation
 
@@ -249,25 +291,35 @@ The figure for N coordinates is composition. The text conversions are a separate
 
 ## Conclusion
 
-This is a single atom's ID in a coordinate space larger than the observable universe:
+This is a single atom's ID in a coordinate space larger than the observable universe. The value has two
+spellings, and both name the same twenty axis values.
 
-`맨가억빈힣쐭롮직랯픟첹겨뇨됴듸뤼뮈븨싀쨔`
+| Form | Address |
+|---|---|
+| Hangul rendering | `맨가억빈힣쐭롮직랯픟첹겨뇨됴듸뤼뮈븨싀쨔` |
+| canonical text | `2qw00052t3m08mb4rx2ge5vl2b384f6gp04o1601mc1rs2m432g3l44hs5xw` |
 
-Twenty code points of the Hangul block (U+AC00--U+D7AF) form a coordinate path.
-Each code point encodes a value drawn from 11,172 possibilities through
-its initial, medial, and final decompositions, yielding 11,172²⁰ ≈
-2.17 × 10⁸¹ possible addresses. This is enough to assign a unique
-address to each atom in a volume 21.7 times larger than the
-observable universe. Yet the entire address is a 20-code-point Hangul
-string. It is not a hash of a larger datum, but the address itself
-rendered in human-readable Hangul, decodable by anyone who reads
-Korean without a hex dump.
+Twenty code points of the Hangul block (U+AC00–U+D7AF) form a coordinate path. Each code point encodes a value
+drawn from 11,172 possibilities through its initial, medial, and final decompositions, yielding
+11,172²⁰ ≈ 9.18 × 10⁸⁰ possible addresses. This is enough to assign a unique address to each atom in a volume
+9.2 times larger than the observable universe. The address is sixty ASCII characters, or twenty characters of
+the block for a reader of Korean, and neither form is a hash of a larger datum.
 
-The same twenty values have a second spelling. The canonical interchange text is sixty lowercase base-36
-characters, and that is the form a file name, a storage key, and a wire field carry, because it is ASCII and
-needs no normalisation. The Hangul string above is the block's own rendering of the value, and the two name the
-same twenty values. Which one a surface writes is a property of the surface; what the value is, is a property
-of the coordinate.
+| Axis | Value | Hangul | Canonical text |
+|---|---:|---|---|
+| 0 | 3,560 | `맨` | `2qw` |
+| 1 | 0 | `가` | `000` |
+| 2 | 6,581 | `억` | `52t` |
+| 3 | 4,680 | `빈` | `3m0` |
+| ... | | | |
+| 19 | 7,700 | `쨔` | `5xw` |
+
+Axes 4 through 18 follow the same rule: the value is the code point minus U+AC00, and the text is that value in
+three base-36 digits.
+
+The canonical interchange text is what a file name, a storage key, and a wire field carry, because it is ASCII
+and needs no normalisation. The Hangul string is the block's own rendering of the same values. Which one a
+surface writes is a property of the surface; what the value is, is a property of the coordinate.
 
 The Unicode block U+AC00–U+D7AF (which encodes the compositional writing system) is the only block in the international standard whose encoding follows a closed-form composition formula with three independent structural axes. This property, documented in the Hunminjeongeum Haerye of 1443, remained a linguistic feature for over five centuries until content-addressable computing made it relevant as a hardware identity primitive. The gap between design intent and technological application is not unprecedented: the conic sections of Apollonius of Perga found their application in Keplerian orbits eighteen centuries later. Tagma designed for computing, that its structural properties solve a problem that computing currently solves with greater expense:
 
