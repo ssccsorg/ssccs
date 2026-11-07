@@ -243,10 +243,12 @@ $$S(N) = 11,172^N \approx 10^{4.05N}$$
 | 2 | 6 | 1.25 x 10^8 | 4 | Database records |
 | 3 | 9 | 1.39 x 10^12 | 6 | Distributed nodes |
 | 6 | 18 | $1.94 \times 10^{24}$ | 12 | Below UUID ($3.4 \times 10^{38}$) |
-| 10 | 30 | $2.69 \times 10^{40}$ | 20 | Exceeds UUID (128-bit) |
-| 19 | 57 | $1.9 \times 10^{77}$ | 38 | SHA-256 (256-bit) |
+| 10 | 30 | $3.03 \times 10^{40}$ | 20 | Exceeds UUID (128-bit) |
+| 19 | 57 | $8.21 \times 10^{76}$ | 38 | Just below SHA-256 (256-bit) |
+| 20 | 60 | $9.18 \times 10^{80}$ | 40 | Exceeds SHA-256 (256-bit) |
 
-The coordinate space grows exponentially with coordinate count. At 10 coordinates it exceeds the UUID (128-bit) space, and at 19 coordinates it reaches the SHA-256 (256-bit) equivalent space.
+The coordinate space grows exponentially with coordinate count. Ten coordinates exceed the UUID (128-bit)
+space; nineteen sit just below the SHA-256 space and twenty exceed it.
 
 A two-coordinate address is two groups end to end. `2qw000` is the text of the values `3,560` and `0`, and
 the block renders the same pair as `맨가`. Composition places the coordinates side by side without mixing them,
@@ -281,7 +283,7 @@ A software proof of concept implements the Tagma coordinate in Rust, with 10 int
 |--------|---------|----------------|----------------|-----------------|
 | Latency per op | 227 ns | 2 ns | 11 ns | 35 ns |
 | Identifier size | 32 bytes | 2 bytes | 12 bytes | 38 bytes |
-| Addressable space | $2^{256}$ | $1.12 \times 10^4$ | $1.94 \times 10^{24}$ | $2^{256}$ |
+| Addressable space | $2^{256}$ | $1.12 \times 10^4$ | $1.94 \times 10^{24}$ | $2^{255.5}$ |
 | Collision | probabilistic ($2^{-128}$) | deterministic zero | deterministic zero | deterministic zero |
 | Multi-axis query | $O(K \times N)$ | $O(1)$ direct | $O(1)$ direct | $O(1)$ direct |
 
@@ -289,21 +291,34 @@ The figure for N coordinates is composition. The text conversions are a separate
 
 {{< include ../../_include/bench/fig-bench-identity.qmd >}}
 
+## Why Hangul
+
+Why this block and not another? An identity primitive needs a code space with three properties at once: a
+contiguous run, so an address is an offset from one base; a closed-form three-axis decomposition, so decoding
+is arithmetic rather than a table; and BMP membership, so one identity is one 16-bit word. This block has all
+three. It is 11,172 values, `19 x 21 x 28`, starting at U+AC00, with no irregular entries, and the whitepaper's
+Script Comparison appendix finds no other block that does [@tagma-wp].
+
+The writing system was designed in 1443 as a composition of initial, medial, and final, and the standard
+encoded that composition directly: the three axes are the script's own, in the order the script composes them.
+The requirement is met because the script was designed that way, not because an encoding was adapted to it.
+The design predates the use by nearly six centuries.
+
+The primitive takes the structure as the standard publishes it, and none of its constants is a computing
+convention: the base, the radices, and the block are the standard's, fixed by a stability policy that no
+implementation controls.
+
 ## Conclusion
 
-This is a single atom's ID in a coordinate space larger than the observable universe. The value has two
-spellings, and both name the same twenty axis values.
+An address is a coordinate, and a coordinate has one value with two spellings: the canonical text that a key, a
+file name, and a wire field carry, and the block's own characters that a reader sees. The twenty values below
+are the address the whitepaper gives its atom in the CoordSpace20 appendix [@tagma-wp]; this paper adds the
+second spelling and the rule that produces it.
 
 | Form | Address |
 |---|---|
 | Hangul rendering | `맨가억빈힣쐭롮직랯픟첹겨뇨됴듸뤼뮈븨싀쨔` |
 | canonical text | `2qw00052t3m08mb4rx2ge5vl2b384f6gp04o1601mc1rs2m432g3l44hs5xw` |
-
-Twenty code points of the Hangul block (U+AC00–U+D7AF) form a coordinate path. Each code point encodes a value
-drawn from 11,172 possibilities through its initial, medial, and final decompositions, yielding
-11,172²⁰ ≈ 9.18 × 10⁸⁰ possible addresses. This is enough to assign a unique address to each atom in a volume
-9.2 times larger than the observable universe. The address is sixty ASCII characters, or twenty characters of
-the block for a reader of Korean, and neither form is a hash of a larger datum.
 
 | Axis | Value | Hangul | Canonical text |
 |---|---:|---|---|
@@ -315,22 +330,8 @@ the block for a reader of Korean, and neither form is a hash of a larger datum.
 | 19 | 7,700 | `쨔` | `5xw` |
 
 Axes 4 through 18 follow the same rule: the value is the code point minus U+AC00, and the text is that value in
-three base-36 digits.
-
-The canonical interchange text is what a file name, a storage key, and a wire field carry, because it is ASCII
-and needs no normalisation. The Hangul string is the block's own rendering of the same values. Which one a
+three base-36 digits. The value is the address and the text is that value in base 36; neither is a hash. What a
 surface writes is a property of the surface; what the value is, is a property of the coordinate.
-
-The Unicode block U+AC00–U+D7AF (which encodes the compositional writing system) is the only block in the international standard whose encoding follows a closed-form composition formula with three independent structural axes. This property, documented in the Hunminjeongeum Haerye of 1443, remained a linguistic feature for over five centuries until content-addressable computing made it relevant as a hardware identity primitive. The gap between design intent and technological application is not unprecedented: the conic sections of Apollonius of Perga found their application in Keplerian orbits eighteen centuries later. Tagma designed for computing, that its structural properties solve a problem that computing currently solves with greater expense:
-
-- 115x faster in software (2 ns vs 227 ns per operation)
-- 6x faster at equivalent address space (35 ns vs 227 ns for 2^256 space)
-- 30x cheaper in hardware (300 vs 10,000 gates)
-- Zero collision by construction
-- Structurally transparent (identity encodes its own axis values)
-- Hardware-verifiable (validity check in one cycle)
-
-The complete reference implementation is available.
 
 ## References {.unnumbered .unlisted}
 
