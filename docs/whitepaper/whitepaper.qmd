@@ -2536,7 +2536,11 @@ Independent work on GPU kernel programming has developed type-level layout abstr
 
 ## Tagma: Coordinate Identity and Its Measurement {#sec-appendix-tagma}
 
-The tagma block [@tagma2026wp] is an independent project that realizes the fixed-width coordinate property described in the Segment definition and the memory-layout abstraction of the main text. A fixed 16-bit value in block U+AC00-U+D7AF is simultaneously a 1-D address, a 3-D coordinate, and a displayable character. The closed-form composition formula packs three independent axes into one 16-bit word, and decomposition recovers the axes with the same arithmetic. Of the 65,536 values in the 16-bit space, 11,172 are valid coordinates and the remaining 54,364 are detectable as invalid by the formula itself. No hash function, lookup table, or variable-length decoding participates in either direction.
+The tagma block [@tagma2026wp] is an independent project that realizes the fixed-width coordinate property described in the Segment definition and the memory-layout abstraction of the main text. A fixed 16-bit value in block U+AC00-U+D7A3 is simultaneously a 1-D address, a 3-D coordinate, and a displayable character. The closed-form composition formula packs three independent axes into one 16-bit word, and decomposition recovers the axes with the same arithmetic. Of the 65,536 values in the 16-bit space, 11,172 are valid coordinates and the remaining 54,364 are detectable as invalid by the formula itself. No hash function, lookup table, or variable-length decoding participates in either direction.
+
+The primitive has also been realised in fabric. On an ECP5 part the decoder is carried by a four-stage pipeline that closes 148.77 MHz register to register, and an image on that part sweeps the valid range, accumulates the three axes, and compares the sum on the die against a constant derived from the reference anchors. The verdict leaves the part on pins the on-board debugger reads, so the record is a comparison that ran rather than an indicator: it passes at 40, 100, 120, 125 and 140 MHz, and a deliberately wrong constant reads as a failure. A second part, an iCE40, closes the 12 MHz board clock at 16.79 MHz, and its placed-and-routed bitstream is compared against the RTL over all 65,536 code points.
+
+![The ECP5 target on the bench: an iCESugar-Pro v1.3 module in its Ext-Board. The verification image runs on the module's ECP5 and reports its verdict over the on-board iCELink.](../_include/icesugar-pro.jpg){#fig-tagma-fabric width=58%}
 
 ### Identity generation latency
 
