@@ -107,7 +107,7 @@ The numbers below are the authoritative hardware figures for the Tagma primitive
 | Fmax | 8.63 MHz | 16.79 MHz |
 | Meets 12 MHz board clock | no | yes |
 
-The same RTL on the ECP5 device measures 50 TRELLIS_COMB and 16 TRELLIS_FF out of 24,288, 33 I/O, and 4 multipliers, with a 22.85 ns worst reported path against a 25 MHz clock. That figure is the worst cross-domain path, input to register; the design has no register-to-register path for nextpnr to constrain, so no Fmax is reported. The 59.55 ns figure above is the whole critical path icetime reports for the placed iCE40 design. The two are device results, not a speedup, and the comparison is stated that way in the FPGA document.
+The same RTL on the ECP5 device measures 49 TRELLIS_COMB and 16 TRELLIS_FF out of 24,288, 33 I/O, and 4 multipliers, with a 22.28 ns worst reported path against a 25 MHz clock. That figure is the worst cross-domain path, input to register; the design has no register-to-register path for nextpnr to constrain, so no Fmax is reported. The 59.55 ns figure above is the whole critical path icetime reports for the placed iCE40 design. The two are device results, not a speedup, and the comparison is stated that way in the FPGA document.
 
 Pipelining changes what the tool can report at all. The streaming top takes its code from a counter, so its paths run register to register, and nextpnr-ecp5 reports a clock for the first time. The self-checking build adds the combinational reference to the same die, which is why its ceiling is lower: the reference is three multipliers deep, and it is the slower of the two.
 
