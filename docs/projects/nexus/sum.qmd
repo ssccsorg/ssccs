@@ -109,7 +109,7 @@ The restructure, measured on the same Apple M1:
 
 The deepest property of the coordinate model is now a measured one: indexing cost does not grow with the record count. Over a fixed axis-combo space, the structural filter index holds an identical footprint at 100,000 and 1,000,000 facts, about 264 MB; the record layer adds about 901 bytes per fact. Total live heap measures 287 MB at 10k facts, 354 MB at 100k, and 1,165 MB at 1m, with the index portion the same across the two larger scales.
 
-The query side shows the same flatness. On a time-bounded three-axis filter (origin, creator, time range), the coordinate tree resolves the query 8x to 38x faster than the record-map scan at 100k facts, and 8x to 81x faster at 1m facts. The gap widens as records accumulate because the scan pays the full store on every query while the tree pays only the subtree. The same behavior appears on a real document set with the full FIH lifecycle (add, intent, claim, conclude): the tree advantage grows from 4.5x at phase 1 to 5.3x at phase 3 as the knowledge network accumulates.
+The query side shows the same flatness. On a time-bounded three-axis filter (origin, creator, time range), the coordinate tree resolves the query 8x to 38x faster than the record-map scan at 100k facts, and 8x to 81x faster at 1m facts. The gap widens as records accumulate because the scan pays the full store on every query while the tree pays only the subtree. The same behavior appears on a real document set with the full FIH lifecycle (add, intent, claim, conclude): the tree's lead grows from 4.5x at phase 1 to 5.3x at phase 3 as the knowledge network accumulates.
 
 The flatness boundary is axis cardinality. Each distinct axis value costs about 349 KB, one dense leaf plus one branch. The index is constant in record count and linear in distinct axis values, so application axes must stay bounded in practice: high-cardinality origins such as unique conclusion ids inflate the tree linearly [^flat].
 
@@ -140,11 +140,11 @@ Serverless and edge. Any append-only backend is sufficient, so the same binary d
 
 Knowledge accumulation. Each producer solving a problem contributes verified knowledge back to the shared store, and the store compounds recursively across agents, experiments, projects, and ecosystems.
 
-## Market position
+## Where the layer sits
 
-The agentic AI market is moving from experimentation to production scale, and analyst projections put it on a path from about USD 19 billion in 2026 to more than USD 200 billion by the early 2030s. The dominant cloud providers are converging on the same conclusion: production agents need a runtime layer with durable execution, memory, and governance. Google's open-source Agent Executor, Microsoft's execution containers, and LangGraph 1.0 all target this gap.
+The runtimes that production agents run on converge on a common requirement: durable execution, memory, and governance in one layer. Google's open-source Agent Executor, Microsoft's execution containers, and LangGraph 1.0 each implement part of it.
 
-neXus addresses the layer beneath these runtimes. Where current memory solutions depend on knowledge graphs and vector indexes that grow costlier with data volume, neXus uses coordinate arithmetic for index-free lookup, keeps every conclusion in a replayable trace governed by a contract layer, and runs on any storage backend. The result is what the market identifies as the missing piece: auditable agent memory that stays fast as data grows, without vendor lock-in.
+neXus addresses the layer beneath these runtimes. Where current memory solutions depend on knowledge graphs and vector indexes whose cost grows with data volume, neXus uses coordinate arithmetic for index-free lookup, keeps every conclusion in a replayable trace governed by a contract layer, and runs on any storage backend. The property it is built for is auditable agent memory whose cost follows the shape of the query rather than the number of records.
 
 ## Conclusion
 
@@ -174,7 +174,7 @@ The roadmap follows a single principle: make the substrate robust first, then ex
 
 ## Status
 
-neXus is an open-source project (Apache 2.0) under the SSCCS Initiative. The Rust workspace is available on GitHub (ssccsorg/nexus) with a unified benchmark suite and an end-to-end verification harness. All storage paths run on one shared engine. The governance layer (write admission, constraint evaluation, evidence chains) is implemented, and the coordination server is a standalone binary with a formalized protocol, supervised by a dedicated daemon. Gap and contradiction detectors record findings as idempotent Facts. For inquiries, demos, or partnership discussions: <contact@ssccs.org>
+neXus is an open-source project (Apache 2.0) under the SSCCS Initiative. The Rust workspace is available on GitHub (ssccsorg/nexus) with a unified benchmark suite and an end-to-end verification harness. All storage paths run on one shared engine. The governance layer (write admission, constraint evaluation, evidence chains) is implemented, and the coordination server is a standalone binary with a formalized protocol, supervised by a dedicated daemon. Gap and contradiction detectors record findings as idempotent Facts. Correspondence about the specification or a reproduction of any measurement: <contact@ssccs.org>
 
 [^tagma]: synTagma is the coordinate-space primitive behind neXus identity. Repository: [github.com/ssccsorg/syntagma](https://github.com/ssccsorg/syntagma), documentation: [docs.ssccs.org/projects/syntagma/](https://docs.ssccs.org/projects/syntagma/)
 [^bench]: Benchmark code: [github.com/ssccsorg/nexus/blob/main/benches/bench.rs](https://github.com/ssccsorg/nexus/blob/main/benches/bench.rs)

@@ -1854,7 +1854,7 @@ func.func @observe_vector(
 }
 ```
 
-The `ssccs` dialect is then lowered to standard MLIR dialects (e.g., `affine`, `scf`, `vector`) via a series of progressive rewrites, ultimately emitting LLVM IR. This approach leverages the existing LLVM optimisation pipeline for generic CPU targets.
+The `ssccs` dialect is then lowered to standard MLIR dialects (e.g., `affine`, `scf`, `vector`) via a series of progressive rewrites, ultimately emitting LLVM IR. This approach uses the existing LLVM optimisation pipeline for generic CPU targets.
 
 ### CPU Target: SIMD Loop Generation
 
@@ -1915,7 +1915,7 @@ pim_submit_command(cmd);
 pim_wait_completion();
 ```
 
-The compiler leverages vendor‑specific SDKs to generate optimal command sequences that maximise bank‑level parallelism and minimise synchronisation overhead. Because PIM commands are deterministic, the same observation always yields the same result.
+The compiler uses vendor‑specific SDKs to generate optimal command sequences that maximise bank‑level parallelism and minimise synchronisation overhead. Because PIM commands are deterministic, the same observation always yields the same result.
 
 ### Integration with Existing Toolchains {#sec-appendix-integration-existing-toolchains}
 
@@ -1937,7 +1937,7 @@ The CPU profile targets conventional von Neumann processors equipped with multi�
 
 - **Cache‑line alignment**: Segments are grouped into blocks that fit exactly into a cache line (typically 64 bytes). The compiler ensures that structurally adjacent Segments reside in the same cache line, allowing a single fetch to retrieve all data needed for a local observation.
 - **Multi‑core parallelism**: Independent sub‑graphs identified during structural analysis are scheduled across available cores via OpenMP or a lightweight runtime scheduler.
-- **Vectorized observation loops**: The compiler automatically generates SIMD loops that iterate over the logical‑address ranges, leveraging the target’s SIMD width (e.g., AVX‑512, NEON). Details of observation‑code generation for CPUs are provided in [*-@sec-appendix-observation-code-gen*].
+- **Vectorized observation loops**: The compiler automatically generates SIMD loops that iterate over the logical‑address ranges, using the target’s SIMD width (e.g., AVX‑512, NEON). Details of observation‑code generation for CPUs are provided in [*-@sec-appendix-observation-code-gen*].
 
 The CPU profile relies on the standard load/store paradigm; however, because Segments are stationary, the only data movement is the transmission of the resulting projection. This profile is the fallback for any hardware that lacks specialised acceleration.
 
@@ -1953,7 +1953,7 @@ The FPGA profile delivers deterministic, low‑latency observation for fixed‑t
 
 ### PIM (Processing‑In‑Memory) Profile
 
-The PIM profile leverages memory‑centric compute units that reside inside or near memory banks. Mapping transforms the logical‑address map into a sequence of **PIM commands** that are executed directly by the memory controller, eliminating data movement between memory and a separate processor.
+The PIM profile uses memory‑centric compute units that reside inside or near memory banks. Mapping transforms the logical‑address map into a sequence of **PIM commands** that are executed directly by the memory controller, eliminating data movement between memory and a separate processor.
 
 - **Command‑sequence generation**: For each observation unit, the compiler emits a series of vendor‑specific commands (e.g., `PIM_OP_OBSERVE`) that specify the operator, bank addresses, and operand locations.
 - **Bank‑level parallelism**: Commands are scheduled across independent memory banks to maximise throughput.
@@ -2020,7 +2020,7 @@ field_header:
 
 ### IF Custom Instructions & Handshake Protocol
 
-Efficient observation on RISC-V cores leverages the CORE-V eXtension Interface (XIF) to offload constraint evaluation to a tightly coupled coprocessor.
+Efficient observation on RISC-V cores uses the CORE-V eXtension Interface (XIF) to offload constraint evaluation to a tightly coupled coprocessor.
 
 #### Instruction Encoding
 
@@ -2514,7 +2514,7 @@ This appendix collects references to empirical findings in conventional computer
 
 A structural observation model implicitly assumes that the memory hierarchy can supply data at the rate required by the observation operator. Published research on vector processor clusters has identified a balance condition relating compute footprint, memory bandwidth, and register capacity, and has demonstrated that compiler-managed scratchpad memory can sustain high utilisation without hardware caches. These findings, while obtained on conventional von Neumann hardware by unrelated research groups, are consistent with the SSCCS principle that memory layout is a compile-time, declarative property rather than a runtime heuristic. The same independent research confirms that data-level parallelism alone, without complex instruction-level parallelism logic, can saturate compute units. Measurements reported in that literature (95% FPU utilisation on a 2D workload with a 2 KiB vector register file, 30% energy efficiency improvement over scalar clusters) are noted here solely as published data points; they are not SSCCS results and no inference of SSCCS performance should be drawn from them.
 
-### State-of-the-Art Positioning
+### Positioning Among Existing Paradigms
 
 The following table situates SSCCS among existing computational paradigms. The comparison is structural, not quantitative: it identifies differences in how each paradigm treats data movement, parallelism, and verifiability, rather than claiming performance superiority.
 

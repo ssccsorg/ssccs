@@ -86,7 +86,7 @@ structural, not metaphorical:
 
 Every valid (origin, creator, type) combination is encoded as one Tagma
 coordinate, mapped directly into an O(1) slot of the three-dimensional
-index. This is structurally superior to the existing hash-based multi-index
+index. This replaces the existing hash-based multi-index
 approach (by\_origin &cap; by\_creator &cap; by\_type &rarr; O(K)), because the
 coordinate space guarantees constant-time addressing without index
 intersection or bitmap maintenance.
@@ -188,7 +188,7 @@ Legacy: 10K -> 100K -> 500K
 
 As data grows to millions, Tagma remains at \~60 ns. Legacy continues to
 climb: 10M facts would push Vec intersection to hundreds of microseconds.
-The advantage is structural -- direct array addressing vs Vec scan is not an
+The difference is structural -- direct array addressing vs Vec scan is not an
 implementation detail but a complexity class difference.
 
 ## Evolution Stages
