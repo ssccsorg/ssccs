@@ -103,6 +103,47 @@ The two critical-path figures are not the same quantity. On the iCE40, `icetime`
 
 Three board facts decide the constraints. A bank takes one IO standard and nextpnr rejects a mix, so the RGB LED bank at 2.5V holds the only header pin that can use it, and that pin plus the validity pin are `LVCMOS25` while everything else is `LVCMOS33`. Header labels come from the board's pin map. The `code` inputs are pulled up, so an unwired header reads `0xFFFF`, which is invalid, and a switch closes to GND to clear a bit.
 
-The demo drives `led_valid` on the RGB LED's blue channel, which lights on a high level. That is the opposite of the Upduino's negative-logic LED, so the polarity is a top-level parameter instead of a fixed inversion.
+The demo drives `led_valid` on ball A12, which is one of the three RGB LED balls and lights on a high level. That is the opposite of the Upduino's negative-logic LED, so the polarity is a top-level parameter instead of a fixed inversion. The vendor README gives the LED balls as the set {A11, A12, B11} and does not assign a colour to each, and the bench observation with only A12 driven reported blue, so the design names its LED signals by function and constrains them by ball.
 
 The module and its Ext-Board each carry a debugger, and only the module's iCELink reaches the ECP5; the Ext-Board's DAPLink answers the CMSIS-DAP handshake and returns `0xffffffff` for every JTAG IDCODE. The programming path and the wiring table are in `hw/boards/icesugar_pro/README.md`.
+
+## Streaming pipeline
+
+The demo and the streaming design answer different questions. The demo takes one code point from pins and reports a decode, which is the N=1 case. A pipelined decoder takes one code point per clock and never idles, which is the case where a hardware realization can be fed by a stream instead of by a caller. `tagma_decoder_pipe` keeps the arithmetic and the constants of the combinational unit and splits it at the multiplier boundary.
+
+| Stage | Work |
+|-------|------|
+| 1 | `offset` to `q4`, `r2`, and `j = (q4 * 9363) >> 16` |
+| 2 | `i = (j * 781) >> 14`, `m = j - i * 21`, `f = 4 * (q4 - j * 7) + r2` |
+
+Latency is two clocks and throughput is one code point per clock. `make sim-pipe` drives the valid range continuously for four sweeps and compares every emitted triple against the combinational decoder, which the other channels already pin at 11,172 of 11,172 points. An exact match at every cycle after the fill carries that evidence to the pipeline.
+
+```text
+PASS: 44689 outputs checked over 44691 clocks, 4 full sweeps of the valid space, one code point per clock
+```
+
+Place and route reports a clock for this design, which the demo could not produce. `tagma_pipe_top` sources its code from a counter, so its paths run register to register.
+
+| Metric | Pipeline alone | Self-check build |
+|--------|----------------|------------------|
+| Clock | 25 MHz board oscillator | 40 MHz from the 25 MHz oscillator |
+| Fmax, register to register | 77.69 MHz | 55.86 MHz |
+| Fmax, reference path | not present | 50.00 MHz |
+| TRELLIS_COMB | 39 | 165 |
+| TRELLIS_FF | 43 | 120 |
+| MULT18X18D | 4 | 7 |
+| Bitstream | 582,369 bytes | 582,369 bytes |
+
+The critical path of the pipeline is inside stage 2, at `j_q` through the multiply by 781 into `ii` and on into the multiply by 21, 12.18 ns in total. Splitting stage 2 again is the next available gain, and the arithmetic allows it because `m` and `f` depend on `j` and `i` only.
+
+A bitstream that drives unwired header pins proves only that it programmed, so the streaming build carries its own check. `tagma_pipe_check_top` runs the pipeline and the combinational reference from one counter, delays the reference by the pipeline depth, and compares the two triples at every clock. A mismatch latches an indication that stays lit, so a dark error channel after minutes of running is the observation that the two agree at one code point per clock on the device.
+
+| Signal | Ball | Meaning |
+|--------|------|---------|
+| `led_clk` | A11 | blinks at 2.4 Hz while the fast clock runs |
+| `led_err` | A12 | lights and latches on any mismatch |
+| `led_swept` | B11 | lights once 2^28 clocks have been compared |
+
+The third indication is a rate reading rather than a completion flag, because the comparison saturates and never clears. 2^28 clocks is 6.71 s at 40 MHz and 10.74 s at 25 MHz, so the interval between configuration and that channel lighting separates the two clocks with a stopwatch and no instrument. The PLL is set to 40 MHz rather than the 50 MHz it can also produce because the reference decoder sits in the same clock domain: at 50 MHz its path measures 19.48 ns, which is 2.6 percent of margin, and at 40 MHz the same path has 28 percent.
+
+The first build of the check compared against `28'hFFFFFF`, six hex digits against a 28-bit register. The comparison type-checked and the design built, but the count saturated at 2^24 clocks and the readout fired after 0.42 s instead of 6.71 s. A literal and a register that disagree in width still compare, so an elapsed-time claim has to be checked against the constant rather than against the declared width.
