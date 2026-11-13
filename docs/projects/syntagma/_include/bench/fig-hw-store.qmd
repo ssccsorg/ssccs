@@ -1,0 +1,58 @@
+```{python}
+#| label: fig-hw-store
+#| fig-cap: "Where the silicon goes. Left: the segment store against the block RAM of the ECP5 25F. Right: decoder area against the store's estimated area in Sky130, log scale, with the store drawn as a range because it has no measured macro yet."
+import matplotlib.pyplot as plt
+import numpy as np
+
+store_bits = 11172 * 16
+bram_bits = 56 * 18432          # 56 DP16KD blocks at 18 Kb each
+share = store_bits / bram_bits
+
+decoder_um2 = 2826
+bit_lo, bit_hi = 0.5, 2.0       # estimated square micrometres per bit
+area_lo = store_bits * bit_lo
+area_hi = store_bits * bit_hi
+area_mid = store_bits * 1.0
+
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(9, 3.6))
+
+# left: capacity share of the device
+ax1.barh(0, share * 100, height=0.45, color='white', edgecolor='black',
+         linewidth=0.8, hatch='///')
+ax1.barh(0, (1 - share) * 100, left=share * 100, height=0.45, color='0.92',
+         edgecolor='black', linewidth=0.8)
+ax1.set_xlim(0, 100)
+ax1.set_ylim(-0.45, 0.45)
+ax1.set_yticks([])
+ax1.set_xlabel('share of the 1,008 Kb of block RAM (%)', fontsize=9)
+ax1.annotate(f'{share * 100:.1f}%', xy=(share * 100 / 2, 0.23),
+             xytext=(0, 16), textcoords='offset points', fontsize=9,
+             ha='center', va='bottom',
+             arrowprops=dict(arrowstyle='-', color='black', lw=0.8))
+ax1.text(share * 100 + (1 - share) * 100 / 2, 0, 'the rest of the device',
+         fontsize=8.5, ha='center', va='center', color='dimgray')
+ax1.set_title(f'store = {store_bits:,} bits, 11 of 56 blocks', fontsize=9)
+ax1.grid(axis='x', linestyle=':', alpha=0.3)
+
+# right: area, decoder against the store's estimate
+xs = [0, 1]
+ax2.bar(0, decoder_um2, 0.4, color='white', edgecolor='black', linewidth=0.8,
+        hatch='///')
+ax2.bar(1, area_mid, 0.4, color='white', edgecolor='black', linewidth=0.8)
+ax2.errorbar(1, area_mid, yerr=[[area_mid - area_lo], [area_hi - area_mid]],
+             fmt='none', ecolor='black', capsize=6, lw=1.0)
+ax2.set_yscale('log')
+ax2.set_xticks(xs)
+ax2.set_xticklabels(['decoder\n(measured)', 'segment store\n(estimated)'],
+                    fontsize=8.5)
+ax2.set_ylabel('area (um^2, log)', fontsize=9)
+ax2.text(0, decoder_um2 * 1.6, f'{decoder_um2:,}', fontsize=8.5, ha='center')
+ax2.text(1, area_hi * 1.6, f'{area_lo / 1000:.0f}k to {area_hi / 1000:.0f}k',
+         fontsize=8.5, ha='center')
+ax2.text(0.5, 1.6e4, f'{area_lo / decoder_um2:.0f} to '
+         f'{area_hi / decoder_um2:.0f}x the decoder', fontsize=8, ha='center',
+         color='dimgray')
+ax2.grid(axis='y', linestyle=':', alpha=0.3, which='both')
+
+plt.tight_layout(); plt.show()
+```

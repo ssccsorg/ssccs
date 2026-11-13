@@ -54,6 +54,16 @@ tech_name = "sky130"
 
 The full space is about 22 KB of raw storage, or 44 to 89 KB with values, depending on the value width. 11,172 is not a power of two; if the PDK flow requires one, the fallback is 16,384 words (2^14) with 5,212 reserved entries, since the 14-bit address space covers the valid range either way.
 
+The size is worth stating in device terms, because it decides where this design's cost sits. The store is 178,752 bits. The ECP5 25F carries 1,032,192 bits of block RAM in 56 blocks, so the store is 17.3 percent of the device, eleven blocks of the fifty-six. It fits, and a block RAM read costs one clock, or two with the output register, which is the same order as the decoder's single cycle. The decoder is 2,826 um^2 in Sky130; the same bits in a Sky130 SRAM, at an estimated half to two square micrometres per bit, are 89,000 to 358,000 um^2, thirty-two to one hundred and twenty-seven times the decoder. The arithmetic is close to free and the memory is the design.
+
+:::{ layout-ncol=1 }
+
+{{< include ../_include/bench/fig-hw-store.qmd >}}
+
+:::
+
+That ratio is the answer to where the engineering goes. A decoder that costs 49 LUT4 on the ECP5 or 388 cells in Sky130 is not the thing to optimize; the store is, and its capacity and access pattern are the variables that move the result.
+
 ## Latency: the honest comparison
 
 Three measured paths are compared below. The software numbers come from the benchmark center `sw/rust/benches/bench_hw.rs`; the hardware number is the post place-and-route critical path on the UP5K. The comparison is shown in Figure @fig-hw-decode.
@@ -72,7 +82,17 @@ The per-operation latency comparison is the central finding of this document:
 | `Coord::to_axes` (software) | 1.44 ns | reference decode |
 | HW decoder (UP5K PnR) | 59.55 ns | worst-case critical path at 16.79 MHz |
 
-For the N=1 dense case, hardware is not a speedup. The entire working set fits in L1 cache, and the software already runs at memory speed. A hardware SRAM at FPGA clock rates cannot beat that, and GHz-class SRAM would require a leading-edge ASIC whose mask cost starts in the millions of dollars. Chasing L1 speed in hardware is solving a problem the software already solved.
+For the N=1 dense case, hardware is not a speedup. The whole working set fits in L1 cache and the software already runs at memory speed, which a block RAM at FPGA clock rates cannot beat.
+
+A sweep is the other comparison and it goes the other way. The software loop decodes all 11,172 code points in 1.92 us. The device needs 80 us at 140 MHz, and 931 us at the 12 MHz the Sky130 flow closes. The CPU's clock and execution width win that, and no arrangement of this arithmetic changes it.
+
+:::{ layout-ncol=1 }
+
+{{< include ../_include/bench/fig-hw-sweep.qmd >}}
+
+:::
+
+So both the single lookup and the full sweep belong to the software, and neither is a hardware claim. What is left is the shape of the memory traffic, which is the next section.
 
 ## Where hardware wins
 
@@ -82,14 +102,13 @@ The value of the hardware realization is on other axes:
 |------|----------|----------|
 | Range query over an axis | iterative descent over a tree or a scan | the bounds are computed from the code, so the iteration is an increment |
 | Index storage | a separate structure beside the records | none, because the key is the order and the range address |
-| Energy per access | host CPU pipeline and cache hierarchy | about 3.0 pJ per decode at 12 MHz, from the Sky130 flow at the workload's measured activity |
+| Energy per access | not measured in this series | about 3.0 pJ per decode at 12 MHz, from the Sky130 flow at the workload's measured activity |
 | Latency determinism | cache-dependent, variable | fixed, independent of the input: one cycle combinational, four pipelined |
 | Physical embedding | impossible | the primitive becomes a device, the chton signal-layer vision |
-| Streaming throughput | per-op overhead in software | one code point per clock; 148.77 MHz register to register on the ECP5, 140 MHz verified against the `tagma_core` checksum on the board |
 
 The structural case is the first two rows and it is derived rather than measured: with records keyed by code, the key is the sort order and the range address, so a range walk is an increment and no index exists to store or to search. That is what the segment store would exercise, and it is the part not yet on a device.
 
-The throughput case is narrower and is measured. It appears at N greater than 1, where software falls back to sparse trees (0.87 to 53 ns per operation), and in embedded or IO paths where energy and determinism dominate over raw speed. The streaming realization is measured rather than projected: a four-stage pipeline emits one code point per clock, closes at 148.77 MHz on the ECP5, and reproduces the `tagma_core` checksum on the device at every rate up to 140 MHz. At that rate it still sits below the L1 path, 140 million code points per second against 2.6 billion accesses per second, so the case it serves is a continuous stream with a fixed cost per code point rather than a faster dense lookup.
+The remaining case is the shape of the memory traffic. Where records live in a tree, a range or neighbourhood walk pays a dependent miss at every level, and the software's own sparse fallback measures that cost as a spread from 0.87 to 53 ns per operation. A store keyed by code reads contiguous runs instead, so the walk pays one miss per cache line and the bounds are computed rather than compared. That is a claim about layout, it is derived rather than measured, and the store is what would demonstrate it.
 
 ## Open questions
 
