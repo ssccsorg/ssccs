@@ -85,6 +85,8 @@ The remaining step is physical: program the bitstream, wire a DIP switch module 
 
 The same RTL builds for the iCESugar-Pro v1.3, an ECP5 LFE5U-25F-6BG256C in a DDR SODIMM module with a 25 MHz crystal. The second device is not there to beat the iCE40 figures. It is there to check that the demo's realization is board data rather than a one-board artifact.
 
+![The board as received: the iCESugar-Pro v1.3 SODIMM module seated in its Ext-Board. Three USB-C ports are visible, one on the module and two on the carrier, and only the module's reaches the ECP5. The carrier breaks the banks out to the labelled headers the demo wiring uses.](../../../_include/icesugar-pro.jpg){#fig-icesugar-pro width=70%}
+
 | Aspect | Upduino 3.1 | iCESugar-Pro v1.3 |
 |--------|-------------|-------------------|
 | Device | iCE40UP5K-SG48 | ECP5 LFE5U-25F-6BG256C |
@@ -105,7 +107,7 @@ Three board facts decide the constraints. A bank takes one IO standard and nextp
 
 The demo drives `led_valid` on ball A12, which is one of the three RGB LED balls and lights on a high level. That is the opposite of the Upduino's negative-logic LED, so the polarity is a top-level parameter instead of a fixed inversion. The vendor README gives the LED balls as the set {A11, A12, B11} and does not assign a colour to each, and the bench observation with only A12 driven reported blue, so the design names its LED signals by function and constrains them by ball.
 
-The module and its Ext-Board each carry a debugger, and only the module's iCELink reaches the ECP5; the Ext-Board's DAPLink answers the CMSIS-DAP handshake and returns `0xffffffff` for every JTAG IDCODE. The programming path and the wiring table are in `hw/boards/icesugar_pro/README.md`.
+The module and its Ext-Board each carry a debugger, and only the module's iCELink reaches the ECP5, which is the USB-C port on the module in @fig-icesugar-pro. The Ext-Board's DAPLink answers the CMSIS-DAP handshake and returns `0xffffffff` for every JTAG IDCODE, so the carrier's ports program nothing on the FPGA. The programming path and the wiring table are in `hw/boards/icesugar_pro/README.md`.
 
 ## Streaming pipeline
 
