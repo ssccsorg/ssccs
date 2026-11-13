@@ -112,12 +112,26 @@ The counts above come from the generic Yosys library and the iCE40 flow, not fro
 
 | Metric | Value |
 |--------|-------|
-| design area | 4631 um^2, 35% utilization |
-| critical path delay | 11.19 ns |
-| worst setup slack | +72.33 ns |
-| total power | 0.897 mW (combinational 95.5%, sequential 3.3%, clock 1.2%) |
+| design area | 4430 um^2, 33.7% utilization |
+| critical path delay | 10.74 ns |
+| worst setup slack | +72.77 ns |
+| total power at the tool default activity | 57.8 uW |
 | pure decoder | 388 cells, 2826 um^2 (`yosys stat -liberty`) |
 
 The 388-cell pure decoder count is the abc mapping of the multiply-shift network against `sky130_fd_sc_hd__tt_025C_1v80.lib`, consistent with the 478 generic cells and the 588 gate-level estimate above. The hw CI job runs the same flow and uploads the reports as the `sky130-reports` artifact.
+
+### Power, from the workload rather than the default
+
+The 57.8 uW above is the tool's default: 0.1 transitions per clock on every input, with no relation to what the demo does. The demo sweeps one code point per clock, so bit `b` of its counter changes once every `2^b` clocks. The flow's report step sources a hook that reports three times in the same session, so all three numbers share a basis.
+
+| Report | Total power |
+|--------|-------------|
+| the flow's own report at the tool default | 57.8 uW |
+| the hook at the sweep's modelled activity | 36.6 uW |
+| the hook at the activity measured from a VCD of the sweep | 36.1 uW |
+
+The last two differ by 1.4 percent, which is what a correct hand model of a counter sweep and a trace of the same sweep should do. The trace is produced by `make sim-trace-demo`, which runs the demo testbench at the board clock so the file needs no timebase conversion, and the hook reads it with `read_vcd`.
+
+At 12 MHz, 36.1 uW over one code point per clock is about 3.0 pJ per decode. That figure is provisional for one reason, stated in the devlog: an earlier run of the same flow reported 897 uW on the same default basis, fifteen times higher, while area and critical path moved by a few percent. The hook still reproduces the flow's own number in either run, so the difference is between toolchain revisions and not between the hook and the flow. Until it is pinned to a revision, the ratio between the three reports is the reproducible claim and the absolute value is a record of a run.
 
 Two flow bugs surfaced during setup, recorded in the derisking devlog. The clock was first declared as a virtual clock with no source port, so CTS built no clock tree; the fix gives the clock its source port. The bundled kepler-formal LEC step crashes with an illegal instruction on the available CPUs, so it is disabled with `LEC_CHECK = 0`; the RTL-to-netlist equivalence it would check is already proven by the yosys equiv gate.
