@@ -698,7 +698,9 @@ Reproduction: `make -C hw check` runs the whole gate (simulation, synthesis, and
 
 A reference implementation that has never run on a part is a claim about a netlist. Two FPGA targets close that gap, and neither is there to beat a processor.
 
-The iCE40 UP5K carries the demo top at 255 logic cells of 5,280, closing the 12 MHz board clock at 16.79 MHz, and the placed-and-routed bitstream is recovered and compared against the RTL over all 65,536 code points, so the bitstream and the source agree rather than merely deriving from it. The ECP5 target carries the same RTL and adds a pipelined decoder at one code point per clock.
+![The ECP5 target on the bench: an iCESugar-Pro v1.3 module seated in its Ext-Board. The verification image runs on the module's ECP5 and reports its verdict over the on-board iCELink, the USB-C port on the module; the carrier's ports reach no FPGA.](../../../_include/icesugar-pro.jpg){#fig-icesugar-ecp5 width=68%}
+
+The iCE40 UP5K is a second part and carries the demo top at 255 logic cells of 5,280, closing the 12 MHz board clock at 16.79 MHz, and the placed-and-routed bitstream is recovered and compared against the RTL over all 65,536 code points, so the bitstream and the source agree rather than merely deriving from it. The ECP5 in the photograph carries the same RTL and adds a pipelined decoder at one code point per clock.
 
 The device also checks the reference rather than only itself. A build sweeps the valid range, accumulates a checksum of the three axes over one sweep, and compares it on the die against a constant derived from the anchors `tagma_core` exports. The verdict leaves the part on pins that the on-board debugger reads, so the comparison is recorded without a person at the board.
 
