@@ -1,6 +1,6 @@
 ```{python}
 #| label: fig-bench-map-contains
-#| fig-cap: "Contains key latency across three scales: CoordMap2 (flat) vs HashMap (bool advantage narrows under cache pressure)"
+#| fig-cap: "Contains key latency across three scales: CoordMap2 (flat) vs HashMap (bool-return margin narrows under cache pressure)"
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -30,7 +30,7 @@ for xi, y1, y2 in zip(x, kv2, hm):
     ax.text(xi + 0.1, y2 + 1.0, f'{y2} ns', fontsize=8, ha='center')
 
 # Insight annotations
-ax.annotate('HashMap starts 1.7x faster\n(bool vs full value), cache\nerases advantage by 1M',
+ax.annotate('HashMap starts 1.7x faster\n(bool vs full value), cache\nerases that margin by 1M',
             xy=(0.5, 16), xytext=(1.5, 10.5), fontsize=7.5,
             arrowprops=dict(arrowstyle='->', color='black', lw=0.8),
             bbox=dict(boxstyle='round,pad=0.2', facecolor='white', edgecolor='black', alpha=0.8),

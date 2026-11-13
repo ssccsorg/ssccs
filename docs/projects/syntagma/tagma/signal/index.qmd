@@ -186,7 +186,7 @@ A coordinate carried by the ratio of two spectral components is therefore invari
 
 $$\frac{f_{r,1}}{f_{r,2}} = \frac{\gamma f_{t,1}}{\gamma f_{t,2}} = \frac{f_{t,1}}{f_{t,2}}$$
 
-This is the same mechanism that gives chirp spread spectrum (LoRa CSS) its Doppler tolerance. The coordinate structure does not create the invariance; it inherits it, with one advantage: the ratio lands on a discrete coordinate rather than a continuous frequency estimate, so the demodulator output is a quantized decision with structural validation.
+This is the same mechanism that gives chirp spread spectrum (LoRa CSS) its Doppler tolerance. The coordinate structure does not create the invariance; it inherits it, with one difference: the ratio lands on a discrete coordinate rather than a continuous frequency estimate, so the demodulator output is a quantized decision with structural validation.
 
 ### Integration gain is finite and linear
 
@@ -423,9 +423,9 @@ Radio propagation is inherently concurrent: one transmission illuminates a regio
 
 ### Streaming and Telemetry
 
-Streaming exposes the model's actual boundary. Each stream unit is a 16-bit symbol carrying 13.45 bits of information, so the comparison baseline matters: against packetized streams the structural model removes framing, sequencing, and reassembly; against raw bitstreams (UART, I2S, ADC, SPI) it adds a 16% bandwidth tax for self-validation while contributing no framing advantage, because raw streams already have none.
+Streaming exposes the model's actual boundary. Each stream unit is a 16-bit symbol carrying 13.45 bits of information, so the comparison baseline matters: against packetized streams the structural model removes framing, sequencing, and reassembly; against raw bitstreams (UART, I2S, ADC, SPI) it adds a 16% bandwidth tax for self-validation while contributing nothing to framing, because raw streams already have none.
 
-Where the structural model is genuinely advantageous in a stream:
+Where the structural model carries a measured gain in a stream:
 
 - **Self-identifying symbols**: command, data, and event symbols are distinguished by axis structure, so a mixed stream needs no demultiplexing layer. A raw bitstream carries no type information at all.
 - **In-stream axis filtering**: the receiver can filter or demux by axis values at hardware speed (300-gate decoder), a capability raw streams do not provide.

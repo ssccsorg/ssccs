@@ -131,7 +131,7 @@ Fuse proximity generation or bounding box enumeration with CoordSet axis filters
 
 CoordCube proximity overhead on dense stores is 127 ns over sequential lookup, dominated by Vec allocation (37 ns) and push (74 ns, 9 paths). Coordinate arithmetic accounts for 16 ns (13%). On sparse stores, CoordCube becomes faster than sequential lookup (up to 3.3x at 48.5 ns vs 158 ns) because it avoids tree lookups for nonexistent paths. On empty stores, CoordCube returns immediately at 15.7 ns (pure path generation cost), while sequential lookup still pays 158 ns for 9 tree misses. The crossover point is at approximately 55% hit rate.
 
-CoordCube query cost is bounded by region size (path count in the result), not store size. At 10M entries, CoordCube proximity completes in 285 ns vs HashMap spatial filter at 238 ms -- a million-fold advantage.
+CoordCube query cost is bounded by region size (path count in the result), not store size. At 10M entries, CoordCube proximity completes in 285 ns vs HashMap spatial filter at 238 ms, a factor of roughly 8 x 10^5.
 
 ## Comparison with Existing Systems
 
@@ -153,9 +153,9 @@ This document is a draft. The CoordCube layer is implemented and benchmarked wit
 
 ## Appendices {.unnumbered}
 
-### Core Advantage: When CoordCube Wins
+### When CoordCube Is the Cheaper Path
 
-The following benchmarks directly measure CoordCube's value proposition. Proximity throughput determines raw geometric query speed. The crossover point vs sequential lookup shows when CoordCube is the faster choice. Iterator fusion demonstrates the structural efficiency gain over naive collect-then-filter.
+The following benchmarks measure CoordCube's query cost directly. Proximity throughput determines raw geometric query speed. The crossover point against sequential lookup shows where CoordCube becomes the cheaper choice. Iterator fusion measures fusion against collect-then-filter.
 
 :::{ layout-ncol=3 }
 
@@ -169,7 +169,7 @@ The following benchmarks directly measure CoordCube's value proposition. Proximi
 
 ### Behavioral Characteristics
 
-The following charts detail CoordCube's cost structure, density sensitivity, and scaling behavior. These explain the tradeoffs behind the core advantage figures above.
+The following charts detail CoordCube's cost structure, density sensitivity, and scaling behavior. These explain the tradeoffs behind the figures above.
 
 :::{ layout-ncol=2 }
 
