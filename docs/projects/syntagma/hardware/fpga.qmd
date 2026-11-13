@@ -125,16 +125,17 @@ The demo and the streaming design answer different questions. The demo takes one
 
 | Stage | Work |
 |-------|------|
+| 0 | `offset = code - 0xAC00` |
 | 1 | `j = (q4 * 9363) >> 16` |
 | 2 | `i = (j * 781) >> 14` |
 | 3 | `m = j - 21 * i`, `f = offset - 28 * j` |
 
 The two large constants have no shift-and-add form, so they keep a multiplier each. The two small ones do: 21 = 16 + 4 + 1 and 28 = 32 - 4. Putting the remainders in their own stage therefore replaces two multipliers with adder trees, which shortens the path and removes two `MULT18X18D`.
 
-Latency is three clocks and throughput is one code point per clock. `make sim-pipe` drives the valid range continuously for four sweeps and compares every emitted triple against the combinational decoder, which the other channels already pin at 11,172 of 11,172 points. An exact match at every cycle after the fill carries that evidence to the pipeline.
+The offset subtraction has a stage of its own because at three stages it was 1.2 ns of the 7.8 ns path into the first multiplier, and a register costs less than that. Latency is four clocks and throughput is one code point per clock. `make sim-pipe` drives the valid range continuously for four sweeps and compares every emitted triple against the combinational decoder, which the other channels already pin at 11,172 of 11,172 points. An exact match at every cycle after the fill carries that evidence to the pipeline.
 
 ```text
-PASS: 44689 outputs checked over 44692 clocks, 4 full sweeps of the valid space, one code point per clock
+PASS: 44689 outputs checked over 44693 clocks, 4 full sweeps of the valid space, one code point per clock
 ```
 
 Place and route reports a clock for this design, which the demo could not produce. `tagma_pipe_top` sources its code from a counter, so its paths run register to register.
@@ -142,10 +143,10 @@ Place and route reports a clock for this design, which the demo could not produc
 | Metric | Pipeline alone | Self-check build |
 |--------|----------------|------------------|
 | Clock | 25 MHz board oscillator | 40 MHz from the 25 MHz oscillator |
-| Fmax, register to register | 127.94 MHz | 58.20 MHz |
+| Fmax, register to register | 148.77 MHz | 58.20 MHz |
 | Fmax, reference path | not present | 52.82 MHz |
 | TRELLIS_COMB | 51 | 176 |
-| TRELLIS_FF | 58 | 154 |
+| TRELLIS_FF | 72 | 154 |
 | MULT18X18D | 2 | 5 |
 | Bitstream | 582,369 bytes | 582,369 bytes |
 
@@ -159,7 +160,7 @@ A bitstream that drives unwired header pins proves only that it programmed, so t
 | `led_err` | A12 | lights and latches on any mismatch |
 | `led_swept` | B11 | lights once 2^28 clocks have been compared |
 
-The third indication is a rate reading rather than a completion flag, because the comparison saturates and never clears. 2^28 clocks is 6.71 s at 40 MHz and 10.74 s at 25 MHz, so the interval between configuration and that channel lighting separates the two clocks with a stopwatch and no instrument. The PLL is set to 40 MHz rather than the 50 MHz it can also produce because the reference decoder sits in the same clock domain: its path measures 18.9 ns, which is 5.6 percent of margin at 50 MHz and about 32 percent at 40 MHz. The split that raised the pipeline to 127.94 MHz did not move that path, because it is the reference that is binding here.
+The third indication is a rate reading rather than a completion flag, because the comparison saturates and never clears. 2^28 clocks is 6.71 s at 40 MHz and 10.74 s at 25 MHz, so the interval between configuration and that channel lighting separates the two clocks with a stopwatch and no instrument. The PLL is set to 40 MHz rather than the 50 MHz it can also produce because the reference decoder sits in the same clock domain: its path measures 18.9 ns, which is 5.6 percent of margin at 50 MHz and about 32 percent at 40 MHz. The stages that raised the pipeline to 148.77 MHz did not move that path, because the reference is what binds in this build.
 
 The first build of the check compared against `28'hFFFFFF`, six hex digits against a 28-bit register. The comparison type-checked and the design built, but the count saturated at 2^24 clocks and the readout fired after 0.42 s instead of 6.71 s. A literal and a register that disagree in width still compare, so an elapsed-time claim has to be checked against the constant rather than against the declared width.
 
@@ -188,16 +189,17 @@ The PLL rate is a build parameter, which makes the tool's 126.82 MHz estimate so
 
 | Build | Timing | `pin_match` | Measured clock |
 |---|---|---|---|
-| 40 MHz | PASS | 1 | 39.95 MHz, 39.94 MHz |
+| 40 MHz | PASS | 1 | 40.00 MHz, 40.06 MHz |
 | 100 MHz | PASS | 1 | 100.03 MHz, 99.99 MHz |
 | 120 MHz | PASS | 1 | 119.96 MHz, 119.85 MHz |
 | 125 MHz | PASS | 1 | 125.11 MHz, 125.00 MHz |
-| 130 MHz | rejected, `126.82 MHz (FAIL at 130.01 MHz)` | not built | not run |
+| 140 MHz | PASS | 1 | 139.90 MHz, 139.99 MHz |
+| 150 MHz | rejected, `145.99 MHz (FAIL at 150.01 MHz)` | not built | not run |
 
-Every rate that builds also reproduces the `tagma_core` checksum on the die, so the fastest verified point is 125 million code points per second. At 130 MHz `nextpnr-ecp5` refuses the build and the flow stops rather than programming a design that would run out of time.
+Every rate that builds also reproduces the `tagma_core` checksum on the die, so the fastest verified point is 140 million code points per second. At 150 MHz `nextpnr-ecp5` refuses the build and the flow stops rather than programming a design that would run out of time. The image's own ceiling is 145.99 MHz, lower than the pipeline's 148.77 because the checksum accumulator is a register-to-register path of its own.
 
 An indicator that can only show one value proves nothing, so the same flow was built with a deliberately wrong constant. It reads zero, and the correct constant reads one, which is what makes the pass above a comparison that ran.
 
-The limit is the rate at the top. Nothing above 125 MHz is verified, because the tool will not build a design that meets 130 MHz, and the external switch and LED wiring is still a separate step.
+The limit is the rate at the top. Nothing above 140 MHz is verified, because the image will not build at 150 MHz, and the external switch and LED wiring is still a separate step.
 
 A second silence is device-wide. `code` originally started at `16'hAC00` so that the first comparison cycles would already be in the valid range. The ECP5 global set and reset implements only all-zero initialisation, so `synth_ecp5` emitted the register with no `INIT` parameter and warned about nothing: the device powers up at zero. A four-line counter initialized to `4'b1010` reproduces the same silence. The counter is now written to start at zero, which is what the silicon does, and the first pass reaches the valid range on its own. Any register here initialized to a pattern other than all-zeroes gets zeroes on this device and no diagnostic.

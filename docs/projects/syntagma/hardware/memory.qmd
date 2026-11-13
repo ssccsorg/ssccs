@@ -83,9 +83,9 @@ The value of the hardware realization is on other axes:
 | Energy per access | host CPU pipeline and cache hierarchy | 22 KB SRAM at 16 MHz, orders of magnitude lower (estimate, pending power model) |
 | Latency determinism | cache-dependent, variable | fixed one cycle |
 | Physical embedding | impossible | the primitive becomes a device, the chton signal-layer vision |
-| Streaming throughput | per-op overhead in software | one code point per clock; 127.94 MHz register to register on the ECP5, 125 MHz verified against the `tagma_core` checksum on the board |
+| Streaming throughput | per-op overhead in software | one code point per clock; 148.77 MHz register to register on the ECP5, 140 MHz verified against the `tagma_core` checksum on the board |
 
-The acceleration case appears at N greater than 1, where software falls back to sparse trees (0.87 to 53 ns per operation), and in embedded or IO paths where energy and determinism dominate over raw speed. The streaming realization is measured rather than projected: a three-stage pipeline emits one code point per clock, closes at 127.94 MHz on the ECP5, and reproduces the `tagma_core` checksum on the device at every rate up to 125 MHz. At that rate it still sits below the L1 path, 125 million code points per second against 2.6 billion accesses per second, so the case it serves is a continuous stream with a fixed cost per code point rather than a faster dense lookup.
+The acceleration case appears at N greater than 1, where software falls back to sparse trees (0.87 to 53 ns per operation), and in embedded or IO paths where energy and determinism dominate over raw speed. The streaming realization is measured rather than projected: a four-stage pipeline emits one code point per clock, closes at 148.77 MHz on the ECP5, and reproduces the `tagma_core` checksum on the device at every rate up to 140 MHz. At that rate it still sits below the L1 path, 140 million code points per second against 2.6 billion accesses per second, so the case it serves is a continuous stream with a fixed cost per code point rather than a faster dense lookup.
 
 ## Open questions
 
