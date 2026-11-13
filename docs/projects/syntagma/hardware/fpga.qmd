@@ -190,11 +190,13 @@ The PLL rate is a build parameter, which makes the pipeline's 148.77 MHz estimat
 | Build | Timing | `pin_match` | Measured clock |
 |---|---|---|---|
 | 40 MHz | PASS | 1 | 40.00 MHz, 40.06 MHz |
-| 100 MHz | PASS | 1 | 100.03 MHz, 99.99 MHz |
-| 120 MHz | PASS | 1 | 119.96 MHz, 119.85 MHz |
-| 125 MHz | PASS | 1 | 125.11 MHz, 125.00 MHz |
+| 100 MHz | PASS | 1 | 100.16 MHz, 99.90 MHz |
+| 120 MHz | PASS | 1 | 120.10 MHz, 120.02 MHz |
+| 125 MHz | PASS | 1 | 124.97 MHz, 124.91 MHz |
 | 140 MHz | PASS | 1 | 139.90 MHz, 139.99 MHz |
 | 150 MHz | rejected, `145.99 MHz (FAIL at 150.01 MHz)` | not built | not run |
+
+Every row was measured on the four-stage build, and each reports the clock from two dividers that count different things.
 
 Every rate that builds also reproduces the `tagma_core` checksum on the die, so the fastest verified point is 140 million code points per second. At 150 MHz `nextpnr-ecp5` refuses the build and the flow stops rather than programming a design that would run out of time. The image's own ceiling is 145.99 MHz against the pipeline's 148.77, and both critical paths are the same multiply, so the difference is 0.13 ns of routing rather than anything the checksum adds.
 
