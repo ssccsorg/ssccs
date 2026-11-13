@@ -183,9 +183,9 @@ Everything above that needed a person was waiting on someone watching an LED. Th
 | `pin_beat` | H5 | one rising edge every 2^25 clocks |
 | `pin_sweep` | N4 | one rising edge every 2048 sweeps |
 
-`make board-verify` reads the three pins and fits the edge times. Two runs of the final image report `pin_match = 1`, 40.06 MHz and 40.01 MHz from the clock divider, and 39.98 MHz and 39.99 MHz from the sweep divider. The two dividers count different things, one clocks and one sweeps of 11,172 clocks, and they agree to 0.1 percent, so the rate the PLL was configured for is measured rather than assumed.
+`make board-verify` reads the three pins and fits the edge times. The two dividers count different things, one clocks and one sweeps of 11,172 clocks, and they agree to 0.1 percent at every rate below, so the rate the PLL was configured for is measured rather than assumed.
 
-The PLL rate is a build parameter, which makes the tool's 126.82 MHz estimate something the die can answer.
+The PLL rate is a build parameter, which makes the pipeline's 148.77 MHz estimate something the die can answer.
 
 | Build | Timing | `pin_match` | Measured clock |
 |---|---|---|---|
