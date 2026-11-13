@@ -47,7 +47,7 @@ Two findings frame the series. First, the ~300 gate claim of the Tagma whitepape
 
 ## What the hardware is
 
-A range query over the primitive's axes is an addition, not a tree search. That follows from the composition formula and needs no measurement. `code = U+AC00 + 588i + 28m + f` is monotone in $(i, m, f)$, so fixing $i$ leaves 588 consecutive codes, fixing $i$ and $m$ leaves 28, and a prefix range is the interval $[base, base + span)$. An axis neighbourhood is a union of such runs, so it is iterated by adding a stride rather than by descending an index.
+A range query over the primitive's axes is an addition, not a tree search. That follows from the composition formula and needs no measurement: the initial axis has stride 588, the medial 28, and the final axis is the remainder. Fixing $i$ therefore leaves 588 consecutive codes and fixing $i$ and $m$ leaves 28, so a prefix range is the interval $[base, base + span)$. An axis neighbourhood is a union of such runs, so it is iterated by adding a stride rather than by descending an index.
 
 Everything else in the hardware is a consequence of that packing.
 
@@ -78,9 +78,7 @@ What is missing is that store. The decoder, the compose unit and the distance un
 
 ## Scope and relation to the primitive
 
-The hardware track does not redefine Tagma. The composition formula, the axis ranges, and the 11,172-entry space are identical to the software definition:
-
-$$C(i,m,f) = \text{U+AC00} + 588i + 28m + f, \quad 0 \leq i < 19,\; 0 \leq m < 21,\; 0 \leq f < 28$$
+The hardware track does not redefine Tagma. The composition formula, the axis ranges, and the 11,172-entry space are identical to the software definition; the layer map below names the primitive once, and every other occurrence here would be a copy.
 
 What changes is the substrate. The software realization evaluates the formula with arithmetic in Rust; the hardware realization evaluates it with logic gates. The two must agree on every input, and the verification pipeline in this series enforces exactly that. The layer map is shown in Figure @fig-hw-layers.
 

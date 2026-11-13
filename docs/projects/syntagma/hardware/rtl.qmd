@@ -78,7 +78,7 @@ The decoder maps an index to the three axes. The primitive needs the inverse and
 
 | Unit | Operation | Structure |
 |------|-----------|-----------|
-| `tagma_compose` | axes to index, $588i + 28m + f$ | two constant multiplies ($21i$ and $28p$), one validity bound per axis |
+| `tagma_compose` | axes to index, the inverse of the decode | two constant multiplies, one validity bound per axis |
 | `tagma_dist` | field-wise absolute difference of two code points | two `tagma_decoder` cores and three subtractors |
 
 `tagma_compose` is the decoder read backwards: the same 588 and 28 constants appear as multipliers instead of divisors, and an out-of-range axis triple is reported as `valid = 0` with `index = 0`. `tagma_dist` decodes each operand with the same core as the standalone decoder, so the two share one decode definition, and returns the three per-axis distances separately, matching `Coord::hamming_distance` on every valid pair.
