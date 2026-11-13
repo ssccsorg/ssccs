@@ -39,7 +39,7 @@ title_meta_items = {
 
 ## Abstract {.unnumbered .unlisted}
 
-Tagma[^tagma] is a 16-bit coordinate primitive: a fixed Unicode block (U+AC00--U+D7A3) with a closed-form composition formula, three independent axes, and zero collision probability. The primitive is substrate-independent. Its definition is one formula, and its realizations differ only in the material that evaluates it. The software realization is the reference implementation in Rust and C++ [^syntagma] [^refimpl]; the hardware realization is the subject of this whitepaper series: a combinational decoder with its inverse (the compose unit) and the field-wise distance unit, a gate-level synthesis flow, an FPGA demo on the Upduino 3.1, and a chton SRAM segment store modeled behaviorally pending the macro.
+Tagma[^tagma] is a 16-bit coordinate primitive: a fixed Unicode block (U+AC00--U+D7A3) with a closed-form composition formula, three independent axes, and zero collision probability. The primitive is substrate-independent. Its definition is one formula, and its realizations differ only in the material that evaluates it. The software realization is the reference implementation in Rust and C++ [^syntagma] [^refimpl]; the hardware realization is the subject of this whitepaper series: a combinational decoder with its inverse (the compose unit) and the field-wise distance unit, a gate-level synthesis flow, FPGA demos on the Upduino 3.1 (iCE40UP5K) and the iCESugar-Pro (ECP5), and a chton SRAM segment store modeled behaviorally pending the macro.
 
 Everything in this series is measured, not claimed. The decoder is verified exhaustively over all 11,172 valid code points in three independent channels (formula, Rust reference, gate netlist), and formal equivalence proves the RTL and the synthesized netlist identical over all 2^16 inputs. The measured gate count is 478 cells in the ev-compatible generic schema and 588 cells in a 2-input gate-level estimate, with 201 LUT4 plus 41 carry cells on iCE40. The demo closes the 12 MHz board clock at 16.79 MHz Fmax (59.55 ns critical path after place and route).
 
@@ -67,11 +67,11 @@ The claim of this series is bounded by what is realized. The three operations of
 
 A separate realization is on a device rather than in gates: the record layer addressed by coordinates, over a flash partition on an ESP32-S3, with no operating system under the engine. It exercises the software stack and the medium, not the RTL decoder, and it is reported as the [minimum-class device run](/projects/syntagma/tagma/#sec-minimum-device).
 
-Two items are documented but not yet realized. The segment store is a behavioral model of the address map, pending the OpenRAM macro that needs a PDK install. The physical FPGA demonstration is pending a board, though the bitstream and the timing report are generated. Where a result depends on an unrealized item, the document states the dependency in place.
+One item is documented but not yet realized: the segment store is a behavioral model of the address map, pending the OpenRAM macro that needs a PDK install. The physical demonstration runs on the iCESugar-Pro: the demo builds, the bitstream is written to configuration flash and boots, and the validity output drives the onboard RGB LED. The external switch and LED wiring that turns it into a decoder demonstration is the remaining step. Where a result depends on an unrealized item, the document states the dependency in place.
 
 ## Hardware reference
 
-The realization lives under `hw/` in the syntagma repository. The toolchain is open source end to end: Verilator for simulation, Yosys for synthesis, nextpnr-ice40 for place and route, icepack for the bitstream, icetime for timing analysis, and OpenRAM for the memory macro. The demo target is the Upduino 3.1 (iCE40UP5K-SG48).
+The realization lives under `hw/` in the syntagma repository. The toolchain is open source end to end: Verilator for simulation, Yosys for synthesis, nextpnr-ice40 and icepack for the iCE40 target, icetime for its timing analysis, nextpnr-ecp5 and ecppack for the ECP5 target, and OpenRAM for the memory macro. Two boards are supported, each with its own constraint format and clock: the Upduino 3.1 (iCE40UP5K-SG48, PCF, 12 MHz) and the iCESugar-Pro (ECP5 LFE5U-25F-6BG256C, LPF, 25 MHz).
 
 | Artifact | Purpose | Location |
 |----------|---------|----------|
@@ -103,6 +103,8 @@ The numbers below are the authoritative hardware figures for the Tagma primitive
 | Critical path | 115.90 ns | 59.55 ns |
 | Fmax | 8.63 MHz | 16.79 MHz |
 | Meets 12 MHz board clock | no | yes |
+
+The same RTL on the ECP5 device measures 50 TRELLIS_COMB and 16 TRELLIS_FF out of 24,288, 33 I/O, and 4 multipliers, with a 22.85 ns worst reported path against a 25 MHz clock. That figure is the worst cross-domain path, input to register; the design has no register-to-register path for nextpnr to constrain, so no Fmax is reported. The 59.55 ns figure above is the whole critical path icetime reports for the placed iCE40 design. The two are device results, not a speedup, and the comparison is stated that way in the FPGA document.
 
 :::{ layout-ncol=2 }
 
@@ -158,7 +160,7 @@ The pipeline runs in CI through `make -C hw check` in the syntagma repository, s
 | Golden anchors from Rust, regenerated | single source of truth, no drift | the anchor file is a build artifact, regenerated in CI |
 | Four verification channels | formula, reference, netlist, equivalence | RTL and netlist proven identical over 2^16 inputs |
 | Registered demo outputs | one-cycle latency measurable with a real clock | Fmax and setup checkable with icetime |
-| Active-low LED driven by `~valid` | the onboard LED is negative logic | a separate `led_valid` port, no semantic flip |
+| LED polarity as a parameter | the Upduino's onboard LED is negative logic, the iCESugar-Pro's RGB LED is active high | `led_valid` is driven from `LED_ACTIVE_LOW`, default 1 for the Upduino, 0 on the Pro |
 | Explicit width-matched Verilog | Verilator `-Wall` clean without hiding truncation | concat-based zero-extension, lint only for unused bits |
 | ev-compatible `stat -json` flow | numbers comparable across the SSCCS stack | emittable as neXus Facts later |
 
@@ -171,11 +173,11 @@ The pipeline runs in CI through `make -C hw check` in the syntagma repository, s
 
 | Track | Step | Dependency |
 |-------|------|------------|
-| Physical demo | program the bitstream on the Upduino 3.1, wire the switch and LED modules per the PCF, capture the demo | board and modules |
+| Physical demo | wire the switch and LED modules per the board constraints and capture the demo; the iCESugar-Pro bitstream is programmed and boots | switch and LED modules |
 | Standard cell | the OpenROAD Sky130 flow runs end to end and is re-run in the syntagma hw CI job; two flow bugs are recorded in the devlog | none |
 | chton propagation | generate the segment store SRAM from `chton_sram.py` and attach it to the decoder | OpenRAM and PDK |
 | Power model | run the OpenROAD power analysis on the VCD trace from `make sim-trace` | standard cell flow |
-| Multi-target | port the demo flow to ECP5 or Artix-7 | board choice |
+| Multi-target | one RTL builds for iCE40 (`BOARD=upduino31`) and ECP5 (`BOARD=icesugar_pro`); Artix-7 remains open | ECP5 done, Artix-7 needs a board |
 | Streaming | pipelined decode at one code point per clock; the acceleration case appears at N greater than 1 | follow-up design |
 
 ## Documents
@@ -184,7 +186,7 @@ The pipeline runs in CI through `make -C hw check` in the syntagma repository, s
 |----------|-------------|
 | [RTL](/projects/syntagma/hardware/rtl) | Decode, compose, and distance: structure and the verification pipeline |
 | [Synthesis](/projects/syntagma/hardware/synth) | Gate counts, cell mixes, and the naive vs multiply-shift trade-off |
-| [FPGA](/projects/syntagma/hardware/fpga) | Upduino 3.1 demo, place and route, timing report |
+| [FPGA](/projects/syntagma/hardware/fpga) | Upduino 3.1 and iCESugar-Pro demos, place and route, timing reports |
 | [Memory](/projects/syntagma/hardware/memory) | chton SRAM segment store and the L1 cache analysis |
 
 ## License {.unnumbered}

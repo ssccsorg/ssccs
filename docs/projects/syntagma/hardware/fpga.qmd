@@ -1,6 +1,6 @@
 ---
 title: "FPGA"
-subtitle: "Upduino 3.1 demo, place and route, timing report"
+subtitle: "Upduino 3.1 and iCESugar-Pro demos, place and route, timing reports"
 date: 2026-08
 date-format: "MMMM, YYYY"
 bibliography: ../_include/reference.bib
@@ -80,3 +80,29 @@ The multiply-shift version closes the 12 MHz board clock with margin. The bitstr
 ## Board bring-up
 
 The remaining step is physical: program the bitstream, wire a DIP switch module and LED modules to the GPIO pins in the constraint file, and capture the demo. The onboard 8 MB PSRAM also covers the RAM-attached test device question: a chton segment store can be exercised on the same board.
+
+## Second target: iCESugar-Pro (ECP5)
+
+The same RTL builds for the iCESugar-Pro v1.3, an ECP5 LFE5U-25F-6BG256C in a DDR SODIMM module with a 25 MHz crystal. The second device is not there to beat the iCE40 figures. It is there to check that the demo's realization is board data rather than a one-board artifact.
+
+| Aspect | Upduino 3.1 | iCESugar-Pro v1.3 |
+|--------|-------------|-------------------|
+| Device | iCE40UP5K-SG48 | ECP5 LFE5U-25F-6BG256C |
+| Synthesis | `synth_ice40` | `synth_ecp5` |
+| Place and route | `nextpnr-ice40 --up5k --package sg48` | `nextpnr-ecp5 --25k --package CABGA256 --speed 6` |
+| Packing | `icepack` | `ecppack` |
+| Constraints | PCF | LPF |
+| Clock | 12 MHz | 25 MHz |
+| Logic | 255 ICESTORM_LC / 5280 | 50 TRELLIS_COMB and 16 TRELLIS_FF / 24,288 |
+| I/O | 33 SB_IO / 39 | 33 TRELLIS_IO / 197 |
+| Multipliers | not reported | 4 MULT18X18D / 28 |
+| Critical path | 59.55 ns | 22.85 ns |
+| Fmax | 16.79 MHz | not reported |
+
+The two critical-path figures are not the same quantity. On the iCE40, `icetime` reports the whole placed critical path. On the ECP5, `nextpnr-ecp5` reports the worst cross-domain path, input to register, because the design has no register-to-register path to constrain. They are two device results, recorded as such.
+
+Three board facts decide the constraints. A bank takes one IO standard and nextpnr rejects a mix, so the RGB LED bank at 2.5V holds the only header pin that can use it, and that pin plus the validity pin are `LVCMOS25` while everything else is `LVCMOS33`. Header labels come from the board's pin map. The `code` inputs are pulled up, so an unwired header reads `0xFFFF`, which is invalid, and a switch closes to GND to clear a bit.
+
+The demo drives `led_valid` on the RGB LED's blue channel, which lights on a high level. That is the opposite of the Upduino's negative-logic LED, so the polarity is a top-level parameter instead of a fixed inversion.
+
+The module and its Ext-Board each carry a debugger, and only the module's iCELink reaches the ECP5; the Ext-Board's DAPLink answers the CMSIS-DAP handshake and returns `0xffffffff` for every JTAG IDCODE. The programming path and the wiring table are in `hw/boards/icesugar_pro/README.md`.
