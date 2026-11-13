@@ -143,11 +143,11 @@ Place and route reports a clock for this design, which the demo could not produc
 | Metric | Pipeline alone | Self-check build |
 |--------|----------------|------------------|
 | Clock | 25 MHz board oscillator | 40 MHz from the 25 MHz oscillator |
-| Fmax, register to register | 148.77 MHz | 58.20 MHz |
-| Fmax, reference path | not present | 52.82 MHz |
-| TRELLIS_COMB | 51 | 176 |
-| TRELLIS_FF | 72 | 154 |
-| MULT18X18D | 2 | 5 |
+| Fmax, register to register | 148.77 MHz | 56.62 MHz |
+| Fmax, reference path | not present | 51.96 MHz |
+| TRELLIS_COMB | 51 | 187 |
+| TRELLIS_FF | 72 | 181 |
+| MULT18X18D | 2 | 6 |
 | Bitstream | 582,369 bytes | 582,369 bytes |
 
 The critical path is now stage 1: the counter into the offset subtract, into the multiply by 9363, into `j_q`, at 7.82 ns. The multiplier's 3.93 ns of logic plus the routing around it is the floor for this shape. Registering the offset subtract as its own stage would leave about 6.5 ns, roughly 154 MHz, for a fourth stage and one more clock of latency, which is not a good exchange at the rates this board can supply.
@@ -160,7 +160,7 @@ A bitstream that drives unwired header pins proves only that it programmed, so t
 | `led_err` | A12 | lights and latches on any mismatch |
 | `led_swept` | B11 | lights once 2^28 clocks have been compared |
 
-The third indication is a rate reading rather than a completion flag, because the comparison saturates and never clears. 2^28 clocks is 6.71 s at 40 MHz and 10.74 s at 25 MHz, so the interval between configuration and that channel lighting separates the two clocks with a stopwatch and no instrument. The PLL is set to 40 MHz rather than the 50 MHz it can also produce because the reference decoder sits in the same clock domain: its path measures 18.9 ns, which is 5.6 percent of margin at 50 MHz and about 32 percent at 40 MHz. The stages that raised the pipeline to 148.77 MHz did not move that path, because the reference is what binds in this build.
+The third indication is a rate reading rather than a completion flag, because the comparison saturates and never clears. 2^28 clocks is 6.71 s at 40 MHz and 10.74 s at 25 MHz, so the interval between configuration and that channel lighting separates the two clocks with a stopwatch and no instrument. The PLL is set to 40 MHz rather than the 50 MHz it can also produce because the reference decoder sits in the same clock domain: its path measures 19.2 ns, which is 7.6 percent of margin at 50 MHz and about 30 percent at 40 MHz. The stages that raised the pipeline to 148.77 MHz did not move that path, because the reference is what binds in this build.
 
 The first build of the check compared against `28'hFFFFFF`, six hex digits against a 28-bit register. The comparison type-checked and the design built, but the count saturated at 2^24 clocks and the readout fired after 0.42 s instead of 6.71 s. A literal and a register that disagree in width still compare, so an elapsed-time claim has to be checked against the constant rather than against the declared width.
 

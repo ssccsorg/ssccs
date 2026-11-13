@@ -117,15 +117,15 @@ Pipelining changes what the tool can report at all. The streaming top takes its 
 | Metric | Pipeline alone | Self-check build |
 |--------|----------------|------------------|
 | Clock | 25 MHz board oscillator | 40 MHz from the 25 MHz oscillator |
-| Fmax, register to register | 148.77 MHz | 58.20 MHz |
-| Fmax, reference path | not present | 52.82 MHz |
-| TRELLIS_COMB | 51 | 176 |
-| TRELLIS_FF | 72 | 154 |
-| MULT18X18D | 2 | 5 |
+| Fmax, register to register | 148.77 MHz | 56.62 MHz |
+| Fmax, reference path | not present | 51.96 MHz |
+| TRELLIS_COMB | 51 | 187 |
+| TRELLIS_FF | 72 | 181 |
+| MULT18X18D | 2 | 6 |
 | Latency | 4 clocks | 4 clocks |
 | Throughput | 1 code point per clock | 1 code point per clock |
 
-The self-check clock is 40 MHz rather than the 50 MHz the PLL also produces, because the reference path measures 18.9 ns, which leaves 5.6 percent of margin at 50 and about 32 percent at 40. The binding path in that build is the reference, not the pipeline, so the stages that raised the pipeline to 148.77 MHz did not move it.
+The self-check clock is 40 MHz rather than the 50 MHz the PLL also produces, because the reference path measures 19.2 ns, which leaves 7.6 percent of margin at 50 and about 30 percent at 40. The binding path in that build is the reference, not the pipeline, so the stages that raised the pipeline to 148.77 MHz did not move it.
 
 :::{ layout-ncol=2 }
 
