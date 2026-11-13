@@ -83,9 +83,9 @@ The value of the hardware realization is on other axes:
 | Energy per access | host CPU pipeline and cache hierarchy | 22 KB SRAM at 16 MHz, orders of magnitude lower (estimate, pending power model) |
 | Latency determinism | cache-dependent, variable | fixed one cycle |
 | Physical embedding | impossible | the primitive becomes a device, the chton signal-layer vision |
-| Streaming throughput | per-op overhead in software | one code point per clock; 77.69 MHz register to register on the ECP5, 40 MHz checked against the reference on the board |
+| Streaming throughput | per-op overhead in software | one code point per clock; 127.94 MHz register to register on the ECP5, 40 MHz checked against the reference on the board |
 
-The acceleration case appears at N greater than 1, where software falls back to sparse trees (0.87 to 53 ns per operation), and in embedded or IO paths where energy and determinism dominate over raw speed. The streaming realization is measured rather than projected: a two-stage pipeline emits one code point per clock, closes at 77.69 MHz on the ECP5, and passes a comparison against the combinational reference at 40 MHz on the device. At that rate it still sits below the L1 path, about 77.7 million code points per second against 2.6 billion accesses per second, so the case it serves is a continuous stream with a fixed cost per code point rather than a faster dense lookup.
+The acceleration case appears at N greater than 1, where software falls back to sparse trees (0.87 to 53 ns per operation), and in embedded or IO paths where energy and determinism dominate over raw speed. The streaming realization is measured rather than projected: a three-stage pipeline emits one code point per clock, closes at 127.94 MHz on the ECP5, and passes a comparison against the combinational reference at 40 MHz on the device. At that rate it still sits below the L1 path, about 128 million code points per second against 2.6 billion accesses per second, so the case it serves is a continuous stream with a fixed cost per code point rather than a faster dense lookup.
 
 ## Open questions
 

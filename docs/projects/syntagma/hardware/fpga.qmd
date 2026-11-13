@@ -115,13 +115,16 @@ The demo and the streaming design answer different questions. The demo takes one
 
 | Stage | Work |
 |-------|------|
-| 1 | `offset` to `q4`, `r2`, and `j = (q4 * 9363) >> 16` |
-| 2 | `i = (j * 781) >> 14`, `m = j - i * 21`, `f = 4 * (q4 - j * 7) + r2` |
+| 1 | `j = (q4 * 9363) >> 16` |
+| 2 | `i = (j * 781) >> 14` |
+| 3 | `m = j - 21 * i`, `f = offset - 28 * j` |
 
-Latency is two clocks and throughput is one code point per clock. `make sim-pipe` drives the valid range continuously for four sweeps and compares every emitted triple against the combinational decoder, which the other channels already pin at 11,172 of 11,172 points. An exact match at every cycle after the fill carries that evidence to the pipeline.
+The two large constants have no shift-and-add form, so they keep a multiplier each. The two small ones do: 21 = 16 + 4 + 1 and 28 = 32 - 4. Putting the remainders in their own stage therefore replaces two multipliers with adder trees, which shortens the path and removes two `MULT18X18D`.
+
+Latency is three clocks and throughput is one code point per clock. `make sim-pipe` drives the valid range continuously for four sweeps and compares every emitted triple against the combinational decoder, which the other channels already pin at 11,172 of 11,172 points. An exact match at every cycle after the fill carries that evidence to the pipeline.
 
 ```text
-PASS: 44689 outputs checked over 44691 clocks, 4 full sweeps of the valid space, one code point per clock
+PASS: 44689 outputs checked over 44692 clocks, 4 full sweeps of the valid space, one code point per clock
 ```
 
 Place and route reports a clock for this design, which the demo could not produce. `tagma_pipe_top` sources its code from a counter, so its paths run register to register.
@@ -129,14 +132,14 @@ Place and route reports a clock for this design, which the demo could not produc
 | Metric | Pipeline alone | Self-check build |
 |--------|----------------|------------------|
 | Clock | 25 MHz board oscillator | 40 MHz from the 25 MHz oscillator |
-| Fmax, register to register | 77.69 MHz | 53.70 MHz |
-| Fmax, reference path | not present | 50.63 MHz |
-| TRELLIS_COMB | 39 | 185 |
-| TRELLIS_FF | 43 | 120 |
-| MULT18X18D | 4 | 7 |
+| Fmax, register to register | 127.94 MHz | 58.20 MHz |
+| Fmax, reference path | not present | 52.82 MHz |
+| TRELLIS_COMB | 51 | 176 |
+| TRELLIS_FF | 58 | 154 |
+| MULT18X18D | 2 | 5 |
 | Bitstream | 582,369 bytes | 582,369 bytes |
 
-The critical path of the pipeline is inside stage 2, at `j_q` through the multiply by 781 into `ii` and on into the multiply by 21, 12.18 ns in total. Splitting stage 2 again is the next available gain, and the arithmetic allows it because `m` and `f` depend on `j` and `i` only.
+The critical path is now stage 1: the counter into the offset subtract, into the multiply by 9363, into `j_q`, at 7.82 ns. The multiplier's 3.93 ns of logic plus the routing around it is the floor for this shape. Registering the offset subtract as its own stage would leave about 6.5 ns, roughly 154 MHz, for a fourth stage and one more clock of latency, which is not a good exchange at the rates this board can supply.
 
 A bitstream that drives unwired header pins proves only that it programmed, so the streaming build carries its own check. `tagma_pipe_check_top` runs the pipeline and the combinational reference from one counter, delays the reference by the pipeline depth, and compares the two triples at every clock. A mismatch latches an indication that stays lit, so a dark error channel after minutes of running is the observation that the two agree at one code point per clock on the device.
 
@@ -146,7 +149,7 @@ A bitstream that drives unwired header pins proves only that it programmed, so t
 | `led_err` | A12 | lights and latches on any mismatch |
 | `led_swept` | B11 | lights once 2^28 clocks have been compared |
 
-The third indication is a rate reading rather than a completion flag, because the comparison saturates and never clears. 2^28 clocks is 6.71 s at 40 MHz and 10.74 s at 25 MHz, so the interval between configuration and that channel lighting separates the two clocks with a stopwatch and no instrument. The PLL is set to 40 MHz rather than the 50 MHz it can also produce because the reference decoder sits in the same clock domain: at 50 MHz its path measures 19.48 ns, which is 2.6 percent of margin, and at 40 MHz the same path has 28 percent.
+The third indication is a rate reading rather than a completion flag, because the comparison saturates and never clears. 2^28 clocks is 6.71 s at 40 MHz and 10.74 s at 25 MHz, so the interval between configuration and that channel lighting separates the two clocks with a stopwatch and no instrument. The PLL is set to 40 MHz rather than the 50 MHz it can also produce because the reference decoder sits in the same clock domain: its path measures 18.9 ns, which is 5.6 percent of margin at 50 MHz and about 32 percent at 40 MHz. The split that raised the pipeline to 127.94 MHz did not move that path, because it is the reference that is binding here.
 
 The first build of the check compared against `28'hFFFFFF`, six hex digits against a 28-bit register. The comparison type-checked and the design built, but the count saturated at 2^24 clocks and the readout fired after 0.42 s instead of 6.71 s. A literal and a register that disagree in width still compare, so an elapsed-time claim has to be checked against the constant rather than against the declared width.
 

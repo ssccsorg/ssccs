@@ -59,6 +59,18 @@ The constant divisions dominate the critical path. Two implementations of the sa
 
 The multiply-shift constants are exact over the valid domain: division by 28 becomes division by 7 on `q4 = offset >> 2` (28 = 4 x 7, `q4` at most 2792), and division by 21 applies to `j` at most 398. Both structures are functionally identical, which the verification pipeline proves rather than assumes.
 
+## Streaming structure
+
+The decoder above is one combinational unit, so it costs the whole multiply chain per code point. `tagma_decoder_pipe` keeps the arithmetic and splits it at the constant multiplies, one large multiply per stage, with the two small constants as shift-and-add trees in the last stage.
+
+| Stage | Work |
+|-------|------|
+| 1 | `j = (q4 * 9363) >> 16` |
+| 2 | `i = (j * 781) >> 14` |
+| 3 | `m = j - 21 * i`, `f = offset - 28 * j` |
+
+9363 and 781 have no shift-and-add form, so they keep a multiplier each. 21 = 16 + 4 + 1 and 28 = 32 - 4 do, so the last stage is adders. The last stage writes `f` as `offset - 28 * j` rather than `4 * (q4 - 7 * j) + r2`; the two are equal modulo 2^14, so the low five bits agree on every 16-bit input and not only inside the valid range. Latency is three clocks, throughput is one code point per clock, and the simulation compares the pipeline against the combinational unit at every cycle, which carries the anchors above over to it. Device measurements are in the [FPGA document](/projects/syntagma/hardware/fpga).
+
 ## Compose and distance
 
 The decoder maps an index to the three axes. The primitive needs the inverse and a metric as well, and both are small combinational units in the same tree:
@@ -106,5 +118,6 @@ The components:
 | Distance (golden mode) | PASS: 3 x 11,172 over varying operands and both orders |
 | Compose RTL vs netlist | proven, all 2^15 axis combinations |
 | Distance RTL vs netlist | proven, all 2^32 input pairs |
+| Streaming pipeline | PASS: 44,689 emitted triples over 4 full sweeps, compared against the combinational unit at every cycle |
 
 The exhaustive tests also found the boundary correction: the last valid code point is U+D7A3, not U+D7AF. The testbench boundary was wrong initially and the failure surfaced only because the full space was enumerated.
