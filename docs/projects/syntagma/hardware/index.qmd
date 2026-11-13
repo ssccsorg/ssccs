@@ -39,11 +39,42 @@ title_meta_items = {
 
 ## Abstract {.unnumbered .unlisted}
 
-Tagma[^tagma] is a 16-bit coordinate primitive: a fixed Unicode block (U+AC00--U+D7A3) with a closed-form composition formula, three independent axes, and zero collision probability. The primitive is substrate-independent. Its definition is one formula, and its realizations differ only in the material that evaluates it. The software realization is the reference implementation in Rust and C++ [^syntagma] [^refimpl]; the hardware realization is the subject of this whitepaper series: a combinational decoder with its inverse (the compose unit) and the field-wise distance unit, a gate-level synthesis flow, FPGA demos on the Upduino 3.1 (iCE40UP5K) and the iCESugar-Pro (ECP5), and a chton SRAM segment store modeled behaviorally pending the macro.
+Tagma[^tagma] is a 16-bit coordinate primitive: a fixed Unicode block (U+AC00--U+D7A3) with a closed-form composition formula, three independent axes, and zero collision probability. One structural fact carries the hardware side of the series: the code is a monotone packing of the axes, so a range query over them is an addition rather than a tree search. What that buys, what it does not, and what is still missing are the subject of the first section. The primitive is substrate-independent. Its definition is one formula, and its realizations differ only in the material that evaluates it. The software realization is the reference implementation in Rust and C++ [^syntagma] [^refimpl]; the hardware realization is the subject of this whitepaper series: a combinational decoder with its inverse (the compose unit) and the field-wise distance unit, a gate-level synthesis flow, FPGA demos on the Upduino 3.1 (iCE40UP5K) and the iCESugar-Pro (ECP5), and a chton SRAM segment store modeled behaviorally pending the macro.
 
-Everything in this series is measured, not claimed. The decoder is verified exhaustively over all 11,172 valid code points in three independent channels (formula, Rust reference, gate netlist), and formal equivalence proves the RTL and the synthesized netlist identical over all 2^16 inputs. The measured gate count is 478 cells in the ev-compatible generic schema and 588 cells in a 2-input gate-level estimate, with 201 LUT4 plus 41 carry cells on iCE40. The demo closes the 12 MHz board clock at 16.79 MHz Fmax (59.55 ns critical path after place and route). A four-stage pipelined decoder emits one code point per clock and closes register to register at 148.77 MHz on the ECP5, and the same build reproduces the `tagma_core` checksum on the board at every rate up to a measured 140 MHz.
+Every statement in this series is either measured or derived from the primitive's definition, and each one says which. The decoder is verified exhaustively over all 11,172 valid code points in three independent channels (formula, Rust reference, gate netlist), and formal equivalence proves the RTL and the synthesized netlist identical over all 2^16 inputs. The measured gate count is 478 cells in the ev-compatible generic schema and 588 cells in a 2-input gate-level estimate, with 201 LUT4 plus 41 carry cells on iCE40. The demo closes the 12 MHz board clock at 16.79 MHz Fmax (59.55 ns critical path after place and route). A four-stage pipelined decoder emits one code point per clock and closes register to register at 148.77 MHz on the ECP5, and the same build reproduces the `tagma_core` checksum on the board at every rate up to a measured 140 MHz.
 
 Two findings frame the series. First, the ~300 gate claim of the Tagma whitepaper holds for the naive shift-subtract decoder (206 to 232 cells), but timing closure on a 12 MHz board requires a multiply-shift structure that costs roughly 2.5x more gates. Second, the hardware is not a speedup for the N=1 dense case: the entire 11,172-entry space fits in L1 cache, which the software already exploits at 0.38 ns per access. The hardware value is energy, determinism, and physical embedding, not per-operation speed. The streaming track does not change that ranking. A pipelined decoder at 140 million code points per second, measured on the device, still trails the L1 path, which runs at 0.38 ns per access, about 2.6 billion accesses per second, so what pipelining adds is continuous flow and a fixed cost per code point rather than a faster dense decode.
+
+## What the hardware is
+
+A range query over the primitive's axes is an addition, not a tree search. That follows from the composition formula and needs no measurement. `code = U+AC00 + 588i + 28m + f` is monotone in $(i, m, f)$, so fixing $i$ leaves 588 consecutive codes, fixing $i$ and $m$ leaves 28, and a prefix range is the interval $[base, base + span)$. An axis neighbourhood is a union of such runs, so it is iterated by adding a stride rather than by descending an index.
+
+Everything else in the hardware is a consequence of that packing.
+
+| Unit | Function | Size |
+|------|----------|------|
+| `tagma_decoder` | 16-bit code to the three axes | 478 generic cells, 388 Sky130 cells at 2826 um^2, 49 LUT4 plus 16 FF on the ECP5, 255 ICESTORM_LC on the iCE40 |
+| `tagma_compose` | axes back to the 16-bit code | two constant multiplies and one range check per axis |
+| `tagma_dist` | per-axis distance of two codes | two decoders and three subtractors |
+| `tagma_decoder_pipe` | one code point per clock | four stages, 148.77 MHz register to register, 3.0 pJ per decode at 12 MHz |
+| `tagma_segment_store` | 11,172 by 16-bit record slots | 22 KB, macro pending a PDK |
+
+Which of its properties are derived and which are measured:
+
+| Property | Basis |
+|----------|-------|
+| Code order is the axis order, and a prefix range is contiguous | derived from the formula |
+| A range or neighbourhood query is addition over those runs | derived from the formula |
+| The axes need not be stored beside the value, because they come back by arithmetic | derived from the formula |
+| The decoder has no memory in its path and a latency independent of the input | measured: the 388 cells are standard cells with no memory macro among them, and the pipeline's path is four registers |
+| It runs on a device and reproduces the reference implementation | measured, at five clock rates up to 140 MHz |
+
+Two claims do not survive, and they come first so that they are not read into the rest. It is not faster. The software reference reads a coordinate in 0.38 ns with the whole space in L1 cache, and the device produces one every 7.14 ns at 140 MHz. Nor is an energy advantage measured: 3.0 pJ is the hardware's own cost per decode, and this series contains no measurement of the software's cost per operation, so there is a device figure and no comparison.
+
+What the hardware is for, then, is a record layer addressed by coordinates. With records keyed by code, the key is also the sort order and the range address, so iterating an axis range is an increment and there is no separate index to store or to search. That is a claim about address arithmetic, and it is the reason the store is the interesting unit rather than the decoder.
+
+What is missing is that store. The decoder, the compose unit and the distance unit are realized as RTL and verified end to end, and the segment store is a behavioral model of the address map whose SRAM macro waits for an OpenRAM PDK install. The structural argument above lives in the store, and the store is the part not yet on a device.
+
 
 ## Scope and relation to the primitive
 
@@ -67,7 +98,7 @@ The claim of this series is bounded by what is realized. The three operations of
 
 A separate realization is on a device rather than in gates: the record layer addressed by coordinates, over a flash partition on an ESP32-S3, with no operating system under the engine. It exercises the software stack and the medium, not the RTL decoder, and it is reported as the [minimum-class device run](/projects/syntagma/tagma/#sec-minimum-device).
 
-One item is documented but not yet realized: the segment store is a behavioral model of the address map, pending the OpenRAM macro that needs a PDK install. The physical demonstration runs on the iCESugar-Pro: the demo builds, the bitstream is written to configuration flash and boots, and the validity output drives the onboard RGB LED. The external switch and LED wiring that turns it into a decoder demonstration is the remaining step. The streaming design is realized further, because it needs no external wiring: its source is an internal counter, and a build accumulates a checksum over the valid range that is compared on the die with a constant derived from `tagma_core`, with the verdict read back over the programming cable, at every PLL rate that closes timing up to 140 MHz. Where a result depends on an unrealized item, the document states the dependency in place.
+The physical demonstration runs on the iCESugar-Pro: the demo builds, the bitstream is written to configuration flash and boots, and the validity output drives the onboard RGB LED. The external switch and LED wiring that turns it into a decoder demonstration is the remaining step. The streaming design is realized further, because it needs no external wiring: its source is an internal counter, and a build accumulates a checksum over the valid range that is compared on the die with a constant derived from `tagma_core`, with the verdict read back over the programming cable, at every PLL rate that closes timing up to 140 MHz. Where a result depends on an unrealized item, the document states the dependency in place.
 
 ## Hardware reference
 

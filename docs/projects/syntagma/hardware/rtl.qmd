@@ -46,7 +46,7 @@ The decoder is a pure combinational function over one 16-bit input. Given a code
 
 $$offset = code - \text{U+AC00}, \qquad i = offset / 588, \qquad m = (offset \bmod 588) / 28, \qquad f = offset \bmod 28$$
 
-with $i$ in [0, 18], $m$ in [0, 20], and $f$ in [0, 27]. There are no registers, so the latency is exactly one cycle by construction. Inputs below U+AC00 underflow and are outside the valid domain; inputs in U+D7A4..U+D7AF are structurally invalid filler positions.
+with $i$ in [0, 18], $m$ in [0, 20], and $f$ in [0, 27]. The formula also fixes the order of the codes: the stride of each axis is at least the span of the next, so code order is the axis order, and a range that fixes a prefix of the axes is a contiguous run of codes. That is a property of the definition rather than of any realization, and the memory document builds on it. There are no registers, so the latency is exactly one cycle by construction. Inputs below U+AC00 underflow and are outside the valid domain; inputs in U+D7A4..U+D7AF are structurally invalid filler positions.
 
 ## Division structure
 

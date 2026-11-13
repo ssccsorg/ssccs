@@ -80,12 +80,16 @@ The value of the hardware realization is on other axes:
 
 | Axis | Software | Hardware |
 |------|----------|----------|
+| Range query over an axis | iterative descent over a tree or a scan | the bounds are computed from the code, so the iteration is an increment |
+| Index storage | a separate structure beside the records | none, because the key is the order and the range address |
 | Energy per access | host CPU pipeline and cache hierarchy | about 3.0 pJ per decode at 12 MHz, from the Sky130 flow at the workload's measured activity |
-| Latency determinism | cache-dependent, variable | fixed one cycle |
+| Latency determinism | cache-dependent, variable | fixed, independent of the input: one cycle combinational, four pipelined |
 | Physical embedding | impossible | the primitive becomes a device, the chton signal-layer vision |
 | Streaming throughput | per-op overhead in software | one code point per clock; 148.77 MHz register to register on the ECP5, 140 MHz verified against the `tagma_core` checksum on the board |
 
-The acceleration case appears at N greater than 1, where software falls back to sparse trees (0.87 to 53 ns per operation), and in embedded or IO paths where energy and determinism dominate over raw speed. The streaming realization is measured rather than projected: a four-stage pipeline emits one code point per clock, closes at 148.77 MHz on the ECP5, and reproduces the `tagma_core` checksum on the device at every rate up to 140 MHz. At that rate it still sits below the L1 path, 140 million code points per second against 2.6 billion accesses per second, so the case it serves is a continuous stream with a fixed cost per code point rather than a faster dense lookup.
+The structural case is the first two rows and it is derived rather than measured: with records keyed by code, the key is the sort order and the range address, so a range walk is an increment and no index exists to store or to search. That is what the segment store would exercise, and it is the part not yet on a device.
+
+The throughput case is narrower and is measured. It appears at N greater than 1, where software falls back to sparse trees (0.87 to 53 ns per operation), and in embedded or IO paths where energy and determinism dominate over raw speed. The streaming realization is measured rather than projected: a four-stage pipeline emits one code point per clock, closes at 148.77 MHz on the ECP5, and reproduces the `tagma_core` checksum on the device at every rate up to 140 MHz. At that rate it still sits below the L1 path, 140 million code points per second against 2.6 billion accesses per second, so the case it serves is a continuous stream with a fixed cost per code point rather than a faster dense lookup.
 
 ## Open questions
 
