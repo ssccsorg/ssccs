@@ -105,7 +105,17 @@ The two critical-path figures are not the same quantity. On the iCE40, `icetime`
 
 Three board facts decide the constraints. A bank takes one IO standard and nextpnr rejects a mix, so the RGB LED bank at 2.5V holds the only header pin that can use it, and that pin plus the validity pin are `LVCMOS25` while everything else is `LVCMOS33`. Header labels come from the board's pin map. The `code` inputs are pulled up, so an unwired header reads `0xFFFF`, which is invalid, and a switch closes to GND to clear a bit.
 
-The demo drives `led_valid` on ball A12, which is one of the three RGB LED balls and lights on a high level. That is the opposite of the Upduino's negative-logic LED, so the polarity is a top-level parameter instead of a fixed inversion. The vendor README gives the LED balls as the set {A11, A12, B11} and does not assign a colour to each, and the bench observation with only A12 driven reported blue, so the design names its LED signals by function and constrains them by ball.
+The demo drives `led_valid` on ball A12, which is the blue channel of the onboard RGB LED and lights on a high level. That is the opposite of the Upduino's negative-logic LED, so the polarity is a top-level parameter instead of a fixed inversion.
+
+The colours come from the vendor schematic, where three diodes carry the channel pins to three balls. The vendor README lists the same balls as `{A11, A12, B11}`, an order that reads like red, green, blue and is not.
+
+| Ball | Diode and pins | Channel |
+|---|---|---|
+| A11 | D303, `G-` `G+` | green |
+| A12 | D301, `B-` `B+` | blue |
+| B11 | D302, `R-` `R+` | red |
+
+The streaming designs name their LED signals by function and constrain them by ball, so a later correction to the colour mapping cannot change what a build drives.
 
 The module and its Ext-Board each carry a debugger, and only the module's iCELink reaches the ECP5, which is the USB-C port on the module in @fig-icesugar-pro. The Ext-Board's DAPLink answers the CMSIS-DAP handshake and returns `0xffffffff` for every JTAG IDCODE, so the carrier's ports program nothing on the FPGA. The programming path and the wiring table are in `hw/boards/icesugar_pro/README.md`.
 
