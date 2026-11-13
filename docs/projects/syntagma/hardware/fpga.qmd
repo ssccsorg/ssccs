@@ -196,9 +196,11 @@ The PLL rate is a build parameter, which makes the pipeline's 148.77 MHz estimat
 | 140 MHz | PASS | 1 | 139.90 MHz, 139.99 MHz |
 | 150 MHz | rejected, `145.99 MHz (FAIL at 150.01 MHz)` | not built | not run |
 
-Every rate that builds also reproduces the `tagma_core` checksum on the die, so the fastest verified point is 140 million code points per second. At 150 MHz `nextpnr-ecp5` refuses the build and the flow stops rather than programming a design that would run out of time. The image's own ceiling is 145.99 MHz, lower than the pipeline's 148.77 because the checksum accumulator is a register-to-register path of its own.
+Every rate that builds also reproduces the `tagma_core` checksum on the die, so the fastest verified point is 140 million code points per second. At 150 MHz `nextpnr-ecp5` refuses the build and the flow stops rather than programming a design that would run out of time. The image's own ceiling is 145.99 MHz against the pipeline's 148.77, and both critical paths are the same multiply, so the difference is 0.13 ns of routing rather than anything the checksum adds.
 
 An indicator that can only show one value proves nothing, so the same flow was built with a deliberately wrong constant. It reads zero, and the correct constant reads one, which is what makes the pass above a comparison that ran.
+
+The floor is the multiplier. Both the timing-only top and the verification image report the same critical path, the multiply by 9363, with 4.45 ns of logic and about 2.3 ns of routing on either side, and no register can divide a multiplier. Going faster would need the DSP block's internal pipeline registers, which means instantiating an ECP5 primitive in RTL that also has to synthesise for the iCE40, or a shift-and-add tree instead of the multiply. Neither is worth it for a decoder that already verifies at 140 MHz on this board.
 
 The limit is the rate at the top. Nothing above 140 MHz is verified, because the image will not build at 150 MHz, and the external switch and LED wiring is still a separate step.
 
