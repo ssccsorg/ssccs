@@ -76,7 +76,7 @@ format:
 
 ## Abstract {.unnumbered .unlisted}
 
-Tagma[^tagma-etym] is a computing primitive where the address *is* the coordinate — not a flat pointer, but a point in an N-dimensional geometric space. This is made possible by a fixed 16-bit contiguous Unicode block whose closed-form composition rule holds over *U+AC00..U+D7A3*, so every valid value is at once a 1-D address, a 3-D coordinate (Axis 0, Axis 1, Axis 2), and a compositional character. This triple interpretation gives a collision-free, hash-less, structurally addressable space [*-@sec-paradigm-shift*] and a single-cycle combinational decoder[^tagma-hw]. The coordinate arithmetic admits unbounded N-Coord composition — the address space grows as $11,172^N$ while lookup cost remains O(N) per Coord. We present a gate-level decoder specification, a processor pipeline attachment reference (e.g., RISC-V XIF)[^tagma-repo], a hardware reference implementation [*-@sec-hardware*] of all three primitive operations (decode, compose, and distance) verified over their input spaces against the Rust reference and formally equivalent to the synthesized netlist, a software reference implementation [*-@sec-appendix-rust*], a full benchmark suite [*-@sec-appendix-benches*], and a run of the record layer on a minimum-class device, with no operating system under the engine, where the address a writer computes is the address a reader computes [*-@sec-minimum-device*]. Measured lookup latency in the software reference: 0.39 ns at single-Coord and 62 ns at SHA-256 scale (20 Coords), against SHA-256's 227 ns (582x and 3.7x). Structural prefix queries show the decisive advantage: a direct-address table answers a nonexistent prefix in 1.65 ns where a hash-table scan of 10M entries takes 23.05 ms (14.0Mx); bit-set axis filters resolve compound queries at 329 Melem/s against a 2.4 Melem/s scan (137x, bitwise AND against full scan); and 10M sparse gets complete in 44.9 ms against 1.05 s (23.4x). That standard is open, a public good whose composition rules carry no proprietary encumbrance. A production-scale validation in CERN's ROOT TTree read path confirms the model in petabyte-scale high-energy physics software [*-@sec-appendix-root-ttree*].
+Tagma[^tagma-etym] is a computing primitive where the address *is* the coordinate — not a flat pointer, but a point in an N-dimensional geometric space. This is made possible by a fixed 16-bit contiguous Unicode block whose closed-form composition rule holds over *U+AC00..U+D7A3*, so every valid value is at once a 1-D address, a 3-D coordinate (Axis 0, Axis 1, Axis 2), and a compositional character. This triple interpretation gives a collision-free, hash-less, structurally addressable space [*-@sec-paradigm-shift*] and a single-cycle combinational decoder[^tagma-hw]. The coordinate arithmetic admits unbounded N-Coord composition — the address space grows as $11,172^N$ while lookup cost remains O(N) per Coord. We present a gate-level decoder specification, a processor pipeline attachment reference (e.g., RISC-V XIF)[^tagma-repo], a hardware reference implementation [*-@sec-hardware*] of all three primitive operations (decode, compose, and distance) verified over their input spaces against the Rust reference, formally equivalent to the synthesized netlist, and reproduced on an FPGA against the reference anchors with a negative control that shows the check can fail, a software reference implementation [*-@sec-appendix-rust*], a full benchmark suite [*-@sec-appendix-benches*], and a run of the record layer on a minimum-class device, with no operating system under the engine, where the address a writer computes is the address a reader computes [*-@sec-minimum-device*]. Measured lookup latency in the software reference: 0.39 ns at single-Coord and 62 ns at SHA-256 scale (20 Coords), against SHA-256's 227 ns (582x and 3.7x). Structural prefix queries show the decisive advantage: a direct-address table answers a nonexistent prefix in 1.65 ns where a hash-table scan of 10M entries takes 23.05 ms (14.0Mx); bit-set axis filters resolve compound queries at 329 Melem/s against a 2.4 Melem/s scan (137x, bitwise AND against full scan); and 10M sparse gets complete in 44.9 ms against 1.05 s (23.4x). That standard is open, a public good whose composition rules carry no proprietary encumbrance. A production-scale validation in CERN's ROOT TTree read path confirms the model in petabyte-scale high-energy physics software [*-@sec-appendix-root-ttree*].
 
 ## Introduction {#sec-introduction}
 
@@ -587,9 +587,9 @@ The coordinate space maps onto physical memory as a flat array: 11,172 slots of 
 
 The software numbers come from the hardware-comparison baseline (`sw/rust/benches/bench_hw.rs`); the main benchmark center measures 0.39 ns for `CoordSpace.get` [*-@sec-appendix-benches*].
 
-For the N=1 dense case, hardware is not a speedup. The entire working set fits in L1 cache, and the software already runs at memory speed. The hardware value is on other axes: energy per access (22 KB SRAM at 16 MHz; orders of magnitude below a host cache hierarchy, an estimate pending a power model), latency determinism (fixed one cycle), physical embedding (the primitive becomes a device), and streaming throughput (one code point per clock when pipelined). The acceleration case appears at N greater than 1, where software falls back to sparse trees (0.87 to 53 ns per operation), and in embedded or IO paths where energy and determinism dominate over raw speed.
+For the N=1 dense case, hardware is not a speedup. The entire working set fits in L1 cache, and the software already runs at memory speed. A sweep goes the same way: the software loop decodes all 11,172 code points in 1.92 us where the pipeline needs 80 us at 140 MHz. Latency and throughput both belong to the software, so this realization is an anchor rather than a competitor. What it establishes is that the primitive runs, and what it makes visible is where a system's cost would sit. The decode is 388 cells and about 3 pJ per coordinate in Sky130, which is a device figure with no measured software counterpart in this work. The store for the same space is thirty-two to one hundred and twenty-seven times the decoder's area. The arithmetic is close to free and the memory is the design, so the forward question is the shape of the memory traffic rather than the speed of the decode.
 
-The Sky130 standard cell flow runs in CI (ORFS, `hw` job in the syntagma repository) and produced the first measured PDK numbers: the registered demo top at 4631 $\mu$m$^2$ with 35% utilization, an 11.19 ns critical path with +72.33 ns slack, and 0.897 mW; the pure decoder at 388 Sky130 cells and 2826 $\mu$m$^2$. The FPGA demo on the Upduino 3.1 closes the onboard 12 MHz clock at 16.79 MHz.
+The Sky130 standard cell flow runs in CI (ORFS, `hw` job in the syntagma repository): the registered demo top occupies 4430 $\mu$m$^2$ at 33.7% utilization, with a 10.74 ns critical path and +72.77 ns slack; the pure decoder is 388 Sky130 cells and 2826 $\mu$m$^2$. Power at the workload's activity is 36.1 uW, of which about 3 pJ is the cost of one coordinate, and the figure is provisional because two runs of the same flow differ by fifteen times on the same basis (Section [*-@sec-appendix-hw-record*]).
 
 The coprocessor path (above) attaches Tagma to a linear memory system: the coordinate is decoded and the result is used as an address in conventional memory. Two extensions remain future directions:
 
@@ -690,9 +690,28 @@ The hardware contract mirrors the software contract: the two agree on every inpu
 
 Realized and verified: the decode, compose, and distance units in RTL, each exhaustively simulated against the Rust reference, simulated at gate level, and formally equivalent to its synthesized netlist; the segment store as a behavioral model over all 11,172 slots, the reserved addresses, and the read-during-write case; and the record layer whose addresses are coordinates, carried to a minimum-class device, with no operating system under the engine (Section @sec-minimum-device).
 
-Pending: the OpenRAM macro for the segment store (needs a PDK install), the physical FPGA board bring-up (the bitstream is generated), and the power model over the VCD activity trace.
+Pending: the OpenRAM macro for the segment store, which needs a PDK install, and the external switch and LED wiring that turns the FPGA demo into a decoder demonstration. The bitstreams program and boot on both boards, and the decoder is verified on the ECP5 against the reference anchors (Section @sec-device-verification).
 
 Reproduction: `make -C hw check` runs the whole gate (simulation, synthesis, and equivalence) from the sources recorded with this document's version, and the `hw` CI job runs the same gate. The HDL lives under `hw/` in the syntagma repository [@tagma-source].
+
+### Verification on a device {#sec-device-verification}
+
+A reference implementation that has never run on a part is a claim about a netlist. Two FPGA targets close that gap, and neither is there to beat a processor.
+
+The iCE40 UP5K carries the demo top at 255 logic cells of 5,280, closing the 12 MHz board clock at 16.79 MHz, and the placed-and-routed bitstream is recovered and compared against the RTL over all 65,536 code points, so the bitstream and the source agree rather than merely deriving from it. The ECP5 target carries the same RTL and adds a pipelined decoder at one code point per clock.
+
+The device also checks the reference rather than only itself. A build sweeps the valid range, accumulates a checksum of the three axes over one sweep, and compares it on the die against a constant derived from the anchors `tagma_core` exports. The verdict leaves the part on pins that the on-board debugger reads, so the comparison is recorded without a person at the board.
+
+| On the device | Value |
+|---|---|
+| iCE40 demo | 255 ICESTORM_LC of 5,280, 16.79 MHz |
+| iCE40 bitstream against the RTL | every one of 65,536 code points |
+| ECP5 demo | 49 TRELLIS_COMB, 16 TRELLIS_FF, 22.28 ns cross-domain path |
+| ECP5 pipeline | 148.77 MHz register to register, four stages, four clocks of latency |
+| Device checksum against the anchors | passes at 40, 100, 120, 125 and 140 MHz |
+| Negative control | a deliberately wrong constant reads as a failure |
+
+The last two rows are what make the others worth reading. An indicator that can only show one value proves nothing, so the same build is also made with a wrong constant and shown to fail. The pins, the checksum, and the store's cost against the device are in Appendix [*-@sec-appendix-hw-record*].
 
 ### Minimum-class device run {#sec-minimum-device}
 
@@ -700,60 +719,7 @@ The claim that a coordinate is an address has a floor: a part with no operating 
 
 The target is a 32-bit part at 160MHz, with 512KB of SRAM and 8MB of flash. The records sit in a 2MB region of that flash. A record is written under the coordinate it is addressed by, so a later reader reaches it by computing the address rather than by searching a table.
 
-![The part that carries the coordinate as a record address, on the bench.](../../../_include/esp32s3_board.jpg){#fig-minimum-device width=55%}
-
-The reader's working set peaks at 1,648 bytes of a 65,552-byte arena, the 64KB handed over plus its alignment, and the image occupies 447,968 bytes. The first start prepares the region and peaks at 2,384 bytes; later starts hold 1,648 bytes. No index structure stands between a record and its address: the value a writer computes is the value a reader computes, and there is nothing to build as the region fills. A reader that starts after the first does no storage work to find them, because the address is recomputed from the fields rather than restored from a table. There is no rebuild for a start to pay, and the working set stays flat as the region fills.
-
-::: {layout-ncol=2}
-
-```{python}
-#| label: fig-device-footprint
-#| fig-cap: "Footprint against the two budgets the run must fit: 1,648 bytes of the 64KB arena, and 447,968 bytes of the 1MB image slot."
-import matplotlib.pyplot as plt
-
-labels = ['Arena\n(64KB minimum)', 'Image slot\n(1MB)']
-used = [1648, 447968]
-budget = [65536, 1048576]
-share = [100.0 * u / b for u, b in zip(used, budget)]
-
-fig, ax = plt.subplots(figsize=(3.6, 2.4))
-ax.barh(range(2), [100, 100], color='#ececec', edgecolor='black', linewidth=0.8, height=0.5)
-ax.barh(range(2), share, color='#7a7a7a', edgecolor='black', linewidth=0.8, height=0.5)
-for i, (s, u) in enumerate(zip(share, used)):
-    ax.text(s + 2.5, i, f'{s:.1f}%  {u:,} B', va='center', fontsize=6.5)
-ax.set_yticks(range(2))
-ax.set_yticklabels(labels, fontsize=7)
-ax.set_xlim(0, 118)
-ax.set_xlabel('Share of the budget occupied (%)', fontsize=7)
-ax.tick_params(axis='x', labelsize=6.5)
-ax.grid(axis='x', linestyle=':', alpha=0.4)
-fig.tight_layout()
-```
-
-```{python}
-#| label: fig-device-memory
-#| fig-cap: "The reader's working set against the memory of the part, on a log scale: 1,648 bytes inside a 64KB arena, inside 512KB of SRAM."
-import matplotlib.pyplot as plt
-
-labels = ['Part SRAM', 'Arena handed over', "Reader's peak"]
-values = [512 * 1024, 65552, 1648]
-shades = ['#ececec', '#bdbdbd', '#7a7a7a']
-
-fig, ax = plt.subplots(figsize=(3.6, 2.4))
-ax.barh(range(3), values, color=shades, edgecolor='black', linewidth=0.8, height=0.5)
-ax.set_xscale('log')
-ax.set_yticks(range(3))
-ax.set_yticklabels(labels, fontsize=7)
-for i, value in enumerate(values):
-    ax.text(value * 1.18, i, f'{value:,} B', va='center', fontsize=6.5)
-ax.set_xlim(900, 3_000_000)
-ax.set_xlabel('bytes (log scale)', fontsize=7)
-ax.tick_params(axis='x', labelsize=6.5)
-ax.grid(axis='x', linestyle=':', alpha=0.4)
-fig.tight_layout()
-```
-
-:::
+The part on the bench and the reader's working set against the two budgets it must fit are in Appendix [*-@sec-appendix-hw-record*].
 
 | Measured on the part | Value |
 |---|---|
@@ -1063,6 +1029,102 @@ Tagma changes the problem that hardware must solve alongside the speed at which 
 | Energy | Dynamic voltage scaling to cover worst-case hash latency | Fixed, minimal decode path; predictable power |
 
 Conventional hardware searches. Tagma hardware interprets. This shifts the hardware design problem from faster computation to simpler decoding. The measured trade is explicit: timing closure costs about 2.5x gates [*-@sec-decoder*], and the N=1 dense case is examined in Section [*-@sec-memory-hierarchy*]. All three operations of the primitive are realized and verified in RTL; the reference implementation and its remaining work are stated in Section [*-@sec-hardware*].
+
+## Hardware verification record {#sec-appendix-hw-record}
+
+This appendix holds what the body states in numbers: the bench, the two device runs, and the figures that support them. The body keeps the results; the detail that makes them checkable lives here.
+
+### The minimum-class device run, in detail
+
+![The part that carries the coordinate as a record address, on the bench.](../../../_include/esp32s3_board.jpg){#fig-minimum-device width=55%}
+
+The reader's working set peaks at 1,648 bytes of a 65,552-byte arena, the 64KB handed over plus its alignment, and the image occupies 447,968 bytes. The first start prepares the region and peaks at 2,384 bytes; later starts hold 1,648 bytes. No index structure stands between a record and its address: the value a writer computes is the value a reader computes, and there is nothing to build as the region fills. A reader that starts after the first does no storage work to find them, because the address is recomputed from the fields rather than restored from a table. There is no rebuild for a start to pay, and the working set stays flat as the region fills.
+
+::: {layout-ncol=2}
+
+```{python}
+#| label: fig-device-footprint
+#| fig-cap: "Footprint against the two budgets the run must fit: 1,648 bytes of the 64KB arena, and 447,968 bytes of the 1MB image slot."
+import matplotlib.pyplot as plt
+
+labels = ['Arena\n(64KB minimum)', 'Image slot\n(1MB)']
+used = [1648, 447968]
+budget = [65536, 1048576]
+share = [100.0 * u / b for u, b in zip(used, budget)]
+
+fig, ax = plt.subplots(figsize=(3.6, 2.4))
+ax.barh(range(2), [100, 100], color='#ececec', edgecolor='black', linewidth=0.8, height=0.5)
+ax.barh(range(2), share, color='#7a7a7a', edgecolor='black', linewidth=0.8, height=0.5)
+for i, (s, u) in enumerate(zip(share, used)):
+    ax.text(s + 2.5, i, f'{s:.1f}%  {u:,} B', va='center', fontsize=6.5)
+ax.set_yticks(range(2))
+ax.set_yticklabels(labels, fontsize=7)
+ax.set_xlim(0, 118)
+ax.set_xlabel('Share of the budget occupied (%)', fontsize=7)
+ax.tick_params(axis='x', labelsize=6.5)
+ax.grid(axis='x', linestyle=':', alpha=0.4)
+fig.tight_layout()
+```
+
+```{python}
+#| label: fig-device-memory
+#| fig-cap: "The reader's working set against the memory of the part, on a log scale: 1,648 bytes inside a 64KB arena, inside 512KB of SRAM."
+import matplotlib.pyplot as plt
+
+labels = ['Part SRAM', 'Arena handed over', "Reader's peak"]
+values = [512 * 1024, 65552, 1648]
+shades = ['#ececec', '#bdbdbd', '#7a7a7a']
+
+fig, ax = plt.subplots(figsize=(3.6, 2.4))
+ax.barh(range(3), values, color=shades, edgecolor='black', linewidth=0.8, height=0.5)
+ax.set_xscale('log')
+ax.set_yticks(range(3))
+ax.set_yticklabels(labels, fontsize=7)
+for i, value in enumerate(values):
+    ax.text(value * 1.18, i, f'{value:,} B', va='center', fontsize=6.5)
+ax.set_xlim(900, 3_000_000)
+ax.set_xlabel('bytes (log scale)', fontsize=7)
+ax.tick_params(axis='x', labelsize=6.5)
+ax.grid(axis='x', linestyle=':', alpha=0.4)
+fig.tight_layout()
+```
+
+:::
+
+### What the decoder costs on a device
+
+The ECP5 numbers in the body come from one flow at one place and route run. The demo top is 49 combinational cells and 16 registers with a 22.28 ns cross-domain path, because its inputs come from pins. The pipelined decoder takes its input from a counter, which is what makes nextpnr report a register-to-register clock at all: 148.77 MHz, four stages, four clocks of latency, and the critical path is the multiply by 9363 at 6.72 ns. No register can divide a multiplier, which is why the pipeline stops there.
+
+The checksum is the part that ties the device to the reference. `tagma_pipe_verify_top` accumulates `(i << 10) | (m << 5) | f` over one sweep of the valid range and compares the total against a constant that `hw/tools/tagma_checksum.py` derives from `hw/rtl/golden_anchors.hex`, the file `tagma_core` writes. The verdict, a heartbeat, and a sweep counter leave the die on three balls that the on-board iCELink reaches as GPIO, and `make board-verify` reads them back over the programming cable.
+
+| Build | Timing | `pin_match` | Measured clock |
+|---|---|---|---|
+| 40 MHz | PASS | 1 | 40.00 MHz, 40.06 MHz |
+| 100 MHz | PASS | 1 | 100.16 MHz, 99.90 MHz |
+| 120 MHz | PASS | 1 | 120.10 MHz, 120.02 MHz |
+| 125 MHz | PASS | 1 | 124.97 MHz, 124.91 MHz |
+| 140 MHz | PASS | 1 | 139.90 MHz, 139.99 MHz |
+| 150 MHz | rejected, 145.99 MHz achievable | not built | not run |
+
+Each row reports the clock from two dividers that count different things, clocks and sweeps, and they agree to a tenth of a percent. The negative control is a build with `EXPECTED = 32'h00000001`: it reads as a failure, so the pass above is a comparison that ran.
+
+### What the store costs on a device
+
+The store is 178,752 bits, which is 17.3 percent of the 1,032,192 bits of block RAM on the ECP5 25F, eleven blocks of its fifty-six. A block RAM read costs one clock, or two with the output register, which is the same order as a decode, so on that device the constraint moves from latency to capacity and access pattern. In Sky130 the decoder is 2,826 um^2 and the same bits are 89,000 to 358,000 um^2 at an estimated half to two square micrometres per bit, thirty-two to one hundred and twenty-seven times the decoder.
+
+:::{ layout-ncol=1 }
+
+{{< include ../_include/bench/fig-hw-store.qmd >}}
+
+:::
+
+The sweep comparison is here because it is the number that stops the decode rate being read as a speed claim.
+
+:::{ layout-ncol=1 }
+
+{{< include ../_include/bench/fig-hw-sweep.qmd >}}
+
+:::
 
 ## SHA-256 with Tagma Encoding {#sec-appendix-sha-tagma}
 
