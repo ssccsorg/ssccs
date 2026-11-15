@@ -216,6 +216,6 @@ Each value drives the pipelined decoder, and the pack it reports is accumulated 
 
 The host computes the same sum with integer division. The die takes the pack from the decoder, whose divisions are multiplications by fixed reciprocals, so the two agree on the packing rather than on the arithmetic. On the 25F the design is 355 combinational cells, 214 registers, 8 of 56 DP16KD and 2 of 28 MULT18X18D.
 
-The demonstration hands the die 512 addresses, twenty values each, which is 10,240 values. One value moved to 11,172, the first value outside the alphabet, clears the match and the light turns red. The store's own values clear it green. The run is published with the console beside the board, so the two are read at the same second: <https://demo.ktema.systems/fpga/>.
+The demonstration hands the die a set of the format's own values: one per valid offset, 11,172 of them, in order. One value moved to 11,172, the first value the range does not hold, clears the match and the light turns red. The alphabet's own values clear it green. The run is recorded with the console beside the board, so the two are read at the same second.
 
 The top is kept under `demo/` beside the other demonstration tops. What it establishes is a property of the format rather than of this board: an address is a pack of three axes, and a device that can add can check a store's addresses without the store.
