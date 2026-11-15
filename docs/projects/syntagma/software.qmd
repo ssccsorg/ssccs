@@ -27,6 +27,16 @@ The Tagma coordinate space is implemented as a six-crate Rust workspace
 `alloc` and `mmap` features, enabling deployment from bare-metal MCUs to
 server-class machines without changing the public API.
 
+The bare-metal claim is checked against a target and not only on the host. The
+alloc-free artifact is built and linked for `riscv32imac-unknown-none-elf`, and a link
+that reaches for an allocator fails there. The target the device firmware actually uses
+is `xtensa-esp32s3-none-elf`: `tagma-core` with `--no-default-features` compiles for it,
+and the object in the resulting library carries 632 bytes of text. That figure is the
+crate's non-generic surface, so it is what the library contributes before a program
+instantiates anything, and not the size of a decoding program. The Xtensa toolchain is
+the esp-rs one, which no continuous integration installs, so the check reports the
+number where that toolchain is present and states the reason where it is not.
+
 Five primary types form the public surface:
 
 | Type | Purpose | Allocation |

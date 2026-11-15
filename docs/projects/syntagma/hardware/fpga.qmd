@@ -218,12 +218,27 @@ The host computes the same sum with integer division. The die takes the pack fro
 
 The demonstration hands the die a set of the format's own values: one per valid offset, 11,172 of them, in order. One value moved to 11,172, the first value the range does not hold, clears the match and the light turns red. The alphabet's own values clear it green. The run is recorded with the console beside the board, so the two are read at the same second.
 
-```{=html}
-<video controls preload="metadata" style="width:100%; max-width:960px"
-  src="https://pub-06bcfdd98bd94801a748fa2ff0382400.r2.dev/demo/fpga-icesugarpro-alphabet/20261115-101948.mp4"></video>
-```
-
 The recorded run is `hw/demo/fpga-icesugarpro-alphabet` in this repository, and
 the same video is at <https://pub-06bcfdd98bd94801a748fa2ff0382400.r2.dev/demo/fpga-icesugarpro-alphabet/20261115-101948.mp4>.
 
 The top is kept under `demo/` beside the other demonstration tops. What it establishes is a property of the format rather than of this board: an address is a pack of three axes, and a device that can add can check a store's addresses without the store.
+
+## Per-value verification
+
+A sum answers one question and loses the rest. It cannot say which coordinate was wrong, and two packs that trade value leave the total untouched, so a set whose two addresses are exchanged and a set whose addresses are correct read the same to it. `hw/rtl/tagma_anchor_verify_top.v` closes that gap by comparing one line at a time.
+
+The ROM is an anchor file rather than a list of values: each line carries the offset it names in [28:15] and the pack `tagma_core` computed for it in [14:0]. The die decodes the code point that offset names, and compares the pack its own pipeline reports with the pack the line already carries. `pin_match` is set only when a full pass closes with no disagreement, so a single wrong value is the same size as eleven thousand.
+
+Two files are cut from the anchors for the demonstration: the file the reference wrote, and the same lines with the packs at two offsets exchanged. Both carry the sum `065BEA26`. The host prints that number twice, once from each file, and the die then refuses the exchanged file and accepts the other. The exchange is the case the sum image above cannot see, so the two images together say what either alone cannot.
+
+```{=html}
+<video controls preload="metadata" style="width:100%; max-width:960px"
+  src="https://pub-06bcfdd98bd94801a748fa2ff0382400.r2.dev/demo/fpga-icesugarpro-exact/20261115-114545.mp4"></video>
+```
+
+The recorded run is `hw/demo/fpga-icesugarpro-exact` in this repository, and
+the same video is at <https://pub-06bcfdd98bd94801a748fa2ff0382400.r2.dev/demo/fpga-icesugarpro-exact/20261115-114545.mp4>.
+
+At 40 MHz the image is 478 LUT4, 275 registers, 26 of 56 DP16KD and 2 of 28 MULT18X18D, and the longest path closes at 95.27 MHz.
+
+The ROM depth is the address space rather than the line count, and that is not a preference. A depth of 11,172, which is not a power of two, was mapped into 18 DP16KD blocks holding 9,216 words of 18 bits, so every line past the shortfall was compared against nothing and the image refused the file it should have accepted. At a depth of 16,384 the same file maps into 26 blocks and the verdict is 1. The failure is silent and reads as a genuine refusal, which is why the depth is stated in the source and the reason is written beside it. `make sim-anchor` gates the same comparison in simulation, so the 11,172 line file answers as it should before an image is built from it.
