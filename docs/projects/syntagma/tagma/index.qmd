@@ -1029,28 +1029,17 @@ This appendix holds what the body states in numbers: the bench, the two device r
 
 ### The bench
 
-Two targets carry one primitive. The iCE40 UP5K sits on an Upduino 3.1 with a 12 MHz oscillator, where the demo top puts a code point on sixteen switches and the three axes on fifteen LEDs, which is the decode read by eye with no host in the loop. The ECP5 sits on an iCESugar-Pro v1.3, whose iCELink debugger carries four pins to the die, and the images built for it leave a verdict rather than a pattern: a sweep checksum compared against the anchors `tagma_core` exports, and the coordinate values a volume wrote, read back through a ROM.
+Two targets, and each answers a question the other cannot. The iCE40 UP5K carries the demo top, which is the decode read by eye: a code point in, three axes out, and no host in the loop. Its placed-and-routed bitstream was recovered and compared against the RTL over all 65,536 code points, so the source and the programmed part agree rather than merely deriving from one another.
 
-| Image | What it puts on the bench |
-|---|---|
-| `tagma_demo_top` | a code point dialled on switches, and `i`, `m`, `f` on LEDs |
-| `tagma_pipe_top` | the streaming decoder as a top, so place and route reports a clock |
-| `tagma_pipe_check_top` | the pipeline against the combinational unit on every clock, latching on mismatch |
-| `tagma_pipe_verify_top` | a sweep checksum compared against the anchors, over the iCELink pins |
-| `tagma_volume_verify_top` | the coordinate values of a volume, against the same anchors |
-| `led_check_top`, `stage_check_top` | one RGB channel, and one stage pin, to place a fault |
-
-The die is given the reference, not only the question. `tagma_pipe_verify_top` accumulates a checksum over one sweep of the valid range and compares it on the die against a constant derived from `golden_anchors.hex`, the anchors `tagma_core` exports. `tagma_volume_verify_top` does the same over one 16-bit value per ROM line, with `COUNT` read from the same file so the two cannot disagree. `hw/rtl/demo/` holds these tops beside the demo and the PLL used for the check image.
+The ECP5 carries the images that answer without a person. It is given the anchors `tagma_core` exports, either as a sweep of the valid range or as one 16-bit value per ROM line from a volume, and it recomputes the checksum of the three axes on the die. The host divides and the die multiplies by a reciprocal, so agreement is between two implementations and not one binary run twice. Over 512 addresses and 10,240 values, the two agree.
 
 ![The ECP5 target on the bench: an iCESugar-Pro v1.3 module seated in its Ext-Board. The verification image runs on the module's ECP5 and reports its verdict over the on-board iCELink, the USB-C port on the module; the carrier's ports reach no FPGA.](../../../_include/icesugar-pro.jpg){#fig-icesugar-ecp5 width=68%}
 
-The verdict leaves the part on the debugger's pins, so the comparison is recorded without a person at the board. The host sets a two-bit stage that the top turns into a colour, and the answer is both `pin_match` and that colour. The third stage bit would have used F5, the iCELink's SWD clock, which no host write reaches. `led_check_top` and `stage_check_top` exist to place a fault in the indicator itself rather than to demonstrate it.
+The verdict leaves the part on the debugger's pins: a pin and a two-bit stage that the top turns into a colour. The stage is two bits because the third pin is the iCELink's SWD clock, which no host write reaches. That is how the record is made without a person at the board.
 
-The failure is built rather than argued. The volume image is built a second time with one value moved to 11,172, the first value outside the alphabet, and that image must fail. In the alphabet package the die counts that value, keeps it out of the sum, and turns the pin to 0 and the light red. The exact package compares the anchors one line at a time, with the same set written twice and two packs exchanged between the files: the totals agree, and the die still refuses the file whose values moved. A sum answers one question and loses the rest, which is why the second image exists.
+The check is shown failing, because a check whose only output is a pass is not a check. The volume image is built a second time with one value moved to 11,172, the first value outside the alphabet: the die counts it, keeps it out of the sum, and turns the pin to 0. The exact package goes further and compares the anchors one line at a time on two files that carry the same sum with two packs exchanged; the die refuses the file whose values moved, which a sum cannot see.
 
-Programming is the board's own route. `icesprog` writes the ECP5 over the module's iCELink, a reload pulses `PROGRAMN` on `PB7` rather than replugging, and the carrier's debugger reaches no FPGA at all. Wiring and ball names are in `hw/boards/icesugar_pro/README.md`; the recorded packages and their shared format are under `hw/demo/`.
-
-The numbers those runs produce are stated in Section [*-@sec-device-verification*]; this appendix keeps the bench those numbers came from.
+Wiring, tools, and the procedure each image follows are in `hw/boards/icesugar_pro/README.md` and `hw/demo/`.
 
 ### The minimum-class device run, in detail
 
