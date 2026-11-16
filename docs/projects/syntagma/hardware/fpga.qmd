@@ -75,17 +75,17 @@ icetime         -> reports/icetime.txt         (timing report)
 | Critical path | 115.90 ns | 59.55 ns |
 | Fmax | 8.63 MHz | 16.79 MHz |
 
-The multiply-shift version closes the 12 MHz board clock with margin. The bitstream is generated and the design is ready for board bring-up.
+The multiply-shift version closes the 12 MHz board clock with margin.
 
 ## Board bring-up
 
-The remaining step is physical: program the bitstream, wire a DIP switch module and LED modules to the GPIO pins in the constraint file, and capture the demo. The onboard 8 MB PSRAM also covers the RAM-attached test device question: a chton segment store can be exercised on the same board.
+Bring-up requires three connections at the pins the constraint file names: the bitstream over the module's USB-C port, a DIP switch module on `code[15:0]`, and LED groups on the decoded axes. The onboard 8 MB PSRAM covers the RAM-attached test device as well, so a chton segment store exercises on the same board.
 
 ## Second target: iCESugar-Pro (ECP5)
 
 The same RTL builds for the iCESugar-Pro v1.3, an ECP5 LFE5U-25F-6BG256C in a DDR SODIMM module with a 25 MHz crystal. The second device is not there to beat the iCE40 figures. It is there to check that the demo's realization is board data rather than a one-board artifact.
 
-![The board as received: the iCESugar-Pro v1.3 SODIMM module seated in its Ext-Board. Three USB-C ports are visible, one on the module and two on the carrier, and only the module's reaches the ECP5. The carrier breaks the banks out to the labelled headers the demo wiring uses.](../../../_include/icesugar-pro.jpg){#fig-icesugar-pro width=70%}
+![The iCESugar-Pro v1.3 SODIMM module seated in its Ext-Board. Of the three USB-C ports, only the module's reaches the ECP5. The carrier breaks the banks out to the labelled headers the demo wiring uses.](../../../_include/icesugar-pro.jpg){#fig-icesugar-pro width=70%}
 
 | Aspect | Upduino 3.1 | iCESugar-Pro v1.3 |
 |--------|-------------|-------------------|
@@ -166,7 +166,7 @@ The first build of the check compared against `28'hFFFFFF`, six hex digits again
 
 ## Verification read through the debugger
 
-Everything above that needed a person was waiting on someone watching an LED. The iCELink carries four pins to four ECP5 balls, which the vendor calls JTAG2, and `icesprog` reaches them as plain GPIO, so the board can report a verdict over the programming cable.
+The iCELink carries four pins to four ECP5 balls, which the vendor calls JTAG2. `icesprog` reaches them as plain GPIO, so the board reports a verdict over the programming cable.
 
 | ECP5 ball | iCELink pin | Host reads | Host drives |
 |---|---|---|---|
