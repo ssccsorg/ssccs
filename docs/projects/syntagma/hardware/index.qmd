@@ -232,7 +232,7 @@ The pipeline runs in CI through `make -C hw check` in the syntagma repository, s
 | Track | Step | Dependency |
 |-------|------|------------|
 | Physical demo | wire the switch and LED modules per the board constraints and capture the demo; the iCESugar-Pro bitstream is programmed and boots | switch and LED modules |
-| Standard cell | the OpenROAD Sky130 flow runs end to end and is re-run in the syntagma hw CI job; two flow bugs are recorded in the devlog | none |
+| Standard cell | the OpenROAD Sky130 flow runs end to end and is re-run in the syntagma hw CI job; two flow bugs were fixed during setup | none |
 | chton propagation | generate the segment store SRAM from `chton_sram.py` and attach it to the decoder | OpenRAM and PDK |
 | Power model | the OpenROAD flow now reports at the workload's measured activity, about 3.0 pJ per decode; the run-to-run difference in the absolute figure is open | pinned toolchain revision |
 | Multi-target | one RTL builds for iCE40 (`BOARD=upduino31`) and ECP5 (`BOARD=icesugar_pro`); Artix-7 remains open | ECP5 done, Artix-7 needs a board |
