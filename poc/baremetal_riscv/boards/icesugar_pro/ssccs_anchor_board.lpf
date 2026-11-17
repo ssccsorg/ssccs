@@ -1,0 +1,45 @@
+# SPDX-License-Identifier: CERN-OHL-P-2.0
+# Copyright (C) 2026 Taeho Lee
+#
+# This source describes Open Hardware and is licensed under the CERN-OHL-P v2.
+# You may redistribute and modify this documentation and make products using
+# it under the terms of the CERN-OHL-P v2 (https://cern.ch/cern-ohl). This
+# documentation is distributed WITHOUT ANY EXPRESS OR IMPLIED WARRANTY,
+# INCLUDING OF MERCHANTABILITY, SATISFACTORY QUALITY AND FITNESS FOR A
+# PARTICULAR PURPOSE. Please see the CERN-OHL-P v2 for applicable conditions.
+#
+# iCESugar-Pro v1.3 constraints for the POC's anchor image.
+#
+// The board's pin map, not a project's: the same seven nets any image on this carrier drives. The iCELink
+// carries four pins to four ECP5 balls; this image drives two of them and is read on a third, because the
+// firmware keeps PA13 as an input to the host. The fourth, PA14 on F5, is the iCELink's SWD clock.
+//
+//   clk_in     -> P6,  25 MHz crystal, LVCMOS33
+//   stage[0]   -> N4,  iCELink PA0,  LVCMOS33, driven by the host
+//   stage[1]   -> J5,  iCELink PA1,  LVCMOS33, driven by the host
+//   pin_match  -> H5,  iCELink PA13, LVCMOS33, read by the host
+//   led_green  -> A11, bank 1, LVCMOS25, RGB LED green channel, active high
+//   led_blue   -> A12, bank 1, LVCMOS25, RGB LED blue channel, active high
+//   led_red    -> B11, bank 1, LVCMOS25, RGB LED red channel, active high
+
+LOCATE COMP "clk_in" SITE "P6";
+IOBUF PORT "clk_in" IO_TYPE=LVCMOS33;
+FREQUENCY PORT "clk_in" 25 MHZ;
+
+LOCATE COMP "stage[0]" SITE "N4";
+IOBUF PORT "stage[0]" IO_TYPE=LVCMOS33;
+
+LOCATE COMP "stage[1]" SITE "J5";
+IOBUF PORT "stage[1]" IO_TYPE=LVCMOS33;
+
+LOCATE COMP "pin_match" SITE "H5";
+IOBUF PORT "pin_match" IO_TYPE=LVCMOS33;
+
+LOCATE COMP "led_green" SITE "A11";
+IOBUF PORT "led_green" IO_TYPE=LVCMOS25;
+
+LOCATE COMP "led_blue" SITE "A12";
+IOBUF PORT "led_blue" IO_TYPE=LVCMOS25;
+
+LOCATE COMP "led_red" SITE "B11";
+IOBUF PORT "led_red" IO_TYPE=LVCMOS25;
