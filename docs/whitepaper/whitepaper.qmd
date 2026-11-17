@@ -1471,6 +1471,8 @@ Twenty-three golden anchors pin the assembly outputs; a Python checker forces th
 
 The SystemVerilog is also realized on an ECP5, so the same modules answer on a fabric rather than only in simulation. The image reads a coordinate, evaluates the kinds the table names against the bounds it carries, applies the observation operator, and compares both observations with the expected results one line at a time. Three tables are built from the anchors: the anchor table, the same table with two expectations exchanged, and an inquiry of kinds and bounds the scenario never uses, including negative ones. The die answers 1, 0 and 1; the third build takes 313 LUT4 and closes above 92 MHz against a 25 MHz crystal.
 
+A second image on the same part carries the constraint as structure rather than as data: two modules the host emitted from a constraint program, with the bounds baked in and the composition operator fixed at generation time, answering the same anchors at 139 LUT4 and 137.49 MHz. The inquiry of unused kinds stays on the table image, because a program fixed when its module is written has no answer for a kind it was not generated for. The pair splits the two cases rather than one superseding the other.
+
 The workspace also emits the Scheme as an assembly `.rodata` section (`SCHEME_SEG_COUNT`, `SCHEME_COORDS`, `SCHEME_ADDRESSES`, `GOLDEN_*`) and generates branchless constraint gates with zero conditional branches. The bare-metal crate consumes both through `observe_scheme`, a batch observation over the emitted tables, completing the handoff from the reference simulation to the practical plane.
 
 ### Compiler Pipeline
