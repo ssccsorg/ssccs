@@ -31,10 +31,23 @@ import sys
 
 REJECT = 0x8000000000000000
 
+# The scenario is the fixture's, not the substrate's: two constant constraints, composed one way for the narrow
+# inquiry and the other way for the broad one. The selectors are the substrate's unit table, stated in README.md;
+# the pair and the two compositions are data so a different scheme changes the table and not the design.
+EVEN = 0x0
+RANGE_010 = 0x1
+NARROW = (EVEN, RANGE_010, 0)   # and
+BROAD = (EVEN, RANGE_010, 1)    # or
+
 ANCHOR = re.compile(r"^`define\s+GOLDEN_(SEG|NARROW|BROAD)_(\d+)\s+64'([dh])([0-9A-Fa-f]+)\s*$")
 
-NAMES = {"SEG": "anchor_coord.hex", "NARROW": "anchor_narrow.hex", "BROAD": "anchor_broad.hex"}
-WIDTH = {"SEG": 4, "NARROW": 16, "BROAD": 16}
+NAMES = {
+    "SEG": "anchor_coord.hex",
+    "NARROW": "anchor_narrow.hex",
+    "BROAD": "anchor_broad.hex",
+    "PROGRAM": "anchor_inquiry.hex",
+}
+WIDTH = {"SEG": 4, "NARROW": 16, "BROAD": 16, "PROGRAM": 4}
 
 
 def read_anchors(path: pathlib.Path) -> dict[str, dict[int, int]]:
@@ -106,8 +119,21 @@ def main() -> None:
     for name, values in (("SEG", coord), ("NARROW", narrow), ("BROAD", broad)):
         (out / NAMES[name]).write_text("".join(f"{value:0{WIDTH[name]}X}\n" for value in values))
 
+    # One line says what the two tables are compared against: selector a, selector b and the composition, twice.
+    # Layout: narrow a[13:11] b[10:8] op[7], broad a[6:4] b[3:1] op[0].
+    program = (
+        (NARROW[0] << 11)
+        | (NARROW[1] << 8)
+        | (NARROW[2] << 7)
+        | (BROAD[0] << 4)
+        | (BROAD[1] << 1)
+        | BROAD[2]
+    )
+    (out / NAMES["PROGRAM"]).write_text(f"{program:04X}\n")
+
     rejected = sum(1 for value in narrow if value == REJECT)
     print(f"{len(coord)} anchors, {rejected} of them rejections{swapped}")
+    print(f"  inquiry {program:04X}: narrow picks {NARROW}, broad picks {BROAD}")
     print("  coord  " + " ".join(f"{value:4d}" for value in coord))
     print("  narrow " + " ".join(f"{'REJECT' if value == REJECT else value}" for value in narrow))
     print("  broad  " + " ".join(f"{'REJECT' if value == REJECT else value}" for value in broad))

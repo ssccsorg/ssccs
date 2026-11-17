@@ -56,25 +56,32 @@ module ssccs_anchor_board #(
     reg [15:0] coord [0:DEPTH-1];
     reg [63:0] narrow [0:DEPTH-1];
     reg [63:0] broad [0:DEPTH-1];
+    // One line says what those two tables are compared against: two selectors and a composition, twice.
+    // `program` is a keyword in SystemVerilog, so the line is the scenario's `inquiry`.
+    reg [13:0] inquiry [0:0];
 
 `ifdef SIM
     reg [1023:0] coord_file;
     reg [1023:0] narrow_file;
     reg [1023:0] broad_file;
+    reg [1023:0] inquiry_file;
 
     initial begin
         if (!$value$plusargs("coord=%s", coord_file)) coord_file = "out/anchor_coord.hex";
         if (!$value$plusargs("narrow=%s", narrow_file)) narrow_file = "out/anchor_narrow.hex";
         if (!$value$plusargs("broad=%s", broad_file)) broad_file = "out/anchor_broad.hex";
+        if (!$value$plusargs("inquiry=%s", inquiry_file)) inquiry_file = "out/anchor_inquiry.hex";
         $readmemh(coord_file, coord);
         $readmemh(narrow_file, narrow);
         $readmemh(broad_file, broad);
+        $readmemh(inquiry_file, inquiry);
     end
 `else
     initial begin
         $readmemh("out/anchor_coord.hex", coord);
         $readmemh("out/anchor_narrow.hex", narrow);
         $readmemh("out/anchor_broad.hex", broad);
+        $readmemh("out/anchor_inquiry.hex", inquiry);
     end
 `endif
 
@@ -110,9 +117,23 @@ module ssccs_anchor_board #(
         .result(in_range)
     );
 
-    // The scenario's two compositions: the intersection is the narrow inquiry and the union is the broad one.
-    wire narrow_constraint = even && in_range;
-    wire broad_constraint  = even || in_range;
+    // The unit table is the substrate's: selector 0 is the even unit and selector 1 is the constant range. Any
+    // other selector answers zero, so a table that names a unit this image does not carry fails rather than passes.
+    // Which pair, and which composition, is in the program line rather than in this file.
+    wire [2:0] narrow_a = inquiry[0][13:11];
+    wire [2:0] narrow_b = inquiry[0][10:8];
+    wire       narrow_op = inquiry[0][7];
+    wire [2:0] broad_a = inquiry[0][6:4];
+    wire [2:0] broad_b = inquiry[0][3:1];
+    wire       broad_op = inquiry[0][0];
+
+    wire narrow_pick_a = (narrow_a == 3'd0) ? even : (narrow_a == 3'd1) ? in_range : 1'b0;
+    wire narrow_pick_b = (narrow_b == 3'd0) ? even : (narrow_b == 3'd1) ? in_range : 1'b0;
+    wire broad_pick_a = (broad_a == 3'd0) ? even : (broad_a == 3'd1) ? in_range : 1'b0;
+    wire broad_pick_b = (broad_b == 3'd0) ? even : (broad_b == 3'd1) ? in_range : 1'b0;
+
+    wire narrow_constraint = narrow_op ? (narrow_pick_a || narrow_pick_b) : (narrow_pick_a && narrow_pick_b);
+    wire broad_constraint  = broad_op  ? (broad_pick_a || broad_pick_b)  : (broad_pick_a && broad_pick_b);
 
     wire [63:0] narrow_result;
     wire [63:0] broad_result;
