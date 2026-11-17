@@ -28,12 +28,23 @@ TOP     := scenario_narrow_broad_tb
 OBJDIR  := obj_dir
 BIN     := $(OBJDIR)/V$(TOP)
 
-SVSRCS  := $(SVDIR)/constraints/ck_even.sv \
-           $(SVDIR)/constraints/ck_range.sv \
-           $(SVDIR)/constraints/ck_range_010.sv \
-           $(SVDIR)/constraints/ck_gt.sv \
-           $(SVDIR)/observe.sv \
-           $(SVDIR)/scenario_narrow_broad_tb.sv
+# ── The units ──
+#
+# One list, derived from the tree: every file under constraints/, projectors/ and composition/ is a unit, and so
+# are observe and the XIF coprocessor. Testbenches live in tb/ and are never units. A new unit is a new file, and
+# no list in this repository has to name it.
+
+SV_UNITS := $(SVDIR)/observe.sv \
+            $(SVDIR)/ssccs_xif_coprocessor.sv \
+            $(wildcard $(SVDIR)/constraints/*.sv) \
+            $(wildcard $(SVDIR)/projectors/*.sv) \
+            $(wildcard $(SVDIR)/composition/*.sv)
+
+# Modules the host emitter writes. Nothing under generated/ is committed; the elaboration gate compiles whatever is
+# present, so the emitter has a consumer from its first commit.
+SV_GENERATED := $(wildcard $(SVDIR)/../generated/*.sv)
+
+SVSRCS  := $(SV_UNITS) $(SVDIR)/tb/$(TOP).sv
 
 # ── Composition testbench ──
 
@@ -41,15 +52,14 @@ COMPOSE_TOP     := composition_tb
 COMPOSE_OBJDIR  := obj_dir_compose
 COMPOSE_BIN     := $(COMPOSE_OBJDIR)/V$(COMPOSE_TOP)
 
-COMPOSE_SRCS := $(SVDIR)/composition/compose_union.sv \
-               $(SVDIR)/composition/compose_intersect.sv \
-               $(SVDIR)/composition/compose_product_2d.sv \
-               $(SVDIR)/composition/compose_pipeline.sv \
-               $(SVDIR)/projectors/proj_mul.sv \
-               $(SVDIR)/projectors/proj_div.sv \
-               $(SVDIR)/composition/composition_tb.sv
+COMPOSE_SRCS := $(SV_UNITS) $(SVDIR)/tb/$(COMPOSE_TOP).sv
 
-.PHONY: all clean run check compose-check xif-check elaborate
+.PHONY: all clean run check compose-check xif-check elaborate golden-anchor-check units
+
+# The board's flow asks for this list rather than keeping one of its own. Absolute, so a caller in another
+# directory can pass it to a tool that resolves paths against its own working directory.
+units:
+	@echo $(abspath $(SV_UNITS))
 
 all: $(BIN)
 
@@ -111,18 +121,7 @@ XIF_TOP     := xif_integration_tb
 XIF_OBJDIR  := obj_dir_xif
 XIF_BIN     := $(XIF_OBJDIR)/V$(XIF_TOP)
 
-XIF_SRCS    := $(SVDIR)/ssccs_xif_coprocessor.sv \
-               $(SVDIR)/constraints/ck_even.sv \
-               $(SVDIR)/constraints/ck_range.sv \
-               $(SVDIR)/constraints/ck_range_010.sv \
-               $(SVDIR)/constraints/ck_eq.sv \
-               $(SVDIR)/constraints/ck_gt.sv \
-               $(SVDIR)/projectors/proj_identity.sv \
-               $(SVDIR)/projectors/proj_negate.sv \
-               $(SVDIR)/projectors/proj_parity.sv \
-               $(SVDIR)/projectors/proj_sum2d.sv \
-               $(SVDIR)/projectors/proj_sum3d.sv \
-               $(SVDIR)/xif_integration_tb.sv
+XIF_SRCS    := $(SV_UNITS) $(SVDIR)/tb/$(XIF_TOP).sv
 
 $(XIF_BIN): $(XIF_SRCS) $(SVDIR)/_golden_anchors.svh $(SVDIR)/_xif_constants.svh
 	verilator --binary --timing --assert --top-module $(XIF_TOP) \
@@ -150,13 +149,12 @@ xif-check: $(XIF_BIN)
 
 # read_verilog evaluates every parameter override, so a module that passes a signal into a parameter fails here
 # rather than at the first synthesis of a design that happens to instantiate it.
-ELAB_SRCS   := $(filter-out %_tb.sv,$(wildcard $(SVDIR)/*.sv $(SVDIR)/constraints/*.sv \
-               $(SVDIR)/projectors/*.sv $(SVDIR)/composition/*.sv))
-
+# The units and whatever the emitter has written so far. A generated module that does not elaborate fails here,
+# which is the first place a bad emission can be caught.
 elaborate:
 	@if command -v yosys >/dev/null 2>&1; then \
 		echo "--- yosys: every module elaborates ---"; \
-		yosys -q -p "read_verilog -sv -I$(SVDIR) $(ELAB_SRCS)" && echo "  all modules elaborate"; \
+		yosys -q -p "read_verilog -sv -I$(SVDIR) $(SV_UNITS) $(SV_GENERATED)" && echo "  all modules elaborate"; \
 	else \
 		echo "  skipped (yosys is not installed)"; \
 	fi

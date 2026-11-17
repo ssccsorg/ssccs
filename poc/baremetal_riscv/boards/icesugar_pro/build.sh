@@ -27,8 +27,9 @@ cd "$(dirname "$0")"
 TOP=ssccs_anchor_board
 TB=ssccs_anchor_board_tb
 SV=../../sv
-SOURCES="$TOP.sv $SV/observe.sv $SV/constraints/ck_even.sv $SV/constraints/ck_range.sv \
-         $SV/constraints/ck_eq.sv $SV/constraints/ck_gt.sv"
+# The units are the POC's list, asked for rather than repeated. Nothing here names a module.
+UNITS=$(make -s -C "$SV" units)
+SOURCES="$TOP.sv $UNITS"
 LPF=$TOP.lpf
 REJTAG=1,3
 
@@ -73,8 +74,7 @@ sim() {
     echo "--- verilator: $TB over $n anchors, both controls ---"
     verilator --binary --timing -DSIM -I"$SV" -GCOUNT="$n" --top-module "$TB" \
         -Wno-fatal -Wno-WIDTH -Wno-UNUSED -Wno-PROCASSINIT \
-        "$TB.sv" "$TOP.sv" "$SV/observe.sv" "$SV/constraints/ck_even.sv" "$SV/constraints/ck_range.sv" \
-        "$SV/constraints/ck_eq.sv" "$SV/constraints/ck_gt.sv" \
+        "$TB.sv" "$TOP.sv" $UNITS \
         -o tb_anchor > out/build_tb.log 2>&1 || { cat out/build_tb.log; fail "verilator build failed"; }
     ./obj_dir/tb_anchor \
         +coord=out/pass/anchor_coord.hex +narrow=out/pass/anchor_narrow.hex +broad=out/pass/anchor_broad.hex \
