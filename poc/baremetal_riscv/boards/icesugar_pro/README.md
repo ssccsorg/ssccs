@@ -27,13 +27,9 @@ Which two constraints, and how they compose, is data. A fourth file holds one in
 composition bit for the narrow observation, and the same for the broad one. The image carries the units and reads
 the selectors, so a different scheme changes the table and not the design.
 
-| Selector | Unit |
-|---:|---|
-| 0 | `ck_even` |
-| 1 | `ck_range_010` |
-
-Any other selector answers zero, so an inquiry that names a unit this image does not carry fails rather than
-passes.
+The selector numbers are the core's, in `sv/_units.svh`, and the generator reads them from there rather than
+repeating them. This image carries `UNIT_EVEN` and `UNIT_RANGE_010`; any other selector answers zero, so an
+inquiry that names a unit the image does not carry fails rather than passes.
 
 `anchor_rom.py` writes the four files from `sv/_golden_anchors.svh`. Values transcribed by hand are values the
 anchors do not have to hold, so the ROM is generated and the generator refuses if the three tables disagree in
@@ -59,8 +55,8 @@ line agreed and red when one did not. PA14 on F5 is the iCELink's SWD clock, whi
 ## Commands
 
 ```sh
-./build.sh rom                 # the anchors, and the same table with two expectations exchanged
-./build.sh sim                 # Verilator: the table passes, the exchanged one does not
+./build.sh rom                 # the anchors, the exchange control, and a different inquiry
+./build.sh sim                 # Verilator: the table passes, the exchanged one does not, the other inquiry does
 ./build.sh build pass          # yosys, nextpnr-ecp5, ecppack
 ./build.sh flash pass          # write it, then release the reset
 ./build.sh read                # gpio read PA13
@@ -73,13 +69,18 @@ The negative control is a second image. `anchor_rom.py --swap 1,3` exchanges the
 lines that carry 3 and 10, which leaves the same coordinates and the same multiset of expectations, so a checksum
 over the table would not notice. The die refuses it.
 
+The second control is about this design rather than this table. `anchor_rom.py --generative` keeps the two units
+and composes them the other way round, intersecting where the anchored broad observation unites, and computes the
+expectations in the generator instead of reading them from the anchors. The same build answers the new inquiry,
+which is what makes the units the image's and the scenario the table's.
+
 ## The image
 
 | | pass | swap |
 |---|---:|---:|
-| `TRELLIS_COMB` | 153 / 24,288 | 162 / 24,288 |
+| `TRELLIS_COMB` | 270 / 24,288 | 164 / 24,288 |
 | `DP16KD` | 0 | 0 |
-| Clock | 132.01 MHz at 25 MHz | 116.65 MHz at 25 MHz |
+| Clock | 120.77 MHz at 25 MHz | 141.86 MHz at 25 MHz |
 | `pin_match` | 1 | 0 |
 | Stage three | green | red |
 
