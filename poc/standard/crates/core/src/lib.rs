@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 
 pub mod core;
+pub mod spec;
 pub use core::*;
+pub use spec::*;
 
 // ==================== CONSTRAINT IMPLEMENTATIONS ====================
 

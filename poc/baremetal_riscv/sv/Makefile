@@ -19,6 +19,10 @@
 # The testbench asserts against golden anchors from asm/*.S files.
 # Identical outputs across Rust, RISC-V asm, and SystemVerilog
 # constitute the golden bridge.
+#
+# `generate` runs the host emitter, which writes modules into ../generated/ from a constraint program. `check`
+# reaches them through generated-check and elaborate, so an emitted module is simulated and elaborated rather than
+# merely written.
 
 SVDIR   := .
 
@@ -42,9 +46,15 @@ SV_UNITS := $(SVDIR)/observe.sv \
 
 # Modules the host emitter writes. Nothing under generated/ is committed; the elaboration gate compiles whatever is
 # present, so the emitter has a consumer from its first commit.
-SV_GENERATED := $(wildcard $(SVDIR)/../generated/*.sv)
+GEN_DIR  := $(abspath $(SVDIR)/../generated)
+GEN_MODULES := $(GEN_DIR)/ssccs_generated_narrow.sv $(GEN_DIR)/ssccs_generated_broad.sv
 
 SVSRCS  := $(SV_UNITS) $(SVDIR)/tb/$(TOP).sv
+
+# ── The host emitter ──
+#
+# The binary writes both modules from one constraint pair, so a stamp records that they are current. A rule per
+# output would run it twice for the same result.
 
 # ── Composition testbench ──
 
@@ -54,7 +64,21 @@ COMPOSE_BIN     := $(COMPOSE_OBJDIR)/V$(COMPOSE_TOP)
 
 COMPOSE_SRCS := $(SV_UNITS) $(SVDIR)/tb/$(COMPOSE_TOP).sv
 
-.PHONY: all clean run check compose-check xif-check elaborate golden-anchor-check units
+.PHONY: all clean run check compose-check xif-check elaborate golden-anchor-check units generate generated-check
+
+WORKSPACE := $(abspath $(SVDIR)/../../standard)
+EMITTED   := $(GEN_DIR)/.emitted
+
+# The emitter's own sources and the spec it lowers: a change to either makes the written modules stale.
+EMITTER_SRCS := $(wildcard $(WORKSPACE)/crates/hardware-mapping/src/*.rs) \
+                $(wildcard $(WORKSPACE)/crates/hardware-mapping/src/bin/*.rs) \
+                $(wildcard $(WORKSPACE)/crates/core/src/*.rs)
+
+$(EMITTED): $(EMITTER_SRCS)
+	@cd $(WORKSPACE) && cargo run --release --quiet -p ssccs-hardware-mapping --bin emit-observation -- --out $(GEN_DIR)
+	@touch $@
+
+generate: $(EMITTED)
 
 # The board's flow asks for this list rather than keeping one of its own. Absolute, so a caller in another
 # directory can pass it to a tool that resolves paths against its own working directory.
@@ -76,7 +100,7 @@ $(BIN): $(SVSRCS) $(SVDIR)/_golden_anchors.svh
 run: $(BIN)
 	$(BIN)
 
-check: $(BIN) compose-check xif-check golden-anchor-check elaborate
+check: $(BIN) compose-check xif-check golden-anchor-check generated-check elaborate
 	$(BIN); \
 	status=$$?; \
 	if [ $$status -eq 0 ]; then \
@@ -145,19 +169,52 @@ xif-check: $(XIF_BIN)
 	@grep -E "All Golden Anchors Verified" $(XIF_OBJDIR)/run.log
 	@echo "XIF integration: PASSED"
 
+# ── Emitted modules ──
+
+GEN_TOP     := generated_observation_tb
+GEN_OBJDIR  := obj_dir_generated
+GEN_BIN     := $(GEN_OBJDIR)/V$(GEN_TOP)
+
+GEN_SRCS := $(SV_UNITS) $(GEN_MODULES) $(SVDIR)/tb/$(GEN_TOP).sv
+
+# The modules themselves come from the stamp rather than from a file rule: what a rebuild depends on is that the
+# emitter ran, and an output that was deleted without the stamp following it fails here rather than silently.
+$(GEN_BIN): $(SV_UNITS) $(SVDIR)/tb/$(GEN_TOP).sv $(SVDIR)/_golden_anchors.svh $(EMITTED)
+	verilator --binary --timing --assert --top-module $(GEN_TOP) \
+		-Wno-fatal -Wno-WIDTH -Wno-UNUSED \
+		-I$(SVDIR) -I$(SVDIR)/constraints -I$(SVDIR)/projectors \
+		$(GEN_SRCS) \
+		-CFLAGS "-O0" \
+		--Mdir $(GEN_OBJDIR)
+
+# A module that elaborates still says nothing about what it computes, so the emitted pair answers the anchors in
+# simulation. This is the only place the emitter's output meets a value rather than a grammar.
+generated-check: $(GEN_BIN)
+	@echo "--- emitted modules: the anchor table ---"
+	@./$(GEN_BIN) > $(GEN_OBJDIR)/run.log 2>&1 || { cat $(GEN_OBJDIR)/run.log; echo "emitted modules: FAILED"; exit 1; }
+	@if grep -qE "%Error|Assertion failed" $(GEN_OBJDIR)/run.log; then \
+		grep -E "%Error|Assertion failed" $(GEN_OBJDIR)/run.log; \
+		echo "emitted modules: FAILED"; \
+		exit 1; \
+	fi
+	@grep -E "All Golden Anchors Verified" $(GEN_OBJDIR)/run.log
+	@echo "emitted modules: PASSED"
+
 # ── Elaboration ──
 
 # read_verilog evaluates every parameter override, so a module that passes a signal into a parameter fails here
 # rather than at the first synthesis of a design that happens to instantiate it.
 # The units and whatever the emitter has written so far. A generated module that does not elaborate fails here,
-# which is the first place a bad emission can be caught.
-elaborate:
+# which is the first place a bad emission can be caught. The glob is expanded by the shell, after the emitter has
+# run, because make expands its own variables before any recipe does.
+elaborate: $(EMITTED)
 	@if command -v yosys >/dev/null 2>&1; then \
 		echo "--- yosys: every module elaborates ---"; \
-		yosys -q -p "read_verilog -sv -I$(SVDIR) $(SV_UNITS) $(SV_GENERATED)" && echo "  all modules elaborate"; \
+		generated=$$(ls $(GEN_DIR)/*.sv 2>/dev/null | tr '\n' ' '); \
+		yosys -q -p "read_verilog -sv -I$(SVDIR) $(SV_UNITS) $$generated" && echo "  all modules elaborate"; \
 	else \
 		echo "  skipped (yosys is not installed)"; \
 	fi
 
 clean:
-	rm -rf $(OBJDIR) $(COMPOSE_OBJDIR) $(XIF_OBJDIR)
+	rm -rf $(OBJDIR) $(COMPOSE_OBJDIR) $(XIF_OBJDIR) $(GEN_OBJDIR)

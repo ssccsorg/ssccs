@@ -346,6 +346,7 @@ impl Scenario for HardwareMappingFromSynthesis {
     }
 
     fn run(&self) {
+        use ssccs_core::ConstraintSpec;
         use ssccs_hardware_mapping::*;
 
         let pipe = compose_to_pipeline(2);
@@ -360,14 +361,24 @@ impl Scenario for HardwareMappingFromSynthesis {
         let mux = intersect_to_mux("axis0>5", compose_to_pipeline(1), compose_to_pipeline(1));
         assert!(matches!(mux, HardwarePrimitive::Mux { .. }));
 
-        let sv = generate_pipeline_sv(2, "proj_sum2d", "proj_mul");
-        assert!(sv.contains("proj_sum2d"));
-        assert!(sv.contains("proj_mul"));
+        let sv = emit_observation_sv(
+            "field_synthesis_probe",
+            &ConstraintProgram {
+                constraints: vec![
+                    ConstraintSpec::Even,
+                    ConstraintSpec::Range { min: 0, max: 10 },
+                ],
+                compose: ComposeOp::And,
+            },
+            ProjectorUnit::Identity,
+        );
+        assert!(sv.contains("wire constraint_result = c0 && c1;"));
+        assert!(sv.contains("    observe u_observe ("));
 
         println!("    Compose (pipeline) → 2-stage pipeline: verified");
         println!("    Product (parallel) → dual DSP: verified");
         println!("    Intersect (MUX) → comparator + MUX: verified");
-        println!("    SV generation for compose pipeline: verified");
+        println!("    A constraint program emits a module that instantiates the units: verified");
         println!("    → field-synthesis drives hardware-mapping crate");
         println!("    → This closes the gap: constraint algebra → hardware primitives");
     }

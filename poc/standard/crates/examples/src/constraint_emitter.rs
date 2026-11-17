@@ -18,29 +18,12 @@
 //! next milestone; until then the host path consumes the specs directly
 //! through `eval_constraint`, and the tests pin both sides to the same
 //! golden results.
+//!
+//! The spec itself lives in `ssccs-core`, because the SystemVerilog emitter
+//! lowers the same one. An emitter that defined its own description would let
+//! two substrates disagree about what a constraint means.
 
-/// Declarative constraint spec on the pure plane.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ConstraintSpec {
-    /// Coordinate value is even.
-    Even,
-    /// Coordinate value within inclusive bounds.
-    Range { min: i64, max: i64 },
-    /// Coordinate value equals a constant.
-    Eq { value: i64 },
-    /// Coordinate value strictly greater than a constant.
-    Gt { value: i64 },
-}
-
-/// Host-side semantic reference of a constraint gate.
-pub fn eval_constraint(spec: &ConstraintSpec, value: i64) -> bool {
-    match spec {
-        ConstraintSpec::Even => value % 2 == 0,
-        ConstraintSpec::Range { min, max } => *min <= value && value <= *max,
-        ConstraintSpec::Eq { value: target } => value == *target,
-        ConstraintSpec::Gt { value: threshold } => value > *threshold,
-    }
-}
+pub use ssccs_core::{ConstraintSpec, eval_constraint};
 
 /// Emits one branchless constraint gate as a `.S` function with the
 /// constants baked in. The generated function has no conditional branches.
