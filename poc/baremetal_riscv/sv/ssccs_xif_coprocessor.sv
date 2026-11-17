@@ -59,8 +59,10 @@ module ssccs_xif_coprocessor (
     wire [2:0]  funct3 = xif_issue_req_instr[14:12];
     wire [4:0]  rd     = xif_issue_req_instr[11:7];
 
-    // Sub-operation selector (from rs2 LSBs for routing)
-    wire [2:0]  sub_op = xif_issue_req_rs2[2:0];
+    // The sub-operation is a field of the instruction, so rs1, rs2 and rs3 carry operands and nothing else. Reading
+    // it from an operand register put the selector's three bits inside the operand, which made every bound a
+    // multiple of eight and left compose with one operand where it needs two.
+    wire [2:0]  sub_op = xif_issue_req_instr[31:29];
 
     // Operands
     wire [63:0] coord  = xif_issue_req_rs1;
@@ -68,7 +70,8 @@ module ssccs_xif_coprocessor (
     wire [63:0] extra  = xif_issue_req_rs3;
 
     // Combinational results from each unit
-    logic ck_even_r, ck_range010_r, ck_range_r, ck_eq_r, ck_gt_r;
+    logic ck_even_r, ck_range010_r;
+    wire  ck_range_r, ck_eq_r, ck_gt_r;
     logic compose_and_r, compose_or_r;
     logic [63:0] proj_id_r, proj_parity_r, proj_negate_r;
     logic [63:0] proj_sum2d_r, proj_sum3d_r;
@@ -79,13 +82,13 @@ module ssccs_xif_coprocessor (
     ck_range_010 u_ck_range010 (.coord(coord), .result(ck_range010_r));
 
     // Range check: MIN_VAL from rs3 (defaults to 0), MAX_VAL from rs2
-    ck_range #(
-        .MIN_VAL(extra),
-        .MAX_VAL(param)
-    ) u_ck_range (.coord(coord), .result(ck_range_r));
-
-    ck_eq #(.TARGET(param))     u_ck_eq (.coord(coord), .result(ck_eq_r));
-    ck_gt #(.THRESHOLD(param))  u_ck_gt (.coord(coord), .result(ck_gt_r));
+    //
+    // These three carry their bound in a register rather than in a parameter, because an XIF instruction carries
+    // its operands. A parameter cannot take a signal, so the units in constraints/ stay the constant-bound form
+    // the model describes and the coprocessor compares against the operand it was given.
+    assign ck_range_r = (coord >= extra) && (coord <= param);
+    assign ck_eq_r    = (coord == param);
+    assign ck_gt_r    = (coord > param);
 
     // Composition: uses two constraint results from external registers
     // (rs1 = C₁ result, rs2 = C₂ result)
