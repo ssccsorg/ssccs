@@ -216,7 +216,9 @@ DECODE_BIN    := $(DECODE_OBJDIR)/V$(DECODE_TOP)
 DECODE_TOTAL  := 12
 DECODE_WIDTH  := 4
 
-$(DECODE_BIN): $(GEN_DIR)/ssccs_address_decode.sv $(SVDIR)/tb/$(DECODE_TOP).sv $(EMITTED)
+# The module itself comes from the stamp, like the Field half's modules: a prerequisite on a generated file with no
+# rule of its own fails on a tree where nothing has been emitted yet.
+$(DECODE_BIN): $(SVDIR)/tb/$(DECODE_TOP).sv $(EMITTED)
 	verilator --binary --timing --assert --top-module $(DECODE_TOP) \
 		-GTOTAL=$(DECODE_TOTAL) -GWIDTH=$(DECODE_WIDTH) \
 		-Wno-fatal -Wno-WIDTH -Wno-UNUSED \

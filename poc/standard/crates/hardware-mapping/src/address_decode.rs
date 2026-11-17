@@ -36,7 +36,7 @@ pub enum DecodeError {
     /// The Scheme has no segments, so it has no address space.
     Empty,
     /// A segment does not carry one value per axis.
-    Ragged { segment: usize, axes: usize },
+    Ragged { segment: usize, values: usize },
     /// An axis's values are not equally spaced.
     NotArithmetic { axis: usize },
     /// The segments are not exactly the product of the axes' extents.
@@ -47,8 +47,8 @@ impl std::fmt::Display for DecodeError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             DecodeError::Empty => write!(formatter, "the Scheme has no segments"),
-            DecodeError::Ragged { segment, axes } => {
-                write!(formatter, "segment {segment} does not carry {axes} values")
+            DecodeError::Ragged { segment, values } => {
+                write!(formatter, "segment {segment} carries {values} coordinates")
             }
             DecodeError::NotArithmetic { axis } => {
                 write!(formatter, "axis {axis} is not equally spaced")
@@ -72,7 +72,7 @@ pub fn axis_extents(scheme: &impl SchemeTrait) -> Result<Vec<AxisExtent>, Decode
         if raw.len() != axes {
             return Err(DecodeError::Ragged {
                 segment: index,
-                axes: raw.len(),
+                values: raw.len(),
             });
         }
         for (axis, value) in raw.iter().enumerate() {
@@ -92,8 +92,15 @@ pub fn axis_extents(scheme: &impl SchemeTrait) -> Result<Vec<AxisExtent>, Decode
             0 => return Err(DecodeError::Empty),
             1 => 1,
             _ => {
-                let rate = sorted[1] - sorted[0];
-                if sorted.windows(2).any(|pair| pair[1] - pair[0] != rate) {
+                // Extreme values at both ends of an axis overflow the difference, and a wrapped rate is not the
+                // spacing the address arithmetic assumes.
+                let Some(rate) = sorted[1].checked_sub(sorted[0]) else {
+                    return Err(DecodeError::NotArithmetic { axis });
+                };
+                if sorted
+                    .windows(2)
+                    .any(|pair| pair[1].checked_sub(pair[0]) != Some(rate))
+                {
                     return Err(DecodeError::NotArithmetic { axis });
                 }
                 rate
@@ -134,7 +141,7 @@ pub fn address_of(extents: &[AxisExtent], coords: &Coordinates) -> Option<u64> {
             .iter()
             .map(|following| following.size)
             .product();
-        let delta = coords.raw[axis] - extent.offset;
+        let delta = coords.raw[axis].checked_sub(extent.offset)?;
         if delta % extent.rate != 0 {
             return None;
         }
