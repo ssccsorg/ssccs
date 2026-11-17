@@ -10,4 +10,4 @@ per-crate reference that `doc.py` writes into `_llms/`.
 | Entry | Subject |
 |---|---|
 | [emitted-substrate.md](emitted-substrate.md) | The constraint description, its two lowerings, and the two board images |
-| [field-evolution.md](field-evolution.md) | Triggers over a log, the version they move, and what is left to a caller |
+| [field-evolution.md](field-evolution.md) | Triggers over a log, the versions they move, and how a composite notices |
