@@ -1,6 +1,6 @@
 # SSCCS Proof of Concept
 
-This directory contains proof-of-concept implementations of the Schema-Segment Composition Computing System (SSCCS). SSCCS redefines computation as observation of structured potential rather than sequential state mutation. The abstract primitives are proven in parallel across four substrates: Rust (host simulation), RISC-V assembly (Spike), SystemVerilog (Verilator), and the independent `ev` (ExaVerif) verification CLI.
+This directory contains proof-of-concept implementations of the Schema-Segment Composition Computing System (SSCCS). SSCCS redefines computation as observation of structured potential rather than sequential state mutation. The abstract primitives are proven in parallel across three substrates: Rust (host simulation), RISC-V assembly (Spike), and SystemVerilog (Verilator), with the same SystemVerilog also built for an iCESugar-Pro so the anchors answer off a pin, and with the independent `ev` (ExaVerif) verification CLI reproducing them.
 
 ## Directory Layout
 
@@ -29,6 +29,7 @@ poc/
 │   ├── src/                Custom instruction encodings, emulation, golden anchor tests
 │   ├── simulation/         C concept programs 01-11 plus Spike + riscv-pk harness
 │   ├── sv/                 SystemVerilog modules and Verilator testbenches
+│   ├── boards/             One board image per carrier; the iCESugar-Pro carries the anchors onto a die
 │   ├── build.rs
 │   ├── run.sh              Assembly syntax gate (--asm-only --check)
 │   └── README.md           API reference and target reality
@@ -81,9 +82,9 @@ Standalone crate. Depends on `ssccs-core` and `ssccs-primitive` via path depende
 | Dependencies | riscv, riscv-rt, panic-halt |
 | Key APIs | `observe_emulate()`, `collapse_emulate()`, `encode_custom_rtype()`, `decode_custom()`, `CoreVXifProfile::issue_observation()` |
 | Hardware profile | CoreVXifProfile for OpenHW CORE-V XIF |
-| Substrates | Rust fallback (host), RV64 assembly under Spike (`simulation/`), SystemVerilog (`sv/`) |
+| Substrates | Rust fallback (host), RV64 assembly under Spike (`simulation/`), SystemVerilog (`sv/`), SystemVerilog on an ECP5 (`boards/icesugar_pro/`) |
 
-The same constraint pipeline is independently implemented across three substrates and pinned by 19 golden anchors: RISC-V assembly (`asm/*.S`), SystemVerilog (`sv/`), and the Rust fallback. `sv/check_golden_anchors.py` keeps the assembly and SV constants in sync, so any change to one forces the others to agree. A fourth independent channel, the `ev` (ExaVerif) CLI, reproduces the anchors through its own constraint engine. See `baremetal_riscv/README.md` for the full API reference and target reality.
+The same constraint pipeline is independently implemented across three substrates and pinned by 19 golden anchors: RISC-V assembly (`asm/*.S`), SystemVerilog (`sv/`), and the Rust fallback. `sv/check_golden_anchors.py` keeps the assembly and SV constants in sync, so any change to one forces the others to agree. A fourth independent channel, the `ev` (ExaVerif) CLI, reproduces the anchors through its own constraint engine. `boards/icesugar_pro/` builds the same SystemVerilog for an ECP5 and reads the scenario's five anchors off a pin, with a second image whose expectations are exchanged as the negative control. See `baremetal_riscv/README.md` for the full API reference and target reality.
 
 Build and substrate checks:
 
@@ -170,6 +171,7 @@ Generated gates follow `fn(*const i64) -> u32`: coordinate pointer in `a0`, gate
 ### Validation evidence
 
 - 19 golden anchors cross-verified across RISC-V assembly, SystemVerilog, and the Rust fallback, with `ev` (ExaVerif) as an independent fourth channel.
+- The same anchors on an ECP5: `boards/icesugar_pro/` builds the scenario's table from `sv/_golden_anchors.svh`, answers 1 on the die for the table and 0 for the same table with two expectations exchanged, and keeps the exchange as the case a checksum cannot see.
 - Determinism and race-free concurrent observation tests in `ssccs-examples/tests/`.
 - Assembly syntax gate over all `asm/*.S`; every module also executes under Spike + pk in `simulation/` (`observe_full.S` via `spike_test.c` and the concept harnesses, the remaining four via `asm_modules_test.c`); Verilator SystemVerilog checks in `sv/`.
 - Benchmark kernels in `benches/` (run `benches/run.sh` manually; not part of the default validation or CI): the measured emulation overhead on existing hardware informs the practical plane; it never shapes the model.

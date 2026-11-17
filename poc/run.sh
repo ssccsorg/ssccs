@@ -318,6 +318,33 @@ else
     echo "  ⊘ Skipped (Verilator not installed)"
 fi
 
+# ── The board image's own gate (Verilator) ──
+
+echo ""
+echo "─────────────────────────────────────────────────────────────"
+echo "Step 8: Running the board image's anchor table (Verilator)..."
+BOARD_DIR="$SCRIPT_DIR/baremetal_riscv/boards/icesugar_pro"
+BOARD_FAILED=1
+if [ -x "$BOARD_DIR/build.sh" ] && command -v verilator &>/dev/null && command -v python3 &>/dev/null; then
+    set +e
+    BOARD_LOG=$(mktemp)
+    (cd "$BOARD_DIR" && ./build.sh rom && ./build.sh sim) >"$BOARD_LOG" 2>&1
+    BOARD_STATUS=$?
+    if [ $BOARD_STATUS -eq 0 ]; then
+        grep -E "^PASS: pin_match" "$BOARD_LOG" || true
+        echo "  Board image: PASSED"
+        BOARD_FAILED=0
+    else
+        cat "$BOARD_LOG"
+        echo "  Board image: FAILED (exit $BOARD_STATUS)"
+        ALL_FAILED+=("board image")
+    fi
+    rm -f "$BOARD_LOG"
+    set -e
+else
+    echo "  ⊘ Skipped (Verilator or python3 not installed)"
+fi
+
 echo "═════════════════════════════════════════════════════════════"
 echo "  Validation Summary"
 echo "═════════════════════════════════════════════════════════════"
@@ -329,6 +356,7 @@ echo "Tests:         PASSED"
 echo "Binary crates: $ALL_PASSED/$ALL_TOTAL passed"
 echo "Local scripts: $([ $LOCAL_FAILED -eq 0 ] && echo 'PASSED' || echo 'FAILED')"
 echo "SystemVerilog: $([ $SV_FAILED -eq 0 ] && echo 'PASSED' || echo 'SKIPPED')"
+echo "Board image:   $([ $BOARD_FAILED -eq 0 ] && echo 'PASSED' || echo 'SKIPPED')"
 echo ""
 
 if [ ${#ALL_FAILED[@]} -eq 0 ] && [ $LOCAL_FAILED -eq 0 ]; then
