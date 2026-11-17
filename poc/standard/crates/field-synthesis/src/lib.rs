@@ -13,6 +13,9 @@ use std::collections::HashSet;
 use std::fmt::Debug;
 use std::sync::Arc;
 
+pub mod staleness;
+pub use staleness::*;
+
 pub use ssccs_core::{
     Constraint, Coordinates, Field, Projector, Segment, SegmentId, SpaceCoordinates,
 };

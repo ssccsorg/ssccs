@@ -21,6 +21,7 @@ pub fn registry() -> Vec<Box<dyn Scenario>> {
         Box::new(ComposeVsUnion {}),
         Box::new(HardwareMappingFromSynthesis {}),
         Box::new(DynamicConstraints {}),
+        Box::new(StaleComposite {}),
     ]
 }
 
@@ -455,6 +456,86 @@ impl Scenario for DynamicConstraints {
     }
 }
 
-// ── Update registry() — already appended to in the previous block.
-// The registry() function now includes all operator + dynamic scenarios.
-// Please also add "DynamicConstraints" to the vec in registry() above.
+// ==================== COMPOSITE VERSION ====================
+
+/// A composition over fields that change. The composite holds a structure built at one version, and a constituent
+/// update makes it stale until the next observation rebuilds it.
+struct StaleComposite;
+
+impl Scenario for StaleComposite {
+    fn name(&self) -> &'static str {
+        "Composite Version: a composition over fields that change"
+    }
+
+    fn run(&self) {
+        use ssccs_core::{
+            ConstraintUpdate, EvolutionRule, EvolvingField, FieldLogEntry, FieldTrigger,
+            GtConstraint, RangeConstraint,
+        };
+        use ssccs_field_synthesis::{CompositionOp, LazyComposite};
+        use std::sync::{Arc, Mutex};
+
+        let mut admitted = Field::new();
+        admitted.add_constraint(GtConstraint::new(0, 10));
+        let left = Arc::new(Mutex::new(EvolvingField::new(admitted, 0, 0)));
+        left.lock()
+            .expect("the field is not shared with a panicking holder")
+            .add_rule(EvolutionRule::new(
+                FieldTrigger::OnEvent {
+                    id: "open".to_string(),
+                },
+                ConstraintUpdate::Set(Vec::new()),
+            ));
+
+        let mut narrow = Field::new();
+        narrow.add_constraint(RangeConstraint::new(0, 0, 100));
+        let right = Arc::new(Mutex::new(EvolvingField::new(narrow, 0, 0)));
+
+        let mut composite = LazyComposite::new(CompositionOp::Union, left.clone(), right.clone());
+        println!(
+            "    Union of two fields, composite version {:016x}",
+            composite.version()
+        );
+        println!("    Rebuilds so far: {}", composite.rebuilds());
+
+        assert!(composite.allows(&Coordinates::new(vec![5])));
+        assert_eq!(
+            composite.rebuilds(),
+            0,
+            "an unchanged version rebuilds nothing"
+        );
+        println!(
+            "    Observed [5]: nothing moved, rebuilds still {}",
+            composite.rebuilds()
+        );
+
+        left.lock()
+            .expect("the field is not shared with a panicking holder")
+            .record(FieldLogEntry::Event {
+                at: 1,
+                id: "open".to_string(),
+            });
+        assert!(!composite.is_current(), "the constituent updated");
+        println!(
+            "    Left field updated: composite current = {}",
+            composite.is_current()
+        );
+
+        assert!(composite.allows(&Coordinates::new(vec![5])));
+        assert_eq!(composite.rebuilds(), 1, "the observation rebuilt it");
+        println!(
+            "    Observed again: rebuilds {} against a new set",
+            composite.rebuilds()
+        );
+
+        assert!(composite.allows(&Coordinates::new(vec![5])));
+        assert_eq!(composite.rebuilds(), 1, "and only once per version");
+        println!(
+            "    Third observation: rebuilds {} (one per version)",
+            composite.rebuilds()
+        );
+        println!(
+            "    → the constituent's update is seen at the next observation, never mid-evaluation"
+        );
+    }
+}

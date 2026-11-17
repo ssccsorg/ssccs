@@ -45,20 +45,38 @@ The caller drives the next cycle, which is what makes convergence a property of 
 deterministic. An external event originates outside the model, so a trigger that waits for one is not, and the
 conjunction, disjunction or sequence containing one is not either.
 
+## Composites
+
+A composite of two evolving fields has a version of its own: `composite_version` hashes the parts' versions and the
+operation, so a union and an intersection over the same parts never share a version, and swapping two parts of
+different versions changes it.
+
+`LazyComposite` holds the composed structure beside the version it was built at. An observation whose version
+differs rebuilds the structure and counts the rebuild; one whose version matches answers from what is held. `Field`
+clones as a snapshot, which is what makes the rebuild atomic: an update lands between two observations and never
+inside one.
+
+The rebuild takes `&mut self` because it happens inside the observation, which is where the appendix puts it. The
+count of rebuilds exists so the laziness is a number rather than a claim.
+
 ## Evidence
 
 `crates/core/tests/evolution.rs` pins the appendix's `temperature_alarm` example and one case per composite form,
-including the clock's re-arming and the fact that a rule fires once per entry. `crates/concepts/src/bin/concept-evolution.rs`
-prints the same example as a trace of versions and admissible sets, and `run.sh` builds and runs it with the other
-concepts.
+including the clock's re-arming and the fact that a rule fires once per entry. `crates/field-synthesis/tests/staleness.rs`
+pins the composite version and the rebuild count for union, intersection and product.
+
+`crates/concepts/src/bin/concept-evolution.rs` prints the alarm example as a trace of versions and admissible sets,
+and the field-synthesis binary prints a composite's version and rebuild count as it changes. `run.sh` builds and
+runs both with the other binaries.
 
 ## What the POC does not implement
 
 The cache. The appendix calls versioned projection caching an optimisation and not mandatory, so the POC states
-the version and leaves storage to a caller.
+the version and leaves the `(value, version)` pair to a caller.
 
-Composite staleness, whose version is a hash of the constituent versions and the operation. That belongs where
-composition lives, `ssccs-field-synthesis`, and it is a separate change.
+Nesting. A composite reads its constituents as versioned sources and a rebuild needs mutable access, so a composite
+is a leaf of any larger composition rather than a part of one. Nesting needs interior mutability and is a separate
+change.
 
 A runtime event loop, a timer queue and a `max_updates` policy. The caller supplies entries and decides when to
 stop, which is what keeps the evaluation deterministic and testable.
