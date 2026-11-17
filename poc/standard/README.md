@@ -29,11 +29,11 @@ The PoC is organized as a **Rust workspace** with multiple crates, enabling inde
 
 The validation-only benchmark suite lives outside this workspace at [`/poc/benches/`](../benches/): a standalone criterion crate (`ssccs-benchmarks`) with a single `bench.rs` expressing the three kernels (vector addition, 2D convolution, graph BFS) as both a pure Rust baseline and an SSCCS Scheme + Field + Projector formulation. Run it manually with `benches/run.sh`; it is not part of the default `poc/run.sh` validation or CI.
 
-### Experiment Crates (Constitutional Concept Tests)
+### Constitutional Concepts
 
-Each experiment crate contains an independent constitutional concept test that can be run, tested, and evolved separately:
+The eleven concepts live in one crate, `ssccs-concepts`, as one binary each. Each binary is still compiled and run on its own, so a concept can be changed and checked without the others, and the workspace carries one member instead of eleven:
 
-| Crate | Test |
+| Binary | Test |
 |-------|------|
 | **`concept-segment`** | Segment concept - immutable coordinate points with cryptographic identity |
 | **`concept-field`** | Field concept - mutable constraint container with transitions |
@@ -45,6 +45,7 @@ Each experiment crate contains an independent constitutional concept test that c
 | **`concept-composite`** | Composite & Transformed Schemes - scheme composition and geometric transformation |
 | **`concept-transition`** | Transition Matrix - weighted directed graph for relational topology |
 | **`concept-integrated`** | Integrated Workflow - complete SSCCS pipeline demonstration |
+| **`experiment-data-processing`** | Observation-centric data processing against an imperative baseline, asserting that both agree |
 
 ### Research Placeholder Crates
 
@@ -124,7 +125,7 @@ To build a specific crate, e.g., `cargo build --release -p ssccs-schemes`.
 
 ### Run Individual Experiments
 
-Each constitutional concept test is a separate binary:
+Each constitutional concept test is a binary in `ssccs-concepts`:
 
 ```bash
 # Run all experiments
@@ -141,6 +142,7 @@ cargo run --bin concept-integrated
 
 # Or run the integrated workflow (demonstrates complete pipeline)
 cargo run --bin concept-integrated
+cargo run --bin experiment-data-processing
 ```
 
 ### Run Unittests

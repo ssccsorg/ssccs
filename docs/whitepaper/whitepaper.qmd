@@ -1361,7 +1361,7 @@ digraph Implementation_Roadmap {
 
 #### Phase 1: Software Emulation (Proof of Concept)
 
-- Rust reference implementation organized as three paths: the host simulation workspace (17 crates, including 11 constitutional concept crates), the bare-metal RISC-V integration crate, and a standalone criterion benchmark suite.
+- Rust reference implementation organized as three paths: the host simulation workspace (7 crates, with the eleven constitutional concepts carried as one binary each in a single crate), the bare-metal RISC-V integration crate, and a standalone criterion benchmark suite.
 - Deterministic reproducibility is confirmed across three independent implementations of the same pipeline: the Rust fallback, hand-written RISC-V assembly under Spike, and SystemVerilog, pinned by 23 golden anchors that are auto-verified on every validation run. The same SystemVerilog is realized on an FPGA, where the anchors answer off a pin under three tables, one of them a control. A script in the verification engine's repository generates fixtures from those same anchors and reproduces the scenario's per-segment results. The inverse-validation exercise described in the Introduction further demonstrates the model's applicability to conventional RISC-V silicon [@ev2026exaverif].
 - The benchmark suite covers three kernels (vector addition, 2D convolution, graph BFS), each expressed as a Rust baseline and an SSCCS formulation; it records emulation overhead on existing hardware as validation evidence. Ongoing work measures determinism, implicit parallelism, and data movement reduction on larger benchmarks.
 

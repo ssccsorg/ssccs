@@ -281,5 +281,11 @@ fn main() {
         traditional_duration.as_secs_f64() / ssccs_duration.as_secs_f64()
     );
 
+    // The experiment claims the two approaches agree, so it says so rather than printing both and moving on.
+    assert_eq!(
+        traditional_sum, ssccs_sum,
+        "the observation-centric sum differs from the imperative one"
+    );
+
     println!("\n Experiment completed successfully!");
 }
