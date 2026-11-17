@@ -38,8 +38,9 @@ RUN ln -sf /usr/bin/riscv64-linux-gnu-gcc /usr/local/bin/riscv64-unknown-elf-gcc
 # Verify cross-compiler
 RUN echo 'int main(){}' | riscv64-unknown-elf-gcc -x c - -o /tmp/test && rm /tmp/test
 
-# Spike from source
-RUN git clone https://github.com/riscv-software-src/riscv-isa-sim.git /tmp/spike \
+# Spike from source. The softfloat and testfloat trees are submodules, and configure writes a Makefile whose first
+# target needs them, so a plain clone fails before anything is built.
+RUN git clone --recursive https://github.com/riscv-software-src/riscv-isa-sim.git /tmp/spike \
     && cd /tmp/spike && mkdir build && cd build \
     && ../configure --prefix=/usr/local && make -j$(nproc) && make install \
     && rm -rf /tmp/spike
