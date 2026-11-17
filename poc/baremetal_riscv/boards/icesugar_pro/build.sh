@@ -74,10 +74,10 @@ sim() {
         -o tb_anchor > out/build_tb.log 2>&1 || { cat out/build_tb.log; fail "verilator build failed"; }
     ./obj_dir/tb_anchor \
         +coord=out/pass/anchor_coord.hex +narrow=out/pass/anchor_narrow.hex +broad=out/pass/anchor_broad.hex \
-        +expect=1
+        +inquiry=out/pass/anchor_inquiry.hex +expect=1
     ./obj_dir/tb_anchor \
         +coord=out/swap/anchor_coord.hex +narrow=out/swap/anchor_narrow.hex +broad=out/swap/anchor_broad.hex \
-        +expect=0
+        +inquiry=out/swap/anchor_inquiry.hex +expect=0
 }
 
 build() {
@@ -89,7 +89,8 @@ build() {
     [ -d "out/$tag" ] || fail "no table at out/$tag; run ./build.sh rom first"
     # The top reads a fixed path, because readmemh resolves against the directory the flow runs in. Copying is what
     # lets one design build from more than one table.
-    cp out/"$tag"/anchor_coord.hex out/"$tag"/anchor_narrow.hex out/"$tag"/anchor_broad.hex out/
+    cp out/"$tag"/anchor_coord.hex out/"$tag"/anchor_narrow.hex out/"$tag"/anchor_broad.hex \
+        out/"$tag"/anchor_inquiry.hex out/
 
     echo "--- yosys: $TOP over $n anchors ---"
     yosys -q -p "read_verilog -sv -I$SV $SOURCES; chparam -set COUNT $n $TOP; synth_ecp5 -top $TOP -json out/$TOP.json" \

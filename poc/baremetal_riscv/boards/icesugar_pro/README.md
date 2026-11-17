@@ -20,13 +20,26 @@ expects for it: the narrow observation (even and in range) and the broad one (ev
 | 3 | 10 | 10 | 10 |
 | 4 | 12 | reject | 12 |
 
-The die reads the line's coordinate, runs `ck_even`, `ck_range_010` and `observe` over it, and compares both
-results with the line's own. A pass closes when no line disagrees, so a single wrong coordinate is the same size
-as the whole table. The four modules are the POC's, unchanged.
+The die reads the line's coordinate, computes the two observations over it, and compares both results with the
+line's own. A pass closes when no line disagrees, so a single wrong coordinate is the same size as the whole table.
 
-`anchor_rom.py` writes the three tables from `sv/_golden_anchors.svh`. A table transcribed by hand is a table the
+Which two constraints, and how they compose, is data. A fourth file holds one inquiry line: two selectors and a
+composition bit for the narrow observation, and the same for the broad one. The image carries the units and reads
+the selectors, so a different scheme changes the table and not the design.
+
+| Selector | Unit |
+|---:|---|
+| 0 | `ck_even` |
+| 1 | `ck_range_010` |
+
+Any other selector answers zero, so an inquiry that names a unit this image does not carry fails rather than
+passes.
+
+`anchor_rom.py` writes the four files from `sv/_golden_anchors.svh`. Values transcribed by hand are values the
 anchors do not have to hold, so the ROM is generated and the generator refuses if the three tables disagree in
-length or if the reject sentinel in the file is not the one `observe` emits.
+length or if the reject sentinel in the file is not the one `observe` emits. The scenario itself is the fixture's,
+and it is the only part of this folder written from the scenario: even and the constant range, intersected for the
+narrow observation and united for the broad one.
 
 ## The pins
 
@@ -66,11 +79,12 @@ over the table would not notice. The die refuses it.
 |---|---:|---:|
 | `TRELLIS_COMB` | 153 / 24,288 | 162 / 24,288 |
 | `DP16KD` | 0 | 0 |
-| Clock | 133.69 MHz at 25 MHz | 126.44 MHz at 25 MHz |
+| Clock | 132.01 MHz at 25 MHz | 116.65 MHz at 25 MHz |
 | `pin_match` | 1 | 0 |
 | Stage three | green | red |
 
-The ROM is 720 bits in five lines, so the flow maps it into logic rather than block RAM. The clock is the board's
+The ROM is 720 bits in five lines plus a 14 bit inquiry line, so the flow maps it into logic rather
+than block RAM. The clock is the board's
 own crystal: five lines need no PLL, and a derived clock is a number the flow has to constrain separately.
 
 ## What it does not cover
