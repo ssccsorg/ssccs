@@ -10,11 +10,12 @@
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use ssccs_core::Segment;
+use ssccs_core::{ConstraintSpec, Segment, eval_constraint};
 use ssccs_hardware_mapping::{AxisExtent, address_of, axis_extents, emit_address_decode_sv};
 use ssccs_primitive::{Axis, AxisType, Scheme, SchemeBuilder};
 
 const MODULE: &str = "ssccs_address_decode";
+const LINE_MODULE: &str = "ssccs_line_decode";
 
 fn axis(name: &str) -> Axis {
     Axis {
@@ -32,6 +33,37 @@ fn demo() -> Scheme {
         }
     }
     builder.build()
+}
+
+/// The space the board sweeps: a line of sixteen points three apart, so the address is not the coordinate.
+fn line() -> Scheme {
+    let mut builder = SchemeBuilder::new().add_axis(axis("value"));
+    for value in (0..=45i64).step_by(3) {
+        builder = builder.add_segment(&Segment::from_value(value));
+    }
+    builder.build()
+}
+
+/// The program the board's observation module carries: `even and range [0, 10]`.
+fn board_program() -> Vec<ConstraintSpec> {
+    vec![
+        ConstraintSpec::Even,
+        ConstraintSpec::Range { min: 0, max: 10 },
+    ]
+}
+
+/// The points of `scheme` the program admits, which is what the die's count is compared against.
+fn admissions(scheme: &Scheme, program: &[ConstraintSpec]) -> u64 {
+    scheme
+        .segments()
+        .filter(|segment| {
+            segment
+                .coordinates()
+                .raw
+                .first()
+                .is_some_and(|value| program.iter().all(|spec| eval_constraint(spec, *value)))
+        })
+        .count() as u64
 }
 
 fn main() -> ExitCode {
@@ -72,6 +104,10 @@ fn main() -> ExitCode {
         }
     };
 
+    let line_scheme = line();
+    let line_total: u64 = line_scheme.segments().count() as u64;
+    let line_admissions = admissions(&line_scheme, &board_program());
+
     println!("=== Address decode ===");
     println!();
     println!("  module:    {MODULE}");
@@ -84,12 +120,17 @@ fn main() -> ExitCode {
     }
     println!("  addresses: {total}");
     println!("  size:      {} bytes", sv.len());
+    println!();
+    println!(
+        "  board:     {LINE_MODULE} over a strided line, {} admissions of {}",
+        line_admissions, line_total
+    );
 
     let Some(dir) = out else {
         return ExitCode::SUCCESS;
     };
 
-    if let Err(error) = write(&dir, &sv, &scheme, &extents) {
+    if let Err(error) = write(&dir, &sv, &scheme, &extents, line_total, line_admissions) {
         eprintln!("emit-decode: {error}");
         return ExitCode::from(1);
     }
@@ -98,7 +139,14 @@ fn main() -> ExitCode {
     ExitCode::SUCCESS
 }
 
-fn write(dir: &Path, sv: &str, scheme: &Scheme, extents: &[AxisExtent]) -> std::io::Result<()> {
+fn write(
+    dir: &Path,
+    sv: &str,
+    scheme: &Scheme,
+    extents: &[AxisExtent],
+    line_total: u64,
+    line_admissions: u64,
+) -> std::io::Result<()> {
     std::fs::create_dir_all(dir)?;
     std::fs::write(dir.join(format!("{MODULE}.sv")), sv)?;
 
@@ -120,6 +168,21 @@ fn write(dir: &Path, sv: &str, scheme: &Scheme, extents: &[AxisExtent]) -> std::
             .collect();
         std::fs::write(dir.join(format!("address_coord{axis}.hex")), rows)?;
     }
+
+    let board = line();
+    let board_sv = emit_address_decode_sv(LINE_MODULE, &board).map_err(std::io::Error::other)?;
+    std::fs::write(dir.join(format!("{LINE_MODULE}.sv")), board_sv)?;
+
+    // The space the sweep covers, then the count the die compares against and one off it for the control.
+    std::fs::write(dir.join("decode_space.hex"), format!("{line_total:016X}\n"))?;
+    std::fs::write(
+        dir.join("decode_count.hex"),
+        format!("{line_admissions:016X}\n"),
+    )?;
+    std::fs::write(
+        dir.join("decode_count_off.hex"),
+        format!("{:016X}\n", line_admissions + 1),
+    )?;
 
     Ok(())
 }

@@ -75,6 +75,9 @@ pub enum FieldTrigger {
     /// Fires when a constituent fires.
     Any(Vec<FieldTrigger>),
     /// Fires when the constituents fire in this order, each after the one before it.
+    ///
+    /// A later occurrence of the last part fires again once a prefix exists, which is what makes a sequence over a
+    /// recurring event recurring.
     Sequence(Vec<FieldTrigger>),
 }
 
@@ -209,9 +212,10 @@ impl EvolvingField {
     /// Append one entry and apply what it triggers.
     ///
     /// Each rule is evaluated once against the history before the entry, in declaration order, so one call applies
-    /// at most one update per rule and a chain of updates cannot loop inside a call. The clock a temporal trigger
-    /// reads is the time of the most recent applied update, so an update re-arms the trigger it came from, and a
-    /// caller that keeps the condition true gets one update per `delta` rather than one per entry.
+    /// at most one update per rule and a chain of updates cannot loop inside a call. An update this call applies is
+    /// appended after the entry, so it cannot change how a later rule reads the history. The clock a temporal
+    /// trigger reads is the time of the most recent applied update, so an update re-arms the trigger it came from,
+    /// and a caller that keeps the condition true gets one update per `delta` rather than one per entry.
     pub fn record(&mut self, entry: FieldLogEntry) -> UpdateReport {
         self.log.push(entry);
         let index = self.log.len() - 1;

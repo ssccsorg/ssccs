@@ -48,10 +48,11 @@ The two emitted programs carry the same constraints and differ only in the join,
 composition operator does: `even and range [0, 10]` admits two of the five anchored coordinates, `even or range
 [0, 10]` admits all five.
 
-## The two images
+## The images
 
-`boards/icesugar_pro` holds both. They drive the same seven nets, read the same three anchor tables, and carry the
-same sweep, fill and verdict logic. They differ in where the constraint comes from.
+`boards/icesugar_pro` holds three. The first two drive the same seven nets, read the same three anchor tables, and
+carry the same sweep, fill and verdict logic; they differ in where the constraint comes from. The third has no
+table of points at all.
 
 | | data: pass | data: swap | data: other inquiry | generated: pass | generated: swap |
 |---|---:|---:|---:|---:|---:|
@@ -59,7 +60,12 @@ same sweep, fill and verdict logic. They differ in where the constraint comes fr
 | Clock | 154.66 MHz | 143.82 MHz | 92.13 MHz | 137.49 MHz | 142.80 MHz |
 | `pin_match` | 1 | 0 | 1 | 1 | 0 |
 
-Every column answers the same five anchors. The two pass columns are the same table read by two designs, and the
+The decoded image takes 157 LUT4 and closes at 66.27 MHz, and answers 1. It costs more than either table reader
+because a multiplier and a 64-bit accumulator replace a five line ROM: at this size the arithmetic is the expensive
+part, and that is worth knowing before the space grows.
+
+Every column answers the same five anchors except the decoded one, which counts its own space. The two pass columns
+are the same table read by two designs, and the two swap columns are the negative control in both.
 two swap columns are the negative control in both: two expectations exchanged leaves the same coordinates and the
 same multiset of results, so a checksum over the table would not notice.
 
@@ -102,8 +108,10 @@ side.
 
 ## Open
 
-A decoded space has no carrier yet. The board images read tables of five chosen points, and a decoder over chosen
-points would be a table; wiring a Scheme's decoded space onto the ECP5 is a third image and its own subject.
+A decoded space is on a carrier now, and it is the two halves together. `boards/icesugar_pro/ssccs_decoded_board.sv`
+sweeps a sixteen point line, decodes each address to its coordinate, applies the emitted observation module and
+compares the admission count with the host's. It has no table of points, and the count separates a decoder that
+works from one that passes the address through.
 
 Scheme determinism came with the decoder. `Scheme` held its segments in a `HashMap`, whose iteration order changes
 between runs, so "enumerate a Scheme" was not reproducible and an address map had nothing to be defined on. The

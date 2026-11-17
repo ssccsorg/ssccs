@@ -329,7 +329,7 @@ BOARD_FAILED=1
 if [ -x "$BOARD_DIR/build.sh" ] && command -v verilator &>/dev/null && command -v python3 &>/dev/null; then
     set +e
     BOARD_LOG=$(mktemp)
-    (cd "$BOARD_DIR" && ./build.sh rom && ./build.sh sim data && ./build.sh sim generated) >"$BOARD_LOG" 2>&1
+    (cd "$BOARD_DIR" && ./build.sh rom && ./build.sh sim data && ./build.sh sim generated && ./build.sh sim decoded) >"$BOARD_LOG" 2>&1
     BOARD_STATUS=$?
     if [ $BOARD_STATUS -eq 0 ]; then
         grep -E "^PASS: pin_match" "$BOARD_LOG" || true
