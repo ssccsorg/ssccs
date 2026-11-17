@@ -16,11 +16,12 @@ use crate::{ComposedExpr, ComposedField, CompositionOp};
 
 /// A constituent a composite can read: its version, and a snapshot of what it enforces now.
 ///
-/// The snapshot is what makes a rebuild atomic. An update that lands between two observations is seen by the next
-/// rebuild, and no evaluation ever sees half of one.
+/// `snapshot` returns the pair because a rebuild records the version beside the structure it built from that
+/// snapshot. Reading them separately would let an update land in between and stamp a new version on old contents.
+/// The snapshot is what makes a rebuild atomic in the other direction too: no evaluation ever sees half an update.
 pub trait VersionedField: Debug + Send + Sync {
     fn version(&self) -> u64;
-    fn snapshot(&self) -> Field;
+    fn snapshot(&self) -> (u64, Field);
 }
 
 impl VersionedField for EvolvingField {
@@ -28,12 +29,13 @@ impl VersionedField for EvolvingField {
         EvolvingField::version(self)
     }
 
-    fn snapshot(&self) -> Field {
-        self.field().clone()
+    fn snapshot(&self) -> (u64, Field) {
+        (self.version(), self.field().clone())
     }
 }
 
 /// A field that changes between two observations is shared, so the shared form is the one a composite reads.
+/// One lock covers both values, which is what keeps the pair consistent for a caller on another thread.
 impl VersionedField for Mutex<EvolvingField> {
     fn version(&self) -> u64 {
         match self.lock() {
@@ -42,11 +44,12 @@ impl VersionedField for Mutex<EvolvingField> {
         }
     }
 
-    fn snapshot(&self) -> Field {
-        match self.lock() {
-            Ok(field) => field.field().clone(),
-            Err(poisoned) => poisoned.into_inner().field().clone(),
-        }
+    fn snapshot(&self) -> (u64, Field) {
+        let field = match self.lock() {
+            Ok(field) => field,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        (field.version(), field.field().clone())
     }
 }
 
@@ -93,8 +96,7 @@ impl LazyComposite {
         left: Arc<dyn VersionedField>,
         right: Arc<dyn VersionedField>,
     ) -> Self {
-        let built_version = composite_version(op, &[left.version(), right.version()]);
-        let built = compose(op, None, &left, &right);
+        let (built, built_version) = build(op, None, &left, &right);
         Self {
             op,
             left,
@@ -111,9 +113,10 @@ impl LazyComposite {
     /// This composes again without counting a rebuild: the count is for version-driven rebuilds, and a builder call
     /// is not one.
     pub fn with_left_axes(mut self, axes: usize) -> Self {
+        let (built, built_version) = build(self.op, Some(axes), &self.left, &self.right);
         self.left_axes = Some(axes);
-        self.built = compose(self.op, self.left_axes, &self.left, &self.right);
-        self.built_version = self.version();
+        self.built = built;
+        self.built_version = built_version;
         self
     }
 
@@ -149,25 +152,37 @@ impl LazyComposite {
     }
 
     fn rebuild(&mut self) {
-        self.built = compose(self.op, self.left_axes, &self.left, &self.right);
-        self.built_version = self.version();
+        let (built, built_version) = build(self.op, self.left_axes, &self.left, &self.right);
+        self.built = built;
+        self.built_version = built_version;
         self.rebuilds += 1;
     }
 }
 
-fn compose(
+/// The structure for the constituents as they stand, and the version that describes exactly that pair.
+///
+/// The two constituents are read one after the other, so the pair is not a simultaneous reading of both. Each half
+/// is consistent with the version recorded for it, which is the strongest claim available without a lock shared by
+/// every constituent.
+fn build(
     op: CompositionOp,
     left_axes: Option<usize>,
     left: &Arc<dyn VersionedField>,
     right: &Arc<dyn VersionedField>,
-) -> ComposedField {
+) -> (ComposedField, u64) {
+    let (left_version, left_field) = left.snapshot();
+    let (right_version, right_field) = right.snapshot();
+
     let composed = ComposedField::new(
-        ComposedExpr::from(left.snapshot()),
-        ComposedExpr::from(right.snapshot()),
+        ComposedExpr::from(left_field),
+        ComposedExpr::from(right_field),
         op,
     );
-    match left_axes {
+    let composed = match left_axes {
         Some(axes) => composed.with_left_axes(axes),
         None => composed,
-    }
+    };
+
+    let version = composite_version(op, &[left_version, right_version]);
+    (composed, version)
 }
