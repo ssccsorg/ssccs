@@ -10,7 +10,9 @@
 //
 // The unit table: the numbers an emitted inquiry names.
 //
-// A selector in a table emitted for a substrate means the unit this file gives it, and nothing else. The generator
+// A selector names a kind of constraint. The bound it applies is data, so one unit serves every bound and a
+// table can state a constraint this file has never heard of. A selector in a table emitted for a substrate means
+// the unit this file gives it, and nothing else. The generator
 // under boards/ reads these numbers from here, so an emitter and a substrate cannot disagree about which unit a
 // selector means, and a new unit is one line in one place rather than a convention in a board's README.
 //
@@ -21,7 +23,9 @@
 `define SSCCS_UNITS_SVH
 
 `define UNIT_EVEN       3'd0
-`define UNIT_RANGE_010  3'd1
+`define UNIT_RANGE      3'd1
+`define UNIT_EQ         3'd2
+`define UNIT_GT         3'd3
 
 `define COMPOSE_AND     1'b0
 `define COMPOSE_OR      1'b1

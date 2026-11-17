@@ -81,14 +81,11 @@ module ssccs_xif_coprocessor (
     ck_even u_ck_even (.coord(coord), .result(ck_even_r));
     ck_range_010 u_ck_range010 (.coord(coord), .result(ck_range010_r));
 
-    // Range check: MIN_VAL from rs3 (defaults to 0), MAX_VAL from rs2
-    //
-    // These three carry their bound in a register rather than in a parameter, because an XIF instruction carries
-    // its operands. A parameter cannot take a signal, so the units in constraints/ stay the constant-bound form
-    // the model describes and the coprocessor compares against the operand it was given.
-    assign ck_range_r = (coord >= extra) && (coord <= param);
-    assign ck_eq_r    = (coord == param);
-    assign ck_gt_r    = (coord > param);
+    // The bound arrives in a register, which is the form the units take: the reference asm does the same, with the
+    // bound in a1 or a2. Range takes min from rs3 and max from rs2; equality and threshold take it from rs2.
+    ck_range u_ck_range (.coord(coord), .min_val(extra), .max_val(param), .result(ck_range_r));
+    ck_eq    u_ck_eq    (.coord(coord), .target(param),                 .result(ck_eq_r));
+    ck_gt    u_ck_gt    (.coord(coord), .threshold(param),              .result(ck_gt_r));
 
     // Composition: uses two constraint results from external registers
     // (rs1 = C₁ result, rs2 = C₂ result)

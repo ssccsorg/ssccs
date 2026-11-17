@@ -27,7 +27,8 @@ cd "$(dirname "$0")"
 TOP=ssccs_anchor_board
 TB=ssccs_anchor_board_tb
 SV=../../sv
-SOURCES="$TOP.sv $SV/observe.sv $SV/constraints/ck_even.sv $SV/constraints/ck_range_010.sv"
+SOURCES="$TOP.sv $SV/observe.sv $SV/constraints/ck_even.sv $SV/constraints/ck_range.sv \
+         $SV/constraints/ck_eq.sv $SV/constraints/ck_gt.sv"
 LPF=$TOP.lpf
 REJTAG=1,3
 
@@ -72,7 +73,8 @@ sim() {
     echo "--- verilator: $TB over $n anchors, both controls ---"
     verilator --binary --timing -DSIM -I"$SV" -GCOUNT="$n" --top-module "$TB" \
         -Wno-fatal -Wno-WIDTH -Wno-UNUSED -Wno-PROCASSINIT \
-        "$TB.sv" "$TOP.sv" "$SV/observe.sv" "$SV/constraints/ck_even.sv" "$SV/constraints/ck_range_010.sv" \
+        "$TB.sv" "$TOP.sv" "$SV/observe.sv" "$SV/constraints/ck_even.sv" "$SV/constraints/ck_range.sv" \
+        "$SV/constraints/ck_eq.sv" "$SV/constraints/ck_gt.sv" \
         -o tb_anchor > out/build_tb.log 2>&1 || { cat out/build_tb.log; fail "verilator build failed"; }
     ./obj_dir/tb_anchor \
         +coord=out/pass/anchor_coord.hex +narrow=out/pass/anchor_narrow.hex +broad=out/pass/anchor_broad.hex \
