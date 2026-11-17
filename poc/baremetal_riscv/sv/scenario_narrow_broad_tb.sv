@@ -60,6 +60,28 @@ module scenario_narrow_broad_tb;
     assign coords[3] = SEG_3;
     assign coords[4] = SEG_4;
 
+    // Signed order anchors: a negative coordinate against negative bounds, where an unsigned compare disagrees.
+    wire signed_range_lo;
+    wire signed_range_hi;
+    wire signed_gt_a;
+    wire signed_gt_b;
+
+    ck_range u_signed_range_lo (
+        .coord(-64'sd2), .min_val(-64'sd10), .max_val(64'sd10), .result(signed_range_lo)
+    );
+
+    ck_range u_signed_range_hi (
+        .coord(-64'sd2), .min_val(64'sd0), .max_val(64'sd10), .result(signed_range_hi)
+    );
+
+    ck_gt u_signed_gt_a (
+        .coord(-64'sd2), .threshold(-64'sd5), .result(signed_gt_a)
+    );
+
+    ck_gt u_signed_gt_b (
+        .coord(-64'sd5), .threshold(-64'sd2), .result(signed_gt_b)
+    );
+
     generate
         for (i = 0; i < 5; i = i + 1) begin : gen_constraints
 
@@ -154,6 +176,25 @@ module scenario_narrow_broad_tb;
         $display("  coord=12 → VALID, result=%0d (even)", result_broad[4]);
 
         $display("");
+        // The order the space uses is i64's, so a negative bound is inside its own range.
+        $display("");
+        $display("Signed order (negative coordinate, negative bounds):");
+        assert (signed_range_lo == `GOLDEN_SIGNED_RANGE_0) else
+            $error("SIGNED_RANGE[0] FAIL: got %0d, expected %0d", signed_range_lo, `GOLDEN_SIGNED_RANGE_0);
+        $display("  range(-2, -10, 10) = %0d", signed_range_lo);
+
+        assert (signed_range_hi == `GOLDEN_SIGNED_RANGE_1) else
+            $error("SIGNED_RANGE[1] FAIL: got %0d, expected %0d", signed_range_hi, `GOLDEN_SIGNED_RANGE_1);
+        $display("  range(-2,   0, 10) = %0d", signed_range_hi);
+
+        assert (signed_gt_a == `GOLDEN_SIGNED_GT_0) else
+            $error("SIGNED_GT[0] FAIL: got %0d, expected %0d", signed_gt_a, `GOLDEN_SIGNED_GT_0);
+        $display("  gt(-2, -5) = %0d", signed_gt_a);
+
+        assert (signed_gt_b == `GOLDEN_SIGNED_GT_1) else
+            $error("SIGNED_GT[1] FAIL: got %0d, expected %0d", signed_gt_b, `GOLDEN_SIGNED_GT_1);
+        $display("  gt(-5, -2) = %0d", signed_gt_b);
+
         $display("=== All Golden Anchors Verified ===");
         $finish;
     end

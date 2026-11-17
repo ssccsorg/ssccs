@@ -31,6 +31,7 @@ BIN     := $(OBJDIR)/V$(TOP)
 SVSRCS  := $(SVDIR)/constraints/ck_even.sv \
            $(SVDIR)/constraints/ck_range.sv \
            $(SVDIR)/constraints/ck_range_010.sv \
+           $(SVDIR)/constraints/ck_gt.sv \
            $(SVDIR)/observe.sv \
            $(SVDIR)/scenario_narrow_broad_tb.sv
 

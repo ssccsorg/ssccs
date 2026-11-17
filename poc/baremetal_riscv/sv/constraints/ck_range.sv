@@ -25,7 +25,8 @@ module ck_range (
     output logic        result
 );
 
-    // Unsigned, which is the space's own coordinate order.
-    assign result = (coord >= min_val) && (coord <= max_val);
+    // Signed, because a coordinate is an i64 and the reference assembly compares with slt. An unsigned compare
+    // would put every negative coordinate above every positive one.
+    assign result = ($signed(coord) >= $signed(min_val)) && ($signed(coord) <= $signed(max_val));
 
 endmodule

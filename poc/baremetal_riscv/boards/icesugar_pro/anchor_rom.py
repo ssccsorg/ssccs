@@ -46,7 +46,7 @@ NAMES = {
     "BROAD": "anchor_broad.hex",
     "PROGRAM": "anchor_inquiry.hex",
 }
-WIDTH = {"SEG": 4, "NARROW": 16, "BROAD": 16, "PROGRAM": 16}
+WIDTH = {"SEG": 16, "NARROW": 16, "BROAD": 16, "PROGRAM": 16}
 
 # The host's model of each kind. The die's model is the SystemVerilog under sv/, written separately, so a table
 # computed here is a second opinion rather than the same code twice.
@@ -152,10 +152,11 @@ def main() -> None:
 
     if args.generative:
         # Kinds and bounds the anchored scenario never uses: a threshold on one side, equality on the other.
+        coord = [-2, 3, 5, 10, 12]
         narrow_a = slot(units["UNIT_EVEN"])
-        narrow_b = slot(units["UNIT_GT"], 8)
-        broad_a = slot(units["UNIT_RANGE"], 0, 10)
-        broad_b = slot(units["UNIT_EQ"], 3)
+        narrow_b = slot(units["UNIT_GT"], -1)
+        broad_a = slot(units["UNIT_RANGE"], -10, 10)
+        broad_b = slot(units["UNIT_EQ"], -2)
         narrow_op = units["COMPOSE_AND"]
         broad_op = units["COMPOSE_OR"]
         narrow = [observe(value, compose(units, narrow_a, narrow_b, narrow_op, value), sentinel) for value in coord]
@@ -184,8 +185,11 @@ def main() -> None:
 
     out = pathlib.Path(args.out_dir)
     out.mkdir(parents=True, exist_ok=True)
+    exact = (1 << 64) - 1
     for name, values in (("SEG", coord), ("NARROW", narrow), ("BROAD", broad)):
-        (out / NAMES[name]).write_text("".join(f"{value:0{WIDTH[name]}X}\n" for value in values))
+        (out / NAMES[name]).write_text(
+            "".join(f"{value & exact:0{WIDTH[name]}X}\n" for value in values)
+        )
 
     # The inquiry: a descriptor, then two operands for each of the four slots the descriptor names.
     words = [
@@ -195,7 +199,7 @@ def main() -> None:
         broad_a[1], broad_a[2],
         broad_b[1], broad_b[2],
     ]
-    (out / NAMES["PROGRAM"]).write_text("".join(f"{word:016X}\n" for word in words))
+    (out / NAMES["PROGRAM"]).write_text("".join(f"{word & exact:016X}\n" for word in words))
 
     rejected = sum(1 for value in narrow if value == REJECT)
     print(f"{len(coord)} anchors, {rejected} of them rejections{note}")

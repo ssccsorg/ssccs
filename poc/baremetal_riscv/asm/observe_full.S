@@ -411,6 +411,11 @@ BATCH_COORDS: .8byte SEG_0, SEG_1, SEG_2, SEG_3, SEG_4
 # GOLDEN_SUM3D_B: 6
 # GOLDEN_PARITY_2: 0
 # GOLDEN_PARITY_3: 1
+# GOLDEN_SIGNED_RANGE: 1,0
+#   ck_range(-2, -10, 10) = 1 and ck_range(-2, 0, 10) = 0. The bounds are signed, so the first range holds the
+#   coordinate and the second does not.
+# GOLDEN_SIGNED_GT: 1,0
+#   ck_gt(-2, -5) = 1 and ck_gt(-5, -2) = 0.
 
 # ═══════════════════════════════════════════════════════════════════
 # Operator-Level Composition: Pipeline (Compose)

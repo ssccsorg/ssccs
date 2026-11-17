@@ -12,7 +12,11 @@
 //
 // A selector names a kind of constraint. The bound it applies is data, so one unit serves every bound and a
 // table can state a constraint this file has never heard of. A selector in a table emitted for a substrate means
-// the unit this file gives it, and nothing else. The generator
+// the unit this file gives it.
+//
+// A coordinate is a signed 64-bit value and every order comparison is signed. The reference assembly compares with
+// slt and the Rust fallback compares i64, so an unsigned compare in a substrate would put every negative
+// coordinate above every positive one and the anchors would catch it., and nothing else. The generator
 // under boards/ reads these numbers from here, so an emitter and a substrate cannot disagree about which unit a
 // selector means, and a new unit is one line in one place rather than a convention in a board's README.
 //

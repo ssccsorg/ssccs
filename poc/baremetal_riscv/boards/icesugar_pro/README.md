@@ -75,21 +75,26 @@ The negative control is a second image. `anchor_rom.py --swap 1,3` exchanges the
 lines that carry 3 and 10, which leaves the same coordinates and the same multiset of expectations, so a checksum
 over the table would not notice. The die refuses it.
 
-The second control is about this design rather than this table. `anchor_rom.py --generative` writes an inquiry
-that uses kinds and bounds the scenario never uses: even and a threshold of 8 intersected for the narrow
-observation, and a range united with an equality for the broad one. It computes the expectations in the generator
-instead of reading them from the anchors, and the same build answers the new inquiry in simulation. What the image
-holds is the kinds, and what the table holds is the constraint.
+The second control is about this design rather than this table. `anchor_rom.py --generative` writes coordinates
+and an inquiry the scenario never uses: -2 among the five points, a threshold of -1, and a range from -10 to 10
+united with an equality. It computes the expectations in the generator instead of reading them from the anchors,
+and the same build answers the new inquiry. What the image holds is the kinds, and what the table holds is the
+constraint.
+
+That table is also the signedness check. A coordinate is the space's own i64, so `ck_range` and `ck_gt` compare
+signed, as the reference assembly does with `slt`. Flip either unit to an unsigned compare and the anchored tables
+still pass, because their bounds are non-negative, while the third table fails: the die rejects the point it should
+accept. On the carrier that image answers 1, which is the die saying its order is the space's.
 
 ## The image
 
 | | pass | swap | other inquiry |
 |---|---:|---:|---:|
-| `TRELLIS_COMB` | 139 / 24,288 | 157 / 24,288 | 140 / 24,288 |
+| `TRELLIS_COMB` | 145 / 24,288 | 150 / 24,288 | 313 / 24,288 |
 | `DP16KD` | 0 | 0 | 0 |
-| Clock | 137.21 MHz | 144.20 MHz | 140.77 MHz |
-| `pin_match` | 1 | 0 | 1 in simulation |
-| Stage three | green | red | not built |
+| Clock | 154.66 MHz | 143.82 MHz | 92.13 MHz |
+| `pin_match` | 1 | 0 | 1 |
+| Stage three | green | red | green |
 
 The area follows the table rather than the design: a kind the table never names is optimised away, so the image
 that uses only the even and range kinds is smaller than the one whose broad observation unites. What the design
