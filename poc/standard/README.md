@@ -20,7 +20,7 @@ The PoC is organized as a **Rust workspace** with multiple crates, enabling inde
 
 | Crate | Purpose |
 |-------|---------|
-| **`ssccs-core`** | Absolute primitives: `Segment`, `Coordinates`, `Constraint`, `Field`, `TransitionMatrix`, `Projector` trait, and observation functions. |
+| **`ssccs-core`** | Absolute primitives: `Segment`, `Coordinates`, `Constraint`, `Field`, `TransitionMatrix`, `Projector` trait, observation functions, and Field evolution (triggers, log, versions). |
 | **`ssccs-primitive`** | Scheme abstraction layer: `Scheme`, `SchemeBuilder`, `SchemeTrait`, structural relations, constraints, observation rules, and memory layout abstractions. |
 | **`ssccs-schemes`** | Concrete Scheme implementations and developer input types: `Grid2DTemplate`, `IntegerLineTemplate`, `GraphTemplate`, `Tensor3DTemplate`, `CompositeScheme`, `TransformedScheme`, `BooleanSpace`, `IntegerSpace`. |
 | **`ssccs-examples`** | Shared utilities for experiments: projector implementations (`IntegerProjector`, `ArithmeticProjector`, `ParityProjector`, `CoordinateSumProjector`), compiler pipeline, `.ss` binary parser, assembly data emitter, branchless constraint gate emitter, and test constraints. |
@@ -31,7 +31,7 @@ The validation-only benchmark suite lives outside this workspace at [`/poc/bench
 
 ### Constitutional Concepts
 
-The eleven concepts live in one crate, `ssccs-concepts`, as one binary each. Each binary is still compiled and run on its own, so a concept can be changed and checked without the others, and the workspace carries one member instead of eleven:
+The twelve concepts live in one crate, `ssccs-concepts`, as one binary each. Each binary is still compiled and run on its own, so a concept can be changed and checked without the others, and the workspace carries one member instead of twelve:
 
 | Binary | Test |
 |-------|------|
@@ -44,6 +44,7 @@ The eleven concepts live in one crate, `ssccs-concepts`, as one binary each. Eac
 | **`concept-adjacency`** | Adjacency memory - structural neighbor relationships |
 | **`concept-composite`** | Composite & Transformed Schemes - scheme composition and geometric transformation |
 | **`concept-transition`** | Transition Matrix - weighted directed graph for relational topology |
+| **`concept-evolution`** | Field Evolution - a log of events, triggers over it, and the version each update moves |
 | **`concept-integrated`** | Integrated Workflow - complete SSCCS pipeline demonstration |
 | **`experiment-data-processing`** | Observation-centric data processing against an imperative baseline, asserting that both agree |
 

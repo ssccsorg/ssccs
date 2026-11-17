@@ -219,7 +219,7 @@ ALL_TOTAL=0
 
 for ws in "${WORKSPACES[@]}"; do
     echo "  Workspace: $ws"
-    # Bin target names, not package names: a crate may carry several binaries, and the concept crate carries eleven.
+    # Bin target names, not package names: a crate may carry several binaries, and the concept crate carries twelve.
     BIN_CRATES=$(cd "$ws" && cargo metadata --format-version=1 --no-deps 2>/dev/null | \
         jq -r '.packages[] | .targets[] | select(.kind[] | contains("bin")) | .name' 2>/dev/null | sort)
     [ -z "$BIN_CRATES" ] && echo "    No binary crates" && continue
