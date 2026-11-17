@@ -323,22 +323,22 @@ fi
 
 echo ""
 echo "─────────────────────────────────────────────────────────────"
-echo "Step 8: Running the board image's anchor table (Verilator)..."
+echo "Step 8: Running the board images' anchor table (Verilator)..."
 BOARD_DIR="$SCRIPT_DIR/baremetal_riscv/boards/icesugar_pro"
 BOARD_FAILED=1
 if [ -x "$BOARD_DIR/build.sh" ] && command -v verilator &>/dev/null && command -v python3 &>/dev/null; then
     set +e
     BOARD_LOG=$(mktemp)
-    (cd "$BOARD_DIR" && ./build.sh rom && ./build.sh sim) >"$BOARD_LOG" 2>&1
+    (cd "$BOARD_DIR" && ./build.sh rom && ./build.sh sim data && ./build.sh sim generated) >"$BOARD_LOG" 2>&1
     BOARD_STATUS=$?
     if [ $BOARD_STATUS -eq 0 ]; then
         grep -E "^PASS: pin_match" "$BOARD_LOG" || true
-        echo "  Board image: PASSED"
+        echo "  Board images: PASSED"
         BOARD_FAILED=0
     else
         cat "$BOARD_LOG"
-        echo "  Board image: FAILED (exit $BOARD_STATUS)"
-        ALL_FAILED+=("board image")
+        echo "  Board images: FAILED (exit $BOARD_STATUS)"
+        ALL_FAILED+=("board images")
     fi
     rm -f "$BOARD_LOG"
     set -e
@@ -357,7 +357,7 @@ echo "Tests:         PASSED"
 echo "Binary crates: $ALL_PASSED/$ALL_TOTAL passed"
 echo "Local scripts: $([ $LOCAL_FAILED -eq 0 ] && echo 'PASSED' || echo 'FAILED')"
 echo "SystemVerilog: $([ $SV_FAILED -eq 0 ] && echo 'PASSED' || echo 'SKIPPED')"
-echo "Board image:   $([ $BOARD_FAILED -eq 0 ] && echo 'PASSED' || echo 'SKIPPED')"
+echo "Board images:  $([ $BOARD_FAILED -eq 0 ] && echo 'PASSED' || echo 'SKIPPED')"
 echo ""
 
 if [ ${#ALL_FAILED[@]} -eq 0 ] && [ $LOCAL_FAILED -eq 0 ]; then
