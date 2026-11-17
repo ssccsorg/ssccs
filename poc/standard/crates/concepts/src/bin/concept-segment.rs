@@ -44,4 +44,9 @@ fn main() {
     println!("\nTotal:  {}", passed + failed);
     println!("Passed: {}", passed);
     println!("Failed: {}", failed);
+
+    // A concept that prints its failures and exits zero is a report rather than a check.
+    if failed > 0 {
+        std::process::exit(1);
+    }
 }

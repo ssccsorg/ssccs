@@ -7,7 +7,7 @@ This directory contains proof-of-concept implementations of the Schema-Segment C
 ```text
 poc/
 ├── standard/               Main Rust workspace (host CPU simulation)
-│   ├── Cargo.toml          Workspace manifest with 17 member crates
+│   ├── Cargo.toml          Workspace manifest with 7 member crates
 │   ├── crates/
 │   │   ├── core/           Absolute primitives (Segment, Field, Projector trait)
 │   │   ├── primitive/      Scheme abstraction layer
@@ -57,7 +57,7 @@ Rust workspace targeting x86_64 / aarch64. Implements the complete SSCCS ontolog
 | Scheme | `ssccs-primitive` | Scheme, SchemeBuilder, SchemeTrait, Axis, StructuralRelation, MemoryLayout, ObservationRules |
 | Scheme | `ssccs-schemes` | Grid2DTemplate, IntegerLineTemplate, GraphTemplate, Tensor3DTemplate, CompositeScheme, TransformedScheme, BooleanSpace, IntegerSpace |
 | Utilities | `ssccs-examples` | IntegerProjector, ArithmeticProjector, ParityProjector, CoordinateSumProjector, CompilerPipeline, .ss parser, assembly data emitter, branchless constraint gate emitter |
-| Experiments | `concept-segment` through `concept-integrated` plus `concept-data-processing` | Each crate tests one constitutional concept independently |
+| Experiments | `ssccs-concepts` | Eleven binaries, one per constitutional concept; each is compiled, run and gated on its own |
 | Research | `ssccs-field-synthesis` | Field composition algebra (research) |
 | Research | `ssccs-hardware-mapping` | Scheme-to-hardware mapping (research) |
 
