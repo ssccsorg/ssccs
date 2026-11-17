@@ -77,8 +77,15 @@ The bounds are structure. The inquiry table keeps a kind and its operands as dat
 constraint its fabric never saw, and that image is hand-written. The two cases are different designs rather than
 two settings of one, and neither substitutes for the other.
 
-The Scheme half is hand-written. The coordinate enumeration, the sweep counter, the fill, the mismatch count and
-the verdict belong to the top, not to the emitter; what the host writes is the Field half of the observation.
+The Scheme half is partly emitted. `ssccs_hardware_mapping::address_decode` derives each axis's offset, step and
+size from a Scheme's own segments and writes a decoder: an address in, one coordinate per axis out, with `valid`
+low past the last segment. A Scheme that is not a product of equally spaced axes is refused rather than encoded,
+because a decoder over an arbitrary set would be a table. What stays hand-written is the sweep, the fill, the
+mismatch count and the verdict, which are the harness rather than the Scheme.
+
+The decoder's check is a sweep: `make -C sv decode-check` drives every address and compares the module's arithmetic
+against a table the host wrote from the Scheme's segments. One side divides, the other looks up, so an address that
+lands on different coordinates in the two is a disagreement between two derivations of one space.
 
 The generative channel belongs to the data image. A program fixed at generation time cannot answer a kind it was
 not generated for, so the inquiry of unused kinds, which is also the signedness check, has no image on the emitted
@@ -95,11 +102,12 @@ side.
 
 ## Open
 
-The Scheme half needs a scheme-to-anchor path before it can be emitted. The anchors' coordinate set is a fixture and
-the expectations must stay one, since an expectation computed by the thing being checked is not a check. What can be
-emitted is the coordinate mapping, which is a projection of a Scheme and not of the fixture; that is a subject of
-its own.
+A decoded space has no carrier yet. The board images read tables of five chosen points, and a decoder over chosen
+points would be a table; wiring a Scheme's decoded space onto the ECP5 is a third image and its own subject.
 
-The generative channel on the emitted image needs a second generation, because the program is fixed when the module
-is written. It is a build mode rather than a change to the emitter, and it would let a die run a negative bound
-through a generated module rather than a text test.
+Scheme determinism came with the decoder. `Scheme` held its segments in a `HashMap`, whose iteration order changes
+between runs, so "enumerate a Scheme" was not reproducible and an address map had nothing to be defined on. The
+segments are a `BTreeMap` now, ordered by identity.
+
+An emitted model that reads a bound at run time has no emitter. The unit table on the board is still the only
+place a constraint is data rather than structure, and it is hand-written.

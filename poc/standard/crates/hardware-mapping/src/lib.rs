@@ -18,7 +18,9 @@
 //! The mapping table says which primitive a composition becomes. [`sv_emit`] writes the SystemVerilog for a
 //! constraint program, which is the same table applied to a Scheme's admissible set.
 
+pub mod address_decode;
 pub mod sv_emit;
+pub use address_decode::*;
 pub use sv_emit::*;
 
 pub use ssccs_core::{Coordinates, Segment};

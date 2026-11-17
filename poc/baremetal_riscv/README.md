@@ -61,6 +61,21 @@ three tables, and the anchors grade both. The emitted image is 139 LUT4 at 137.4
 145 and 154.66 MHz, and the generative inquiry stays with the data image because a baked program has no answer
 for a kind it was not generated for.
 
+## The Emitted Address Decode
+
+The other half of a substrate is the Scheme: an address in, the coordinate it holds out. `ssccs-hardware-mapping`
+derives each axis's offset, step and size from a Scheme's own segments and writes that decoder, or refuses the
+Scheme when its segments are not a product of equally spaced axes. A graph or a set of chosen points would make the
+decoder a table, and the point of the decode is arithmetic.
+
+```bash
+make -C sv generate      # writes generated/*.sv and the tables the sweep compares against
+make -C sv decode-check  # every address, against the Scheme's own segments
+```
+
+Nothing on a carrier reads that decoder yet: the board images read tables of chosen points, and a decoded space on
+the ECP5 is its own subject.
+
 ## Target Reality
 
 This crate has two distinct paths with different target requirements:
