@@ -60,32 +60,37 @@ module xif_integration_tb;
     always #5 clk = ~clk;  // 100 MHz
 
     // Issue helper: custom1 (CONSTRAINT, COMPOSE)
+    //
+    // Valid is held for one edge and ready is held high, so the coprocessor walks IDLE to ACCEPT to RESPOND in
+    // three edges and the result is read from the first. Waiting on ready after the accepting edge is waiting for
+    // a signal the accept has already cleared, which is what made this testbench hang when it was finally built.
     task automatic issue_custom1(
         input [2:0]  f3,
+        input [2:0]  sub,
         input [4:0]  rd,
         input [63:0] rs1_val,
-        input [63:0] rs2_val
+        input [63:0] rs2_val,
+        input [63:0] rs3_val = 64'd0
     );
     begin
         issue_valid  = 1'b1;
-        issue_instr  = {5'd0, 5'd0, rs2_val[4:3], f3, rd, `OPCODE_CUSTOM1};
+        issue_instr  = {sub, 14'd0, f3, rd, `OPCODE_CUSTOM1};
         issue_rs1    = rs1_val;
         issue_rs2    = rs2_val;
-        issue_rs3    = 64'd0;
-        result_ready = 1'b1;
+        issue_rs3    = rs3_val;
 
         @(posedge clk);
-        while (!issue_ready) @(posedge clk);
+        @(negedge clk);
         issue_valid = 1'b0;
         @(posedge clk);
-        while (!result_valid) @(posedge clk);
-        result_ready = 1'b0;
+        @(posedge clk);
     end
     endtask
 
     // Issue helper: custom2 (PROJECT, COLLAPSE)
     task automatic issue_custom2(
         input [2:0]  f3,
+        input [2:0]  sub,
         input [4:0]  rd,
         input [63:0] rs1_val,
         input [63:0] rs2_val,
@@ -93,18 +98,16 @@ module xif_integration_tb;
     );
     begin
         issue_valid  = 1'b1;
-        issue_instr  = {5'd0, 5'd0, rs2_val[4:3], f3, rd, `OPCODE_CUSTOM2};
+        issue_instr  = {sub, 14'd0, f3, rd, `OPCODE_CUSTOM2};
         issue_rs1    = rs1_val;
         issue_rs2    = rs2_val;
         issue_rs3    = rs3_val;
-        result_ready = 1'b1;
 
         @(posedge clk);
-        while (!issue_ready) @(posedge clk);
+        @(negedge clk);
         issue_valid = 1'b0;
         @(posedge clk);
-        while (!result_valid) @(posedge clk);
-        result_ready = 1'b0;
+        @(posedge clk);
     end
     endtask
 
@@ -113,7 +116,9 @@ module xif_integration_tb;
         clk   = 0;
         rst_n = 0;
         issue_valid  = 1'b0;
-        result_ready = 1'b0;
+        // Held high: the coprocessor leaves ACCEPT on the edge after it presents a result, and a ready that drops
+        // between presentations stalls the unit in ACCEPT.
+        result_ready = 1'b1;
 
         #20 rst_n = 1;
         #10;
@@ -123,26 +128,26 @@ module xif_integration_tb;
 
         // Test 1: ck_even on BATCH_COORDS
         $display("-- Constraint: ck_even --");
-        issue_custom1(`FUNCT3_CONSTRAINT, 5'd10, `GOLDEN_SEG_0, {61'd0, `OP_CK_EVEN});
+        issue_custom1(`FUNCT3_CONSTRAINT, `OP_CK_EVEN, 5'd10, `GOLDEN_SEG_0, 64'd0);
         assert(result_data[0] == 1'b1) else $error("ck_even(2): expected 1, got %0d", result_data[0]);
         $display("  ck_even(2)  = %0d  ← GOLDEN (even)", result_data[0]);
 
-        issue_custom1(`FUNCT3_CONSTRAINT, 5'd10, `GOLDEN_SEG_1, {61'd0, `OP_CK_EVEN});
+        issue_custom1(`FUNCT3_CONSTRAINT, `OP_CK_EVEN, 5'd10, `GOLDEN_SEG_1, 64'd0);
         assert(result_data[0] == 1'b0) else $error("ck_even(3): expected 0");
         $display("  ck_even(3)  = %0d  ← GOLDEN (odd)", result_data[0]);
 
-        issue_custom1(`FUNCT3_CONSTRAINT, 5'd10, `GOLDEN_SEG_4, {61'd0, `OP_CK_EVEN});
+        issue_custom1(`FUNCT3_CONSTRAINT, `OP_CK_EVEN, 5'd10, `GOLDEN_SEG_4, 64'd0);
         assert(result_data[0] == 1'b1) else $error("ck_even(12): expected 1");
         $display("  ck_even(12) = %0d  ← GOLDEN (even)", result_data[0]);
 
         // Test 2: ck_range_010
         $display("");
         $display("-- Constraint: ck_range_010 --");
-        issue_custom1(`FUNCT3_CONSTRAINT, 5'd10, `GOLDEN_SEG_3, {61'd0, `OP_CK_RANGE_010});
+        issue_custom1(`FUNCT3_CONSTRAINT, `OP_CK_RANGE_010, 5'd10, `GOLDEN_SEG_3, 64'd0);
         assert(result_data[0] == 1'b1) else $error("ck_range(10): expected 1");
         $display("  ck_range(10) = %0d  ← GOLDEN (in range)", result_data[0]);
 
-        issue_custom1(`FUNCT3_CONSTRAINT, 5'd10, `GOLDEN_SEG_4, {61'd0, `OP_CK_RANGE_010});
+        issue_custom1(`FUNCT3_CONSTRAINT, `OP_CK_RANGE_010, 5'd10, `GOLDEN_SEG_4, 64'd0);
         assert(result_data[0] == 1'b0) else $error("ck_range(12): expected 0");
         $display("  ck_range(12) = %0d  ← GOLDEN (out of range)", result_data[0]);
 
@@ -153,28 +158,28 @@ module xif_integration_tb;
 
         // Build narrow results by querying each constraint then composing
         // coord=2: even=1, range=1 -> narrow=VALID
-        issue_custom1(`FUNCT3_CONSTRAINT, 5'd11, `GOLDEN_SEG_0, {61'd0, `OP_CK_EVEN});
+        issue_custom1(`FUNCT3_CONSTRAINT, `OP_CK_EVEN, 5'd11, `GOLDEN_SEG_0, 64'd0);
         assert(result_data[0] == 1'b1) else $error("ck_even(2): expected 1");
-        issue_custom1(`FUNCT3_CONSTRAINT, 5'd12, `GOLDEN_SEG_0, {61'd0, `OP_CK_RANGE_010});
+        issue_custom1(`FUNCT3_CONSTRAINT, `OP_CK_RANGE_010, 5'd12, `GOLDEN_SEG_0, 64'd0);
         assert(result_data[0] == 1'b1) else $error("ck_range_010(2): expected 1");
         $display("  coord=2:  even=1, range=1 -> narrow=VALID");
 
         // coord=3: even=0 -> narrow=REJECT regardless of range
-        issue_custom1(`FUNCT3_CONSTRAINT, 5'd11, `GOLDEN_SEG_1, {61'd0, `OP_CK_EVEN});
+        issue_custom1(`FUNCT3_CONSTRAINT, `OP_CK_EVEN, 5'd11, `GOLDEN_SEG_1, 64'd0);
         assert(result_data[0] == 1'b0) else $error("ck_even(3): expected 0");
         $display("  coord=3:  even=0 -> narrow=REJECT (odd)");
 
         // coord=10: even=1, range=1 -> narrow=VALID
-        issue_custom1(`FUNCT3_CONSTRAINT, 5'd11, `GOLDEN_SEG_3, {61'd0, `OP_CK_EVEN});
+        issue_custom1(`FUNCT3_CONSTRAINT, `OP_CK_EVEN, 5'd11, `GOLDEN_SEG_3, 64'd0);
         assert(result_data[0] == 1'b1) else $error("ck_even(10): expected 1");
-        issue_custom1(`FUNCT3_CONSTRAINT, 5'd12, `GOLDEN_SEG_3, {61'd0, `OP_CK_RANGE_010});
+        issue_custom1(`FUNCT3_CONSTRAINT, `OP_CK_RANGE_010, 5'd12, `GOLDEN_SEG_3, 64'd0);
         assert(result_data[0] == 1'b1) else $error("ck_range_010(10): expected 1");
         $display("  coord=10: even=1, range=1 -> narrow=VALID");
 
         // coord=12: even=1, range=0 -> narrow=REJECT
-        issue_custom1(`FUNCT3_CONSTRAINT, 5'd11, `GOLDEN_SEG_4, {61'd0, `OP_CK_EVEN});
+        issue_custom1(`FUNCT3_CONSTRAINT, `OP_CK_EVEN, 5'd11, `GOLDEN_SEG_4, 64'd0);
         assert(result_data[0] == 1'b1) else $error("ck_even(12): expected 1");
-        issue_custom1(`FUNCT3_CONSTRAINT, 5'd12, `GOLDEN_SEG_4, {61'd0, `OP_CK_RANGE_010});
+        issue_custom1(`FUNCT3_CONSTRAINT, `OP_CK_RANGE_010, 5'd12, `GOLDEN_SEG_4, 64'd0);
         assert(result_data[0] == 1'b0) else $error("ck_range_010(12): expected 0");
         $display("  coord=12: even=1, range=0 -> narrow=REJECT (out of range)");
 
@@ -182,26 +187,57 @@ module xif_integration_tb;
         $display("");
         $display("-- Composition: AND / OR --");
         // compose_and(1, 1) = 1
-        issue_custom1(`FUNCT3_COMPOSE, 5'd15, {63'd0, 1'b1}, {61'd0, `OP_COMPOSE_AND, 1'b1});
+        issue_custom1(`FUNCT3_COMPOSE, `OP_COMPOSE_AND, 5'd15, {63'd0, 1'b1}, {63'd0, 1'b1});
         assert(result_data[0] == 1'b1) else $error("compose_and(1,1): expected 1");
         $display("  compose_and(1,1) = %0d", result_data[0]);
 
         // compose_or(0, 1) = 1
-        issue_custom1(`FUNCT3_COMPOSE, 5'd15, {63'd0, 1'b0}, {61'd0, `OP_COMPOSE_OR, 1'b1});
+        issue_custom1(`FUNCT3_COMPOSE, `OP_COMPOSE_OR, 5'd15, {63'd0, 1'b0}, {63'd0, 1'b1});
         assert(result_data[0] == 1'b1) else $error("compose_or(0,1): expected 1");
         $display("  compose_or(0,1)  = %0d", result_data[0]);
+
+        // Test 4b: a bound that arrives in a register rather than in a parameter
+        $display("");
+        $display("-- Constraint: range, equality and threshold from operands --");
+        issue_custom1(`FUNCT3_CONSTRAINT, `OP_CK_RANGE, 5'd13, `GOLDEN_SEG_2, 64'd10, 64'd0);
+        assert(result_data[0] == 1'b1) else $error("ck_range(5, min 0, max 10): expected 1");
+        $display("  ck_range(5, 0, 10)  = %0d", result_data[0]);
+
+        issue_custom1(`FUNCT3_CONSTRAINT, `OP_CK_RANGE, 5'd13, `GOLDEN_SEG_4, 64'd10, 64'd0);
+        assert(result_data[0] == 1'b0) else $error("ck_range(12, min 0, max 10): expected 0");
+        $display("  ck_range(12, 0, 10) = %0d", result_data[0]);
+
+        issue_custom1(`FUNCT3_CONSTRAINT, `OP_CK_RANGE, 5'd13, `GOLDEN_SEG_2, 64'd10, 64'd6);
+        assert(result_data[0] == 1'b0) else $error("ck_range(5, min 6, max 10): expected 0");
+        $display("  ck_range(5, 6, 10)  = %0d", result_data[0]);
+
+        issue_custom1(`FUNCT3_CONSTRAINT, `OP_CK_EQ, 5'd14, `GOLDEN_SEG_3, `GOLDEN_SEG_3);
+        assert(result_data[0] == 1'b1) else $error("ck_eq(10, 10): expected 1");
+        $display("  ck_eq(10, 10)       = %0d", result_data[0]);
+
+        issue_custom1(`FUNCT3_CONSTRAINT, `OP_CK_EQ, 5'd14, `GOLDEN_SEG_1, `GOLDEN_SEG_3);
+        assert(result_data[0] == 1'b0) else $error("ck_eq(3, 10): expected 0");
+        $display("  ck_eq(3, 10)        = %0d", result_data[0]);
+
+        issue_custom1(`FUNCT3_CONSTRAINT, `OP_CK_GT, 5'd14, `GOLDEN_SEG_4, `GOLDEN_SEG_3);
+        assert(result_data[0] == 1'b1) else $error("ck_gt(12, 10): expected 1");
+        $display("  ck_gt(12, 10)       = %0d", result_data[0]);
+
+        issue_custom1(`FUNCT3_CONSTRAINT, `OP_CK_GT, 5'd14, `GOLDEN_SEG_3, `GOLDEN_SEG_3);
+        assert(result_data[0] == 1'b0) else $error("ck_gt(10, 10): expected 0");
+        $display("  ck_gt(10, 10)       = %0d", result_data[0]);
 
         // Test 5: Projectors (custom2 opcode)
         $display("");
         $display("-- Projector: Identity --");
-        issue_custom2(`FUNCT3_PROJECT, 5'd20, `GOLDEN_SEG_0, {61'd0, `OP_PROJ_ID}, 64'd0);
+        issue_custom2(`FUNCT3_PROJECT, `OP_PROJ_ID, 5'd20, `GOLDEN_SEG_0, 64'd0, 64'd0);
         assert(result_data == 64'd2) else $error("proj_id(2): expected 2, got %0d", result_data);
         $display("  proj_id(2) = %0d  <- GOLDEN", result_data);
 
         // Test 6: Projector parity
         $display("");
         $display("-- Projector: Parity --");
-        issue_custom2(`FUNCT3_PROJECT, 5'd21, `GOLDEN_SEG_1, {61'd0, `OP_PROJ_PARITY}, 64'd0);
+        issue_custom2(`FUNCT3_PROJECT, `OP_PROJ_PARITY, 5'd21, `GOLDEN_SEG_1, 64'd0, 64'd0);
         assert(result_data == 64'd1) else $error("proj_parity(3): expected 1, got %0d", result_data);
         $display("  proj_parity(3) = %0d  <- GOLDEN (odd)", result_data);
 

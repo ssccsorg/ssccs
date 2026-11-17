@@ -77,9 +77,7 @@ own crystal: five lines need no PLL, and a derived clock is a number the flow ha
 
 `proj_div` is not in the image. It synthesizes to 8,626 LUT4, a third of the 25F, and no anchor here needs it.
 
-`ssccs_xif_coprocessor.sv` is not in the image either. It passes signals to module parameters
-(`ck_range #(.MIN_VAL(extra), .MAX_VAL(param))`), which is not elaborable, so yosys refuses the file. A runtime
-range bound belongs on a port. Until that changes the XIF integration exists in Verilator only.
+`ssccs_xif_coprocessor.sv` is not in the image either, because no anchor here is issued as an instruction. It elaborates and synthesizes (281 LUT4), and its gate is `make -C sv xif-check`; putting it on the die needs a core to issue the instructions, and this image has none.
 
 No claim about rate. The die compares one line per clock and reports a verdict; the timing above is what the place
 and route flow reports, not a benchmark.
