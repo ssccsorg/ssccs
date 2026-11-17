@@ -60,7 +60,7 @@ Rust workspace targeting x86_64 / aarch64. Implements the complete SSCCS ontolog
 | Utilities | `ssccs-examples` | IntegerProjector, ArithmeticProjector, ParityProjector, CoordinateSumProjector, CompilerPipeline, .ss parser, assembly data emitter, branchless constraint gate emitter |
 | Experiments | `ssccs-concepts` | Eleven binaries, one per constitutional concept; each is compiled, run and gated on its own |
 | Research | `ssccs-field-synthesis` | Field composition algebra (research) |
-| Research | `ssccs-hardware-mapping` | Scheme-to-hardware mapping (research) |
+| Research | `ssccs-hardware-mapping` | Composition-to-primitive mapping, and the SystemVerilog emitter for a constraint program |
 
 Build commands run from `standard/`:
 

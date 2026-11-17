@@ -43,6 +43,20 @@ bash scripts/demo-ssccs-poc.sh
 #   parity:   {2,3}              →  0,1
 ```
 
+## The Emitted Module
+
+A fifth path writes the hardware instead of checking it. `ssccs-hardware-mapping` turns a constraint program into
+a module that instantiates the units under `sv/constraints/` with the bounds baked in:
+
+```bash
+make -C sv generate         # writes generated/*.sv, nothing there is committed
+make -C sv generated-check  # the emitted modules answer the same golden anchors in simulation
+make -C sv elaborate        # and every module, emitted ones included, elaborates
+```
+
+The bounds are structure in that path. The board under `boards/` keeps them as data, so one image answers an
+inquiry its fabric never saw. Both are designs, and they are separate ones.
+
 ## Target Reality
 
 This crate has two distinct paths with different target requirements:

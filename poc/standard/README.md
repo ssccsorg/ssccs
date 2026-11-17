@@ -52,7 +52,7 @@ The eleven concepts live in one crate, `ssccs-concepts`, as one binary each. Eac
 | Crate | Purpose |
 |-------|---------|
 | **`ssccs-field-synthesis`** | Placeholder for research on Field composition algebra and synthesis techniques. |
-| **`ssccs-hardware-mapping`** | Placeholder for research on mapping Schemes to hardware (CPU, FPGA, PIM). |
+| **`ssccs-hardware-mapping`** | Composition-to-primitive mapping, and the SystemVerilog emitter that writes a module from a constraint program. |
 | **`ssccs-hardware-integration`** | **Standard (std)** hardware abstraction layer for SSCCS observation. |
 | **`ssccs-compiler-opt`** | Placeholder for research on compiler optimisations and open-format-to-machine-code compilation. |
 
