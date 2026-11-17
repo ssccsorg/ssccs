@@ -3,6 +3,11 @@
 The SystemVerilog substrate on a device. The Rust workspace, the assembly under Spike and the SystemVerilog under
 Verilator each pin the same scenario; this builds that SystemVerilog for an ECP5 and reads the verdict off a pin.
 
+Two images live here and share the carrier's pins, the three anchor tables and the verdict logic. They differ in
+where the constraint comes from. `ssccs_anchor_board` carries kinds and bounds as data and answers an inquiry its
+fabric never saw. `ssccs_generated_board` carries a constraint the host emitter wrote into two modules, with the
+bounds baked in. The anchors grade both, so over the same table the two must return the same verdict.
+
 This folder belongs to the POC, not to a project built on it. The POC is the layer the projects materialize, so the
 image is built from the POC's own modules and its own anchors file. The only thing it shares with any other board
 work is the carrier's pin map, which is a property of the board.
@@ -23,7 +28,9 @@ expects for it: the narrow observation (even and in range) and the broad one (ev
 The die reads the line's coordinate, computes the two observations over it, and compares both results with the
 line's own. A pass closes when no line disagrees, so a single wrong coordinate is the same size as the whole table.
 
-The constraint is data. A fourth file holds a descriptor and eight operands: a kind and two 64-bit bounds for each
+## Where the constraint lives
+
+The data image carries a fourth file with a descriptor and eight operands: a kind and two 64-bit bounds for each
 of the four slots the descriptor names, two slots per observation. The kinds are the core's, in `sv/_units.svh`,
 and the generator reads them from there rather than repeating them.
 
@@ -36,6 +43,13 @@ and the generator reads them from there rather than repeating them.
 
 A kind the image does not carry answers zero, so an inquiry naming one fails rather than passes. Which kinds, which
 bounds, and which composition is in that file, so a different constraint changes the table and not the design.
+
+The generated image has no such file. `make -C sv generate` writes `ssccs_generated_narrow` and
+`ssccs_generated_broad` from a constraint program, and this top reads the coordinate, the narrow result and the
+broad result. The same constraint is a module rather than a row, so a different constraint there is a different
+module: the emitter is the source, and this image is one build of it. What it cannot do follows from that. A
+program fixed at generation time has no answer for a kind it was not generated for, so the generative inquiry has
+no image here and stays on the data one.
 
 `anchor_rom.py` writes the four files from `sv/_golden_anchors.svh`. Values transcribed by hand are values the
 anchors do not have to hold, so the ROM is generated and the generator refuses if the three tables disagree in
@@ -61,12 +75,15 @@ line agreed and red when one did not. PA14 on F5 is the iCELink's SWD clock, whi
 ## Commands
 
 ```sh
-./build.sh rom                 # the anchors, the exchange control, and a different inquiry
-./build.sh sim                 # Verilator: the table passes, the exchanged one does not, the other inquiry does
-./build.sh build pass          # yosys, nextpnr-ecp5, ecppack
-./build.sh flash pass          # write it, then release the reset
-./build.sh read                # gpio read PA13
+./build.sh rom                        # the anchors, the exchange control, and a different inquiry
+./build.sh sim [data|generated]       # Verilator: the table passes, the exchanged one does not, the other inquiry does
+./build.sh build [pass|swap] [data|generated]   # yosys, nextpnr-ecp5, ecppack
+./build.sh flash [pass|swap] [data|generated]   # write it, then release the reset
+./build.sh read                       # gpio read PA13
 ```
+
+The image word is `data` when it is left out. `sim generated` runs the pass and swap tables only, and `flash`,
+`build` and `read` take it the same way.
 
 `build`, `flash` and `read` need tools Homebrew does not package: `nextpnr-ecp5` and `ecppack` from OSS CAD Suite
 (set `OSS_CAD_SUITE` to its root), and `icesprog` (set `ICESPROG` to the binary).
@@ -86,24 +103,32 @@ signed, as the reference assembly does with `slt`. Flip either unit to an unsign
 still pass, because their bounds are non-negative, while the third table fails: the die rejects the point it should
 accept. On the carrier that image answers 1, which is the die saying its order is the space's.
 
-## The image
+## The images
 
-| | pass | swap | other inquiry |
-|---|---:|---:|---:|
-| `TRELLIS_COMB` | 145 / 24,288 | 150 / 24,288 | 313 / 24,288 |
-| `DP16KD` | 0 | 0 | 0 |
-| Clock | 154.66 MHz | 143.82 MHz | 92.13 MHz |
-| `pin_match` | 1 | 0 | 1 |
-| Stage three | green | red | green |
+| | data: pass | data: swap | data: other inquiry | generated: pass | generated: swap |
+|---|---:|---:|---:|---:|---:|
+| `TRELLIS_COMB` | 145 / 24,288 | 150 / 24,288 | 313 / 24,288 | 139 / 24,288 | 150 / 24,288 |
+| `DP16KD` | 0 | 0 | 0 | 0 | 0 |
+| Clock | 154.66 MHz | 143.82 MHz | 92.13 MHz | 137.49 MHz | 142.80 MHz |
+| `pin_match` | 1 | 0 | 1 | 1 | 0 |
+| Stage three | green | red | green | green | red |
 
-The area follows the table rather than the design: a kind the table never names is optimised away, so the image
-that uses only the even and range kinds is smaller than the one whose broad observation unites. What the design
-carries is all four kinds, and the third column is the build that names the ones the scenario does not use.
+Every column answers the same five anchors. The two `pass` columns are the same table read by two designs, and
+the two `swap` columns are the negative control in both.
 
-The ROM is 720 bits in five lines plus a 14 bit inquiry line, so the flow maps it into logic rather
-than block RAM. The clock is the board's
-own crystal: five lines need no PLL, and a derived clock is a number the flow has to constrain separately.
+The area follows the table rather than the design, because the flow maps the ROM into logic: five lines of three
+64-bit words are cheaper as gates than as a block RAM, so a different set of constants is a different amount of
+logic. The third column is the largest because a kind the inquiry never names is optimised away, and the build that
+names the unused kinds carries the decode for all four.
 
+The generated image is smaller than the data one on the same table, since it has no inquiry ROM and no
+kind selects, and its constraint network is two units rather than eight instances behind four five-way muxes. At
+this size both images are dominated by the same 25-bit counter, the comparison and the ROM, so the difference is
+a handful of LUTs rather than a ratio. The clock numbers are the place and route flow's own, not a benchmark.
+
+The data image's ROM is 720 bits in five lines plus a 14 bit inquiry line, and the generated image's is the same
+three tables without the inquiry. The clock is the board's own crystal: five lines need no PLL, and a derived
+clock is a number the flow has to constrain separately.
 ## What it does not cover
 
 `proj_div` is not in the image. It synthesizes to 8,626 LUT4, a third of the 25F, and no anchor here needs it.

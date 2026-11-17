@@ -10,7 +10,7 @@ ignore rule: an emitted module is a build artifact, and the emitter is its sourc
 | Written by | `make -C sv generate`, which runs `ssccs-hardware-mapping`'s `emit-observation` binary |
 | Compiled by | `make -C sv elaborate`, over whatever is present |
 | Checked by | `make -C sv generated-check`, which answers the golden anchors in simulation |
-| Built for a board | the board's flow, given the generated module as its top |
+| Built for a board | `boards/icesugar_pro`, as `ssccs_generated_board`'s constraint |
 | Committed | never |
 
 A generated module must not share a name with a unit under `sv/`, because the elaboration gate reads both in one
@@ -35,6 +35,14 @@ names.
 
 The stamp `.emitted` records that the modules match the emitter's current sources. Deleting it, or touching a file
 under `crates/hardware-mapping/src` or `crates/core/src`, writes them again.
+
+## Where they are consumed
+
+Two places, and they check different things. `sv/tb/generated_observation_tb.sv` drives them with the golden
+coordinates and compares both observations against `GOLDEN_NARROW` and `GOLDEN_BROAD`, which says what they
+compute. `boards/icesugar_pro/ssccs_generated_board.sv` builds them onto the ECP5 beside the data-driven image on
+the same carrier, which says they are a design: 139 LUT4 and 137.49 MHz at the pass table, against 145 and
+154.66 MHz for the image whose constraint is a table. Both images answer the same five anchors.
 
 ## The case that is not here
 

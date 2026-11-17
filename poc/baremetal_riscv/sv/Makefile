@@ -64,7 +64,7 @@ COMPOSE_BIN     := $(COMPOSE_OBJDIR)/V$(COMPOSE_TOP)
 
 COMPOSE_SRCS := $(SV_UNITS) $(SVDIR)/tb/$(COMPOSE_TOP).sv
 
-.PHONY: all clean run check compose-check xif-check elaborate golden-anchor-check units generate generated-check
+.PHONY: all clean run check compose-check xif-check elaborate golden-anchor-check units generate generated-check generated-modules
 
 WORKSPACE := $(abspath $(SVDIR)/../../standard)
 EMITTED   := $(GEN_DIR)/.emitted
@@ -79,6 +79,10 @@ $(EMITTED): $(EMITTER_SRCS)
 	@touch $@
 
 generate: $(EMITTED)
+
+# The board's flow asks for the emitted module paths the same way it asks for the units, so no caller repeats them.
+generated-modules: $(EMITTED)
+	@echo $(GEN_MODULES)
 
 # The board's flow asks for this list rather than keeping one of its own. Absolute, so a caller in another
 # directory can pass it to a tool that resolves paths against its own working directory.

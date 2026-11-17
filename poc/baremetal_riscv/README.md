@@ -55,7 +55,11 @@ make -C sv elaborate        # and every module, emitted ones included, elaborate
 ```
 
 The bounds are structure in that path. The board under `boards/` keeps them as data, so one image answers an
-inquiry its fabric never saw. Both are designs, and they are separate ones.
+inquiry its fabric never saw. Both are designs, and they are separate ones: `ssccs_generated_board` runs on the
+carrier with the emitted modules as its constraint, beside `ssccs_anchor_board` on the same pins and the same
+three tables, and the anchors grade both. The emitted image is 139 LUT4 at 137.49 MHz against the data image's
+145 and 154.66 MHz, and the generative inquiry stays with the data image because a baked program has no answer
+for a kind it was not generated for.
 
 ## Target Reality
 

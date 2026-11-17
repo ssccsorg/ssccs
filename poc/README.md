@@ -30,7 +30,7 @@ poc/
 │   ├── simulation/         C concept programs 01-11 plus Spike + riscv-pk harness
 │   ├── sv/                 SystemVerilog units; testbenches in tb/, gate headers and the anchor checker beside them
 │   ├── generated/          Where the host emitter writes; nothing here is committed
-│   ├── boards/             One board image per carrier; the iCESugar-Pro carries the anchors onto a die
+│   ├── boards/             Board images: the data-driven anchor image and the emitted-module image, same carrier
 │   ├── build.rs
 │   ├── run.sh              Assembly syntax gate (--asm-only --check)
 │   └── README.md           API reference and target reality
