@@ -8,6 +8,11 @@ where the constraint comes from. `ssccs_anchor_board` carries kinds and bounds a
 fabric never saw. `ssccs_generated_board` carries a constraint the host emitter wrote into two modules, with the
 bounds baked in. The anchors grade both, so over the same table the two must return the same verdict.
 
+A third image is the two halves of a substrate together and no table of points at all. `ssccs_decoded_board` sweeps
+an address space, an emitted decoder turns each address into the coordinate the Scheme holds there, and an emitted
+observation module decides whether that coordinate is admissible. The die counts the admissions and compares the
+total with the number the host computed from the same Scheme and the same program.
+
 This folder belongs to the POC, not to a project built on it. The POC is the layer the projects materialize, so the
 image is built from the POC's own modules and its own anchors file. The only thing it shares with any other board
 work is the carrier's pin map, which is a property of the board.
@@ -76,14 +81,28 @@ line agreed and red when one did not. PA14 on F5 is the iCELink's SWD clock, whi
 
 ```sh
 ./build.sh rom                        # the anchors, the exchange control, and a different inquiry
-./build.sh sim [data|generated]       # Verilator: the table passes, the exchanged one does not, the other inquiry does
-./build.sh build [pass|swap] [data|generated]   # yosys, nextpnr-ecp5, ecppack
-./build.sh flash [pass|swap] [data|generated]   # write it, then release the reset
+./build.sh sim [data|generated|decoded]         # Verilator: the tables, or the decoded space and its control
+./build.sh build [pass|swap] [data|generated|decoded]   # yosys, nextpnr-ecp5, ecppack
+./build.sh flash [pass|swap] [data|generated|decoded]   # write it, then release the reset
 ./build.sh read                       # gpio read PA13
 ```
 
-The image word is `data` when it is left out. `sim generated` runs the pass and swap tables only, and `flash`,
-`build` and `read` take it the same way.
+The image word is `data` when it is left out. `sim generated` runs the pass and swap tables only, `sim decoded`
+runs the host's count and one off it, and `build`, `flash` and `read` take the word the same way.
+
+## The decoded image
+
+The space is a line of sixteen points three apart, so the address is not the coordinate and the decode is a
+multiplication rather than a wire. The program is `even and range [0, 10]`, which admits 0 and 6 out of the
+sixteen.
+
+The count separates the cases. A decoder that passed the address through would count six admissible points,
+parity alone would count eight and the range alone four, so the die reporting two says the decode, the parity and
+the bound all did their work.
+
+Nothing in the image names the Scheme or the program. `make -C sv generate` writes the decoder, the observation
+module and the two counts, and the flow reads the address count from the same place. A different Scheme or a
+different program is a different module and a different number.
 
 `build`, `flash` and `read` need tools Homebrew does not package: `nextpnr-ecp5` and `ecppack` from OSS CAD Suite
 (set `OSS_CAD_SUITE` to its root), and `icesprog` (set `ICESPROG` to the binary).
@@ -113,8 +132,20 @@ accept. On the carrier that image answers 1, which is the die saying its order i
 | `pin_match` | 1 | 0 | 1 | 1 | 0 |
 | Stage three | green | red | green | green | red |
 
-Every column answers the same five anchors. The two `pass` columns are the same table read by two designs, and
-the two `swap` columns are the negative control in both.
+The decoded image is measured on its own, because it has no table to vary:
+
+| | decoded |
+|---|---:|
+| `TRELLIS_COMB` | 157 / 24,288 |
+| `DP16KD` | 0 |
+| Clock | 66.27 MHz |
+| `pin_match` | 1 |
+| Stage three | green |
+
+Every column answers the same five anchors except the last, which counts its own space. The two `pass` columns are
+the same table read by two designs, and the two `swap` columns are the negative control in both. The decoded image
+costs more logic than either table reader and closes lower: a multiplier and a 64-bit accumulator replace a five
+line ROM, and at this size the arithmetic is the expensive part.
 
 The area follows the table rather than the design, because the flow maps the ROM into logic: five lines of three
 64-bit words are cheaper as gates than as a block RAM, so a different set of constants is a different amount of

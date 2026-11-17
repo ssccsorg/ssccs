@@ -61,6 +61,8 @@ impl std::fmt::Display for DecodeError {
     }
 }
 
+impl std::error::Error for DecodeError {}
+
 /// The extents a Scheme's segments imply, in axis order.
 pub fn axis_extents(scheme: &impl SchemeTrait) -> Result<Vec<AxisExtent>, DecodeError> {
     let axes = scheme.axes().len();

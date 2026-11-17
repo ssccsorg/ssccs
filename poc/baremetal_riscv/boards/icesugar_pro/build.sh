@@ -32,12 +32,15 @@ cd "$(dirname "$0")"
 
 TOP=ssccs_anchor_board
 GEN_TOP=ssccs_generated_board
+DEC_TOP=ssccs_decoded_board
 TB=ssccs_anchor_board_tb
 GEN_TB=ssccs_generated_board_tb
+DEC_TB=ssccs_decoded_board_tb
 SV=../../sv
+GEN="$SV/../generated"
 # The units are the POC's list, asked for rather than repeated. Nothing here names a module.
 UNITS=$(make -s -C "$SV" units)
-# The low-level constraints are the same pins on the same carrier for both images.
+# The low-level constraints are the same pins on the same carrier for all three images.
 LPF=$TOP.lpf
 REJTAG=1,3
 
@@ -63,7 +66,12 @@ choose() {
             TB_OF=$GEN_TB
             SOURCES="$GEN_TOP.sv $UNITS $(generated_modules)"
             ;;
-        *) fail "unknown image: $kind (data or generated)" ;;
+        decoded)
+            TOP_OF=$DEC_TOP
+            TB_OF=$DEC_TB
+            SOURCES="$DEC_TOP.sv $UNITS $(generated_modules)"
+            ;;
+        *) fail "unknown image: $kind (data, generated or decoded)" ;;
     esac
 }
 
@@ -103,19 +111,43 @@ sim() {
     command -v verilator >/dev/null 2>&1 || fail "verilator is not on PATH"
     local kind=${1:-data} n
     choose "$kind"
-    n=$(count)
-    echo "--- verilator: $TB_OF over $n anchors ---"
+    n=$(image_count "$kind")
+    echo "--- verilator: $TB_OF over $n addresses ---"
     verilator --binary --timing -DSIM -I"$SV" -GCOUNT="$n" --top-module "$TB_OF" \
         -Wno-fatal -Wno-WIDTH -Wno-UNUSED -Wno-PROCASSINIT \
         "$TB_OF.sv" $SOURCES \
         -o "tb_$kind" --Mdir "obj_dir_$kind" > "out/build_tb_$kind.log" 2>&1 \
         || { cat "out/build_tb_$kind.log"; fail "verilator build failed"; }
+
+    if [ "$kind" = decoded ]; then
+        # The image has no table of points: the sweep is the address space itself, and the two files are the host's
+        # count and one off it.
+        decoded_table "$kind" 1 "$GEN/decode_count.hex"
+        decoded_table "$kind" 0 "$GEN/decode_count_off.hex"
+        return 0
+    fi
+
     table "$kind" pass 1
     table "$kind" swap 0
     # A program fixed at generation time cannot answer an inquiry it was not generated for, so the generative
     # channel belongs to the image that carries kinds as data.
     if [ "$kind" = data ]; then
         table "$kind" generative 1
+    fi
+}
+
+decoded_table() {
+    local kind=$1 expect=$2 file=$3
+    ./"obj_dir_$kind"/"tb_$kind" +count="$file" +expect="$expect"
+}
+
+# How many addresses the image sweeps. The anchor images take it from their table; the decoded one takes it from the
+# space the host emitted.
+image_count() {
+    if [ "$1" = decoded ]; then
+        printf '%d\n' "$((16#$(cat "$GEN/decode_space.hex")))"
+    else
+        count
     fi
 }
 
@@ -138,12 +170,18 @@ build() {
     command -v nextpnr-ecp5 >/dev/null 2>&1 || fail "nextpnr-ecp5 is not on PATH; put OSS CAD Suite on PATH"
     command -v ecppack >/dev/null 2>&1 || fail "ecppack is not on PATH; put OSS CAD Suite on PATH"
     choose "$kind"
-    n=$(count)
-    [ -d "out/$tag" ] || fail "no table at out/$tag; run ./build.sh rom first"
-    # The top reads a fixed path, because readmemh resolves against the directory the flow runs in. Copying is what
-    # lets one design build from more than one table.
-    cp out/"$tag"/anchor_coord.hex out/"$tag"/anchor_narrow.hex out/"$tag"/anchor_broad.hex \
-        out/"$tag"/anchor_inquiry.hex out/
+    n=$(image_count "$kind")
+    if [ "$kind" = decoded ]; then
+        # The decoded image reads one file: the host's count. There is no table of points to copy.
+        mkdir -p out
+        cp "$GEN/decode_count.hex" out/decode_count.hex
+    else
+        [ -d "out/$tag" ] || fail "no table at out/$tag; run ./build.sh rom first"
+        # The top reads a fixed path, because readmemh resolves against the directory the flow runs in. Copying is
+        # what lets one design build from more than one table.
+        cp out/"$tag"/anchor_coord.hex out/"$tag"/anchor_narrow.hex out/"$tag"/anchor_broad.hex \
+            out/"$tag"/anchor_inquiry.hex out/
+    fi
 
     echo "--- yosys: $TOP_OF over $n anchors ---"
     yosys -q -p "read_verilog -sv -I$SV $SOURCES; chparam -set COUNT $n $TOP_OF; synth_ecp5 -top $TOP_OF -json out/$TOP_OF.json" \
@@ -188,6 +226,7 @@ case ${1:-all} in
     build) build "${2:-pass}" "${3:-data}" ;;
     flash) flash "${2:-pass}" "${3:-data}" ;;
     read)  read ;;
-    all)   rom; sim data; sim generated; build pass data; build swap data; build pass generated; build swap generated ;;
-    *)     echo "usage: $0 [rom|sim [data|generated]|build [pass|swap] [data|generated]|flash [pass|swap] [data|generated]|read|all]" >&2; exit 2 ;;
+    all)   rom; sim data; sim generated; sim decoded; \
+           build pass data; build swap data; build pass generated; build swap generated; build pass decoded ;;
+    *)     echo "usage: $0 [rom|sim [data|generated|decoded]|build [pass|swap] [data|generated|decoded]|flash [pass|swap] [data|generated|decoded]|read|all]" >&2; exit 2 ;;
 esac

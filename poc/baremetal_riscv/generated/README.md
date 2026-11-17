@@ -46,6 +46,11 @@ the Scheme's segments, so a different Scheme is a different module.
 the tables are a lookup, and both come from the same Scheme by different routes, so the sweep is a comparison rather
 than a repetition. The demo space is a four by three grid; the emitter's own tests cover one axis and three.
 
+The same run writes a second decoder, `ssccs_line_decode`, for the space the board sweeps: a line of sixteen points
+three apart. `decode_space.hex` is how many addresses that space has, `decode_count.hex` is how many of them the
+emitted observation module admits, and `decode_count_off.hex` is one more, which the die must refuse. The board reads
+the first and the third, and its simulation drives both.
+
 ## Where they are consumed
 
 Two places, and they check different things. `sv/tb/generated_observation_tb.sv` drives them with the golden

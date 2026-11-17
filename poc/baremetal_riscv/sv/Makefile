@@ -48,6 +48,7 @@ SV_UNITS := $(SVDIR)/observe.sv \
 # present, so the emitter has a consumer from its first commit.
 GEN_DIR  := $(abspath $(SVDIR)/../generated)
 GEN_MODULES := $(GEN_DIR)/ssccs_generated_narrow.sv $(GEN_DIR)/ssccs_generated_broad.sv
+GEN_DECODERS := $(GEN_DIR)/ssccs_address_decode.sv $(GEN_DIR)/ssccs_line_decode.sv
 
 SVSRCS  := $(SV_UNITS) $(SVDIR)/tb/$(TOP).sv
 
@@ -74,16 +75,18 @@ EMITTER_SRCS := $(wildcard $(WORKSPACE)/crates/hardware-mapping/src/*.rs) \
                 $(wildcard $(WORKSPACE)/crates/hardware-mapping/src/bin/*.rs) \
                 $(wildcard $(WORKSPACE)/crates/core/src/*.rs)
 
+# The emitters report what they wrote, and a caller that only wants the module list must not receive that report as
+# part of it. The rule writes the report to a file and `generate` shows it.
 $(EMITTED): $(EMITTER_SRCS)
-	@cd $(WORKSPACE) && cargo run --release --quiet -p ssccs-hardware-mapping --bin emit-observation -- --out $(GEN_DIR)
-	@cd $(WORKSPACE) && cargo run --release --quiet -p ssccs-hardware-mapping --bin emit-decode -- --out $(GEN_DIR)
+	@cd $(WORKSPACE) && { cargo run --release --quiet -p ssccs-hardware-mapping --bin emit-observation -- --out $(GEN_DIR) && cargo run --release --quiet -p ssccs-hardware-mapping --bin emit-decode -- --out $(GEN_DIR); } > $(GEN_DIR)/.emit.log 2>&1
 	@touch $@
 
 generate: $(EMITTED)
+	@cat $(GEN_DIR)/.emit.log
 
 # The board's flow asks for the emitted module paths the same way it asks for the units, so no caller repeats them.
 generated-modules: $(EMITTED)
-	@echo $(GEN_MODULES)
+	@echo $(GEN_MODULES) $(GEN_DECODERS)
 
 # The board's flow asks for this list rather than keeping one of its own. Absolute, so a caller in another
 # directory can pass it to a tool that resolves paths against its own working directory.
