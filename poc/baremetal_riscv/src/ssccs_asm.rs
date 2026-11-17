@@ -485,6 +485,32 @@ mod tests {
         );
     }
 
+    // ── Signed order anchors ──
+    // A coordinate is an i64, so a negative bound is inside its own range. An unsigned compare would sort every
+    // negative coordinate above every positive one, and these anchors would flip.
+    #[test]
+    fn test_signed_order_golden_anchors() {
+        use super::fallback;
+
+        let range = parse_golden(ASM_OBSERVE_FULL, "GOLDEN_SIGNED_RANGE");
+        assert_eq!(
+            range,
+            [
+                i64::from(fallback::ck_range(-2, -10, 10)),
+                i64::from(fallback::ck_range(-2, 0, 10)),
+            ]
+        );
+
+        let gt = parse_golden(ASM_OBSERVE_FULL, "GOLDEN_SIGNED_GT");
+        assert_eq!(
+            gt,
+            [
+                i64::from(fallback::ck_gt(-2, -5)),
+                i64::from(fallback::ck_gt(-5, -2)),
+            ]
+        );
+    }
+
     // ── Generated-table observe golden anchors ──
     // The assembly consumes SCHEME_SEG_COUNT / SCHEME_COORDS emitted by the
     // standard workspace emitter. The host fallback must reproduce the same

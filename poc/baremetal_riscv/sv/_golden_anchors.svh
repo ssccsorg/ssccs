@@ -56,6 +56,12 @@
 `define GOLDEN_PARITY_2  64'd0
 `define GOLDEN_PARITY_3  64'd1
 
+// Signed order anchors: a negative coordinate against negative bounds, where an unsigned compare disagrees.
+`define GOLDEN_SIGNED_RANGE_0  64'd1
+`define GOLDEN_SIGNED_RANGE_1  64'd0
+`define GOLDEN_SIGNED_GT_0     64'd1
+`define GOLDEN_SIGNED_GT_1     64'd0
+
 // collapse.S anchors
 `define GOLDEN_COLLAPSE_SUM_A  64'd20
 `define GOLDEN_COLLAPSE_SUM_B  64'd16

@@ -8,7 +8,8 @@
 // INCLUDING OF MERCHANTABILITY, SATISFACTORY QUALITY AND FITNESS FOR A
 // PARTICULAR PURPOSE. Please see the CERN-OHL-P v2 for applicable conditions.
 //
-// The scenario's anchors, compared one line at a time on the die.
+// The scenario's anchors, compared one line at a time on the die. A coordinate is the space's own i64,
+// because the order the tables assume is signed.
 //
 // The POC states its anchors across the assembly, the SystemVerilog and the Rust fallback, and this is the same
 // check on a fourth substrate. Each line of the ROM carries one coordinate and the two results the inquiry
@@ -54,7 +55,7 @@ module ssccs_anchor_board #(
     // nothing. COUNT still governs the wrap, and no address at or above it is read.
     localparam integer DEPTH = 1 << ADDR_BITS;
 
-    reg [15:0] coord [0:DEPTH-1];
+    reg [63:0] coord [0:DEPTH-1];
     reg [63:0] narrow [0:DEPTH-1];
     reg [63:0] broad [0:DEPTH-1];
     // One descriptor says what those two tables are compared against, and eight words carry the bounds: two
@@ -93,7 +94,7 @@ module ssccs_anchor_board #(
 
     // One synchronous read stage: the memory is a block RAM rather than distributed logic, and the coordinate,
     // the projection and both expectations arrive together so the comparison needs no second delay chain.
-    reg [15:0] coord_r = 0;
+    reg [63:0] coord_r = 0;
     reg [63:0] narrow_r = 0;
     reg [63:0] broad_r = 0;
 
@@ -103,7 +104,7 @@ module ssccs_anchor_board #(
         broad_r  <= broad[addr];
     end
 
-    wire [63:0] point = {48'd0, coord_r};
+    wire [63:0] point = coord_r;
 
     wire even;
 

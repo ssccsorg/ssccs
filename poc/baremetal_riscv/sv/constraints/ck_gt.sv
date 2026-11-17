@@ -24,6 +24,7 @@ module ck_gt (
     output logic        result
 );
 
-    assign result = (coord > threshold);
+    // Signed, for the same reason ck_range is: the space's order is i64's.
+    assign result = ($signed(coord) > $signed(threshold));
 
 endmodule

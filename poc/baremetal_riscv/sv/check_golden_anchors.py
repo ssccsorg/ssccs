@@ -164,6 +164,21 @@ def check_anchors(
                 )
             checked += 1
 
+    # Vector anchors mirrored one define per element: SIGNED_RANGE, SIGNED_GT
+    for vector_name in ("SIGNED_RANGE", "SIGNED_GT"):
+        if vector_name not in asm_anchors:
+            continue
+        for i, val in enumerate(asm_anchors[vector_name]):
+            svh_name = f"GOLDEN_{vector_name}_{i}"
+            norm_asm = normalize_asm_value(val)
+            if svh_name not in svh_defines:
+                errors.append(f"MISSING: {svh_name} in .svh")
+                continue
+            norm_svh = normalize_svh_value(svh_defines[svh_name])
+            if norm_asm != norm_svh:
+                errors.append(f"MISMATCH: {svh_name}: .S={norm_asm}, .svh={norm_svh}")
+            checked += 1
+
     # Scalar anchors: SUM3D_A, SUM3D_B, PARITY_2, PARITY_3
     for scalar_name in ("SUM3D_A", "SUM3D_B", "PARITY_2", "PARITY_3"):
         if scalar_name in asm_anchors:
