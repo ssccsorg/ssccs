@@ -29,6 +29,8 @@
 // pin_match is set only when a full pass finished with no line disagreeing. COUNT comes from the flow, which
 // reads it from the same table, so the die cannot be told a length its ROM does not have.
 
+`include "_units.svh"
+
 module ssccs_anchor_board #(
     parameter integer COUNT = 0
 ) (
@@ -117,9 +119,8 @@ module ssccs_anchor_board #(
         .result(in_range)
     );
 
-    // The unit table is the substrate's: selector 0 is the even unit and selector 1 is the constant range. Any
-    // other selector answers zero, so a table that names a unit this image does not carry fails rather than passes.
-    // Which pair, and which composition, is in the program line rather than in this file.
+    // The unit table is the core's (`sv/_units.svh`), and which pair and which composition to use is the inquiry
+    // line's. Any selector this image does not carry answers zero, so an inquiry naming a missing unit fails.
     wire [2:0] narrow_a = inquiry[0][13:11];
     wire [2:0] narrow_b = inquiry[0][10:8];
     wire       narrow_op = inquiry[0][7];
@@ -127,13 +128,13 @@ module ssccs_anchor_board #(
     wire [2:0] broad_b = inquiry[0][3:1];
     wire       broad_op = inquiry[0][0];
 
-    wire narrow_pick_a = (narrow_a == 3'd0) ? even : (narrow_a == 3'd1) ? in_range : 1'b0;
-    wire narrow_pick_b = (narrow_b == 3'd0) ? even : (narrow_b == 3'd1) ? in_range : 1'b0;
-    wire broad_pick_a = (broad_a == 3'd0) ? even : (broad_a == 3'd1) ? in_range : 1'b0;
-    wire broad_pick_b = (broad_b == 3'd0) ? even : (broad_b == 3'd1) ? in_range : 1'b0;
+    wire narrow_pick_a = (narrow_a == `UNIT_EVEN) ? even : (narrow_a == `UNIT_RANGE_010) ? in_range : 1'b0;
+    wire narrow_pick_b = (narrow_b == `UNIT_EVEN) ? even : (narrow_b == `UNIT_RANGE_010) ? in_range : 1'b0;
+    wire broad_pick_a = (broad_a == `UNIT_EVEN) ? even : (broad_a == `UNIT_RANGE_010) ? in_range : 1'b0;
+    wire broad_pick_b = (broad_b == `UNIT_EVEN) ? even : (broad_b == `UNIT_RANGE_010) ? in_range : 1'b0;
 
-    wire narrow_constraint = narrow_op ? (narrow_pick_a || narrow_pick_b) : (narrow_pick_a && narrow_pick_b);
-    wire broad_constraint  = broad_op  ? (broad_pick_a || broad_pick_b)  : (broad_pick_a && broad_pick_b);
+    wire narrow_constraint = (narrow_op == `COMPOSE_OR) ? (narrow_pick_a || narrow_pick_b) : (narrow_pick_a && narrow_pick_b);
+    wire broad_constraint  = (broad_op == `COMPOSE_OR)  ? (broad_pick_a || broad_pick_b)  : (broad_pick_a && broad_pick_b);
 
     wire [63:0] narrow_result;
     wire [63:0] broad_result;

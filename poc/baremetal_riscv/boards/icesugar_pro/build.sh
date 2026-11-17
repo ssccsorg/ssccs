@@ -50,6 +50,8 @@ rom() {
     echo "--- anchors: the scenario's table, and the same table with two expectations exchanged ---"
     python3 anchor_rom.py out/pass
     python3 anchor_rom.py --swap "$REJTAG" out/swap
+    echo "--- the same units, composed the other way round ---"
+    python3 anchor_rom.py --generative out/generative
 }
 
 count() {
@@ -67,7 +69,7 @@ sim() {
     command -v verilator >/dev/null 2>&1 || fail "verilator is not on PATH"
     local n
     n=$(count)
-    echo "--- verilator: $TB over $n anchors ---"
+    echo "--- verilator: $TB over $n anchors, both controls ---"
     verilator --binary --timing -DSIM -I"$SV" -GCOUNT="$n" --top-module "$TB" \
         -Wno-fatal -Wno-WIDTH -Wno-UNUSED -Wno-PROCASSINIT \
         "$TB.sv" "$TOP.sv" "$SV/observe.sv" "$SV/constraints/ck_even.sv" "$SV/constraints/ck_range_010.sv" \
@@ -78,6 +80,11 @@ sim() {
     ./obj_dir/tb_anchor \
         +coord=out/swap/anchor_coord.hex +narrow=out/swap/anchor_narrow.hex +broad=out/swap/anchor_broad.hex \
         +inquiry=out/swap/anchor_inquiry.hex +expect=0
+    # The image carries the units rather than the scenario: a different inquiry, and the emitter's own model as
+    # the grader, on the same build.
+    ./obj_dir/tb_anchor \
+        +coord=out/generative/anchor_coord.hex +narrow=out/generative/anchor_narrow.hex \
+        +broad=out/generative/anchor_broad.hex +inquiry=out/generative/anchor_inquiry.hex +expect=1
 }
 
 build() {
