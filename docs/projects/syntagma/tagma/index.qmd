@@ -680,7 +680,7 @@ The hardware contract mirrors the software contract: the two agree on every inpu
 
 ### Status and reproduction
 
-Realized and verified: the decode, compose, and distance units in RTL, each exhaustively simulated against the Rust reference, simulated at gate level, and formally equivalent to its synthesized netlist; the segment store as a behavioral model over all 11,172 slots, the reserved addresses, and the read-during-write case; the record layer whose addresses are coordinates, carried to a minimum-class device, with no operating system under the engine (Section @sec-minimum-device); and the volume verification top, which takes 512 addresses from a store's volume and closes a verdict on the die, published as a recorded run.
+Realized and verified: the decode, compose, and distance units in RTL, each exhaustively simulated against the Rust reference, simulated at gate level, and formally equivalent to its synthesized netlist; the segment store as a behavioral model over all 11,172 slots, the reserved addresses, and the read-during-write case; the record layer whose addresses are coordinates, carried to a minimum-class device, with no operating system under the engine (Section @sec-minimum-device); and the volume verification top, which takes one value per valid offset and closes a verdict on the die, published as a recorded run.
 
 Pending: the OpenRAM macro for the segment store, which needs a PDK install, and the external switch and LED wiring that turns the FPGA demo into a decoder demonstration. The bitstreams program and boot on both boards, and the decoder is verified on the ECP5 against the reference anchors (Section @sec-device-verification).
 
@@ -1031,7 +1031,7 @@ This appendix holds what the body states in numbers: the bench, the two device r
 
 Two targets, and each answers a question the other cannot. The iCE40 UP5K carries the demo top, which is the decode read by eye: a code point in, three axes out, and no host in the loop. Its placed-and-routed bitstream was recovered and compared against the RTL over all 65,536 code points, so the source and the programmed part agree rather than merely deriving from one another.
 
-The ECP5 carries the images that answer without a person. It is given the anchors `tagma_core` exports, either as a sweep of the valid range or as one 16-bit value per ROM line from a volume, and it recomputes the checksum of the three axes on the die. The host divides and the die multiplies by a reciprocal, so agreement is between two implementations and not one binary run twice. Over 512 addresses and 10,240 values, the two agree.
+The ECP5 carries the images that answer without a person. It is given the anchors `tagma_core` exports, either as a sweep of the valid range or as one value per valid offset drawn from the format's own alphabet, and it recomputes the checksum of the three axes on the die. The host divides and the die multiplies by a reciprocal, so agreement is between two implementations and not one binary run twice. Over 11,172 values, the two agree.
 
 ![The ECP5 target on the bench: an iCESugar-Pro v1.3 module seated in its Ext-Board. The verification image runs on the module's ECP5 and reports its verdict over the on-board iCELink, the USB-C port on the module; the carrier's ports reach no FPGA.](../../../_include/icesugar-pro.jpg){#fig-icesugar-ecp5 width=68%}
 

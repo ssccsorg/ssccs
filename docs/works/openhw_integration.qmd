@@ -86,14 +86,14 @@ The SSCCS Proof of Concept (PoC) is a fully functional Rust‑based reference im
 - **Scheme Abstraction Layer** (`ssccs‑primitive`): Provides a structural definition of `Scheme` with axis types (Discrete, Continuous, Cyclic, etc.), structural relations (Adjacency, Hierarchy, Dependency, Equivalence, Custom), memory‑layout mapping (Linear, Row‑Major, Space‑Filling Curve, etc.), and observation rules. Pre‑defined templates (Grid2D, IntegerLine, Graph) capture common topological patterns.
 - **Field Synthesis Engine** (`ssccs‑field‑synthesis`): Implements Field composition algebra — union ($\cup$), intersection ($\cap$), product ($\times$) — enabling the epistemological operations of broadening, narrowing, and parallelising inquiry.
 - **RISC‑V Assembly Reference** (`poc/baremetal_riscv/asm/`): 5 hand‑written assembly modules (observe, collapse, field update, scheme layout, scheme adjacency) with branchless, constant‑time constraint primitives. Each `.S` file embeds **golden anchors** that are automatically cross‑verified against the Rust fallback.
-- **SystemVerilog Verification Modules** (`poc/baremetal_riscv/sv/`): 18 SystemVerilog modules — 5 constraints, 5 projectors, 3 composition operators, observation pipeline, XIF coprocessor, and integration testbench — independently implementing the same pipeline on a third computational substrate.
-- **Golden Anchor System**: A Python script (`check_golden_anchors.py`) automatically verifies that all 19 golden constants in `.S` match `.svh` — a three‑way cross‑validation (Rust ↔ Assembly ↔ SystemVerilog).
+- **SystemVerilog Verification Modules** (`poc/baremetal_riscv/sv/`): 18 SystemVerilog modules — 5 constraints, 7 projectors, 4 composition operators, the observation pipeline, and the XIF coprocessor — independently implementing the same pipeline on a third computational substrate.
+- **Golden Anchor System**: A Python script (`check_golden_anchors.py`) automatically verifies that all 23 golden constants in `.S` match `.svh` — a three‑way cross‑validation (Rust ↔ Assembly ↔ SystemVerilog).
 
 **Triple‑Substrate Cross‑Validation:**
 
 ```text
 RISC‑V Assembly (.S)  ──┐
-                         ├── Golden Anchors (19, auto‑verified by Python)
+                         ├── Golden Anchors (23, auto‑verified by Python)
 SystemVerilog (.sv)    ──┤
                          │
 Rust Fallback          ──┘
