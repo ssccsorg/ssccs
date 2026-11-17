@@ -7,9 +7,9 @@ ignore rule: an emitted module is a build artifact, and the emitter is its sourc
 
 | | |
 |---|---|
-| Written by | `make -C sv generate`, which runs `ssccs-hardware-mapping`'s `emit-observation` binary |
+| Written by | `make -C sv generate`, which runs `ssccs-hardware-mapping`'s `emit-observation` and `emit-decode` binaries |
 | Compiled by | `make -C sv elaborate`, over whatever is present |
-| Checked by | `make -C sv generated-check`, which answers the golden anchors in simulation |
+| Checked by | `make -C sv generated-check`, which answers the golden anchors in simulation, and `decode-check`, which sweeps a decoded space |
 | Built for a board | `boards/icesugar_pro`, as `ssccs_generated_board`'s constraint |
 | Committed | never |
 
@@ -35,6 +35,16 @@ names.
 
 The stamp `.emitted` records that the modules match the emitter's current sources. Deleting it, or touching a file
 under `crates/hardware-mapping/src` or `crates/core/src`, writes them again.
+
+## The address decoder
+
+`ssccs_address_decode` is the other kind of module: its input is an address and its output is the coordinate a
+Scheme holds there, one port per axis, with `valid` low past the last segment. The emitter derives the extents from
+the Scheme's segments, so a different Scheme is a different module.
+
+`decode-check` sweeps every address against `address_coord0.hex` and `address_coord1.hex`. The module divides and
+the tables are a lookup, and both come from the same Scheme by different routes, so the sweep is a comparison rather
+than a repetition. The demo space is a four by three grid; the emitter's own tests cover one axis and three.
 
 ## Where they are consumed
 

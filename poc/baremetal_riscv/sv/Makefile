@@ -64,7 +64,7 @@ COMPOSE_BIN     := $(COMPOSE_OBJDIR)/V$(COMPOSE_TOP)
 
 COMPOSE_SRCS := $(SV_UNITS) $(SVDIR)/tb/$(COMPOSE_TOP).sv
 
-.PHONY: all clean run check compose-check xif-check elaborate golden-anchor-check units generate generated-check generated-modules
+.PHONY: all clean run check compose-check xif-check elaborate golden-anchor-check units generate generated-check generated-modules decode-check
 
 WORKSPACE := $(abspath $(SVDIR)/../../standard)
 EMITTED   := $(GEN_DIR)/.emitted
@@ -76,6 +76,7 @@ EMITTER_SRCS := $(wildcard $(WORKSPACE)/crates/hardware-mapping/src/*.rs) \
 
 $(EMITTED): $(EMITTER_SRCS)
 	@cd $(WORKSPACE) && cargo run --release --quiet -p ssccs-hardware-mapping --bin emit-observation -- --out $(GEN_DIR)
+	@cd $(WORKSPACE) && cargo run --release --quiet -p ssccs-hardware-mapping --bin emit-decode -- --out $(GEN_DIR)
 	@touch $@
 
 generate: $(EMITTED)
@@ -104,7 +105,7 @@ $(BIN): $(SVSRCS) $(SVDIR)/_golden_anchors.svh
 run: $(BIN)
 	$(BIN)
 
-check: $(BIN) compose-check xif-check golden-anchor-check generated-check elaborate
+check: $(BIN) compose-check xif-check golden-anchor-check generated-check decode-check elaborate
 	$(BIN); \
 	status=$$?; \
 	if [ $$status -eq 0 ]; then \
@@ -204,6 +205,37 @@ generated-check: $(GEN_BIN)
 	@grep -E "All Golden Anchors Verified" $(GEN_OBJDIR)/run.log
 	@echo "emitted modules: PASSED"
 
+# ── Emitted address decode ──
+#
+# The decoder is arithmetic the emitter wrote over a Scheme's extents. The tables it is compared against come from
+# the Scheme's segments, so the sweep is two derivations of one space rather than one derivation twice.
+
+DECODE_TOP    := address_decode_tb
+DECODE_OBJDIR := obj_dir_decode
+DECODE_BIN    := $(DECODE_OBJDIR)/V$(DECODE_TOP)
+DECODE_TOTAL  := 12
+DECODE_WIDTH  := 4
+
+$(DECODE_BIN): $(GEN_DIR)/ssccs_address_decode.sv $(SVDIR)/tb/$(DECODE_TOP).sv $(EMITTED)
+	verilator --binary --timing --assert --top-module $(DECODE_TOP) \
+		-GTOTAL=$(DECODE_TOTAL) -GWIDTH=$(DECODE_WIDTH) \
+		-Wno-fatal -Wno-WIDTH -Wno-UNUSED \
+		$(SVDIR)/tb/$(DECODE_TOP).sv $(GEN_DIR)/ssccs_address_decode.sv \
+		-CFLAGS "-O0" --Mdir $(DECODE_OBJDIR)
+
+decode-check: $(DECODE_BIN)
+	@echo "--- emitted decode: the Scheme's addresses ---"
+	@./$(DECODE_BIN) +coord0=$(GEN_DIR)/address_coord0.hex +coord1=$(GEN_DIR)/address_coord1.hex \
+		> $(DECODE_OBJDIR)/run.log 2>&1 \
+		|| { cat $(DECODE_OBJDIR)/run.log; echo "emitted decode: FAILED"; exit 1; }
+	@if grep -qE "%Error|Assertion failed" $(DECODE_OBJDIR)/run.log; then \
+		grep -E "%Error|Assertion failed" $(DECODE_OBJDIR)/run.log; \
+		echo "emitted decode: FAILED"; \
+		exit 1; \
+	fi
+	@grep -E "All Addresses Verified" $(DECODE_OBJDIR)/run.log
+	@echo "emitted decode: PASSED"
+
 # ── Elaboration ──
 
 # read_verilog evaluates every parameter override, so a module that passes a signal into a parameter fails here
@@ -221,4 +253,4 @@ elaborate: $(EMITTED)
 	fi
 
 clean:
-	rm -rf $(OBJDIR) $(COMPOSE_OBJDIR) $(XIF_OBJDIR) $(GEN_OBJDIR)
+	rm -rf $(OBJDIR) $(COMPOSE_OBJDIR) $(XIF_OBJDIR) $(GEN_OBJDIR) $(DECODE_OBJDIR)

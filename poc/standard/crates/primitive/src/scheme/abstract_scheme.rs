@@ -5,7 +5,7 @@
 use crate::SchemeTrait;
 use ssccs_core::{Constraint, Coordinates, Segment, SegmentId, SpaceCoordinates};
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::sync::Arc;
@@ -444,8 +444,8 @@ pub struct Scheme {
     /// Dimension axis definition
     axes: Vec<Axis>,
 
-    /// Segments included
-    segments: HashMap<SegmentId, Segment>,
+    /// Segments included, ordered by id so that enumerating a Scheme is reproducible.
+    segments: BTreeMap<SegmentId, Segment>,
 
     /// Structural Relationship Graph
     relations: RelationGraph,
@@ -687,7 +687,7 @@ impl SchemeTrait for Scheme {
 /// Scheme Builder (Configuration Pattern)
 pub struct SchemeBuilder {
     axes: Vec<Axis>,
-    segments: HashMap<SegmentId, Segment>,
+    segments: BTreeMap<SegmentId, Segment>,
     relations: RelationGraph,
     structural_constraints: Vec<StructuralConstraint>,
     memory_layout: MemoryLayout,
@@ -699,7 +699,7 @@ impl Default for SchemeBuilder {
     fn default() -> Self {
         Self {
             axes: Vec::new(),
-            segments: HashMap::new(),
+            segments: BTreeMap::new(),
             relations: RelationGraph::default(),
             structural_constraints: Vec::new(),
             memory_layout: MemoryLayout {
