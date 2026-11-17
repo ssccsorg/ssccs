@@ -28,7 +28,8 @@ poc/
 │   ├── asm/                Five hand-written .S modules (observation pipeline)
 │   ├── src/                Custom instruction encodings, emulation, golden anchor tests
 │   ├── simulation/         C concept programs 01-11 plus Spike + riscv-pk harness
-│   ├── sv/                 SystemVerilog modules and Verilator testbenches
+│   ├── sv/                 SystemVerilog units; testbenches in tb/, gate headers and the anchor checker beside them
+│   ├── generated/          Where the host emitter writes; nothing here is committed
 │   ├── boards/             One board image per carrier; the iCESugar-Pro carries the anchors onto a die
 │   ├── build.rs
 │   ├── run.sh              Assembly syntax gate (--asm-only --check)
