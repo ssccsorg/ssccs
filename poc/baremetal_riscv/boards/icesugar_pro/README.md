@@ -23,13 +23,19 @@ expects for it: the narrow observation (even and in range) and the broad one (ev
 The die reads the line's coordinate, computes the two observations over it, and compares both results with the
 line's own. A pass closes when no line disagrees, so a single wrong coordinate is the same size as the whole table.
 
-Which two constraints, and how they compose, is data. A fourth file holds one inquiry line: two selectors and a
-composition bit for the narrow observation, and the same for the broad one. The image carries the units and reads
-the selectors, so a different scheme changes the table and not the design.
+The constraint is data. A fourth file holds a descriptor and eight operands: a kind and two 64-bit bounds for each
+of the four slots the descriptor names, two slots per observation. The kinds are the core's, in `sv/_units.svh`,
+and the generator reads them from there rather than repeating them.
 
-The selector numbers are the core's, in `sv/_units.svh`, and the generator reads them from there rather than
-repeating them. This image carries `UNIT_EVEN` and `UNIT_RANGE_010`; any other selector answers zero, so an
-inquiry that names a unit the image does not carry fails rather than passes.
+| Kind | Unit | Bound |
+|---:|---|---|
+| 0 | `UNIT_EVEN` | none |
+| 1 | `UNIT_RANGE` | minimum and maximum |
+| 2 | `UNIT_EQ` | the value compared against |
+| 3 | `UNIT_GT` | the threshold |
+
+A kind the image does not carry answers zero, so an inquiry naming one fails rather than passes. Which kinds, which
+bounds, and which composition is in that file, so a different constraint changes the table and not the design.
 
 `anchor_rom.py` writes the four files from `sv/_golden_anchors.svh`. Values transcribed by hand are values the
 anchors do not have to hold, so the ROM is generated and the generator refuses if the three tables disagree in
@@ -69,20 +75,25 @@ The negative control is a second image. `anchor_rom.py --swap 1,3` exchanges the
 lines that carry 3 and 10, which leaves the same coordinates and the same multiset of expectations, so a checksum
 over the table would not notice. The die refuses it.
 
-The second control is about this design rather than this table. `anchor_rom.py --generative` keeps the two units
-and composes them the other way round, intersecting where the anchored broad observation unites, and computes the
-expectations in the generator instead of reading them from the anchors. The same build answers the new inquiry,
-which is what makes the units the image's and the scenario the table's.
+The second control is about this design rather than this table. `anchor_rom.py --generative` writes an inquiry
+that uses kinds and bounds the scenario never uses: even and a threshold of 8 intersected for the narrow
+observation, and a range united with an equality for the broad one. It computes the expectations in the generator
+instead of reading them from the anchors, and the same build answers the new inquiry in simulation. What the image
+holds is the kinds, and what the table holds is the constraint.
 
 ## The image
 
-| | pass | swap |
-|---|---:|---:|
-| `TRELLIS_COMB` | 270 / 24,288 | 164 / 24,288 |
-| `DP16KD` | 0 | 0 |
-| Clock | 120.77 MHz at 25 MHz | 141.86 MHz at 25 MHz |
-| `pin_match` | 1 | 0 |
-| Stage three | green | red |
+| | pass | swap | other inquiry |
+|---|---:|---:|---:|
+| `TRELLIS_COMB` | 139 / 24,288 | 157 / 24,288 | 140 / 24,288 |
+| `DP16KD` | 0 | 0 | 0 |
+| Clock | 137.21 MHz | 144.20 MHz | 140.77 MHz |
+| `pin_match` | 1 | 0 | 1 in simulation |
+| Stage three | green | red | not built |
+
+The area follows the table rather than the design: a kind the table never names is optimised away, so the image
+that uses only the even and range kinds is smaller than the one whose broad observation unites. What the design
+carries is all four kinds, and the third column is the build that names the ones the scenario does not use.
 
 The ROM is 720 bits in five lines plus a 14 bit inquiry line, so the flow maps it into logic rather
 than block RAM. The clock is the board's

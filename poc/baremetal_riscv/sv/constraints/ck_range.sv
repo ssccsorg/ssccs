@@ -18,14 +18,14 @@
 //
 // Synthesis: 2 comparators + OR + NOT, 0 registers
 
-module ck_range #(
-    parameter [63:0] MIN_VAL = 64'd0,
-    parameter [63:0] MAX_VAL = 64'd10
-) (
+module ck_range (
     input  logic [63:0] coord,
+    input  logic [63:0] min_val,
+    input  logic [63:0] max_val,
     output logic        result
 );
 
-    assign result = (coord >= MIN_VAL) && (coord <= MAX_VAL);
+    // Unsigned, which is the space's own coordinate order.
+    assign result = (coord >= min_val) && (coord <= max_val);
 
 endmodule

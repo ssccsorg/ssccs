@@ -8,22 +8,22 @@
 // INCLUDING OF MERCHANTABILITY, SATISFACTORY QUALITY AND FITNESS FOR A
 // PARTICULAR PURPOSE. Please see the CERN-OHL-P v2 for applicable conditions.
 //
-// SSCCS Constraint: ck_eq — equality check
+// SSCCS Constraint: ck_range — parameterized [min, max]
 //
-// RISC-V asm equivalent (observe_full.S:ck_eq_val):
-//   ld   t0, 0(a0)
-//   xor  t0, t0, a1     // difference
-//   seqz a0, t0         // 1 if equal
+// RISC-V asm equivalent (observe_full.S:ck_range):
+//   slt  t1, t0, a1     // coord < min ?
+//   slt  t2, a2, t0     // max < coord ?
+//   or   t0, t1, t2     // out of range ?
+//   xori a0, t0, 1      // invert: 1 = in range
 //
-// Synthesis: 64-bit XOR + reduction-NOR, 0 registers
+// Synthesis: 2 comparators + OR + NOT, 0 registers
 
-module ck_eq #(
-    parameter [63:0] TARGET = 64'd0
-) (
+module ck_eq (
     input  logic [63:0] coord,
+    input  logic [63:0] target,
     output logic        result
 );
 
-    assign result = (coord == TARGET);
+    assign result = (coord == target);
 
 endmodule

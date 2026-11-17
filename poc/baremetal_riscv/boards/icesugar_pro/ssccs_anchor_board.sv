@@ -11,10 +11,9 @@
 // The scenario's anchors, compared one line at a time on the die.
 //
 // The POC states its anchors across the assembly, the SystemVerilog and the Rust fallback, and this is the same
-// check on a fourth substrate. Each line of the ROM carries one coordinate and the two results the scenario
-// expects for it: the narrow observation (even and in range) and the broad one (even or in range). The die runs
-// ck_even, ck_range_010 and observe over the coordinate the line names, so the verdict is a comparison per line
-// and a single wrong coordinate is the same size as the whole table.
+// check on a fourth substrate. Each line of the ROM carries one coordinate and the two results the inquiry
+// expects for it, and the die runs the kinds the inquiry names and observe over that coordinate. The verdict is a
+// comparison per line, so a single wrong coordinate is the same size as the whole table.
 //
 // The ROM is generated from sv/_golden_anchors.svh by anchor_rom.py, because a table transcribed by hand is a
 // table the anchors do not have to hold. The paths are fixed for synthesis: $readmemh resolves against the
@@ -58,9 +57,9 @@ module ssccs_anchor_board #(
     reg [15:0] coord [0:DEPTH-1];
     reg [63:0] narrow [0:DEPTH-1];
     reg [63:0] broad [0:DEPTH-1];
-    // One line says what those two tables are compared against: two selectors and a composition, twice.
-    // `program` is a keyword in SystemVerilog, so the line is the scenario's `inquiry`.
-    reg [13:0] inquiry [0:0];
+    // One descriptor says what those two tables are compared against, and eight words carry the bounds: two
+    // operands for each of the four slots. `program` is a keyword in SystemVerilog, so the file is the inquiry.
+    reg [63:0] inquiry [0:8];
 
 `ifdef SIM
     reg [1023:0] coord_file;
@@ -107,20 +106,14 @@ module ssccs_anchor_board #(
     wire [63:0] point = {48'd0, coord_r};
 
     wire even;
-    wire in_range;
 
     ck_even u_even (
         .coord(point),
         .result(even)
     );
 
-    ck_range_010 u_range (
-        .coord(point),
-        .result(in_range)
-    );
-
-    // The unit table is the core's (`sv/_units.svh`), and which pair and which composition to use is the inquiry
-    // line's. Any selector this image does not carry answers zero, so an inquiry naming a missing unit fails.
+    // The kinds are the core's (`sv/_units.svh`) and the bounds are the inquiry's, so a constraint is a kind and two
+    // numbers. A kind this image does not carry answers zero, so an inquiry naming one fails rather than passes.
     wire [2:0] narrow_a = inquiry[0][13:11];
     wire [2:0] narrow_b = inquiry[0][10:8];
     wire       narrow_op = inquiry[0][7];
@@ -128,10 +121,53 @@ module ssccs_anchor_board #(
     wire [2:0] broad_b = inquiry[0][3:1];
     wire       broad_op = inquiry[0][0];
 
-    wire narrow_pick_a = (narrow_a == `UNIT_EVEN) ? even : (narrow_a == `UNIT_RANGE_010) ? in_range : 1'b0;
-    wire narrow_pick_b = (narrow_b == `UNIT_EVEN) ? even : (narrow_b == `UNIT_RANGE_010) ? in_range : 1'b0;
-    wire broad_pick_a = (broad_a == `UNIT_EVEN) ? even : (broad_a == `UNIT_RANGE_010) ? in_range : 1'b0;
-    wire broad_pick_b = (broad_b == `UNIT_EVEN) ? even : (broad_b == `UNIT_RANGE_010) ? in_range : 1'b0;
+    // One instance of each bound kind per slot, carrying that slot's operands. The board supplies the units and
+    // the table supplies the bounds, so this file names no scenario.
+    wire na_range, na_eq, na_gt;
+    wire nb_range, nb_eq, nb_gt;
+    wire ba_range, ba_eq, ba_gt;
+    wire bb_range, bb_eq, bb_gt;
+
+    ck_range u_na_range (.coord(point), .min_val(inquiry[1]), .max_val(inquiry[2]), .result(na_range));
+    ck_eq    u_na_eq    (.coord(point), .target(inquiry[1]),                         .result(na_eq));
+    ck_gt    u_na_gt    (.coord(point), .threshold(inquiry[1]),                      .result(na_gt));
+
+    ck_range u_nb_range (.coord(point), .min_val(inquiry[3]), .max_val(inquiry[4]), .result(nb_range));
+    ck_eq    u_nb_eq    (.coord(point), .target(inquiry[3]),                         .result(nb_eq));
+    ck_gt    u_nb_gt    (.coord(point), .threshold(inquiry[3]),                      .result(nb_gt));
+
+    ck_range u_ba_range (.coord(point), .min_val(inquiry[5]), .max_val(inquiry[6]), .result(ba_range));
+    ck_eq    u_ba_eq    (.coord(point), .target(inquiry[5]),                         .result(ba_eq));
+    ck_gt    u_ba_gt    (.coord(point), .threshold(inquiry[5]),                      .result(ba_gt));
+
+    ck_range u_bb_range (.coord(point), .min_val(inquiry[7]), .max_val(inquiry[8]), .result(bb_range));
+    ck_eq    u_bb_eq    (.coord(point), .target(inquiry[7]),                         .result(bb_eq));
+    ck_gt    u_bb_gt    (.coord(point), .threshold(inquiry[7]),                      .result(bb_gt));
+
+    wire narrow_pick_a =
+        (narrow_a == `UNIT_EVEN) ? even
+        : (narrow_a == `UNIT_RANGE) ? na_range
+        : (narrow_a == `UNIT_EQ) ? na_eq
+        : (narrow_a == `UNIT_GT) ? na_gt
+        : 1'b0;
+    wire narrow_pick_b =
+        (narrow_b == `UNIT_EVEN) ? even
+        : (narrow_b == `UNIT_RANGE) ? nb_range
+        : (narrow_b == `UNIT_EQ) ? nb_eq
+        : (narrow_b == `UNIT_GT) ? nb_gt
+        : 1'b0;
+    wire broad_pick_a =
+        (broad_a == `UNIT_EVEN) ? even
+        : (broad_a == `UNIT_RANGE) ? ba_range
+        : (broad_a == `UNIT_EQ) ? ba_eq
+        : (broad_a == `UNIT_GT) ? ba_gt
+        : 1'b0;
+    wire broad_pick_b =
+        (broad_b == `UNIT_EVEN) ? even
+        : (broad_b == `UNIT_RANGE) ? bb_range
+        : (broad_b == `UNIT_EQ) ? bb_eq
+        : (broad_b == `UNIT_GT) ? bb_gt
+        : 1'b0;
 
     wire narrow_constraint = (narrow_op == `COMPOSE_OR) ? (narrow_pick_a || narrow_pick_b) : (narrow_pick_a && narrow_pick_b);
     wire broad_constraint  = (broad_op == `COMPOSE_OR)  ? (broad_pick_a || broad_pick_b)  : (broad_pick_a && broad_pick_b);

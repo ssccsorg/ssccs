@@ -29,6 +29,7 @@ OBJDIR  := obj_dir
 BIN     := $(OBJDIR)/V$(TOP)
 
 SVSRCS  := $(SVDIR)/constraints/ck_even.sv \
+           $(SVDIR)/constraints/ck_range.sv \
            $(SVDIR)/constraints/ck_range_010.sv \
            $(SVDIR)/observe.sv \
            $(SVDIR)/scenario_narrow_broad_tb.sv
@@ -111,7 +112,10 @@ XIF_BIN     := $(XIF_OBJDIR)/V$(XIF_TOP)
 
 XIF_SRCS    := $(SVDIR)/ssccs_xif_coprocessor.sv \
                $(SVDIR)/constraints/ck_even.sv \
+               $(SVDIR)/constraints/ck_range.sv \
                $(SVDIR)/constraints/ck_range_010.sv \
+               $(SVDIR)/constraints/ck_eq.sv \
+               $(SVDIR)/constraints/ck_gt.sv \
                $(SVDIR)/projectors/proj_identity.sv \
                $(SVDIR)/projectors/proj_negate.sv \
                $(SVDIR)/projectors/proj_parity.sv \
