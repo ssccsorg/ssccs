@@ -114,7 +114,7 @@ sim() {
     n=$(image_count "$kind")
     echo "--- verilator: $TB_OF over $n addresses ---"
     verilator --binary --timing -DSIM -I"$SV" -GCOUNT="$n" --top-module "$TB_OF" \
-        -Wno-fatal -Wno-WIDTH -Wno-UNUSED -Wno-PROCASSINIT \
+        -Wno-fatal -Wno-WIDTH -Wno-UNUSED \
         "$TB_OF.sv" $SOURCES \
         -o "tb_$kind" --Mdir "obj_dir_$kind" > "out/build_tb_$kind.log" 2>&1 \
         || { cat "out/build_tb_$kind.log"; fail "verilator build failed"; }
