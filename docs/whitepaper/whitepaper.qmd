@@ -1473,6 +1473,8 @@ The SystemVerilog is also realized on an ECP5, so the same modules answer on a f
 
 A second image on the same part carries the constraint as structure rather than as data: two modules the host emitted from a constraint program, with the bounds baked in and the composition operator fixed at generation time, answering the same anchors at 139 LUT4 and 137.49 MHz. The inquiry of unused kinds stays on the table image, because a program fixed when its module is written has no answer for a kind it was not generated for. The pair splits the two cases rather than one superseding the other.
 
+A third image carries both halves and no table at all. The sweep is the address space itself, an emitted decoder turns each address into the coordinate the Scheme holds there, an emitted observation module decides whether that coordinate is admissible, and the die compares its admission count over the whole space with the number the host computed. Over sixteen points three apart, the count separates a decoder that works from one that passes the address through. It costs 157 LUT4 and closes at 66.27 MHz against the table readers' 145 and 154.66 MHz: at this size a multiplier and a 64-bit accumulator cost more than a five line ROM, so the crossover at which arithmetic becomes the cheaper encoding of a map is a measurement the method now makes possible rather than an assumption.
+
 The workspace also emits the Scheme as an assembly `.rodata` section (`SCHEME_SEG_COUNT`, `SCHEME_COORDS`, `SCHEME_ADDRESSES`, `GOLDEN_*`) and generates branchless constraint gates with zero conditional branches. The bare-metal crate consumes both through `observe_scheme`, a batch observation over the emitted tables, completing the handoff from the reference simulation to the practical plane.
 
 ### Compiler Pipeline
@@ -1830,7 +1832,7 @@ Defines how a Field’s dynamic constraints interact with the static Scheme to p
 2. **Relation‑defined computation:** What traditional code expresses as loops and conditionals is encoded in the connectivity and metric of the `Relations` block.
 3. **Observation as collapse:** The `Observation` block specifies how a Field's constraints resolve the Scheme's potential into a deterministic Projection.
 4. **Deferred physical mapping:** No memory layout or instruction sequence is included; the compiler backend maps the topology to concrete hardware (SRAM, DRAM, HBM, etc.) based solely on the declared relations.
-5. **Deferred physical mapping** — No memory layout or instruction sequence is included; the compiler backend maps the topology to concrete hardware (SRAM, DRAM, HBM, etc.) based solely on the declared relations.
+5. **Identity and order come before bytes.** A Segment's identity is computed from its coordinates, and reading a coordinate tuple requires the axis order the Scheme declares, so a description that carries points without their axes carries values whose identity cannot be recomputed. Enumeration order belongs in the same place: an address map is defined on an order, and a description that leaves the order to its reader cannot say whether two spaces are equal. A canonical encoding of a coordinate is then the unit two implementations can compare, while the bytes on the wire remain transport.
 6. **Irreversibility of execution** — Execution moves forward only. A Scheme compiled and observed produces a Fact that cannot be retroactively altered. Legal instruments can be contested; execution traces cannot. An entity that copies the entire open specification and begins from the same primitives has gained nothing but yesterday's state. It still faces its own execution path alone, without the accumulated trajectory of those who have already run theirs. The barrier is not access to knowledge but the direction of time itself.
 
 ### Cryptographic Identity
@@ -2418,6 +2420,16 @@ $$
 When an observation is performed on $F_c$, the runtime checks the composite version. If the composite version has changed since the last cache entry, the projection is recomputed by evaluating the composition rule on the current $F_1$ and $F_2$.
 
 Lazy recomposition is recommended: the composite Field’s internal structure is only rebuilt when an observation is actually requested, not eagerly after every constituent update.
+
+### Reference Implementation
+
+The proof of concept evaluates a trigger as a predicate over an append-only log, which is the construction the formal semantics above describe. An entry records the Field's creation, an external event, an observation, another Field's update, or an update this Field applied.
+
+Two choices are worth stating because the specification leaves them open. The clock a temporal trigger reads is the time of the most recent applied update rather than the most recent entry, so a stream of events neither starves a temporal rule nor accelerates it, and applying an update re-arms the trigger that produced it. A conjunction reads the history, asking whether each constituent has happened at or before the entry, while a disjunction reads the entry itself; a conjunction of two distinct events would otherwise never hold at a single entry.
+
+One call applies at most one update per rule, in declaration order, so a chain of rules cannot loop inside a call, and convergence across calls is a property of the log the caller owns. Determinism is reported from the trigger set: an external event originates outside the model, so a trigger that waits for one, and any composite containing it, is not deterministic.
+
+A composite of two evolving Fields uses the version formula above as stated, with position carrying a constituent's identity, so a union and an intersection over the same constituents never share a version. The structure is rebuilt on the observation that finds the version changed, and a rebuild reads each constituent's snapshot together with the version it records for it, so a structure cannot be stamped with a version its contents do not answer.
 
 ### Compiler Considerations
 

@@ -91,6 +91,8 @@ pub struct MemoryLayout {
 
 A memory layout defines how a coordinate tuple maps to a logical address. The `LayoutType` describes the high‑level organization (Linear, RowMajor, ColumnMajor, SpaceFillingCurve), while the `mapping` closure implements the precise transformation. Logical addresses are independent of physical memory and can be used by a projector to locate data.
 
+A layout that a hardware target hardwires has to be arithmetic, and an arbitrary closure is not. The proof of concept derives each axis's offset, step and extent from the Scheme's own segments, and emits a decoder only when the segments are exactly the product of those extents, taking the address as the mixed‑radix index with the last axis varying fastest. A graph, a set with holes, or an unevenly spaced axis is refused rather than encoded as a table, since a table is what the arithmetic is meant to replace. The same requirement makes enumeration order part of the structure: a map from coordinates to addresses is defined on an order, so segments held in an unordered container have no map to export. The reference implementation orders them by identity and checks the product before it writes any arithmetic.
+
 ### 3.5 LogicalAddress
 
 ```rust
