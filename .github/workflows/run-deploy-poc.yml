@@ -12,6 +12,7 @@ on:
       - 'poc/run.sh'
       - 'poc/doc.py'
       - 'poc/Dockerfile'
+      - '.dockerignore'
       - 'poc/baremetal_riscv/simulation/**'
   pull_request:
     branches:
@@ -25,6 +26,7 @@ on:
       - 'poc/run.sh'
       - 'poc/doc.py'
       - 'poc/Dockerfile'
+      - '.dockerignore'
       - 'poc/baremetal_riscv/simulation/**'
   workflow_dispatch:
   repository_dispatch:
@@ -56,13 +58,33 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Resolve image tag
+        id: image
+        run: |
+          echo "tag=${REGISTRY}/${IMAGE_NAME}:poc-$(sha256sum poc/Dockerfile | cut -c1-8)" >> "$GITHUB_OUTPUT"
+        shell: bash
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      # The image is content-addressed, so a pull either gives the toolchain this Dockerfile describes or nothing.
+      # Falling back to `latest` would label a stale toolchain with the new content's name. When the content has not
+      # been published yet, the build reuses the layers the publish workflow pushed into the same cache scope, so a
+      # changed Dockerfile costs the changed layers rather than a Spike build from source.
       - name: Pull or build Docker image
         run: |
-          if docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest 2>/dev/null; then
-            echo "Image pulled successfully."
+          image="${{ steps.image.outputs.tag }}"
+          if docker pull "$image"; then
+            echo "Pulled $image"
           else
-            echo "Image not found in registry. Building from poc/Dockerfile..."
-            docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest -f poc/Dockerfile .
+            echo "Not published yet. Building $image from the shared layer cache."
+            docker buildx build --load \
+              -t "$image" \
+              -f poc/Dockerfile \
+              --cache-from type=gha,scope=shared-poc \
+              --cache-to type=gha,mode=min,scope=shared-poc \
+              --provenance=false --sbom=false \
+              .
           fi
         shell: bash
 
@@ -70,7 +92,7 @@ jobs:
         run: |
           docker run --rm \
             -v ${{ github.workspace }}:/workspace \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
+            ${{ steps.image.outputs.tag }} \
             bash -c "cd /workspace/poc && bash run.sh --validation"
         shell: bash
 
@@ -78,7 +100,7 @@ jobs:
         run: |
           docker run --rm \
             -v ${{ github.workspace }}:/workspace \
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
+            ${{ steps.image.outputs.tag }} \
             bash -c "cd /workspace/poc && python3 doc.py"
         shell: bash
 
