@@ -48,41 +48,18 @@ The twelve concepts live in one crate, `ssccs-concepts`, as one binary each. Eac
 | **`concept-integrated`** | Integrated Workflow - complete SSCCS pipeline demonstration |
 | **`experiment-data-processing`** | Observation-centric data processing against an imperative baseline, asserting that both agree |
 
-### Research Placeholder Crates
+### Research Crates
 
 | Crate | Purpose |
 |-------|---------|
 | **`ssccs-field-synthesis`** | Field composition algebra, and the composite version a composition over changing fields is checked against. |
 | **`ssccs-hardware-mapping`** | Composition-to-primitive mapping, and the SystemVerilog emitters: a module from a constraint program, and a decoder from a Scheme's segments. |
-| **`ssccs-hardware-integration`** | **Standard (std)** hardware abstraction layer for SSCCS observation. |
-| **`ssccs-compiler-opt`** | Placeholder for research on compiler optimisations and open-format-to-machine-code compilation. |
 
-All crates reside under `poc/crates/`. The experiment crates are organized under `poc/crates/concepts/`. The workspace configuration is defined in `poc/Cargo.toml`.
+All crates reside under `standard/crates/`, and the concept crate holds all twelve of its binaries, eleven concepts and one experiment. The workspace configuration is `standard/Cargo.toml`.
 
-### Related Research (Separate Workspaces)
+## Dependency Direction
 
-| Directory | Purpose | Target |
-|-----------|---------|--------|
-| **`research/baremetal_hw/`** | Bare-metal RISC-V hardware integration with custom instructions | `riscv32imac-unknown-none-elf` (`no_std`) |
-| **`poc/crates/hardware-integration/`** | Standard hardware abstraction layer (host-compatible) | Host (`std`) |
-
-## Dependency Graph
-
-```text
-ssccs-core (no internal dependencies - absolute primitives)
-    │
-    ▼
-ssccs-primitive (depends on ssccs-core)
-    │
-    ├──────────────┐
-    ▼              ▼
-ssccs-schemes   ssccs-examples (both depend on ssccs-primitive + ssccs-core)
-    │              │
-    └──────┬───────┘
-           │
-           ▼
-    experiment-* crates (under crates/concepts/, depend on ssccs-schemes, ssccs-examples, ssccs-primitive, ssccs-core)
-```
+Dependencies point one way. `ssccs-core` holds the absolute primitives and depends on nothing in the workspace. `ssccs-primitive` builds the Scheme layer on it, `ssccs-schemes` and `ssccs-examples` build on both, and the research crates and the concept binaries sit on top of those. A crate that needs something from a crate above it is a signal that the thing belongs lower.
 
 ## Rust Environment Setup
 

@@ -14,15 +14,15 @@ This crate provides:
 
 ## Triple-Substrate Validation
 
-The same constraint pipeline is independently implemented across **three computational substrates**, with automated cross-verification:
+The same constraint pipeline is independently implemented across three computational substrates, with automated cross-verification:
 
-```text
-RISC-V Assembly (.S)  ──┐
-                         ├── Golden Anchors (19, auto-verified by Python)
-SystemVerilog (.sv)    ──┤
-                         │
-Rust Fallback          ──┘
-```
+| Substrate | Implementation | Checked by |
+|---|---|---|
+| Rust fallback | the host crate | `cargo test` |
+| RISC-V assembly | `asm/*.S` | Spike with the proxy kernel, plus the syntax gate |
+| SystemVerilog | `sv/` | Verilator testbenches and the elaboration gate |
+
+Twenty three golden anchors pin all three, and `sv/check_golden_anchors.py` keeps the assembly constants and the SystemVerilog header in step, so changing one forces the others to agree or the run fails.
 
 The golden anchor system (`sv/check_golden_anchors.py`) reads constants from `observe_full.S` and checks them against `_golden_anchors.svh`. Any change to the assembly forces an anchor update, which forces the Python check to either pass or fail — keeping all three implementations in sync.
 
@@ -73,8 +73,10 @@ make -C sv generate      # writes generated/*.sv and the tables the sweep compar
 make -C sv decode-check  # every address, against the Scheme's own segments
 ```
 
-Nothing on a carrier reads that decoder yet: the board images read tables of chosen points, and a decoded space on
-the ECP5 is its own subject.
+A third image reads that decoder and nothing else. `ssccs_decoded_board` sweeps sixteen addresses, decodes each to
+its coordinate, applies the emitted observation module, and compares the admission count with the number the host
+computed from the same Scheme and the same program. It has no table of points, so a decoder that passed the address
+through would count six where the die must count two.
 
 ## Target Reality
 
