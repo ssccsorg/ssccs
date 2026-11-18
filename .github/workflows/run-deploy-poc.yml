@@ -2,6 +2,10 @@ name: SSCCS POC CI
 
 on:
   push:
+    # A pull request runs this workflow too. Restricting push to main keeps one push from paying for the job twice,
+    # which is what the same commit did while both triggers were open to branches.
+    branches:
+      - main
     paths:
       - 'poc/Cargo.*'
       - 'poc/**/*.rs'
