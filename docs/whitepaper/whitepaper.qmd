@@ -1362,7 +1362,7 @@ digraph Implementation_Roadmap {
 #### Phase 1: Software Emulation (Proof of Concept)
 
 - Rust reference implementation organized as three paths: the host simulation workspace (7 crates, with the eleven constitutional concepts carried as one binary each in a single crate), the bare-metal RISC-V integration crate, and a standalone criterion benchmark suite.
-- Deterministic reproducibility is confirmed across three independent implementations of the same pipeline: the Rust fallback, hand-written RISC-V assembly under Spike, and SystemVerilog, pinned by 23 golden anchors that are auto-verified on every validation run. The same SystemVerilog is realized on an FPGA, where the anchors answer off a pin under three tables, one of them a control. A script in the verification engine's repository generates fixtures from those same anchors and reproduces the scenario's per-segment results. The inverse-validation exercise described in the Introduction further demonstrates the model's applicability to conventional RISC-V silicon [@ev2026exaverif].
+- Deterministic reproducibility is confirmed across four channels whose construction and gates differ, enumerated with the fabric measurements in [*-@sec-validation-substrates*]: twenty-three golden anchors join the Rust fallback, the RISC-V assembly, and the SystemVerilog, and the independent ExaVerif engine derives its fixtures from the same file. The inverse-validation exercise described in the Introduction further demonstrates the model's applicability to conventional RISC-V silicon [@ev2026exaverif].
 - The benchmark suite covers three kernels (vector addition, 2D convolution, graph BFS), each expressed as a Rust baseline and an SSCCS formulation; it records emulation overhead on existing hardware as validation evidence. Ongoing work measures determinism, implicit parallelism, and data movement reduction on larger benchmarks.
 
 #### Phase 2: Hardware Acceleration (Transitional)
@@ -1459,23 +1459,72 @@ Three example projectors are:
 - **`ArithmeticProjector`:** defines adjacency through arithmetic operations (`+1`, `-1`, `*2`, `/2`).
 - **`ParityProjector`:** classifies coordinates as `"even"` or `"odd"` strings.
 
-### Validation Substrates
+### Validation Substrates {#sec-validation-substrates}
 
-The same constraint pipeline is implemented independently on three substrates and cross-verified automatically:
+The pipeline is implemented four ways, and the claim is that they agree. Each channel is built by different means and checked by a different gate, so agreement is evidence about the model rather than about one implementation.
 
-- **Rust fallback:** the reference path on the host (x86_64/aarch64), exercised by the workspace tests.
-- **RISC-V assembly:** five hand-written modules covering observation, collapse, field update, scheme layout, and adjacency, executed at the ISA level under Spike.
-- **SystemVerilog:** 18 modules implementing constraints, projectors, composition, and the CORE-V XIF coprocessor, which elaborates and synthesizes and carries its own testbench in the validation run.
+| Channel | What it is | Checked by |
+|---|---|---|
+| Rust fallback | the reference path on the host, x86_64 and aarch64 | the workspace test suite |
+| RISC-V assembly | five modules: observation, collapse, field update, scheme layout, and adjacency | the ISA under Spike with the proxy kernel |
+| SystemVerilog | eighteen modules: constraints, projectors, composition, and the CORE-V XIF coprocessor | Verilator testbenches, elaboration, and synthesis |
+| ExaVerif | an independent classifier with its own constraint engine | fixtures generated from the same anchors [@ev2026exaverif] |
 
-Twenty-three golden anchors pin the assembly outputs; a Python checker forces the SystemVerilog constants and the Rust fallback to agree with them on every validation run. Four of the anchors use a negative coordinate against negative bounds, so the signed order of the coordinate space is a pinned property rather than a convention. An independent verification engine, ev (ExaVerif), runs the other direction: a script in its repository generates fixtures from these assembly anchors and runs the engine's exhaustive classifier over them, which reproduces the scenario's per-segment results [@ev2026exaverif]. The fixtures are generated from the anchors rather than transcribed beside them, so the channel follows the anchors instead of restating them.
+Twenty-three golden anchors are the ledger. The assembly is the source, the SystemVerilog header carries the same constants, the Rust fallback asserts the same expectations, and a script in the verification engine's repository derives its fixtures from the same file, so no channel restates another. Four anchors place a negative coordinate against negative bounds, which makes the signed order of the coordinate space a property the run checks rather than a convention the code assumes.
 
-The SystemVerilog is also realized on an ECP5, so the same modules answer on a fabric rather than only in simulation. The image reads a coordinate, evaluates the kinds the table names against the bounds it carries, applies the observation operator, and compares both observations with the expected results one line at a time. Three tables are built from the anchors: the anchor table, the same table with two expectations exchanged, and an inquiry of kinds and bounds the scenario never uses, including negative ones. The die answers 1, 0 and 1; the third build takes 313 LUT4 and closes above 92 MHz against a 25 MHz crystal.
+```{python}
+#| label: fig-validation-ledger
+#| fig-cap: "The four channels and the file that joins them. Every arrow leaves the anchors or enters them, and no channel reads another."
+dot("""
+digraph ValidationLedger {
+    rankdir=LR;
+    graph [fontsize=11, pad=0.4, nodesep=0.5, ranksep=0.7];
+    node [shape=box, fontsize=9, style=rounded, height=0.5];
+    edge [fontsize=8, arrowsize=0.6];
 
-A second image on the same part carries the constraint as structure rather than as data: two modules the host emitted from a constraint program, with the bounds baked in and the composition operator fixed at generation time, answering the same anchors at 139 LUT4 and 137.49 MHz. The inquiry of unused kinds stays on the table image, because a program fixed when its module is written has no answer for a kind it was not generated for. The pair splits the two cases rather than one superseding the other.
+    asm  [label="RISC-V assembly"];
+    sv   [label="SystemVerilog"];
+    rust [label="Rust fallback"];
+    ev   [label="ExaVerif"];
 
-A third image carries both halves and no table at all. The sweep is the address space itself, an emitted decoder turns each address into the coordinate the Scheme holds there, an emitted observation module decides whether that coordinate is admissible, and the die compares its admission count over the whole space with the number the host computed. Over sixteen points three apart, the count separates a decoder that works from one that passes the address through. It costs 157 LUT4 and closes at 66.27 MHz against the table readers' 145 and 154.66 MHz: at this size a multiplier and a 64-bit accumulator cost more than a five line ROM, so the crossover at which arithmetic becomes the cheaper encoding of a map is a measurement the method now makes possible rather than an assumption.
+    ledger [label="23 golden anchors", shape=note, style=""];
 
-The workspace also emits the Scheme as an assembly `.rodata` section (`SCHEME_SEG_COUNT`, `SCHEME_COORDS`, `SCHEME_ADDRESSES`, `GOLDEN_*`) and generates branchless constraint gates with zero conditional branches. The bare-metal crate consumes both through `observe_scheme`, a batch observation over the emitted tables, completing the handoff from the reference simulation to the practical plane.
+    asm  -> ledger [label="source"];
+    ledger -> sv   [label="constants"];
+    ledger -> rust [label="expectations"];
+    ledger -> ev   [label="fixtures"];
+
+    fabric [label="ECP5 image, three designs"];
+    sv     -> fabric [label="synthesis"];
+    ledger -> fabric [label="five anchors"];
+}
+""")
+```
+
+The SystemVerilog is also realized on an ECP5 and answers off a pin, which is the part of the evidence a simulation cannot supply.
+
+![The carrier: an iCESugar-Pro v1.3 module in its Ext-Board. The POC's three designs run on this part, and the verdict leaves the die on the iCELink's PA13.](../_include/icesugar-pro.jpg){#fig-poc-fabric width=58%}
+
+The designs share the part, the seven nets, and the sweep that presents a coordinate each clock. They differ in where the constraint comes from.
+
+| Design | Where the constraint lives | What the die reads | LUT4 | Clock | Verdict |
+|---|---|---|---:|---:|---:|
+| table, anchored | a table of kinds and bounds | five anchors | 145 | 154.66 MHz | 1 |
+| table, two expectations exchanged | the same table | the same five anchors | 150 | 143.82 MHz | 0 |
+| table, an unused inquiry | a table of kinds and bounds | kinds and bounds the scenario never uses | 313 | 92.13 MHz | 1 |
+| emitted, anchored | modules the host wrote | five anchors | 139 | 137.49 MHz | 1 |
+| emitted, one value exchanged | the same modules | the same five anchors | 150 | 142.80 MHz | 0 |
+| decoded | the address space itself | sixteen points of its own space | 157 | 66.27 MHz | 1 |
+
+The table design carries its constraint as a table of kinds and bounds. A descriptor names two kinds and their operands, the units decode them, and two observations are compared line by line against the anchor table, against the same table with two expectations exchanged, and against an inquiry of kinds and bounds the scenario never uses. The exchange is the control that matters: it leaves the coordinates and the multiset of expectations unchanged, so a checksum over the table would not notice it, and the die refuses it anyway.
+
+The emitted design has the same constraint written as modules by the host, so its bounds are structure and the composition operator is fixed when the module is written. It answers the same five anchors. The inquiry of unused kinds stays with the table design, because a program fixed at generation time has no answer for a kind it was not generated for.
+
+The decoded design has no table of points. The sweep is the address space, an emitted decoder turns each address into the coordinate the Scheme holds there, an emitted observation module decides whether that coordinate is admissible, and the die compares its admission count over the whole space with the number the host computed. Over sixteen points three apart the count is two, where a decoder that passed the address through would give six.
+
+The comparison settles the cost of the two encodings. At this size a multiplier and a 64-bit accumulator cost more than a five line ROM, so the decoded design spends more logic than either anchored reader, 157 against 145 and 139, and closes lowest at 66.27 MHz. The inquiry build is larger still at 313, because it carries the decode for all four kinds rather than the ones the scenario names. The crossover at which arithmetic becomes the cheaper encoding of a map is therefore something the method measures rather than assumes.
+
+The host also writes data. The workspace emits the Scheme as an assembly `.rodata` section (`SCHEME_SEG_COUNT`, `SCHEME_COORDS`, `SCHEME_ADDRESSES`, `GOLDEN_*`) and generates branchless constraint gates with no conditional branch. The bare-metal crate consumes both through `observe_scheme`, a batch observation over the emitted tables.
 
 ### Compiler Pipeline
 
@@ -2571,7 +2620,7 @@ The tagma block [@tagma2026wp] is an independent project that realizes the fixed
 
 The primitive has also been realised in fabric. On an ECP5 part the decoder is carried by a four-stage pipeline that closes 148.77 MHz register to register, and an image on that part sweeps the valid range, accumulates the three axes, and compares the sum on the die against a constant derived from the reference anchors. The verdict leaves the part on pins the on-board debugger reads, so the record is a comparison that ran rather than an indicator: it passes at 40, 100, 120, 125 and 140 MHz, and a deliberately wrong constant reads as a failure. A third build takes a supplied set rather than sweeping the primitive's range: one value per valid offset, 11,172 of them, and a single value moved outside the alphabet turns the verdict. A fourth compares an anchor file line by line against the packs the file carries, which is the check a sum cannot make: two packs that trade value leave the total untouched, and the die refuses the exchange. A second part, an iCE40, closes the 12 MHz board clock at 16.79 MHz, and its placed-and-routed bitstream is compared against the RTL over all 65,536 code points.
 
-![The ECP5 target on the bench: an iCESugar-Pro v1.3 module in its Ext-Board. The verification image runs on the module's ECP5 and reports its verdict over the on-board iCELink.](../_include/icesugar-pro.jpg){#fig-tagma-fabric width=58%}
+![The same part as @fig-poc-fabric, carrying the tagma verification image: an iCESugar-Pro v1.3 module in its Ext-Board, reporting the verdict over the on-board iCELink.](../_include/icesugar-pro.jpg){#fig-tagma-fabric width=58%}
 
 ### Identity generation latency
 
