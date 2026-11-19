@@ -75,7 +75,6 @@ What the hardware is for, then, is a record layer addressed by coordinates. With
 
 What is missing is that store. The decoder, the compose unit and the distance unit are realized as RTL and verified end to end, and the segment store is a behavioral model of the address map whose SRAM macro waits for an OpenRAM PDK install. The structural argument above lives in the store, and the store is the part not yet on a device.
 
-
 ## Scope and relation to the primitive
 
 The hardware track does not redefine Tagma. The composition formula, the axis ranges, and the 11,172-entry space are identical to the software definition; the layer map below names the primitive once, and every other occurrence here would be a copy.
@@ -207,36 +206,6 @@ The channels and the commands that produce them:
 `hw/tools/check_golden_anchors.py` gates the regenerated anchor file against the decomposition contract, so a stale or corrupted export fails before any simulation starts.
 
 The pipeline runs in CI through `make -C hw check` in the syntagma repository, so the numbers in this series are reproducible from a clean checkout when Verilator and Yosys are installed.
-
-## Engineering decisions
-
-| Decision | Rationale | Consequence |
-|----------|-----------|-------------|
-| Multiply-shift over shift-subtract | 72 to 33 logic levels, closes the 12 MHz board clock | 206 to 478 generic cells |
-| Golden anchors from Rust, regenerated | single source of truth, no drift | the anchor file is a build artifact, regenerated in CI |
-| Four verification channels | formula, reference, netlist, equivalence | RTL and netlist proven identical over 2^16 inputs |
-| Registered demo outputs | one-cycle latency measurable with a real clock | Fmax and setup checkable with icetime |
-| LED polarity as a parameter | the Upduino's onboard LED is negative logic, the iCESugar-Pro's RGB LED is active high | `led_valid` is driven from `LED_ACTIVE_LOW`, default 1 for the Upduino, 0 on the Pro |
-| Explicit width-matched Verilog | Verilator `-Wall` clean without hiding truncation | concat-based zero-extension, lint only for unused bits |
-| Four-stage pipeline, one large constant multiply per stage | the two large constants keep a multiplier each, the two small ones become shifts, and the offset subtract gets a stage of its own | 148.77 MHz register to register on the ECP5, latency of four clocks, 2 MULT18X18D |
-| Self-check compiled into the board build | a place-and-route result is not an observation of the board | the pipeline and the reference are compared every clock on the device, and a mismatch latches an indication |
-| ev-compatible `stat -json` flow | numbers comparable across the SSCCS stack | emittable as neXus Facts later |
-
-## Development notes
-
-- The boundary correction is a documentation item as well as a testbench item: every document that states the range as ending at U+D7AF should be checked, and `tagma_core` records U+D7A4..U+D7AF as filler positions.
-- Toolchain notes: Verilator requires explicit width-matched operands and lint scoping for intentional truncation; icetime needs the iCE40 chipdb discoverable (a Homebrew symlink on macOS); the anchor file is a language-neutral contract that can gate a C++ port later.
-
-## Next steps
-
-| Track | Step | Dependency |
-|-------|------|------------|
-| Physical demo | wire the switch and LED modules per the board constraints and capture the demo; the iCESugar-Pro bitstream is programmed and boots | switch and LED modules |
-| Standard cell | the OpenROAD Sky130 flow runs end to end and is re-run in the syntagma hw CI job; two flow bugs were fixed during setup | none |
-| chton propagation | generate the segment store SRAM from `chton_sram.py` and attach it to the decoder | OpenRAM and PDK |
-| Power model | the OpenROAD flow now reports at the workload's measured activity, about 3.0 pJ per decode; the run-to-run difference in the absolute figure is open | pinned toolchain revision |
-| Multi-target | one RTL builds for iCE40 (`BOARD=upduino31`) and ECP5 (`BOARD=icesugar_pro`); Artix-7 remains open | ECP5 done, Artix-7 needs a board |
-| Streaming | the four-stage pipeline emits one code point per clock, closes at 148.77 MHz, and reproduces the `tagma_core` checksum at a measured 140 MHz | none; the external switch and LED wiring stays open |
 
 ## Documents
 

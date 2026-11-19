@@ -82,7 +82,7 @@ can accommodate any operator without structural change.
 
 ### Storage
 
-All state lives in a single FihStorage instance with an in-memory IO
+All state lives in a single FihStorageRef instance with an in-memory IO
 backend (SimIo). The storage engine is the same one used throughout the
 neXus ecosystem. Swapping the IO backend changes the persistence layer
 without touching calculator logic:
@@ -211,7 +211,7 @@ what nex-calc does ad-hoc.
 
 nex-calc is a bridge between two systems:
 
-- **neXus** provides the FIH storage infrastructure (FihStorage,
+- **neXus** provides the FIH storage infrastructure (FihStorageRef,
   Blackboard traits, IO abstraction). nex-calc uses it without
   modification, proving that FIH is a general computation substrate,
   not just a knowledge management tool.
