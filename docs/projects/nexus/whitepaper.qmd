@@ -543,11 +543,11 @@ Correctness is argued at four levels: exhaustive enumeration of the coordinate s
 
 ### Exhaustive Coordinate Enumeration {#sec-verify-coords}
 
-The 16-bit coordinate space contains $65{,}536$ values, of which exactly $11{,}172 = 19 \times 21 \times 28$ are structurally valid under the closed-form composition. A verification harness enumerates all 65,536 inputs and validates the decoder over the full space in milliseconds; the valid subset is exhaustive, not sampled. Because every record identity is composed from valid coordinates and invalid coordinates are rejected at construction, collision freedom holds by construction for the identity space rather than by probabilistic guarantee, and every storage layout that addresses records by coordinates inherits the property.
+The 16-bit coordinate space contains $65{,}536$ values, of which exactly $11{,}172 = 19 \times 21 \times 28$ are structurally valid under the closed-form composition. ExaVerif, the exhaustive verification engine published as [`ev`](https://github.com/ssccsorg/ev), enumerates all 65,536 inputs and validates the decoder over the full space in milliseconds; the valid subset is exhaustive, not sampled. Because every record identity is composed from valid coordinates and invalid coordinates are rejected at construction, collision freedom holds by construction for the identity space rather than by probabilistic guarantee, and every storage layout that addresses records by coordinates inherits the property.
 
 ### Adversarial Simulation {#sec-verify-sim}
 
-The simulator implements the same core traits as the production backends at two depths: at the trait level against a reference storage runtime, and across the async boundary through an HTTP emulation of hosted worker I/O. Acceptance phases 0 through 3 are complete; phase 4 is open. Seven attack scenarios are exercised.
+The simulator and the verification suite it drives are part of the implementation and are kept with it. The simulator carries the same core traits as the production backends at two depths: at the trait level against a reference storage runtime, and across the async boundary through an HTTP emulation of hosted worker I/O. It emits a violation matrix, a signed proof artifact, and Hint generation. Seven attack scenarios define what it exercises.
 
 - Direct free-riding: reading without contributing.
 - Evasive free-riding: contributing minimal or duplicated content.
@@ -557,7 +557,7 @@ The simulator implements the same core traits as the production backends at two 
 - Replay: re-submitting recorded actions.
 - Sybil: impersonating multiple identities.
 
-Four game-theoretic scenarios run as CI gates with explicit thresholds.
+Four game-theoretic scenarios define the acceptance thresholds.
 
 | Scenario | Condition | Gate |
 |----------|-----------|------|
@@ -566,7 +566,7 @@ Four game-theoretic scenarios run as CI gates with explicit thresholds.
 | Generous forgiveness | repeated play | cooperation rate above 0.6 |
 | FIH intent lifecycle | repeated play | honest completion above 0.7, false conclusion below 0.1 |
 
-The simulator emits a violation matrix, a signed proof artifact, and Hint generation. The same FIH domain recurrence maps the simulator to ExaVerif, the exhaustive verification engine for instruction extensions: both reduce a target to a FIH record set and evaluate constraints over it, so the simulator's core traits are the verification engine's core traits.
+The same FIH domain recurrence maps the simulator to ExaVerif: both reduce a target to a FIH record set and evaluate constraints over it, so the simulator's core traits are the verification engine's core traits.
 
 ### The Exchange Contract {#sec-verify-proof}
 
