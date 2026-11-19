@@ -83,7 +83,7 @@ The post-conversion benefits are where Tagma differs fundamentally. Once a key e
 Key-value stores are the most frequently used data structure in computing. Every database engine, caching layer, distributed system, and in-memory application relies on some form of KV lookup. The universal implementation pattern is the hash map: a hash function computes a bucket index from the key; the bucket is then searched for the exact key.
 
 [^syntagma]: synTagma: a spatial coordinate space computing system based on the Tagma primitive. [Docs](https://docs.ssccs.org/projects/syntagma), Repository: [Github (Pre-release, Apache 2.0)](https://github.com/ssccsorg/syntagma)
-[^benchmarks]: ARMv8.4-A Firestorm 3.2GHz. All benchmark figures are measured on the code [github.com/ssccsorg/syntagma/blob/main/sw/rust/benches/bench.rs](https://github.com/ssccsorg/syntagma/blob/main/sw/rust/benches/bench.rs)
+[^benchmarks]: ARMv8.4-A at 3.2GHz. All benchmark figures are measured on the code [github.com/ssccsorg/syntagma/blob/main/sw/rust/benches/bench.rs](https://github.com/ssccsorg/syntagma/blob/main/sw/rust/benches/bench.rs)
 [^tagma]: Tagma whitepaper: [docs.ssccs.org/projects/syntagma/tagma](https://docs.ssccs.org/projects/syntagma/tagma)
 [^refimpl]: Type names such as `CoordMap2`, `CoordSpace2`, `CoordKey`, `DynCoordMap`, and `CoordMapN` refer to types in the reference implementation: [github.com/ssccsorg/syntagma/tree/main/sw/rust/map](https://github.com/ssccsorg/syntagma/tree/main/sw/rust/map)
 
@@ -337,7 +337,7 @@ The benchmark data reveals a structural insight: the 5 ns conversion is below th
 
 ### Key Observations
 
-1. **Conversion cost derivation**: Total CoordMap2 get latency is 22.06 ns. Raw CoordSpace2 array access is 0.39 ns (L1 cache load latency on ARMv8.4-A Firestorm core). The remaining 21.67 ns is the difference between these two directly measured benchmarks. This remainder is then split into the str-to-CoordKey conversion (~5 ns, measured by instrumenting the conversion in isolation) and the Vec clone for the owned return value (~16.67 ns, the remainder after subtracting conversion from 21.67 ns). The conversion alone is below SipHash's cost; the 16.67 ns Vec clone is an API artifact that reference-returning variants can eliminate entirely. See the asymmetry note under Latency Breakdown.
+1. **Conversion cost derivation**: Total CoordMap2 get latency is 22.06 ns. Raw CoordSpace2 array access is 0.39 ns (L1 cache load latency on ARMv8.4-A core). The remaining 21.67 ns is the difference between these two directly measured benchmarks. This remainder is then split into the str-to-CoordKey conversion (~5 ns, measured by instrumenting the conversion in isolation) and the Vec clone for the owned return value (~16.67 ns, the remainder after subtracting conversion from 21.67 ns). The conversion alone is below SipHash's cost; the 16.67 ns Vec clone is an API artifact that reference-returning variants can eliminate entirely. See the asymmetry note under Latency Breakdown.
 
 2. **CoordMapN<2> is equivalent to CoordMap2** for N=2. Tree traversal overhead at depth 2 is negligible; the difference (21.73 vs 22.06 ns) is within measurement noise.
 

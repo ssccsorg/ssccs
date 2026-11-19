@@ -247,7 +247,7 @@ A preparation tool converts a real dataset into the store: each event becomes on
 
 The workload is the M1 pattern: read every event of the CMS Run2016G DoubleMuon NanoAOD first file, tree `Events`, 2,315,223 events, 2,155,974,646 bytes, with the TTreeCache disabled in the baseline. The baseline is the current ROOT read path, branch to basket to cache to file, with no store attached; the coordinate hooks are dormant null checks when no store is present, and the branch, basket, cache, and file layers are unchanged from upstream[^footprint_note]. The coordinate rows read the fixed-width store converted from the same events, 2,560-byte records, 320 scalar leaves. Both paths call the same API, `GetEntry`, so the comparison isolates the interior read path. The layout in the phase-1 measured rows holds a single populated axis: the run and lumi extents are one and the event axis carries the entry count, so the composition evaluates to the entry index times the record size. The mixed-radix composition over nonzero axis extents runs the same code and is verified against the reference engine over the canonical lattice, and the dataset-level layout whose axis extents come from the data is delivered and measured in the dataset subsection of the later results.
 
-The environment is a single Arm Firestorm 3.2 GHz core[^firestorm-note], macOS, out-of-source Release build with treeplayer and testing enabled. Absolute times are machine-specific; the request and system call counts are media-independent.
+The environment is a single ARMv8.4-A core at 3.2 GHz[^core-note], macOS, out-of-source Release build with treeplayer and testing enabled. Absolute times are machine-specific; the request and system call counts are media-independent.
 
 The reported metrics are wall and CPU time, request count, coordinate-served count, bytes moved, read system call count, and cache efficiency. Correctness is verified two ways: the benchmark checks that the store holds exactly the converted records and that the bytes the coordinate paths serve match the conversion-time checksum; the analysis workload checks that the same selection and histogram over both paths produce identical results.
 
@@ -868,7 +868,7 @@ itself.
 
 [^mmap-note]: The mapping is read-only and private. The kernel demand-pages each page once on first touch; zero read system calls means zero application-level read calls, while the page faults are kernel-internal.
 
-[^firestorm-note]: The core is an Arm Firestorm implementation at 3.2 GHz, Armv8.5-A. Absolute times are specific to this core; the request and system call counts are core and media independent.
+[^core-note]: The core is an Arm implementation at 3.2 GHz, Armv8.5-A. Absolute times are specific to this core; the request and system call counts are core and media independent.
 
 [^checksum-note]: The checksum is the 64-bit sum of every record byte, accumulated with wrap-around. The conversion tool writes it to a sidecar; the benchmark recomputes it from the bytes the coordinate paths serve, and any mismatch fails the run.
 

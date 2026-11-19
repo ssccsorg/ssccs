@@ -62,7 +62,7 @@ The platform around this substrate is organized in five layers: a hybrid knowled
 
 ## Measured performance
 
-All measurements come from the nexus benchmark suite, release profile, median of 10 samples, Apple M1 [^bench].
+All measurements come from the nexus benchmark suite, release profile, median of 10 samples, single ARMv8.4-A core [^bench].
 
 ### Query and identity
 
@@ -99,7 +99,7 @@ Batch write. Ten thousand facts submit and flush in 51.9 ms, 5.19 µs per fact, 
 
 ### Restructure measurements
 
-The restructure, measured on the same Apple M1:
+The restructure, measured on the same core:
 
 - Identity conflict detection at commit time dropped to sub-microsecond per call.
 - Per-fact footprint dropped from ~3.4 MB to ~40 KB average.
@@ -178,6 +178,6 @@ neXus is an open-source project (Apache 2.0) under the SSCCS Initiative. The Rus
 
 [^tagma]: synTagma is the coordinate-space primitive behind neXus identity. Repository: [github.com/ssccsorg/syntagma](https://github.com/ssccsorg/syntagma), documentation: [docs.ssccs.org/projects/syntagma/](https://docs.ssccs.org/projects/syntagma/)
 [^bench]: The benchmark suite is kept with the implementation.
-[^old]: Pre-Tagma baseline from the full-scan implementation, measured on the same Apple M1. The measurement record is kept with the implementation.
+[^old]: Pre-Tagma baseline from the full-scan implementation, measured on the same core. The measurement record is kept with the implementation.
 [^bb]: A blackboard is a shared coordination space: agents write immutable Facts, claim Intents, and read Hints through one interface, following the blackboard architectural pattern.
 [^flat]: Multi-dimensional search benchmark, issue 179: [github.com/ssccsorg/nexus/issues/179](https://github.com/ssccsorg/nexus/issues/179).

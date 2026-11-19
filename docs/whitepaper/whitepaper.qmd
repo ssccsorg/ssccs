@@ -2624,7 +2624,7 @@ The primitive has also been realised in fabric. On an ECP5 part the decoder is c
 
 ### Identity generation latency
 
-The reference implementation measures the consequences of this structure on ARMv8.4-A Firestorm silicon with cargo bench. Identity generation resolves in 0.39 ns for a single coordinate, against 227 ns for SHA-256. At 19 coordinates, the depth that matches the SHA-256 address space, the tree fallback costs 58.6 ns while the native dense path stays flat at 0.39 ns.
+The reference implementation measures the consequences of this structure on ARMv8.4-A silicon with cargo bench. Identity generation resolves in 0.39 ns for a single coordinate, against 227 ns for SHA-256. At 19 coordinates, the depth that matches the SHA-256 address space, the tree fallback costs 58.6 ns while the native dense path stays flat at 0.39 ns.
 
 {{< include ../projects/syntagma/_include/bench/fig-bench-identity.qmd >}}
 
@@ -2645,7 +2645,7 @@ The addressable space grows as $11{,}172^N$, and lookup cost does not follow the
 
 ### Coordinate Identity in Key-Value Storage {#sec-appendix-tagma-map}
 
-TagmaMap exposes a HashMap-compatible API (insert, get, remove, contains_key) backed by the coordinate space, replacing the hash layer with a closed-form arithmetic mapping: zero collision probability, no bucket probing, no resizing. On ARMv8.4-A Firestorm silicon, string-key conversion costs 5 ns, roughly three times faster than SipHash-2-4, and CoordMap2 get latency is scale-invariant (22.0 ns at 10k, 21.4 ns at 1M, 22.1 ns at 10M) while HashMap rises with memory pressure; the native dense path reaches 0.39 ns, and spatial queries (prefix scans, axis projections, range queries) resolve as bitwise operations at 94 ns. One prominent case is the transformer KV cache, where lookup dominates memory traffic as context grows. Documentation: [TagmaMap](https://docs.ssccs.org/projects/syntagma/tagma-map/).
+TagmaMap exposes a HashMap-compatible API (insert, get, remove, contains_key) backed by the coordinate space, replacing the hash layer with a closed-form arithmetic mapping: zero collision probability, no bucket probing, no resizing. On ARMv8.4-A silicon, string-key conversion costs 5 ns, roughly three times faster than SipHash-2-4, and CoordMap2 get latency is scale-invariant (22.0 ns at 10k, 21.4 ns at 1M, 22.1 ns at 10M) while HashMap rises with memory pressure; the native dense path reaches 0.39 ns, and spatial queries (prefix scans, axis projections, range queries) resolve as bitwise operations at 94 ns. One prominent case is the transformer KV cache, where lookup dominates memory traffic as context grows. Documentation: [TagmaMap](https://docs.ssccs.org/projects/syntagma/tagma-map/).
 
 Realization insight. Because the coordinate is the address, the index layer disappears and lookup cost stops following data volume; the measured scale invariance is the empirical form of the structural-isolation claim.
 

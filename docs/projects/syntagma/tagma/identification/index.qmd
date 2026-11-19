@@ -13,7 +13,7 @@ metadata-files:
     - ../../../../_include/format.html.yml
 colorlinks: true
 abstract: |
-  SHA-256 is the de facto standard for content-addressable identity generation across storage engines, distributed systems, and databases. This paper demonstrates that SHA-256 can be replaced by a structural coordinate composition over a 16-bit value space. The value is a sequence of axis values over 11,172 positions, and its canonical text is a fixed-width lowercase base-36 spelling, reducing identity generation latency by approximately 115x (from 227 ns to 2 ns per operation), eliminating collision handling entirely, and converting multi-axis index queries from O(K x N) intersection to O(1) direct coordinate extraction. The replacement is not cryptographic: preimage resistance, authentication, and encryption remain with SHA-256. Identity generation alone is replaced. A software proof of concept confirming these measurements over 100k operations on ARMv8.4-A Firestorm silicon is provided as open-source reference implementation.
+  SHA-256 is the de facto standard for content-addressable identity generation across storage engines, distributed systems, and databases. This paper demonstrates that SHA-256 can be replaced by a structural coordinate composition over a 16-bit value space. The value is a sequence of axis values over 11,172 positions, and its canonical text is a fixed-width lowercase base-36 spelling, reducing identity generation latency by approximately 115x (from 227 ns to 2 ns per operation), eliminating collision handling entirely, and converting multi-axis index queries from O(K x N) intersection to O(1) direct coordinate extraction. The replacement is not cryptographic: preimage resistance, authentication, and encryption remain with SHA-256. Identity generation alone is replaced. A software proof of concept confirming these measurements over 100k operations on ARMv8.4-A silicon is provided as open-source reference implementation.
 format:
   html:
     number-sections: true
@@ -110,7 +110,7 @@ Despite this, every content-addressable system pays the full cost of both roles 
 |---------------|-------|
 | Gate equivalents | ~10,000 |
 | Latency (hardware) | 64-75 cycles |
-| Latency (software, ARMv8.4-A Firestorm) | 227 ns per op |
+| Latency (software, ARMv8.4-A) | 227 ns per op |
 | Identifier size | 256 bits (32 bytes) |
 | Collision handling | probabilistic, requires resolution table |
 | Multi-axis query | requires separate index structures |

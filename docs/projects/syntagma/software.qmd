@@ -228,7 +228,7 @@ impl CoordSet {
 ### Why 1.4 KB?
 
 Every major CPU architecture has an L1 data cache of at least 16 KB (ARM
-Cortex-M3) and typically 32 KB (ARM Cortex-M7, Apple Firestorm, Intel
+Cortex-M3) and typically 32 KB (ARM Cortex-M7, ARMv8.4-A, Intel
 Skylake). The full CoordSet fits in L1 with room to spare. Operations that
 scan all 175 words -- union, intersection, difference -- complete within
 a single cache line fill burst.
@@ -373,7 +373,7 @@ different depth range.
 ### Dense: CoordSpace (N = 1)
 
 The inline `[Option<V>; 11172]` array requires no allocator. Access is a
-single array load: 0.38 ns on ARM Firestorm. This is the fastest possible
+single array load: 0.38 ns on ARMv8.4-A. This is the fastest possible
 implementation for single-coordinate maps.
 
 ### Dense: CoordSpace2 (N = 2)
@@ -544,8 +544,7 @@ across all crates (the `tagma-sec` crate contributes 32) and 26 doc-tests,
 zero clippy warnings, and a `no_std` + `no-alloc` build for the core
 crate. All unsafe blocks are documented with safety invariants.
 
-Benchmark measurements on a single ARMv8.4-A Firestorm core (Apple M1,
-3.2 GHz), averaged over 11,172 operations, compare `CoordSpace` against
+Benchmark measurements on a single ARMv8.4-A core (3.2 GHz), averaged over 11,172 operations, compare `CoordSpace` against
 `std::collections::HashMap`:
 
 | Operation | CoordSpace | HashMap | Speedup |
@@ -600,7 +599,7 @@ blake3).
 
 ### Benchmarks
 
-All values are measured on a single ARMv8.4-A Firestorm core (3.2 GHz)
+All values are measured on a single ARMv8.4-A core (3.2 GHz)
 with the `sec` criterion group in `sw/rust/benches/bench.rs`.
 
 | Scenario | Benchmark | Measured | Insight |

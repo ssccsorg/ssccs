@@ -112,7 +112,7 @@ Address space grows with N; the tree fallback lookup cost scales as O(N), while 
 
 | Metric | SHA-256 | CoordSpace (N=1) | CoordSpace2 (N=2) | CoordSpaceM3 (N=3) | CoordSpaceN (any N) |
 |--------|---------|------------------|-------------------|--------------------|--------------------|
-| Latency per lookup (ARMv8.4-A Firestorm) | 227 ns | 0.39 ns | 0.39 ns | 0.40 ns | 0.94-40.8 ns |
+| Latency per lookup (ARMv8.4-A) | 227 ns | 0.39 ns | 0.39 ns | 0.40 ns | 0.94-40.8 ns |
 | Allocation | -- | Inline 22 KB | Heap 119 MB | Mmap 1.27 TB | Sparse tree |
 | Identity size | 32 bytes | 2 bytes | 4 bytes | 6 bytes | $2N$ bytes |
 | Addressable space | $2^{256}$ | $1.12 \times 10^4$ | $1.25 \times 10^8$ | $1.39 \times 10^{12}$ | variable |
@@ -277,7 +277,7 @@ For inquiries or research collaboration: [syntagma@ssccs.org](mailto:syntagma@ss
 [^syntagma]: [synTagma](https://github.com/ssccsorg/syntagma) is an independent open-source project (Pre-release, Apache 2.0) under the SSCCS Initiative.
 [^spec-status]: Pre-silicon estimate based on the gate-level specification; actual gate count and cycle timing will be confirmed through standard-cell synthesis and static timing analysis with the coprocessor (e.g. RISC-V XIF).
 [^hangul-block]: The ranges 19, 21, and 28 derive from the Unicode block U+AC00--U+D7AF, which encodes the compositional writing system. The composition formula is defined in ISO/IEC 10646.
-[^benchmarks]: All benchmarks were run with cargo bench, criterion on ARMv8.4-A Firestorm. Code: [Github](https://github.com/ssccsorg/syntagma/blob/main/sw/rust/benches/bench.rs)
+[^benchmarks]: All benchmarks were run with cargo bench, criterion on ARMv8.4-A. Code: [Github](https://github.com/ssccsorg/syntagma/blob/main/sw/rust/benches/bench.rs)
 [^hangul-coord-structure]: The constants 19, 21, and 28 correspond to the number of initial consonants, medial vowels, and final consonants in Hangul (invented 1443), the compositional writing system encoded in block U+AC00--U+D7AF.
 
 {{< include ../../_include/_license.md >}}

@@ -95,7 +95,7 @@ The llama.cpp investigation applies the tagma coordinate principle to the llama.
 
 ## Benchmark method
 
-The host-path microbenchmark lives in the fork at `pocs/tagma-kv-bench` and drives the real `llama_kv_cache` functions (`find_slot`, `prepare`, `apply_ubatch`, `set_input_k_idxs`, `set_input_v_idxs`) with synthetic ubatches, so the attention arithmetic is excluded and the numbers are the host-side KV bookkeeping in isolation. The measurements run on the CPU-only build (`GGML_METAL=OFF`, Release) on Apple M1 Max with Qwen2.5-0.5B-Instruct Q4_K_M at 32K context, matching the `llama-bench` baseline samples. The raw output is `results/host-bench-ctx32768.txt` in the fork.
+The host-path microbenchmark lives in the fork at `pocs/tagma-kv-bench` and drives the real `llama_kv_cache` functions (`find_slot`, `prepare`, `apply_ubatch`, `set_input_k_idxs`, `set_input_v_idxs`) with synthetic ubatches, so the attention arithmetic is excluded and the numbers are the host-side KV bookkeeping in isolation. The measurements run on the CPU-only build (`GGML_METAL=OFF`, Release) on a single ARMv8.4-A core with Qwen2.5-0.5B-Instruct Q4_K_M at 32K context, matching the `llama-bench` baseline samples. The raw output is `results/host-bench-ctx32768.txt` in the fork.
 
 ## Measured results
 
