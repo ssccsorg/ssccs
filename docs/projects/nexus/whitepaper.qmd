@@ -580,7 +580,9 @@ What the profile establishes is a property of the record layer: the semantics ca
 
 ## Measured Performance {#sec-performance}
 
-The numbers in this section come from the benchmark suite of the reference repository[^bench]. Runs execute on an Apple M1 (ARMv8.4 Firestorm cores at 3.2 GHz) in release mode; the suite is Criterion-based with a sample size of ten and reports the median. Fixtures run in memory on the simulation I/O backend, synchronously, with one flush boundary per workload: 50,000 facts across 50 origins and 20 creators for the core benches, a controlled 10-day by 10-origin by 10-creator grid for the scale runs, and the real embedded document manifest for the lifecycle runs. Measurements are marked with their scope: some compare the restructured index against a previous ceiling, and others compare the structural filter against a record-map scan. The core baseline is dated 2026-08-20 and the scale and lifecycle runs 2026-08-27; figures published earlier than the layer-2 restructure are meaningful only within a run, and the structural and scan result sets are asserted equal by the test harness.
+The figures in this section describe the reference node, and they are indicative rather than predictive. They show that the structural properties the model claims hold in a running implementation. The reference node keeps records in memory on the simulation I/O backend, so it is not the medium a service uses: a deployment materializes the same coordinate space through the IO layer that chton[^chton] defines, and that medium decides what a service costs. Performance therefore belongs to the layer a deployment chooses, and the numbers below are meaningful as within-run comparisons.
+
+Runs execute on an Apple M1 (ARMv8.4 Firestorm cores at 3.2 GHz) in release mode, Criterion-based, sample size ten, median reported, synchronously in memory with one flush boundary per workload: 50,000 facts across 50 origins and 20 creators for the core runs, a controlled 10-day by 10-origin by 10-creator grid for the scale runs, and the real embedded document manifest for the lifecycle runs. Some compare the restructured index against a previous ceiling, others the structural filter against a record-map scan, and the two result sets are asserted equal by the test. The measurement harness and its records are kept with the implementation.
 
 ### Identity Lookup and Tree Walk {#sec-perf-identity}
 
@@ -906,7 +908,7 @@ Game-theoretic gates run in CI: basic cooperation over 200 turns requires tit-fo
 
 ## Benchmark Notes {#sec-appendix-benchmarks}
 
-All figures in @sec-performance come from the reference benchmark suite, executed on Apple silicon (M1) in release mode with the median of ten runs reported. The suite and its sources are in the reference repository under `benches`. Two structural properties explain the flatness of the results: each leaf of the filter index covers 11,172 slots, and dense packing gives a flat lookup independent of record count. Figures compare the restructured index against recorded internal baselines, the pre-restructure ceiling or a hash index, not against an external benchmark. Methodology, fixture shapes, and measurement conventions are stated in @sec-performance.
+All figures in @sec-performance come from the reference node's own measurement harness, executed on Apple silicon (M1) in release mode with the median of ten runs. The harness and its records are kept with the implementation rather than published here, and a deployment measures on the medium it chooses. Two structural properties explain the flatness: each leaf of the filter index covers 11,172 slots, and dense packing gives a lookup independent of record count. Figures compare the restructured index against recorded internal baselines, the pre-restructure ceiling or a hash index, not against an external benchmark. Methodology, fixture shapes, and measurement conventions are stated in @sec-performance.
 
 ## Glossary {#sec-appendix-glossary}
 
@@ -939,7 +941,6 @@ All figures in @sec-performance come from the reference benchmark suite, execute
 [^l2]: Content-hash conflict detection and the L2 restructure (2026-08-20), kept with the implementation rather than published here; The thin nexus principle (2026-08-20), kept with the implementation.
 [^learn]: Computation as knowledge: deterministic path learning (2026-09-02), kept with the implementation.
 [^axiomatic]: J. Wang, Y. Li, S. Kaski, and J. Lawry, An Axiomatic Framework for Reinforcement Learning in Open Multi-Agent Systems, arXiv:2611.03301, 2026, [arxiv.org/abs/2611.03301](https://arxiv.org/abs/2611.03301). The analysis is kept in the project notes.
-[^bench]: neXus benchmark suite, [github.com/ssccsorg/nexus](https://github.com/ssccsorg/nexus), benches directory
 [^ledger]: Ledger-State Stigmergy: A Formal Framework for Indirect Coordination Grounded in Distributed Ledger State, arXiv preprint cited in the project documentation
 [^refs]: Reference landscape catalog of external systems, maintained in the neXus project documentation
 [^kinetics]: kineTics, universal execution and transduction controller; an executor is any agent, signal, hardware, human-machine, or bridge type under one coordinate-based contract. Reference: see project documentation under kineTics.
