@@ -418,6 +418,8 @@ The runtime is a peer fabric, not a client-server platform. All participants, wh
 
 Topology follows from that shape. A peer holds the medium it answers from and reports a write it could not commit, so a fault stays where it happens: a damaged volume costs the records it holds and nothing on a neighbour. The fabric behaves less like a tree, whose interior nodes carry the state of everything beneath them and lose it when they fail, and more like a mycelial network, where a broken strand leaves the rest of the mat intact. The property follows from the same decision as the missing orchestrator: no peer holds another peer's state, so no peer's failure has that state to destroy.
 
+{{< include ./_include/_nexus_fabric_shape.qmd >}}
+
 ```{python}
 #| label: fig-peer-blackboard
 #| fig-cap: "Peers around a blackboard. Every peer can itself host a nested blackboard, which makes the fabric recursive at every scale."

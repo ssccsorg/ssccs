@@ -1,0 +1,88 @@
+```{python}
+#| label: fig-fabric-shape
+#| fig-cap: "Where a failure lands, counted in records. In a tree (a) the interior node holds the index over its subtree, so losing it leaves every record beneath intact on its own medium and unreadable through the fabric: nothing is damaged, and nothing in that subtree can be found. In the fabric each peer indexes only the coordinates it answers for, so a lost peer costs its own records (b); a peer that builds no index loses the same records and answers more slowly (c). Loss tracks who is authoritative for a coordinate, while the index moves read cost and reachability. Replicating the interior node in (a) buys the same reachability by keeping a second copy of the index in step; the fabric removes the shared state rather than duplicating it."
+import matplotlib.pyplot as plt
+from matplotlib.patches import FancyBboxPatch
+
+plt.rcParams.update({
+    "font.family": "serif",
+    "font.serif": ["STIXGeneral", "Times New Roman", "DejaVu Serif"],
+    "font.size": 7,
+})
+
+fig, axes = plt.subplots(1, 3, figsize=(7.4, 2.6))
+
+
+def peer(ax, x, y, lines, failed=False, w=0.30, h=0.145):
+    ax.add_patch(FancyBboxPatch(
+        (x - w / 2, y - h / 2), w, h,
+        boxstyle="round,pad=0.006,rounding_size=0.018",
+        facecolor="0.90" if failed else "white",
+        edgecolor="black",
+        linewidth=1.4 if failed else 0.7,
+        linestyle=(0, (2.5, 1.6)) if failed else "solid",
+        zorder=3))
+    ax.text(x, y + 0.021, lines[0], ha="center", va="center",
+            fontsize=6.4, zorder=4)
+    ax.text(x, y - 0.023, lines[1], ha="center", va="center",
+            fontsize=6.4, color="0.30", zorder=4)
+
+
+def link(ax, a, b):
+    ax.plot([a[0], b[0]], [a[1], b[1]], color="black", lw=0.6, zorder=1)
+
+
+# (a) a tree: one interior node holds the index over its subtree
+a = axes[0]
+root = (0.50, 0.80)
+leaves = [(0.17, 0.40), (0.50, 0.40), (0.83, 0.40)]
+for leaf in leaves:
+    link(a, root, leaf)
+peer(a, *root, ["0 records", "index 18"], failed=True)
+for leaf in leaves:
+    peer(a, *leaf, ["6 records", "no index"], w=0.27, h=0.135)
+a.text(0.02, 0.99, "(a) a tree, index at the interior node",
+       transform=a.transAxes, ha="left", va="top", fontsize=7.4,
+       fontweight="bold")
+a.text(0.5, 0.06, "readable after the failure\n0 of 18, all intact and unreadable",
+       ha="center", va="bottom", fontsize=6.8)
+
+# (b) the fabric: each peer indexes its own coordinates
+b = axes[1]
+peers_b = [(0.20, 0.74), (0.80, 0.74), (0.50, 0.36)]
+for i in range(3):
+    for j in range(i + 1, 3):
+        link(b, peers_b[i], peers_b[j])
+peer(b, *peers_b[0], ["6 records", "index 6"], w=0.27, h=0.135)
+peer(b, *peers_b[1], ["6 records", "index 6"], failed=True, w=0.27, h=0.135)
+peer(b, *peers_b[2], ["6 records", "index 6"], w=0.27, h=0.135)
+b.text(0.02, 0.99, "(b) the fabric, each peer indexed",
+       transform=b.transAxes, ha="left", va="top", fontsize=7.4,
+       fontweight="bold")
+b.text(0.5, 0.06, "readable after the failure\n12 of 18, 6 lost with the peer",
+       ha="center", va="bottom", fontsize=6.8)
+
+# (c) the fabric without an index: the same loss, a slower answer
+c = axes[2]
+peers_c = [(0.20, 0.74), (0.80, 0.74), (0.50, 0.36)]
+for i in range(3):
+    for j in range(i + 1, 3):
+        link(c, peers_c[i], peers_c[j])
+peer(c, *peers_c[0], ["6 records", "no index"], w=0.27, h=0.135)
+peer(c, *peers_c[1], ["6 records", "no index"], failed=True, w=0.27, h=0.135)
+peer(c, *peers_c[2], ["6 records", "no index"], w=0.27, h=0.135)
+c.text(0.02, 0.99, "(c) the fabric, no index built",
+       transform=c.transAxes, ha="left", va="top", fontsize=7.4,
+       fontweight="bold")
+c.text(0.5, 0.06, "readable after the failure\n12 of 18, 6 lost, reads slower",
+       ha="center", va="bottom", fontsize=6.8)
+
+for ax in axes:
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.set_aspect("equal")
+    ax.axis("off")
+
+fig.tight_layout(pad=0.2)
+plt.show()
+```
