@@ -319,6 +319,8 @@ Every Fact carries a provenance link to the Intent that produced it, forming a c
 
 Retrieval imposes no sequence. An enumeration hands the records over a page at a time in the order the channel holds them, and a reader that needs an order states it, either by deriving it from the record's axes, which the time coordinate always carries, or by sorting the set it keeps.
 
+Absence and emptiness are different answers and a reader keeps them apart. A peer that has recorded nothing and a peer that was never reached both return no record, so an aggregate states which of the two it observed before it concludes that nothing happened. A deployment satisfies the rule by marking a volume that was written; the mark belongs to the format a node writes, and a reader that finds none reports an unknown node.
+
 ## Storage Architecture {#sec-storage}
 
 The storage architecture applies one principle at two boundaries: *storage down, semantics up*. Low-level storage and I/O move outward to the external chton project at the crate boundary, and record bodies, identity, and relationships move to application-owned record maps at the internal layer-2 boundary. What remains inside the core is semantics: the FIH lifecycle, the conflict guard, the inverse index, the structural filter index, deterministic replay, and per-channel partition scans.
@@ -414,6 +416,8 @@ This is the indexed profile. A deployment that resolves records by identity alon
 
 The runtime is a peer fabric, not a client-server platform. All participants, whether verification engines, editors, synthesis tools, or sensors, are equal peers that interact only through the FIH blackboard interface. There is no privileged orchestrator; a peer is defined by what it reads and writes, and the same binary can act as a blackboard, a peer, or both.
 
+Topology follows from that shape. A peer holds the medium it answers from and reports a write it could not commit, so a fault stays where it happens: a damaged volume costs the records it holds and nothing on a neighbour. The fabric behaves less like a tree, whose interior nodes carry the state of everything beneath them and lose it when they fail, and more like a mycelial network, where a broken strand leaves the rest of the mat intact. The property follows from the same decision as the missing orchestrator: no peer holds another peer's state, so no peer's failure has that state to destroy.
+
 ```{python}
 #| label: fig-peer-blackboard
 #| fig-cap: "Peers around a blackboard. Every peer can itself host a nested blackboard, which makes the fabric recursive at every scale."
@@ -501,9 +505,10 @@ Layer 1 decomposes artifacts into typed relationships and community clusters and
 
 ### Design Principles {#sec-design-principles}
 
-The posture of the runtime follows five principles.
+The posture of the runtime follows six principles.
 
 - Peer runtime, not a platform: no marketplace, no extension rent, and no central gatekeeper; a producer runs nex on its own infrastructure and decides what its work is worth.
+- Local responsibility: a peer owns the records on its own medium, applies its own writes, and reports a write it could not commit. Its failure is a gap in the fabric rather than a fault in shared state, which holds the blast radius to one node.
 - Engine-agnostic and zero lock-in: synchronization endpoints isolate the system from specific backends, and every component is replaceable with an open equivalent, with dependency drift between the two repositories accepted as a coordination cost (see @sec-boundaries).
 - Research-first: the system is optimized for the cycle of hypothesize, validate, and publish, across digital and physical domains.
 - Boundaryless by design: physical-digital extension is a consequence of the engine-agnostic pattern, not an architectural rewrite.
