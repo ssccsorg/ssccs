@@ -1,8 +1,8 @@
-// SPDX-License-Identifier: LicenseRef-Proprietary
-// Copyright (C) 2026 Taeho Lee, SSCCS Initiative. All rights reserved.
+// SPDX-License-Identifier: LicenseRef-SSCCS-Research-Preview
+// Copyright (c) 2026 Taeho Lee, SSCCS Initiative.
 //
-// Owned by the SSCCS Initiative. See LICENSE at the root of this proof of
-// concept: a copy carries this notice and the revision it was taken from.
+// Research in progress. Read, check, and cite it. See LICENSE at the root of
+// this proof of concept before copying it into another work.
 //
 // The scenario's anchors, compared one line at a time on the die. A coordinate is the space's own i64,
 // because the order the tables assume is signed.

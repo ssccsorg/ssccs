@@ -148,11 +148,11 @@ Generated gates follow `fn(*const i64) -> u32`: coordinate pointer in `a0`, gate
 
 ## License
 
-This directory is owned by the SSCCS Initiative and is not offered for reuse. Reading,
-quoting, and citing are permitted. Copying it into another work, redistributing it, and
-using it in a product require prior written permission, and a copy made under that
-permission carries [`LICENSE`](LICENSE) and the revision it was taken from. See
-[`LICENSE`](LICENSE).
+This directory is a research proof of concept owned by the SSCCS Initiative, published while
+the research is still running. Reading, quoting, and citing are permitted. Copying it into
+another work, redistributing it, and using it in a product are deferred until the work
+settles, and need prior written permission; a copy made under that permission carries
+[`LICENSE`](LICENSE) and the revision it was taken from. See [`LICENSE`](LICENSE).
 
 The SystemVerilog under `baremetal_riscv/sv/` carries the same notice: every file there states
-`SPDX-License-Identifier: LicenseRef-Proprietary`.
+`SPDX-License-Identifier: LicenseRef-SSCCS-Research-Preview`.

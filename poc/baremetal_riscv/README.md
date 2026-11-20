@@ -190,5 +190,6 @@ cargo test -- test_adjacency_golden_anchors
 
 ## License
 
-This directory follows [`../LICENSE`](../LICENSE): it is owned by the SSCCS Initiative and is
-not offered for reuse. The SystemVerilog under `sv/` carries the same notice.
+This directory follows [`../LICENSE`](../LICENSE): it is a research proof of concept owned by
+the SSCCS Initiative, published for reading, checking, and citation while the research runs.
+The SystemVerilog under `sv/` carries the same notice.

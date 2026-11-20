@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: LicenseRef-Proprietary
-# Copyright (C) 2026 Taeho Lee, SSCCS Initiative. All rights reserved.
+# SPDX-License-Identifier: LicenseRef-SSCCS-Research-Preview
+# Copyright (c) 2026 Taeho Lee, SSCCS Initiative.
 #
-# Owned by the SSCCS Initiative. See LICENSE at the root of this proof of
-# concept: a copy carries this notice and the revision it was taken from.
+# Research in progress. Read, check, and cite it. See LICENSE at the root of
+# this proof of concept before copying it into another work.
 #
 """
 SSCCS Golden Anchor Consistency Check
