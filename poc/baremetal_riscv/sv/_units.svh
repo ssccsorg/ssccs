@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: LicenseRef-SSCCS-Research-Preview
 // Copyright (c) 2026 Taeho Lee, SSCCS Initiative.
 //
-// Research in progress. Read, check, and cite it. See LICENSE at the root of
-// this proof of concept before copying it into another work.
+// Owned by the SSCCS Initiative. See LICENSE at the root of this proof of
+// concept: a copy carries this notice and the revision it was taken from.
 //
 // The unit table: the numbers an emitted inquiry names.
 //
