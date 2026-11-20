@@ -148,12 +148,8 @@ Generated gates follow `fn(*const i64) -> u32`: coordinate pointer in `a0`, gate
 
 ## License
 
-`poc/` is published under the SSCCS Research Preview 1.0. It is a research proof of concept
-owned by the SSCCS Initiative, published while the research still runs. Reading, quoting, and
-citing are permitted. Copying it into another work, redistributing it, and using it in a
-product are deferred until the work settles, and need prior written permission; a copy made
-under that permission carries [`LICENSE`](LICENSE) and the revision it was taken from. From
-2028-11-22 the same files are offered under Apache-2.0, and the SystemVerilog under
-CERN-OHL-S v2.
+`poc/` is published under the SSCCS Research Preview 1.0. Reading, quoting, and citing are
+permitted; copying it into another work, redistributing it, and using it in a product need
+prior written permission. See [`LICENSE`](LICENSE).
 
 Every file states `SPDX-License-Identifier: LicenseRef-SSCCS-Research-Preview-1.0`.
