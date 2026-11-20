@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: CERN-OHL-P-2.0
-# Copyright (C) 2026 Taeho Lee
+# SPDX-License-Identifier: LicenseRef-Proprietary
+# Copyright (C) 2026 Taeho Lee, SSCCS Initiative. All rights reserved.
 #
-# This source describes Open Hardware and is licensed under the CERN-OHL-P v2.
-# You may redistribute and modify this documentation and make products using
-# it under the terms of the CERN-OHL-P v2 (https://cern.ch/cern-ohl). This
-# documentation is distributed WITHOUT ANY EXPRESS OR IMPLIED WARRANTY,
-# INCLUDING OF MERCHANTABILITY, SATISFACTORY QUALITY AND FITNESS FOR A
-# PARTICULAR PURPOSE. Please see the CERN-OHL-P v2 for applicable conditions.
+# Owned by the SSCCS Initiative. See LICENSE at the root of this proof of
+# concept: a copy carries this notice and the revision it was taken from.
+#
 """Write the tables a board image reads, from the anchors the POC already pins.
 
 The scenario's three tables are in ``sv/_golden_anchors.svh``: the coordinates it asks about, the result the

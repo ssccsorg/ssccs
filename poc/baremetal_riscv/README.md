@@ -191,5 +191,4 @@ cargo test -- test_adjacency_golden_anchors
 ## License
 
 This directory follows [`../LICENSE`](../LICENSE): it is owned by the SSCCS Initiative and is
-not offered for reuse. The SystemVerilog under `sv/` is the exception, and states CERN-OHL-P v2
-in [`sv/LICENSE`](sv/LICENSE).
+not offered for reuse. The SystemVerilog under `sv/` carries the same notice.

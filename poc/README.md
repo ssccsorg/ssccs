@@ -154,6 +154,5 @@ using it in a product require prior written permission, and a copy made under th
 permission carries [`LICENSE`](LICENSE) and the revision it was taken from. See
 [`LICENSE`](LICENSE).
 
-The SystemVerilog under `baremetal_riscv/sv/` is the exception: it states CERN-OHL-P v2 in
-[`baremetal_riscv/sv/LICENSE`](baremetal_riscv/sv/LICENSE), and that notice governs those
-files.
+The SystemVerilog under `baremetal_riscv/sv/` carries the same notice: every file there states
+`SPDX-License-Identifier: LicenseRef-Proprietary`.
