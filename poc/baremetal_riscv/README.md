@@ -190,4 +190,6 @@ cargo test -- test_adjacency_golden_anchors
 
 ## License
 
-This project is licensed under the same terms as the main SSCCS repository. Apache 2.0.
+This directory follows [`../LICENSE`](../LICENSE): it is owned by the SSCCS Initiative and is
+not offered for reuse. The SystemVerilog under `sv/` is the exception, and states CERN-OHL-P v2
+in [`sv/LICENSE`](sv/LICENSE).

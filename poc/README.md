@@ -148,8 +148,12 @@ Generated gates follow `fn(*const i64) -> u32`: coordinate pointer in `a0`, gate
 
 ## License
 
-- Software (the Rust workspaces under `standard/` and `benches/`, the assembly
-  under `baremetal_riscv/asm/`, the C programs under `baremetal_riscv/simulation/`,
-  and the tooling): Apache License 2.0, see LICENSE at the repository root.
-- Hardware (the SystemVerilog design under `baremetal_riscv/sv/`): CERN-OHL-P v2,
-  see [`baremetal_riscv/sv/LICENSE`](baremetal_riscv/sv/LICENSE).
+This directory is owned by the SSCCS Initiative and is not offered for reuse. Reading,
+quoting, and citing are permitted. Copying it into another work, redistributing it, and
+using it in a product require prior written permission, and a copy made under that
+permission carries [`LICENSE`](LICENSE) and the revision it was taken from. See
+[`LICENSE`](LICENSE).
+
+The SystemVerilog under `baremetal_riscv/sv/` is the exception: it states CERN-OHL-P v2 in
+[`baremetal_riscv/sv/LICENSE`](baremetal_riscv/sv/LICENSE), and that notice governs those
+files.
