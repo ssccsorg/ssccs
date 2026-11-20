@@ -114,10 +114,11 @@ initiative financially or in kind, please contact <contact@ssccs.org>.
   Authenticated via GPG:
   [BCCB196BADF50C99](https://keys.openpgp.org/search?q=BCCB196BADF50C99).
   Licensed under *Apache 2.0*.
-- Proof of concept: [`poc/`](/poc/) is a research work in progress, owned by the
-  SSCCS Initiative. Reading, quoting, and citing are permitted; copying,
-  redistribution, and use in a product are deferred and need written permission.
-  The terms are at [`poc/LICENSE`](/poc/LICENSE).
+- Proof of concept: [`poc/`](/poc/) is published under *SSCCS Research Preview 1.0*.
+  It is a research work in progress, owned by the SSCCS Initiative. Reading,
+  quoting, and citing are permitted; copying, redistribution, and use in a product
+  are deferred and need written permission, and from 2028-11-22 the same files are
+  offered under Apache-2.0. The terms are at [`poc/LICENSE`](/poc/LICENSE).
 - Governed by the [Foundational Charter and
   Statute](https://ssccs.org/legal) of the SSCCS Initiative (in
   formation).
