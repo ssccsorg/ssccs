@@ -56,6 +56,12 @@ Standalone crate. Depends on `ssccs-core` and `ssccs-primitive` via path depende
 
 The same constraint pipeline is independently implemented across three substrates and pinned by 23 golden anchors: RISC-V assembly (`asm/*.S`), SystemVerilog (`sv/`), and the Rust fallback. `sv/check_golden_anchors.py` keeps the assembly and SV constants in sync, so any change to one forces the others to agree. A fourth independent channel, the `ev` (ExaVerif) CLI, reproduces the anchors through its own constraint engine. `boards/icesugar_pro/` builds the same SystemVerilog for an ECP5 and reads the scenario's five anchors off a pin. Three designs share the carrier: one carries the constraint as a table of kinds and bounds and is built twice, once with two expectations exchanged as the negative control; one carries modules the host emitted; and one has no table of points, sweeping a decoded space and comparing the admission count with the host's. The table design also answers an inquiry the scenario never uses, including negative bounds, so the die's own answer depends on the order the space uses. See `baremetal_riscv/README.md` for the full API reference and target reality.
 
+An anchor is how a convention survives three languages. Axis order and the meaning of a rejected
+value cannot be shared as a constant between Rust, assembly and Verilog, so each states them
+itself. The anchor set is what holds the three to one answer, and `ev` is the fourth reading of
+the same set. A convention repeated at each site drifts at one of them, and the anchor is the
+check that fails in public rather than an assumption that cannot fail.
+
 Build and substrate checks:
 
 ```bash

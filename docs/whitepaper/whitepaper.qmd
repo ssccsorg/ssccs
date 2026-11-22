@@ -1031,6 +1031,8 @@ Other layout types are handled analogously. For a **column-major** layout the ma
 
 Each layout type is defined in the Schema’s `MemoryLayout` specification (see [*-@sec-appendix-memory-layout*]). The compiler evaluates the corresponding mapping function for every coordinate, producing a deterministic logical-address map that is then passed to the hardware-mapping stage.
 
+A layout order is a declaration. The compiler derives both directions from it: the address it computes for a coordinate and the coordinate it recovers from an address are functions of the same declared order and sign. Stating the order again at each call site would let one direction drift, and a reader of the map would have no way to tell which direction moved. Where the declaration must cross into another substrate, as it does for an address-decoding fabric, agreement is checked against a recorded set of coordinates rather than assumed from a shared convention.
+
 #### Target-Hardware Mapping Strategies {#sec-target-hardware-mapping}
 
 The logical address space acts as a virtualization layer, decoupling structural description from physical implementation. The same Schema can be embedded into vastly different hardware substrates while preserving the core principle: structurally adjacent Segments reside in physically proximate storage locations.

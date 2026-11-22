@@ -678,6 +678,8 @@ A hardware implementation is Tagma-compatible iff, in addition to the conditions
 
 The hardware contract mirrors the software contract: the two agree on every input, and the verification pipeline enforces it rather than assuming it.
 
+The axis order and the strides are declared once in each implementation and derived everywhere else within it. Across substrates the declaration cannot be shared, so agreement is enforced at the boundary: the anchor set is what each substrate is held to, and the conformance conditions above are the check. A convention repeated at each site drifts at one of them, and a check that fails in public is worth more than an assumption that cannot fail.
+
 ### Status and reproduction
 
 Realized and verified: the decode, compose, and distance units in RTL, each exhaustively simulated against the Rust reference, simulated at gate level, and formally equivalent to its synthesized netlist; the segment store as a behavioral model over all 11,172 slots, the reserved addresses, and the read-during-write case; the record layer whose addresses are coordinates, carried to a minimum-class device, with no operating system under the engine (Section @sec-minimum-device); and the volume verification top, which takes one value per valid offset and closes a verdict on the die, published as a recorded run.
