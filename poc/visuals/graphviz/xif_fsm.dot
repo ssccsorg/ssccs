@@ -1,0 +1,22 @@
+// SPDX-License-Identifier: LicenseRef-SSCCS-Research-Preview-1.0
+// Copyright (c) 2026 Taeho Lee, SSCCS Initiative.
+//
+// Owned by the SSCCS Initiative. See LICENSE at the root of this proof of
+// concept: a copy carries this notice and the revision it was taken from.
+//
+// XIF protocol FSM, read from the always_comb next-state block in
+// sv/ssccs_xif_coprocessor.sv.
+digraph xif_fsm {
+  graph [rankdir=LR, bgcolor="white", fontname="Helvetica", nodesep="0.6", ranksep="0.9", pad="0.3"];
+  node  [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=11, color="#4338CA", fillcolor="#EEF2FF", penwidth=1.2];
+  edge  [fontname="Helvetica", fontsize=9, color="#4338CA"];
+
+  IDLE    [label="XIF_IDLE\nissue_ready = 1"];
+  ACCEPT  [label="XIF_ACCEPT\nresult_valid = 1"];
+  RESPOND [label="XIF_RESPOND\nbubble, 1 cycle"];
+
+  IDLE    -> ACCEPT  [label="issue_valid && (custom1 || custom2)"];
+  ACCEPT  -> ACCEPT  [label="result_ready = 0"];
+  ACCEPT  -> RESPOND [label="result_ready"];
+  RESPOND -> IDLE    [label="unconditional"];
+}

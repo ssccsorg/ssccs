@@ -19,6 +19,8 @@ All code, text content, output, and comments must be written in English.
 
 - Write for the reader the document is for, not as a report back to the team: no account of what was received, attempted, or is planned next, and no confession of process. State the subject, what it does, what it does not cover, and the evidence.
 
+- Do not restate a count or value that the implementation defines. State the invariant and link to the source; derive a number at build time when a page needs it.
+
 - Don't put emojis.
 - When a sentence would contain `.ss`, rewrite to use the full technical term appropriate to the context.
 - Avoid sequential enumerations like “Week 1, Week 2”. Use numbered experiments, phases, or milestones instead.

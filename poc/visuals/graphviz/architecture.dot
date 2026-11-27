@@ -1,0 +1,45 @@
+// SPDX-License-Identifier: LicenseRef-SSCCS-Research-Preview-1.0
+// Copyright (c) 2026 Taeho Lee, SSCCS Initiative.
+//
+// Owned by the SSCCS Initiative. See LICENSE at the root of this proof of
+// concept: a copy carries this notice and the revision it was taken from.
+//
+// The three substrates and the two independent channels, pinned by the
+// anchors in sv/_golden_anchors.svh.
+digraph ssccs_substrates {
+  graph [rankdir=LR, bgcolor="white", fontname="Helvetica", nodesep="0.35", ranksep="0.9", pad="0.3", compound=true];
+  node  [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=10, color="#4338CA", fillcolor="#EEF2FF"];
+  edge  [fontname="Helvetica", fontsize=9, color="#64748B"];
+
+  anchors [label="Golden anchors\n23 pinned values", fillcolor="#FDE68A", color="#B45309", penwidth=1.6];
+
+  subgraph cluster_rust {
+    label="Rust reference"; fontname="Helvetica"; style="rounded,dashed"; color="#94A3B8";
+    rust_core [label="ssccs-core\nobserve()"];
+    rust_prim [label="ssccs-primitive\nScheme, Field"];
+  }
+
+  subgraph cluster_riscv {
+    label="RISC-V"; fontname="Helvetica"; style="rounded,dashed"; color="#94A3B8";
+    asm   [label="asm/*.S\nbranchless gates"];
+    spike [label="Spike + pk"];
+  }
+
+  subgraph cluster_sv {
+    label="SystemVerilog"; fontname="Helvetica"; style="rounded,dashed"; color="#94A3B8";
+    units    [label="units\nconstraints, projectors,\ncomposition"];
+    verilator [label="Verilator"];
+    fpga     [label="iCESugar-Pro\nECP5"];
+  }
+
+  ev [label="ev (ExaVerif)\nindependent engine", fillcolor="#DCFCE7", color="#15803D"];
+
+  rust_core -> anchors [label="answers"];
+  rust_prim -> anchors;
+  asm       -> anchors [label="answers"];
+  spike     -> asm;
+  units     -> anchors [label="answers"];
+  verilator -> units;
+  fpga      -> anchors [label="5 on a pin"];
+  anchors   -> ev      [label="fixtures", style=dashed];
+}

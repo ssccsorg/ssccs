@@ -18,6 +18,9 @@ on:
       - 'poc/Dockerfile'
       - '.dockerignore'
       - 'poc/baremetal_riscv/simulation/**'
+      - 'poc/baremetal_riscv/sv/**'
+      - 'poc/visuals/**'
+      - 'poc/README.md'
   pull_request:
     branches:
       - main
@@ -32,6 +35,9 @@ on:
       - 'poc/Dockerfile'
       - '.dockerignore'
       - 'poc/baremetal_riscv/simulation/**'
+      - 'poc/baremetal_riscv/sv/**'
+      - 'poc/visuals/**'
+      - 'poc/README.md'
   workflow_dispatch:
   repository_dispatch:
     types: [publish-poc-image-complete]
@@ -108,12 +114,27 @@ jobs:
             bash -c "cd /workspace/poc && python3 doc.py"
         shell: bash
 
+      # The container carries the simulator and the hardware toolchain. The drawing
+      # tools render on the runner so the image stays focused.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Render POC visuals
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            graphviz librsvg2-bin imagemagick yosys
+          bash poc/visuals/gen.sh
+        shell: bash
+
       - name: Prepare artifacts
         run: |
           mkdir -p _agent
           rsync -avm --delete --delete-excluded \
             --include='_llms/***' \
             --include='README.md' \
+            --include='visuals/***' \
             --exclude='*' \
             poc/ _agent/poc/
 

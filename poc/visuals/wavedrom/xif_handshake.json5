@@ -1,0 +1,27 @@
+// SPDX-License-Identifier: LicenseRef-SSCCS-Research-Preview-1.0
+// Copyright (c) 2026 Taeho Lee, SSCCS Initiative.
+//
+// Owned by the SSCCS Initiative. See LICENSE at the root of this proof of
+// concept: a copy carries this notice and the revision it was taken from.
+//
+// XIF coprocessor handshake, read from sv/ssccs_xif_coprocessor.sv.
+// Two issues: the first holds XIF_ACCEPT until result_ready, the second
+// completes in one cycle. XIF_RESPOND is a one-cycle bubble in both.
+{
+  config: { hscale: 3 },
+  signal: [
+    { name: "clk",          wave: "pppppppppp" },
+    { name: "state",        wave: "=.=.==.===", data: ["IDLE", "ACCEPT", "RESPOND", "IDLE", "ACCEPT", "RESPOND", "IDLE"] },
+    {},
+    { name: "issue_valid",  wave: "010...10..", node: ".a........" },
+    { name: "issue_ready",  wave: "1.0..1.0.1" },
+    { name: "result_valid", wave: "..1.0..10.", node: "..b......." },
+    { name: "result_ready", wave: "...10..10." },
+    { name: "result_data",  wave: "x..=x..=x.", data: ["RESULT A", "RESULT B"] },
+  ],
+  edge: [
+    "a~>b one cycle",
+  ],
+  head: { text: "SSCCS XIF coprocessor: custom op issue to result" },
+  foot: { text: "Source: sv/ssccs_xif_coprocessor.sv" },
+}
