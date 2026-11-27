@@ -1,7 +1,7 @@
 //! SSCCS Proof of Concept – Core Library
 //!
 //! This crate provides the fundamental building blocks of the SSCCS paradigm:
-//! - Immutable `SchemaSegment`
+//! - Immutable `Segment`
 //! - Mutable `Field` (constraints + relational topology)
 //! - `Projector` trait for semantic interpretation
 //! - Observation functions that combine segment and field
@@ -36,7 +36,7 @@ impl Coordinates {
     }
 }
 
-/// Cryptographic identifier of a SchemaSegment.
+/// Cryptographic identifier of a Segment.
 /// Derived from the segment's intrinsic properties (coordinates only, since adjacency is now external).
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct SegmentId([u8; 32]);
@@ -207,7 +207,7 @@ impl TransitionMatrix {
 }
 
 /// The mutable substrate of computation. Holds constraints and relational topology.
-/// Does **not** own any SchemaSegment.
+/// Does **not** own any Segment.
 ///
 /// A clone is a snapshot: the constraint set is copied and its constraints are shared, so later additions to the
 /// original leave the clone as it was.

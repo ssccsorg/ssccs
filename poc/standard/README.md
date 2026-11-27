@@ -1,6 +1,6 @@
 # SSCCS Proof of Concept (PoC)
 
-This repository contains a proof‑of‑concept implementation of the **Schema–Segment Composition Computing System (SSCCS)**, a new computational model that redefines computation as the observation of structured potential rather than as a sequence of state mutations.
+This repository contains a proof‑of‑concept implementation of the **Scheme–Segment Composition Computing System (SSCCS)**, a new computational model that redefines computation as the observation of structured potential rather than as a sequence of state mutations.
 
 The PoC demonstrates the core ontological layers of SSCCS:
 

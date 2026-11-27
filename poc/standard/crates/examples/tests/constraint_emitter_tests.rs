@@ -28,10 +28,10 @@ fn parse_golden(text: &str, key: &str) -> Vec<i64> {
 
 /// Returns true when the gate text contains a conditional branch.
 fn has_conditional_branch(text: &str) -> bool {
-    text.lines().any(|l| match l.split_whitespace().next() {
-        Some("beq") | Some("bne") | Some("blt") | Some("bge") | Some("bltu") | Some("bgeu") => true,
-        _ => false,
-    })
+    text.lines().any(|l| matches!(
+        l.split_whitespace().next(),
+        Some("beq" | "bne" | "blt" | "bge" | "bltu" | "bgeu")
+    ))
 }
 
 #[test]

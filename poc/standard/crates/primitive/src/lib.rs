@@ -106,9 +106,7 @@ mod tests {
     impl TestScheme {
         fn new(segments: Vec<Segment>) -> Self {
             let id = crate::SchemeId(
-                segment_id_from_coords(&Coordinates::new(vec![0]))
-                    .as_bytes()
-                    .clone(),
+                *segment_id_from_coords(&Coordinates::new(vec![0])).as_bytes(),
             );
             Self { id, segments }
         }

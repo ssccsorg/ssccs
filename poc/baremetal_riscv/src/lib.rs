@@ -1,5 +1,5 @@
 //! SSCCS hardware integration library.
-//! Provides primitives for observing SSCCS Schemas via custom RISC-V instructions
+//! Provides primitives for observing SSCCS Schemes via custom RISC-V instructions
 //! and interfaces with the OpenHW CORE-V XIF coprocessor.
 
 // no_std only on actual RISC-V target (not on host for testing)

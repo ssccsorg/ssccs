@@ -2,7 +2,7 @@
 
 ## Objective
 
-Demonstrate how SSCCS (Schema–Segment Composition Computing System) can be used for data processing tasks by treating computation as the observation of fixed structure under changing conditions. The experiment implements a simple matrix summation operation using SSCCS concepts and compares it with traditional imperative programming.
+Demonstrate how SSCCS (Scheme–Segment Composition Computing System) can be used for data processing tasks by treating computation as the observation of fixed structure under changing conditions. The experiment implements a simple matrix summation operation using SSCCS concepts and compares it with traditional imperative programming.
 
 ## Methodology
 

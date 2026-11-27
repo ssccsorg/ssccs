@@ -1,6 +1,6 @@
 # SSCCS Bare-Metal RISC-V Hardware Integration
 
-Bare-metal (`no_std`) Rust crate for integrating SSCCS (Schema–Segment Composition Computing System) with RISC-V hardware, particularly targeting the OpenHW CORE-V ecosystem.
+Bare-metal (`no_std`) Rust crate for integrating SSCCS (Scheme–Segment Composition Computing System) with RISC-V hardware, particularly targeting the OpenHW CORE-V ecosystem.
 
 ## Overview
 
