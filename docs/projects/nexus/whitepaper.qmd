@@ -78,7 +78,7 @@ neXus is a peer-to-peer state fabric on which heterogeneous systems (servers, ag
 
 :::
 
-:::{#fig}
+:::{#fig-nexus-fabric-frame}
 
 {{< include ./_include/_nexus_fabric.qmd >}}
 
@@ -398,7 +398,7 @@ $$ M_{\text{total}} \approx S \cdot A + m \cdot R . $$
 
 :::{ layout-ncol=2 }
 
-:::{ #content }
+:::{ #storage-memory-content }
 
 At 100,000 and 1,000,000 records the index remains approximately 264 MB, while the record heap grows with $R$; the flatness of the index is the property that keeps lookup fast and memory predictable as knowledge accumulates. The bound is linear in distinct axis values, so application axes must stay bounded in practice; a high-cardinality axis, such as per-record conclusion ids, inflates the index linearly. \
  \
@@ -406,7 +406,7 @@ This is the indexed profile. A deployment that resolves records by identity alon
 
 :::
 
-:::{#fig}
+:::{#fig-bench-walk-peak-frame}
 {{< include _include/bench/fig-bench-walk-peak.qmd >}}
 :::
 
@@ -611,7 +611,7 @@ A full walk of a 50,000-entry tree takes 540 ms. Five hundred prefix queries com
 
 $$ T_{\text{scan}} \approx c\,N, \qquad T_{\text{prefix}} \approx c\,|T(\mathrm{pre})| , $$
 
-so the measured per-query gap is $N/|T(\mathrm{pre})| \approx 241{,}000$, and growth in $N$ never enters $T_{\text{prefix}}$.
+so the ratio of the two costs is measured directly as $T_{\text{scan}}/T_{\text{prefix}} \approx 241{,}000$, and growth in $N$ never enters $T_{\text{prefix}}$.
 
 :::{ layout-ncol=2 }
 {{< include _include/bench/fig-bench-lookup.qmd >}}
