@@ -1,10 +1,10 @@
 ---
 title: "PoC"
-subtitle: "Proof of Concept for the SSCCS Observation Pipeline"
+subtitle: "The Reference Implementation of the SSCCS Observation Model"
 metadata-files:
   - ../_include/author.yml
 abstract: |
-  The proof of concept materializes the SSCCS observation model on three substrates and pins them with a shared set of golden anchors. This page states what the implementation demonstrates, the hardware interface it exposes, the evidence behind it, and how to run it.
+  The proof of concept is the reference implementation of SSCCS: the smallest complete materialization of the observation model, built on a Rust reference, branchless RISC-V assembly, and SystemVerilog, and pinned by a shared set of golden anchors. It shows that the model's primitives hold across languages and silicon, and it exposes the model as a RISC-V custom instruction.
 ---
 
 ```{python}
@@ -22,17 +22,25 @@ title_meta_items = {
 
 {{< include ../_include/_title_meta_items.qmd >}}
 
-## The pure plane in running code
+## The model in running code
 
-SSCCS defines computation as the observation of a fixed structure under changing conditions. The proof of concept is the smallest complete materialization of that definition: a coordinate space, a set of constraints, a projector, and an observation function, implemented on three substrates and checked against one shared set of anchors.
+SSCCS defines computation as the observation of a fixed structure under changing conditions. The proof of concept takes that definition literally and builds the smallest complete instance of it: a coordinate space, a set of constraints, a projector, and an observation function, implemented on three substrates and checked against one shared set of anchors.
 
-It is the pure plane. The projects materialize the same primitives on the practical plane, and the proof of concept carries no project-specific knowledge. What it establishes is that the primitives are substrate-independent and that a convention can be pinned across languages and silicon.
+It is the pure plane. The projects materialize the same primitives on the practical plane; the proof of concept carries no project-specific knowledge. What it establishes is that the primitives are substrate-independent, that a convention can be pinned across languages and silicon, and that the model can be exposed as an instruction rather than a library.
 
 The proof of concept covers the observation pipeline and the instruction-word interface. It is not a processor core, and it does not claim a full ISA implementation. The hardware contribution is the constraint and projector units, the XIF coprocessor that exposes them, and the carrier images that answer the anchors.
 
+What it demonstrates:
+
+- The same primitives on three substrates: Rust, RISC-V assembly, and SystemVerilog.
+- One anchor set that pins a convention across languages and silicon.
+- The observation model exposed as a RISC-V custom instruction.
+- An independent verification channel, `ev`.
+- A carrier that answers the anchors on the die.
+
 ![The three substrates and the independent verifier, pinned by the golden anchors](figures/architecture.svg)
 
-## The three substrates
+## Three substrates, one agreement
 
 Three implementations answer the same anchors. A Rust reference carries the ontology and the composition algebra. A branchless RISC-V assembly implementation runs the observation pipeline under Spike. A SystemVerilog implementation runs the units and the coprocessor under Verilator, and the same SystemVerilog builds for an iCESugar-Pro ECP5 board.
 
@@ -47,7 +55,7 @@ An anchor is how a convention survives three languages. The `GOLDEN_*` block in 
 
 The carrier adds another kind of evidence. The board holds a constraint table of kinds and bounds, the modules the host emitted, and a design with no table of points. The table design is built twice, once with two expectations exchanged as a negative control. The die answers the table and the exchanged version differently, which is the case a checksum alone cannot see.
 
-## A RISC-V interface for observation
+## The model as an instruction
 
 The XIF coprocessor exposes the model as a RISC-V custom instruction. The core issues an operation, the coprocessor decodes the opcode and the sub-operation, evaluates a constraint or a projector, and returns a 64-bit result. The port follows the OpenHW CORE-V XIF issue and result handshake.
 
@@ -63,7 +71,7 @@ The sub-operation is a field of the instruction, so the operands carry data and 
 
 ![The XIF protocol state machine: IDLE, ACCEPT, RESPOND](figures/xif_fsm.svg)
 
-## Units as schematics
+## The units as schematics
 
 Each unit is small enough to read as a schematic. The images below are rendered from the SystemVerilog units rather than drawn by hand, so the structure they show is the structure the simulator elaborates.
 
@@ -77,7 +85,7 @@ Each unit is small enough to read as a schematic. The images below are rendered 
 
 `ck_range` is a signed range check, which matters because a coordinate is an `i64` and an unsigned compare would place every negative coordinate above every positive one. `proj_sum2d` is the projector that reduces a two-axis coordinate to its sum. `compose_product_2d` is the join of two constraint results, the composition that turns two one-dimensional constraints into a two-dimensional space.
 
-## Verification evidence
+## Evidence
 
 The proof of concept rests on a set of checks that run in public.
 
@@ -86,32 +94,11 @@ The proof of concept rests on a set of checks that run in public.
 - The board answers the table design and the exchanged-expectations design, which keeps the negative control on the die.
 - CI runs the workspace checks, the assembly syntax gate, the Verilator testbenches, and the container with Spike and the RISC-V toolchain. The visual assets on this page are rendered from the units by `poc/visuals/gen.sh`, so the schematic and the unit it describes are derived from one source.
 
-## Run it
-
-```bash
-git clone https://github.com/ssccsorg/ssccs.git
-cd ssccs/poc/standard
-cargo build --release --workspace
-cargo test --workspace
-```
-
-The hardware integration builds from the crate root:
-
-```bash
-cd ../baremetal_riscv
-cargo build --release
-make -C sv check
-```
-
-The full validation runs the workspace checks, the assembly syntax gate, the SystemVerilog checks, and the golden anchors. The CI container adds Spike, riscv-pk, and the RISC-V cross toolchain for the assembly channel.
-
-```bash
-cd ..
-./run.sh --validation
-```
-
 ## Where it leads
 
+The PoC README carries the build, target status, and validation commands. The whitepaper carries the formal model.
+
+- [PoC README](https://github.com/ssccsorg/ssccs/blob/main/poc/README.md): build, target status, and validation.
 - [Whitepaper](/whitepaper/): the formal model and the technical specification.
 - [Projects](/projects/): the practical plane built on the same substrate.
 - [ExaVerif](/projects/ev/): exhaustive classification of a declared design space.
