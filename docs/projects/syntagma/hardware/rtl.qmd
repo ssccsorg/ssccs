@@ -83,6 +83,22 @@ The decoder maps an index to the three axes. The primitive needs the inverse and
 
 `tagma_compose` is the decoder read backwards: the same 588 and 28 constants appear as multipliers instead of divisors, and an out-of-range axis triple is reported as `valid = 0` with `index = 0`. `tagma_dist` decodes each operand with the same core as the standalone decoder, so the two share one decode definition, and returns the three per-axis distances separately, matching `Coord::hamming_distance` on every valid pair.
 
+## Cost
+
+The reports in the tree give what each unit costs, so "small" is a measurement rather than a description. Mapped to one library of seven two-input cells, the three units are comparable (`synth/yosys/reports/gates_stat.txt`, `compose_gates_stat.txt`, `dist_gates_stat.txt`):
+
+| Unit | Two-input cells | What it is |
+|------|----------------:|------------|
+| `tagma_decoder` | 588 | the decode |
+| `tagma_compose` | 258 | the inverse |
+| `tagma_dist` | 1,329 | two decoders and three subtractors |
+
+Before a gate library is chosen the decoder is 478 Yosys cells (`generic_stat.json`). The gate-library count is higher because that library has no multiplexer and no compound gate, so each of them expands into several two-input cells.
+
+The decoder in a named technology: 201 LUT4 and 41 carry cells on the iCE40 part (`ice40_stat.txt`), and 388 standard cells covering 2,826 µm² in SkyWater 130 nm high density (`sky130_decoder_stat.txt`). The sky130 figure carries no sequential elements, which is the definition: the arithmetic is combinational. The block that went through place and route is the registered demo top, the decoder with its three output registers and the validity flag: 410 logic and register cells in 1,920 placed instances, the rest fill and tap, covering 4,430 µm² at 34% utilization. The routed netlist with extracted parasitics reports a worst setup slack of +72.77 ns and a total negative slack of 0.00 at the 12 MHz constraint, with 57.8 µW at the tool's default input activity and 36.6 µW at one code point per clock, about 3.0 pJ per decode; the absolute power figure is provisional.
+
+Three conditions belong with these numbers. They are one synthesis of one RTL revision, so a different library or a different clock changes them. The 12 MHz constraint is the demonstration board's clock, and the flow had 72.77 ns of slack left at it, so the area is what that constraint produced rather than the smallest area at which the logic closes. Device measurements, including the pipeline's register-to-register rate, are in the [FPGA document](/projects/syntagma/hardware/fpga).
+
 ## Verification pipeline
 
 The pipeline has a single source of truth: `tagma_core` in Rust, the reference implementation of the primitive. Every hardware artifact is checked against it. The pipeline is shown in Figure @fig-hw-verify.
