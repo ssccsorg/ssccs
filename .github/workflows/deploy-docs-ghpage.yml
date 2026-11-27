@@ -13,6 +13,7 @@ on:
       - "docs/**/*.bib"
       - "docs/**/*.csl"
       - "docs/**/*.c2pa_manifest.json"
+      - "poc/baremetal_riscv/sv/**"
       - ".github/workflows/deploy-docs-ghpage.yml"
       - "!docs/**/README.md"
       - "!docs/**/*_.qmd"
@@ -31,6 +32,7 @@ on:
       - "docs/**/*.bib"
       - "docs/**/*.csl"
       - "docs/**/*.c2pa_manifest.json"
+      - "poc/baremetal_riscv/sv/**"
       - ".github/workflows/deploy-docs-ghpage.yml"
       - "!docs/**/README.md"
       - "!docs/**/*_.qmd"
@@ -60,7 +62,7 @@ jobs:
         id: cache-key
         run: |
           cd ${{ github.workspace }}
-          find docs -type f \( -name "*.qmd" -o -name "*.md" -o -name "*.py" -o -name "*.txt" -o -name "*.yml" -o -name "*.svg" -o -name "*.bib" -o -name "*.csl" -o -name "*.c2pa_manifest.json" \) -not -path "*/.sdbtmp_*/*" -not -path "*/_sdbtmp_*/*" -not -path "*/_site/*" | sort | xargs sha256sum | sha256sum | cut -d' ' -f1 > /tmp/cache_key.txt
+          { find docs -type f \( -name "*.qmd" -o -name "*.md" -o -name "*.py" -o -name "*.txt" -o -name "*.yml" -o -name "*.svg" -o -name "*.bib" -o -name "*.csl" -o -name "*.c2pa_manifest.json" \) -not -path "*/.sdbtmp_*/*" -not -path "*/_sdbtmp_*/*" -not -path "*/_site/*" | sort | xargs sha256sum; sha256sum poc/baremetal_riscv/sv/_xif_constants.svh; } | sha256sum | cut -d' ' -f1 > /tmp/cache_key.txt
           echo "key=$(cat /tmp/cache_key.txt)" >> $GITHUB_OUTPUT
 
       - name: Cache the build cache

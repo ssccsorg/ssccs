@@ -51,11 +51,7 @@ The carrier adds another kind of evidence. The board holds a constraint table of
 
 The XIF coprocessor exposes the model as a RISC-V custom instruction. The core issues an operation, the coprocessor decodes the opcode and the sub-operation, evaluates a constraint or a projector, and returns a 64-bit result. The port follows the OpenHW CORE-V XIF issue and result handshake.
 
-| Encoding | Group | Operations |
-|:---|:---|:---|
-| custom1, funct3=001 | Constraint | even, range_010, range, eq, gt |
-| custom1, funct3=010 | Composition | and, or |
-| custom2, funct3=000 | Projector | identity, sum2d, sum3d, parity, negate |
+{{< include _include/xif_table.md >}}
 
 The encoding is defined in `baremetal_riscv/sv/_xif_constants.svh`, and the coprocessor decodes it in `baremetal_riscv/sv/ssccs_xif_coprocessor.sv`.
 
