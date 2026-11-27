@@ -29,7 +29,7 @@ format:
         }
         \makeatother
 abstract: |
-  This research report explores the integration of SSCCS (Schema–Segment Composition Computing System) across the RISC‑V ecosystem, using the OpenHW Foundation as a central validation platform. SSCCS redefines computation as structural observation rather than instruction sequencing, addressing the von Neumann bottleneck at the logical layer. Through the RISC‑V eXtension Interface (XIF) and other custom instruction mechanisms, we investigate implementing observation primitives as coprocessor extensions, evaluating energy efficiency and verifiability characteristics on real silicon. The report outlines a research pathway spanning software emulation, hardware prototyping, eFPGA integration, and community contribution, positioning SSCCS as open public infrastructure for sustainable, accountable computing across the RISC‑V landscape.
+  This research report explores the integration of SSCCS (Scheme–Segment Composition Computing System) across the RISC‑V ecosystem, using the OpenHW Foundation as a central validation platform. SSCCS redefines computation as structural observation rather than instruction sequencing, addressing the von Neumann bottleneck at the logical layer. Through the RISC‑V eXtension Interface (XIF) and other custom instruction mechanisms, we investigate implementing observation primitives as coprocessor extensions, evaluating energy efficiency and verifiability characteristics on real silicon. The report outlines a research pathway spanning software emulation, hardware prototyping, eFPGA integration, and community contribution, positioning SSCCS as open public infrastructure for sustainable, accountable computing across the RISC‑V landscape.
 ---
 
 ```{python}
@@ -61,7 +61,7 @@ For eighty years, computing has been defined by the von Neumann model: instructi
 2. **Limited Concurrency**: Explicit synchronization and lock management constrain parallel scaling.
 3. **Lack of Verifiability**: Machine learning models operate as black boxes with no auditable computation trails.
 
-SSCCS (Schema–Segment Composition Computing System) addresses these barriers at the logical layer by redefining computation as **structural observation** rather than procedural execution [@lee2026]. Computation emerges from the deterministic projection of immutable Segments within a dynamic constraint framework (Field), reducing redundant data movement through stationary data primitives and making computation traces auditable at the logical model level.
+SSCCS (Scheme–Segment Composition Computing System) addresses these barriers at the logical layer by redefining computation as **structural observation** rather than procedural execution [@lee2026]. Computation emerges from the deterministic projection of immutable Segments within a dynamic constraint framework (Field), reducing redundant data movement through stationary data primitives and making computation traces auditable at the logical model level.
 
 ### Why OpenHW as a Central Platform?
 
@@ -92,7 +92,7 @@ digraph Executive_Overview {
     node [shape=box, style=filled, width=2.0]
 
     Theory [label="SSCCS Theory\n• Immutable Segments\n• Structural Schemes\n• Dynamic Fields\n• Observation Operator", fillcolor="#E8F4F8"]
-    Compiler [label="SSCCS Compiler\n• .ss Schema Parsing\n• Structural Mapping\n• Hardware Layout\n• Observation Code Gen", fillcolor="#F4E8F8"]
+    Compiler [label="SSCCS Compiler\n• .ss Scheme Parsing\n• Structural Mapping\n• Hardware Layout\n• Observation Code Gen", fillcolor="#F4E8F8"]
     OpenHW [label="OpenHW CORE-V\n• CV32E40P Core\n• XIF Interface\n• eFPGA Fabric\n• VERIF Framework", fillcolor="#F8F4E8"]
     Validation [label="Validation & Benchmarks\n• Energy Efficiency\n• Latency Metrics\n• Verifiability\n• Community Adoption", fillcolor="#E8F8E8"]
 
@@ -226,7 +226,7 @@ digraph Compiler_Pipeline {
     rankdir=LR
     node [shape=box, style=filled, width=1.8]
 
-    S1 [label="1. Parsing\n& Validation\n• .ss file parsing\n• Cryptographic ID generation\n• Schema verification", fillcolor="#E8F4F8"]
+    S1 [label="1. Parsing\n& Validation\n• .ss file parsing\n• Cryptographic ID generation\n• Scheme verification", fillcolor="#E8F4F8"]
     S2 [label="2. Structural\nAnalysis\n• Adjacency extraction\n• Hierarchy detection\n• Independent subgraph identification", fillcolor="#E8F4F8"]
     S3 [label="3. Memory-Layout\nResolution\n• Coordinate → logical address\n• Mapping function application\n• Locality preservation", fillcolor="#E8F4F8"]
     S4 [label="4. Hardware\nMapping\n• Cache-line alignment\n• Bank interleaving\n• PIM capability consideration", fillcolor="#E8F4F8"]
@@ -237,7 +237,7 @@ digraph Compiler_Pipeline {
     S3 -> S4
     S4 -> S5
 
-    Input [label=".ss Schema\nInput", shape=ellipse, fillcolor="#FFF4E6"]
+    Input [label=".ss Scheme\nInput", shape=ellipse, fillcolor="#FFF4E6"]
     Output [label="Hardware Layout\n+ Observation Code\nOutput", shape=ellipse, fillcolor="#E6F4FF"]
 
     Input -> S1 [style=dashed]
@@ -250,7 +250,7 @@ digraph Compiler_Pipeline {
 
 | Stage | Input | Output | Key Operations |
 |-------|-------|--------|----------------|
-| **1. Parsing & Validation** | `.ss` text file | Intermediate Representation (IR) | Schema parsing, cryptographic identity computation (SchemaId, SegmentId), structural validation |
+| **1. Parsing & Validation** | `.ss` text file | Intermediate Representation (IR) | Scheme parsing, cryptographic identity computation (SchemeId, SegmentId), structural validation |
 | **2. Structural Analysis** | IR | Relation graph | Adjacency/hierarchy/dependency extraction, independent subgraph detection, cycle detection |
 | **3. Memory-Layout Resolution** | Relation graph | Logical address map | Coordinate-to-address transformation, layout type application (RowMajor, ColumnMajor, SpaceFillingCurve) |
 | **4. Hardware Mapping** | Logical address map | Physical placement | Cache-line boundary consideration, bank interleaving, PIM capability utilization |
@@ -264,7 +264,7 @@ Traditional manual optimizations become automatic consequences of structural spe
 
 | Manual Optimization | SSCCS Mechanism |
 |--------------------|-----------------|
-| Data layout orchestration | Schema defines geometry; compiler maps to hardware |
+| Data layout orchestration | Scheme defines geometry; compiler maps to hardware |
 | Cache alignment | Adjacency relations determine physical proximity |
 | SIMD vectorization | Independent subgraphs imply vectorizable operations |
 | Thread scheduling | Parallel structure maps to independent cores |

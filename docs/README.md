@@ -1,6 +1,6 @@
-# Schema–Segment Composition Computing System (SSCCS)
+# Scheme–Segment Composition Computing System (SSCCS)
 
-SSCCS (Schema–Segment Composition Computing System) is an observation-driven computing model that defines deterministic computation as the realization of structured potential under dynamic constraints. The model treats time as one axis of a multi-dimensional space, replaces instruction sequencing and state mutation with the observation of a declared structure, and shifts the compiler's role from translating code to optimizing the topology of data movement. It provides structural isolation against interference and lossless interpretation through a geometric manifold.
+SSCCS (Scheme–Segment Composition Computing System) is an observation-driven computing model that defines deterministic computation as the realization of structured potential under dynamic constraints. The model treats time as one axis of a multi-dimensional space, replaces instruction sequencing and state mutation with the observation of a declared structure, and shifts the compiler's role from translating code to optimizing the topology of data movement. It provides structural isolation against interference and lossless interpretation through a geometric manifold.
 
 For the philosophical foundation and technical specification, see the Whitepaper [PDF](https://ssccs.org/wp) [HTML](https://ssccs.org/wpw).
 
