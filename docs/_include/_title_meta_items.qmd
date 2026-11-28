@@ -27,6 +27,20 @@ def _find_project_root(start: Path) -> Path:
     return start.parent
 
 
+def _quarto_root(qmd_path: Path) -> Path:
+    """The project root Quarto resolved for this render.
+
+    Quarto exports ``QUARTO_PROJECT_ROOT`` to the kernel, so the site URL and
+    the document's site path come from the same root it used. A render started
+    without Quarto has no such variable, and the walk over ``_quarto.yml`` is
+    what keeps the include usable there.
+    """
+    value = os.environ.get("QUARTO_PROJECT_ROOT", "")
+    if value and (Path(value) / "_quarto.yml").is_file():
+        return Path(value).resolve()
+    return _find_project_root(qmd_path.parent.resolve())
+
+
 FORMAT_KEYS = ("html", "pdf", "beamer")
 
 # What the grid says about a signed document, and where a reader can see the
@@ -160,7 +174,7 @@ def _build_title_meta_items(qmd_path: Path) -> dict:
     front = _get_front_matter(qmd_path)
     custom = globals().get('title_meta_items', {}) or {}
     auto_other = custom.get("other-formats", True)
-    project_root = _find_project_root(qmd_path.parent.resolve())
+    project_root = _quarto_root(qmd_path)
     declared_formats = _get_declared_formats(front, project_root)
     try:
         rel = qmd_path.resolve().relative_to(project_root)
