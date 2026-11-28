@@ -71,6 +71,20 @@ The sub-operation is a field of the instruction, so the operands carry data and 
 
 ![The XIF protocol state machine: IDLE, ACCEPT, RESPOND](figures/xif_fsm.svg)
 
+## The coprocessor in silicon
+
+The coprocessor is a physical block as well as a simulation model. The same SystemVerilog is synthesized to SkyWater 130 nm high-density cells and placed and routed by the OpenROAD flow against the carrier's 25 MHz clock, and the figures below are drawn from that flow's final GDS with the metal layers kept. Every unit the testbenches drive is instantiated inside the block that closes timing, so the layout and the simulation describe one design. The placed cells cover 18,578 um^2 at 40 percent utilisation.
+
+:::{ layout-ncol=2 }
+
+![The coprocessor from above.](figures/xif-die.svg){#fig-xif-die}
+
+![The centre of the die, close.](figures/xif-close.svg){#fig-xif-close}
+
+:::
+
+The first view is the whole frame, `met1` through `met5`, with the power grid the darkest element. The second is an eighty-micron window of the same layout, where the standard cell rows and the routing between them resolve.
+
 ## The units as schematics
 
 Each unit is small enough to read as a schematic. The images below are rendered from the SystemVerilog units rather than drawn by hand, so the structure they show is the structure the simulator elaborates.
@@ -92,7 +106,7 @@ The proof of concept rests on a set of checks that run in public.
 - The golden anchors pin the assembly constants, the SystemVerilog constants, and the Rust reference, so the conventions the substrates share are checked rather than assumed.
 - `ev` (ExaVerif) is an independent channel. It reproduces the anchors from its own classification engine and fixtures, so the agreement is between implementations rather than within one.
 - The board answers the table design and the exchanged-expectations design, which keeps the negative control on the die.
-- CI runs the workspace checks, the assembly syntax gate, the Verilator testbenches, and the container with Spike and the RISC-V toolchain. The visual assets on this page are rendered from the units by `poc/visuals/gen.sh`, so the schematic and the unit it describes are derived from one source.
+- CI runs the workspace checks, the assembly syntax gate, the Verilator testbenches, and the container with Spike and the RISC-V toolchain. The schematics, the timing diagram, and the state diagram on this page are rendered from the units by `poc/visuals/gen.sh`, and the layout figures by `poc/visuals/layout/run.sh`, so each image and the unit it describes are derived from one source.
 
 ## Where it leads
 
