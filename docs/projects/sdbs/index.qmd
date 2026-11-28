@@ -10,7 +10,8 @@ abstract: |
   generation with custom build orchestration, automated structural validation,
   and intelligent content management.  This report describes the architecture
   and the dual-parallel build model that together render build time independent
-  of document count at any scale.
+  of document count at any scale, and the signing chain that binds a published
+  PDF to the source it was rendered from.
 ---
 
 ```{python}
@@ -524,6 +525,29 @@ any downstream KG or agentic system — the same pipeline that validates
 and renders documents also produces the structured corpus that feeds
 semantic applications.
 
+## Signed Artifacts
+
+A target can be configured as signed, and every PDF the site publishes that
+way carries a C2PA manifest inside the file. The manifest binds the bytes a
+reader holds to the source document the render used, states the assertions the
+project declares about it, and carries a time stamp when an authority is
+configured.
+
+The build states what it signed on two surfaces. An HTML page gains a `Signed`
+entry in its title grid, and a PDF page states a prefix of the certificate
+serial as a `-C2PA` suffix on its version mark. Neither surface is written by
+hand, and neither decides for itself whether a document is signed: the
+pre-build sequence records the decision beside the generated metadata, and the
+render states that record.
+
+A deploy closes the loop. A selected PDF that the record names as signed is
+checked for its manifest before the plugin runs, so a file that lost its
+manifest is refused rather than published under a claim the build made.
+
+The artifact, the chain that produces it, the values printed on the page, and
+the limits of what the signature establishes are described in
+[Signed Documents](/projects/sdbs/signed_documents.html).
+
 ## CI/CD Integration
 
 The full pipeline is containerised and executed in a continuous-deployment
@@ -568,6 +592,7 @@ workflow self-documenting and reproducible.
 | Cross-reference correctness | Manual upkeep | Automatic extension correction |
 | Structural robustness | Relies on author discipline | Automated healing of common defects |
 | Agent/LLM feed | Separate manual pipeline | Integrated extraction at build time |
+| Publication integrity | None, or a checksum published beside the file | C2PA manifest embedded in the PDF, stated on the page, checked before deploy |
 | CI quality gate | Sparse or absent | Comprehensive check, exit code 1 |
 
 ## Conclusion
@@ -593,5 +618,6 @@ The system exhibits:
 - **Self-healing** for common structural defects
 - **Configuration-driven** behaviour with a single source of truth
 - **CI-native** integration with pre-build validation and post-render processing
+- **Verifiable output**, through a C2PA manifest embedded in every signed PDF
 
 {{< include ../../_include/_license.md >}}
