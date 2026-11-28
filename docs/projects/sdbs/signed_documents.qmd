@@ -96,13 +96,15 @@ Two surfaces state the signature, and they serve different readers.
 
 A PDF page carries the value in its version mark, the light line at the page edge. The mark is one chain: the document prefix, the digest of the source, the render date, and the certificate serial.
 
-```
+```text
 <version prefix>-<source digest>-<render date>-C2PA<serial prefix>
 ```
 
 Each segment is a value in a rendered document, for example `ssccs-9a62d9-261128-C2PA331741`. The last segment is `C2PA` followed by the leading digits of the certificate serial. The serial is stated in decimal, which is the form a C2PA verifier reports as `cert_serial_number`, so the page and a validation report can be compared directly. The full serial is longer than the page edge has room for, so the mark states a prefix, and a reader matches the leading digits rather than the whole number.
 
 An HTML page states the same value in its title grid, as a `Signed` entry whose content is the scheme and the serial prefix. The entry opens a third-party viewer that reads the manifest out of this document's PDF, since the mark exists so that a reader can see what the file carries. A site that declares no URL has no address to hand the viewer, and the entry then opens the viewer's own page. The grid does not repeat the value in a PDF, because the version mark already carries it there.
+
+The mark states a signature only when the build holds a credential it can sign with. A build without one writes the version alone on both surfaces, and the signing step then fails, so no page names a signature that was not made.
 
 ## What the signature establishes
 
