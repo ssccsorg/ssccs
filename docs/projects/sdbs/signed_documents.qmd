@@ -1,0 +1,153 @@
+---
+title: "Signed Documents"
+subtitle: "What a C2PA manifest on an SSCCS PDF states, and how the build puts it there"
+metadata-files:
+  - ../../_include/author.yml
+abstract: |
+  A published SSCCS PDF can carry a C2PA manifest that binds its bytes to the
+  source document it was rendered from. This document describes the artifact a
+  reader receives, the chain that produces it, the values printed on the page,
+  and the limits of what the signature establishes. It is written for a reader
+  who holds the PDF rather than the repository.
+---
+
+```{python}
+title_meta_items = {
+    "html": [
+        {"title": "Code", "link": "https://github.com/ssccsorg/sdbs", "content": "Github", "icon": "bi bi-link"},
+        {"title": "Specification", "link": "https://c2pa.org/specifications/specifications/2.2/index.html", "content": "C2PA 2.2", "icon": "bi bi-file-text"},
+    ]
+}
+```
+
+{{< include ../../_include/_title_meta_items.qmd >}}
+
+```{python}
+#| include: false
+#| context: local
+%run ../../_include/_graphviz.py
+```
+
+## The artifact a reader receives
+
+A signed PDF carries its manifest inside the file. Nothing is published beside it: no detached manifest, no certificate bundle, no checksum file. A reader who copies the PDF elsewhere still holds the signature, and a channel that renames or re-hosts the file changes nothing about what it proves.
+
+The manifest holds four things:
+
+- a claim, which names the tool that assembled the document
+- the assertions the build declared about it
+- a hard binding, which is a hash over the document bytes
+- a signature over the claim, with a time stamp when one is configured
+
+A verifier reads these and reports a state. The fields below are the ones worth knowing.
+
+| Field | What it means |
+|---|---|
+| `validation_state` | `Valid` when the bindings and the signature both check out |
+| `claimSignature.validated` | the claim matches the signature over it |
+| `assertion.dataHash.match` | the hash in the manifest matches the bytes read |
+| `timeStamp.validated` | a time stamp authority answered for the signing time |
+| `signingCredential.untrusted` | the signer does not chain to a C2PA trust list |
+
+`signingCredential.untrusted` is the expected state for an SSCCS document today. It is reported beside `Valid`, and it means the identity of the signer rests on a certificate the project issues rather than on one a certificate authority vouches for. What the signature establishes in that state is described under the limits below.
+
+## The chain from configuration to artifact
+
+Five stages produce the artifact, and each one has a single owner. The diagram reads top to bottom: a configuration and a tracked claim become a record, the record becomes a page mark, the render is signed, and a deploy checks the result.
+
+```{python}
+#| label: fig-signed-chain
+#| fig-cap: "The signing chain: a target that enables signing and a tracked claim produce a record, the record marks the page, the render is signed, and a deploy refuses a recorded-signed file that carries no manifest"
+dot("""
+digraph SignedChain {
+    rankdir=TB;
+    node [shape=box, style=rounded, fontsize=9];
+    edge [fontsize=8];
+
+    config [label="build.yml: the target sets c2pa"];
+    claim [label="<stem>.c2pa_manifest.json\nassertions, tracked with the source"];
+    record [label="_files/<stem>_provenance.json\nsigned, serial, source digest"];
+    page [label="page marks\nHTML grid entry, PDF version mark prefix"];
+    sign [label="sign\nmanifest embedded in the PDF"];
+    deploy [label="deploy\nrefuses a recorded-signed PDF\nwithout a manifest"];
+
+    config -> record;
+    claim -> record;
+    record -> page;
+    page -> sign;
+    sign -> deploy;
+}
+""", h="420px")
+```
+
+The chain starts with two inputs that a project keeps in version control. `build.yml` decides that a target is signed, and a manifest beside the document declares what the build asserts about it. The manifest carries assertions and nothing else: credentials, the algorithm, and the time stamp authority belong to the build environment, and the loader rejects a manifest that states them.
+
+The pre-build sequence then writes a record beside the generated metadata. The record is the build's own answer to three questions: whether the document is signed, which certificate serial a verifier will report for it, and which bytes of source the signature was made from. It is a build artifact, ignored by version control, and it is not published.
+
+The render reads the record rather than repeating the decision. A page that states a signature and a build that produces one therefore cannot disagree, and a document rendered without the build draws no mark at all. This is the direction a missing guarantee should fail in.
+
+Signing follows the render, because the signature binds the file that was produced and the distribution carries that file rather than a site copy. A configured signature that cannot be produced fails the build, so an unsigned document is never published under a configuration that says it is signed. A cached render that predates signing is rendered again, since a copy without a manifest would publish a claim the file does not carry.
+
+A deploy closes the last gap. A selected PDF that the record names as signed is checked for its manifest before the plugin runs, and a missing manifest fails the deploy rather than publishing the file.
+
+## The values on the page
+
+Two surfaces state the signature, and they serve different readers.
+
+A PDF page carries the value in its version mark, the light line at the page edge. The mark is one chain: the document prefix, the digest of the source, the render date, and the certificate serial. A signed copy of the neXus whitepaper states:
+
+```
+nexus-doi.org/10.5281/zenodo.22303887-5965f4-261128-C2PA331741
+```
+
+The last segment is `C2PA` followed by the leading digits of the certificate serial. The serial is stated in decimal, which is the form a C2PA verifier reports as `cert_serial_number`, so the page and a validation report can be compared directly. The full serial is longer than the page edge has room for, so the mark states a prefix, and a reader matches the leading digits rather than the whole number.
+
+An HTML page states the same value in its title grid, as a `Signed` entry whose content is the scheme and the serial prefix and whose link leads to the C2PA specification. The grid does not repeat the value in a PDF, because the version mark already carries it there.
+
+## What the signature establishes
+
+A valid manifest establishes that the file was produced by this build, from the source whose digest the manifest states, with the assertions the tracked manifest declares, and that the file has not changed since it was signed. Those four statements are checkable without trusting the document's own word for them, because the verifier reads the manifest and the bytes rather than the printed mark.
+
+The manifest also records the source it was made from, under the label `org.ssccs.build.source`. That entry names the source path, the asset, and a SHA-256 digest of the source document, and the version mark states the same digest. A reader can hold the two beside each other: the digest segment of the mark is the prefix of the assertion value.
+
+## The limits
+
+A signature states what the build did with a file. It is not a claim about authorship, editorial correctness, or scientific validity, and it does not replace a DOI or a review. It also does not state that the signer is a recognized organization while the certificate is self-issued, which is why the verifier reports `signingCredential.untrusted` beside `Valid`.
+
+Two further limits belong to the arrangement rather than to the format. A signature without a time stamp expires with its certificate, so a build that asks for a time stamp fails when it does not receive a validated one. And a trust state of `Trusted` requires a certificate chaining to the C2PA trust list, which admits certificate authorities; until the project holds one, the strongest claim available is a validated signature from a certificate it issued itself.
+
+HTML is not signed. The manifest is embedded by a tool that writes PDF manifest stores, and the build refuses to configure signing on a target that renders another format.
+
+## Verifying a copy
+
+The reference implementation is `c2patool`. It reports the fields above and, with the detailed view, the assertion values a reader compares against the page.
+
+```bash
+c2patool whitepaper.pdf --info
+c2patool whitepaper.pdf --detailed
+```
+
+A verifier reads the manifest store from the file itself. The tool has to be recent enough to write and read a PDF manifest store, and the sdbs README pins the release that first did.
+
+Read the report in this order: `validation_state`, then `assertion.dataHash.match`, then `claimSignature.validated`. A `Valid` state with all three present means the bytes a reader holds are the bytes that were signed. `timeStamp.validated` adds the signing time, and `signingCredential.untrusted` limits what the identity of the signer is worth.
+
+## Operating the signature
+
+The build takes its credential from the environment and never from the repository. A signer program receives the claim bytes and returns a signature, so the private key stays inside that program and never enters the build environment. The alternative, a certificate and key pair named by environment variables, exists for development.
+
+| Variable | Role |
+|---|---|
+| signer program | signs claim bytes, and answers the signer information |
+| certificate chain | the credential a verifier reads, leaf first |
+| private key | read by the signer program |
+| tool path | overrides the binary found on the path |
+| time stamp authority | answers an RFC 3161 request for the signing time |
+| trust requirement | fails a signature whose credential is not on a trust list |
+
+A build states its signature as it is. It does not raise the reported trust state, and it is expected to report the same state a verifier will.
+
+## Reference
+
+- The sdbs README, for the operator's view: the configuration, the environment, and the failure rules.
+- The [C2PA specification](https://c2pa.org/specifications/specifications/2.2/index.html), for the manifest model and the validation states.
+- The [sdbs repository](https://github.com/ssccsorg/sdbs), for the implementation this document describes.
