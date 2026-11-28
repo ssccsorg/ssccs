@@ -95,12 +95,47 @@ jobs:
         run: docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
         shell: bash
 
+      # The documentation targets are configured to sign, so the build needs a
+      # credential. A push to main signs with the deployment credential; any
+      # other ref, which has no access to it, signs with an identity generated
+      # inside the image so a pull request still builds.
+      - name: Prepare the signing identity
+        env:
+          C2PA_KEY_PEM: ${{ secrets.C2PA_KEY }}
+          C2PA_CERT_PEM: ${{ secrets.C2PA_CERT }}
+        run: |
+          install -d -m 700 "$RUNNER_TEMP/c2pa"
+          if [ -n "$C2PA_KEY_PEM" ] && [ -n "$C2PA_CERT_PEM" ]; then
+            printf '%s\n' "$C2PA_KEY_PEM" > "$RUNNER_TEMP/c2pa/key.pem"
+            printf '%s\n' "$C2PA_CERT_PEM" > "$RUNNER_TEMP/c2pa/chain.pem"
+            chmod 600 "$RUNNER_TEMP/c2pa/key.pem" "$RUNNER_TEMP/c2pa/chain.pem"
+            echo "[INFO] Signing with the deployment credential"
+          elif [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "::error::C2PA_KEY and C2PA_CERT must hold the deployment signing credential. The documentation targets are configured to sign."
+            exit 1
+          elif docker run --rm \
+              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
+              sh -c 'test -x /usr/local/lib/sdbs/c2pa-make-identity'; then
+            docker run --rm \
+              -v "$RUNNER_TEMP/c2pa":/c2pa \
+              ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
+              sh -c '/usr/local/lib/sdbs/c2pa-make-identity /c2pa'
+            echo "[INFO] This ref has no deployment credential; signing with a throwaway identity"
+          else
+            echo "::warning::The image does not carry the identity script yet, so this run signs with the flow the image has. A push to main still requires the deployment credential."
+          fi
+
       - name: Run documentation build
         run: |
           docker run --rm \
             -v ${{ github.workspace }}:/work \
+            -v "$RUNNER_TEMP/c2pa":/c2pa:ro \
             -w /work \
             -e QUARTO_PYTHON=python3 \
+            -e C2PA_SIGNER_PATH=/usr/local/lib/sdbs/c2pa-signer \
+            -e C2PA_KEY=/c2pa/key.pem \
+            -e C2PA_CERT=/c2pa/chain.pem \
+            -e C2PA_TSA_URL=http://timestamp.digicert.com \
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
             sdb build docs --website
 
