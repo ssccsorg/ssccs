@@ -2,6 +2,7 @@
 ```{python}
 #| include: false
 
+import json
 import os
 import re
 from pathlib import Path
@@ -28,13 +29,15 @@ def _find_project_root(start: Path) -> Path:
 FORMAT_KEYS = ("html", "pdf", "beamer")
 
 # What the grid says about a signed document, and where a reader can find out
-# what the mark means.
+# what the mark means. The content gains the certificate serial's prefix, which
+# is the value a C2PA validator reports, so the two can be held side by side.
 SIGNED_MARK_DEFAULTS = {
     "title": "Signed",
     "link": "https://c2pa.org",
     "content": "C2PA",
-    "content_class": "bi bi-patch-check-fill",
+    "content_class": "bi bi-patch-check",
 }
+SERIAL_PREFIX_LENGTH = 6
 
 
 def _extract_format_keys(fmt_block: dict) -> set[str]:
@@ -55,54 +58,23 @@ def _auto_other_formats(doc_stem: str, current_fmt: str, declared_formats: set[s
     return []
 
 
-def _target_name(qmd_path: Path, project_root: Path) -> str:
-    """The name build.yml keys this document's target by.
+def _provenance(qmd_path: Path) -> dict:
+    """What the build recorded about this document's signature.
 
-    Mirrors ``ConfigManager.discover_quarto_targets``: the path below the docs
-    root, the extension dropped, the separators turned into dashes. A document
-    outside the root has no target, and names none. Discovery disambiguates two
-    paths that collapse to one name with a suffix, which is not reproduced here,
-    so such a document goes unmarked rather than wrongly marked.
+    The record is written by the pre-build sequence and read here, so the mark
+    states the build's own decision rather than re-deciding it from the same
+    files. A document rendered without sdbs has no record, and therefore no
+    claim that a signature exists.
     """
+    path = qmd_path.parent / "_files" / f"{qmd_path.stem}_provenance.json"
     try:
-        rel = qmd_path.resolve().relative_to(project_root)
-    except ValueError:
-        return ""
-    parts = list(rel.parts)
-    parts[-1] = Path(parts[-1]).stem
-    name = "-".join(parts).lower()
-    name = re.sub(r"[^a-z0-9_-]", "", name)
-    return re.sub(r"-+", "-", name).strip("-")
+        record = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return record if isinstance(record, dict) else {}
 
 
-def _c2pa_configured(qmd_path: Path, project_root: Path) -> bool:
-    """Whether this document's build signs it, and states what it signs.
-
-    The mark is a claim, so both conditions have to hold: ``build.yml`` enables
-    c2pa for the target, and the manifest the claim is built from sits beside
-    the document. A build fails when signing is enabled and that manifest is
-    absent, so a document marked here is one the build refuses to publish
-    unsigned.
-    """
-    if not (qmd_path.parent / f"{qmd_path.stem}.c2pa_manifest.json").is_file():
-        return False
-    build_yml = project_root / "build.yml"
-    if not build_yml.is_file():
-        return False
-    try:
-        config = yaml.safe_load(build_yml.read_text(encoding="utf-8"))
-    except (OSError, yaml.YAMLError):
-        return False
-    if not isinstance(config, dict):
-        return False
-    targets = config.get("target_config")
-    if not isinstance(targets, dict):
-        return False
-    entry = targets.get(_target_name(qmd_path, project_root))
-    return bool(isinstance(entry, dict) and entry.get("c2pa"))
-
-
-def _signed_mark(custom: dict) -> dict | None:
+def _signed_mark(custom: dict, record: dict) -> dict | None:
     """The signature entry, unless the document declares the entry itself.
 
     ``signed: false`` turns the mark off, and a mapping supplies its own link,
@@ -112,15 +84,17 @@ def _signed_mark(custom: dict) -> dict | None:
     setting = custom.get("signed", True)
     if not setting and not isinstance(setting, dict):
         return None
+    serial = str(record.get("serial") or "")[:SERIAL_PREFIX_LENGTH]
+    content = SIGNED_MARK_DEFAULTS["content"] + serial
     if isinstance(setting, dict):
         return {
             "title": setting.get("title") or SIGNED_MARK_DEFAULTS["title"],
             "link": setting.get("link") or SIGNED_MARK_DEFAULTS["link"],
-            "content": setting.get("content") or SIGNED_MARK_DEFAULTS["content"],
+            "content": setting.get("content") or content,
             "content_class": setting.get("icon")
             or SIGNED_MARK_DEFAULTS["content_class"],
         }
-    return dict(SIGNED_MARK_DEFAULTS)
+    return dict(SIGNED_MARK_DEFAULTS, content=content)
 
 
 def _get_declared_formats(front: dict, project_root: Path) -> set[str]:
@@ -203,10 +177,9 @@ def _build_title_meta_items(qmd_path: Path) -> dict:
             except Exception:
                 pass
     # The signature is a property of the build rather than of the document, so
-    # the include appends it and no document restates it.
-    signed_mark = (
-        _signed_mark(custom) if _c2pa_configured(qmd_path, project_root) else None
-    )
+    # the include appends what the build recorded and no document restates it.
+    record = _provenance(qmd_path)
+    signed_mark = _signed_mark(custom, record) if record.get("signed") else None
     result = {}
     for fmt in ("html", "pdf"):
         items = []
