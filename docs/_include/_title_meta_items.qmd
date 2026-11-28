@@ -6,6 +6,7 @@ import json
 import os
 import re
 from pathlib import Path
+from urllib.parse import quote
 
 import yaml
 
@@ -28,16 +29,26 @@ def _find_project_root(start: Path) -> Path:
 
 FORMAT_KEYS = ("html", "pdf", "beamer")
 
-# What the grid says about a signed document, and where a reader can find out
-# what the mark means. The content gains the certificate serial's prefix, which
-# is the value a C2PA validator reports, so the two can be held side by side.
+# What the grid says about a signed document, and where a reader can see the
+# manifest. The content gains the certificate serial's prefix, which is the
+# value a C2PA validator reports, so the two can be held side by side. The
+# viewer takes a file by URL, so the mark hands it this document's PDF; a site
+# that declares no URL has no address to hand over, and the viewer's own page
+# takes the file.
+VIEWER_URL = "https://c2paviewer.com/?url="
 SIGNED_MARK_DEFAULTS = {
     "title": "Signed",
-    "link": "https://c2pa.org",
+    "link": "https://c2paviewer.com/",
     "content": "C2PA",
     "content_class": "bi bi-shield-check",
 }
 SERIAL_PREFIX_LENGTH = 6
+
+
+def _viewer_link(artifact_url: str) -> str:
+    if not artifact_url:
+        return SIGNED_MARK_DEFAULTS["link"]
+    return VIEWER_URL + quote(artifact_url, safe="")
 
 
 def _extract_format_keys(fmt_block: dict) -> set[str]:
@@ -74,7 +85,7 @@ def _provenance(qmd_path: Path) -> dict:
     return record if isinstance(record, dict) else {}
 
 
-def _signed_mark(custom: dict, record: dict) -> dict | None:
+def _signed_mark(custom: dict, record: dict, artifact_url: str = "") -> dict | None:
     """The signature entry, unless the document declares the entry itself.
 
     ``signed: false`` turns the mark off, and a mapping supplies its own link,
@@ -84,17 +95,18 @@ def _signed_mark(custom: dict, record: dict) -> dict | None:
     setting = custom.get("signed", True)
     if not setting and not isinstance(setting, dict):
         return None
+    link = _viewer_link(artifact_url)
     serial = str(record.get("serial") or "")[:SERIAL_PREFIX_LENGTH]
     content = SIGNED_MARK_DEFAULTS["content"] + serial
     if isinstance(setting, dict):
         return {
             "title": setting.get("title") or SIGNED_MARK_DEFAULTS["title"],
-            "link": setting.get("link") or SIGNED_MARK_DEFAULTS["link"],
+            "link": setting.get("link") or link,
             "content": setting.get("content") or content,
             "content_class": setting.get("icon")
             or SIGNED_MARK_DEFAULTS["content_class"],
         }
-    return dict(SIGNED_MARK_DEFAULTS, content=content)
+    return dict(SIGNED_MARK_DEFAULTS, content=content, link=link)
 
 
 def _get_declared_formats(front: dict, project_root: Path) -> set[str]:
@@ -179,7 +191,12 @@ def _build_title_meta_items(qmd_path: Path) -> dict:
     # The signature is a property of the build rather than of the document, so
     # the include appends what the build recorded and no document restates it.
     record = _provenance(qmd_path)
-    signed_mark = _signed_mark(custom, record) if record.get("signed") else None
+    # The signed artifact is the PDF the render writes beside the page, so its
+    # published address is the document's own address with the PDF suffix.
+    artifact_url = f"{site_url}/{doc_stem}.pdf" if site_url else ""
+    signed_mark = (
+        _signed_mark(custom, record, artifact_url) if record.get("signed") else None
+    )
     result = {}
     for fmt in ("html", "pdf"):
         items = []
