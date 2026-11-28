@@ -202,7 +202,13 @@ def _build_title_meta_items(qmd_path: Path) -> dict:
                 "content": "LLMs",
                 "content_class": "bi bi-file-earmark-text",
             })
-        if signed_mark and not any(i["title"] == signed_mark["title"] for i in items):
+        # A PDF page states the signature on its version mark, so the grid would
+        # be a second statement of the same value.
+        if (
+            fmt == "html"
+            and signed_mark
+            and not any(i["title"] == signed_mark["title"] for i in items)
+        ):
             items.append(dict(signed_mark))
         result[fmt] = items
     return result
