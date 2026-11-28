@@ -2,7 +2,7 @@
 
 ## 1. Introduction
 
-SSCCS (Schema–Segment Composition Computing System) introduces a fundamentally new computational paradigm: computation as the observation of stationary structure rather than the execution of moving data. As the project evolves from abstract concepts toward concrete implementation, two important questions have arisen:
+SSCCS (Scheme–Segment Composition Computing System) introduces a fundamentally new computational paradigm: computation as the observation of stationary structure rather than the execution of moving data. As the project evolves from abstract concepts toward concrete implementation, two important questions have arisen:
 
 1. **How can we assess “technical consistency” for a paradigm that has no prior examples?**  
 2. **Is it contradictory to use established tools (e.g., LLVM, caches, SIMD, PIM) that are rooted in the von Neumann model to implement a completely new paradigm?**
