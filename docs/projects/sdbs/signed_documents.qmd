@@ -86,7 +86,7 @@ The pre-build sequence then writes a record beside the generated metadata. The r
 
 The render reads the record rather than repeating the decision. A page that states a signature and a build that produces one therefore cannot disagree, and a document rendered without the build draws no mark at all. This is the direction a missing guarantee should fail in.
 
-Signing follows the render, because the signature binds the file that was produced and the distribution carries that file rather than a site copy. A configured signature that cannot be produced fails the build, so an unsigned document is never published under a configuration that says it is signed. A cached render that predates signing is rendered again, since a copy without a manifest would publish a claim the file does not carry.
+Signing follows the render, because the signature binds the file that was produced and the distribution carries that file rather than a site copy. A configured signature that cannot be produced fails the build, so an unsigned document is never published under a configuration that says it is signed. A cached render that predates signing is rendered again, since a copy without a manifest would publish a claim the file does not carry. A cached artifact that carries one is reused as it is: the cache key is a function of the source, so an unchanged document keeps the signature its source produced.
 
 A deploy closes the last gap. A selected PDF that the record names as signed is checked for its manifest before the plugin runs, and a missing manifest fails the deploy rather than publishing the file.
 
