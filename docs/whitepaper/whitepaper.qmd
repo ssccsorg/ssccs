@@ -1365,7 +1365,7 @@ digraph Implementation_Roadmap {
 #### Phase 1: Software Emulation (Proof of Concept)
 
 - Rust reference implementation organized as three paths: the host simulation workspace (7 crates, with the eleven constitutional concepts carried as one binary each in a single crate), the bare-metal RISC-V integration crate, and a standalone criterion benchmark suite.
-- Deterministic reproducibility is confirmed across four channels whose construction and gates differ, enumerated with the fabric measurements in [*-@sec-validation-substrates*]: twenty-three golden anchors join the Rust fallback, the RISC-V assembly, and the SystemVerilog, and the independent ExaVerif engine derives its fixtures from the same file. The inverse-validation exercise described in the Introduction further demonstrates the model's applicability to conventional RISC-V silicon [@ev2026exaverif].
+- Deterministic reproducibility is confirmed across four channels whose construction and gates differ, enumerated with the fabric measurements in [*-@sec-validation-substrates*]: twenty-three golden anchors join the Rust fallback, the RISC-V assembly, and the SystemVerilog, and the independent ExaVerif engine derives its fixtures from the same file. The same SystemVerilog is carried past simulation: the carrier answers the anchors on a part, and the constraint and projection units are placed and routed as a physical block [*-@sec-appendix-poc-silicon*]. The inverse-validation exercise described in the Introduction further demonstrates the model's applicability to conventional RISC-V silicon [@ev2026exaverif].
 - The benchmark suite covers three kernels (vector addition, 2D convolution, graph BFS), each expressed as a Rust baseline and an SSCCS formulation; it records emulation overhead on existing hardware as validation evidence. Ongoing work measures determinism, implicit parallelism, and data movement reduction on larger benchmarks.
 
 #### Phase 2: Hardware Acceleration (Transitional)
@@ -1524,6 +1524,34 @@ The decoded design has no table of points. The sweep is the address space, an em
 The comparison settles the cost of the two encodings. At this size a multiplier and a 64-bit accumulator cost more than a five line ROM, so the decoded design spends more logic than either anchored reader, 157 against 145 and 139, and closes lowest at 66.27 MHz. The inquiry build is larger still at 313, because it carries the decode for all four kinds rather than the ones the scenario names. The crossover at which arithmetic becomes the cheaper encoding of a map is therefore something the method measures rather than assumes.
 
 The host also writes data. The workspace emits the Scheme as an assembly `.rodata` section (`SCHEME_SEG_COUNT`, `SCHEME_COORDS`, `SCHEME_ADDRESSES`, `GOLDEN_*`) and generates branchless constraint gates with no conditional branch. The bare-metal crate consumes both through `observe_scheme`, a batch observation over the emitted tables.
+
+### The Coprocessor as a Physical Block {#sec-appendix-poc-silicon}
+
+The carrier answers the anchors on a part. It is not the only place the SystemVerilog becomes silicon. The same units and coprocessor are synthesized to SkyWater 130 nm high-density cells and placed and routed by the OpenROAD flow, under the same open toolchain that carries the Tagma decoder to layout in [*-@sec-appendix-tagma-hardware*]. Two results matter for the model, and neither is a speed claim.
+
+The first is that the block that closes timing is the block the testbenches drive. Every constraint unit, projector, and composition unit is instantiated inside the placed design, so the layout and the simulation describe one structure rather than two that share a port list. A hardware claim that rests on a netlist the tests never exercise would be a claim about a different circuit; this flow keeps them the same object, which is the only way the simulation result transfers to the die.
+
+The second is what the layout shows about the compiler's argument. The units are combinational and small: a signed range check is two comparators and an AND gate, a two-axis projector is an adder, and a composition is a join of two constraint results. What the flow places is therefore not a datapath whose cost dominates, but a set of gates whose shape is the constraint predicate itself. This is the same claim the compiler chapter makes in the abstract, that structural adjacency becomes physical adjacency and observation becomes propagation, made at the scale of a single block where the propagation is legible.
+
+:::{ layout-ncol=2 }
+
+![The coprocessor block placed and routed in SkyWater 130 nm. The frame carries `met1` through `met5`, with the power grid the darkest element.](../poc/figures/xif-die.svg){#fig-poc-xif-die}
+
+![An eighty-micron window of the same layout, where the standard cell rows and the routing between them resolve.](../poc/figures/xif-close.svg){#fig-poc-xif-close}
+
+:::
+
+The units are also readable as schematics at the gate level. The figures below are rendered from the SystemVerilog rather than drawn by hand, so the structure they show is the structure the simulator elaborates. The range check is signed because a coordinate is an `i64`, and an unsigned compare would place every negative coordinate above every positive one, which is the same order defect the anchors test in the assembly channel.
+
+::: {layout-ncol=3}
+
+![`ck_range`: two signed comparators and an AND gate.](../poc/figures/ck_range.svg)
+
+![`proj_sum2d`: a 64-bit adder.](../poc/figures/proj_sum2d.svg)
+
+![`compose_product_2d`: an AND of two constraint results.](../poc/figures/compose_product_2d.svg)
+
+:::
 
 ### Compiler Pipeline
 

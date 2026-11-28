@@ -24,7 +24,7 @@ title_meta_items = {
 
 ## The model in running code
 
-SSCCS defines computation as the observation of a fixed structure under changing conditions. The proof of concept takes that definition literally and builds the smallest complete instance of it: a coordinate space, a set of constraints, a projector, and an observation function, implemented on three substrates and checked against one shared set of anchors.
+SSCCS defines computation as the observation of a fixed structure under changing conditions. The proof of concept takes that definition literally and builds the smallest complete instance of it: a coordinate space, a set of constraints, a projector, and an observation function, implemented on three substrates and checked against one shared set of anchors, with an independent verifier as a fourth channel.
 
 It is the pure plane. The projects materialize the same primitives on the practical plane; the proof of concept carries no project-specific knowledge. What it establishes is that the primitives are substrate-independent, that a convention can be pinned across languages and silicon, and that the model can be exposed as an instruction rather than a library.
 
@@ -32,7 +32,7 @@ The proof of concept covers the observation pipeline and the instruction-word in
 
 What it demonstrates:
 
-- The same primitives on three substrates: Rust, RISC-V assembly, and SystemVerilog.
+- The same primitives on three substrates, Rust, RISC-V assembly, and SystemVerilog, with a fourth channel that checks them independently.
 - One anchor set that pins a convention across languages and silicon.
 - The observation model exposed as a RISC-V custom instruction.
 - An independent verification channel, `ev`.
@@ -40,18 +40,19 @@ What it demonstrates:
 
 ![The three substrates and the independent verifier, pinned by the golden anchors](figures/architecture.svg)
 
-## Three substrates, one agreement
+## The channels, one agreement
 
-Three implementations answer the same anchors. A Rust reference carries the ontology and the composition algebra. A branchless RISC-V assembly implementation runs the observation pipeline under Spike. A SystemVerilog implementation runs the units and the coprocessor under Verilator, and the same SystemVerilog builds for an iCESugar-Pro ECP5 board.
+Four channels answer the same anchors. A Rust reference carries the ontology and the composition algebra. A branchless RISC-V assembly implementation runs the observation pipeline under Spike. A SystemVerilog implementation runs the units and the coprocessor under Verilator, and the same SystemVerilog builds for an iCESugar-Pro ECP5 board. The fourth is `ev`, an independent classifier with its own constraint engine, whose fixtures are derived from the same anchor file rather than restated from it.
 
-| Substrate | Scope | Verification |
+| Channel | Scope | Verification |
 |:---|:---|:---|
 | Rust | `standard/` workspace: ontology, composition algebra, emitters | `cargo test --workspace`, golden anchors |
 | RISC-V assembly | `baremetal_riscv/asm/`: branchless gates and observation | Spike with the proxy kernel |
 | SystemVerilog | `baremetal_riscv/sv/`: units, coprocessor, testbenches | Verilator, Yosys |
+| ExaVerif | an independent classifier with its own constraint engine | fixtures derived from the anchor file |
 | Carrier | `baremetal_riscv/boards/icesugar_pro/`: ECP5 images | anchors answered on the die |
 
-An anchor is how a convention survives three languages. The `GOLDEN_*` block in the assembly is the single source, the SystemVerilog constants must match it, and the check fails when the two disagree. A convention restated in each substrate drifts at one of them; the anchor turns that drift into a failing check.
+An anchor is how a convention survives across languages. The `GOLDEN_*` block in the assembly is the single source, the SystemVerilog constants must match it, and the check fails when the two disagree. A convention restated in each substrate drifts at one of them; the anchor turns that drift into a failing check.
 
 The carrier adds another kind of evidence. The board holds a constraint table of kinds and bounds, the modules the host emitted, and a design with no table of points. The table design is built twice, once with two expectations exchanged as a negative control. The die answers the table and the exchanged version differently, which is the case a checksum alone cannot see.
 
