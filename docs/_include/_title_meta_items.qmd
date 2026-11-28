@@ -27,6 +27,15 @@ def _find_project_root(start: Path) -> Path:
 
 FORMAT_KEYS = ("html", "pdf", "beamer")
 
+# What the grid says about a signed document, and where a reader can find out
+# what the mark means.
+SIGNED_MARK_DEFAULTS = {
+    "title": "Signed",
+    "link": "https://c2pa.org",
+    "content": "C2PA",
+    "content_class": "bi bi-patch-check-fill",
+}
+
 
 def _extract_format_keys(fmt_block: dict) -> set[str]:
     return {k for k in FORMAT_KEYS if k in fmt_block}
@@ -44,6 +53,74 @@ def _auto_other_formats(doc_stem: str, current_fmt: str, declared_formats: set[s
             }
         ]
     return []
+
+
+def _target_name(qmd_path: Path, project_root: Path) -> str:
+    """The name build.yml keys this document's target by.
+
+    Mirrors ``ConfigManager.discover_quarto_targets``: the path below the docs
+    root, the extension dropped, the separators turned into dashes. A document
+    outside the root has no target, and names none. Discovery disambiguates two
+    paths that collapse to one name with a suffix, which is not reproduced here,
+    so such a document goes unmarked rather than wrongly marked.
+    """
+    try:
+        rel = qmd_path.resolve().relative_to(project_root)
+    except ValueError:
+        return ""
+    parts = list(rel.parts)
+    parts[-1] = Path(parts[-1]).stem
+    name = "-".join(parts).lower()
+    name = re.sub(r"[^a-z0-9_-]", "", name)
+    return re.sub(r"-+", "-", name).strip("-")
+
+
+def _c2pa_configured(qmd_path: Path, project_root: Path) -> bool:
+    """Whether this document's build signs it, and states what it signs.
+
+    The mark is a claim, so both conditions have to hold: ``build.yml`` enables
+    c2pa for the target, and the manifest the claim is built from sits beside
+    the document. A build fails when signing is enabled and that manifest is
+    absent, so a document marked here is one the build refuses to publish
+    unsigned.
+    """
+    if not (qmd_path.parent / f"{qmd_path.stem}.c2pa_manifest.json").is_file():
+        return False
+    build_yml = project_root / "build.yml"
+    if not build_yml.is_file():
+        return False
+    try:
+        config = yaml.safe_load(build_yml.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError):
+        return False
+    if not isinstance(config, dict):
+        return False
+    targets = config.get("target_config")
+    if not isinstance(targets, dict):
+        return False
+    entry = targets.get(_target_name(qmd_path, project_root))
+    return bool(isinstance(entry, dict) and entry.get("c2pa"))
+
+
+def _signed_mark(custom: dict) -> dict | None:
+    """The signature entry, unless the document declares the entry itself.
+
+    ``signed: false`` turns the mark off, and a mapping supplies its own link,
+    label, or icon. Any other falsy value is read as off rather than as a
+    request for the default, so a half-written setting cannot publish a claim.
+    """
+    setting = custom.get("signed", True)
+    if not setting and not isinstance(setting, dict):
+        return None
+    if isinstance(setting, dict):
+        return {
+            "title": setting.get("title") or SIGNED_MARK_DEFAULTS["title"],
+            "link": setting.get("link") or SIGNED_MARK_DEFAULTS["link"],
+            "content": setting.get("content") or SIGNED_MARK_DEFAULTS["content"],
+            "content_class": setting.get("icon")
+            or SIGNED_MARK_DEFAULTS["content_class"],
+        }
+    return dict(SIGNED_MARK_DEFAULTS)
 
 
 def _get_declared_formats(front: dict, project_root: Path) -> set[str]:
@@ -125,6 +202,11 @@ def _build_title_meta_items(qmd_path: Path) -> dict:
                     break
             except Exception:
                 pass
+    # The signature is a property of the build rather than of the document, so
+    # the include appends it and no document restates it.
+    signed_mark = (
+        _signed_mark(custom) if _c2pa_configured(qmd_path, project_root) else None
+    )
     result = {}
     for fmt in ("html", "pdf"):
         items = []
@@ -147,6 +229,8 @@ def _build_title_meta_items(qmd_path: Path) -> dict:
                 "content": "LLMs",
                 "content_class": "bi bi-file-earmark-text",
             })
+        if signed_mark and not any(i["title"] == signed_mark["title"] for i in items):
+            items.append(dict(signed_mark))
         result[fmt] = items
     return result
 
@@ -236,6 +320,7 @@ display(HTML(html_output))
 </style>
 :::
 
+
 ::: {.content-visible when-format="pdf"}
 
 ```{python}
@@ -244,14 +329,13 @@ display(HTML(html_output))
 from IPython.display import Latex, display
 
 items = title_meta_items['pdf']
-
 if items:
     latex_lines = []
     latex_lines.append(r'\setlength{\tabcolsep}{10pt}')
-
+    
     col_spec = '@{} p{0.24\\textwidth} p{0.24\\textwidth} p{0.24\\textwidth} p{0.24\\textwidth} @{}'
     latex_lines.append(r'\begin{tabular}{' + col_spec + '}')
-
+    
     for i in range(0, len(items), 4):
         row_cells = []
         for j in range(4):
@@ -264,7 +348,7 @@ if items:
         row = '    ' + ' & '.join(row_cells) + r' \\[2em]'
         latex_lines.append(row)
     latex_lines.append(r'\end{tabular}')
-
+    
     latex_output = '\n'.join(latex_lines)
     display(Latex(latex_output))
 ```
