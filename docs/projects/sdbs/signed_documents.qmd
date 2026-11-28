@@ -94,13 +94,13 @@ A deploy closes the last gap. A selected PDF that the record names as signed is 
 
 Two surfaces state the signature, and they serve different readers.
 
-A PDF page carries the value in its version mark, the light line at the page edge. The mark is one chain: the document prefix, the digest of the source, the render date, and the certificate serial. A signed copy of the neXus whitepaper states:
+A PDF page carries the value in its version mark, the light line at the page edge. The mark is one chain: the document prefix, the digest of the source, the render date, and the certificate serial.
 
 ```
-nexus-doi.org/10.5281/zenodo.22303887-5965f4-261128-C2PA331741
+<version prefix>-<source digest>-<render date>-C2PA<serial prefix>
 ```
 
-The last segment is `C2PA` followed by the leading digits of the certificate serial. The serial is stated in decimal, which is the form a C2PA verifier reports as `cert_serial_number`, so the page and a validation report can be compared directly. The full serial is longer than the page edge has room for, so the mark states a prefix, and a reader matches the leading digits rather than the whole number.
+Each segment is a value in a rendered document, for example `ssccs-9a62d9-261128-C2PA331741`. The last segment is `C2PA` followed by the leading digits of the certificate serial. The serial is stated in decimal, which is the form a C2PA verifier reports as `cert_serial_number`, so the page and a validation report can be compared directly. The full serial is longer than the page edge has room for, so the mark states a prefix, and a reader matches the leading digits rather than the whole number.
 
 An HTML page states the same value in its title grid, as a `Signed` entry whose content is the scheme and the serial prefix and whose link leads to the C2PA specification. The grid does not repeat the value in a PDF, because the version mark already carries it there.
 
